@@ -1,5 +1,8 @@
+using HubEauContrib.MartinPecheur.Api.Models;
+using HubEauContrib.MartinPecheur.Application.Models;
 using HubEauContrib.MartinPecheur.Infrastructure;
 using HubEauContrib.MartinPecheur.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,24 +31,19 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
 
-app.MapGet("/weatherforecast", () =>
+app.MapGet("/rivers/{id}", async (Guid id, RiverDbContext context) =>
+    await context.Rivers.FindAsync(id)
+        is River river
+        ? Results.Ok(RiverDTO.FromRiver(river))
+        : Results.NotFound());
+
+app.MapGet("/rivers", async (RiverDbContext context) =>
 {
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateTime.Now.AddDays(index),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    var rivers = await context.Rivers.ToListAsync();
+    return rivers.Select(r => RiverDTO.FromRiver(r));
+});
+
 
 app.Run();
 

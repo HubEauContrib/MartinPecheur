@@ -1,5 +1,5 @@
-﻿using HubEauContrib.MartinPecheur.SharedKernel;
-using HubEauContrib.MartinPecheur.SharedKernel.Interfaces;
+﻿using HubEauContrib.MartinPecheur.Application.Domain;
+using HubEauContrib.MartinPecheur.Application.Interfaces;
 
 namespace HubEauContrib.MartinPecheur.Application.Models
 {

@@ -21,7 +21,9 @@ public static class SeedData
                 return;
 
             context.Rivers.AddRange(
-                new River(Guid.NewGuid(), "La Loire", "----0000", "https://www.sandre.eaufrance.fr/geo/CoursEau_Carthage2017/----0000"));          
+                new River(Guid.Parse("49F1C5FA-96D6-4562-8015-CF0510EAA96D"), "La Loire", "----0000", "https://www.sandre.eaufrance.fr/geo/CoursEau_Carthage2017/----0000"));
+
+            context.SaveChanges();
 
         }
     }
