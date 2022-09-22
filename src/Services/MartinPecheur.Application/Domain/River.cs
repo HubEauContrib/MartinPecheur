@@ -9,12 +9,14 @@ namespace HubEauContrib.MartinPecheur.Application.Models
                      string name,
                      string code,
                      string uri,
+                     int length,
                      string? image = null)
         {
             Id = id;
             Name = name;
             Code = code;
             Image = image;
+            Length = length;
             Uri = uri;
         }
 
