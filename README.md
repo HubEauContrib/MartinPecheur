@@ -44,10 +44,48 @@ Pas de backend · pas de compte utilisateur · pas de notifications · pas de pr
 > Le choix d'UI est en statut **`Proposé`**, conditionné à un spike de validation :
 > [`docs/adr/ADR-005-stack-maui-blazor-hybrid.md`](docs/adr/ADR-005-stack-maui-blazor-hybrid.md).
 
-## Données et licences
+## Licences
 
-- **Hub'Eau** — Licence Ouverte Etalab · [hubeau.eaufrance.fr](https://hubeau.eaufrance.fr/page/apis)
-- **VigiEau** — Licence Ouverte 2.0 · [vigieau.gouv.fr](https://vigieau.gouv.fr)
-- **IGN Géoplateforme** — Licence Ouverte · OpenStreetMap en repli (ODbL)
+### Le code — MIT
 
-Ces services sont mis à disposition **sans garantie de disponibilité ni de performance**. L'application prévoit un mode dégradé en conséquence.
+Ce dépôt est distribué sous [licence MIT](LICENSE.txt) : réutilisation libre, y compris commerciale et en source fermée, sous réserve de conserver la notice de copyright.
+
+### Les données — Licence Ouverte, attribution obligatoire
+
+**La licence MIT du code ne couvre pas les données.** Les jeux consommés, et l'asset dérivé redistribué dans ce dépôt, restent sous leur propre licence.
+
+| Source | Licence | Obligation |
+|---|---|---|
+| **Hub'Eau** — Office français de la biodiversité · [hubeau.eaufrance.fr](https://hubeau.eaufrance.fr/page/apis) | Licence Ouverte Etalab — version non précisée sur les CGU (*non vérifié*) | Citation de la source et de la date de mise à jour |
+| **VigiEau** — Ministère de la Transition écologique · [vigieau.gouv.fr](https://vigieau.gouv.fr) | Licence Ouverte 2.0 | idem |
+| **IGN Géoplateforme** — fond de carte WMTS | Licence Ouverte | idem |
+| **OpenStreetMap** — fond de carte en repli | **ODbL** | Attribution + *share-alike* sur toute base dérivée |
+
+La **Licence Ouverte 2.0** n'impose **aucun partage à l'identique** : elle autorise explicitement de « créer des "Informations dérivées" » et de « l'exploiter à titre commercial », contre la seule mention de la paternité — « sa source (a minima le nom du « Concédant ») et la date de la dernière mise à jour ». Elle se déclare compatible avec OGL (Royaume-Uni), CC-BY et ODC-BY.
+*Vérifié le 2026-07-30 sur [etalab/licence-ouverte](https://raw.githubusercontent.com/etalab/licence-ouverte/master/LO.md).*
+
+**Conséquence pour ce dépôt** : l'asset de percentiles généré au build ([`ADR-003`](docs/adr/ADR-003-reference-percentiles-en-asset.md)) est une œuvre dérivée de l'historique Hub'Eau. Il **peut** être diffusé dans un dépôt MIT — mais l'obligation d'attribution le suit, et n'est pas éteinte par le `LICENSE.txt`.
+
+**Sur l'ODbL** : l'application met en cache des **tuiles** (*Produced Work*), pas de la donnée OSM. Le code n'est donc pas contaminé. Cela changerait si des géométries OSM étaient un jour extraites et stockées en base (*Derivative Database*).
+⚠️ Cette lecture n'a **pas** été confirmée par relecture du texte ODbL — à vérifier si OSM devient un repli réellement servi en production.
+
+### Les dépendances — toutes permissives
+
+Aucune dépendance sous licence copyleft. BSD-3-Clause et Apache-2.0 ne sont **pas** relicenciées en MIT : leurs notices doivent être conservées et présentées dans l'écran « À propos ».
+
+| Dépendance | Licence |
+|---|---|
+| .NET MAUI · `BlazorWebView` | MIT |
+| **BrilliantMediator 3.0.0** | MIT — *vérifié le 2026-07-30 sur [nuget.org](https://www.nuget.org/packages/BrilliantMediator)* |
+| CommunityToolkit.Mvvm | MIT |
+| `sqlite-net-pcl` | MIT |
+| LiveChartsCore · Chart.js | MIT |
+| Polly | BSD-3-Clause |
+| MapLibre GL JS | BSD-3-Clause |
+| xUnit | Apache-2.0 |
+
+⚠️ Seul `BrilliantMediator` a été vérifié à la source. Les autres lignes sont **à confirmer** à l'ajout effectif du paquet.
+
+### Disponibilité
+
+Les services publics consommés sont mis à disposition **sans garantie de disponibilité ni de performance**, et sans quota chiffré (`C-15`). L'application prévoit un mode dégradé en conséquence.
