@@ -11,8 +11,8 @@ poser en parallèle le socle Domain/Data, qui n'en dépend pas.
 `MartinPecheur.Data` (mappers, clients HTTP, SQLite), `MartinPecheur.App` (MAUI). Le choix d'UI
 — Blazor Hybrid ou XAML natif — reste **ouvert** jusqu'à la fin de la voie A.
 
-**Stack cible :** .NET 9/10 · MAUI · CommunityToolkit.Mvvm · `IHttpClientFactory` + Polly ·
-`sqlite-net-pcl` · MapLibre GL JS (à valider) · xUnit.
+**Stack cible :** .NET 10 · MAUI · CommunityToolkit.Mvvm · BrilliantMediator 3 (à valider) ·
+`IHttpClientFactory` + Polly · `sqlite-net-pcl` · MapLibre GL JS (à valider) · xUnit.
 
 **Spec de référence :** [`03-conception.md`](../../03-conception.md) ·
 **Décision en jeu :** [`ADR-005`](../../adr/ADR-005-stack-maui-blazor-hybrid.md) — statut `Proposé`
@@ -67,8 +67,14 @@ ou bascule sur l'option A (Mapsui). **Aucune autre décision d'UI n'est prise av
 
 ## Voie B — Socle données (parallèle, indépendant du spike)
 
-- [ ] **B1 — Projets `Domain` et `Data`.** C# pur pour `Domain`. Test d'architecture interdisant
-      toute référence d'infrastructure depuis `Domain`.
+- [ ] **B0 — Valider le médiateur.** Vérifier que `BrilliantMediator` 3 expose des *pipeline
+      behaviors* — c'est le mécanisme même d'[`ADR-008`](../../adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md).
+      Vérifier aussi un build Release **trimmé sur Android** et mesurer le démarrage à froid
+      **avec et sans** médiateur. Si les behaviors n'existent pas : appliquer le repli
+      `IQueryHandler<,>` maison **sans réouvrir la décision de fond**.
+- [ ] **B1 — Projets `Domain`, `Application` et `Data`.** C# pur pour `Domain`. Test
+      d'architecture interdisant toute référence d'infrastructure depuis `Domain`, et tout appel
+      direct d'un dépôt depuis un ViewModel.
 - [ ] **B2 — Entités et énumérations** du modèle de [`03-conception.md § 3`](../../03-conception.md).
       Les trois échelles d'état restent **séparées**
       ([`BR-008`](../../br/BR-008-une-seule-echelle-a-la-fois.md)). Chaque énumération porte une

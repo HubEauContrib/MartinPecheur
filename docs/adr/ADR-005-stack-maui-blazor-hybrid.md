@@ -7,6 +7,8 @@
 
 Le dépôt est une solution Visual Studio (`MartinPecheur.sln`, vide au 2026-07-30). Le commanditaire a arbitré : **la stack reste dans l'écosystème .NET**. Cible : .NET 9/10, iOS et Android uniquement.
 
+> **Mise à jour du 2026-07-30** — [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md) fixe le runtime à **.NET 10** : `BrilliantMediator` 3.0.0 cible `net10.0`. Le reste de cette décision est inchangé.
+
 L'écran principal est une carte de **plusieurs milliers de marqueurs** (6 454 stations hydrométriques, dont 4 140 en service ; 3 548 points ONDE), sur fond IGN, **utilisable hors ligne**.
 
 `Microsoft.Maui.Controls.Maps` ne permet **ni clustering, ni source de tuiles personnalisée (WMTS/XYZ), ni cache hors-ligne, ni marqueurs réellement personnalisés**. Il est éliminé d'emblée : il ne couvre aucune des trois exigences.

@@ -1,6 +1,8 @@
 # 03 — Conception
 
-**Cible** : .NET 9/10, .NET MAUI, **iOS et Android uniquement** en v1. Solution `MartinPecheur.sln` existante.
+**Cible** : **.NET 10**, .NET MAUI, **iOS et Android uniquement** en v1. Solution `MartinPecheur.sln` existante.
+
+> .NET 10 est imposé par `BrilliantMediator` 3.0.0, qui cible `net10.0` ([`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)).
 
 ## 1. Stack
 
@@ -30,9 +32,13 @@
 
 ## 2. Architecture
 
-Couches : **UI** (composants Razor + pages Shell) → **ViewModel** (`ObservableObject`, `RelayCommand`) → **Domain** (entités, cas d'usage, interfaces de dépôt — sans dépendance UI) → **Data** (dépôts, sources distantes et locales, mappers, politique de cache).
+**Clean Architecture en couches + MVVM + CQRS léger** ([`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)).
 
-Injection dans `MauiProgram.cs` (`IServiceCollection`) : clients HTTP typés via `IHttpClientFactory`, dépôts, connexion SQLite, ViewModels. Navigation par **Shell**, routes paramétrées.
+Couches : **UI** (composants Razor + pages Shell) → **ViewModel** (`ObservableObject`, `RelayCommand`) → **Application** (`IQuery`/`ICommand` + handlers, pipeline de cache) → **Domain** (entités, règles, interfaces de dépôt — sans dépendance UI) → **Data** (dépôts, sources distantes et locales, mappers).
+
+**Le ViewModel n'appelle jamais un dépôt** : il envoie une requête ou une commande. Les handlers orchestrent, les dépôts restent bêtes.
+
+Injection dans `MauiProgram.cs` (`IServiceCollection`) : médiateur et handlers (enregistrés par le générateur de source), clients HTTP typés via `IHttpClientFactory`, dépôts, connexion SQLite, ViewModels. Navigation par **Shell**, routes paramétrées.
 
 Modules : `Core/{Network,Cache,Data,Geo}` · `Features/{Map,StationDetail,Onde,Restrictions,Favorites,Settings}`.
 
@@ -40,19 +46,23 @@ Modules : `Core/{Network,Cache,Data,Geo}` · `Features/{Map,StationDetail,Onde,R
 graph TD
   UI["UI — pages Shell + composants Razor<br/>carte MapLibre GL JS dans BlazorWebView"]
   VM["ViewModel — CommunityToolkit.Mvvm"]
-  DOM["Domain — entités, cas d'usage,<br/>interfaces de dépôt"]
-  REPO["Data — dépôts + CachePolicy"]
+  MED["Application — IQuery / ICommand<br/>+ pipeline CachePolicy"]
+  DOM["Domain — entités, règles,<br/>interfaces de dépôt"]
+  REPO["Data — dépôts + mappers"]
   REM["RemoteDataSource<br/>IHttpClientFactory + Polly"]
   LOC["LocalDataSource<br/>sqlite-net-pcl + tuiles fichier"]
   ASSET["Asset embarqué<br/>référence percentiles"]
 
-  UI --> VM --> DOM --> REPO
+  UI --> VM --> MED --> DOM
+  MED --> REPO
   REPO --> REM
   REPO --> LOC
   REPO --> ASSET
   REM -.-> HE[("Hub'Eau v2 hydrométrie<br/>Hub'Eau v1 écoulement")]
   REM -.-> VE[("VigiEau — derrière IRestrictionSource")]
 ```
+
+**Pas de CQRS complet, pas d'event sourcing** : il n'y a ni deux modèles ni événements de domaine. « Léger » signifie ici un contrat `IQuery`/`ICommand` avec handlers, et un pipeline. Rien de plus.
 
 **Isolation du risque VigiEau** : une seule interface `IRestrictionSource`, deux implémentations (API, puis export data.gouv en repli). Une rupture de l'API `0.1` n'impacte qu'une classe.
 
@@ -95,6 +105,8 @@ graph TD
 | Tuiles | LRU, plafond **150 Mo** configurable | Pack local pour la bbox visitée | Auto au-delà du plafond, ou manuelle |
 
 **Règle générale** : lecture du cache → rendu immédiat → si TTL dépassé et réseau disponible, rafraîchissement en tâche de fond → sinon, badge « données du JJ/MM à HH:MM ». Au-delà de **2 × TTL**, le marqueur est atténué (`BR-005`).
+
+> Cette règle est portée par **un composant unique du pipeline**, en amont des handlers de lecture ([`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)) — jamais recopiée dans un dépôt ni dans un ViewModel.
 
 ### 4.2 Implémentation .NET
 

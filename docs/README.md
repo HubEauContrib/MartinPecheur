@@ -42,6 +42,7 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-005](adr/ADR-005-stack-maui-blazor-hybrid.md) | .NET MAUI Blazor Hybrid + MapLibre GL JS | **Proposé** — spike requis ⚠️ |
 | [ADR-006](adr/ADR-006-onde-quatre-categories.md) | ONDE en 4 catégories d'affichage | Accepté ⚠️ |
 | [ADR-007](adr/ADR-007-ecarter-qualite-eau.md) | Écarter la qualité de l'eau de la v1 | Accepté |
+| [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | CQRS léger, politique de cache en pipeline | Accepté — une réserve au spike |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR
 porte une section « Si la décision est revue ».

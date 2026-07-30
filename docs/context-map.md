@@ -71,5 +71,5 @@ et une décision préfectorale sont trois natures distinctes.
 |---|---|
 | Backend, base serveur | Hors périmètre v1. Contourné par un asset généré au build (`ADR-003`) |
 | Compte utilisateur | Hors périmètre v1. Les favoris sont locaux |
-| Catalogue d'événements | Aucun événement de domaine : l'application est en lecture seule sur des sources externes. Rien n'est publié, rien n'est projeté |
+| Catalogue d'événements | Aucun événement de domaine, aucun event sourcing, aucune projection. Le CQRS d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) se limite à `IQuery`/`ICommand` + handlers + pipeline : il n'introduit **pas** d'`IEvent` |
 | Contexte `Qualite` | Écarté (`ADR-007`) |

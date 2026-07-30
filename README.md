@@ -38,8 +38,8 @@ Pas de backend · pas de compte utilisateur · pas de notifications · pas de pr
 
 ## Stack
 
-.NET 9/10 · **MAUI** (iOS + Android) · MAUI Blazor Hybrid + **MapLibre GL JS** sur fond **IGN Géoplateforme** · CommunityToolkit.Mvvm · `IHttpClientFactory` + Polly · `sqlite-net-pcl` · xUnit.
-**Clean Architecture en couches + MVVM** — pas de CQRS ni d'event sourcing : l'application est en lecture seule.
+.NET 10 · **MAUI** (iOS + Android) · MAUI Blazor Hybrid + **MapLibre GL JS** sur fond **IGN Géoplateforme** · CommunityToolkit.Mvvm · BrilliantMediator · `IHttpClientFactory` + Polly · `sqlite-net-pcl` · xUnit.
+**Clean Architecture en couches + MVVM + CQRS léger** — `IQuery`/`ICommand` avec handlers et une politique de cache en pipeline. Pas d'event sourcing : l'application ne produit aucun événement de domaine.
 
 > Le choix d'UI est en statut **`Proposé`**, conditionné à un spike de validation :
 > [`docs/adr/ADR-005-stack-maui-blazor-hybrid.md`](docs/adr/ADR-005-stack-maui-blazor-hybrid.md).

@@ -22,22 +22,28 @@ Le cadrage produit est terminé et vérifié. Rien n'est implémenté.
 
 ---
 
-## Architecture — Clean Architecture en couches + MVVM
+## Architecture — Clean Architecture en couches + MVVM + CQRS léger
 
-⚠️ **Pas de CQRS, pas d'event sourcing, pas de médiateur.** L'application est en **lecture seule** sur des sources externes : elle n'émet aucune commande métier, ne publie aucun événement de domaine, ne projette rien. Introduire ce vocabulaire ici serait de la cérémonie sans objet — voir `docs/context-map.md`.
+Décision : `docs/adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md`.
+
+⚠️ **CQRS « léger » = `IQuery`/`ICommand` + handlers + un pipeline. Rien de plus.** Pas de CQRS complet (il n'y a pas deux modèles), **pas d'event sourcing**, aucun événement de domaine, aucune projection — voir `docs/context-map.md`. Ne pas importer le vocabulaire de Kairior au-delà de ça.
 
 ⚠️ **Pas de backend.** L'app appelle directement les APIs publiques. La seule donnée pré-calculée est un **asset généré au build** (`ADR-003`), pas un service.
 
 ```
-UI (Razor / XAML)  →  ViewModel  →  Domain  →  Data
-                                                ├─ RemoteDataSource (Hub'Eau, VigiEau)
-                                                ├─ LocalDataSource  (SQLite, tuiles)
-                                                └─ Asset percentiles (lecture seule)
+UI (Razor / XAML)  →  ViewModel  →  Application  →  Domain
+                                    IQuery/ICommand      ↓
+                                    + CachePolicy      Data
+                                                        ├─ RemoteDataSource (Hub'Eau, VigiEau)
+                                                        ├─ LocalDataSource  (SQLite, tuiles)
+                                                        └─ Asset percentiles (lecture seule)
 ```
 
 ### Invariants à ne jamais casser
 
 - **Le Domain ne dépend de rien.** Ni MAUI, ni HTTP, ni SQLite. C'est ce qui rend le socle indépendant du résultat du spike carte. Toute référence d'infrastructure depuis le Domain est une erreur d'architecture, pas un détail.
+- **Le ViewModel n'appelle jamais un dépôt.** Il envoie une requête ou une commande. Les handlers orchestrent, les dépôts restent bêtes.
+- **La politique de cache vit dans un seul composant du pipeline.** Le stale-while-revalidate n'est jamais recopié dans un dépôt ni dans un ViewModel — c'est la raison d'être d'`ADR-008`.
 - **Aucune valeur brute d'API n'atteint la vue.** La conversion l/s → m³/s et mm → m se fait dans le mapper, une seule fois (`BR-002`).
 - **Les trois échelles d'état restent séparées** — écoulement (fait observé), débit (statistique), sécheresse (décision préfectorale). Les fondre dans un champ unique mélangerait trois natures (`BR-008`).
 - **Toute nomenclature a une branche par défaut.** Une énumération sans valeur `Inconnu` est un défaut de conception (`BR-011`).
@@ -50,8 +56,9 @@ UI (Razor / XAML)  →  ViewModel  →  Domain  →  Data
 
 | Composant | Techno | État |
 |---|---|---|
-| Runtime | **.NET 9/10** | 🔄 |
+| Runtime | **.NET 10** — imposé par `BrilliantMediator` 3.0.0 qui cible `net10.0` | 🔄 |
 | Cible | **MAUI — iOS + Android uniquement** (pas de Windows/macOS en v1) | 🔄 |
+| Médiateur (CQRS) | **BrilliantMediator 3** + `BrilliantMediator.SourceGenerator` — ⚠️ PAS MediatR (réflexion au runtime, mauvais candidat sur mobile trimmé) | 🔄 ⚠️ **le support des *pipeline behaviors* n'est pas confirmé** — à lever au spike T0. Repli : `IQueryHandler<,>` maison résolu par DI (`ADR-008`) |
 | UI | **MAUI Blazor Hybrid** (`BlazorWebView`) — `docs/adr/ADR-005-stack-maui-blazor-hybrid.md` | 🔄 ⚠️ **statut `Proposé`, pas `Accepté`** — conditionné au spike T0. Repli : MAUI natif + Mapsui |
 | Carte | **MapLibre GL JS** dans le WebView, fond **IGN Géoplateforme** (WMTS) | 🔄 ⚠️ `Microsoft.Maui.Controls.Maps` est **éliminé** : ni clustering, ni tuiles custom, ni hors-ligne |
 | MVVM | **CommunityToolkit.Mvvm** (`ObservableObject`, `RelayCommand`) | 🔄 |

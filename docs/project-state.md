@@ -31,6 +31,7 @@ Le dépôt contient `MartinPecheur.sln`, **vide** (aucun projet). La documentati
 | 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
 | 7 | Téléchargement de tuiles hors-ligne | Lot de développement à chiffrer, pas un réglage (`ADR-005`) |
+| 8 | **`BrilliantMediator` expose-t-il des *pipeline behaviors* ?** Non confirmé | Conditionne la forme d'`ADR-008`. Repli identifié : `IQueryHandler<,>` maison. La décision de fond ne change pas |
 
 ## Points non vérifiés, assumés comme tels
 
