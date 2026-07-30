@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Claude Code — réglages personnels, propres à la machine et non versionnés
+# (.claude/settings.json, lui, reste versionné : c'est la config d'équipe)
+.claude/settings.local.json
