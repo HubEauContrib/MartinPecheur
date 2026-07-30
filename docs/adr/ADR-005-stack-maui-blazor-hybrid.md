@@ -9,6 +9,8 @@ Le dépôt est une solution Visual Studio (`MartinPecheur.sln`, vide au 2026-07-
 
 > **Mise à jour du 2026-07-30** — [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md) fixe le runtime à **.NET 10** : `BrilliantMediator` 3.0.0 cible `net10.0`. Le reste de cette décision est inchangé.
 
+> **Mise à jour du 2026-07-31** — [`ADR-009`](ADR-009-cible-windows.md) ajoute **Windows** aux cibles, sur demande du commanditaire. Le « iOS et Android uniquement » ci-dessus ne vaut plus. Le reste de cette décision — Blazor Hybrid, MapLibre GL JS, fond IGN — est inchangé, **y compris les seuils de recette du spike, qui restent mesurés sur un Android d'entrée de gamme**.
+
 L'écran principal est une carte de **plusieurs milliers de marqueurs** (6 454 stations hydrométriques, dont 4 140 en service ; 3 548 points ONDE), sur fond IGN, **utilisable hors ligne**.
 
 `Microsoft.Maui.Controls.Maps` ne permet **ni clustering, ni source de tuiles personnalisée (WMTS/XYZ), ni cache hors-ligne, ni marqueurs réellement personnalisés**. Il est éliminé d'emblée : il ne couvre aucune des trois exigences.

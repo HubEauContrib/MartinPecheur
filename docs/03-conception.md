@@ -1,6 +1,6 @@
 # 03 — Conception
 
-**Cible** : **.NET 10**, .NET MAUI, **iOS et Android uniquement** en v1. Solution `MartinPecheur.sln` existante.
+**Cible** : **.NET 10**, .NET MAUI, **Android, iOS et Windows** en v1 ([`ADR-009`](adr/ADR-009-cible-windows.md) ; macOS et Mac Catalyst restent hors périmètre). Solution `MartinPecheur.slnx`.
 
 > .NET 10 est imposé par `BrilliantMediator` 3.0.0, qui cible `net10.0` ([`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)).
 

@@ -5,7 +5,9 @@
 
 > ⚠️ **Ce fichier distingue** ✅ implémenté · 🔄 cible décidée, pas encore codée · 💭 spéculatif. Si ce fichier contredit le code, **le code a raison** : corriger ce fichier dans le même commit.
 
-> ⚠️ **Aucune ligne de code n'existe à ce jour.** `MartinPecheur.sln` est vide. Tout le tableau ci-dessous est en 🔄.
+> ⚠️ **Aucun code métier n'existe à ce jour.** `MartinPecheur.slnx` contient un seul projet,
+> `src/MartinPecheur.App` — la **coquille du gabarit MAUI Blazor** (tâche `A1`, faite le
+> 2026-07-31). Ni Domain, ni Data, ni mapper, ni test.
 
 ---
 
@@ -13,12 +15,12 @@
 
 | Tranche | Prouve | Statut |
 |---|---|---|
-| **T0** | Spike carte (lève le seul risque bloquant) + socle Domain/Data + outillage percentiles | 🔄 **prochaine** — plan : `docs/superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md` |
+| **T0** | Spike carte (lève le seul risque bloquant) + socle Domain/Data + outillage percentiles | 🔄 **en cours** — `A1` ✅ faite, `A2`…`A6`, `B0`…`B8`, `C1`…`C4` à faire. Plan : `docs/superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md` |
 | **T1** | Carte, fiches, les 4 avertissements | 🔄 après arbitrage d'`ADR-005` |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Hors-ligne complet, favoris, filtres | 🔄 |
 
-Le cadrage produit est terminé et vérifié. Rien n'est implémenté.
+Le cadrage produit est terminé et vérifié. L'implémentation vient de démarrer.
 
 ---
 
@@ -56,10 +58,10 @@ UI (Razor / XAML)  →  ViewModel  →  Application  →  Domain
 
 | Composant | Techno | État |
 |---|---|---|
-| Runtime | **.NET 10** — imposé par `BrilliantMediator` 3.0.0 qui cible `net10.0` | 🔄 |
-| Cible | **MAUI — iOS + Android uniquement** (pas de Windows/macOS en v1) | 🔄 |
+| Runtime | **.NET 10** — imposé par `BrilliantMediator` 3.0.0 qui cible `net10.0` | ✅ SDK 10.0.302, projet en `net10.0-*` |
+| Cible | **MAUI — Android, iOS et Windows** (`ADR-009`) ; macOS/Mac Catalyst hors périmètre v1 | ✅ les 3 cibles buildent en Release, 0 warning ⚠️ **iOS compilé seulement — pas de bundle `.app` sans hôte macOS** |
 | Médiateur (CQRS) | **BrilliantMediator 3** + `BrilliantMediator.SourceGenerator` — ⚠️ PAS MediatR (réflexion au runtime, mauvais candidat sur mobile trimmé) | 🔄 ⚠️ **le support des *pipeline behaviors* n'est pas confirmé** — à lever au spike T0. Repli : `IQueryHandler<,>` maison résolu par DI (`ADR-008`) |
-| UI | **MAUI Blazor Hybrid** (`BlazorWebView`) — `docs/adr/ADR-005-stack-maui-blazor-hybrid.md` | 🔄 ⚠️ **statut `Proposé`, pas `Accepté`** — conditionné au spike T0. Repli : MAUI natif + Mapsui |
+| UI | **MAUI Blazor Hybrid** (`BlazorWebView`) — `docs/adr/ADR-005-stack-maui-blazor-hybrid.md` | 🔄 gabarit en place, **aucun écran du produit**. ⚠️ **`ADR-005` reste `Proposé`, pas `Accepté`** — conditionné au spike T0. Repli : MAUI natif + Mapsui |
 | Carte | **MapLibre GL JS** dans le WebView, fond **IGN Géoplateforme** (WMTS) | 🔄 ⚠️ `Microsoft.Maui.Controls.Maps` est **éliminé** : ni clustering, ni tuiles custom, ni hors-ligne |
 | MVVM | **CommunityToolkit.Mvvm** (`ObservableObject`, `RelayCommand`) | 🔄 |
 | Navigation | **Shell**, routes paramétrées | 🔄 |

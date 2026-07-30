@@ -1,12 +1,13 @@
 # État du projet
 
-**Mis à jour :** 2026-07-30
+**Mis à jour :** 2026-07-31
 
 ## Où on en est
 
-**Phase de cadrage terminée. Aucune ligne de code produit** — c'était le périmètre demandé.
+Cadrage terminé. **L'implémentation a démarré : la tâche `A1` du plan T0 est faite.**
 
-Le dépôt contient `MartinPecheur.sln`, **vide** (aucun projet). La documentation est complète et vérifiée.
+Le dépôt contient `MartinPecheur.slnx` et un seul projet, `src/MartinPecheur.App` — la **coquille
+du gabarit MAUI Blazor Hybrid**, sans code métier. Le reste de T0 est intact.
 
 ## Ce qui est acquis
 
@@ -19,6 +20,16 @@ Le dépôt contient `MartinPecheur.sln`, **vide** (aucun projet). La documentati
 | Règles métier | ✅ 14 règles, chacune avec son test |
 | Cas d'usage | ✅ 6 cas, flux nominaux et alternatifs |
 | Avertissements | ✅ Les 4 emplacements spécifiés, textes rédigés |
+| **Solution et projet d'application** (`A1`) | ✅ **2026-07-31** — `.slnx`, .NET 10, build Release **0 avertissement** |
+
+## Code produit
+
+| Tâche | Livrable | Vérification |
+|---|---|---|
+| `A1` | `src/MartinPecheur.App`, gabarit MAUI Blazor Hybrid, cibles Android + iOS + Windows (`ADR-009`) | Build Release **0 avertissement** sur les 3 cibles. APK signé et `.exe` produits ; **iOS compilé sans bundle `.app`** — exige un hôte macOS |
+
+**Aucun code métier.** Ni Domain, ni Data, ni mapper, ni test. Le gabarit est une coquille : la
+page d'accueil est encore celle de Microsoft.
 
 ## Ce qui bloque, ou reste à trancher
 
@@ -35,6 +46,8 @@ Le dépôt contient `MartinPecheur.sln`, **vide** (aucun projet). La documentati
 
 ## Points non vérifiés, assumés comme tels
 
+- **Production d'un paquet iOS installable.** La compilation passe sur Windows, mais l'AOT, l'édition de liens native et la signature exigent un hôte macOS — non disponible au 2026-07-31.
+- **Portage Windows de l'UI.** Les wireframes de `04-ui.md` sont écrits pour le mobile. Le lot responsive et clavier/souris n'est ni spécifié ni chiffré (`ADR-009`).
 - Version exacte de la Licence Ouverte Etalab pour Hub'Eau (1.0 ou 2.0).
 - Fenêtre du `X-RateLimit-Limit: 300` de VigiEau.
 - Sémantique du paramètre `departement` de VigiEau `/arretes_restrictions`.
@@ -43,7 +56,15 @@ Le dépôt contient `MartinPecheur.sln`, **vide** (aucun projet). La documentati
 
 ## Prochaine étape
 
-**Le spike carte.** Il conditionne `ADR-005`, donc l'architecture de l'UI. Tout le reste — couches Domain et Data, mappers, règles métier — en est indépendant par construction et peut démarrer en parallèle.
+**Le spike carte, suite.** `A1` est faite ; `A2` (figer le jeu de stations) et `A3` (MapLibre dans
+le `BlazorWebView`) suivent. Le spike conditionne `ADR-005`, donc l'architecture de l'UI.
 
-Plan prêt : [`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md),
+L'ajout de Windows (`ADR-009`) rend `A3` nettement plus rapide à itérer — WebView2 se débogue sur
+le poste. **Mais `A4` reste mesurée sur un Android d'entrée de gamme réel** : un vert sur WebView2
+ne dit rien du moteur le plus contraint.
+
+Tout le reste — couches Domain et Data, mappers, règles métier — est indépendant du spike par
+construction et peut démarrer en parallèle.
+
+Plan : [`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md),
 en trois voies dont une seule est bloquante.

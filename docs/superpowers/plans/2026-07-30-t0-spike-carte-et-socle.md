@@ -23,7 +23,9 @@ poser en parallèle le socle Domain/Data, qui n'en dépend pas.
 
 Tu ne connais pas ce projet. Quatre choses à savoir avant de commencer :
 
-1. **Le dépôt est vide.** `MartinPecheur.sln` ne contient aucun projet. Tout est à créer.
+1. **Le dépôt est presque vide.** Depuis le 2026-07-31, `MartinPecheur.slnx` contient le seul
+   projet `src/MartinPecheur.App` (coquille du gabarit MAUI Blazor, tâche `A1`). Aucun code
+   métier n'existe : tout le reste est à créer.
 2. **Le Domain ne dépend de rien.** Ni MAUI, ni HTTP, ni SQLite. C'est ce qui rend le socle
    (voie B) indépendant du résultat du spike (voie A). Toute référence d'infrastructure depuis
    le Domain est une erreur d'architecture, pas un détail.
@@ -43,8 +45,11 @@ Tu ne connais pas ce projet. Quatre choses à savoir avant de commencer :
 **But :** décider si [`ADR-005`](../../adr/ADR-005-stack-maui-blazor-hybrid.md) passe en `Accepté`
 ou bascule sur l'option A (Mapsui). **Aucune autre décision d'UI n'est prise avant.**
 
-- [ ] **A1 — Créer la solution.** Ajouter `MartinPecheur.App` (MAUI Blazor Hybrid, iOS + Android
-      uniquement) à `MartinPecheur.sln`. Build Release vert sur les deux cibles.
+- [x] **A1 — Créer la solution.** ✅ **Fait le 2026-07-31.** `src/MartinPecheur.App` (MAUI Blazor
+      Hybrid, .NET 10) dans `MartinPecheur.slnx` — format `.slnx`, l'ancien `.sln` est supprimé.
+      Cibles **Android, iOS et Windows** ([`ADR-009`](../../adr/ADR-009-cible-windows.md)),
+      Mac Catalyst retiré. Build Release **0 avertissement** sur les trois.
+      ⚠️ **iOS n'est vérifié qu'à la compilation** : pas de bundle `.app` sans hôte macOS.
 - [ ] **A2 — Jeu de données de test réaliste.** Récupérer une fois
       `/v2/hydrometrie/referentiel/stations?en_service=1&size=20000&format=geojson`
       (≈ 4 140 points) et le figer en fichier local. Le spike ne doit pas dépendre du réseau.
