@@ -10,8 +10,12 @@ Elle s'adresse aux riverains, aux agriculteurs et irrigants, aux pêcheurs, aux 
 
 ## Statut
 
-🚧 **Cadrage terminé, implémentation non commencée.** La solution est vide.
-Documentation complète : [`docs/README.md`](docs/README.md) · État vivant : [`docs/project-state.md`](docs/project-state.md).
+🚧 **Cadrage terminé. Implémentation commencée le 2026-07-31** — socle Expo posé, couche `domain/`
+en cours. Aucun écran n'existe encore.
+
+Plan en cours : [`T0 — Socle React Native`](docs/superpowers/plans/2026-07-31-t0-socle-react-native.md) ·
+Documentation complète : [`docs/README.md`](docs/README.md) ·
+**État vivant, source de vérité des statuts :** [`docs/project-state.md`](docs/project-state.md).
 
 ## Ce que l'application fait
 
@@ -45,6 +49,103 @@ Pas de backend · pas de compte utilisateur · pas de notifications · pas de pr
 > Le commanditaire a révisé son arbitrage — voir [`docs/adr/ADR-010-react-native.md`](docs/adr/ADR-010-react-native.md),
 > qui remplace `ADR-005`, `ADR-008` et `ADR-009`. Le code .NET a été **retiré du dépôt** le même
 > jour ; il reste consultable dans l'historique git (`696be3a`, `22e9850`).
+
+---
+
+## Démarrer
+
+### Prérequis
+
+| Pour | Outil | Version constatée le 2026-07-31 |
+|---|---|---|
+| **Tout** — compiler, tester, linter | **Node.js** (LTS) et npm | Node `24.18.1`, npm `11.16.0` |
+| **Lancer sur Android** | **Android Studio** (SDK + un appareil ou un émulateur) et un **JDK 17** | — |
+| **Lancer sur iOS** | **macOS** avec Xcode | — ⚠️ *impossible depuis Windows ou Linux* |
+
+```bash
+npm install
+```
+
+### Les commandes
+
+```bash
+npm run verify
+```
+
+C'est la porte d'entrée : elle enchaîne les trois vérifications, et **c'est le critère de fin
+d'étape du projet**. Aucune tâche n'est terminée si elle ne passe pas.
+
+| Commande | Rôle |
+|---|---|
+| `npm run typecheck` | `tsc --noEmit` — TypeScript `strict`, sans concession |
+| `npm test` | Tests unitaires (Jest, environnement Node) |
+| `npm run lint` | ESLint, dont les règles de frontière entre couches |
+| `npm run verify` | Les trois d'affilée |
+| `npm start` | Serveur de développement Metro |
+| `npm run android` | Compile et lance sur un appareil ou émulateur Android |
+| `npm run ios` | Idem sur iOS — **macOS requis** |
+
+### Ce qu'on peut réellement exécuter, et où
+
+Le produit ne cible que **Android et iOS** ([`ADR-010`](docs/adr/ADR-010-react-native.md)). Cela ne
+veut pas dire qu'il faut un Mac ou un téléphone pour travailler dessus — la majorité du code s'en
+passe.
+
+| Ce qu'on veut faire | Windows | Linux | macOS |
+|---|:---:|:---:|:---:|
+| `domain/`, `data/`, `application/` — **l'essentiel de T0** | ✅ | ✅ | ✅ |
+| `typecheck`, `lint`, `test` | ✅ | ✅ | ✅ |
+| Outillage percentiles (script Node) | ✅ | ✅ | ✅ |
+| Lancer sur **Android** (émulateur ou appareil) | ✅ | ✅ | ✅ |
+| Lancer sur **iOS** | ❌ | ❌ | ✅ |
+| Livrer un build **iOS** | ❌ | ❌ | ✅ |
+
+**Sur Windows, on peut donc tout faire sauf iOS.** Les couches `domain/`, `data/` et `application/`
+sont du TypeScript pur testé sous Node : elles n'ont besoin ni d'émulateur, ni de téléphone, ni de
+carte. C'est délibéré — cette indépendance est l'invariant d'architecture du projet, et elle est
+vérifiée par un test (`tests/architecture/`), pas seulement recommandée.
+
+> ⚠️ **Windows n'est pas une cible du produit.** Il a été ajouté puis retiré le 2026-07-31
+> ([`ADR-009`](docs/adr/ADR-009-cible-windows.md) → [`ADR-010`](docs/adr/ADR-010-react-native.md)) :
+> `maplibre-react-native` ne le supporte pas. Windows est une machine de **développement** valable,
+> pas une plateforme de **livraison**.
+
+> ⚠️ **Expo Go ne suffira pas.** Dès que `@maplibre/maplibre-react-native` sera installé (tâche `M1`
+> du plan T0), l'application embarquera du code natif et exigera un ***development build*** :
+> `npx expo prebuild` puis `npx expo run:android`.
+
+### Arborescence
+
+```
+src/
+├── domain/        entités et règles — TypeScript pur, ZÉRO import de framework
+├── data/          dépôts, clients HTTP, mappers
+├── application/   Query/Command + le décorateur de cache, unique
+└── features/      écrans React (à partir de T1)
+tests/             calque src/, plus tests/architecture/
+tools/             scripts hors application (asset de percentiles)
+docs/              spécification, ADR, règles métier, plans
+```
+
+**Un écran n'appelle jamais un dépôt**, et `domain/` ne dépend de rien. Ces deux règles ne sont pas
+des conventions de revue : la première est portée par ESLint, la seconde par un test.
+Détail : [`docs/03-conception.md`](docs/03-conception.md).
+
+### Contribuer
+
+- **Code en anglais, domaine et documentation en français.**
+- **Conventional Commits**, scopes : `domain`, `data`, `ui`, `map`, `hydrometrie`, `ecoulement`,
+  `restrictions`, `avertissement`, `docs`, `ci`.
+- **TDD** : test rouge avant l'implémentation, sans exception.
+- **Tout fait relatif à une API publique se vérifie par appel réel, et se date.** La documentation
+  Hub'Eau est en écart avec la production sur au moins quatre points — on ne spécifie jamais
+  d'après elle seule.
+- **Ne jamais inventer un seuil hydrologique.** C'est la faute la plus grave possible sur ce
+  produit.
+
+Les règles complètes sont dans [`CLAUDE.md`](CLAUDE.md).
+
+---
 
 ## Licences
 

@@ -25,10 +25,35 @@ de la stack.
 
 ## Code
 
-**Aucun code React Native n'existe.** Rien n'est commencé sur la nouvelle stack.
+**L'implémentation React Native a commencé le 2026-07-31.** Le plan suivi est
+[`T0 — Socle React Native`](superpowers/plans/2026-07-31-t0-socle-react-native.md).
 
-Le **code .NET a été retiré du working tree le 2026-07-31** sur arbitrage du commanditaire. Il
-reste intégralement dans l'historique git et n'est repris nulle part :
+| Tâche | Livrable | État |
+|---|---|---|
+| `S1` | Projet Expo `57.0.9`, TypeScript `6.0.3`, code sous `src/` | ✅ `08bf832` |
+| `S2` | `tsconfig` durci — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, alias de couches | ✅ `08bf832` |
+| `S3` | Jest projet `unit` (node, sans `jest-expo`) + ESLint + test d'architecture | ✅ `8c6ed61` |
+| `D1` | **Conversion d'unités avec types *branded*** — 10 tests | ✅ `17d3359` |
+| `S4`, `S5`, `D2`–`D4`, `N1`–`N5`, `M1`–`M5`, `P1`–`P4` | — | 🔄 à faire |
+
+**Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
+**12 tests** sur 2 suites.
+
+### Ce qui a été contre-éprouvé, et pas seulement écrit
+
+Un garde-fou qu'on n'a pas vu mordre n'est pas un garde-fou. Trois vérifications faites le
+2026-07-31 :
+
+| Garde-fou | Contre-épreuve | Résultat |
+|---|---|---|
+| Types *branded* (`BR-002`) | Retirer un `@ts-expect-error` | `TS2345: Argument of type 'number' is not assignable to parameter of type 'LitresPerSecond'` |
+| Test d'architecture | Ajouter `import { Platform } from "react-native"` dans `domain/` | `src/domain/units/conversions.ts importe « react-native »` — 1 failed |
+| ESLint `no-restricted-imports` | idem | `'react-native' import is restricted` — 1 error |
+
+### Le code .NET
+
+Retiré du working tree le 2026-07-31 sur arbitrage du commanditaire (`74afe6d`). Il reste
+intégralement dans l'historique git et n'est repris nulle part :
 
 | Tâche | Livrable .NET | Sort |
 |---|---|---|

@@ -102,8 +102,9 @@ Tous constatés par appel réel le jour de la rédaction. Un fait non vérifié 
 ## Structure de fichiers
 
 ```
-app/                          expo-router — écrans, en T1. Vide en T0 hors _layout et index de fumée
 src/
+├── index.ts                  point d'entrée — registerRootComponent (package.json "main")
+├── App.tsx                   composant racine. Les écrans arrivent en T1 sous features/
 ├── domain/                   TypeScript pur — ZÉRO import de framework
 │   ├── units/
 │   │   ├── branded.ts        le mécanisme Branded<T, B>, isolé et réutilisable
@@ -138,9 +139,14 @@ tests/
 └── architecture/             la frontière domain/ vérifiée par la machine
 ```
 
-**Pourquoi `src/` et pas la racine :** `app/` est réservé au routage `expo-router`. Mettre
-`domain/` à la racine le mettrait au même niveau que du code d'écran, ce qui brouille exactement
-la frontière que ce projet doit garder nette.
+**Pourquoi tout sous `src/` :** le gabarit Expo pose `App.tsx` et `index.ts` à la racine, au même
+niveau que `docs/` et les fichiers de configuration. Rassembler le code sous `src/` sépare
+nettement ce qui s'exécute de ce qui le décrit — et rend les quatre couches visibles d'un seul
+coup d'œil, ce qui est précisément l'invariant à protéger.
+
+**Le routage n'est pas encore posé.** Le gabarit `blank-typescript` n'embarque pas `expo-router` ;
+l'arborescence d'écrans de [`03-conception.md § 5`](../../03-conception.md) arrive en T1, avec les
+écrans. L'ajouter en T0 serait du YAGNI.
 
 ---
 
@@ -162,25 +168,49 @@ npx --yes create-expo-app@latest /tmp/mp-bootstrap --template blank-typescript -
 
 Attendu : `✅ Your project is ready!`
 
-- [ ] **Step 2 : Rapatrier sans écraser la documentation**
+- [ ] **Step 2 : Rapatrier SÉLECTIVEMENT**
+
+⚠️ **Ne pas copier en bloc.** Le gabarit génère ses propres `CLAUDE.md`, `AGENTS.md`, `LICENSE` et
+`.claude/` — un `cp -r .` écraserait ceux du projet, dont les instructions qui pilotent tout ce
+travail.
 
 ```bash
-cp -r /tmp/mp-bootstrap/. . && rm -rf /tmp/mp-bootstrap
+for f in App.tsx index.ts app.json package.json tsconfig.json; do cp "/tmp/mp-bootstrap/$f" .; done
+cp -r /tmp/mp-bootstrap/assets .
+cp /tmp/mp-bootstrap/.gitignore ./.gitignore.expo   # mis de côté pour S2
+rm -rf /tmp/mp-bootstrap
 ```
 
-Vérifier que `docs/`, `CLAUDE.md`, `README.md` et `LICENSE.txt` sont intacts :
+- [ ] **Step 3 : Mettre le code applicatif sous `src/`**
+
+Le gabarit pose `App.tsx` et `index.ts` à la racine. Tout le code vit sous `src/` :
 
 ```bash
-git status --short && ls docs/adr | head -3
+mkdir -p src && mv App.tsx index.ts src/
 ```
 
-- [ ] **Step 3 : Installer**
+Puis dans `package.json` : `"name": "martinpecheur"`, `"version": "0.1.0"`,
+`"main": "src/index.ts"`. L'import `from "./App"` de `src/index.ts` reste valide, les deux fichiers
+étant désormais voisins.
+
+- [ ] **Step 4 : Vérifier que la documentation est intacte**
+
+```bash
+head -1 CLAUDE.md && head -1 LICENSE.txt && ls docs/adr | wc -l
+```
+
+Attendu : `# MartinPêcheur — Claude AI Guidelines`, `MIT License`, `11`.
+
+- [ ] **Step 5 : Installer**
 
 ```bash
 npm install
 ```
 
-- [ ] **Step 4 : Vérifier que le gabarit compile**
+Relever les versions résolues — constaté le 2026-07-31 : `expo@57.0.9`, `react-native@0.86.2`,
+`react@19.2.3`, `typescript@6.0.3`.
+
+- [ ] **Step 6 : Vérifier que le gabarit compile**
 
 ```bash
 npx tsc --noEmit
@@ -188,10 +218,10 @@ npx tsc --noEmit
 
 Attendu : aucune sortie (succès).
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 7 : Commit**
 
 ```bash
-git add -A && git commit -m "chore(ui): amorce le projet Expo en TypeScript"
+git add -A && git commit -m "chore(ui): amorce le projet Expo en TypeScript strict"
 ```
 
 ---
@@ -219,7 +249,6 @@ potentiellement trouées, ce sont exactement les deux trous qui comptent.
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "verbatimModuleSyntax": true,
     "paths": {
       "@domain/*": ["./src/domain/*"],
       "@data/*": ["./src/data/*"],
@@ -238,6 +267,10 @@ Le `.gitignore` actuel est celui de Visual Studio : 367 lignes de .NET, et des m
 (`[Bb]in/`, `[Oo]ut/`, `**/[Pp]ackages/*`) qui ignoreraient silencieusement des dossiers légitimes
 d'un projet JavaScript.
 
+Partir du `.gitignore.expo` mis de côté en `S1` — il est déjà correct pour la chaîne Expo — et lui
+ajouter ce que le projet demande en propre : `coverage/`, les éditeurs, et la ligne Claude Code
+reprise de l'ancien fichier.
+
 ```gitignore
 # Dépendances
 node_modules/
@@ -248,9 +281,10 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Builds natifs — régénérables par `npx expo prebuild`
-/ios/
-/android/
+# Natif — régénérable par `npx expo prebuild`
+.kotlin/
+/ios
+/android
 *.orig.*
 *.jks
 *.p8
@@ -264,9 +298,10 @@ expo-env.d.ts
 # Tests et couverture
 coverage/
 
-# Système
-.DS_Store
-*.log
+# TypeScript
+*.tsbuildinfo
+
+# Journaux
 npm-debug.*
 yarn-debug.*
 yarn-error.*
@@ -274,8 +309,10 @@ yarn-error.*
 # Secrets EAS et environnement local
 .env*.local
 credentials.json
+*.pem
 
-# Éditeurs
+# Système et éditeurs
+.DS_Store
 .vs/
 .idea/
 *.swp
@@ -284,6 +321,8 @@ credentials.json
 # (.claude/settings.json, lui, reste versionné : c'est la config d'équipe)
 .claude/settings.local.json
 ```
+
+Puis `rm .gitignore.expo`.
 
 - [ ] **Step 3 : Vérifier que rien de suivi n'est perdu**
 
@@ -314,8 +353,11 @@ indépendants, parce qu'ils n'attrapent pas la même chose.
 - [ ] **Step 1 : Installer l'outillage de test et de lint**
 
 ```bash
-npm install --save-dev jest jest-expo @types/jest ts-jest typescript-eslint eslint eslint-plugin-import
+npm install --save-dev jest @types/jest ts-jest typescript-eslint eslint
 ```
+
+> **Pas de `jest-expo` maintenant.** Il ne sert qu'aux tests de composants, et il n'y a pas encore
+> de composant à tester : c'est du YAGNI. Il arrive en T1 avec le second projet Jest.
 
 - [ ] **Step 2 : Configurer Jest en deux projets**
 
@@ -330,8 +372,24 @@ module.exports = {
     {
       displayName: "unit",
       testEnvironment: "node",
-      preset: "ts-jest",
       testMatch: ["<rootDir>/tests/**/*.test.ts"],
+      // Transformation explicite plutôt que `preset: "ts-jest"` : Jest a besoin
+      // de CommonJS, que le tsconfig d'Expo ne produit pas.
+      transform: {
+        "^.+\\.tsx?$": [
+          "ts-jest",
+          {
+            tsconfig: {
+              module: "commonjs",
+              target: "es2022",
+              esModuleInterop: true,
+              strict: true,
+              noUncheckedIndexedAccess: true,
+              exactOptionalPropertyTypes: true,
+            },
+          },
+        ],
+      },
       moduleNameMapper: {
         "^@domain/(.*)$": "<rootDir>/src/domain/$1",
         "^@data/(.*)$": "<rootDir>/src/data/$1",
@@ -397,15 +455,18 @@ describe("frontière du domaine", () => {
 });
 ```
 
-- [ ] **Step 4 : Créer le dossier et lancer — le test doit passer à vide puis rester vrai**
+- [ ] **Step 4 : Créer le dossier, puis lancer**
+
+Le second cas du test vérifie que `src/domain/` **existe** : un test vert parce qu'il ne regarde
+rien est pire qu'un test absent — il donne une garantie qu'il ne fournit pas. Il faut donc que le
+dossier existe avant de lancer.
 
 ```bash
-mkdir -p src/domain && printf 'export {};\n' > src/domain/.keep.ts
+mkdir -p src/domain && printf 'export {};\n' > src/domain/placeholder.ts
 npx jest tests/architecture --verbose
 ```
 
-Attendu : `PASS` — 1 test. Le test est *actif* dès maintenant ; il gardera la frontière au fur et
-à mesure que `domain/` se remplit.
+Attendu : `PASS` — 2 tests. Supprimer `src/domain/placeholder.ts` dès que `D1` crée un vrai fichier.
 
 - [ ] **Step 5 : Ajouter le verrou ESLint**
 
@@ -653,6 +714,7 @@ describe("hauteur — millimètres vers mètres (BR-002)", () => {
 
   it("propage l'absence", () => {
     expect(toMetres(null)).toBeNull();
+    expect(toMetres(undefined)).toBeNull();
   });
 });
 
@@ -667,6 +729,12 @@ describe("la double conversion ne compile pas", () => {
   it("refuse de mélanger hauteur et débit", () => {
     // @ts-expect-error — des millimètres ne sont pas des litres par seconde.
     toCubicMetresPerSecond(millimetres(1234));
+  });
+
+  it("refuse un nombre nu là où une unité est attendue", () => {
+    // @ts-expect-error — un `number` sans unité n'est pas un débit. C'est
+    // exactement le bug que BR-002 rend impossible.
+    toCubicMetresPerSecond(53000);
   });
 });
 ```
@@ -771,7 +839,7 @@ export function toMetres(value: Millimetres | null | undefined): Metres | null {
 npx jest tests/domain/units --verbose
 ```
 
-Attendu : `PASS`, 8 tests.
+Attendu : `PASS`, 10 tests.
 
 - [ ] **Step 7 : Vérifier que le garde-fou de compilation est réellement actif**
 

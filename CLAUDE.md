@@ -64,8 +64,8 @@ UI (écrans React)  →  application/       →  domain/
 
 | Composant | Techno | État |
 |---|---|---|
-| Langage | **TypeScript**, mode `strict` | 🔄 |
-| Runtime | **React Native**, empaqueté par **Expo** (*development builds* — Expo Go ne suffit pas, code natif) | 🔄 |
+| Langage | **TypeScript**, mode `strict` | ✅ **posé le 2026-07-31** — `6.0.3`, durci au-delà de `strict` (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) |
+| Runtime | **React Native**, empaqueté par **Expo** (*development builds* — Expo Go ne suffit pas, code natif) | ✅ **amorcé le 2026-07-31** — `expo@57.0.9`, `react-native@0.86.2`, `react@19.2.3`. ⚠️ Expo Go marche encore *tant que* MapLibre n'est pas installé |
 | Cible | **Android et iOS** (`ADR-010`). ⚠️ **Windows abandonné le 2026-07-31**, un jour après son ajout | 🔄 |
 | Carte | **`@maplibre/maplibre-react-native` v11+** — MapLibre **Native**, rendu GPU. Fond **IGN Géoplateforme** (WMTS) | 🔄 ✅ *v11.3.6 courante, vérifiée le 2026-07-31.* ⚠️ **v11 a changé l'API hors-ligne** : id auto-généré, `addListener`/`removeListener` |
 | Hors-ligne carto | **`OfflineManager.createPack`** — région + niveaux de zoom | 🔄 ✅ *le chemin raster existe* : `SourceType::Raster` traité comme `Vector` dans `offline_download.cpp`, et la tuile IGN répond en 256×256 `TILEMATRIXSET=PM` — les deux vérifiés le 2026-07-31. ⚠️ **Rien n'a été exécuté** : tâche `M4` du plan T0 |
@@ -73,7 +73,8 @@ UI (écrans React)  →  application/       →  domain/
 | HTTP | `fetch` + retry, backoff exponentiel à gigue. **Normaliser 200 et 206** (`C-06`) | 🔄 |
 | Stockage | SQLite — `expo-sqlite` **ou** `op-sqlite` | 💭 à trancher |
 | Graphes | pour la courbe de débit (`US-11`) | 💭 à trancher |
-| Tests | à trancher (Jest ou Vitest) | 💭 |
+| Tests | **Jest** + `ts-jest`, projet `unit` en environnement **node**, **sans** préréglage `jest-expo` | ✅ **tranché le 2026-07-31.** Le choix n'est pas esthétique : sans transformation React Native, un import de framework depuis `domain/` **casse le test** au lieu de passer inaperçu. `jest-expo` arrivera en T1, en second projet, pour les composants |
+| Frontière `domain/` | Test d'architecture (`tests/architecture/`) **+** `no-restricted-imports` ESLint | ✅ 2026-07-31 — deux verrous : l'un lit les imports en texte, l'autre les comprend |
 
 > ✅ **Plus aucun C# dans le working tree** depuis le 2026-07-31. Si tu cherches un précédent
 > d'implémentation, il n'y en a pas : le seul code écrit sur ce projet était en .NET et il est

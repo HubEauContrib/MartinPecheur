@@ -31,6 +31,13 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [`03-conception.md`](03-conception.md) | Architecture, modèle de données, cache, arborescence des écrans |
 | [`04-ui.md`](04-ui.md) | Wireframes, code couleur des états, accessibilité |
 
+## Plans d'implémentation
+
+| Plan | Tranche | Statut |
+|---|---|---|
+| [`2026-07-31-t0-socle-react-native.md`](superpowers/plans/2026-07-31-t0-socle-react-native.md) | **T0** — socle Expo, domaine, données, carte, outillage percentiles | 🔄 **en cours** |
+| [`2026-07-30-t0-spike-carte-et-socle.md`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md) | T0 en .NET MAUI | 🚫 **caduc** — conservé pour l'historique, **ne pas exécuter** |
+
 ## Index des décisions
 
 | # | Décision | Statut |
