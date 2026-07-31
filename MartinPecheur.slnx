@@ -6,5 +6,11 @@
   </Configurations>
   <Folder Name="/src/">
     <Project Path="src/MartinPecheur.App/MartinPecheur.App.csproj" />
+    <Project Path="src/MartinPecheur.Application/MartinPecheur.Application.csproj" />
+    <Project Path="src/MartinPecheur.Data/MartinPecheur.Data.csproj" />
+    <Project Path="src/MartinPecheur.Domain/MartinPecheur.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MartinPecheur.UnitTests/MartinPecheur.UnitTests.csproj" />
   </Folder>
 </Solution>

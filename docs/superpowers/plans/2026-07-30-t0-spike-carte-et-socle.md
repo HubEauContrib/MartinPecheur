@@ -72,20 +72,24 @@ ou bascule sur l'option A (Mapsui). **Aucune autre décision d'UI n'est prise av
 
 ## Voie B — Socle données (parallèle, indépendant du spike)
 
-- [ ] **B0 — Valider le médiateur.** Vérifier que `BrilliantMediator` 3 expose des *pipeline
-      behaviors* — c'est le mécanisme même d'[`ADR-008`](../../adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md).
-      Vérifier aussi un build Release **trimmé sur Android** et mesurer le démarrage à froid
-      **avec et sans** médiateur. Si les behaviors n'existent pas : appliquer le repli
-      `IQueryHandler<,>` maison **sans réouvrir la décision de fond**.
-- [ ] **B1 — Projets `Domain`, `Application` et `Data`.** C# pur pour `Domain`. Test
-      d'architecture interdisant toute référence d'infrastructure depuis `Domain`, et tout appel
-      direct d'un dépôt depuis un ViewModel.
+- [x] **B0 — Valider le médiateur.** ✅ 2026-07-31 — **BrilliantMediator 3.x n'a pas de
+      behaviors**, vérifié sur le dépôt source. Repli retenu : **décorateur de
+      `IQueryHandler<,>`** enregistré en DI. `ADR-008` mis à jour, décision de fond inchangée.
+      ⬜ Reste : build Release **trimmé sur Android** et démarrage à froid avec/sans médiateur.
+- [x] **B1 — Projets `Domain`, `Application` et `Data`.** ✅ 2026-07-31 — trois projets `net10.0`
+      créés et ajoutés à la solution, références câblées (`Application`→`Domain`,
+      `Data`→`Domain`), plus `tests/MartinPecheur.UnitTests` (xUnit + AwesomeAssertions).
+      ⬜ Reste : les **tests d'architecture** interdisant une référence d'infrastructure depuis
+      `Domain` et un appel direct de dépôt depuis un ViewModel.
 - [ ] **B2 — Entités et énumérations** du modèle de [`03-conception.md § 3`](../../03-conception.md).
       Les trois échelles d'état restent **séparées**
       ([`BR-008`](../../br/BR-008-une-seule-echelle-a-la-fois.md)). Chaque énumération porte une
       valeur `Inconnu` ([`BR-011`](../../br/BR-011-nomenclature-tolerante-a-l-inconnu.md)).
-- [ ] **B3 — Mappers Hub'Eau, dirigés par les tests.** Commencer par la conversion d'unités :
-      `53000.0 → 53.0 m³/s` et `350571.0 → 350.571 m³/s` — valeurs réelles vérifiées le 2026-07-30.
+- [x] **B3a — Conversion d'unités, dirigée par les tests.** ✅ 2026-07-31 —
+      `Domain/Hydrometry/MeasurementUnits.cs`, 8 tests verts sur les valeurs réelles
+      (`53000.0 → 53.0 m³/s`, `350571.0 → 350.571 m³/s`), l'absence propagée sans devenir zéro,
+      et un garde-fou contre la double conversion.
+- [ ] **B3b — Mappers Hub'Eau** pour `observations_tr`, `obs_elab`, les référentiels et ONDE.
 - [ ] **B4 — Client HTTP.** `IHttpClientFactory` + Polly (retry, backoff exponentiel avec gigue).
       `DelegatingHandler` normalisant **200 et 206** en succès (`C-06`) — sans lui, toute
       pagination échoue.

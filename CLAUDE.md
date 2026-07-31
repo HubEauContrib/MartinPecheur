@@ -5,9 +5,10 @@
 
 > ⚠️ **Ce fichier distingue** ✅ implémenté · 🔄 cible décidée, pas encore codée · 💭 spéculatif. Si ce fichier contredit le code, **le code a raison** : corriger ce fichier dans le même commit.
 
-> ⚠️ **Aucun code métier n'existe à ce jour.** `MartinPecheur.slnx` contient un seul projet,
-> `src/MartinPecheur.App` — la **coquille du gabarit MAUI Blazor** (tâche `A1`, faite le
-> 2026-07-31). Ni Domain, ni Data, ni mapper, ni test.
+> ⚠️ **Le code métier vient de démarrer.** `MartinPecheur.slnx` contient `src/MartinPecheur.App`
+> (coquille du gabarit MAUI Blazor, `A1`), plus `Domain`, `Application`, `Data` et
+> `tests/MartinPecheur.UnitTests` (`B1`, 2026-07-31). Seul `MeasurementUnits` est implémenté
+> (`B3a`). Ni mapper, ni dépôt, ni écran du produit.
 
 ---
 
@@ -15,7 +16,7 @@
 
 | Tranche | Prouve | Statut |
 |---|---|---|
-| **T0** | Spike carte (lève le seul risque bloquant) + socle Domain/Data + outillage percentiles | 🔄 **en cours** — `A1` ✅ faite, `A2`…`A6`, `B0`…`B8`, `C1`…`C4` à faire. Plan : `docs/superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md` |
+| **T0** | Spike carte (lève le seul risque bloquant) + socle Domain/Data + outillage percentiles | 🔄 **en cours** — `A1` `B0` `B1` `B3a` ✅ · `A2`…`A6`, `B2` `B3b`…`B8`, `C1`…`C4` à faire. Plan : `docs/superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md` |
 | **T1** | Carte, fiches, les 4 avertissements | 🔄 après arbitrage d'`ADR-005` |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Hors-ligne complet, favoris, filtres | 🔄 |
@@ -45,7 +46,7 @@ UI (Razor / XAML)  →  ViewModel  →  Application  →  Domain
 
 - **Le Domain ne dépend de rien.** Ni MAUI, ni HTTP, ni SQLite. C'est ce qui rend le socle indépendant du résultat du spike carte. Toute référence d'infrastructure depuis le Domain est une erreur d'architecture, pas un détail.
 - **Le ViewModel n'appelle jamais un dépôt.** Il envoie une requête ou une commande. Les handlers orchestrent, les dépôts restent bêtes.
-- **La politique de cache vit dans un seul composant du pipeline.** Le stale-while-revalidate n'est jamais recopié dans un dépôt ni dans un ViewModel — c'est la raison d'être d'`ADR-008`.
+- **La politique de cache vit dans un seul composant** — le décorateur `CachingQueryHandler`. Le stale-while-revalidate n'est jamais recopié dans un dépôt ni dans un ViewModel : c'est la raison d'être d'`ADR-008`.
 - **Aucune valeur brute d'API n'atteint la vue.** La conversion l/s → m³/s et mm → m se fait dans le mapper, une seule fois (`BR-002`).
 - **Les trois échelles d'état restent séparées** — écoulement (fait observé), débit (statistique), sécheresse (décision préfectorale). Les fondre dans un champ unique mélangerait trois natures (`BR-008`).
 - **Toute nomenclature a une branche par défaut.** Une énumération sans valeur `Inconnu` est un défaut de conception (`BR-011`).
@@ -60,7 +61,7 @@ UI (Razor / XAML)  →  ViewModel  →  Application  →  Domain
 |---|---|---|
 | Runtime | **.NET 10** — imposé par `BrilliantMediator` 3.0.0 qui cible `net10.0` | ✅ SDK 10.0.302, projet en `net10.0-*` |
 | Cible | **MAUI — Android, iOS et Windows** (`ADR-009`) ; macOS/Mac Catalyst hors périmètre v1 | ✅ les 3 cibles buildent en Release, 0 warning ⚠️ **iOS compilé seulement — pas de bundle `.app` sans hôte macOS** |
-| Médiateur (CQRS) | **BrilliantMediator 3** + `BrilliantMediator.SourceGenerator` — ⚠️ PAS MediatR (réflexion au runtime, mauvais candidat sur mobile trimmé) | 🔄 ⚠️ **le support des *pipeline behaviors* n'est pas confirmé** — à lever au spike T0. Repli : `IQueryHandler<,>` maison résolu par DI (`ADR-008`) |
+| Médiateur (CQRS) | **BrilliantMediator 3** + `BrilliantMediator.SourceGenerator` — ⚠️ PAS MediatR (réflexion au runtime, mauvais candidat sur mobile trimmé) | 🔄 ⚠️ **il n'expose aucun *behavior*** (vérifié 2026-07-31). La politique de cache passe par un **décorateur de `IQueryHandler<,>`** en DI. `IEvent`/`IEventHandler` existent mais **ne sont pas utilisés** (`ADR-008`) |
 | UI | **MAUI Blazor Hybrid** (`BlazorWebView`) — `docs/adr/ADR-005-stack-maui-blazor-hybrid.md` | 🔄 gabarit en place, **aucun écran du produit**. ⚠️ **`ADR-005` reste `Proposé`, pas `Accepté`** — conditionné au spike T0. Repli : MAUI natif + Mapsui |
 | Carte | **MapLibre GL JS** dans le WebView, fond **IGN Géoplateforme** (WMTS) | 🔄 ⚠️ `Microsoft.Maui.Controls.Maps` est **éliminé** : ni clustering, ni tuiles custom, ni hors-ligne |
 | MVVM | **CommunityToolkit.Mvvm** (`ObservableObject`, `RelayCommand`) | 🔄 |
@@ -68,7 +69,7 @@ UI (Razor / XAML)  →  ViewModel  →  Application  →  Domain
 | HTTP | **`IHttpClientFactory` + Polly** (retry, backoff exponentiel avec gigue) | 🔄 |
 | Stockage | **`sqlite-net-pcl`** ; tuiles en fichiers dans `FileSystem.CacheDirectory` | 🔄 |
 | Graphes | **LiveChartsCore** (option A) ou Chart.js (option B) | 💭 selon l'arbitrage d'`ADR-005` |
-| Tests | **xUnit** | 🔄 |
+| Tests | **xUnit + AwesomeAssertions** — ⚠️ PAS FluentAssertions | ✅ `tests/MartinPecheur.UnitTests`, 8 tests verts en Release |
 
 ---
 

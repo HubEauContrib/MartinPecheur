@@ -27,9 +27,12 @@ du gabarit MAUI Blazor Hybrid**, sans code métier. Le reste de T0 est intact.
 | Tâche | Livrable | Vérification |
 |---|---|---|
 | `A1` | `src/MartinPecheur.App`, gabarit MAUI Blazor Hybrid, cibles Android + iOS + Windows (`ADR-009`) | Build Release **0 avertissement** sur les 3 cibles. APK signé et `.exe` produits ; **iOS compilé sans bundle `.app`** — exige un hôte macOS |
+| `B0` | Vérification du médiateur | **BrilliantMediator 3.x n'a pas de behaviors** (dépôt source consulté). Repli retenu : décorateur de `IQueryHandler<,>`. `ADR-008` mis à jour |
+| `B1` | `src/MartinPecheur.Domain`, `.Application`, `.Data` + `tests/MartinPecheur.UnitTests` | Projets `net10.0` créés, références câblées, ajoutés au `.slnx` |
+| `B3a` | `Domain/Hydrometry/MeasurementUnits.cs` — conversion l/s → m³/s et mm → m (`BR-002`) | **8 tests verts** en Release sur les valeurs réelles du 2026-07-30 : `53000.0 → 53.0`, `350571.0 → 350.571`, absence propagée, double conversion interdite |
 
-**Aucun code métier.** Ni Domain, ni Data, ni mapper, ni test. Le gabarit est une coquille : la
-page d'accueil est encore celle de Microsoft.
+**Le métier reste embryonnaire.** Une seule classe de domaine. Ni mapper, ni dépôt, ni client
+HTTP, ni écran du produit : la page d'accueil est encore celle de Microsoft.
 
 ## Ce qui bloque, ou reste à trancher
 
@@ -42,7 +45,8 @@ page d'accueil est encore celle de Microsoft.
 | 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
 | 7 | Téléchargement de tuiles hors-ligne | Lot de développement à chiffrer, pas un réglage (`ADR-005`) |
-| 8 | **`BrilliantMediator` expose-t-il des *pipeline behaviors* ?** Non confirmé | Conditionne la forme d'`ADR-008`. Repli identifié : `IQueryHandler<,>` maison. La décision de fond ne change pas |
+| 8 | ~~Behaviors BrilliantMediator~~ — **levé le 2026-07-31** : il n'y en a pas. Repli appliqué (décorateur de `IQueryHandler<,>`), `ADR-008` à jour | Clos |
+| 9 | **Compatibilité AOT et trimming** du médiateur | Non annoncée. À constater par un build Release trimmé sur Android, au spike |
 
 ## Points non vérifiés, assumés comme tels
 
