@@ -1,6 +1,6 @@
 # ADR-009 — Ajouter Windows aux cibles de la v1
 
-- **Statut :** Accepté
+- **Statut :** **Remplacé par [`ADR-010`](ADR-010-react-native.md)** le 2026-07-31 — **Windows est abandonné le jour même de son ajout**, la bascule sur React Native ne couvrant qu'Android et iOS. Décision conservée pour l'historique : elle documente pourquoi Windows a été demandé, et ce que son abandon coûte.
 - **Date :** 2026-07-31
 - **Modifie :** [`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md), dont le contexte fixait « iOS et Android uniquement ». Le reste d'`ADR-005` — Blazor Hybrid, MapLibre GL JS, fond IGN — est inchangé.
 

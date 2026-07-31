@@ -1,6 +1,6 @@
 # ADR-008 — CQRS léger et politique de cache en pipeline
 
-- **Statut :** Accepté
+- **Statut :** **Remplacé par [`ADR-010`](ADR-010-react-native.md)** le 2026-07-31 — le véhicule (`BrilliantMediator`, .NET 10, décorateur `IQueryHandler<,>`) disparaît avec la bascule React Native. ⚠️ **Le principe est repris tel quel** dans `ADR-010` : CQRS léger, et la politique de cache dans **un seul** composant. Le raisonnement ci-dessous reste sa justification.
 - **Date :** 2026-07-30 · *réserve sur les behaviors levée le 2026-07-31 — décorateur retenu*
 - **Corrige :** la position initiale « pas de CQRS » de [`03-conception.md § 2`](../03-conception.md), qui n'avait pas fait l'objet d'un ADR — c'est précisément pourquoi elle a pu passer sans être examinée
 - **Complète :** [`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md) sur le runtime — la cible passe de « .NET 9 ou 10 » à **.NET 10**

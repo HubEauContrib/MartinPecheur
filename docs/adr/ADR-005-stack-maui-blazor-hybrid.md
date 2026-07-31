@@ -1,6 +1,6 @@
 # ADR-005 — .NET MAUI Blazor Hybrid + MapLibre GL JS
 
-- **Statut :** Proposé — **conditionné à un spike de validation** · *tranché par défaut, sans arbitrage du commanditaire*
+- **Statut :** **Remplacé par [`ADR-010`](ADR-010-react-native.md)** le 2026-07-31 — le commanditaire a révisé l'arbitrage .NET et retenu React Native. Cette décision n'a jamais dépassé le statut `Proposé` : le spike qui la conditionnait n'a pas été mené.
 - **Date :** 2026-07-30
 
 ## Contexte

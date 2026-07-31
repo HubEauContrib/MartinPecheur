@@ -66,5 +66,5 @@ stateDiagram-v2
 
 ## Liens
 
-- ADR : `ADR-005` — le téléchargement de tuiles est **à développer spécifiquement**, aucune fonction clé en main n'existe côté .NET
+- ADR : [`ADR-010`](../adr/ADR-010-react-native.md) — le téléchargement de tuiles est fourni par **`OfflineManager.createPack`** (région + niveaux de zoom), vérifié le 2026-07-31. *Auparavant `ADR-005` en faisait un lot de développement à chiffrer, faute d'équivalent côté .NET — c'est ce point qui a motivé la bascule de stack.*
 - Écran : [`04-ui.md § 1`](../04-ui.md) · Conception : [`03-conception.md § 4.3`](../03-conception.md)

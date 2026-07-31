@@ -1,5 +1,20 @@
 # T0 — Spike carte & socle données : plan d'implémentation
 
+> # 🚫 CE PLAN EST CADUC — NE PAS L'EXÉCUTER
+>
+> **Rendu obsolète le 2026-07-31 par [`ADR-010`](../../adr/ADR-010-react-native.md)** : le projet
+> est passé de .NET MAUI à React Native et a abandonné Windows.
+>
+> - **Voie A** — spike `BlazorWebView` : **sans objet**. MapLibre Native remplace MapLibre GL JS,
+>   et le doute que ce spike devait lever n'existe plus.
+> - **Voie B** — tout est en C# : **sans objet**, hors les règles métier qu'elle appliquait.
+> - **Voie C** — outillage percentiles : **toujours valable**, c'est un script hors application.
+> - **`A2`** — figer le jeu de stations : **toujours valable**, indépendant de la stack.
+>   ⚠️ Son URL est fausse : `size` plafonne à **10000**, pas 20000 (HTTP 400, constaté le 2026-07-31).
+>
+> Conservé pour l'historique, conformément à la règle « on ne supprime pas un artefact obsolète ».
+> **Un nouveau plan doit être écrit avant de coder.**
+
 > **Pour les agents :** SOUS-SKILL REQUISE — utiliser `superpowers:subagent-driven-development`
 > (recommandé) ou `superpowers:executing-plans` pour exécuter ce plan tâche par tâche. Les étapes
 > utilisent la syntaxe checkbox (`- [ ]`) pour le suivi.

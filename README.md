@@ -38,11 +38,12 @@ Pas de backend · pas de compte utilisateur · pas de notifications · pas de pr
 
 ## Stack
 
-.NET 10 · **MAUI** (iOS + Android) · MAUI Blazor Hybrid + **MapLibre GL JS** sur fond **IGN Géoplateforme** · CommunityToolkit.Mvvm · BrilliantMediator · `IHttpClientFactory` + Polly · `sqlite-net-pcl` · xUnit.
-**Clean Architecture en couches + MVVM + CQRS léger** — `IQuery`/`ICommand` avec handlers et une politique de cache en pipeline. Pas d'event sourcing : l'application ne produit aucun événement de domaine.
+**React Native** + **TypeScript** (`strict`), empaqueté par **Expo** · carte **`@maplibre/maplibre-react-native`** (MapLibre Native) sur fond **IGN Géoplateforme** · SQLite · Android et iOS.
+**Clean Architecture en couches + CQRS léger** — `Query`/`Command` typés avec handlers et une politique de cache portée par un décorateur unique. Pas d'event sourcing : l'application ne produit aucun événement de domaine.
 
-> Le choix d'UI est en statut **`Proposé`**, conditionné à un spike de validation :
-> [`docs/adr/ADR-005-stack-maui-blazor-hybrid.md`](docs/adr/ADR-005-stack-maui-blazor-hybrid.md).
+> 🚨 **Bascule du 2026-07-31** : le projet était en .NET MAUI Blazor Hybrid et ciblait aussi Windows.
+> Le commanditaire a révisé son arbitrage — voir [`docs/adr/ADR-010-react-native.md`](docs/adr/ADR-010-react-native.md),
+> qui remplace `ADR-005`, `ADR-008` et `ADR-009`. Le code .NET du dépôt est **caduc**.
 
 ## Licences
 
@@ -75,16 +76,15 @@ Aucune dépendance sous licence copyleft. BSD-3-Clause et Apache-2.0 ne sont **p
 
 | Dépendance | Licence |
 |---|---|
-| .NET MAUI · `BlazorWebView` | MIT |
-| **BrilliantMediator 3.0.0** | MIT — *vérifié le 2026-07-30 sur [nuget.org](https://www.nuget.org/packages/BrilliantMediator)* |
-| CommunityToolkit.Mvvm | MIT |
-| `sqlite-net-pcl` | MIT |
-| LiveChartsCore · Chart.js | MIT |
-| Polly | BSD-3-Clause |
-| MapLibre GL JS | BSD-3-Clause |
-| xUnit | Apache-2.0 |
+| React Native | MIT |
+| Expo | MIT |
+| `@maplibre/maplibre-react-native` | à confirmer |
+| MapLibre Native | BSD-3-Clause |
+| SQLite (`expo-sqlite` ou `op-sqlite`) | à confirmer |
 
-⚠️ Seul `BrilliantMediator` a été vérifié à la source. Les autres lignes sont **à confirmer** à l'ajout effectif du paquet.
+⚠️ **Ce tableau est à refaire intégralement.** Il listait les dépendances .NET, devenues caduques
+avec [`ADR-010`](docs/adr/ADR-010-react-native.md). **Aucune ligne ci-dessus n'a été vérifiée à la
+source** — à faire à l'ajout effectif de chaque paquet, et à dater.
 
 ### Disponibilité
 

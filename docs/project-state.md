@@ -4,54 +4,72 @@
 
 ## Où on en est
 
-Cadrage terminé. **L'implémentation a démarré : la tâche `A1` du plan T0 est faite.**
+🚨 **Bascule de stack le 2026-07-31.** Le commanditaire a révisé son arbitrage .NET : le projet
+passe à **React Native** et **abandonne Windows** ([`ADR-010`](adr/ADR-010-react-native.md)).
 
-Le dépôt contient `MartinPecheur.slnx` et un seul projet, `src/MartinPecheur.App` — la **coquille
-du gabarit MAUI Blazor Hybrid**, sans code métier. Le reste de T0 est intact.
+**L'implémentation repart de zéro.** Le cadrage produit, lui, est intact — il ne dépendait pas
+de la stack.
 
 ## Ce qui est acquis
 
 | Sujet | État |
 |---|---|
-| Analyse des APIs | ✅ Vérifiée par appels HTTP réels le 2026-07-30, pas d'après la documentation |
+| Analyse des APIs | ✅ Vérifiée par appels HTTP réels les 2026-07-30 et 07-31 |
 | Question centrale du « débit suffisant » | ✅ Tranchée (`ADR-002`) et documentée avec ses limites |
-| Stack | ⚠️ **Proposée**, conditionnée à un spike (`ADR-005`) |
 | Sources retenues et écartées | ✅ 7 APIs évaluées, motifs documentés |
 | Règles métier | ✅ 14 règles, chacune avec son test |
 | Cas d'usage | ✅ 6 cas, flux nominaux et alternatifs |
 | Avertissements | ✅ Les 4 emplacements spécifiés, textes rédigés |
-| **Solution et projet d'application** (`A1`) | ✅ **2026-07-31** — `.slnx`, .NET 10, build Release **0 avertissement** |
+| Stack | ✅ **Tranchée le 2026-07-31** — React Native (`ADR-010`), arbitrage du commanditaire |
+| Hors-ligne cartographique | ✅ **N'est plus un risque** — `OfflineManager.createPack` vérifié le 2026-07-31 |
 
-## Code produit
+## Code
 
-| Tâche | Livrable | Vérification |
+**Aucun code React Native n'existe.** Rien n'est commencé sur la nouvelle stack.
+
+Le dépôt contient encore le **code .NET devenu caduc**, conservé dans l'historique git mais
+non repris :
+
+| Tâche | Livrable .NET | Sort |
 |---|---|---|
-| `A1` | `src/MartinPecheur.App`, gabarit MAUI Blazor Hybrid, cibles Android + iOS + Windows (`ADR-009`) | Build Release **0 avertissement** sur les 3 cibles. APK signé et `.exe` produits ; **iOS compilé sans bundle `.app`** — exige un hôte macOS |
-| `B0` | Vérification du médiateur | **BrilliantMediator 3.x n'a pas de behaviors** (dépôt source consulté). Repli retenu : décorateur de `IQueryHandler<,>`. `ADR-008` mis à jour |
-| `B1` | `src/MartinPecheur.Domain`, `.Application`, `.Data` + `tests/MartinPecheur.UnitTests` | Projets `net10.0` créés, références câblées, ajoutés au `.slnx` |
-| `B3a` | `Domain/Hydrometry/MeasurementUnits.cs` — conversion l/s → m³/s et mm → m (`BR-002`) | **8 tests verts** en Release sur les valeurs réelles du 2026-07-30 : `53000.0 → 53.0`, `350571.0 → 350.571`, absence propagée, double conversion interdite |
+| `A1` | `src/MartinPecheur.App` (MAUI Blazor Hybrid, 3 cibles vertes) | 🗑️ caduc — `696be3a` |
+| `B0` | Vérification `BrilliantMediator` (aucun *behavior*) | 🗑️ sans objet |
+| `B1` | `Domain`, `Application`, `Data`, `tests/` | 🗑️ caduc — `22e9850` |
+| `B3a` | `MeasurementUnits.cs`, 8 tests verts | 🗑️ caduc — **à réécrire en TypeScript** |
 
-**Le métier reste embryonnaire.** Une seule classe de domaine. Ni mapper, ni dépôt, ni client
-HTTP, ni écran du produit : la page d'accueil est encore celle de Microsoft.
+> `B3a` mérite d'être refait **en premier** sur la nouvelle stack : la conversion d'unités reste
+> le bug le plus coûteux du projet, et TypeScript la protège moins bien que C#.
+
+## Constats d'API du 2026-07-31 — à reporter dans `01-analyse.md`
+
+Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
+
+| Constat | Détail |
+|---|---|
+| `size` plafonne à **10000** | Le plan T0 écrivait `size=20000` → **HTTP 400** `ValidatePageSize` |
+| **200 et 206 coexistent** | `size=1` → **206** ; `size=5000` (≥ 4 140 résultats) → **200**. Confirme `C-06` en production |
+| Volume | **4 140 stations** en service, **6,28 Mo** en GeoJSON brut, 0 géométrie manquante |
+| Codes station | 4 140 codes distincts, **tous à 10 caractères** — cohérent avec `C-05` |
 
 ## Ce qui bloque, ou reste à trancher
 
 | # | Sujet | Nature |
 |---|---|---|
-| 1 | **Spike carte** (2-3 j) : fluidité du clustering et mémoire du `BlazorWebView` sur Android d'entrée de gamme | Bloque `ADR-005`. À faire **avant** toute autre implémentation |
-| 2 | Quatre ADR tranchés **sans arbitrage du commanditaire** : `ADR-002`, `ADR-004`, `ADR-005`, `ADR-006` | Décisions par défaut, réversibles. Chacune porte sa section « Si la décision est revue » |
+| 1 | **Le plan T0 est écrit pour .NET.** `A1`, `A3`…`A6`, `B0`, `B1`, `B4` n'ont plus de sens tels quels | **À réécrire avant de coder.** Seuls `A2` et la voie C sont indépendants de la stack |
+| 2 | Trois ADR tranchés **sans arbitrage du commanditaire** : `ADR-002`, `ADR-004`, `ADR-006` | Décisions par défaut, réversibles. Chacune porte sa section « Si la décision est revue » |
 | 3 | **Réduction de périmètre à valider** : la qualité de l'eau, annoncée au cadrage, n'est pas livrée (`ADR-007`) | À porter explicitement auprès du commanditaire |
 | 4 | Le cadrage annonçait **3 modalités ONDE** ; il y en a **6** (`ADR-006`) | Corrigé dans la spec |
 | 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
-| 7 | Téléchargement de tuiles hors-ligne | Lot de développement à chiffrer, pas un réglage (`ADR-005`) |
-| 8 | ~~Behaviors BrilliantMediator~~ — **levé le 2026-07-31** : il n'y en a pas. Repli appliqué (décorateur de `IQueryHandler<,>`), `ADR-008` à jour | Clos |
-| 9 | **Compatibilité AOT et trimming** du médiateur | Non annoncée. À constater par un build Release trimmé sur Android, au spike |
+| 7 | **Hôte macOS** pour produire un build iOS | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
+| 8 | Bibliothèque SQLite, bibliothèque de graphes, outil de test | À trancher (`ADR-010` § « Points à vérifier ») |
+| 9 | ~~Téléchargement de tuiles hors-ligne~~ — **levé le 2026-07-31** : `OfflineManager.createPack` le fournit | Clos par `ADR-010` |
+| 10 | ~~Behaviors BrilliantMediator~~, ~~AOT et trimming~~, ~~portage Windows~~ | Sans objet depuis `ADR-010` |
 
 ## Points non vérifiés, assumés comme tels
 
-- **Production d'un paquet iOS installable.** La compilation passe sur Windows, mais l'AOT, l'édition de liens native et la signature exigent un hôte macOS — non disponible au 2026-07-31.
-- **Portage Windows de l'UI.** Les wireframes de `04-ui.md` sont écrits pour le mobile. Le lot responsive et clavier/souris n'est ni spécifié ni chiffré (`ADR-009`).
+- **Que `createPack` accepte une source raster WMTS** (IGN) et pas seulement des tuiles vectorielles. C'est l'hypothèse qui porte tout le hors-ligne — à constater tôt.
+- Comportement de `maplibre-react-native` v11+ **en volume réel** (~4 140 points, clustering) sur Android d'entrée de gamme. Attendu bien meilleur qu'un WebView, mais **non mesuré**.
 - Version exacte de la Licence Ouverte Etalab pour Hub'Eau (1.0 ou 2.0).
 - Fenêtre du `X-RateLimit-Limit: 300` de VigiEau.
 - Sémantique du paramètre `departement` de VigiEau `/arretes_restrictions`.
@@ -60,15 +78,15 @@ HTTP, ni écran du produit : la page d'accueil est encore celle de Microsoft.
 
 ## Prochaine étape
 
-**Le spike carte, suite.** `A1` est faite ; `A2` (figer le jeu de stations) et `A3` (MapLibre dans
-le `BlazorWebView`) suivent. Le spike conditionne `ADR-005`, donc l'architecture de l'UI.
+**Réécrire le plan T0 pour la nouvelle stack**, puis amorcer le projet Expo.
 
-L'ajout de Windows (`ADR-009`) rend `A3` nettement plus rapide à itérer — WebView2 se débogue sur
-le poste. **Mais `A4` reste mesurée sur un Android d'entrée de gamme réel** : un vert sur WebView2
-ne dit rien du moteur le plus contraint.
+L'ancien plan ([`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md))
+reste au dépôt pour l'historique, mais **ne doit plus être exécuté** : sa voie A est un spike
+`BlazorWebView` sans objet, et sa voie B est en C#.
 
-Tout le reste — couches Domain et Data, mappers, règles métier — est indépendant du spike par
-construction et peut démarrer en parallèle.
+Ce qui change dans la logique du plan : **le spike carte perd son caractère bloquant.** Il
+existait pour lever un doute sur le WebView ; MapLibre Native le rend sans objet. La séquence
+redevient linéaire — socle, domaine, carte — au lieu de trois voies dont une conditionnait tout.
 
-Plan : [`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md),
-en trois voies dont une seule est bloquante.
+⚠️ **Ce qui reste vrai malgré la bascule :** la mesure sur un **Android d'entrée de gamme réel**
+garde son intérêt. Le rendu natif est attendu bien meilleur, mais « attendu » n'est pas « mesuré ».

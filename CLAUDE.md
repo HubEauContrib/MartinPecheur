@@ -5,10 +5,13 @@
 
 > ⚠️ **Ce fichier distingue** ✅ implémenté · 🔄 cible décidée, pas encore codée · 💭 spéculatif. Si ce fichier contredit le code, **le code a raison** : corriger ce fichier dans le même commit.
 
-> ⚠️ **Le code métier vient de démarrer.** `MartinPecheur.slnx` contient `src/MartinPecheur.App`
-> (coquille du gabarit MAUI Blazor, `A1`), plus `Domain`, `Application`, `Data` et
-> `tests/MartinPecheur.UnitTests` (`B1`, 2026-07-31). Seul `MeasurementUnits` est implémenté
-> (`B3a`). Ni mapper, ni dépôt, ni écran du produit.
+> 🚨 **Bascule de stack le 2026-07-31 — `ADR-010`.** Le projet passe de **.NET MAUI à React Native**
+> et **abandonne Windows**. Tout le code .NET écrit (`A1`, `B1`, `B3a`) est **caduc** : il reste dans
+> l'historique git (`696be3a`, `22e9850`) mais ne sera pas repris.
+> **`ADR-005`, `ADR-008` et `ADR-009` sont remplacés par `ADR-010`.**
+
+> ⚠️ **Aucun code React Native n'existe encore.** Le dépôt ne contient à ce jour que du .NET caduc
+> et la documentation. Le cadrage produit, lui, est **intact et valide** : il ne dépendait pas de la stack.
 
 ---
 
@@ -16,41 +19,42 @@
 
 | Tranche | Prouve | Statut |
 |---|---|---|
-| **T0** | Spike carte (lève le seul risque bloquant) + socle Domain/Data + outillage percentiles | 🔄 **en cours** — `A1` `B0` `B1` `B3a` ✅ · `A2`…`A6`, `B2` `B3b`…`B8`, `C1`…`C4` à faire. Plan : `docs/superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md` |
-| **T1** | Carte, fiches, les 4 avertissements | 🔄 après arbitrage d'`ADR-005` |
+| **T0** | Socle React Native + carte MapLibre + socle domaine + outillage percentiles | 🔄 **à réamorcer** — le plan T0 est écrit pour .NET, à réécrire. Seul `A2` (jeu de stations) est indépendant de la stack |
+| **T1** | Carte, fiches, les 4 avertissements | 🔄 |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Hors-ligne complet, favoris, filtres | 🔄 |
 
-Le cadrage produit est terminé et vérifié. L'implémentation vient de démarrer.
+Le cadrage produit est terminé et vérifié. **L'implémentation repart de zéro** sur la nouvelle stack.
 
 ---
 
-## Architecture — Clean Architecture en couches + MVVM + CQRS léger
+## Architecture — Clean Architecture en couches + CQRS léger
 
-Décision : `docs/adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md`.
+Décision : `docs/adr/ADR-010-react-native.md`. Le principe CQRS vient d'`ADR-008`, dont **seul le véhicule .NET est caduc**.
 
-⚠️ **CQRS « léger » = `IQuery`/`ICommand` + handlers + un pipeline. Rien de plus.** Pas de CQRS complet (il n'y a pas deux modèles), **pas d'event sourcing**, aucun événement de domaine, aucune projection — voir `docs/context-map.md`. Ne pas importer le vocabulaire de Kairior au-delà de ça.
+⚠️ **CQRS « léger » = `Query`/`Command` typés + handlers + un décorateur de cache. Rien de plus.** Pas de CQRS complet (il n'y a pas deux modèles), **pas d'event sourcing**, aucun événement de domaine, aucune projection — voir `docs/context-map.md`. **Aucune bibliothèque de médiateur** : un registre explicite de handlers suffit.
 
 ⚠️ **Pas de backend.** L'app appelle directement les APIs publiques. La seule donnée pré-calculée est un **asset généré au build** (`ADR-003`), pas un service.
 
 ```
-UI (Razor / XAML)  →  ViewModel  →  Application  →  Domain
-                                    IQuery/ICommand      ↓
-                                    + CachePolicy      Data
-                                                        ├─ RemoteDataSource (Hub'Eau, VigiEau)
-                                                        ├─ LocalDataSource  (SQLite, tuiles)
-                                                        └─ Asset percentiles (lecture seule)
+UI (écrans React)  →  application/       →  domain/
+                      Query/Command           ↓
+                      + CachePolicy         data/
+                                             ├─ RemoteDataSource (Hub'Eau, VigiEau)
+                                             ├─ LocalDataSource  (SQLite, packs MapLibre)
+                                             └─ Asset percentiles (lecture seule)
 ```
 
 ### Invariants à ne jamais casser
 
-- **Le Domain ne dépend de rien.** Ni MAUI, ni HTTP, ni SQLite. C'est ce qui rend le socle indépendant du résultat du spike carte. Toute référence d'infrastructure depuis le Domain est une erreur d'architecture, pas un détail.
-- **Le ViewModel n'appelle jamais un dépôt.** Il envoie une requête ou une commande. Les handlers orchestrent, les dépôts restent bêtes.
-- **La politique de cache vit dans un seul composant** — le décorateur `CachingQueryHandler`. Le stale-while-revalidate n'est jamais recopié dans un dépôt ni dans un ViewModel : c'est la raison d'être d'`ADR-008`.
+- **`domain/` ne dépend de rien.** Aucun import de React, de React Native, de `fetch` ni de SQLite. TypeScript pur. Toute dépendance d'infrastructure depuis `domain/` est une erreur d'architecture, pas un détail.
+- **Un composant d'écran n'appelle jamais un dépôt.** Il envoie une requête ou une commande. Les handlers orchestrent, les dépôts restent bêtes.
+- **La politique de cache vit dans un seul composant** — le décorateur `CachePolicy`. Le stale-while-revalidate n'est jamais recopié dans un dépôt ni dans un écran : c'est la raison d'être d'`ADR-008`, reprise par `ADR-010`.
+- **Les unités sont typées, pas conventionnelles.** TypeScript laisse passer un `number` en l/s là où on attend des m³/s. Utiliser des types *branded* — c'est le bug le plus coûteux du projet (`BR-002`).
 - **Aucune valeur brute d'API n'atteint la vue.** La conversion l/s → m³/s et mm → m se fait dans le mapper, une seule fois (`BR-002`).
 - **Les trois échelles d'état restent séparées** — écoulement (fait observé), débit (statistique), sécheresse (décision préfectorale). Les fondre dans un champ unique mélangerait trois natures (`BR-008`).
-- **Toute nomenclature a une branche par défaut.** Une énumération sans valeur `Inconnu` est un défaut de conception (`BR-011`).
-- **VigiEau ne s'appelle que derrière `IRestrictionSource`.** L'API est en version `0.1` : le risque de rupture reste confiné à une classe (`ADR-004`).
+- **Toute nomenclature a une branche par défaut.** Une union sans valeur `Inconnu` est un défaut de conception (`BR-011`). Garantir l'exhaustivité par un `switch` gardé par `never`.
+- **VigiEau ne s'appelle que derrière `RestrictionSource`.** L'API est en version `0.1` : le risque de rupture reste confiné à un module (`ADR-004`).
 - **Les quatre avertissements ne sont pas une finition.** Rien ne part en production sans eux (`BR-012`, `BR-013`).
 
 ---
@@ -59,17 +63,18 @@ UI (Razor / XAML)  →  ViewModel  →  Application  →  Domain
 
 | Composant | Techno | État |
 |---|---|---|
-| Runtime | **.NET 10** — imposé par `BrilliantMediator` 3.0.0 qui cible `net10.0` | ✅ SDK 10.0.302, projet en `net10.0-*` |
-| Cible | **MAUI — Android, iOS et Windows** (`ADR-009`) ; macOS/Mac Catalyst hors périmètre v1 | ✅ les 3 cibles buildent en Release, 0 warning ⚠️ **iOS compilé seulement — pas de bundle `.app` sans hôte macOS** |
-| Médiateur (CQRS) | **BrilliantMediator 3** + `BrilliantMediator.SourceGenerator` — ⚠️ PAS MediatR (réflexion au runtime, mauvais candidat sur mobile trimmé) | 🔄 ⚠️ **il n'expose aucun *behavior*** (vérifié 2026-07-31). La politique de cache passe par un **décorateur de `IQueryHandler<,>`** en DI. `IEvent`/`IEventHandler` existent mais **ne sont pas utilisés** (`ADR-008`) |
-| UI | **MAUI Blazor Hybrid** (`BlazorWebView`) — `docs/adr/ADR-005-stack-maui-blazor-hybrid.md` | 🔄 gabarit en place, **aucun écran du produit**. ⚠️ **`ADR-005` reste `Proposé`, pas `Accepté`** — conditionné au spike T0. Repli : MAUI natif + Mapsui |
-| Carte | **MapLibre GL JS** dans le WebView, fond **IGN Géoplateforme** (WMTS) | 🔄 ⚠️ `Microsoft.Maui.Controls.Maps` est **éliminé** : ni clustering, ni tuiles custom, ni hors-ligne |
-| MVVM | **CommunityToolkit.Mvvm** (`ObservableObject`, `RelayCommand`) | 🔄 |
-| Navigation | **Shell**, routes paramétrées | 🔄 |
-| HTTP | **`IHttpClientFactory` + Polly** (retry, backoff exponentiel avec gigue) | 🔄 |
-| Stockage | **`sqlite-net-pcl`** ; tuiles en fichiers dans `FileSystem.CacheDirectory` | 🔄 |
-| Graphes | **LiveChartsCore** (option A) ou Chart.js (option B) | 💭 selon l'arbitrage d'`ADR-005` |
-| Tests | **xUnit + AwesomeAssertions** — ⚠️ PAS FluentAssertions | ✅ `tests/MartinPecheur.UnitTests`, 8 tests verts en Release |
+| Langage | **TypeScript**, mode `strict` | 🔄 |
+| Runtime | **React Native**, empaqueté par **Expo** (*development builds* — Expo Go ne suffit pas, code natif) | 🔄 |
+| Cible | **Android et iOS** (`ADR-010`). ⚠️ **Windows abandonné le 2026-07-31**, un jour après son ajout | 🔄 |
+| Carte | **`@maplibre/maplibre-react-native` v11+** — MapLibre **Native**, rendu GPU. Fond **IGN Géoplateforme** (WMTS) | 🔄 ⚠️ **v11 a changé l'API hors-ligne** : id auto-généré, `addListener`/`removeListener`. Cibler v11+ d'emblée |
+| Hors-ligne carto | **`OfflineManager.createPack`** — région + niveaux de zoom | 🔄 ✅ *existence vérifiée le 2026-07-31* ⚠️ **non vérifié : qu'il accepte une source raster WMTS** et pas seulement du vectoriel |
+| CQRS | `Query`/`Command` typés + handlers + décorateur `CachePolicy`. **Aucune bibliothèque de médiateur** | 🔄 |
+| HTTP | `fetch` + retry, backoff exponentiel à gigue. **Normaliser 200 et 206** (`C-06`) | 🔄 |
+| Stockage | SQLite — `expo-sqlite` **ou** `op-sqlite` | 💭 à trancher |
+| Graphes | pour la courbe de débit (`US-11`) | 💭 à trancher |
+| Tests | à trancher (Jest ou Vitest) | 💭 |
+
+> 🚨 **Le dépôt contient encore le code .NET caduc** (`src/`, `tests/`, `MartinPecheur.slnx`). Il n'est **pas** la référence. Ne pas s'en inspirer, ne pas le compiler, ne pas le maintenir.
 
 ---
 
@@ -131,7 +136,7 @@ Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 - **Une contrainte d'API subie n'est pas une règle métier** : elle va au tableau `C-xx` de `01-analyse.md`, pas dans `br/`.
 - **Diagrammes** : dispersés **à côté** de la sous-partie qu'ils illustrent, jamais en section dédiée. **Mermaid inline** uniquement.
 - Templates : `docs/{br,use-cases,adr}/*-template.md`.
-- **Quatre ADR sont tranchés sans arbitrage du commanditaire** (`ADR-002`, `004`, `005`, `006`). Chacun porte une section « Si la décision est revue ». Ne pas les traiter comme définitifs.
+- **Trois ADR sont tranchés sans arbitrage du commanditaire** (`ADR-002`, `004`, `006`). Chacun porte une section « Si la décision est revue ». Ne pas les traiter comme définitifs. *(`ADR-005` l'était aussi — il est remplacé par `ADR-010`, qui, lui, est un arbitrage explicite du commanditaire.)*
 
 ---
 
@@ -139,9 +144,10 @@ Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 
 - **Code :** anglais · **Domaine et documentation :** français
 - **Commits :** Conventional Commits — scopes : `domain`, `data`, `ui`, `map`, `hydrometrie`, `ecoulement`, `restrictions`, `avertissement`, `docs`, `ci`
-- **Ordre d'implémentation :** Domain → Data → ViewModel → UI
+- **Ordre d'implémentation :** `domain/` → `data/` → `application/` → écrans
 - **TDD** : test rouge avant implémentation. Commencer par la conversion d'unités — c'est le bug le plus coûteux du projet
-- **Critère de fin d'étape :** build Release **0 warning** + tests verts
+- **Critère de fin d'étape :** `tsc --noEmit` **sans erreur**, lint propre, tests verts
+- **TypeScript `strict` non négociable.** `any` implicite interdit. Les unités passent par des types *branded*, les nomenclatures par des unions closes avec `Inconnu`
 
 ---
 

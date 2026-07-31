@@ -25,8 +25,8 @@ Ce qu'on choisit, énoncé clairement et au présent. Lister les points concrets
 
 ```mermaid
 flowchart LR
-    UI[MartinPecheur.App<br/>MAUI Blazor Hybrid] --> Dom[Domain]
-    Dom --> Data[Data / Repositories]
+    UI[UI — écrans React Native] --> Dom[domain/]
+    Dom --> Data[data/ — dépôts]
     Data --> HE[(Hub'Eau v2)]
     Data --> VE[(VigiEau)]
     Data --> SQL[(SQLite local)]

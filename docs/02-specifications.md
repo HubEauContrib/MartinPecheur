@@ -137,7 +137,7 @@ Compte utilisateur · notifications push · prévision ou modélisation hydrolog
 | **Station hors service** | `en_service = 0` | Exclue de la carte ; consultable par recherche directe, signalée comme fermée |
 | **Coordonnées absentes ou hors périmètre** | Filtre de mapping | Exclue de la carte |
 | **HTTP 409 VigiEau** (commune multi-zones) | Code 409 | Bascule automatique sur `lat`/`lon` |
-| **API indisponible** (5xx, `TaskCanceled`) | Après retry Polly | Message par source : « Le service Hub'Eau n'a pas répondu. » Les autres sources restent affichées. Jamais d'écran blanc |
+| **API indisponible** (5xx, délai dépassé) | Après épuisement des tentatives | Message par source : « Le service Hub'Eau n'a pas répondu. » Les autres sources restent affichées. Jamais d'écran blanc |
 | **Rupture de contrat VigiEau** | Désérialisation en échec | Repli sur l'export data.gouv en cache ; à défaut, lien externe vers vigieau.gouv.fr |
 | **Nomenclature inconnue** | Code hors énumération | « Non renseigné » (`BR-011`) |
 | **Cache plein** | Plafond atteint | Purge LRU des tuiles, jamais des dernières observations connues |
