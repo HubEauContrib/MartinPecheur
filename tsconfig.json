@@ -15,6 +15,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
 
+    // Explicite : l'inclusion automatique de node_modules/@types ne se déclenche
+    // pas avec la résolution `bundler` d'Expo. Sans cette ligne, `describe`,
+    // `expect` et `node:fs` sont introuvables dans les tests.
+    "types": ["jest", "node", "react"],
+
     "paths": {
       "@domain/*": ["./src/domain/*"],
       "@data/*": ["./src/data/*"],
