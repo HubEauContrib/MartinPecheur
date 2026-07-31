@@ -1,0 +1,27 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+
+    // `strict` seul laisse passer deux trous qui comptent sur ce produit :
+    // l'accès hors bornes d'un tableau, et une propriété optionnelle écrasée
+    // par `undefined`. On manipule des séries de mesures potentiellement
+    // trouées — ce sont exactement les cas à ne pas laisser filer.
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "paths": {
+      "@domain/*": ["./src/domain/*"],
+      "@data/*": ["./src/data/*"],
+      "@application/*": ["./src/application/*"],
+      "@features/*": ["./src/features/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["node_modules"]
+}
