@@ -10,8 +10,9 @@
 > l'historique git (`696be3a`, `22e9850`) mais ne sera pas repris.
 > **`ADR-005`, `ADR-008` et `ADR-009` sont remplacés par `ADR-010`.**
 
-> ⚠️ **Aucun code React Native n'existe encore.** Le dépôt ne contient à ce jour que du .NET caduc
-> et la documentation. Le cadrage produit, lui, est **intact et valide** : il ne dépendait pas de la stack.
+> ✅ **Le code .NET a été retiré du dépôt le 2026-07-31** (`src/`, `tests/`, `MartinPecheur.slnx`).
+> Il n'existe plus que dans l'historique git — `git show 22e9850` pour le socle, `696be3a` pour le
+> projet MAUI. Le cadrage produit, lui, est **intact et valide** : il ne dépendait pas de la stack.
 
 ---
 
@@ -74,7 +75,10 @@ UI (écrans React)  →  application/       →  domain/
 | Graphes | pour la courbe de débit (`US-11`) | 💭 à trancher |
 | Tests | à trancher (Jest ou Vitest) | 💭 |
 
-> 🚨 **Le dépôt contient encore le code .NET caduc** (`src/`, `tests/`, `MartinPecheur.slnx`). Il n'est **pas** la référence. Ne pas s'en inspirer, ne pas le compiler, ne pas le maintenir.
+> ✅ **Plus aucun C# dans le working tree** depuis le 2026-07-31. Si tu cherches un précédent
+> d'implémentation, il n'y en a pas : le seul code écrit sur ce projet était en .NET et il est
+> retiré. Ne pas le ressortir de l'historique pour s'en inspirer — les invariants sont dans ce
+> fichier et dans `docs/`, pas dans ces commits.
 
 ---
 

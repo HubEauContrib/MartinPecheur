@@ -43,7 +43,8 @@ Pas de backend · pas de compte utilisateur · pas de notifications · pas de pr
 
 > 🚨 **Bascule du 2026-07-31** : le projet était en .NET MAUI Blazor Hybrid et ciblait aussi Windows.
 > Le commanditaire a révisé son arbitrage — voir [`docs/adr/ADR-010-react-native.md`](docs/adr/ADR-010-react-native.md),
-> qui remplace `ADR-005`, `ADR-008` et `ADR-009`. Le code .NET du dépôt est **caduc**.
+> qui remplace `ADR-005`, `ADR-008` et `ADR-009`. Le code .NET a été **retiré du dépôt** le même
+> jour ; il reste consultable dans l'historique git (`696be3a`, `22e9850`).
 
 ## Licences
 

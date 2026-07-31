@@ -27,8 +27,8 @@ de la stack.
 
 **Aucun code React Native n'existe.** Rien n'est commencé sur la nouvelle stack.
 
-Le dépôt contient encore le **code .NET devenu caduc**, conservé dans l'historique git mais
-non repris :
+Le **code .NET a été retiré du working tree le 2026-07-31** sur arbitrage du commanditaire. Il
+reste intégralement dans l'historique git et n'est repris nulle part :
 
 | Tâche | Livrable .NET | Sort |
 |---|---|---|
