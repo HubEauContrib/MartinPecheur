@@ -20,7 +20,7 @@
 
 | Tranche | Prouve | Statut |
 |---|---|---|
-| **T0** | Socle React Native + carte MapLibre + socle domaine + outillage percentiles | 🔄 **à réamorcer** — le plan T0 est écrit pour .NET, à réécrire. Seul `A2` (jeu de stations) est indépendant de la stack |
+| **T0** | Socle React Native + carte MapLibre + socle domaine + outillage percentiles | 🔄 **plan écrit le 2026-07-31** — `docs/superpowers/plans/2026-07-31-t0-socle-react-native.md`. Exécution en cours |
 | **T1** | Carte, fiches, les 4 avertissements | 🔄 |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Hors-ligne complet, favoris, filtres | 🔄 |
@@ -67,8 +67,8 @@ UI (écrans React)  →  application/       →  domain/
 | Langage | **TypeScript**, mode `strict` | 🔄 |
 | Runtime | **React Native**, empaqueté par **Expo** (*development builds* — Expo Go ne suffit pas, code natif) | 🔄 |
 | Cible | **Android et iOS** (`ADR-010`). ⚠️ **Windows abandonné le 2026-07-31**, un jour après son ajout | 🔄 |
-| Carte | **`@maplibre/maplibre-react-native` v11+** — MapLibre **Native**, rendu GPU. Fond **IGN Géoplateforme** (WMTS) | 🔄 ⚠️ **v11 a changé l'API hors-ligne** : id auto-généré, `addListener`/`removeListener`. Cibler v11+ d'emblée |
-| Hors-ligne carto | **`OfflineManager.createPack`** — région + niveaux de zoom | 🔄 ✅ *existence vérifiée le 2026-07-31* ⚠️ **non vérifié : qu'il accepte une source raster WMTS** et pas seulement du vectoriel |
+| Carte | **`@maplibre/maplibre-react-native` v11+** — MapLibre **Native**, rendu GPU. Fond **IGN Géoplateforme** (WMTS) | 🔄 ✅ *v11.3.6 courante, vérifiée le 2026-07-31.* ⚠️ **v11 a changé l'API hors-ligne** : id auto-généré, `addListener`/`removeListener` |
+| Hors-ligne carto | **`OfflineManager.createPack`** — région + niveaux de zoom | 🔄 ✅ *le chemin raster existe* : `SourceType::Raster` traité comme `Vector` dans `offline_download.cpp`, et la tuile IGN répond en 256×256 `TILEMATRIXSET=PM` — les deux vérifiés le 2026-07-31. ⚠️ **Rien n'a été exécuté** : tâche `M4` du plan T0 |
 | CQRS | `Query`/`Command` typés + handlers + décorateur `CachePolicy`. **Aucune bibliothèque de médiateur** | 🔄 |
 | HTTP | `fetch` + retry, backoff exponentiel à gigue. **Normaliser 200 et 206** (`C-06`) | 🔄 |
 | Stockage | SQLite — `expo-sqlite` **ou** `op-sqlite` | 💭 à trancher |

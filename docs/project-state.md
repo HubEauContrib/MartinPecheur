@@ -55,7 +55,7 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 
 | # | Sujet | Nature |
 |---|---|---|
-| 1 | **Le plan T0 est écrit pour .NET.** `A1`, `A3`…`A6`, `B0`, `B1`, `B4` n'ont plus de sens tels quels | **À réécrire avant de coder.** Seuls `A2` et la voie C sont indépendants de la stack |
+| 1 | ~~Le plan T0 est écrit pour .NET~~ — **levé le 2026-07-31** : [`T0 — Socle React Native`](superpowers/plans/2026-07-31-t0-socle-react-native.md) le remplace | Clos |
 | 2 | Trois ADR tranchés **sans arbitrage du commanditaire** : `ADR-002`, `ADR-004`, `ADR-006` | Décisions par défaut, réversibles. Chacune porte sa section « Si la décision est revue » |
 | 3 | **Réduction de périmètre à valider** : la qualité de l'eau, annoncée au cadrage, n'est pas livrée (`ADR-007`) | À porter explicitement auprès du commanditaire |
 | 4 | Le cadrage annonçait **3 modalités ONDE** ; il y en a **6** (`ADR-006`) | Corrigé dans la spec |
@@ -66,9 +66,29 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 | 9 | ~~Téléchargement de tuiles hors-ligne~~ — **levé le 2026-07-31** : `OfflineManager.createPack` le fournit | Clos par `ADR-010` |
 | 10 | ~~Behaviors BrilliantMediator~~, ~~AOT et trimming~~, ~~portage Windows~~ | Sans objet depuis `ADR-010` |
 
+## Vérifications du 2026-07-31 — carte et hors-ligne
+
+Faites avant d'écrire le plan T0, par appel réel et lecture de code source.
+
+| Fait | Constat | Source |
+|---|---|---|
+| WMTS IGN — capacités | **HTTP 200**, `application/xml`, 2,86 Mo | `data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0` |
+| WMTS IGN — tuile | **HTTP 200**, `image/png`, **256×256** en `TILEMATRIXSET=PM` — donc adressable en `{z}/{x}/{y}` | même hôte, `REQUEST=GetTile&TILEMATRIX=5&TILECOL=16&TILEROW=11` |
+| MapLibre télécharge bien le raster hors-ligne | `SourceType::Raster` traité **à l'identique** de `SourceType::Vector` → `queueTiles` → `Resource::tile(tileset.tiles[0], …)` | `maplibre-native`, `platform/default/src/mbgl/storage/offline_download.cpp` L191, L304, L451 |
+| Version courante | `@maplibre/maplibre-react-native@11.3.6`, publiée le 2026-06-25 — v11 confirmée | `registry.npmjs.org` |
+| API v11 confirmée | `createPack(options, progressListener, errorListener)` ; `OfflinePackCreateOptions { mapStyle, bounds, minZoom?=10, maxZoom?=20, metadata? }` ; packs identifiés par `pack.id` ; `addListener(packId)` / `removeListener(packId)` | `package/src/modules/offline/OfflineManager.ts` |
+
+> **Ce que cela change :** le hors-ligne raster n'est plus une hypothèse en l'air — le chemin de
+> code existe et le fond IGN est consommable en `{z}/{x}/{y}`. **Ce n'est pas pour autant vérifié :**
+> rien n'a été exécuté. La distinction est maintenue ci-dessous.
+
 ## Points non vérifiés, assumés comme tels
 
-- **Que `createPack` accepte une source raster WMTS** (IGN) et pas seulement des tuiles vectorielles. C'est l'hypothèse qui porte tout le hors-ligne — à constater tôt.
+- **Que `createPack` télécharge effectivement les tuiles d'un WMTS IGN à l'exécution.** Le code C++ le prévoit ; aucune exécution ne l'a constaté. C'est l'hypothèse qui porte tout le hors-ligne — tâche `M4` du plan T0.
+- **Que l'URL KVP du WMTS IGN survive au *templating* de MapLibre.** Elle contient `?` et `&` ; l'expansion `{z}/{x}/{y}` n'a pas été observée dessus — tâche `M2`.
+- **Que `tileset.tiles[0]` suffise.** MapLibre n'utilise que la **première** URL du tableau `tiles` pour le hors-ligne : déclarer des miroirs ne les téléchargerait pas.
+- **Le chemin raster hors-ligne n'a aucun test amont** : `test/storage/offline_download.test.cpp` de `maplibre-native` ne contient **aucune** occurrence de « raster ».
+- **Le volume d'un pack départemental.** Un raster 256 px produit ~4× plus de tuiles qu'un vectoriel 512 px au même zoom.
 - Comportement de `maplibre-react-native` v11+ **en volume réel** (~4 140 points, clustering) sur Android d'entrée de gamme. Attendu bien meilleur qu'un WebView, mais **non mesuré**.
 - Version exacte de la Licence Ouverte Etalab pour Hub'Eau (1.0 ou 2.0).
 - Fenêtre du `X-RateLimit-Limit: 300` de VigiEau.
@@ -78,15 +98,20 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 
 ## Prochaine étape
 
-**Réécrire le plan T0 pour la nouvelle stack**, puis amorcer le projet Expo.
+Le plan T0 est réécrit : [`T0 — Socle React Native`](superpowers/plans/2026-07-31-t0-socle-react-native.md).
+Il s'exécute lot par lot — socle, domaine, données, carte, outillage percentiles.
 
 L'ancien plan ([`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md))
 reste au dépôt pour l'historique, mais **ne doit plus être exécuté** : sa voie A est un spike
 `BlazorWebView` sans objet, et sa voie B est en C#.
 
-Ce qui change dans la logique du plan : **le spike carte perd son caractère bloquant.** Il
-existait pour lever un doute sur le WebView ; MapLibre Native le rend sans objet. La séquence
-redevient linéaire — socle, domaine, carte — au lieu de trois voies dont une conditionnait tout.
+Ce qui a changé dans la logique du plan : **le spike carte a perdu son caractère bloquant.** Il
+existait pour lever un doute sur le WebView ; MapLibre Native le rend sans objet. La séquence est
+redevenue linéaire — socle, domaine, carte — au lieu de trois voies dont une conditionnait tout.
+
+⚠️ **Ce qui reste vrai malgré cela :** `M4` — constater le pack hors-ligne raster sur l'IGN — est la
+seule tâche dont l'échec remettrait en cause une décision d'architecture. Elle n'est plus
+*bloquante*, mais elle ne se repousse pas en fin de tranche.
 
 ⚠️ **Ce qui reste vrai malgré la bascule :** la mesure sur un **Android d'entrée de gamme réel**
 garde son intérêt. Le rendu natif est attendu bien meilleur, mais « attendu » n'est pas « mesuré ».
