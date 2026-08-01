@@ -1162,6 +1162,16 @@ Modèle de [`03-conception.md § 3`](../../03-conception.md). **Les trois échel
 séparées** ([`BR-008`](../../br/BR-008-une-seule-echelle-a-la-fois.md)) : aucune entité ne porte de
 champ synthétique qui les fusionnerait.
 
+**Champs réels, relevés par appel le 2026-08-01** — ne pas les deviner :
+
+| Piège | Constat |
+|---|---|
+| Le champ de qualification | `libelle_qualification_obs`, **pas** `libelle_qualification` |
+| Les coordonnées | `latitude_station` dans le référentiel, `latitude` dans `observations_tr` — deux noms pour la même chose |
+| `code_departement` | **chaîne** `"41"` — `"01"` passé par un nombre deviendrait `1` |
+| **La hauteur peut être négative** | `resultat_obs = -1232.0` sur `K447001001`, soit −1,232 m sous le zéro de l'échelle. **N'ajouter aucun contrôle de signe** |
+| Statuts observés | `code_statut` 4 « Brute », 8 « Corrigée » ; `code_qualification_obs` 16 « Non qualifiée » |
+
 - [ ] **Step 1 : Écrire le test qui échoue**
 
 ```ts
@@ -1467,7 +1477,7 @@ const CHARGE_UTILE = {
   date_obs: "2026-07-30T10:00:00Z",
   grandeur_hydro: "Q",
   resultat_obs: 53000.0,
-  libelle_qualification: "Bonne",
+  libelle_qualification_obs: "Non qualifiée",
 };
 
 describe("mapper des observations temps réel", () => {
@@ -1517,7 +1527,7 @@ export interface HydroObservationPayload {
   readonly date_obs: string;
   readonly grandeur_hydro: string;
   readonly resultat_obs: number | null;
-  readonly libelle_qualification: string | null;
+  readonly libelle_qualification_obs: string | null;
 }
 
 function grandeurFrom(raw: string): GrandeurHydro {
@@ -1541,7 +1551,7 @@ export function mapHydroObservation(payload: HydroObservationPayload): HydroObse
     grandeur,
     debit: grandeur === "Q" && brut !== null ? toCubicMetresPerSecond(litresPerSecond(brut)) : null,
     hauteur: grandeur === "H" && brut !== null ? toMetres(millimetres(brut)) : null,
-    libelleQualification: payload.libelle_qualification,
+    libelleQualification: payload.libelle_qualification_obs,
   };
 }
 ```
