@@ -91,17 +91,39 @@ winget install --exact --id Google.AndroidStudio --accept-package-agreements
 > le second échoue avec le code **1618** (*« Another installation is already in progress »*).
 
 **Ensuite — winget n'installe que l'IDE.** Il faut **ouvrir Android Studio une fois** et laisser
-l'assistant télécharger le SDK. Composants requis par Expo SDK 57 : **SDK Platform 36**
-(Android 16 « Baklava »), **Android SDK Build-Tools**, **Android Emulator** et **Android SDK
-Command-line Tools**. Compter plusieurs Go.
+l'assistant télécharger le SDK. Compter plusieurs Go.
 
-Puis déclarer le SDK, en adaptant le chemin si l'assistant en a proposé un autre :
+> ⚠️ **L'installation « Standard » ne suffit pas.** Constaté le 2026-08-01 : elle pose la plateforme
+> **la plus récente** — `android-37` — et **aucune image système**, donc aucun émulateur ne peut
+> démarrer. Elle n'installe pas non plus les *Command-line Tools*, donc pas de `sdkmanager`.
+
+Or Expo SDK 57 veut l'**API 36**, et pas la plus récente. Vérifié **à la source** et non d'après la
+documentation — `node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle` :
+
+```gradle
+compileSdkVersion project.ext.safeExtGet("compileSdkVersion", 36)
+minSdkVersion     project.ext.safeExtGet("minSdkVersion", 24)
+targetSdkVersion  project.ext.safeExtGet("targetSdkVersion", 36)
+```
+
+Il faut donc compléter par **More Actions ▸ SDK Manager** :
+
+| Onglet | À cocher |
+|---|---|
+| **SDK Platforms** (avec *Show Package Details*), sous *Android 16 (Baklava) — API 36* | **Android SDK Platform 36** · **Google APIs Intel x86_64 Atom System Image** |
+| **SDK Tools** | **Android SDK Command-line Tools (latest)** |
+
+Puis créer un appareil virtuel : **More Actions ▸ Virtual Device Manager ▸ Create Device**.
+
+Enfin, déclarer le SDK et l'exposer au `PATH` :
 
 ```powershell
 [Environment]::SetEnvironmentVariable("ANDROID_HOME", "$env:LOCALAPPDATA\Android\Sdk", "User")
 ```
 
-Enfin :
+> ⚠️ **Rouvrir VS Code après cette commande** — un terminal déjà ouvert garde l'ancien
+> environnement, et l'erreur *« Failed to resolve the Android SDK path »* persistera pour cette
+> seule raison.
 
 ```bash
 npm run android
