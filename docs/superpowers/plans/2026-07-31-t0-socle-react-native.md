@@ -238,6 +238,11 @@ git add -A && git commit -m "chore(ui): amorce le projet Expo en TypeScript stri
 optionnelles écrasées par `undefined`. Sur un produit qui manipule des séries de mesures
 potentiellement trouées, ce sont exactement les deux trous qui comptent.
 
+⚠️ **`types` doit être explicite.** Constaté le 2026-07-31 : avec la résolution `bundler` d'Expo,
+l'inclusion automatique de `node_modules/@types` **ne se déclenche pas**. Sans cette ligne,
+`describe`, `expect` et `node:fs` sont introuvables dans les tests — et le diagnostic est trompeur,
+`tsc` suggérant d'installer des paquets qui sont déjà là.
+
 ```json
 {
   "extends": "expo/tsconfig.base",
@@ -249,6 +254,7 @@ potentiellement trouées, ce sont exactement les deux trous qui comptent.
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "types": ["jest", "node", "react"],
     "paths": {
       "@domain/*": ["./src/domain/*"],
       "@data/*": ["./src/data/*"],

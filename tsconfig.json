@@ -2,31 +2,37 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-
-    // `strict` seul laisse passer deux trous qui comptent sur ce produit :
-    // l'accès hors bornes d'un tableau, et une propriété optionnelle écrasée
-    // par `undefined`. On manipule des séries de mesures potentiellement
-    // trouées — ce sont exactement les cas à ne pas laisser filer.
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-
-    // Explicite : l'inclusion automatique de node_modules/@types ne se déclenche
-    // pas avec la résolution `bundler` d'Expo. Sans cette ligne, `describe`,
-    // `expect` et `node:fs` sont introuvables dans les tests.
-    "types": ["jest", "node", "react"],
-
+    "types": [
+      "jest",
+      "node",
+      "react"
+    ],
     "paths": {
-      "@domain/*": ["./src/domain/*"],
-      "@data/*": ["./src/data/*"],
-      "@application/*": ["./src/application/*"],
-      "@features/*": ["./src/features/*"]
+      "@domain/*": [
+        "./src/domain/*"
+      ],
+      "@data/*": [
+        "./src/data/*"
+      ],
+      "@application/*": [
+        "./src/application/*"
+      ],
+      "@features/*": [
+        "./src/features/*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
