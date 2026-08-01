@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "expo.vscode-expo-tools",
+    "msjsdiag.vscode-react-native",
+    "Orta.vscode-jest"
+  ],
+  "unwantedRecommendations": [
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.csharp"
+  ]
+}

@@ -114,6 +114,35 @@ vérifiée par un test (`tests/architecture/`), pas seulement recommandée.
 > du plan T0), l'application embarquera du code natif et exigera un ***development build*** :
 > `npx expo prebuild` puis `npx expo run:android`.
 
+### Travailler sous VS Code
+
+L'espace de travail est préconfiguré dans [`.vscode/`](.vscode/), versionné parce que c'est de la
+config d'équipe. À la première ouverture du dossier, VS Code propose d'installer les quatre
+extensions recommandées :
+
+| Extension | Rôle |
+|---|---|
+| `dbaeumer.vscode-eslint` | Lint en direct, dont les règles de frontière entre couches |
+| `expo.vscode-expo-tools` | Complétion et validation d'`app.json`, outils Expo |
+| `msjsdiag.vscode-react-native` | Débogage React Native, gestion de Metro |
+| `Orta.vscode-jest` | Tests dans l'explorateur, exécution au cas par cas |
+
+**Ce qui est câblé d'office :**
+
+- `Ctrl+Shift+B` lance **`verify`** — typecheck, lint et tests d'un coup. C'est la tâche de build
+  par défaut, parce que c'est le critère de fin d'étape du projet.
+- **`F5`** débogue les tests unitaires, avec points d'arrêt dans `domain/`, `data/` et
+  `application/`. Aucun appareil, aucun émulateur, aucune carte : c'est précisément ce que
+  l'indépendance de ces couches permet.
+- L'éditeur utilise **le TypeScript du projet** (`node_modules/typescript/lib`), pas celui embarqué
+  dans VS Code — sans quoi l'éditeur et `npm run typecheck` peuvent diverger, et c'est toujours
+  l'éditeur qu'on croit.
+- Deux tâches en continu sont disponibles (`Terminal ▸ Exécuter la tâche…`) :
+  `typecheck — en continu` et `test — en continu`.
+
+> ℹ️ Les extensions **C# / .NET** sont marquées comme non souhaitées : il n'y a plus une ligne de
+> C# dans ce dépôt depuis le 2026-07-31.
+
 ### Arborescence
 
 ```
