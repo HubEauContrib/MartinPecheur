@@ -172,8 +172,18 @@ vérifiée par un test (`tests/architecture/`), pas seulement recommandée.
 ### Travailler sous VS Code
 
 L'espace de travail est préconfiguré dans [`.vscode/`](.vscode/), versionné parce que c'est de la
-config d'équipe. À la première ouverture du dossier, VS Code propose d'installer les quatre
-extensions recommandées :
+config d'équipe.
+
+**Au premier démarrage**, trois choses, dans cet ordre :
+
+1. `code .` à la racine du dépôt — **ouvrir le dossier, pas un fichier** : sans cela ni les tâches,
+   ni le débogueur, ni les chemins `@domain/*` ne fonctionnent.
+2. Accepter la bannière **« Cet espace de travail recommande des extensions »**.
+3. Ouvrir n'importe quel `.ts` et accepter l'invite **« Utiliser la version TypeScript de
+   l'espace de travail »**. Si elle ne s'affiche pas :
+   `Ctrl+Shift+P` ▸ *TypeScript: Select TypeScript Version…* ▸ **Use Workspace Version**.
+
+Les quatre extensions recommandées :
 
 | Extension | Rôle |
 |---|---|
