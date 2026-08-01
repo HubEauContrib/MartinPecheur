@@ -56,14 +56,49 @@ Pas de backend · pas de compte utilisateur · pas de notifications · pas de pr
 
 ### Prérequis
 
-| Pour | Outil | Version constatée le 2026-07-31 |
+| Pour | Outil | Version constatée le 2026-08-01 |
 |---|---|---|
 | **Tout** — compiler, tester, linter | **Node.js** (LTS) et npm | Node `24.18.1`, npm `11.16.0` |
-| **Lancer sur Android** | **Android Studio** (SDK + un appareil ou un émulateur) et un **JDK 17** | — |
-| **Lancer sur iOS** | **macOS** avec Xcode | — ⚠️ *impossible depuis Windows ou Linux* |
+| **Lancer sur Android** | **Android Studio** et un **JDK 17** | Studio `2026.1.3.7`, JDK `17.0.20.8` |
+| **Lancer sur iOS** | **macOS** avec Xcode | ⚠️ *impossible depuis Windows ou Linux* |
 
 ```bash
 npm install
+```
+
+### Exécuter l'application — trois voies
+
+Les **tests unitaires ne demandent rien de plus** : `npm test` fonctionne dès `npm install`. Ce qui
+suit ne concerne que le fait de *voir l'application à l'écran*.
+
+| Voie | À installer sur le PC | Remarque |
+|---|---|---|
+| **1. Expo Go sur un téléphone Android** | **Rien** | `npm start`, on scanne le QR code. ⚠️ **Cessera de marcher à la tâche `M1`** : MapLibre embarque du code natif, qu'Expo Go ne contient pas |
+| **2. Émulateur Android** | Android Studio + JDK 17 | La voie autonome, sans matériel |
+| **3. Téléphone Android + *development build*** | Android Studio + JDK 17 | Le plus fidèle, et le seul qui permette de mesurer `M5` sur un appareil d'entrée de gamme réel |
+
+Pour les voies 2 et 3, sous Windows :
+
+```bash
+winget install --exact --id Microsoft.OpenJDK.17 --accept-package-agreements
+```
+
+```bash
+winget install --exact --id Google.AndroidStudio --accept-package-agreements
+```
+
+> ⚠️ **winget n'installe que l'IDE.** Il faut ensuite **ouvrir Android Studio une fois** et laisser
+> l'assistant télécharger le SDK. Composants requis par Expo SDK 57 : **SDK Platform 36**
+> (Android 16 « Baklava »), **Android SDK Build-Tools**, **Android Emulator** et **Android SDK
+> Command-line Tools**. Compter plusieurs Go.
+>
+> **JDK 17 et pas plus récent** — la documentation React Native est explicite : *« you may
+> encounter problems using higher JDK versions »*.
+
+Puis, une fois le SDK en place :
+
+```bash
+npm run android
 ```
 
 ### Les commandes
