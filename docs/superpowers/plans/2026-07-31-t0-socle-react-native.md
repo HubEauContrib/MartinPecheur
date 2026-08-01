@@ -1024,39 +1024,72 @@ git commit -m "feat(ecoulement): nomenclature ONDE close avec branche Inconnu (B
 - Create: `src/domain/observation/freshness.ts`
 - Test: `tests/domain/observation/freshness.test.ts`
 
-[`BR-005`](../../br/BR-005-donnee-perimee-signalee.md) : au-delà de **2 × TTL**, le marqueur est
-atténué. Fonction **pure** — l'horloge est un paramètre, jamais `Date.now()` appelé à l'intérieur,
-sinon le test aux bornes est impossible.
+[`BR-005`](../../br/BR-005-donnee-perimee-signalee.md) fixe des seuils **absolus** : **2 h** puis
+**24 h**.
+
+> ⚠️ **Ne pas lire « 2 × TTL ».** [`03-conception.md § 4.1`](../../03-conception.md) emploie cette
+> formule, mais il y décrit la fraîcheur du **cache** — une autre question. Appliquée à l'âge de la
+> mesure avec un TTL de 20 min, elle déclarerait **périmée une observation de 40 minutes**, à qui
+> `BR-005` laisse 24 heures. La règle métier prime sur la formulation du document de conception.
+
+L'âge se calcule sur `date_obs`, **jamais** sur la date de récupération : une donnée fraîchement
+téléchargée peut avoir neuf jours, et c'est le cas en production (`BR-001`).
+
+Fonction **pure** — l'horloge est un paramètre, jamais `Date.now()` appelé à l'intérieur, sinon le
+test aux bornes est impossible. Et ce sont les bornes qui portent la règle.
 
 - [ ] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/domain/observation/freshness.test.ts
-import { freshnessOf, type Freshness } from "@domain/observation/freshness";
+import {
+  freshnessOf,
+  ANCIENNE_APRES_MS,
+  PERIMEE_APRES_MS,
+  type Freshness,
+} from "@domain/observation/freshness";
 
-const TTL_OBSERVATIONS_TR_MS = 20 * 60 * 1000; // 20 min — 03-conception.md § 4.1
-const MAINTENANT = new Date("2026-07-31T12:00:00Z");
-
+const MAINTENANT = new Date("2026-08-01T12:00:00Z");
+const HEURE = 60 * 60 * 1000;
 const ilYA = (ms: number): Date => new Date(MAINTENANT.getTime() - ms);
 
-describe("fraîcheur d'une observation (BR-005)", () => {
-  it("est fraîche avant le TTL", () => {
-    expect(freshnessOf(ilYA(0), MAINTENANT, TTL_OBSERVATIONS_TR_MS)).toBe<Freshness>("Fraiche");
-    expect(freshnessOf(ilYA(TTL_OBSERVATIONS_TR_MS - 1), MAINTENANT, TTL_OBSERVATIONS_TR_MS)).toBe<Freshness>("Fraiche");
+describe("fraîcheur d'une observation hydrométrique (BR-005)", () => {
+  it("expose les seuils de la règle, pas des nombres magiques", () => {
+    expect(ANCIENNE_APRES_MS).toBe(2 * HEURE);
+    expect(PERIMEE_APRES_MS).toBe(24 * HEURE);
   });
 
-  it("devient ancienne exactement au TTL", () => {
-    expect(freshnessOf(ilYA(TTL_OBSERVATIONS_TR_MS), MAINTENANT, TTL_OBSERVATIONS_TR_MS)).toBe<Freshness>("Ancienne");
+  // Les quatre cas que BR-005 § « Vérifiable par » prescrit nommément.
+  it("1 h 59 → fraîche", () => {
+    expect(freshnessOf(ilYA(1 * HEURE + 59 * 60_000), MAINTENANT)).toBe<Freshness>("Fraiche");
   });
 
-  it("devient périmée exactement à deux fois le TTL", () => {
-    expect(freshnessOf(ilYA(2 * TTL_OBSERVATIONS_TR_MS - 1), MAINTENANT, TTL_OBSERVATIONS_TR_MS)).toBe<Freshness>("Ancienne");
-    expect(freshnessOf(ilYA(2 * TTL_OBSERVATIONS_TR_MS), MAINTENANT, TTL_OBSERVATIONS_TR_MS)).toBe<Freshness>("Perimee");
+  it("2 h 01 → ancienne", () => {
+    expect(freshnessOf(ilYA(2 * HEURE + 60_000), MAINTENANT)).toBe<Freshness>("Ancienne");
+  });
+
+  it("23 h 59 → ancienne", () => {
+    expect(freshnessOf(ilYA(23 * HEURE + 59 * 60_000), MAINTENANT)).toBe<Freshness>("Ancienne");
+  });
+
+  it("24 h 01 → périmée", () => {
+    expect(freshnessOf(ilYA(24 * HEURE + 60_000), MAINTENANT)).toBe<Freshness>("Perimee");
+  });
+
+  it("bascule exactement AU seuil, pas après", () => {
+    // La borne appartient à l'état le plus sévère : on ne minimise jamais l'âge.
+    expect(freshnessOf(ilYA(2 * HEURE), MAINTENANT)).toBe<Freshness>("Ancienne");
+    expect(freshnessOf(ilYA(24 * HEURE), MAINTENANT)).toBe<Freshness>("Perimee");
   });
 
   it("traite une date future comme fraîche plutôt que d'échouer", () => {
-    // Une horloge d'appareil en avance ne doit pas casser l'affichage.
-    expect(freshnessOf(new Date(MAINTENANT.getTime() + 60_000), MAINTENANT, TTL_OBSERVATIONS_TR_MS)).toBe<Freshness>("Fraiche");
+    expect(freshnessOf(new Date(MAINTENANT.getTime() + 60_000), MAINTENANT)).toBe<Freshness>("Fraiche");
+  });
+
+  it("gère l'écart réel constaté en production", () => {
+    // Le 2026-07-30, l'âge allait de 7 minutes à 9 jours selon la station (BR-001).
+    expect(freshnessOf(ilYA(7 * 60_000), MAINTENANT)).toBe<Freshness>("Fraiche");
+    expect(freshnessOf(ilYA(9 * 24 * HEURE), MAINTENANT)).toBe<Freshness>("Perimee");
   });
 });
 ```
@@ -1074,19 +1107,29 @@ Attendu : `FAIL`, `Cannot find module '@domain/observation/freshness'`.
 ```ts
 // src/domain/observation/freshness.ts
 
-/** Union close — pas de valeur par défaut implicite (BR-011). */
+/** Union close, sans valeur par défaut implicite (BR-011). */
 export type Freshness = "Fraiche" | "Ancienne" | "Perimee";
 
 /**
- * Fonction pure : l'instant courant est un paramètre. Appeler `Date.now()` ici
- * rendrait les bornes intestables, et ce sont précisément les bornes qui portent
- * la règle (BR-005).
+ * Seuils ABSOLUS fixés par BR-005 : 2 h puis 24 h. Ce ne sont pas des
+ * multiples du TTL de cache — voir l'avertissement ci-dessus.
  */
-export function freshnessOf(observedAt: Date, now: Date, ttlMs: number): Freshness {
+export const ANCIENNE_APRES_MS = 2 * 60 * 60 * 1000;
+export const PERIMEE_APRES_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Fonction pure : l'instant courant est un paramètre. `observedAt` est la date
+ * de MESURE (`date_obs`), jamais la date de récupération.
+ *
+ * ⚠️ Ne s'applique pas à ONDE : une campagne de trois semaines y est normale,
+ * pas périmée (BR-010).
+ */
+export function freshnessOf(observedAt: Date, now: Date): Freshness {
   const ageMs = now.getTime() - observedAt.getTime();
-  if (ageMs < ttlMs) return "Fraiche";
-  if (ageMs < 2 * ttlMs) return "Ancienne";
-  return "Perimee";
+  // La borne appartient à l'état le plus sévère : on ne minimise jamais l'âge.
+  if (ageMs >= PERIMEE_APRES_MS) return "Perimee";
+  if (ageMs >= ANCIENNE_APRES_MS) return "Ancienne";
+  return "Fraiche";
 }
 ```
 
@@ -1096,7 +1139,7 @@ export function freshnessOf(observedAt: Date, now: Date, ttlMs: number): Freshne
 npx jest tests/domain/observation --verbose
 ```
 
-Attendu : `PASS`, 4 tests.
+Attendu : `PASS`, 8 tests.
 
 - [ ] **Step 5 : Commit**
 

@@ -102,7 +102,16 @@ graph TD
 | Départements | ∞ | Asset embarqué | — |
 | Tuiles | LRU, plafond **150 Mo** configurable | Pack local pour la bbox visitée | Auto au-delà du plafond, ou manuelle |
 
-**Règle générale** : lecture du cache → rendu immédiat → si TTL dépassé et réseau disponible, rafraîchissement en tâche de fond → sinon, badge « données du JJ/MM à HH:MM ». Au-delà de **2 × TTL**, le marqueur est atténué (`BR-005`).
+**Règle générale** : lecture du cache → rendu immédiat → si TTL dépassé et réseau disponible, rafraîchissement en tâche de fond → sinon, badge « données du JJ/MM à HH:MM ».
+
+> ⚠️ **Deux âges distincts, à ne pas confondre** — corrigé le 2026-08-01, ce paragraphe les mélangeait.
+>
+> | Âge | Mesuré sur | Seuils | Effet |
+> |---|---|---|---|
+> | **Fraîcheur du cache** | date de récupération | le TTL du tableau ci-dessus | déclenche le rafraîchissement en tâche de fond |
+> | **Âge de la mesure** (`BR-005`) | **`date_obs`** | **2 h** puis **24 h**, absolus | mention « il y a N h », puis marqueur atténué |
+>
+> Une observation peut être **fraîchement téléchargée et vieille de neuf jours** : c'est le cas en production (`BR-001`). Appliquer « 2 × TTL » à l'âge de la mesure déclarerait périmée une observation de 40 minutes, à qui `BR-005` laisse 24 heures.
 
 > Cette règle est portée par **un composant unique** — le décorateur `CachePolicy`, en amont des handlers de lecture ([`ADR-010`](adr/ADR-010-react-native.md), principe repris d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)) — jamais recopiée dans un dépôt ni dans un composant d'écran.
 
