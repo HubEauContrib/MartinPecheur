@@ -87,19 +87,39 @@ winget install --exact --id Microsoft.OpenJDK.17 --accept-package-agreements
 winget install --exact --id Google.AndroidStudio --accept-package-agreements
 ```
 
-> ⚠️ **winget n'installe que l'IDE.** Il faut ensuite **ouvrir Android Studio une fois** et laisser
-> l'assistant télécharger le SDK. Composants requis par Expo SDK 57 : **SDK Platform 36**
-> (Android 16 « Baklava »), **Android SDK Build-Tools**, **Android Emulator** et **Android SDK
-> Command-line Tools**. Compter plusieurs Go.
->
-> **JDK 17 et pas plus récent** — la documentation React Native est explicite : *« you may
-> encounter problems using higher JDK versions »*.
+> ⚠️ **Ne pas lancer les deux en même temps.** Windows n'accepte qu'un installateur MSI à la fois :
+> le second échoue avec le code **1618** (*« Another installation is already in progress »*).
 
-Puis, une fois le SDK en place :
+**Ensuite — winget n'installe que l'IDE.** Il faut **ouvrir Android Studio une fois** et laisser
+l'assistant télécharger le SDK. Composants requis par Expo SDK 57 : **SDK Platform 36**
+(Android 16 « Baklava »), **Android SDK Build-Tools**, **Android Emulator** et **Android SDK
+Command-line Tools**. Compter plusieurs Go.
+
+Puis déclarer le SDK, en adaptant le chemin si l'assistant en a proposé un autre :
+
+```powershell
+[Environment]::SetEnvironmentVariable("ANDROID_HOME", "$env:LOCALAPPDATA\Android\Sdk", "User")
+```
+
+Enfin :
 
 ```bash
 npm run android
 ```
+
+#### Le piège du JDK
+
+**JDK 17, et pas plus récent** — la documentation React Native est explicite : *« you may encounter
+problems using higher JDK versions »*.
+
+Or **Android Studio embarque son propre runtime Java**, et ce n'est pas un 17 : constaté le
+2026-08-01, le JBR livré avec Studio `2026.1.3.7` est un **openjdk 25.0.2**. C'est précisément la
+version déconseillée, et c'est celle que Gradle utilisera par défaut.
+
+Le JDK 17 installé séparément n'est donc **pas redondant**. Si un build Gradle échoue
+bizarrement, vérifier dans Android Studio : *Settings ▸ Build, Execution, Deployment ▸ Build Tools
+▸ Gradle ▸ Gradle JDK*, et le pointer sur `C:\Program Files\Microsoft\jdk-17...`, pas sur le JBR
+embarqué.
 
 ### Les commandes
 
