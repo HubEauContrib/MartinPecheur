@@ -1,6 +1,6 @@
 # État du projet
 
-**Mis à jour :** 2026-07-31
+**Mis à jour :** 2026-08-15
 
 ## Où on en est
 
@@ -33,11 +33,30 @@ de la stack.
 | `S1` | Projet Expo `57.0.9`, TypeScript `6.0.3`, code sous `src/` | ✅ `08bf832` |
 | `S2` | `tsconfig` durci — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, alias de couches | ✅ `08bf832` |
 | `S3` | Jest projet `unit` (node, sans `jest-expo`) + ESLint + test d'architecture | ✅ `8c6ed61` |
+| `S4` | Référentiel figé — **4 150 stations**, 6 604 249 octets, tous codes à 10 caractères | ✅ `0a76733` |
 | `D1` | **Conversion d'unités avec types *branded*** — 10 tests | ✅ `17d3359` |
-| `S4`, `S5`, `D2`–`D4`, `N1`–`N5`, `M1`–`M5`, `P1`–`P4` | — | 🔄 à faire |
+| `D2` | Nomenclature ONDE close, branche `Inconnu`, garde `never` | ✅ `37cd92a` |
+| `D3` | Fraîcheur d'observation aux bornes de `BR-005` (2 h / 24 h) | ✅ `20842be` |
+| `D4` | Entités `Station`, `HydroObservation`, `Qualification` + interfaces de dépôt | ✅ `42948e8` |
+| `N1` | `isSuccess` — 200 **et** 206 (`C-06`) | ✅ `5504b3c` |
+| `N2` | `delayForAttempt` — backoff exponentiel à gigue injectée (`C-15`) | ✅ `5504b3c` |
+| `N3` | Mapper `observations_tr` — conversion appliquée **une seule fois** | ✅ `b13a11b` |
+| `N4` | Client Hub'Eau — retry sur 429/5xx, jamais sur 4xx | ✅ `dbb74d3` |
+| `N5` | Décorateur `CachePolicy` **unique** — stale-while-revalidate | ✅ `2cf3ad2` |
+| `S5` | Bibliothèque SQLite → `ADR-011` | 🚫 le critère décisif exige un **Android d'entrée de gamme réel** |
+| `M1`–`M5` | Carte MapLibre, fond IGN, hors-ligne, mesure | 🚫 **outillage Android absent de la machine** — ni JDK, ni SDK, ni Android Studio |
+| `P1`–`P4` | Outillage percentiles | 🔄 à faire — indépendant, aucun appareil requis |
 
 **Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
-**12 tests** sur 2 suites.
+**67 tests** sur 10 suites *(mesuré le 2026-08-15)*.
+
+> ⚠️ **Deux écarts entre le plan T0 et le code livré**, constatés en exécutant `N3` et `N4`. Le code
+> a raison, le plan est une esquisse antérieure :
+>
+> | Le plan écrit | `D2`/`D4` ont livré |
+> |---|---|
+> | `HydroObservation.libelleQualification: string \| null` | un objet `Qualification` à 4 champs — `BR-006` demande le **statut** aussi, pas seulement la qualification |
+> | `delayForAttempt(attempt, 500, 30_000)` | `delayForAttempt(attempt, jitter?)` — base et plafond sont des constantes du module |
 
 ### Ce qui a été contre-éprouvé, et pas seulement écrit
 
@@ -73,8 +92,8 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 |---|---|
 | `size` plafonne à **10000** | Le plan T0 écrivait `size=20000` → **HTTP 400** `ValidatePageSize` |
 | **200 et 206 coexistent** | `size=1` → **206** ; `size=5000` (≥ 4 140 résultats) → **200**. Confirme `C-06` en production |
-| Volume | **4 140 stations** en service, **6,28 Mo** en GeoJSON brut, 0 géométrie manquante |
-| Codes station | 4 140 codes distincts, **tous à 10 caractères** — cohérent avec `C-05` |
+| Volume | **4 140 stations** en service, **6,57 Mo** en GeoJSON brut, 0 géométrie manquante. ⚠️ **Re-mesuré le 2026-08-15 : 4 150 stations, 6 604 249 octets** — le référentiel bouge |
+| Codes station | 4 150 codes distincts, **tous à 10 caractères** — cohérent avec `C-05` |
 
 ## Ce qui bloque, ou reste à trancher
 
@@ -87,6 +106,7 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 | 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
 | 7 | **Hôte macOS** pour produire un build iOS | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
+| 7 bis | **Outillage Android absent de la machine de développement** — constaté le 2026-08-15 : ni `JAVA_HOME`, ni `ANDROID_HOME`, ni SDK sous `%LOCALAPPDATA%\Android\Sdk`, ni Android Studio. La procédure est écrite au `README`, elle n'a pas été exécutée ici | **Outillage.** Bloque **tout le lot 3** (`M1`–`M5`) et le critère décisif de `S5`. Ne bloque ni le lot 4, ni T1 côté logique |
 | 8 | Bibliothèque SQLite, bibliothèque de graphes, outil de test | À trancher (`ADR-010` § « Points à vérifier ») |
 | 9 | ~~Téléchargement de tuiles hors-ligne~~ — **levé le 2026-07-31** : `OfflineManager.createPack` le fournit | Clos par `ADR-010` |
 | 10 | ~~Behaviors BrilliantMediator~~, ~~AOT et trimming~~, ~~portage Windows~~ | Sans objet depuis `ADR-010` |
@@ -125,6 +145,19 @@ Faites avant d'écrire le plan T0, par appel réel et lecture de code source.
 
 Le plan T0 est réécrit : [`T0 — Socle React Native`](superpowers/plans/2026-07-31-t0-socle-react-native.md).
 Il s'exécute lot par lot — socle, domaine, données, carte, outillage percentiles.
+
+**Au 2026-08-15, les lots 0 (hors `S5`), 1 et 2 sont livrés** — 12 tâches sur 23. Ce qui reste se
+partage en deux, et la coupure n'est pas dans le plan : elle est dans le matériel.
+
+| Reste | Peut démarrer ? |
+|---|---|
+| **Lot 4** — `P1`–`P4`, outillage percentiles | ✅ **Oui, tout de suite.** Script Node hors application, aucun appareil |
+| **Lot 3** — `M1`–`M5`, carte | 🚫 Non — installer d'abord JDK 17 + Android Studio + SDK 36 (procédure au `README`) |
+| `S5` — bibliothèque SQLite | 🚫 Non — son critère décisif est une mesure sur Android d'entrée de gamme |
+
+**La décision à prendre est donc celle-ci :** installer l'outillage Android maintenant, ou terminer
+le lot 4 d'abord. `M4` reste la tâche qui porte le seul vrai risque d'architecture restant, mais
+elle est inatteignable tant que rien ne peut compiler du natif.
 
 L'ancien plan ([`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md))
 reste au dépôt pour l'historique, mais **ne doit plus être exécuté** : sa voie A est un spike

@@ -72,7 +72,7 @@
 
 | Donnée | Couverture vérifiée | Fraîcheur mesurée |
 |---|---|---|
-| Stations hydrométriques | **6 454** au total, dont **4 140 en service** | Référentiel quasi-statique |
+| Stations hydrométriques | **6 454** au total, dont **4 150 en service** au 2026-08-15 *(4 140 au 2026-07-31 — le référentiel bouge lentement mais il bouge)* | Référentiel quasi-statique |
 | `observations_tr` | Variable selon la station | Annoncée à 5 min. **Mesurée : 7 min sur une station, 9 jours sur une autre** |
 | `obs_elab` (`QmnJ`) | Historique depuis **1900-01-01**, statut « Donnée validée » | **Latence 10 à 11 jours** |
 | Stations ONDE | **3 548**, France hexagonale + Corse. **Aucune en DOM** (974 → 0 station) | Publication ~2 jours après observation |

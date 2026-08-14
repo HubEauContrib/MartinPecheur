@@ -75,7 +75,7 @@ Tous constatés par appel réel le jour de la rédaction. Un fait non vérifié 
 |---|---|---|
 | Versions npm | `expo@57.0.9` · `@maplibre/maplibre-react-native@11.3.6` · `jest-expo@57.0.3` · `expo-sqlite@57.0.1` · `@op-engineering/op-sqlite@0.52.1` | `registry.npmjs.org/<pkg>/latest` |
 | `expo` n'impose aucun `engines` | Node 24 n'est pas bloqué | idem |
-| Référentiel stations | `size=10000` → **HTTP 200**, `count: 4140`, **6,57 Mo** en JSON | `hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations` |
+| Référentiel stations | `size=10000` → **HTTP 200**, `count: 4140`, **6,57 Mo** en JSON. ⚠️ **Re-mesuré le 2026-08-15 en exécutant `S4` : `count: 4150`, 6 604 249 octets, `next: null`.** Le référentiel bouge — ne pas figer 4 140 comme une constante | `hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations` |
 | Plafond de pagination | `size=20000` → **HTTP 400** `ValidatePageSize`, *« size must be less than or equal to 10000 »* | idem |
 | WMTS IGN — capacités | **HTTP 200**, `application/xml`, 2,86 Mo | `data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0` |
 | WMTS IGN — tuile | **HTTP 200**, `image/png`, **PNG 256×256** en `TILEMATRIXSET=PM` | `data.geopf.fr/wmts?…&REQUEST=GetTile&TILEMATRIX=5&TILECOL=16&TILEROW=11` |
@@ -157,7 +157,7 @@ l'arborescence d'écrans de [`03-conception.md § 5`](../../03-conception.md) ar
 **Files:**
 - Create: tout l'arbre du gabarit, à la racine du dépôt
 
-- [ ] **Step 1 : Créer le projet dans un dossier temporaire puis rapatrier**
+- [x] **Step 1 : Créer le projet dans un dossier temporaire puis rapatrier**
 
 Le dépôt n'est pas vide (il a `docs/`, `README.md`, `CLAUDE.md`) et `create-expo-app` refuse un
 dossier non vide. On génère à côté, puis on rapatrie.
@@ -168,7 +168,7 @@ npx --yes create-expo-app@latest /tmp/mp-bootstrap --template blank-typescript -
 
 Attendu : `✅ Your project is ready!`
 
-- [ ] **Step 2 : Rapatrier SÉLECTIVEMENT**
+- [x] **Step 2 : Rapatrier SÉLECTIVEMENT**
 
 ⚠️ **Ne pas copier en bloc.** Le gabarit génère ses propres `CLAUDE.md`, `AGENTS.md`, `LICENSE` et
 `.claude/` — un `cp -r .` écraserait ceux du projet, dont les instructions qui pilotent tout ce
@@ -181,7 +181,7 @@ cp /tmp/mp-bootstrap/.gitignore ./.gitignore.expo   # mis de côté pour S2
 rm -rf /tmp/mp-bootstrap
 ```
 
-- [ ] **Step 3 : Mettre le code applicatif sous `src/`**
+- [x] **Step 3 : Mettre le code applicatif sous `src/`**
 
 Le gabarit pose `App.tsx` et `index.ts` à la racine. Tout le code vit sous `src/` :
 
@@ -193,7 +193,7 @@ Puis dans `package.json` : `"name": "martinpecheur"`, `"version": "0.1.0"`,
 `"main": "src/index.ts"`. L'import `from "./App"` de `src/index.ts` reste valide, les deux fichiers
 étant désormais voisins.
 
-- [ ] **Step 4 : Vérifier que la documentation est intacte**
+- [x] **Step 4 : Vérifier que la documentation est intacte**
 
 ```bash
 head -1 CLAUDE.md && head -1 LICENSE.txt && ls docs/adr | wc -l
@@ -201,7 +201,7 @@ head -1 CLAUDE.md && head -1 LICENSE.txt && ls docs/adr | wc -l
 
 Attendu : `# MartinPêcheur — Claude AI Guidelines`, `MIT License`, `11`.
 
-- [ ] **Step 5 : Installer**
+- [x] **Step 5 : Installer**
 
 ```bash
 npm install
@@ -210,7 +210,7 @@ npm install
 Relever les versions résolues — constaté le 2026-07-31 : `expo@57.0.9`, `react-native@0.86.2`,
 `react@19.2.3`, `typescript@6.0.3`.
 
-- [ ] **Step 6 : Vérifier que le gabarit compile**
+- [x] **Step 6 : Vérifier que le gabarit compile**
 
 ```bash
 npx tsc --noEmit
@@ -218,7 +218,7 @@ npx tsc --noEmit
 
 Attendu : aucune sortie (succès).
 
-- [ ] **Step 7 : Commit**
+- [x] **Step 7 : Commit**
 
 ```bash
 git add -A && git commit -m "chore(ui): amorce le projet Expo en TypeScript strict"
@@ -232,7 +232,7 @@ git add -A && git commit -m "chore(ui): amorce le projet Expo en TypeScript stri
 - Modify: `tsconfig.json`
 - Replace: `.gitignore`
 
-- [ ] **Step 1 : Durcir `tsconfig.json`**
+- [x] **Step 1 : Durcir `tsconfig.json`**
 
 `strict` seul ne suffit pas : il laisse passer l'accès hors bornes d'un tableau et les propriétés
 optionnelles écrasées par `undefined`. Sur un produit qui manipule des séries de mesures
@@ -267,7 +267,7 @@ l'inclusion automatique de `node_modules/@types` **ne se déclenche pas**. Sans 
 }
 ```
 
-- [ ] **Step 2 : Remplacer le `.gitignore`**
+- [x] **Step 2 : Remplacer le `.gitignore`**
 
 Le `.gitignore` actuel est celui de Visual Studio : 367 lignes de .NET, et des motifs
 (`[Bb]in/`, `[Oo]ut/`, `**/[Pp]ackages/*`) qui ignoreraient silencieusement des dossiers légitimes
@@ -330,7 +330,7 @@ credentials.json
 
 Puis `rm .gitignore.expo`.
 
-- [ ] **Step 3 : Vérifier que rien de suivi n'est perdu**
+- [x] **Step 3 : Vérifier que rien de suivi n'est perdu**
 
 ```bash
 git status --short && npx tsc --noEmit
@@ -338,7 +338,7 @@ git status --short && npx tsc --noEmit
 
 Attendu : aucun fichier de `docs/` en `D`. `tsc` sans erreur.
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 
 ```bash
 git add -A && git commit -m "chore: durcit tsconfig et remplace le gitignore .NET"
@@ -356,7 +356,7 @@ git add -A && git commit -m "chore: durcit tsconfig et remplace le gitignore .NE
 C'est la tâche qui transforme un invariant d'architecture en échec de build. Deux verrous
 indépendants, parce qu'ils n'attrapent pas la même chose.
 
-- [ ] **Step 1 : Installer l'outillage de test et de lint**
+- [x] **Step 1 : Installer l'outillage de test et de lint**
 
 ```bash
 npm install --save-dev jest @types/jest ts-jest typescript-eslint eslint
@@ -365,7 +365,7 @@ npm install --save-dev jest @types/jest ts-jest typescript-eslint eslint
 > **Pas de `jest-expo` maintenant.** Il ne sert qu'aux tests de composants, et il n'y a pas encore
 > de composant à tester : c'est du YAGNI. Il arrive en T1 avec le second projet Jest.
 
-- [ ] **Step 2 : Configurer Jest en deux projets**
+- [x] **Step 2 : Configurer Jest en deux projets**
 
 Le projet `domain` tourne en environnement `node` **sans** le préréglage `jest-expo`. Conséquence
 recherchée : si quelqu'un importe React Native dans `domain/`, le test ne compile plus. L'invariant
@@ -413,7 +413,7 @@ module.exports = {
 > Le second projet, en préréglage `jest-expo` pour les composants (`*.test.tsx`), s'ajoutera en T1
 > quand il y aura un composant à tester. L'ajouter maintenant serait du YAGNI.
 
-- [ ] **Step 3 : Écrire le test d'architecture — il doit échouer**
+- [x] **Step 3 : Écrire le test d'architecture — il doit échouer**
 
 ```ts
 // tests/architecture/domainIsolation.test.ts
@@ -461,7 +461,7 @@ describe("frontière du domaine", () => {
 });
 ```
 
-- [ ] **Step 4 : Créer le dossier, puis lancer**
+- [x] **Step 4 : Créer le dossier, puis lancer**
 
 Le second cas du test vérifie que `src/domain/` **existe** : un test vert parce qu'il ne regarde
 rien est pire qu'un test absent — il donne une garantie qu'il ne fournit pas. Il faut donc que le
@@ -474,7 +474,7 @@ npx jest tests/architecture --verbose
 
 Attendu : `PASS` — 2 tests. Supprimer `src/domain/placeholder.ts` dès que `D1` crée un vrai fichier.
 
-- [ ] **Step 5 : Ajouter le verrou ESLint**
+- [x] **Step 5 : Ajouter le verrou ESLint**
 
 Le test d'architecture lit les imports en texte ; ESLint les comprend. Les deux se complètent :
 l'un attrape ce que l'autre laisse passer.
@@ -507,7 +507,7 @@ module.exports = tseslint.config(
 );
 ```
 
-- [ ] **Step 6 : Câbler les scripts**
+- [x] **Step 6 : Câbler les scripts**
 
 ```json
 "scripts": {
@@ -521,7 +521,7 @@ module.exports = tseslint.config(
 }
 ```
 
-- [ ] **Step 7 : Vérifier la chaîne complète**
+- [x] **Step 7 : Vérifier la chaîne complète**
 
 ```bash
 npm run verify
@@ -529,7 +529,7 @@ npm run verify
 
 Attendu : `tsc` muet, ESLint muet, Jest `PASS`.
 
-- [ ] **Step 8 : Commit**
+- [x] **Step 8 : Commit**
 
 ```bash
 git add -A && git commit -m "test(domain): rend la frontiere du domaine verifiable par la machine"
@@ -546,7 +546,7 @@ git add -A && git commit -m "test(domain): rend la frontiere du domaine verifiab
 Indépendant de la stack — c'est la seule tâche de l'ancien plan reprise telle quelle. **Son URL
 était fausse** : elle demandait `size=20000`, ce qui rend **HTTP 400** (`ValidatePageSize`).
 
-- [ ] **Step 1 : Écrire le script d'aspiration**
+- [x] **Step 1 : Écrire le script d'aspiration**
 
 ```bash
 #!/usr/bin/env bash
@@ -569,7 +569,7 @@ fi
 echo "HTTP $status — $(wc -c < "$OUT") octets — $OUT"
 ```
 
-- [ ] **Step 2 : Exécuter et constater**
+- [x] **Step 2 : Exécuter et constater**
 
 ```bash
 chmod +x tools/fetch-stations.sh && ./tools/fetch-stations.sh
@@ -577,7 +577,7 @@ chmod +x tools/fetch-stations.sh && ./tools/fetch-stations.sh
 
 Attendu : `HTTP 200`. Relever le nombre d'octets — **le mesurer, ne pas l'estimer**.
 
-- [ ] **Step 3 : Vérifier la volumétrie et les codes station**
+- [x] **Step 3 : Vérifier la volumétrie et les codes station**
 
 ```bash
 node -e "
@@ -596,7 +596,7 @@ Attendu, d'après le constat du 2026-07-31 : `4140` features, `4140` codes disti
 `[10]`, `0` sans géométrie. **Si un chiffre diffère, c'est l'API qui a raison** : le consigner et
 mettre à jour [`01-analyse.md`](../../01-analyse.md).
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 
 ```bash
 git add tools/fetch-stations.sh assets/referentiel/stations.geojson
@@ -668,7 +668,7 @@ laquelle un irrigant peut fonder une décision.
 En C#, la double conversion se gardait au runtime. **En TypeScript, les types *branded* la rendent
 non compilable** — c'est mieux, à condition de les poser dès la première ligne.
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/domain/units/conversions.test.ts
@@ -745,7 +745,7 @@ describe("la double conversion ne compile pas", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer le test — il DOIT échouer**
+- [x] **Step 2 : Lancer le test — il DOIT échouer**
 
 ```bash
 npx jest tests/domain/units --verbose
@@ -754,7 +754,7 @@ npx jest tests/domain/units --verbose
 Attendu : `FAIL`, avec `Cannot find module '@domain/units/quantities'`.
 **Ne pas passer à l'étape suivante avant d'avoir vu cet échec.**
 
-- [ ] **Step 3 : Écrire le mécanisme de marquage**
+- [x] **Step 3 : Écrire le mécanisme de marquage**
 
 ```ts
 // src/domain/units/branded.ts
@@ -770,7 +770,7 @@ declare const unit: unique symbol;
 export type Branded<T, B extends string> = T & { readonly [unit]: B };
 ```
 
-- [ ] **Step 4 : Écrire les quantités**
+- [x] **Step 4 : Écrire les quantités**
 
 ```ts
 // src/domain/units/quantities.ts
@@ -791,7 +791,7 @@ export const cubicMetresPerSecond = (value: number): CubicMetresPerSecond =>
 export const metres = (value: number): Metres => value as Metres;
 ```
 
-- [ ] **Step 5 : Écrire la conversion — le seul endroit du code qui divise par 1000**
+- [x] **Step 5 : Écrire la conversion — le seul endroit du code qui divise par 1000**
 
 ```ts
 // src/domain/units/conversions.ts
@@ -839,7 +839,7 @@ export function toMetres(value: Millimetres | null | undefined): Metres | null {
 }
 ```
 
-- [ ] **Step 6 : Lancer le test — il doit passer**
+- [x] **Step 6 : Lancer le test — il doit passer**
 
 ```bash
 npx jest tests/domain/units --verbose
@@ -847,7 +847,7 @@ npx jest tests/domain/units --verbose
 
 Attendu : `PASS`, 10 tests.
 
-- [ ] **Step 7 : Vérifier que le garde-fou de compilation est réellement actif**
+- [x] **Step 7 : Vérifier que le garde-fou de compilation est réellement actif**
 
 Le test `@ts-expect-error` ne prouve rien tant que `tsc` n'a pas tourné sur le fichier de test.
 
@@ -866,7 +866,7 @@ Attendu : `error TS2345: Argument of type 'CubicMetresPerSecond' is not assignab
 type 'LitresPerSecond'`. **Remettre le commentaire ensuite.** Sans cette contre-épreuve, on ne sait
 pas si le type protège ou si le test est décoratif.
 
-- [ ] **Step 8 : Commit**
+- [x] **Step 8 : Commit**
 
 ```bash
 git add src/domain/units tests/domain/units
@@ -887,7 +887,7 @@ est un défaut de conception. [`ADR-006`](../../adr/ADR-006-onde-quatre-categori
 **6 codes**, projetés sur **4 catégories**. Les codes sont des **chaînes** (`"1a"`, `"1f"`), pas des
 entiers (`C-10`).
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/domain/nomenclature/flowCategory.test.ts
@@ -942,7 +942,7 @@ describe("exhaustivité garantie par le compilateur", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/domain/nomenclature --verbose
@@ -950,7 +950,7 @@ npx jest tests/domain/nomenclature --verbose
 
 Attendu : `FAIL`, `Cannot find module '@domain/nomenclature/exhaustive'`.
 
-- [ ] **Step 3 : Écrire la garde `never`**
+- [x] **Step 3 : Écrire la garde `never`**
 
 ```ts
 // src/domain/nomenclature/exhaustive.ts
@@ -965,7 +965,7 @@ export function assertNever(value: never): never {
 }
 ```
 
-- [ ] **Step 4 : Écrire la nomenclature**
+- [x] **Step 4 : Écrire la nomenclature**
 
 ```ts
 // src/domain/nomenclature/flowCategory.ts
@@ -1001,7 +1001,7 @@ export function flowCategoryFromOndeCode(code: string): FlowCategory {
 }
 ```
 
-- [ ] **Step 5 : Lancer — il doit passer**
+- [x] **Step 5 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/domain/nomenclature --verbose
@@ -1009,7 +1009,7 @@ npx jest tests/domain/nomenclature --verbose
 
 Attendu : `PASS`, 4 tests.
 
-- [ ] **Step 6 : Commit**
+- [x] **Step 6 : Commit**
 
 ```bash
 git add src/domain/nomenclature tests/domain/nomenclature
@@ -1038,7 +1038,7 @@ téléchargée peut avoir neuf jours, et c'est le cas en production (`BR-001`).
 Fonction **pure** — l'horloge est un paramètre, jamais `Date.now()` appelé à l'intérieur, sinon le
 test aux bornes est impossible. Et ce sont les bornes qui portent la règle.
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/domain/observation/freshness.test.ts
@@ -1094,7 +1094,7 @@ describe("fraîcheur d'une observation hydrométrique (BR-005)", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/domain/observation --verbose
@@ -1102,7 +1102,7 @@ npx jest tests/domain/observation --verbose
 
 Attendu : `FAIL`, `Cannot find module '@domain/observation/freshness'`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // src/domain/observation/freshness.ts
@@ -1133,7 +1133,7 @@ export function freshnessOf(observedAt: Date, now: Date): Freshness {
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/domain/observation --verbose
@@ -1141,7 +1141,7 @@ npx jest tests/domain/observation --verbose
 
 Attendu : `PASS`, 8 tests.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add src/domain/observation tests/domain/observation
@@ -1172,7 +1172,7 @@ champ synthétique qui les fusionnerait.
 | **La hauteur peut être négative** | `resultat_obs = -1232.0` sur `K447001001`, soit −1,232 m sous le zéro de l'échelle. **N'ajouter aucun contrôle de signe** |
 | Statuts observés | `code_statut` 4 « Brute », 8 « Corrigée » ; `code_qualification_obs` 16 « Non qualifiée » |
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/domain/station/station.test.ts
@@ -1191,7 +1191,7 @@ describe("code station (C-05)", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/domain/station --verbose
@@ -1199,7 +1199,7 @@ npx jest tests/domain/station --verbose
 
 Attendu : `FAIL`, `Cannot find module '@domain/station/station'`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // src/domain/station/station.ts
@@ -1276,7 +1276,7 @@ export interface StationRepository {
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/domain/station --verbose && npm run verify
@@ -1284,7 +1284,7 @@ npx jest tests/domain/station --verbose && npm run verify
 
 Attendu : `PASS`, 2 tests, puis la chaîne complète verte.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add src/domain tests/domain
@@ -1305,7 +1305,7 @@ git commit -m "feat(domain): entites station et observation, interfaces de depot
 la revue et casse à la première pagination. Constaté le 2026-07-31 : `size=1` renvoie **206**,
 `size=5000` renvoie **200** — sur le même endpoint.
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/data/http/httpStatus.test.ts
@@ -1329,7 +1329,7 @@ describe("statuts de succès Hub'Eau (C-06)", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/data/http --verbose
@@ -1337,7 +1337,7 @@ npx jest tests/data/http --verbose
 
 Attendu : `FAIL`, `Cannot find module`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // src/data/http/httpStatus.ts
@@ -1355,7 +1355,7 @@ export function isSuccess(status: number): boolean {
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/data/http --verbose
@@ -1363,7 +1363,7 @@ npx jest tests/data/http --verbose
 
 Attendu : `PASS`, 3 tests.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add src/data/http tests/data/http
@@ -1381,7 +1381,7 @@ git commit -m "feat(data): normalise 200 et 206 en succes (C-06)"
 `C-15` : aucun SLA, aucun quota chiffré. Le backoff **doit** porter une gigue — sans elle, toute la
 base installée réessaie en même temps après une panne et forme un troupeau tonnant.
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/data/http/retry.test.ts
@@ -1409,7 +1409,7 @@ describe("backoff exponentiel à gigue (C-15)", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/data/http/retry.test.ts --verbose
@@ -1417,7 +1417,7 @@ npx jest tests/data/http/retry.test.ts --verbose
 
 Attendu : `FAIL`, `Cannot find module`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // src/data/http/retry.ts
@@ -1439,7 +1439,7 @@ export function delayForAttempt(
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/data/http/retry.test.ts --verbose
@@ -1447,7 +1447,7 @@ npx jest tests/data/http/retry.test.ts --verbose
 
 Attendu : `PASS`, 3 tests.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add src/data/http/retry.ts tests/data/http/retry.test.ts
@@ -1464,7 +1464,7 @@ git commit -m "feat(data): backoff exponentiel a gigue (C-15)"
 
 C'est ici, et **nulle part ailleurs**, que la conversion de `D1` s'applique ([`BR-002`](../../br/BR-002-debit-en-metres-cubes-par-seconde.md)).
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/data/mappers/hydroObservationMapper.test.ts
@@ -1504,7 +1504,7 @@ describe("mapper des observations temps réel", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/data/mappers --verbose
@@ -1512,7 +1512,7 @@ npx jest tests/data/mappers --verbose
 
 Attendu : `FAIL`, `Cannot find module`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // src/data/mappers/hydroObservationMapper.ts
@@ -1556,7 +1556,7 @@ export function mapHydroObservation(payload: HydroObservationPayload): HydroObse
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/data/mappers --verbose && npm run verify
@@ -1564,7 +1564,7 @@ npx jest tests/data/mappers --verbose && npm run verify
 
 Attendu : `PASS`, 4 tests, puis chaîne complète verte.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add src/data/mappers tests/data/mappers
@@ -1579,7 +1579,7 @@ git commit -m "feat(hydrometrie): mappe observations_tr avec conversion unique (
 - Create: `src/data/http/hubEauClient.ts`
 - Test: `tests/data/http/hubEauClient.test.ts`
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/data/http/hubEauClient.test.ts
@@ -1622,7 +1622,7 @@ describe("client Hub'Eau", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/data/http/hubEauClient.test.ts --verbose
@@ -1630,7 +1630,7 @@ npx jest tests/data/http/hubEauClient.test.ts --verbose
 
 Attendu : `FAIL`, `Cannot find module`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // src/data/http/hubEauClient.ts
@@ -1674,7 +1674,7 @@ export function createHubEauClient(options: HubEauClientOptions = {}) {
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/data/http --verbose
@@ -1682,7 +1682,7 @@ npx jest tests/data/http --verbose
 
 Attendu : `PASS`, 9 tests sur l'ensemble du dossier `http`.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add src/data/http/hubEauClient.ts tests/data/http/hubEauClient.test.ts
@@ -1701,7 +1701,7 @@ git commit -m "feat(data): client Hub'Eau avec retry et 206 accepte"
 [`ADR-010`](../../adr/ADR-010-react-native.md).** Le stale-while-revalidate vit **ici et nulle part
 ailleurs** — ni dans un dépôt, ni dans un écran. Chaque recopie est une divergence future.
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/application/cachePolicy.test.ts
@@ -1771,7 +1771,7 @@ describe("stale-while-revalidate (03-conception.md § 4.1)", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/application --verbose
@@ -1779,7 +1779,7 @@ npx jest tests/application --verbose
 
 Attendu : `FAIL`, `Cannot find module`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // src/application/cachePolicy.ts
@@ -1835,7 +1835,7 @@ export function withCachePolicy<T>(options: CachePolicyOptions<T>): () => Promis
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/application --verbose && npm run verify
@@ -1843,7 +1843,7 @@ npx jest tests/application --verbose && npm run verify
 
 Attendu : `PASS`, 4 tests, puis chaîne complète verte.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add src/application tests/application

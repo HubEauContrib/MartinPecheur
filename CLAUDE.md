@@ -20,7 +20,7 @@
 
 | Tranche | Prouve | Statut |
 |---|---|---|
-| **T0** | Socle React Native + carte MapLibre + socle domaine + outillage percentiles | 🔄 **plan écrit le 2026-07-31** — `docs/superpowers/plans/2026-07-31-t0-socle-react-native.md`. Exécution en cours |
+| **T0** | Socle React Native + carte MapLibre + socle domaine + outillage percentiles | 🔄 **12 tâches sur 23 au 2026-08-15** — `docs/superpowers/plans/2026-07-31-t0-socle-react-native.md`. Lots 0 (hors `S5`), 1 et 2 ✅ · lot 4 à faire · **lot 3 (carte) bloqué : outillage Android absent de la machine** |
 | **T1** | Carte, fiches, les 4 avertissements | 🔄 |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Hors-ligne complet, favoris, filtres | 🔄 |
@@ -69,8 +69,8 @@ UI (écrans React)  →  application/       →  domain/
 | Cible | **Android et iOS** (`ADR-010`). ⚠️ **Windows abandonné le 2026-07-31**, un jour après son ajout | 🔄 |
 | Carte | **`@maplibre/maplibre-react-native` v11+** — MapLibre **Native**, rendu GPU. Fond **IGN Géoplateforme** (WMTS) | 🔄 ✅ *v11.3.6 courante, vérifiée le 2026-07-31.* ⚠️ **v11 a changé l'API hors-ligne** : id auto-généré, `addListener`/`removeListener` |
 | Hors-ligne carto | **`OfflineManager.createPack`** — région + niveaux de zoom | 🔄 ✅ *le chemin raster existe* : `SourceType::Raster` traité comme `Vector` dans `offline_download.cpp`, et la tuile IGN répond en 256×256 `TILEMATRIXSET=PM` — les deux vérifiés le 2026-07-31. ⚠️ **Rien n'a été exécuté** : tâche `M4` du plan T0 |
-| CQRS | `Query`/`Command` typés + handlers + décorateur `CachePolicy`. **Aucune bibliothèque de médiateur** | 🔄 |
-| HTTP | `fetch` + retry, backoff exponentiel à gigue. **Normaliser 200 et 206** (`C-06`) | 🔄 |
+| CQRS | `Query`/`Command` typés + handlers + décorateur `CachePolicy`. **Aucune bibliothèque de médiateur** | 🔄 ✅ *le décorateur existe* — `src/application/cachePolicy.ts` (`N5`, 6 tests). ⚠️ **`bus.ts` et les `Query`/`Command` typés n'existent pas encore** : ils arrivent avec les premiers écrans, en T1 |
+| HTTP | `fetch` + retry, backoff exponentiel à gigue. **Normaliser 200 et 206** (`C-06`) | ✅ **2026-08-15** — `httpStatus.ts`, `retry.ts` (gigue injectée, donc testable), `hubEauClient.ts` : retry sur 429/5xx, jamais sur 4xx |
 | Stockage | SQLite — `expo-sqlite` **ou** `op-sqlite` | 💭 à trancher |
 | Graphes | pour la courbe de débit (`US-11`) | 💭 à trancher |
 | Tests | **Jest** + `ts-jest`, projet `unit` en environnement **node**, **sans** préréglage `jest-expo` | ✅ **tranché le 2026-07-31.** Le choix n'est pas esthétique : sans transformation React Native, un import de framework depuis `domain/` **casse le test** au lieu de passer inaperçu. `jest-expo` arrivera en T1, en second projet, pour les composants |
