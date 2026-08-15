@@ -186,7 +186,24 @@ et ne contient pas les versions qu'attend l'écosystème React Native.**
 |---|---|---|
 | 1 | `build-tools;35.0.0` réclamée par le module `:expo`, absente (seule la 36.0.0 est là). Gradle tente de l'installer et échoue : écriture refusée sous `Program Files (x86)` | ✅ **contourné** — forcer `buildToolsVersion = "36.0.0"` sur tous les sous-projets dans `android/build.gradle` fait passer le build de 28 à 144 tâches |
 | 2 | Installation par `sdkmanager` en ligne de commande | 🚫 **échoue en silence** : n'affiche que `Failed to read or create install properties file`, ne renvoie aucun code d'erreur, et n'écrit rien. Piège à connaître |
-| 3 | **NDK `27.1.12297006`** trop ancien pour React Native `0.86.2` : le link C++ d'`expo-modules-core` ne résout ni `operator new`, ni `operator delete`, ni `std::__ndk1::…` | 🚫 **non résolu** — c'est le point d'arrêt |
+| 3 | Le link C++ d'`expo-modules-core` ne résout ni `operator new`, ni `operator delete`, ni `std::__ndk1::…`. **Cause réelle : le SDK est installé sous `C:\Program Files (x86)\…`.** Le NDK ne supporte pas les espaces ni les parenthèses dans son chemin : Windows le réduit en notation 8.3, `clang++.exe` devient `CLANG_~1.EXE`, et **clang choisit son mode C ou C++ d'après son propre nom d'exécutable**. Privé de ses `++`, il compile en C et ne lie pas la bibliothèque standard C++ | 🚫 **non résolu** — c'est le point d'arrêt |
+
+> ⚠️ Deux diagnostics **faux** ont été écrits ici avant celui-ci : « NDK trop ancien » et « NDK
+> incomplet ». Les deux sont démentis — le NDK `27.1.12297006` (r27b, 2,3 Go) est complet, et
+> `libc++_shared.so` est présent pour **les quatre** architectures cibles, x86_64 comprise. Le NDK
+> n'est pas en cause : **son chemin l'est**.
+
+**La correction, pour la reprise.** Le SDK utilisateur `C:\Users\<user>\AppData\Local\Android\Sdk`
+ne contient **ni espace ni parenthèse** et il est **inscriptible sans élévation** — il lève donc
+les points 1, 2 et 3 d'un coup :
+
+1. Par l'assistant d'Android Studio (`SDK Manager`), installer dans **ce** SDK : `SDK Platform 36`,
+   `Build-Tools 36`, `NDK 27.1.12297006`, et une image système x86_64.
+2. Pointer `ANDROID_HOME` dessus, puis rouvrir le terminal.
+3. `npx expo prebuild --platform android --clean` puis `npx expo run:android`.
+
+Le contournement `buildToolsVersion` d'`android/build.gradle` deviendra alors **inutile** : à ne
+pas pérenniser en config plugin tant que ce chemin n'a pas été essayé.
 
 > Le contournement du point 1 vit dans `android/`, **régénéré par `expo prebuild`** : il disparaîtra
 > au prochain prebuild. S'il faut le garder, il devra devenir un config plugin Expo versionné — et
