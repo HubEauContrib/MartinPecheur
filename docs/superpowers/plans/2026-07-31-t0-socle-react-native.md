@@ -2019,7 +2019,23 @@ git commit -m "feat(map): fond IGN en source raster WMTS"
 `03-conception.md § 6` : clustering **obligatoire** dès le zoom départemental, chargement par
 viewport avec anti-rebond de 300–500 ms.
 
-- [ ] **Step 1 : Écrire la couche**
+> ✅ **Exécutée le 2026-08-15.** Le code ci-dessous est **caduc** : il décrit l'API v10. Quatre
+> écarts constatés, tous vérifiés dans les typings de `11.3.6` avant d'écrire :
+>
+> | Le plan écrit | La v11 |
+> |---|---|
+> | `ShapeSource`, `CircleLayer`, `SymbolLayer` | `GeoJSONSource` et un `Layer` générique — les trois composants **n'existent plus** |
+> | `clusterMaxZoomLevel` | `clusterMaxZoom` |
+> | `style={{ circleRadius: … }}` | `paint={{ "circle-radius": … }}` — style-spec en kebab-case. `style` est déprécié, retiré en v12 |
+> | `declare module "*.geojson"` suffirait | **Non.** `metro-transform-worker/src/index.js:474` ne reconnaît le JSON que sur le suffixe `.json`. L'asset a été renommé `stations.json` ; il est chargé par `require` typé, car `resolveJsonModule` ferait inférer à `tsc` le type littéral de 4 150 entités |
+>
+> ⚠️ **Le libellé chiffré des clusters n'est pas livré, délibérément.** Une couche `symbol` avec
+> `text-field` exige une source de glyphes ; `ignRasterStyle` n'en déclare pas et aucune URL de
+> police IGN n'a été vérifiée par appel réel. La couche ne rendrait **rien, sans erreur**. Le
+> nombre est encodé par la taille et la couleur du cercle. Livrable réel :
+> `src/features/map/StationLayer.tsx` et `stationsAsset.ts` (5 tests).
+
+- [x] **Step 1 : Écrire la couche**
 
 ```tsx
 // src/features/map/StationLayer.tsx
@@ -2056,7 +2072,7 @@ export function StationLayer() {
 }
 ```
 
-- [ ] **Step 2 : Autoriser l'import de GeoJSON en TypeScript**
+- [x] **Step 2 : Autoriser l'import de GeoJSON en TypeScript**
 
 ```ts
 // src/types/geojson.d.ts
@@ -2066,7 +2082,7 @@ declare module "*.geojson" {
 }
 ```
 
-- [ ] **Step 3 : Vérifier**
+- [x] **Step 3 : Vérifier**
 
 ```bash
 npm run verify && npx expo run:android
@@ -2074,7 +2090,7 @@ npm run verify && npx expo run:android
 
 Attendu : chaîne verte, carte affichée avec des clusters.
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 
 ```bash
 git add src/features/map src/types
@@ -2318,7 +2334,18 @@ git commit -m "feat(hydrometrie): script d'aspiration de l'historique obs_elab"
 [`BR-004`](../../br/BR-004-historique-insuffisant-indetermine.md) : moins de **10 années** sur une
 quinzaine → `Indetermine`. **Jamais un percentile calculé sur un échantillon trop mince.**
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+> ✅ **Exécutée le 2026-08-15**, avec **deux corrections de fond** :
+>
+> | Le plan écrit | Le défaut |
+> |---|---|
+> | `nbAnnees: echantillon.length` | **Casse `BR-004`.** `QmnJ` est un débit **journalier** : une quinzaine sur dix ans porte ~150 relevés, pas 10. Neuf années franchiraient le seuil sans que rien ne le signale. Le livrable compte les **années distinctes**, et expose `nbReleves` à part |
+> | *(la quinzaine n'est définie nulle part)* | Ni `P2` ni `P3` ne disent comment une date devient un index 0–23, alors que `BR-004` compte les années **sur la quinzaine calendaire**. `fortnightIndex` est ajouté, lu en **UTC** — passer par le fuseau local ferait basculer un relevé du 15 au 16 selon la machine qui régénère l'asset |
+>
+> Deux ajouts mineurs : les valeurs entrent en `CubicMetresPerSecond` *branded* (la conversion
+> reste dans `domain/units/conversions`, `BR-002`), et `tools/` est entré dans le périmètre
+> d'ESLint — il en était **entièrement absent**, alors qu'il produit un livrable versionné.
+
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/tools/percentiles/computePercentiles.test.ts
@@ -2351,7 +2378,7 @@ describe("percentiles par quinzaine (BR-004)", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/tools/percentiles --verbose
@@ -2359,7 +2386,7 @@ npx jest tests/tools/percentiles --verbose
 
 Attendu : `FAIL`, `Cannot find module`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // tools/percentiles/computePercentiles.ts
@@ -2413,7 +2440,7 @@ export function percentilesForFortnight(
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/tools/percentiles --verbose
@@ -2421,7 +2448,7 @@ npx jest tests/tools/percentiles --verbose
 
 Attendu : `PASS`, 3 tests.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add tools/percentiles tests/tools/percentiles
@@ -2489,7 +2516,7 @@ export function writeAsset(asset: AssetPercentiles, chemin: string): void {
 }
 ```
 
-- [ ] **Step 2 : Générer et mesurer**
+- [x] **Step 2 : Générer et mesurer**
 
 ```bash
 node --experimental-strip-types tools/percentiles/buildAsset.ts
@@ -2499,12 +2526,12 @@ gzip -c assets/percentiles/reference.json | wc -c
 
 Relever la taille brute **et** la taille compressée — un APK compresse ses assets.
 
-- [ ] **Step 3 : Reporter le chiffre dans `ADR-003`**
+- [x] **Step 3 : Reporter le chiffre dans `ADR-003`**
 
 Le poids conditionne la décision d'embarquer l'asset. S'il dépasse ce qu'`ADR-003` anticipait,
 **c'est la décision qu'il faut revoir, pas le chiffre**.
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 
 ```bash
 git add tools/percentiles/buildAsset.ts assets/percentiles docs/adr/ADR-003-reference-percentiles-en-asset.md
@@ -2520,7 +2547,7 @@ git commit -m "feat(hydrometrie): asset de percentiles et poids mesure (ADR-003)
 
 L'asset est un **livrable versionné**, pas un fichier apparu un jour dans le dépôt.
 
-- [ ] **Step 1 : Écrire la procédure**
+- [x] **Step 1 : Écrire la procédure**
 
 ```markdown
 # Asset de percentiles — régénération
@@ -2554,7 +2581,7 @@ licence MIT du dépôt ne l'éteint pas. L'écran « À propos » doit porter :
 Remplacer chaque `_(à relever)_` par le chiffre constaté — **un livrable ne se documente pas au
 conditionnel.**
 
-- [ ] **Step 2 : Commit**
+- [x] **Step 2 : Commit**
 
 ```bash
 git add tools/percentiles/README.md

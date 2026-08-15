@@ -1,6 +1,6 @@
 # État du projet
 
-**Mis à jour :** 2026-08-15
+**Mis à jour :** 2026-08-15 — après exécution de `M4` puis `M3`
 
 ## Où on en est
 
@@ -21,7 +21,7 @@ de la stack.
 | Cas d'usage | ✅ 6 cas, flux nominaux et alternatifs |
 | Avertissements | ✅ Les 4 emplacements spécifiés, textes rédigés |
 | Stack | ✅ **Tranchée le 2026-07-31** — React Native (`ADR-010`), arbitrage du commanditaire |
-| Hors-ligne cartographique | ✅ **N'est plus un risque** — `OfflineManager.createPack` vérifié le 2026-07-31 |
+| Hors-ligne cartographique | 🚨 **Redevenu un risque, et le plus sérieux du projet.** Le constat du 2026-07-31 était une **lecture de code source**, pas une exécution. Exécutée le **2026-08-15**, `OfflineManager.createPack` **tue le processus** — [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md) |
 
 ## Code
 
@@ -33,7 +33,7 @@ de la stack.
 | `S1` | Projet Expo `57.0.9`, TypeScript `6.0.3`, code sous `src/` | ✅ `08bf832` |
 | `S2` | `tsconfig` durci — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, alias de couches | ✅ `08bf832` |
 | `S3` | Jest projet `unit` (node, sans `jest-expo`) + ESLint + test d'architecture | ✅ `8c6ed61` |
-| `S4` | Référentiel figé — **4 150 stations**, 6 604 249 octets, tous codes à 10 caractères | ✅ `0a76733` |
+| `S4` | Référentiel figé — **4 150 stations**, 6 604 249 octets, tous codes à 10 caractères. ⚠️ Renommé `stations.json` en `M3` : Metro ne reconnaît le JSON que sur ce suffixe | ✅ `0a76733` |
 | `D1` | **Conversion d'unités avec types *branded*** — 10 tests | ✅ `17d3359` |
 | `D2` | Nomenclature ONDE close, branche `Inconnu`, garde `never` | ✅ `37cd92a` |
 | `D3` | Fraîcheur d'observation aux bornes de `BR-005` (2 h / 24 h) | ✅ `20842be` |
@@ -46,20 +46,32 @@ de la stack.
 | `S5` | Bibliothèque SQLite → `ADR-011` | 🔄 mesurable sur l'émulateur ; le critère « entrée de gamme » demande en plus un **appareil réel** |
 | `M1` | **MapLibre 11.3.6 compile et l'app démarre sur l'émulateur** — APK de 58 Mo | ✅ `b035424` |
 | `M2` | **Fond IGN raster affiché sur émulateur — `NV-2` levé** : le gabarit KVP survit à l'expansion `{z}/{x}/{y}` | ✅ `0c3596a` |
-| `M3`–`M5` | Marqueurs et clustering, pack hors-ligne, mesure | 🔄 à faire |
+| `M4` | **Pack hors-ligne — exécuté, résultat négatif.** `createPack` plante en natif (`SIGABRT`, `std::regex_error`, fil `DatabaseFileSource`), **4 essais sur 4**. `NV-1`, `NV-3`, `NV-4`, `NV-6` **non levés** | 🚨 `ADR-012` |
+| `M3` | **Clustering des 4 150 stations sur le fond IGN** — constaté à l'écran aux échelles départementale et nationale. API v11 (`GeoJSONSource` + `Layer`), 5 tests sur l'asset | ✅ |
+| `M5` | Mesure sur Android d'entrée de gamme réel (`NV-5`) | 🔄 **appareil requis** — procédure prête : [`guide-test-appareil.md`](guide-test-appareil.md) |
 | `P1` | Script d'aspiration `obs_elab` — `C-04` reconfirmé par appel réel | ✅ `e535e27` |
-| `P2`–`P4` | Percentiles par quinzaine, format d'asset, régénération | 🔄 à faire |
+| `P2` | Percentiles par quinzaine — **seuil `BR-004` sur les années distinctes**, pas sur les relevés. `fortnightIndex` en UTC | ✅ `0954f9e` |
+| `P3` | Chaîne complète et **poids mesuré sur 40 stations réelles** : 479 octets/station bruts, 177 gzip, 1,69 s/station | ✅ |
+| `P4` | Procédure de régénération — `tools/percentiles/README.md` | ✅ |
 
 **Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
-**98 tests** sur 12 suites *(mesuré le 2026-08-15)*.
+**149 tests** sur 18 suites *(mesuré le 2026-08-15, après `M4`, `M3` et le lot 4)*.
 
-> ⚠️ **Deux écarts entre le plan T0 et le code livré**, constatés en exécutant `N3` et `N4`. Le code
-> a raison, le plan est une esquisse antérieure :
+> ⚠️ **Neuf écarts entre le plan T0 et le code livré.** Le code a raison, le plan est une esquisse
+> antérieure. Les sept derniers ont été constatés **en jouant `M4` puis `M3`** — le plan décrit
+> l'API MapLibre **v10**, le projet est en **v11** :
 >
-> | Le plan écrit | `D2`/`D4` ont livré |
+> | Le plan écrit | Le constat |
 > |---|---|
-> | `HydroObservation.libelleQualification: string \| null` | un objet `Qualification` à 4 champs — `BR-006` demande le **statut** aussi, pas seulement la qualification |
+> | `HydroObservation.libelleQualification: string \| null` | `D2`/`D4` ont livré un objet `Qualification` à 4 champs — `BR-006` demande le **statut** aussi |
 > | `delayForAttempt(attempt, 500, 30_000)` | `delayForAttempt(attempt, jitter?)` — base et plafond sont des constantes du module |
+> | `mapStyle: JSON.stringify(ignRasterStyle)` | `mapStyle` est une **URL de style**. Un style sérialisé donne `Unable to parse resourceUrl {"version":8,…` |
+> | *(rien sur les URI `data:`)* | Une URI `data:` **n'est pas résolue** : région `active`, `tuiles=0`, **aucune erreur**. Échec silencieux |
+> | *(rien sur le plafond de tuiles)* | Le plafond par défaut est **6000** ; le dépasser **interrompt** le téléchargement et laisse un pack tronqué |
+> | `ShapeSource`, `CircleLayer`, `SymbolLayer` | **N'existent plus en v11** : `GeoJSONSource` et un `Layer` générique |
+> | `clusterMaxZoomLevel` | `clusterMaxZoom` |
+> | `style={{ circleRadius: … }}` | `paint={{ "circle-radius": … }}` — style-spec en kebab-case ; `style` est déprécié, retiré en v12 |
+> | `declare module "*.geojson"` suffit à importer l'asset | **Non.** `metro-transform-worker/src/index.js:474` ne reconnaît le JSON que sur le suffixe `.json`. L'asset est renommé **`stations.json`** et chargé par `require` typé — `resolveJsonModule` ferait sinon inférer à `tsc` le type littéral de 4 150 entités |
 
 ### Ce qui a été contre-éprouvé, et pas seulement écrit
 
@@ -106,12 +118,13 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 | 2 | Trois ADR tranchés **sans arbitrage du commanditaire** : `ADR-002`, `ADR-004`, `ADR-006` | Décisions par défaut, réversibles. Chacune porte sa section « Si la décision est revue » |
 | 3 | **Réduction de périmètre à valider** : la qualité de l'eau, annoncée au cadrage, n'est pas livrée (`ADR-007`) | À porter explicitement auprès du commanditaire |
 | 4 | Le cadrage annonçait **3 modalités ONDE** ; il y en a **6** (`ADR-006`) | Corrigé dans la spec |
-| 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
+| 5 | ~~Poids réel de l'asset de percentiles~~ — **mesuré le 2026-08-15** sur 40 stations réelles : 479 octets/station bruts, 177 gzip. Extrapolé à 4 150 : ≈ 2,0 Mo bruts, ≈ 0,73 Mo gzip. Le poids ne remet pas `ADR-003` en cause | Clos — reste à confirmer sur la passe complète (~2 h) |
+| 5 bis | 🚨 **`Indéterminé` concerne près d'une station sur deux.** Sur l'échantillon : **19 stations sur 40 sans aucune quinzaine calculable**, 48,8 % des quinzaines. `ADR-002` fonde le positionnement statistique du débit sur cet asset ; pour la moitié des stations il n'existera **jamais** | **Ouvert.** Le commanditaire a demandé le 2026-08-15 de **confirmer sur la passe complète** avant d'en tirer une conséquence produit. ⚠️ **Or cette passe n'est pas lancée** (~2 h, décision « pas maintenant » le même jour) : le point reste donc en attente, sans échéance. Un échantillon de 200 stations le resserrerait en ~6 minutes |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
 | 7 | **Hôte macOS** pour produire un build iOS | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
 | 7 bis | ~~Outillage Android~~ — **levé le 2026-08-15** : inventaire refait (tableau ci-dessous), tout est en place, `ANDROID_HOME` compris. Le lot 3 n'a jamais été bloqué | Clos |
 | 8 | Bibliothèque SQLite, bibliothèque de graphes, outil de test | À trancher (`ADR-010` § « Points à vérifier ») |
-| 9 | ~~Téléchargement de tuiles hors-ligne~~ — **levé le 2026-07-31** : `OfflineManager.createPack` le fournit | Clos par `ADR-010` |
+| 9 | 🚨 **Téléchargement de tuiles hors-ligne — ROUVERT le 2026-08-15.** Le « levé » du 2026-07-31 reposait sur une lecture de code, pas sur une exécution. Exécuté, `createPack` **plante** | **Arbitrage du commanditaire** — [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md) |
 | 10 | ~~Behaviors BrilliantMediator~~, ~~AOT et trimming~~, ~~portage Windows~~ | Sans objet depuis `ADR-010` |
 
 ## Vérifications du 2026-07-31 — carte et hors-ligne
@@ -132,11 +145,12 @@ Faites avant d'écrire le plan T0, par appel réel et lecture de code source.
 
 ## Points non vérifiés, assumés comme tels
 
-- **Que `createPack` télécharge effectivement les tuiles d'un WMTS IGN à l'exécution.** Le code C++ le prévoit ; aucune exécution ne l'a constaté. C'est l'hypothèse qui porte tout le hors-ligne — tâche `M4` du plan T0.
-- **Que l'URL KVP du WMTS IGN survive au *templating* de MapLibre.** Elle contient `?` et `&` ; l'expansion `{z}/{x}/{y}` n'a pas été observée dessus — tâche `M2`.
-- **Que `tileset.tiles[0]` suffise.** MapLibre n'utilise que la **première** URL du tableau `tiles` pour le hors-ligne : déclarer des miroirs ne les téléchargerait pas.
-- **Le chemin raster hors-ligne n'a aucun test amont** : `test/storage/offline_download.test.cpp` de `maplibre-native` ne contient **aucune** occurrence de « raster ».
-- **Le volume d'un pack départemental.** Un raster 256 px produit ~4× plus de tuiles qu'un vectoriel 512 px au même zoom.
+- 🚨 **Que `createPack` télécharge les tuiles d'un WMTS IGN.** **Toujours pas vérifié au 2026-08-15, et désormais non testable :** l'appel plante avant qu'une tuile soit téléchargée. **Ni confirmé, ni infirmé** — `ADR-012`.
+- 🚨 **Que `tileset.tiles[0]` suffise** (`NV-3`) — bloqué par le même plantage.
+- 🚨 **Le volume d'un pack départemental** (`NV-4`) — **aucun octet mesuré**, bloqué par le même plantage.
+- 🚨 **Le chemin raster hors-ligne n'a aucun test amont** (`NV-6`) : `test/storage/offline_download.test.cpp` de `maplibre-native` ne contient aucune occurrence de « raster ». Non levé.
+- **Que le plantage de `createPack` soit propre à l'émulateur `x86_64`.** Le constat porte sur **un seul environnement**. Ni `arm64` réel, ni iOS — c'est l'essai le moins cher pour réduire la portée du problème.
+- ~~Que l'URL KVP du WMTS IGN survive au *templating*~~ — **levé le 2026-08-15** (`M2`).
 - Comportement de `maplibre-react-native` v11+ **en volume réel** (~4 140 points, clustering) sur Android d'entrée de gamme. Attendu bien meilleur qu'un WebView, mais **non mesuré**.
 - Version exacte de la Licence Ouverte Etalab pour Hub'Eau (1.0 ou 2.0).
 - Fenêtre du `X-RateLimit-Limit: 300` de VigiEau.
@@ -253,9 +267,12 @@ Ce qui a changé dans la logique du plan : **le spike carte a perdu son caractè
 existait pour lever un doute sur le WebView ; MapLibre Native le rend sans objet. La séquence est
 redevenue linéaire — socle, domaine, carte — au lieu de trois voies dont une conditionnait tout.
 
-⚠️ **Ce qui reste vrai malgré cela :** `M4` — constater le pack hors-ligne raster sur l'IGN — est la
-seule tâche dont l'échec remettrait en cause une décision d'architecture. Elle n'est plus
-*bloquante*, mais elle ne se repousse pas en fin de tranche.
+🚨 **Et c'est exactement ce qui s'est produit.** `M4` était la seule tâche dont l'échec remettrait
+en cause une décision d'architecture. **Exécutée le 2026-08-15, elle a échoué** — non pas parce que
+le raster hors-ligne ne marche pas, mais parce que `createPack` fait mourir le processus avant de
+pouvoir le dire. Ne pas l'avoir repoussée en fin de tranche est ce qui a permis de le découvrir
+avant que des écrans en dépendent. Arbitrage :
+[`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md).
 
 ⚠️ **Ce qui reste vrai malgré la bascule :** la mesure sur un **Android d'entrée de gamme réel**
 garde son intérêt. Le rendu natif est attendu bien meilleur, mais « attendu » n'est pas « mesuré ».

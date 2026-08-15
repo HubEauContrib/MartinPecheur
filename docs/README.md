@@ -22,6 +22,8 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application mob
 | [`context-map.md`](context-map.md) | **Carte des contextes** — 6 contextes bornés et leurs sources externes | — |
 | [`project-state.md`](project-state.md) | **État vivant** — où on en est, ce qui bloque | — |
 | [`guide-installation.md`](guide-installation.md) | Installation du poste de développement, et ses pièges | — |
+| [`guide-release.md`](guide-release.md) | **Livrer un APK à un testeur distant** — commandes, signature, verrou produit | — |
+| [`guide-test-appareil.md`](guide-test-appareil.md) | **Tester sur un Android réel** — procédure de `M4` et `M5`, seuils fixés d'avance | — |
 
 ## Cadrage produit
 
@@ -38,7 +40,7 @@ Les quatre livrables de cadrage, en tête de dossier :
 
 | Plan | Tranche | Statut |
 |---|---|---|
-| [`2026-07-31-t0-socle-react-native.md`](superpowers/plans/2026-07-31-t0-socle-react-native.md) | **T0** — socle Expo, domaine, données, carte, outillage percentiles | 🔄 **15 tâches sur 23** au 2026-08-15 |
+| [`2026-07-31-t0-socle-react-native.md`](superpowers/plans/2026-07-31-t0-socle-react-native.md) | **T0** — socle Expo, domaine, données, carte, outillage percentiles | 🔄 **21 tâches sur 23** au 2026-08-15 — restent `S5` et `M5`, tous deux en attente d'un **appareil Android réel** |
 | [`2026-07-30-t0-spike-carte-et-socle.md`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md) | T0 en .NET MAUI | 🚫 **caduc** — conservé pour l'historique, **ne pas exécuter** |
 
 ## Index des décisions
@@ -55,11 +57,14 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | CQRS léger, cache par décorateur de handler | **Remplacé par ADR-010** — *le principe survit* |
 | [ADR-009](adr/ADR-009-cible-windows.md) | ~~Ajouter **Windows** aux cibles de la v1~~ | **Remplacé par ADR-010** |
 | [ADR-010](adr/ADR-010-react-native.md) | **React Native**, abandon de MAUI et de Windows | Accepté — arbitrage du commanditaire |
+| [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — `createPack` plante en natif | **Arbitré en première instance** — éprouver sur `arm64` réel avant de trancher |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».
 
 > 🔄 **`ADR-011` reste à écrire** — le choix entre `expo-sqlite` et `op-sqlite` (tâche `S5`).
+> Son numéro lui est **réservé** : `ADR-012` a été écrit avant lui, le 2026-08-15, parce que
+> l'exécution de `M4` l'a imposé.
 
 ## Index des règles métier
 

@@ -1,0 +1,197 @@
+name: Release Android
+
+# Déclenché par un tag `vX.Y.Z[-alpha.N]`, ou à la main pour éprouver la chaîne
+# sans rien publier (le job construit alors l'APK et s'arrête à l'artefact).
+#
+# Le runner Ubuntu porte son propre SDK Android, correctement pointé : le piège
+# n° 2 de docs/guide-release.md — ANDROID_HOME sur le SDK Visual Studio, sans
+# build-tools;35.0.0 — ne s'applique pas ici.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  APK: android/app/build/outputs/apk/release/app-release.apk
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Le contrôle du versionCode lit app.json au tag précédent : sans
+          # l'historique complet, il n'a rien à comparer.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier — typecheck, lint, tests
+        run: npm run verify
+
+      # Le tag et app.json doivent parler de la même version. Sans ce garde-fou,
+      # on publie un « v0.2.0 » qui rapporte 0.1.0 une fois installé.
+      #
+      # ⚠️ Le `versionName` est ce que lit l'humain ; le `versionCode` est ce que
+      # compare Android. Contrôler l'un sans l'autre laissait ouverte la moitié
+      # du piège n° 2 de docs/guide-release.md : deux releases successives
+      # portant toutes deux `versionCode 1` ne s'installent pas l'une sur
+      # l'autre. Il est piloté à la main dans app.json — donc il s'oublie.
+      - name: Contrôler la cohérence du tag et d'app.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(node -p "require('./app.json').expo.version")"
+          CODE="$(node -p "require('./app.json').expo.android.versionCode")"
+          echo "tag=$TAG · version=$VERSION · versionCode=$CODE"
+
+          case "$TAG" in
+            "$VERSION"|"$VERSION"-*) ;;
+            *) echo "::error::Le tag $GITHUB_REF_NAME ne correspond pas à la version $VERSION déclarée dans app.json"; exit 1 ;;
+          esac
+
+          case "$CODE" in
+            ''|*[!0-9]*) echo "::error::app.json ne déclare pas d'android.versionCode entier (lu : « $CODE »)"; exit 1 ;;
+          esac
+
+          PRECEDENT="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+          if [ -z "$PRECEDENT" ]; then
+            echo "Aucun tag antérieur : première release, versionCode=$CODE accepté tel quel."
+          else
+            git show "$PRECEDENT:app.json" > /tmp/app.precedent.json
+            CODE_PRECEDENT="$(node -p "require('/tmp/app.precedent.json').expo.android.versionCode ?? 0")"
+            echo "versionCode précédent ($PRECEDENT) = $CODE_PRECEDENT"
+            if [ "$CODE" -le "$CODE_PRECEDENT" ]; then
+              echo "::error::versionCode $CODE ≤ $CODE_PRECEDENT ($PRECEDENT). Android refuse d'installer par-dessus — incrémenter android.versionCode dans app.json (voir docs/guide-release.md)"
+              exit 1
+            fi
+          fi
+
+      # La note de version porte les limites tant que les avertissements de
+      # BR-012 ne sont pas dans l'application. Elle est soumise à BR-003 et
+      # BR-014 : elle s'écrit à la main, elle ne se génère pas depuis les commits.
+      - name: Exiger une note de version écrite
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          test -s docs/notes-release.md || {
+            echo "::error::docs/notes-release.md est absent ou vide. Une release ne part pas sans note rédigée — voir docs/guide-release.md"
+            exit 1
+          }
+
+      # 🚨 Sans keystore, le gabarit Expo signe la release avec la clé de debug
+      # publique d'Android (alias `androiddebugkey`, mot de passe `android`).
+      # Un APK publié ainsi ne peut plus jamais être mis à jour par un APK signé
+      # d'une vraie clé : la signature ne correspond plus, l'installation
+      # échoue, et le testeur doit désinstaller. On refuse donc de publier avant
+      # même de compiler — quatre minutes plus tôt.
+      - name: Exiger un keystore de release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE" || {
+            echo "::error::Le secret ANDROID_KEYSTORE_BASE64 est absent. Publier sans lui signerait l'APK avec la clé de debug publique d'Android — voir docs/guide-release.md"
+            exit 1
+          }
+
+      - name: Générer le projet natif
+        run: npx expo prebuild --platform android --clean --no-install
+
+      # Le keystore n'existe que le temps du job, hors du dépôt (.gitignore
+      # couvre déjà *.jks et *.key). Il arrive en base64 pour traverser
+      # l'interface des secrets sans être abîmé.
+      #
+      # Le test se fait dans le shell, pas dans un `if:` de step : le contexte
+      # `secrets` n'est pas disponible dans `steps[*].if`.
+      - name: Déposer le keystore
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > android/app/release.keystore
+            echo "Keystore déposé."
+          else
+            echo "Aucun keystore fourni — l'APK sera signé en debug, donc non publiable."
+          fi
+
+      # NOTE : les quatre ABI sont embarquées, soit ~110 Mo, dont 52,5 Mo de
+      # x86/x86_64 qui ne servent qu'à l'émulateur. Pour n'emporter que les
+      # téléphones réels, ajouter :
+      #   -PreactNativeArchitectures=arm64-v8a
+      # Décision non prise au 2026-08-15.
+      #
+      # Les propriétés `MARTINPECHEUR_*` sont lues par le plugin
+      # plugins/withReleaseSigning.js. Absentes, le build retombe sur la clé de
+      # debug — utile pour un `workflow_dispatch` d'essai, jamais publiable.
+      - name: Compiler l'APK release
+        working-directory: android
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -f app/release.keystore ]; then
+            ./gradlew assembleRelease \
+              -PMARTINPECHEUR_STORE_FILE=release.keystore \
+              "-PMARTINPECHEUR_STORE_PASSWORD=$STORE_PASSWORD" \
+              "-PMARTINPECHEUR_KEY_ALIAS=$KEY_ALIAS" \
+              "-PMARTINPECHEUR_KEY_PASSWORD=$KEY_PASSWORD"
+          else
+            echo "::warning::Aucun keystore fourni — APK signé avec la clé de debug, non publiable."
+            ./gradlew assembleRelease
+          fi
+
+      - name: Décrire l'APK produit
+        run: |
+          ls -lh "$APK"
+          AAPT="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | grep -E "^package|native-code"
+
+      # Le garde-fou qui compte vraiment : il porte sur l'APK **produit**, pas
+      # sur la présence d'un secret. Un plugin qui aurait cessé de s'appliquer,
+      # une propriété Gradle mal transmise, un keystore illisible — tout cela
+      # se termine par un APK signé en debug, et rien d'autre ne le verrait.
+      - name: Vérifier que l'APK n'est pas signé en debug
+        run: |
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/certs.txt
+          if grep -qi "CN=Android Debug" /tmp/certs.txt; then
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              echo "::error::APK signé avec la clé de debug publique d'Android. Publication refusée — voir docs/guide-release.md"
+              exit 1
+            fi
+            echo "::warning::APK signé en debug (essai manuel) — ne pas le distribuer."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: ${{ env.APK }}
+          if-no-files-found: error
+
+      - name: Publier la release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "$APK" \
+            --prerelease \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file docs/notes-release.md
