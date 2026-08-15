@@ -43,8 +43,8 @@ de la stack.
 | `N3` | Mapper `observations_tr` — conversion appliquée **une seule fois** | ✅ `b13a11b` |
 | `N4` | Client Hub'Eau — retry sur 429/5xx, jamais sur 4xx | ✅ `dbb74d3` |
 | `N5` | Décorateur `CachePolicy` **unique** — stale-while-revalidate | ✅ `2cf3ad2` |
-| `S5` | Bibliothèque SQLite → `ADR-011` | 🚫 le critère décisif exige un **Android d'entrée de gamme réel** |
-| `M1`–`M5` | Carte MapLibre, fond IGN, hors-ligne, mesure | 🚫 **Android Studio et le SDK manquent** (le JDK 17, lui, est en place) |
+| `S5` | Bibliothèque SQLite → `ADR-011` | 🔄 mesurable sur l'émulateur ; le critère « entrée de gamme » demande en plus un **appareil réel** |
+| `M1`–`M5` | Carte MapLibre, fond IGN, hors-ligne, mesure | 🔄 **débloqué** — outillage présent, `ANDROID_HOME` à poser |
 | `P1`–`P4` | Outillage percentiles | 🔄 à faire — indépendant, aucun appareil requis |
 
 **Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
@@ -106,7 +106,7 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 | 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
 | 7 | **Hôte macOS** pour produire un build iOS | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
-| 7 bis | **Outillage Android incomplet** — constaté le 2026-08-15. ✅ **JDK 17 présent** : `Microsoft.OpenJDK.17` en `17.0.20.8`, `C:\Program Files\Microsoft\jdk-17.0.20.8-hotspot`, `javac 17.0.20`, `JAVA_HOME` posé en portée *Machine*. 🚫 **Manquent Android Studio, le SDK Platform 36, une image système et `ANDROID_HOME`** | **Outillage.** Bloque **tout le lot 3** (`M1`–`M5`) et le critère décisif de `S5`. Ne bloque ni le lot 4, ni T1 côté logique |
+| 7 bis | **Outillage Android — présent, il manque une variable.** Inventaire refait le 2026-08-15 (voir le tableau ci-dessous) : JDK 17, Android Studio, SDK avec API 36, image système et AVD sont **tous installés**. Seul `ANDROID_HOME` n'est pas défini | **Configuration**, pas matériel. Le lot 3 n'est **pas** bloqué |
 | 8 | Bibliothèque SQLite, bibliothèque de graphes, outil de test | À trancher (`ADR-010` § « Points à vérifier ») |
 | 9 | ~~Téléchargement de tuiles hors-ligne~~ — **levé le 2026-07-31** : `OfflineManager.createPack` le fournit | Clos par `ADR-010` |
 | 10 | ~~Behaviors BrilliantMediator~~, ~~AOT et trimming~~, ~~portage Windows~~ | Sans objet depuis `ADR-010` |
@@ -152,12 +152,28 @@ partage en deux, et la coupure n'est pas dans le plan : elle est dans le matéri
 | Reste | Peut démarrer ? |
 |---|---|
 | **Lot 4** — `P1`–`P4`, outillage percentiles | ✅ **Oui, tout de suite.** Script Node hors application, aucun appareil |
-| **Lot 3** — `M1`–`M5`, carte | 🚫 Non — le JDK 17 est là, il manque **Android Studio + SDK 36 + image système** (procédure au `README`) |
-| `S5` — bibliothèque SQLite | 🚫 Non — son critère décisif est une mesure sur Android d'entrée de gamme |
+| **Lot 3** — `M1`–`M5`, carte | ✅ **Oui** — l'outillage est là, il reste à poser `ANDROID_HOME` |
+| `S5` — bibliothèque SQLite | 🔄 Mesurable sur l'émulateur ; « entrée de gamme » demandera un appareil réel |
 
-**La décision à prendre est donc celle-ci :** installer l'outillage Android maintenant, ou terminer
-le lot 4 d'abord. `M4` reste la tâche qui porte le seul vrai risque d'architecture restant, mais
-elle est inatteignable tant que rien ne peut compiler du natif.
+### Inventaire de l'outillage Android — mesuré le 2026-08-15
+
+Le constat publié plus tôt dans la journée disait cet outillage absent. **Il était faux** : les
+sondes de chemins renvoyaient `False` sur des répertoires qui existent. Refait proprement :
+
+| Élément | État |
+|---|---|
+| JDK | ✅ `Microsoft.OpenJDK.17` `17.0.20.8` — `javac 17.0.20`, `JAVA_HOME` en portée *Machine* |
+| Android Studio | ✅ `2026.1.3.7` — `C:\Program Files\Android\Android Studio\bin\studio64.exe` |
+| **SDK complet** | ✅ `C:\Program Files (x86)\Android\android-sdk` — plateformes `android-35` **et `android-36`**, image `android-36/google_apis_playstore/x86_64`, `cmdline-tools/latest`, `build-tools 36.0.0`, `adb 36.0.0` |
+| SDK d'Android Studio | ⚠️ `%LOCALAPPDATA%\Android\Sdk` — **`android-37.0` seulement, aucune image système, pas de `cmdline-tools`.** C'est exactement le piège de l'installation « Standard » décrit au `README` |
+| AVD | ✅ `pixel_7_-_api_36_0` — `x86_64`, `google_apis_playstore` |
+| `ANDROID_HOME` | 🚫 **non défini** — le seul élément manquant |
+
+> **Le SDK utilisable est celui de Visual Studio**, hérité des workloads .NET Android de la stack
+> abandonnée : c'est lui qui porte l'API 36 qu'Expo SDK 57 réclame. ⚠️ Il vit sous
+> `Program Files (x86)`, donc **non inscriptible sans élévation** : si Gradle veut y installer un
+> paquet manquant, il échouera. Le repli est de compléter le SDK d'Android Studio, qui est en zone
+> utilisateur.
 
 L'ancien plan ([`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md))
 reste au dépôt pour l'historique, mais **ne doit plus être exécuté** : sa voie A est un spike
