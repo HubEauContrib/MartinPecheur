@@ -21,8 +21,12 @@ export const MAX_DELAY_MS = 30_000;
  * se relève.
  */
 export function delayForAttempt(attempt: number, jitter: () => number = Math.random): number {
-  const exponential = Math.min(BASE_DELAY_MS * 2 ** attempt, MAX_DELAY_MS);
-  // La gigue s'ajoute au délai, puis on replafonne : sans ce second plafond
-  // elle ferait dépasser MAX_DELAY_MS de 100 %.
-  return Math.min(exponential + jitter() * exponential, MAX_DELAY_MS);
+  // On plafonne la BASE, pas le résultat. L'ancienne formule ajoutait la gigue
+  // puis replafonnait à MAX_DELAY_MS : dès la 6e tentative, l'exponentielle
+  // atteignant déjà le plafond, `min(30000 + gigue, 30000)` valait toujours
+  // exactement 30 000 ms. La gigue disparaissait donc précisément au moment où
+  // elle compte le plus — une panne longue, où toute la base installée réessaie
+  // ensemble. C'est le troupeau tonnant que C-15 nous demande d'éviter.
+  const base = Math.min(BASE_DELAY_MS * 2 ** attempt, MAX_DELAY_MS / 2);
+  return base + jitter() * base;
 }

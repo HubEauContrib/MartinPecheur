@@ -1,4 +1,4 @@
-import { isSuccess } from "./httpStatus";
+import { isRetryable, isSuccess } from "./httpStatus";
 import { delayForAttempt } from "./retry";
 
 export interface HubEauClientOptions {
@@ -9,15 +9,6 @@ export interface HubEauClientOptions {
 
 export interface HubEauClient {
   getJson<T>(url: string): Promise<T>;
-}
-
-/**
- * 429 et 5xx sont transitoires ; un 4xx client ne le sera jamais. Réessayer un
- * `400 ValidatePageSize` ou le `403` de l'API v1 arrêtée (C-01) ne corrigerait
- * rien et ne ferait que marteler un service public gratuit (C-15).
- */
-function isRetryable(status: number): boolean {
-  return status === 429 || status >= 500;
 }
 
 export function createHubEauClient(options: HubEauClientOptions = {}): HubEauClient {

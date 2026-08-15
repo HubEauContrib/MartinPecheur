@@ -25,8 +25,14 @@ describe("backoff exponentiel à gigue (C-15)", () => {
 
   it("plafonne, sans jamais déborder", () => {
     // 2^20 × 500 ms dépasserait 145 heures. Le plafond n'est pas décoratif.
-    expect(delayForAttempt(20, sansGigue)).toBe(30_000);
-    expect(delayForAttempt(100, sansGigue)).toBe(30_000);
+    //
+    // Au plafond, le délai est un INTERVALLE — [15 s, 30 s) — et non une valeur
+    // unique. Le fixer à 30 000 ms pile, comme le faisait la première version,
+    // annulait la gigue exactement là où elle sert : une panne longue, où toute
+    // la base installée réessaie en même temps.
+    expect(delayForAttempt(20, sansGigue)).toBe(15_000);
+    expect(delayForAttempt(100, sansGigue)).toBe(15_000);
+    expect(delayForAttempt(100, () => 0.999_999)).toBeLessThan(30_000);
   });
 
   it("ajoute une gigue bornée par le délai lui-même", () => {
@@ -52,5 +58,27 @@ describe("backoff exponentiel à gigue (C-15)", () => {
     const appareilB = delayForAttempt(3, () => 0.9);
     expect(appareilA).not.toBe(appareilB);
     expect(Math.abs(appareilA - appareilB)).toBeGreaterThan(1000);
+  });
+});
+
+describe("la gigue survit au plafond (C-15)", () => {
+  it("étale encore les tentatives une fois le plafond atteint", () => {
+    // L'ancienne formule plafonnait APRÈS avoir ajouté la gigue : dès la 6e
+    // tentative, tous les appareils réessayaient à 30 000 ms exactement — le
+    // troupeau tonnant que la gigue existe pour empêcher, au pire moment.
+    for (const attempt of [6, 8, 12]) {
+      expect(delayForAttempt(attempt, () => 0)).not.toBe(delayForAttempt(attempt, () => 0.99));
+    }
+  });
+
+  it("ne dépasse jamais le plafond, gigue comprise", () => {
+    for (const attempt of [0, 3, 6, 10, 50]) {
+      expect(delayForAttempt(attempt, () => 0.999)).toBeLessThanOrEqual(MAX_DELAY_MS);
+    }
+  });
+
+  it("reste croissant jusqu'au plafond", () => {
+    expect(delayForAttempt(1, () => 0)).toBeGreaterThan(delayForAttempt(0, () => 0));
+    expect(delayForAttempt(3, () => 0)).toBeGreaterThan(delayForAttempt(2, () => 0));
   });
 });

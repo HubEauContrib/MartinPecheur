@@ -1,4 +1,3 @@
-import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { Camera, Map } from "@maplibre/maplibre-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -27,13 +26,9 @@ const ZOOM_INITIAL = 11;
 export function IgnMapProbe() {
   return (
     <View style={styles.container}>
-      <Map
-        style={styles.map}
-        // Le style est du TypeScript pur et volontairement typé à part, pour
-        // rester testable sous Node. Sa forme correspond à la spécification
-        // MapLibre : la conversion est sûre et se fait ici, une seule fois.
-        mapStyle={ignRasterStyle as unknown as StyleSpecification}
-      >
+      {/* Aucun transtypage : `ignRasterStyle` est vérifié conforme à
+          `StyleSpecification` par `tsc`, dans son propre module. */}
+      <Map style={styles.map} mapStyle={ignRasterStyle}>
         {/* v11 : `initialViewState` avec `center`/`zoom`. Le `defaultSettings`
             et le `centerCoordinate`/`zoomLevel` de la v10 n'existent plus. */}
         <Camera initialViewState={{ center: BLOIS, zoom: ZOOM_INITIAL }} />

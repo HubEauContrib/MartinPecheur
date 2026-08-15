@@ -1,3 +1,5 @@
+import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
+
 /**
  * Fond cartographique IGN Géoplateforme, en WMTS KVP.
  *
@@ -30,7 +32,7 @@ const TAILLE_TUILE = 256;
 
 export interface RasterSource {
   readonly type: "raster";
-  readonly tiles: readonly string[];
+  readonly tiles: string[];
   readonly tileSize: number;
   readonly minzoom: number;
   readonly maxzoom: number;
@@ -46,7 +48,7 @@ export interface RasterLayer {
 export interface IgnRasterStyle {
   readonly version: 8;
   readonly sources: { readonly ign: RasterSource };
-  readonly layers: readonly RasterLayer[];
+  readonly layers: RasterLayer[];
 }
 
 export const ignRasterStyle: IgnRasterStyle = {
@@ -68,3 +70,19 @@ export const ignRasterStyle: IgnRasterStyle = {
   },
   layers: [{ id: "ign-fond", type: "raster", source: "ign" }],
 };
+
+/**
+ * Contrôle de conformité **au vrai contrat MapLibre**, vérifié par `tsc`.
+ *
+ * Sans lui, l'écran transtypait le style via `as unknown as StyleSpecification`,
+ * ce qui désactive toute vérification. Les tests de ce module seraient restés
+ * verts avec un `type` erroné ou des `layers` manquants : ils n'assertent que
+ * contre l'interface écrite ci-dessus, jamais contre la spécification. La carte
+ * serait simplement restée blanche, et `M2` aurait conclu à tort que le gabarit
+ * KVP ne survit pas.
+ *
+ * Coût à l'exécution : nul — c'est une annotation de type, effacée à la
+ * compilation.
+ */
+const _conformeALaSpecificationMapLibre: StyleSpecification = ignRasterStyle;
+void _conformeALaSpecificationMapLibre;
