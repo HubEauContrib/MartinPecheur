@@ -1,5 +1,20 @@
 # T0 — Spike carte & socle données : plan d'implémentation
 
+> # 🚫 CE PLAN EST CADUC — NE PAS L'EXÉCUTER
+>
+> **Rendu obsolète le 2026-07-31 par [`ADR-010`](../../adr/ADR-010-react-native.md)** : le projet
+> est passé de .NET MAUI à React Native et a abandonné Windows.
+>
+> - **Voie A** — spike `BlazorWebView` : **sans objet**. MapLibre Native remplace MapLibre GL JS,
+>   et le doute que ce spike devait lever n'existe plus.
+> - **Voie B** — tout est en C# : **sans objet**, hors les règles métier qu'elle appliquait.
+> - **Voie C** — outillage percentiles : **toujours valable**, c'est un script hors application.
+> - **`A2`** — figer le jeu de stations : **toujours valable**, indépendant de la stack.
+>   ⚠️ Son URL est fausse : `size` plafonne à **10000**, pas 20000 (HTTP 400, constaté le 2026-07-31).
+>
+> Conservé pour l'historique, conformément à la règle « on ne supprime pas un artefact obsolète ».
+> **Un nouveau plan doit être écrit avant de coder.**
+
 > **Pour les agents :** SOUS-SKILL REQUISE — utiliser `superpowers:subagent-driven-development`
 > (recommandé) ou `superpowers:executing-plans` pour exécuter ce plan tâche par tâche. Les étapes
 > utilisent la syntaxe checkbox (`- [ ]`) pour le suivi.
@@ -23,7 +38,9 @@ poser en parallèle le socle Domain/Data, qui n'en dépend pas.
 
 Tu ne connais pas ce projet. Quatre choses à savoir avant de commencer :
 
-1. **Le dépôt est vide.** `MartinPecheur.sln` ne contient aucun projet. Tout est à créer.
+1. **Le dépôt est presque vide.** Depuis le 2026-07-31, `MartinPecheur.slnx` contient le seul
+   projet `src/MartinPecheur.App` (coquille du gabarit MAUI Blazor, tâche `A1`). Aucun code
+   métier n'existe : tout le reste est à créer.
 2. **Le Domain ne dépend de rien.** Ni MAUI, ni HTTP, ni SQLite. C'est ce qui rend le socle
    (voie B) indépendant du résultat du spike (voie A). Toute référence d'infrastructure depuis
    le Domain est une erreur d'architecture, pas un détail.
@@ -43,8 +60,11 @@ Tu ne connais pas ce projet. Quatre choses à savoir avant de commencer :
 **But :** décider si [`ADR-005`](../../adr/ADR-005-stack-maui-blazor-hybrid.md) passe en `Accepté`
 ou bascule sur l'option A (Mapsui). **Aucune autre décision d'UI n'est prise avant.**
 
-- [ ] **A1 — Créer la solution.** Ajouter `MartinPecheur.App` (MAUI Blazor Hybrid, iOS + Android
-      uniquement) à `MartinPecheur.sln`. Build Release vert sur les deux cibles.
+- [x] **A1 — Créer la solution.** ✅ **Fait le 2026-07-31.** `src/MartinPecheur.App` (MAUI Blazor
+      Hybrid, .NET 10) dans `MartinPecheur.slnx` — format `.slnx`, l'ancien `.sln` est supprimé.
+      Cibles **Android, iOS et Windows** ([`ADR-009`](../../adr/ADR-009-cible-windows.md)),
+      Mac Catalyst retiré. Build Release **0 avertissement** sur les trois.
+      ⚠️ **iOS n'est vérifié qu'à la compilation** : pas de bundle `.app` sans hôte macOS.
 - [ ] **A2 — Jeu de données de test réaliste.** Récupérer une fois
       `/v2/hydrometrie/referentiel/stations?en_service=1&size=20000&format=geojson`
       (≈ 4 140 points) et le figer en fichier local. Le spike ne doit pas dépendre du réseau.
@@ -67,20 +87,24 @@ ou bascule sur l'option A (Mapsui). **Aucune autre décision d'UI n'est prise av
 
 ## Voie B — Socle données (parallèle, indépendant du spike)
 
-- [ ] **B0 — Valider le médiateur.** Vérifier que `BrilliantMediator` 3 expose des *pipeline
-      behaviors* — c'est le mécanisme même d'[`ADR-008`](../../adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md).
-      Vérifier aussi un build Release **trimmé sur Android** et mesurer le démarrage à froid
-      **avec et sans** médiateur. Si les behaviors n'existent pas : appliquer le repli
-      `IQueryHandler<,>` maison **sans réouvrir la décision de fond**.
-- [ ] **B1 — Projets `Domain`, `Application` et `Data`.** C# pur pour `Domain`. Test
-      d'architecture interdisant toute référence d'infrastructure depuis `Domain`, et tout appel
-      direct d'un dépôt depuis un ViewModel.
+- [x] **B0 — Valider le médiateur.** ✅ 2026-07-31 — **BrilliantMediator 3.x n'a pas de
+      behaviors**, vérifié sur le dépôt source. Repli retenu : **décorateur de
+      `IQueryHandler<,>`** enregistré en DI. `ADR-008` mis à jour, décision de fond inchangée.
+      ⬜ Reste : build Release **trimmé sur Android** et démarrage à froid avec/sans médiateur.
+- [x] **B1 — Projets `Domain`, `Application` et `Data`.** ✅ 2026-07-31 — trois projets `net10.0`
+      créés et ajoutés à la solution, références câblées (`Application`→`Domain`,
+      `Data`→`Domain`), plus `tests/MartinPecheur.UnitTests` (xUnit + AwesomeAssertions).
+      ⬜ Reste : les **tests d'architecture** interdisant une référence d'infrastructure depuis
+      `Domain` et un appel direct de dépôt depuis un ViewModel.
 - [ ] **B2 — Entités et énumérations** du modèle de [`03-conception.md § 3`](../../03-conception.md).
       Les trois échelles d'état restent **séparées**
       ([`BR-008`](../../br/BR-008-une-seule-echelle-a-la-fois.md)). Chaque énumération porte une
       valeur `Inconnu` ([`BR-011`](../../br/BR-011-nomenclature-tolerante-a-l-inconnu.md)).
-- [ ] **B3 — Mappers Hub'Eau, dirigés par les tests.** Commencer par la conversion d'unités :
-      `53000.0 → 53.0 m³/s` et `350571.0 → 350.571 m³/s` — valeurs réelles vérifiées le 2026-07-30.
+- [x] **B3a — Conversion d'unités, dirigée par les tests.** ✅ 2026-07-31 —
+      `Domain/Hydrometry/MeasurementUnits.cs`, 8 tests verts sur les valeurs réelles
+      (`53000.0 → 53.0 m³/s`, `350571.0 → 350.571 m³/s`), l'absence propagée sans devenir zéro,
+      et un garde-fou contre la double conversion.
+- [ ] **B3b — Mappers Hub'Eau** pour `observations_tr`, `obs_elab`, les référentiels et ONDE.
 - [ ] **B4 — Client HTTP.** `IHttpClientFactory` + Polly (retry, backoff exponentiel avec gigue).
       `DelegatingHandler` normalisant **200 et 206** en succès (`C-06`) — sans lui, toute
       pagination échoue.

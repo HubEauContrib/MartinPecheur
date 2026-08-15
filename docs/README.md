@@ -3,8 +3,12 @@
 Spec vivante du projet. Tout vit dans **ce dépôt** : code et spec évoluent dans le même commit.
 
 MartinPêcheur informe les usagers d'une rivière française sur son état — écoulement, débit,
-sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application mobile iOS et
-Android, **sans backend, sans compte utilisateur**.
+sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application mobile iOS et Android,
+**sans backend, sans compte utilisateur**.
+
+> 📍 **Où commencer** — [`project-state.md`](project-state.md) est la **source de vérité des
+> statuts**. Si un autre document le contredit, c'est lui qui a raison ; et si le code contredit
+> les deux, c'est le code.
 
 ## Organisation
 
@@ -13,12 +17,11 @@ Android, **sans backend, sans compte utilisateur**.
 | [`br/`](br/) | **Business Rules** — règles métier invariantes, indépendantes de l'implémentation | `BR-NNN-slug.md` |
 | [`use-cases/`](use-cases/) | **Use Cases** — scénarios acteur↔système, avec diagrammes mermaid | `UC-NNN-slug.md` |
 | [`adr/`](adr/) | **Architecture Decision Records** — décisions tranchées, avec alternatives écartées | `ADR-NNN-slug.md` |
+| [`superpowers/plans/`](superpowers/plans/) | Plans d'implémentation par tranche | `YYYY-MM-DD-slug.md` |
 | [`glossary.md`](glossary.md) | **Langage omniprésent** — termes métier, ce qui est dit à l'usager, vocabulaire proscrit | — |
 | [`context-map.md`](context-map.md) | **Carte des contextes** — 6 contextes bornés et leurs sources externes | — |
-| [`design/`](design/) | Handoffs design hi-fi par écran | `design/<écran>/` |
-| [`superpowers/specs/`](superpowers/specs/) | Specs de design générées par l'outillage | `YYYY-MM-DD-slug.md` |
-| [`superpowers/plans/`](superpowers/plans/) | Plans d'implémentation par tranche | `YYYY-MM-DD-slug.md` |
 | [`project-state.md`](project-state.md) | **État vivant** — où on en est, ce qui bloque | — |
+| [`guide-installation.md`](guide-installation.md) | Installation du poste de développement, et ses pièges | — |
 
 ## Cadrage produit
 
@@ -31,6 +34,13 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [`03-conception.md`](03-conception.md) | Architecture, modèle de données, cache, arborescence des écrans |
 | [`04-ui.md`](04-ui.md) | Wireframes, code couleur des états, accessibilité |
 
+## Plans d'implémentation
+
+| Plan | Tranche | Statut |
+|---|---|---|
+| [`2026-07-31-t0-socle-react-native.md`](superpowers/plans/2026-07-31-t0-socle-react-native.md) | **T0** — socle Expo, domaine, données, carte, outillage percentiles | 🔄 **15 tâches sur 23** au 2026-08-15 |
+| [`2026-07-30-t0-spike-carte-et-socle.md`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md) | T0 en .NET MAUI | 🚫 **caduc** — conservé pour l'historique, **ne pas exécuter** |
+
 ## Index des décisions
 
 | # | Décision | Statut |
@@ -39,13 +49,17 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-002](adr/ADR-002-qualification-du-debit.md) | Ne jamais qualifier un débit de « suffisant » | Accepté ⚠️ |
 | [ADR-003](adr/ADR-003-reference-percentiles-en-asset.md) | Percentiles pré-calculés dans un asset embarqué | Accepté |
 | [ADR-004](adr/ADR-004-integration-vigieau.md) | VigiEau derrière une abstraction, avec repli | Accepté ⚠️ |
-| [ADR-005](adr/ADR-005-stack-maui-blazor-hybrid.md) | .NET MAUI Blazor Hybrid + MapLibre GL JS | **Proposé** — spike requis ⚠️ |
+| [ADR-005](adr/ADR-005-stack-maui-blazor-hybrid.md) | ~~.NET MAUI Blazor Hybrid + MapLibre GL JS~~ | **Remplacé par ADR-010** |
 | [ADR-006](adr/ADR-006-onde-quatre-categories.md) | ONDE en 4 catégories d'affichage | Accepté ⚠️ |
 | [ADR-007](adr/ADR-007-ecarter-qualite-eau.md) | Écarter la qualité de l'eau de la v1 | Accepté |
-| [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | CQRS léger, politique de cache en pipeline | Accepté — une réserve au spike |
+| [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | CQRS léger, cache par décorateur de handler | **Remplacé par ADR-010** — *le principe survit* |
+| [ADR-009](adr/ADR-009-cible-windows.md) | ~~Ajouter **Windows** aux cibles de la v1~~ | **Remplacé par ADR-010** |
+| [ADR-010](adr/ADR-010-react-native.md) | **React Native**, abandon de MAUI et de Windows | Accepté — arbitrage du commanditaire |
 
-⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR
-porte une section « Si la décision est revue ».
+⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
+section « Si la décision est revue ».
+
+> 🔄 **`ADR-011` reste à écrire** — le choix entre `expo-sqlite` et `op-sqlite` (tâche `S5`).
 
 ## Index des règles métier
 
@@ -81,22 +95,23 @@ porte une section « Si la décision est revue ».
 
 - **`NNN`** = numéro sur 3 chiffres, séquentiel, jamais réutilisé.
 - **`slug`** = kebab-case court, en français, cohérent avec le titre.
-- Un artefact = un fichier. On **ne supprime pas** un BR/UC/ADR obsolète : on passe son
-  statut à `Remplacé par XX-0xx`.
-- Les **diagrammes** sont **dispersés à côté de la sous-partie qu'ils illustrent** —
-  séquence sous le flux nominal, cycle de vie sous l'invariant, composants sous la
-  décision. Pas de section dédiée. Optionnels : seulement s'ils complètent le propos.
+- Un artefact = un fichier. On **ne supprime pas** un BR/UC/ADR obsolète : on passe son statut à
+  `Remplacé par …`.
+- Les **diagrammes** sont **dispersés à côté de la sous-partie qu'ils illustrent** — séquence sous le
+  flux nominal, cycle de vie sous l'invariant, composants sous la décision. Pas de section dédiée.
+  Optionnels : seulement s'ils complètent le propos.
 - Tous les diagrammes sont en **mermaid inline** — pas d'images binaires.
 
-### Règle propre à ce projet
+### La règle propre à ce projet
 
 > **Tout fait relatif à une API publique est vérifié par appel réel, et daté.**
 > Un fait non vérifié est signalé comme tel, avec l'URL consultée.
 > On ne spécifie jamais d'après une documentation seule.
 
-Cette règle n'est pas de la prudence rédactionnelle. Elle a déjà évité quatre erreurs
-bloquantes : l'API v1 arrêtée, le débit en l/s et non en m³/s, les 6 modalités ONDE au
-lieu de 3, et l'absence totale de seuils réglementaires en API.
+Ce n'est pas de la prudence rédactionnelle. Cette règle a déjà évité quatre erreurs bloquantes :
+l'API v1 arrêtée, le débit en l/s et non en m³/s, les 6 modalités ONDE au lieu de 3, et l'absence
+totale de seuils réglementaires en API. Elle continue de payer — le référentiel est passé de 4 140 à
+**4 150 stations** entre le 2026-07-31 et le 2026-08-15, constaté en réexécutant l'appel.
 
 ## Quand créer quoi
 

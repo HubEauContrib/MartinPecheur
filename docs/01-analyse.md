@@ -72,7 +72,7 @@
 
 | Donnée | Couverture vérifiée | Fraîcheur mesurée |
 |---|---|---|
-| Stations hydrométriques | **6 454** au total, dont **4 140 en service** | Référentiel quasi-statique |
+| Stations hydrométriques | **6 454** au total, dont **4 150 en service** au 2026-08-15 *(4 140 au 2026-07-31 — le référentiel bouge lentement mais il bouge)* | Référentiel quasi-statique |
 | `observations_tr` | Variable selon la station | Annoncée à 5 min. **Mesurée : 7 min sur une station, 9 jours sur une autre** |
 | `obs_elab` (`QmnJ`) | Historique depuis **1900-01-01**, statut « Donnée validée » | **Latence 10 à 11 jours** |
 | Stations ONDE | **3 548**, France hexagonale + Corse. **Aucune en DOM** (974 → 0 station) | Publication ~2 jours après observation |
@@ -98,3 +98,25 @@
 Hub'Eau : **Licence Ouverte Etalab** (version non précisée sur la page des CGU — *non vérifié*), réutilisation commerciale autorisée, **citation de l'auteur obligatoire**.
 VigiEau / data.gouv : **Licence Ouverte 2.0**.
 → Écran « À propos » avec attribution explicite des deux sources, plus celle du fond de carte.
+
+## 8. Fond de carte IGN — vérifié à l'exécution
+
+| Fait | Constat | Date |
+|---|---|---|
+| Tuile WMTS `GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2` en `TILEMATRIXSET=PM` | **HTTP 200**, `image/png`, **256×256**, 80 838 octets | 2026-07-31, reconstaté le **2026-08-15** |
+| **`NV-2` — l'URL KVP survit-elle au *templating* de MapLibre ?** | ✅ **OUI.** Le gabarit `…?SERVICE=WMTS&…&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}` est expansé sans que les `?` ni les `&` soient altérés. **Constaté sur émulateur Android : le fond de carte s'affiche.** | **2026-08-15** |
+
+> C'était l'inconnue qui portait tout le fond cartographique. Une URL KVP n'est pas la forme
+> `/{z}/{x}/{y}.png` qu'attendent la plupart des styles, et rien ne garantissait *a priori* que
+> MapLibre ne réencoderait pas les séparateurs de requête. **Il ne le fait pas.**
+
+**Avertissements observés à l'exécution, tous deux bénins** (relevés par `adb logcat`, 2026-08-15) :
+
+| Message | Nature |
+|---|---|
+| `MapLibre Native [WARN] [Mbgl-HttpRequest] Request failed due to a permanent error: stream was reset: CANCEL` | MapLibre **annule** les requêtes de tuiles devenues inutiles quand la vue se stabilise. « permanent error » est son vocabulaire interne pour « ne pas rejouer », pas un échec du serveur IGN |
+| `Cannot connect to Expo CLI` · `Failed to open DevTools` | Metro n'était pas lancé ; l'application tournait sur le bundle embarqué. Sans effet sur le produit |
+
+⚠️ **Ce qui reste non vérifié :** que `OfflineManager.createPack` télécharge effectivement ces
+tuiles raster (`NV-1`), le volume d'un pack départemental (`NV-4`), et la tenue de ~4 150 marqueurs
+sur un Android d'entrée de gamme (`NV-5`). Voir le plan T0, tâches `M4` et `M5`.

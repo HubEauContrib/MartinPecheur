@@ -1,59 +1,57 @@
 # 03 — Conception
 
-**Cible** : **.NET 10**, .NET MAUI, **iOS et Android uniquement** en v1. Solution `MartinPecheur.sln` existante.
+**Cible** : **React Native + TypeScript**, **Android et iOS** en v1 ([`ADR-010`](adr/ADR-010-react-native.md)). Windows, macOS et Mac Catalyst sont hors périmètre.
 
-> .NET 10 est imposé par `BrilliantMediator` 3.0.0, qui cible `net10.0` ([`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)).
+> ⚠️ **Réécrit le 2026-07-31.** Ce document décrivait une stack .NET MAUI jusqu'à cette date. Le commanditaire a révisé son arbitrage : [`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md), [`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) et [`ADR-009`](adr/ADR-009-cible-windows.md) sont remplacés par [`ADR-010`](adr/ADR-010-react-native.md).
 
 ## 1. Stack
 
-### 1.1 Le contrôle standard est éliminé d'emblée
+### 1.1 Ce qui a été éliminé
 
-`Microsoft.Maui.Controls.Maps` ne permet **ni clustering, ni source de tuiles personnalisée (WMTS/XYZ), ni cache hors-ligne, ni marqueurs réellement personnalisés**. L'écran principal du produit est une carte de plusieurs milliers de points sur fond IGN, utilisable hors ligne : le contrôle standard ne couvre aucune de ces trois exigences.
+`react-native-maps` (Google/Apple Maps) est écarté : incompatible avec des **tuiles personnalisées** et avec le **hors-ligne**, qui sont deux exigences du produit. Le même motif avait éliminé `Microsoft.Maui.Controls.Maps` dans la conception précédente — la contrainte vient du produit, pas de la technologie.
 
-### 1.2 Les deux options
+### 1.2 Le choix — [`ADR-010`](adr/ADR-010-react-native.md)
 
-| Critère | **A — MAUI natif** (XAML + CommunityToolkit.Mvvm) | **B — MAUI Blazor Hybrid** (Razor dans `BlazorWebView`) |
-|---|---|---|
-| Moteur carto | **Mapsui** (SkiaSharp + BruTile) | **MapLibre GL JS** dans le WebView |
-| Clustering | À implémenter (agrégation par grille) — **du code à écrire** | Clustering natif de la source, **éprouvé** sur gros volumes |
-| Tuiles WMTS/XYZ | Via BruTile, sources HTTP et fichier local | Natif dans la bibliothèque |
-| Marqueurs riches | C#/Skia, contrôle total, plus de code | HTML/CSS/SVG, très flexible |
-| Graphes | LiveChartsCore (SkiaSharp) | Chart.js via interop |
-| Risque | Bibliothèque peu répandue en MAUI, communauté restreinte | Pont JS-interop, mémoire du WebView |
+**`@maplibre/maplibre-react-native` (v11+), adossé à MapLibre Native.**
 
-**Fond de carte** : IGN Géoplateforme WMTS (Licence Ouverte, cohérent avec des données françaises), OSM en repli (ODbL, self-hosting recommandé à l'échelle). Google/Apple Maps écartés : incompatibles avec les tuiles personnalisées et le hors-ligne.
-**Stockage** : `sqlite-net-pcl` (micro-ORM suffisant pour ce modèle) ; tuiles en fichiers dans `FileSystem.CacheDirectory`, hors base.
+| Besoin | Couverture |
+|---|---|
+| Clustering sur ~4 140 points | Configuration de couche, cas d'usage courant |
+| Tuiles WMTS/XYZ personnalisées | Sources natives |
+| **Hors-ligne** | **`OfflineManager.createPack`** — région + niveaux de zoom, téléchargement suivi par callbacks |
+| Rendu | **Natif, accéléré GPU** — pas de WebView à nourrir |
 
-### 1.3 Choix — [`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md)
+C'est le hors-ligne qui a fait basculer la décision : il était un **lot de développement à chiffrer** en .NET, il est une **API fournie** ici.
 
-**Option B, MAUI Blazor Hybrid + MapLibre GL JS.** Le point le plus risqué du projet est la carte, et B apporte un clustering et une gestion de tuiles **éprouvés** là où A demande de les construire. La logique métier, l'état et l'accès aux données restent en C# partagé : seul le rendu cartographique passe par le WebView. Le coût accepté est le pont d'interopérabilité et l'empreinte mémoire du WebView. **Un spike de 2 à 3 jours doit valider la fluidité du clustering et la mémoire sur un Android d'entrée de gamme avant d'engager le choix.**
+⚠️ **v11 a changé son API hors-ligne** : packs identifiés par id auto-généré, `addListener`/`removeListener` au lieu de `subscribe`/`unsubscribe`. Cibler la v11+ dès le départ.
 
-> **Risque assumé, à ne pas masquer** : l'écosystème cartographique .NET mobile est objectivement moins mature que celui de Flutter ou React Native pour ce cas d'usage. Il n'existe pas d'équivalent .NET du couple MapLibre GL Native + clustering natif. C'est le prix de la contrainte .NET, et il se paie surtout sur le hors-ligne (§ 4.3).
+**Fond de carte** : IGN Géoplateforme WMTS (Licence Ouverte, cohérent avec des données françaises), OSM en repli (ODbL). *Inchangé — ce choix ne dépendait pas de la stack.*
+**Stockage** : SQLite (`expo-sqlite` ou `op-sqlite`, **à trancher**) ; les packs de tuiles sont gérés par MapLibre, pas par nous.
+**Empaquetage** : **Expo avec *development builds*** — `maplibre-react-native` embarque du code natif, Expo Go ne suffit pas.
 
 ## 2. Architecture
 
-**Clean Architecture en couches + MVVM + CQRS léger** ([`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)).
+**Clean Architecture en couches + CQRS léger.** Le principe est repris d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) ; seul son véhicule .NET disparaît ([`ADR-010`](adr/ADR-010-react-native.md)).
 
-Couches : **UI** (composants Razor + pages Shell) → **ViewModel** (`ObservableObject`, `RelayCommand`) → **Application** (`IQuery`/`ICommand` + handlers, pipeline de cache) → **Domain** (entités, règles, interfaces de dépôt — sans dépendance UI) → **Data** (dépôts, sources distantes et locales, mappers).
+Couches : **UI** (écrans et composants React) → **application/** (`Query`/`Command` typés + handlers, décorateur de cache) → **domain/** (entités, règles, interfaces de dépôt — **aucun import de framework**) → **data/** (dépôts, sources distantes et locales, mappers).
 
-**Le ViewModel n'appelle jamais un dépôt** : il envoie une requête ou une commande. Les handlers orchestrent, les dépôts restent bêtes.
+**Un composant d'écran n'appelle jamais un dépôt** : il envoie une requête ou une commande. Les handlers orchestrent, les dépôts restent bêtes.
 
-Injection dans `MauiProgram.cs` (`IServiceCollection`) : médiateur et handlers (enregistrés par le générateur de source), clients HTTP typés via `IHttpClientFactory`, dépôts, connexion SQLite, ViewModels. Navigation par **Shell**, routes paramétrées.
+**Pas de bibliothèque de médiateur.** Des handlers typés résolus par un registre explicite suffisent — c'est ce que `ADR-008` appelait déjà son repli, et il devient ici la solution nominale.
 
-Modules : `Core/{Network,Cache,Data,Geo}` · `Features/{Map,StationDetail,Onde,Restrictions,Favorites,Settings}`.
+Modules : `core/{network,cache,data,geo}` · `features/{map,station-detail,onde,restrictions,favorites,settings}`.
 
 ```mermaid
 graph TD
-  UI["UI — pages Shell + composants Razor<br/>carte MapLibre GL JS dans BlazorWebView"]
-  VM["ViewModel — CommunityToolkit.Mvvm"]
-  MED["Application — IQuery / ICommand<br/>+ pipeline CachePolicy"]
-  DOM["Domain — entités, règles,<br/>interfaces de dépôt"]
-  REPO["Data — dépôts + mappers"]
-  REM["RemoteDataSource<br/>IHttpClientFactory + Polly"]
-  LOC["LocalDataSource<br/>sqlite-net-pcl + tuiles fichier"]
+  UI["UI — écrans React<br/>carte MapLibre Native"]
+  MED["application/ — Query / Command<br/>+ CachePolicy (décorateur unique)"]
+  DOM["domain/ — entités, règles,<br/>interfaces de dépôt"]
+  REPO["data/ — dépôts + mappers"]
+  REM["RemoteDataSource<br/>fetch + retry avec backoff"]
+  LOC["LocalDataSource<br/>SQLite + packs MapLibre"]
   ASSET["Asset embarqué<br/>référence percentiles"]
 
-  UI --> VM --> MED --> DOM
+  UI --> MED --> DOM
   MED --> REPO
   REPO --> REM
   REPO --> LOC
@@ -104,33 +102,42 @@ graph TD
 | Départements | ∞ | Asset embarqué | — |
 | Tuiles | LRU, plafond **150 Mo** configurable | Pack local pour la bbox visitée | Auto au-delà du plafond, ou manuelle |
 
-**Règle générale** : lecture du cache → rendu immédiat → si TTL dépassé et réseau disponible, rafraîchissement en tâche de fond → sinon, badge « données du JJ/MM à HH:MM ». Au-delà de **2 × TTL**, le marqueur est atténué (`BR-005`).
+**Règle générale** : lecture du cache → rendu immédiat → si TTL dépassé et réseau disponible, rafraîchissement en tâche de fond → sinon, badge « données du JJ/MM à HH:MM ».
 
-> Cette règle est portée par **un composant unique du pipeline**, en amont des handlers de lecture ([`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)) — jamais recopiée dans un dépôt ni dans un ViewModel.
+> ⚠️ **Deux âges distincts, à ne pas confondre** — corrigé le 2026-08-01, ce paragraphe les mélangeait.
+>
+> | Âge | Mesuré sur | Seuils | Effet |
+> |---|---|---|---|
+> | **Fraîcheur du cache** | date de récupération | le TTL du tableau ci-dessus | déclenche le rafraîchissement en tâche de fond |
+> | **Âge de la mesure** (`BR-005`) | **`date_obs`** | **2 h** puis **24 h**, absolus | mention « il y a N h », puis marqueur atténué |
+>
+> Une observation peut être **fraîchement téléchargée et vieille de neuf jours** : c'est le cas en production (`BR-001`). Appliquer « 2 × TTL » à l'âge de la mesure déclarerait périmée une observation de 40 minutes, à qui `BR-005` laisse 24 heures.
 
-### 4.2 Implémentation .NET
+> Cette règle est portée par **un composant unique** — le décorateur `CachePolicy`, en amont des handlers de lecture ([`ADR-010`](adr/ADR-010-react-native.md), principe repris d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)) — jamais recopiée dans un dépôt ni dans un composant d'écran.
 
-- `HttpClient` nommé par source via `IHttpClientFactory`, pipeline **Polly** (`AddPolicyHandler`) : retry, backoff exponentiel avec gigue, sur 429, 5xx et erreurs transitoires.
-- **`HttpClient` ne traite pas 206 comme un succès par défaut** : un `DelegatingHandler` normalise 200 et 206 (`C-06`).
-- `Connectivity.Current.NetworkAccess` vérifié avant toute tentative réseau.
-- Throttle client global (jeton de concurrence) : Hub'Eau n'annonce aucun quota, et l'app n'a pas de proxy pour mutualiser la charge de sa base installée.
-- Le calcul de `NiveauDebitCalcule` s'exécute via `Task.Run`, hors thread UI.
-- Conversion l/s → m³/s dans le mapper uniquement, couverte par test unitaire (`BR-002`).
+### 4.2 Implémentation React Native
+
+- Client `fetch` par source, avec **retry et backoff exponentiel à gigue** sur 429, 5xx et erreurs réseau transitoires.
+- **206 doit être traité comme un succès** : `fetch` ne lève pas, mais tout test `status === 200` casse dès la première pagination (`C-06`). Normaliser 200 et 206 au même endroit.
+- État du réseau vérifié avant toute tentative (`@react-native-community/netinfo`, **à confirmer**).
+- Throttle client global : Hub'Eau n'annonce aucun quota, et l'app n'a pas de proxy pour mutualiser la charge de sa base installée (`C-15`).
+- Conversion l/s → m³/s dans le mapper uniquement, couverte par test unitaire (`BR-002`). **Types *branded*** pour empêcher qu'un `number` en l/s soit passé là où on attend des m³/s — TypeScript ne l'interdit pas seul.
+- Toute nomenclature porte une branche `Inconnu`, garantie par un `switch` exhaustif gardé par `never` (`BR-011`).
 
 ### 4.3 Hors-ligne « dernière carte consultée »
 
 1. À chaque stabilisation de la carte, `DerniereVueCarte` est mise à jour (bbox + zoom).
 2. Les `Station` et `PointOnde` de cette bbox, avec leur dernière observation connue, sont déjà en base : aucune duplication.
-3. Un pack de tuiles est téléchargé pour la bbox ± marge, sur le zoom courant ± 2 niveaux.
-4. Au lancement sans réseau : lecture de `DerniereVueCarte` → centrage → tuiles locales servies au WebView via un gestionnaire de schéma personnalisé → marqueurs au dernier état connu → bandeau persistant « Mode hors-ligne — données du JJ/MM/AAAA à HH:MM ».
+3. Un **pack MapLibre** est créé pour la bbox ± marge, sur le zoom courant ± 2 niveaux, via `OfflineManager.createPack`.
+4. Au lancement sans réseau : lecture de `DerniereVueCarte` → centrage → **le pack local sert les tuiles nativement** → marqueurs au dernier état connu → bandeau persistant « Mode hors-ligne — données du JJ/MM/AAAA à HH:MM ».
 
-> **Point faible assumé.** Il n'existe côté .NET aucune fonction « télécharger cette région » clé en main. L'énumération des tuiles XYZ couvrant la bbox, leur téléchargement limité en débit et leur écriture locale sont **à développer spécifiquement**. À chiffrer comme un lot de développement, pas comme un réglage. C'est la conséquence directe de [`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md).
+> **Ce point faible a disparu.** La conception précédente devait développer spécifiquement l'énumération, le téléchargement et le stockage des tuiles XYZ, faute d'équivalent côté .NET. `OfflineManager.createPack` couvre le besoin ([`ADR-010`](adr/ADR-010-react-native.md), vérifié le 2026-07-31). ⚠️ **Reste à constater** que `createPack` accepte bien une source **raster WMTS** (IGN) et pas seulement des tuiles vectorielles — non vérifié.
 
 ## 5. Arborescence des écrans
 
 ```
-AppShell
-├── Avertissement initial (modal bloquant, hors Shell, acquittement requis)
+Navigateur racine
+├── Avertissement initial (modal bloquant, hors navigation, acquittement requis)
 ├── Carte ......................... écran d'accueil
 │   ├── Recherche (station / cours d'eau)
 │   ├── Filtres (feuille) : type · état · département · fraîcheur

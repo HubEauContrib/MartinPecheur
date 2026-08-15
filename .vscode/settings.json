@@ -1,0 +1,33 @@
+{
+  // L'éditeur doit utiliser le TypeScript du projet (6.0.3), pas celui embarqué
+  // dans VS Code. Sans cette ligne, l'éditeur et `npm run typecheck` peuvent
+  // diverger — et c'est toujours l'éditeur qu'on croit.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": ["typescript", "typescriptreact", "javascript"],
+
+  // Jest ne tourne qu'à la demande : le projet `unit` est rapide, mais un
+  // lancement automatique à chaque frappe brouille le cycle rouge-vert.
+  "jest.runMode": "on-demand",
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.expo": true,
+    "**/android": true,
+    "**/ios": true,
+    "**/package-lock.json": true
+  },
+
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+
+  // Le domaine et la documentation sont en français, le code en anglais.
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  }
+}

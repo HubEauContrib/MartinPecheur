@@ -1,6 +1,6 @@
 # ADR-005 — .NET MAUI Blazor Hybrid + MapLibre GL JS
 
-- **Statut :** Proposé — **conditionné à un spike de validation** · *tranché par défaut, sans arbitrage du commanditaire*
+- **Statut :** **Remplacé par [`ADR-010`](ADR-010-react-native.md)** le 2026-07-31 — le commanditaire a révisé l'arbitrage .NET et retenu React Native. Cette décision n'a jamais dépassé le statut `Proposé` : le spike qui la conditionnait n'a pas été mené.
 - **Date :** 2026-07-30
 
 ## Contexte
@@ -8,6 +8,8 @@
 Le dépôt est une solution Visual Studio (`MartinPecheur.sln`, vide au 2026-07-30). Le commanditaire a arbitré : **la stack reste dans l'écosystème .NET**. Cible : .NET 9/10, iOS et Android uniquement.
 
 > **Mise à jour du 2026-07-30** — [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md) fixe le runtime à **.NET 10** : `BrilliantMediator` 3.0.0 cible `net10.0`. Le reste de cette décision est inchangé.
+
+> **Mise à jour du 2026-07-31** — [`ADR-009`](ADR-009-cible-windows.md) ajoute **Windows** aux cibles, sur demande du commanditaire. Le « iOS et Android uniquement » ci-dessus ne vaut plus. Le reste de cette décision — Blazor Hybrid, MapLibre GL JS, fond IGN — est inchangé, **y compris les seuils de recette du spike, qui restent mesurés sur un Android d'entrée de gamme**.
 
 L'écran principal est une carte de **plusieurs milliers de marqueurs** (6 454 stations hydrométriques, dont 4 140 en service ; 3 548 points ONDE), sur fond IGN, **utilisable hors ligne**.
 
