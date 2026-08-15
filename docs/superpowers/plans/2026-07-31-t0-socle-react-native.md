@@ -87,7 +87,7 @@ Tous constatés par appel réel le jour de la rédaction. Un fait non vérifié 
 | # | Point | Levé par |
 |---|---|---|
 | `NV-1` | Que `createPack` télécharge effectivement les tuiles d'un WMTS IGN **à l'exécution**. Le code C++ le prévoit, mais rien ne l'a exécuté | `M4` |
-| `NV-2` | Que l'URL KVP du WMTS IGN (avec `?` et `&`) survive intacte au *templating* `{z}/{x}/{y}` de MapLibre | `M2` |
+| ~~`NV-2`~~ | ~~Que l'URL KVP du WMTS IGN (avec `?` et `&`) survive intacte au *templating* `{z}/{x}/{y}` de MapLibre~~ **LEVÉ le 2026-08-15** : le fond s'affiche sur émulateur, le gabarit KVP survit | `M2` ✅ |
 | `NV-3` | Que `tileset.tiles[0]` suffise — MapLibre n'utilise **que la première URL** du tableau `tiles` pour le hors-ligne. Déclarer des miroirs ne les téléchargera pas | `M4` |
 | `NV-4` | Le volume réel d'un pack pour une emprise départementale. Un raster 256 px produit **4× plus de tuiles** qu'un vectoriel 512 px au même zoom | `M4` |
 | `NV-5` | Tenue de ~4 140 marqueurs sur Android d'entrée de gamme réel. Attendu bien meilleur qu'un WebView, **non mesuré** | `M5` |
@@ -1907,7 +1907,7 @@ Vérifié le 2026-07-31 : la tuile IGN répond **200 / `image/png` / 256×256** 
 `PM` étant du Pseudo-Mercator, l'URL KVP est adressable en `{z}/{x}/{y}`. **Ce qui reste non
 vérifié (`NV-2`), c'est que MapLibre laisse les `?` et `&` intacts en expansant le gabarit.**
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/features/map/ignRasterStyle.test.ts
@@ -1944,7 +1944,7 @@ describe("gabarit de tuile IGN", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/features/map --verbose
@@ -1952,7 +1952,7 @@ npx jest tests/features/map --verbose
 
 Attendu : `FAIL`, `Cannot find module`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // src/features/map/ignRasterStyle.ts
@@ -1987,7 +1987,7 @@ export const ignRasterStyle = {
 };
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/features/map --verbose
@@ -1995,14 +1995,14 @@ npx jest tests/features/map --verbose
 
 Attendu : `PASS`, 5 tests.
 
-- [ ] **Step 5 : Afficher la carte et constater `NV-2`**
+- [x] **Step 5 : Afficher la carte et constater `NV-2`**
 
 Monter un écran minimal avec `MapView` et ce style, lancer sur appareil, **et regarder si le fond
 s'affiche**. Si les tuiles ne chargent pas, inspecter le trafic réseau : c'est le signe que le
 gabarit KVP n'a pas survécu à l'expansion. Consigner le résultat, daté, dans
 [`01-analyse.md`](../../01-analyse.md).
 
-- [ ] **Step 6 : Commit**
+- [x] **Step 6 : Commit**
 
 ```bash
 git add src/features/map tests/features/map

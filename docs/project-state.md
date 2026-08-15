@@ -45,12 +45,13 @@ de la stack.
 | `N5` | Décorateur `CachePolicy` **unique** — stale-while-revalidate | ✅ `2cf3ad2` |
 | `S5` | Bibliothèque SQLite → `ADR-011` | 🔄 mesurable sur l'émulateur ; le critère « entrée de gamme » demande en plus un **appareil réel** |
 | `M1` | **MapLibre 11.3.6 compile et l'app démarre sur l'émulateur** — APK de 58 Mo | ✅ `b035424` |
-| `M2`–`M5` | Fond IGN, marqueurs, pack hors-ligne, mesure | 🔄 à faire — plus rien ne bloque |
+| `M2` | **Fond IGN raster affiché sur émulateur — `NV-2` levé** : le gabarit KVP survit à l'expansion `{z}/{x}/{y}` | ✅ `0c3596a` |
+| `M3`–`M5` | Marqueurs et clustering, pack hors-ligne, mesure | 🔄 à faire |
 | `P1` | Script d'aspiration `obs_elab` — `C-04` reconfirmé par appel réel | ✅ `e535e27` |
 | `P2`–`P4` | Percentiles par quinzaine, format d'asset, régénération | 🔄 à faire |
 
 **Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
-**75 tests** sur 11 suites *(mesuré le 2026-08-15)*.
+**98 tests** sur 12 suites *(mesuré le 2026-08-15)*.
 
 > ⚠️ **Deux écarts entre le plan T0 et le code livré**, constatés en exécutant `N3` et `N4`. Le code
 > a raison, le plan est une esquisse antérieure :
