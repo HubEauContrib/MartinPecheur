@@ -1,6 +1,6 @@
 # ADR-012 — Le hors-ligne cartographique est bloqué par un défaut de MapLibre
 
-- **Statut :** Proposé — **arbitrage du commanditaire requis**
+- **Statut :** **Arbitré en première instance le 2026-08-15** — option **D** retenue. Les options A, B et C restent ouvertes et seront tranchées au vu du résultat.
 - **Date :** 2026-08-15
 
 > `ADR-011` est **réservé** à la bibliothèque SQLite (tâche `S5` du plan T0). Ce numéro-ci prend
@@ -82,12 +82,37 @@ fichiers, que le projet n'embarque pas.
 
 ## Décision
 
-**Aucune. Ce point relève du commanditaire, pas de l'exécution.**
+**Option D — reproduire le plantage sur un Android `arm64` réel avant de trancher quoi que ce
+soit.** Arbitrage du commanditaire, le 2026-08-15.
 
 `ADR-010` a été tranché *par arbitrage du commanditaire* sur la foi d'un hors-ligne réputé fourni.
 Ce fondement n'est pas vérifié, et le lot de travail qu'`ADR-010` pensait avoir supprimé — écrire
-soi-même le téléchargement et le stockage des tuiles — est susceptible de revenir. La décision
-appartient donc à celui qui a arbitré `ADR-010`.
+soi-même le téléchargement et le stockage des tuiles — est susceptible de revenir. La décision de
+fond appartient donc à celui qui a arbitré `ADR-010` ; elle est **suspendue au résultat de D**.
+
+### Ce que D doit produire
+
+Le constat actuel porte sur **un seul environnement** : un émulateur `x86_64`. Rien ne dit encore si
+le défaut est celui de la bibliothèque ou celui de l'émulateur, et l'écart entre les deux réponses
+est celui entre « le hors-ligne fonctionne » et « le lot est à réécrire ».
+
+Marche à suivre, et lecture du résultat :
+
+| Ce qu'on observe sur `arm64` réel | Ce qu'on en conclut |
+|---|---|
+| Même `SIGABRT` / `regex_error` | Le défaut est réel. **A, B ou C** s'imposent, et le rapport amont est solide |
+| Pas de plantage, `tuiles` monte | **Le problème était l'émulateur.** `M4` reprend, `NV-1`, `NV-3` et `NV-4` se mesurent enfin |
+| Pas de plantage, `tuiles` reste à 0 | Le hors-ligne raster échoue pour une autre cause — reste à chercher, mais avec un chemin vivant |
+
+Le cas de reproduction tient en un appui : `src/features/map/OfflinePackProbe.tsx`.
+
+> ⚠️ **Même dans le cas favorable, le hors-ligne ne sera pas livrable le jour même.** Il restera à
+> fournir le style IGN sous forme d'**URL** — `mapStyle` n'accepte pas un style en mémoire, et le
+> projet n'embarque aucun module de système de fichiers. Voir le point 1 des erreurs d'API
+> ci-dessus.
+
+> 🔧 **Le même appareil débloque trois tâches** : `M4` (ce point), `M5` (tenue de 4 150 marqueurs,
+> `NV-5`) et le critère « entrée de gamme » de `S5` (bibliothèque SQLite). Un seul téléphone en USB.
 
 ```mermaid
 flowchart TD
