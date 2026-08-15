@@ -20,7 +20,7 @@
 
 | Tranche | Prouve | Statut |
 |---|---|---|
-| **T0** | Socle React Native + carte MapLibre + socle domaine + outillage percentiles | 🔄 **12 tâches sur 23 au 2026-08-15** — `docs/superpowers/plans/2026-07-31-t0-socle-react-native.md`. Lots 0 (hors `S5`), 1 et 2 ✅ · lot 4 à faire · lot 3 (carte) **débloqué** : outillage Android complet, `ANDROID_HOME` à poser |
+| **T0** | Socle React Native + carte MapLibre + socle domaine + outillage percentiles | 🔄 **12 tâches sur 23 au 2026-08-15** — `docs/superpowers/plans/2026-07-31-t0-socle-react-native.md`. Lots 0 (hors `S5`), 1 et 2 ✅ · lot 4 à faire · lot 3 (carte) **prêt à démarrer** : outillage Android complet, `ANDROID_HOME` posé, AVD API 36 disponible |
 | **T1** | Carte, fiches, les 4 avertissements | 🔄 |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Hors-ligne complet, favoris, filtres | 🔄 |

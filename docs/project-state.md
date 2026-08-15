@@ -106,7 +106,7 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 | 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
 | 7 | **Hôte macOS** pour produire un build iOS | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
-| 7 bis | **Outillage Android — présent, il manque une variable.** Inventaire refait le 2026-08-15 (voir le tableau ci-dessous) : JDK 17, Android Studio, SDK avec API 36, image système et AVD sont **tous installés**. Seul `ANDROID_HOME` n'est pas défini | **Configuration**, pas matériel. Le lot 3 n'est **pas** bloqué |
+| 7 bis | ~~Outillage Android~~ — **levé le 2026-08-15** : inventaire refait (tableau ci-dessous), tout est en place, `ANDROID_HOME` compris. Le lot 3 n'a jamais été bloqué | Clos |
 | 8 | Bibliothèque SQLite, bibliothèque de graphes, outil de test | À trancher (`ADR-010` § « Points à vérifier ») |
 | 9 | ~~Téléchargement de tuiles hors-ligne~~ — **levé le 2026-07-31** : `OfflineManager.createPack` le fournit | Clos par `ADR-010` |
 | 10 | ~~Behaviors BrilliantMediator~~, ~~AOT et trimming~~, ~~portage Windows~~ | Sans objet depuis `ADR-010` |
@@ -152,13 +152,15 @@ partage en deux, et la coupure n'est pas dans le plan : elle est dans le matéri
 | Reste | Peut démarrer ? |
 |---|---|
 | **Lot 4** — `P1`–`P4`, outillage percentiles | ✅ **Oui, tout de suite.** Script Node hors application, aucun appareil |
-| **Lot 3** — `M1`–`M5`, carte | ✅ **Oui** — l'outillage est là, il reste à poser `ANDROID_HOME` |
+| **Lot 3** — `M1`–`M5`, carte | ✅ **Oui, tout de suite** — outillage complet, `ANDROID_HOME` posé, AVD Pixel 7 API 36 prêt |
 | `S5` — bibliothèque SQLite | 🔄 Mesurable sur l'émulateur ; « entrée de gamme » demandera un appareil réel |
 
 ### Inventaire de l'outillage Android — mesuré le 2026-08-15
 
-Le constat publié plus tôt dans la journée disait cet outillage absent. **Il était faux** : les
-sondes de chemins renvoyaient `False` sur des répertoires qui existent. Refait proprement :
+Le constat publié plus tôt dans la journée disait cet outillage absent. **Il était faux sur les
+cinq lignes** : les sondes de chemins renvoyaient `False` sur des répertoires qui existent, et la
+lecture de `ANDROID_HOME` le donnait vide alors qu'il est posé en `HKCU\Environment`. Refait en
+lisant le registre plutôt que l'environnement du processus :
 
 | Élément | État |
 |---|---|
@@ -167,7 +169,7 @@ sondes de chemins renvoyaient `False` sur des répertoires qui existent. Refait 
 | **SDK complet** | ✅ `C:\Program Files (x86)\Android\android-sdk` — plateformes `android-35` **et `android-36`**, image `android-36/google_apis_playstore/x86_64`, `cmdline-tools/latest`, `build-tools 36.0.0`, `adb 36.0.0` |
 | SDK d'Android Studio | ⚠️ `%LOCALAPPDATA%\Android\Sdk` — **`android-37.0` seulement, aucune image système, pas de `cmdline-tools`.** C'est exactement le piège de l'installation « Standard » décrit au `README` |
 | AVD | ✅ `pixel_7_-_api_36_0` — `x86_64`, `google_apis_playstore` |
-| `ANDROID_HOME` | 🚫 **non défini** — le seul élément manquant |
+| `ANDROID_HOME` | ✅ `C:\Program Files (x86)\Android\android-sdk` — portée *User* (`HKCU\Environment`), pointe bien sur le SDK complet |
 
 > **Le SDK utilisable est celui de Visual Studio**, hérité des workloads .NET Android de la stack
 > abandonnée : c'est lui qui porte l'API 36 qu'Expo SDK 57 réclame. ⚠️ Il vit sous
