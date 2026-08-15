@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 
+import { isRetryable, isSuccess } from "../../src/data/http/httpStatus";
+import { delayForAttempt } from "../../src/data/http/retry";
+
 import { buildAsset, writeAsset } from "./buildAsset";
+import { argument, selectionnerCodes } from "./cli";
 import type { AnneeQuinzaine } from "./computePercentiles";
 import { fetchAllStations, type PageObsElab } from "./fetch-history";
 import { groupByFortnight, type ObsElabRow } from "./groupByFortnight";
@@ -36,43 +40,51 @@ interface Reference {
   readonly features: readonly { readonly properties: { readonly code_station: string } }[];
 }
 
-function argument(nom: string): string | undefined {
-  const index = process.argv.indexOf(`--${nom}`);
-  return index === -1 ? undefined : process.argv[index + 1];
-}
+/**
+ * Tentatives par page. Une station perdue est une station **absente de
+ * l'asset**, indiscernable au runtime d'une station inconnue : sur une passe de
+ * deux heures face à un service sans SLA (`C-15`), un 500 passager ne doit pas
+ * coûter une station.
+ */
+const TENTATIVES_MAX = 4;
 
+const attendre = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Une page d'`obs_elab`, avec les mêmes règles de statut que l'application.
+ *
+ * ⚠️ **`isSuccess` et `isRetryable` viennent de `data/http`, ils ne sont pas
+ * recopiés ici.** Le `status !== 200 && status !== 206` écrit à la main était
+ * exactement le piège `C-06` que ce module central existe pour fermer une fois
+ * pour toutes. Un `4xx` n'est jamais rejoué : il vient de notre requête.
+ */
 async function getJson(url: string): Promise<PageObsElab<ObsElabRow>> {
-  const reponse = await fetch(url);
-  // 200 ET 206 sont des succès (`C-06`) — constaté à nouveau le 2026-08-15 :
-  // une fenêtre de 30 ans rend 206.
-  if (reponse.status !== 200 && reponse.status !== 206) {
-    throw new Error(`HTTP ${String(reponse.status)} sur ${url}`);
+  let derniere = new Error(`Aucune tentative effectuée sur ${url}`);
+
+  for (let tentative = 0; tentative < TENTATIVES_MAX; tentative += 1) {
+    if (tentative > 0) await attendre(delayForAttempt(tentative - 1));
+
+    const reponse = await fetch(url);
+    if (isSuccess(reponse.status)) {
+      return (await reponse.json()) as PageObsElab<ObsElabRow>;
+    }
+
+    derniere = new Error(`HTTP ${String(reponse.status)} sur ${url}`);
+    if (!isRetryable(reponse.status)) break;
   }
-  return (await reponse.json()) as PageObsElab<ObsElabRow>;
+
+  throw derniere;
 }
 
 async function principal(): Promise<void> {
-  const limiteBrute = argument("limite");
-  const sortie = argument("sortie") ?? "assets/percentiles/reference.json";
+  const limiteBrute = argument(process.argv, "limite");
+  const sortie = argument(process.argv, "sortie") ?? "assets/percentiles/reference.json";
 
   const reference = JSON.parse(
     readFileSync("assets/referentiel/stations.json", "utf8"),
   ) as Reference;
   const tous = reference.features.map((entite) => entite.properties.code_station);
-
-  // ⚠️ Échantillonnage **à pas régulier**, jamais les N premières. Le
-  // référentiel est ordonné par code, donc par bassin : les premières stations
-  // sont voisines, et mesurer sur elles décrirait un bassin, pas la France.
-  const codes =
-    limiteBrute === undefined
-      ? tous
-      : (() => {
-          const limite = Math.min(Number(limiteBrute), tous.length);
-          const pas = Math.max(Math.floor(tous.length / limite), 1);
-          return Array.from({ length: limite }, (_, i) => tous[i * pas]).filter(
-            (code): code is string => code !== undefined,
-          );
-        })();
+  const codes = selectionnerCodes(tous, limiteBrute);
 
   const debut = `${String(new Date().getUTCFullYear() - ANNEES_HISTORIQUE)}-01-01`;
   console.log(`Aspiration de ${String(codes.length)} stations depuis ${debut}…`);
@@ -80,9 +92,32 @@ async function principal(): Promise<void> {
   const depart = Date.now();
   const parStation = await fetchAllStations<ObsElabRow>(codes, debut, getJson);
 
-  const groupees = new Map<string, readonly (readonly AnneeQuinzaine[])[]>(
-    [...parStation].map(([code, lignes]) => [code, groupByFortnight(lignes)]),
-  );
+  // ⚠️ **Le regroupement se fait station par station, sous `try`.**
+  // `groupByFortnight` lève sur une date illisible — à raison, une ligne rangée
+  // dans la mauvaise quinzaine fausserait un percentile publié. Mais lever
+  // depuis un `map` global jetait les 4 149 autres stations *après* deux heures
+  // d'aspiration, sans que rien ne soit écrit. Une station fautive se perd
+  // seule, et se retrouve dans `manquantes`.
+  const groupees = new Map<string, readonly (readonly AnneeQuinzaine[])[]>();
+  const manquantes: string[] = [];
+
+  for (const code of codes) {
+    const lignes = parStation.get(code);
+    // `fetchAllStations` omet du résultat toute station en erreur : c'est son
+    // contrat, et c'est ici qu'on le rattrape.
+    if (lignes === undefined) {
+      manquantes.push(code);
+      continue;
+    }
+    try {
+      groupees.set(code, groupByFortnight(lignes));
+    } catch (erreur) {
+      console.error(
+        `${code} : regroupement impossible — ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+      );
+      manquantes.push(code);
+    }
+  }
 
   const asset = buildAsset(groupees, new Date());
   writeAsset(asset, sortie);
@@ -95,10 +130,14 @@ async function principal(): Promise<void> {
     .flat()
     .filter((quinzaine) => quinzaine !== null).length;
 
-  // Des chiffres, pas des impressions.
+  // Des chiffres, pas des impressions. `demandees` et `manquantes` en font
+  // partie : sans elles, un asset amputé de trente stations se lisait
+  // exactement comme un asset complet.
   console.log(
     [
-      `P3 stations=${String(stations)}`,
+      `P3 demandees=${String(codes.length)}`,
+      `stations=${String(stations)}`,
+      `manquantes=${String(manquantes.length)}`,
       `quinzaines_calculees=${String(calculees)}`,
       `quinzaines_indeterminees=${String(stations * 24 - calculees)}`,
       `octets_bruts=${String(brut)}`,
@@ -108,6 +147,17 @@ async function principal(): Promise<void> {
       `duree_ms=${String(Date.now() - depart)}`,
     ].join(" "),
   );
+
+  if (manquantes.length > 0) {
+    // Sortie non nulle, et l'asset reste écrit : deux heures d'aspiration ne se
+    // jettent pas. Mais une station absente de l'asset est indiscernable, au
+    // runtime, d'une station inconnue — ce fichier-là ne se commit pas tel quel.
+    console.error(
+      `\n🚨 ${String(manquantes.length)} station(s) absente(s) de ${sortie} : ${manquantes.join(", ")}`,
+    );
+    console.error("Asset INCOMPLET — ne pas le commiter. Relancer sur les codes manquants.");
+    process.exitCode = 1;
+  }
 }
 
 principal().catch((erreur: unknown) => {

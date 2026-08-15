@@ -25,6 +25,39 @@ npx tsx tools/percentiles/build.ts --limite 40 --sortie echantillon.json
 > `allowImportingTsExtensions` exige `noEmit` et `ts-jest` émet. Les deux contraintes portent sur
 > les mêmes fichiers. Constaté le 2026-08-15.
 
+## Lire le résultat — et savoir quand il est incomplet
+
+La sortie par défaut est `assets/percentiles/reference.json`, c'est-à-dire **le livrable versionné
+lui-même**. Deux protections encadrent donc ce script.
+
+**Les options sont validées avant tout appel réseau.** `--limite` exige un entier ≥ 1, sous la forme
+`--limite 40` ou `--limite=40`, et `--limite` sans valeur **lève** au lieu de valoir « pas de
+limite ». Sans ces contrôles, `--limite abc` ou `--limite 0` produisaient une sélection vide, donc un
+asset sans aucune station, écrit par-dessus le livrable et annoncé par un `stations=0` que rien ne
+distinguait d'un succès.
+
+**La ligne de mesure porte ce qui manque.** Une station en erreur HTTP est *omise* du résultat par
+l'aspiration — au runtime, une station absente de l'asset est indiscernable d'une station inconnue.
+Le script réconcilie donc les codes demandés et ceux obtenus :
+
+```
+P3 demandees=4150 stations=4148 manquantes=2 quinzaines_calculees=… octets_bruts=… duree_ms=…
+```
+
+Si `manquantes` n'est pas nul, les codes concernés partent sur `stderr` et **le script sort en
+code 1**. L'asset reste écrit — deux heures d'aspiration ne se jettent pas — mais il ne se commit
+pas en l'état.
+
+Deux corollaires :
+
+- Chaque page est retentée jusqu'à **quatre fois** sur `429` et `5xx`, avec le même backoff
+  exponentiel à gigue que l'application (`src/data/http/retry.ts`). Un `4xx` n'est jamais rejoué :
+  il vient de notre requête. Les règles de statut viennent de `data/http/httpStatus`, elles ne sont
+  pas recopiées — c'est le piège `C-06` refermé une seule fois.
+- Une date illisible ne coûte plus que **sa** station. `groupByFortnight` lève toujours, à raison,
+  mais le regroupement se fait station par station : lever depuis un traitement global jetait les
+  4 149 autres *après* la passe complète, sans rien écrire.
+
 ## Chiffres constatés — 2026-08-15
 
 Sur **40 stations réelles**, fenêtre de 30 ans depuis le 1ᵉʳ janvier 1996 :
