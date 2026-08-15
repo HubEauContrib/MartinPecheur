@@ -1,0 +1,100 @@
+name: Release Android
+
+# Déclenché par un tag `vX.Y.Z[-alpha.N]`, ou à la main pour éprouver la chaîne
+# sans rien publier (le job construit alors l'APK et s'arrête à l'artefact).
+#
+# Le runner Ubuntu porte son propre SDK Android, correctement pointé : le piège
+# n° 2 de docs/guide-release.md — ANDROID_HOME sur le SDK Visual Studio, sans
+# build-tools;35.0.0 — ne s'applique pas ici.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier — typecheck, lint, tests
+        run: npm run verify
+
+      # Le tag et app.json doivent parler de la même version. Sans ce garde-fou,
+      # on publie un « v0.2.0 » qui rapporte 0.1.0 une fois installé.
+      - name: Contrôler la cohérence du tag et d'app.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(node -p "require('./app.json').expo.version")"
+          CODE="$(node -p "require('./app.json').expo.android.versionCode")"
+          echo "tag=$TAG · version=$VERSION · versionCode=$CODE"
+          case "$TAG" in
+            "$VERSION"|"$VERSION"-*) ;;
+            *) echo "::error::Le tag $GITHUB_REF_NAME ne correspond pas à la version $VERSION déclarée dans app.json"; exit 1 ;;
+          esac
+
+      # La note de version porte les limites tant que les avertissements de
+      # BR-012 ne sont pas dans l'application. Elle est soumise à BR-003 et
+      # BR-014 : elle s'écrit à la main, elle ne se génère pas depuis les commits.
+      - name: Exiger une note de version écrite
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          test -s docs/notes-release.md || {
+            echo "::error::docs/notes-release.md est absent ou vide. Une release ne part pas sans note rédigée — voir docs/guide-release.md"
+            exit 1
+          }
+
+      - name: Générer le projet natif
+        run: npx expo prebuild --platform android --clean --no-install
+
+      # NOTE : les quatre ABI sont embarquées, soit ~110 Mo, dont 52,5 Mo de
+      # x86/x86_64 qui ne servent qu'à l'émulateur. Pour n'emporter que les
+      # téléphones réels, ajouter :
+      #   -PreactNativeArchitectures=arm64-v8a
+      # Décision non prise au 2026-08-15.
+      - name: Compiler l'APK release
+        run: ./gradlew assembleRelease
+        working-directory: android
+
+      - name: Décrire l'APK produit
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          ls -lh "$APK"
+          AAPT="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | grep -E "^package|native-code"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Publier la release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            android/app/build/outputs/apk/release/app-release.apk \
+            --prerelease \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file docs/notes-release.md
