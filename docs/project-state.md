@@ -1,6 +1,6 @@
 # État du projet
 
-**Mis à jour :** 2026-08-15 — après exécution de `M4`
+**Mis à jour :** 2026-08-15 — après exécution de `M4` puis `M3`
 
 ## Où on en est
 
@@ -33,7 +33,7 @@ de la stack.
 | `S1` | Projet Expo `57.0.9`, TypeScript `6.0.3`, code sous `src/` | ✅ `08bf832` |
 | `S2` | `tsconfig` durci — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, alias de couches | ✅ `08bf832` |
 | `S3` | Jest projet `unit` (node, sans `jest-expo`) + ESLint + test d'architecture | ✅ `8c6ed61` |
-| `S4` | Référentiel figé — **4 150 stations**, 6 604 249 octets, tous codes à 10 caractères | ✅ `0a76733` |
+| `S4` | Référentiel figé — **4 150 stations**, 6 604 249 octets, tous codes à 10 caractères. ⚠️ Renommé `stations.json` en `M3` : Metro ne reconnaît le JSON que sur ce suffixe | ✅ `0a76733` |
 | `D1` | **Conversion d'unités avec types *branded*** — 10 tests | ✅ `17d3359` |
 | `D2` | Nomenclature ONDE close, branche `Inconnu`, garde `never` | ✅ `37cd92a` |
 | `D3` | Fraîcheur d'observation aux bornes de `BR-005` (2 h / 24 h) | ✅ `20842be` |
@@ -47,15 +47,17 @@ de la stack.
 | `M1` | **MapLibre 11.3.6 compile et l'app démarre sur l'émulateur** — APK de 58 Mo | ✅ `b035424` |
 | `M2` | **Fond IGN raster affiché sur émulateur — `NV-2` levé** : le gabarit KVP survit à l'expansion `{z}/{x}/{y}` | ✅ `0c3596a` |
 | `M4` | **Pack hors-ligne — exécuté, résultat négatif.** `createPack` plante en natif (`SIGABRT`, `std::regex_error`, fil `DatabaseFileSource`), **4 essais sur 4**. `NV-1`, `NV-3`, `NV-4`, `NV-6` **non levés** | 🚨 `ADR-012` |
-| `M3`, `M5` | Marqueurs et clustering, mesure sur appareil réel | 🔄 à faire |
+| `M3` | **Clustering des 4 150 stations sur le fond IGN** — constaté à l'écran aux échelles départementale et nationale. API v11 (`GeoJSONSource` + `Layer`), 5 tests sur l'asset | ✅ |
+| `M5` | Mesure sur Android d'entrée de gamme réel (`NV-5`) | 🔄 **appareil requis** |
 | `P1` | Script d'aspiration `obs_elab` — `C-04` reconfirmé par appel réel | ✅ `e535e27` |
 | `P2`–`P4` | Percentiles par quinzaine, format d'asset, régénération | 🔄 à faire |
 
 **Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
-**118 tests** sur 14 suites *(mesuré le 2026-08-15, après `M4`)*.
+**123 tests** sur 15 suites *(mesuré le 2026-08-15, après `M4` et `M3`)*.
 
-> ⚠️ **Cinq écarts entre le plan T0 et le code livré.** Le code a raison, le plan est une esquisse
-> antérieure. Les trois derniers ont été constatés **par exécution** en jouant `M4` :
+> ⚠️ **Neuf écarts entre le plan T0 et le code livré.** Le code a raison, le plan est une esquisse
+> antérieure. Les sept derniers ont été constatés **en jouant `M4` puis `M3`** — le plan décrit
+> l'API MapLibre **v10**, le projet est en **v11** :
 >
 > | Le plan écrit | Le constat |
 > |---|---|
@@ -64,6 +66,10 @@ de la stack.
 > | `mapStyle: JSON.stringify(ignRasterStyle)` | `mapStyle` est une **URL de style**. Un style sérialisé donne `Unable to parse resourceUrl {"version":8,…` |
 > | *(rien sur les URI `data:`)* | Une URI `data:` **n'est pas résolue** : région `active`, `tuiles=0`, **aucune erreur**. Échec silencieux |
 > | *(rien sur le plafond de tuiles)* | Le plafond par défaut est **6000** ; le dépasser **interrompt** le téléchargement et laisse un pack tronqué |
+> | `ShapeSource`, `CircleLayer`, `SymbolLayer` | **N'existent plus en v11** : `GeoJSONSource` et un `Layer` générique |
+> | `clusterMaxZoomLevel` | `clusterMaxZoom` |
+> | `style={{ circleRadius: … }}` | `paint={{ "circle-radius": … }}` — style-spec en kebab-case ; `style` est déprécié, retiré en v12 |
+> | `declare module "*.geojson"` suffit à importer l'asset | **Non.** `metro-transform-worker/src/index.js:474` ne reconnaît le JSON que sur le suffixe `.json`. L'asset est renommé **`stations.json`** et chargé par `require` typé — `resolveJsonModule` ferait sinon inférer à `tsc` le type littéral de 4 150 entités |
 
 ### Ce qui a été contre-éprouvé, et pas seulement écrit
 

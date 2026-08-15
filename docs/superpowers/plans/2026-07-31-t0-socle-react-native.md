@@ -2019,7 +2019,23 @@ git commit -m "feat(map): fond IGN en source raster WMTS"
 `03-conception.md § 6` : clustering **obligatoire** dès le zoom départemental, chargement par
 viewport avec anti-rebond de 300–500 ms.
 
-- [ ] **Step 1 : Écrire la couche**
+> ✅ **Exécutée le 2026-08-15.** Le code ci-dessous est **caduc** : il décrit l'API v10. Quatre
+> écarts constatés, tous vérifiés dans les typings de `11.3.6` avant d'écrire :
+>
+> | Le plan écrit | La v11 |
+> |---|---|
+> | `ShapeSource`, `CircleLayer`, `SymbolLayer` | `GeoJSONSource` et un `Layer` générique — les trois composants **n'existent plus** |
+> | `clusterMaxZoomLevel` | `clusterMaxZoom` |
+> | `style={{ circleRadius: … }}` | `paint={{ "circle-radius": … }}` — style-spec en kebab-case. `style` est déprécié, retiré en v12 |
+> | `declare module "*.geojson"` suffirait | **Non.** `metro-transform-worker/src/index.js:474` ne reconnaît le JSON que sur le suffixe `.json`. L'asset a été renommé `stations.json` ; il est chargé par `require` typé, car `resolveJsonModule` ferait inférer à `tsc` le type littéral de 4 150 entités |
+>
+> ⚠️ **Le libellé chiffré des clusters n'est pas livré, délibérément.** Une couche `symbol` avec
+> `text-field` exige une source de glyphes ; `ignRasterStyle` n'en déclare pas et aucune URL de
+> police IGN n'a été vérifiée par appel réel. La couche ne rendrait **rien, sans erreur**. Le
+> nombre est encodé par la taille et la couleur du cercle. Livrable réel :
+> `src/features/map/StationLayer.tsx` et `stationsAsset.ts` (5 tests).
+
+- [x] **Step 1 : Écrire la couche**
 
 ```tsx
 // src/features/map/StationLayer.tsx
@@ -2056,7 +2072,7 @@ export function StationLayer() {
 }
 ```
 
-- [ ] **Step 2 : Autoriser l'import de GeoJSON en TypeScript**
+- [x] **Step 2 : Autoriser l'import de GeoJSON en TypeScript**
 
 ```ts
 // src/types/geojson.d.ts
@@ -2066,7 +2082,7 @@ declare module "*.geojson" {
 }
 ```
 
-- [ ] **Step 3 : Vérifier**
+- [x] **Step 3 : Vérifier**
 
 ```bash
 npm run verify && npx expo run:android
@@ -2074,7 +2090,7 @@ npm run verify && npx expo run:android
 
 Attendu : chaîne verte, carte affichée avec des clusters.
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 
 ```bash
 git add src/features/map src/types

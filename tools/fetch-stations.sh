@@ -3,7 +3,7 @@
 # size plafonne à 10000 (HTTP 400 au-delà, constaté le 2026-07-31). count observé : 4140.
 set -euo pipefail
 
-OUT="assets/referentiel/stations.geojson"
+OUT="assets/referentiel/stations.json"
 URL="https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?en_service=1&size=10000&format=geojson"
 
 mkdir -p "$(dirname "$OUT")"

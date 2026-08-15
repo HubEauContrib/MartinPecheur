@@ -11,6 +11,7 @@ import { ignRasterStyle } from "./ignRasterStyle";
 import { createOfflinePack } from "./offlinePack";
 import { LOIR_ET_CHER, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM } from "./offlinePackOptions";
 import { describeError, describeProgress } from "./offlinePackProgress";
+import { StationLayer } from "./StationLayer";
 
 /**
  * Écran de constat de `M4` — **provisoire, et le résultat est négatif.**
@@ -140,6 +141,8 @@ export function OfflinePackProbe() {
     <View style={styles.container}>
       <Map style={styles.map} mapStyle={ignRasterStyle}>
         <Camera initialViewState={{ center: CENTRE, zoom: ZOOM_INITIAL }} />
+        {/* `M3` — les 4 150 stations clusterisées, sur le fond IGN. */}
+        <StationLayer />
       </Map>
       <View style={styles.panneau}>
         <Pressable style={styles.bouton} onPress={telecharger}>
