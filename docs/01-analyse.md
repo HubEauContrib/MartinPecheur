@@ -117,6 +117,28 @@ VigiEau / data.gouv : **Licence Ouverte 2.0**.
 | `MapLibre Native [WARN] [Mbgl-HttpRequest] Request failed due to a permanent error: stream was reset: CANCEL` | MapLibre **annule** les requêtes de tuiles devenues inutiles quand la vue se stabilise. « permanent error » est son vocabulaire interne pour « ne pas rejouer », pas un échec du serveur IGN |
 | `Cannot connect to Expo CLI` · `Failed to open DevTools` | Metro n'était pas lancé ; l'application tournait sur le bundle embarqué. Sans effet sur le produit |
 
-⚠️ **Ce qui reste non vérifié :** que `OfflineManager.createPack` télécharge effectivement ces
-tuiles raster (`NV-1`), le volume d'un pack départemental (`NV-4`), et la tenue de ~4 150 marqueurs
-sur un Android d'entrée de gamme (`NV-5`). Voir le plan T0, tâches `M4` et `M5`.
+⚠️ **Ce qui reste non vérifié :** la tenue de ~4 150 marqueurs sur un Android d'entrée de gamme
+(`NV-5`, tâche `M5`). Pour le hors-ligne, voir la section 9 : `M4` a été exécutée, et son résultat
+est négatif.
+
+## 9. Pack hors-ligne — exécuté le 2026-08-15, résultat négatif
+
+Environnement : émulateur `sdk_gphone64_x86_64`, **API 36** · `@maplibre/maplibre-react-native@11.3.6`
+(**dernière version publiée**) · `expo@57.0.13` · `react-native@0.86.2`.
+
+| Fait | Constat | Date |
+|---|---|---|
+| **`OfflineManager.createPack` tue le processus** | `SIGABRT` ~0,7 s après la création du pack — `std::regex_error` non rattrapée (« invalid range in a {} expression »), fil `DatabaseFileSource`, dans `libmaplibre.so`. **4 essais sur 4** | **2026-08-15** |
+| Le défaut n'est **ni l'IGN ni le raster** | Reproduit avec `https://demotiles.maplibre.org/style.json`, qui est **vectoriel** | **2026-08-15** |
+| Le défaut n'est **pas une base corrompue** | Reproduit après `adb shell pm clear`, base vierge | **2026-08-15** |
+| `mapStyle` est une **URL**, pas un style sérialisé | Un style sérialisé donne `Unable to parse resourceUrl {"version":8,…`. Côté Android : `OfflineTilePyramidRegionDefinition(styleURL, …)` | **2026-08-15** |
+| Une URI **`data:`** n'est pas résolue | La région passe `active` et reste à `tuiles=0`, **sans erreur** — échec silencieux | **2026-08-15** |
+| Plafond de tuiles par défaut : **6000** | Le dépasser **interrompt** le téléchargement et laisse un pack tronqué (`MLRNOfflineModule.kt:525`) | **2026-08-15** |
+
+> **`NV-1` n'est ni confirmé, ni infirmé.** Le plantage survient **avant** qu'une seule tuile soit
+> téléchargée : on sait que le chemin qui mène au hors-ligne raster plante, on ne sait toujours pas
+> si le hors-ligne raster lui-même fonctionne. `NV-3`, `NV-4` et `NV-6` restent bloqués par le même
+> défaut — **aucun octet, aucune tuile n'a pu être mesuré**.
+
+**Portée du constat :** un seul environnement, un émulateur `x86_64`. Ni `arm64` réel, ni iOS.
+Arbitrage : [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md).

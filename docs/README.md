@@ -55,11 +55,14 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | CQRS léger, cache par décorateur de handler | **Remplacé par ADR-010** — *le principe survit* |
 | [ADR-009](adr/ADR-009-cible-windows.md) | ~~Ajouter **Windows** aux cibles de la v1~~ | **Remplacé par ADR-010** |
 | [ADR-010](adr/ADR-010-react-native.md) | **React Native**, abandon de MAUI et de Windows | Accepté — arbitrage du commanditaire |
+| [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — `createPack` plante en natif | **Proposé — arbitrage du commanditaire requis** |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».
 
 > 🔄 **`ADR-011` reste à écrire** — le choix entre `expo-sqlite` et `op-sqlite` (tâche `S5`).
+> Son numéro lui est **réservé** : `ADR-012` a été écrit avant lui, le 2026-08-15, parce que
+> l'exécution de `M4` l'a imposé.
 
 ## Index des règles métier
 

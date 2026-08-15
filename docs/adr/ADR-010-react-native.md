@@ -87,13 +87,34 @@ flowchart TD
 
 Aucun n'est bloquant, tous sont à constater et non à supposer :
 
-| # | Point |
-|---|---|
-| 1 | Bibliothèque SQLite retenue (`expo-sqlite` ou `op-sqlite`) et son comportement en volume |
-| 2 | Consommation d'un **WMTS IGN** comme source raster MapLibre, et son interaction avec `createPack` |
-| 3 | Poids réel d'un pack hors-ligne pour une emprise départementale (`ADR-003` mesure déjà l'asset percentiles) |
-| 4 | Bibliothèque de graphes pour la courbe de débit (`US-11`) |
-| 5 | Que `createPack` accepte bien une source raster WMTS et pas seulement des tuiles vectorielles |
+| # | Point | État au 2026-08-15 |
+|---|---|---|
+| 1 | Bibliothèque SQLite retenue (`expo-sqlite` ou `op-sqlite`) et son comportement en volume | 🔄 à trancher (`ADR-011`, tâche `S5`) |
+| 2 | Consommation d'un **WMTS IGN** comme source raster MapLibre, et son interaction avec `createPack` | ⚠️ **Moitié constatée.** Le WMTS IGN s'affiche (`M2`, 2026-08-15). L'interaction avec `createPack` **ne peut pas être constatée** : l'appel plante |
+| 3 | Poids réel d'un pack hors-ligne pour une emprise départementale (`ADR-003` mesure déjà l'asset percentiles) | 🚨 **Non mesurable** — aucun octet n'a pu être relevé |
+| 4 | Bibliothèque de graphes pour la courbe de débit (`US-11`) | 🔄 à trancher |
+| 5 | Que `createPack` accepte bien une source raster WMTS et pas seulement des tuiles vectorielles | 🚨 **Ni confirmé, ni infirmé** — voir ci-dessous |
+
+### 🚨 Le point 5 a été exécuté le 2026-08-15, et il met en défaut un appui de cet ADR
+
+Cet ADR affirmait que le hors-ligne cartographique n'était plus un risque, `OfflineManager.createPack`
+le fournissant. **Cet appui n'est pas vérifié.** Constaté sur émulateur Android API 36 avec
+`@maplibre/maplibre-react-native@11.3.6` — la **dernière version publiée** :
+
+`createPack` **tue le processus** environ 0,7 s après la création du pack, par un `SIGABRT` levé sur
+une `std::regex_error` non rattrapée dans le fil `DatabaseFileSource`. **4 essais sur 4**, base
+vierge comprise, et **avec le style vectoriel de démonstration de MapLibre** — le défaut n'est donc
+ni l'IGN, ni le raster.
+
+Le plantage survient **avant** qu'une seule tuile soit téléchargée : `NV-1` n'est ni confirmé ni
+infirmé, et `NV-3`, `NV-4`, `NV-6` restent bloqués.
+
+**Ce que cela ne remet pas en cause :** le choix de React Native. Le même `OfflineManager` sert le
+monde natif comme le monde React Native — le défaut n'est pas dans le pont.
+
+**Ce que cela remet en cause :** que le lot « téléchargement et stockage des tuiles » soit
+réellement supprimé. Arbitrage soumis au commanditaire dans
+[`ADR-012`](ADR-012-hors-ligne-cartographique-bloque.md).
 
 ## Si la décision est revue
 
