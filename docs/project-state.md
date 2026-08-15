@@ -44,11 +44,13 @@ de la stack.
 | `N4` | Client Hub'Eau — retry sur 429/5xx, jamais sur 4xx | ✅ `dbb74d3` |
 | `N5` | Décorateur `CachePolicy` **unique** — stale-while-revalidate | ✅ `2cf3ad2` |
 | `S5` | Bibliothèque SQLite → `ADR-011` | 🔄 mesurable sur l'émulateur ; le critère « entrée de gamme » demande en plus un **appareil réel** |
-| `M1`–`M5` | Carte MapLibre, fond IGN, hors-ligne, mesure | 🔄 **débloqué** — outillage présent, `ANDROID_HOME` à poser |
-| `P1`–`P4` | Outillage percentiles | 🔄 à faire — indépendant, aucun appareil requis |
+| `M1` | **MapLibre 11.3.6 compile et l'app démarre sur l'émulateur** — APK de 58 Mo | ✅ `b035424` |
+| `M2`–`M5` | Fond IGN, marqueurs, pack hors-ligne, mesure | 🔄 à faire — plus rien ne bloque |
+| `P1` | Script d'aspiration `obs_elab` — `C-04` reconfirmé par appel réel | ✅ `e535e27` |
+| `P2`–`P4` | Percentiles par quinzaine, format d'asset, régénération | 🔄 à faire |
 
 **Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
-**67 tests** sur 10 suites *(mesuré le 2026-08-15)*.
+**75 tests** sur 11 suites *(mesuré le 2026-08-15)*.
 
 > ⚠️ **Deux écarts entre le plan T0 et le code livré**, constatés en exécutant `N3` et `N4`. Le code
 > a raison, le plan est une esquisse antérieure :
@@ -177,7 +179,29 @@ lisant le registre plutôt que l'environnement du processus :
 > paquet manquant, il échouera. Le repli est de compléter le SDK d'Android Studio, qui est en zone
 > utilisateur.
 
-### `M1` — ce qui bloque le build natif, constaté le 2026-08-15
+### `M1` — ✅ **résolu le 2026-08-15**
+
+**L'APK se compile et l'application démarre sur l'émulateur** (`app-debug.apk`, 58 Mo). MapLibre
+`11.3.6` et son code natif sont dans le binaire.
+
+**La correction :** basculer `ANDROID_HOME` du SDK Visual Studio
+(`C:\Program Files (x86)\Android\android-sdk`) vers le SDK utilisateur
+(`%LOCALAPPDATA%\Android\Sdk`) — **sans espace ni parenthèse, et inscriptible sans élévation**.
+Un seul changement, qui a levé les trois obstacles d'un coup :
+
+- `clang++.exe` garde son nom complet, donc clang compile en C++ et lie la STL ;
+- Gradle a pu **installer lui-même** `build-tools;35.0.0`, ce que le SDK en lecture seule
+  interdisait ;
+- le NDK `27.1.12297006`, recopié à ce même emplacement, est trouvé sans réglage particulier.
+
+> Aucun contournement n'a survécu : le `buildToolsVersion` forcé dans `android/build.gradle` a été
+> effacé par `expo prebuild --clean` et **n'a pas eu besoin d'être remis**. Le SDK Visual Studio est
+> intact — rien n'a été désinstallé, seulement copié.
+
+<details>
+<summary>Historique du diagnostic — trois obstacles, cinq hypothèses fausses</summary>
+
+### Ce qui bloquait le build natif, avant le 2026-08-15
 
 Trois obstacles rencontrés en séquence, tous de la même famille : **le SDK vient de Visual Studio
 et ne contient pas les versions qu'attend l'écosystème React Native.**
@@ -204,6 +228,13 @@ les points 1, 2 et 3 d'un coup :
 
 Le contournement `buildToolsVersion` d'`android/build.gradle` deviendra alors **inutile** : à ne
 pas pérenniser en config plugin tant que ce chemin n'a pas été essayé.
+
+</details>
+
+> ⚠️ **À retenir pour toute nouvelle machine :** installer le SDK Android sur un chemin **sans
+> espace ni parenthèse**. Le NDK ne le supporte pas, et le symptôme — des symboles C++ manquants au
+> link — ne désigne jamais le chemin. Ne pas réutiliser un SDK hérité des workloads .NET de Visual
+> Studio.
 
 > Le contournement du point 1 vit dans `android/`, **régénéré par `expo prebuild`** : il disparaîtra
 > au prochain prebuild. S'il faut le garder, il devra devenir un config plugin Expo versionné — et
