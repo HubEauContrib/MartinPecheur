@@ -1,253 +1,139 @@
+<div align="center">
+
 # MartinPêcheur
 
-> L'état de votre rivière, sans promesse qu'on ne peut pas tenir.
+**L'état de votre rivière, sans promesse qu'on ne peut pas tenir.**
 
-**MartinPêcheur** est une application mobile qui informe les usagers d'une rivière française sur son état — **écoulement**, **débit**, **sécheresse** — à partir des données publiques ouvertes **Hub'Eau** (Office français de la biodiversité) et **VigiEau** (Ministère de la Transition écologique).
+Application mobile qui informe les usagers d'une rivière française sur son état —
+**écoulement**, **débit**, **sécheresse** — à partir des données publiques ouvertes
+**Hub'Eau** et **VigiEau**.
 
-Elle s'adresse aux riverains, aux agriculteurs et irrigants, aux pêcheurs, aux usagers de loisir et aux collectivités.
+[![Licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE.txt)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](tsconfig.json)
+[![React Native](https://img.shields.io/badge/React%20Native-0.86-61dafb.svg)](package.json)
+[![Expo](https://img.shields.io/badge/Expo-SDK%2057-000020.svg)](app.json)
+[![Plateformes](https://img.shields.io/badge/plateformes-Android%20%7C%20iOS-3ddc84.svg)](docs/adr/ADR-010-react-native.md)
 
-> *Le martin-pêcheur ne pêche que dans une eau claire et vive. Sa présence dit l'état de la rivière — c'est un indicateur, pas une garantie.*
+[Documentation](docs/README.md) · [État du projet](docs/project-state.md) ·
+[Installation](docs/guide-installation.md) · [Décisions](docs/README.md#index-des-décisions)
 
-## Statut
-
-🚧 **Cadrage terminé. Implémentation commencée le 2026-07-31** — socle Expo posé, couche `domain/`
-en cours. Aucun écran n'existe encore.
-
-Plan en cours : [`T0 — Socle React Native`](docs/superpowers/plans/2026-07-31-t0-socle-react-native.md) ·
-Documentation complète : [`docs/README.md`](docs/README.md) ·
-**État vivant, source de vérité des statuts :** [`docs/project-state.md`](docs/project-state.md).
-
-## Ce que l'application fait
-
-- **Une carte** — stations hydrométriques et points d'observation ONDE, colorés par état, avec clustering et filtres.
-- **Le débit**, en m³/s, avec sa date, son statut de qualification et sa courbe d'évolution.
-- **L'écoulement observé** — l'eau coule-t-elle encore, ou le lit est-il à sec ?
-- **Les restrictions sécheresse** de votre zone, par profil d'usager, avec l'arrêté préfectoral.
-- **Le hors-ligne** — la dernière carte consultée reste disponible sans réseau.
-
-## Ce qu'elle ne fait pas, et le dit
-
-Le produit repose sur un principe simple : **ne jamais laisser croire à ce qu'il ne sait pas.**
-
-- Il ne répond **jamais** à « le débit est-il suffisant ? ». Aucune API publique n'expose de seuil réglementaire par station — le vérifier a fait partie du cadrage. Le produit situe un débit par rapport à l'historique de sa propre station, et nomme cela pour ce que c'est : une statistique.
-- Il ne remplace **ni** un arrêté préfectoral, **ni** une décision d'irrigation, **ni** une évaluation de sécurité avant de se baigner, naviguer ou traverser.
-- Il n'affiche **aucune** donnée de qualité de l'eau : le seul jeu disponible décrit l'eau du robinet après traitement, et l'afficher sur une fiche de rivière serait lu comme une autorisation de baignade.
-- Aucune de ses données ne reflète les **lâchers ou manœuvres de barrages**.
-
-Un avertissement explicite apparaît à **quatre endroits** : au premier lancement avec acquittement obligatoire, en bandeau permanent sur la carte, sur chaque fiche avec la date de la mesure, et renforcé sur tout écran de sécheresse.
-
-## Périmètre v1
-
-Pas de backend · pas de compte utilisateur · pas de notifications · pas de prévision hydrologique.
-
-## Stack
-
-**React Native** + **TypeScript** (`strict`), empaqueté par **Expo** · carte **`@maplibre/maplibre-react-native`** (MapLibre Native) sur fond **IGN Géoplateforme** · SQLite · Android et iOS.
-**Clean Architecture en couches + CQRS léger** — `Query`/`Command` typés avec handlers et une politique de cache portée par un décorateur unique. Pas d'event sourcing : l'application ne produit aucun événement de domaine.
-
-> 🚨 **Bascule du 2026-07-31** : le projet était en .NET MAUI Blazor Hybrid et ciblait aussi Windows.
-> Le commanditaire a révisé son arbitrage — voir [`docs/adr/ADR-010-react-native.md`](docs/adr/ADR-010-react-native.md),
-> qui remplace `ADR-005`, `ADR-008` et `ADR-009`. Le code .NET a été **retiré du dépôt** le même
-> jour ; il reste consultable dans l'historique git (`696be3a`, `22e9850`).
+</div>
 
 ---
 
-## Démarrer
+> *Le martin-pêcheur ne pêche que dans une eau claire et vive. Sa présence dit l'état de la
+> rivière — c'est un indicateur, pas une garantie.*
 
-### Prérequis
+## Sommaire
 
-| Pour | Outil | Version constatée le 2026-08-01 |
-|---|---|---|
-| **Tout** — compiler, tester, linter | **Node.js** (LTS) et npm | Node `24.18.1`, npm `11.16.0` |
-| **Lancer sur Android** | **Android Studio** et un **JDK 17** | Studio `2026.1.3.7`, JDK `17.0.20.8` |
-| **Lancer sur iOS** | **macOS** avec Xcode | ⚠️ *impossible depuis Windows ou Linux* |
+- [Le produit](#le-produit) · [Ce qu'il refuse de faire](#ce-quil-refuse-de-faire)
+- [Démarrage rapide](#démarrage-rapide) · [Commandes](#commandes)
+- [Architecture](#architecture) · [Contribuer](#contribuer) · [Licences](#licences)
 
-```bash
-npm install
-```
+## Le produit
 
-### Exécuter l'application — trois voies
+MartinPêcheur s'adresse aux riverains, aux agriculteurs et irrigants, aux pêcheurs, aux usagers de
+loisir et aux collectivités.
 
-Les **tests unitaires ne demandent rien de plus** : `npm test` fonctionne dès `npm install`. Ce qui
-suit ne concerne que le fait de *voir l'application à l'écran*.
-
-| Voie | À installer sur le PC | Remarque |
-|---|---|---|
-| **1. Expo Go sur un téléphone Android** | **Rien** | `npm start`, on scanne le QR code. ⚠️ **Cessera de marcher à la tâche `M1`** : MapLibre embarque du code natif, qu'Expo Go ne contient pas |
-| **2. Émulateur Android** | Android Studio + JDK 17 | La voie autonome, sans matériel |
-| **3. Téléphone Android + *development build*** | Android Studio + JDK 17 | Le plus fidèle, et le seul qui permette de mesurer `M5` sur un appareil d'entrée de gamme réel |
-
-Pour les voies 2 et 3, sous Windows :
-
-```bash
-winget install --exact --id Microsoft.OpenJDK.17 --accept-package-agreements
-```
-
-```bash
-winget install --exact --id Google.AndroidStudio --accept-package-agreements
-```
-
-> ⚠️ **Ne pas lancer les deux en même temps.** Windows n'accepte qu'un installateur MSI à la fois :
-> le second échoue avec le code **1618** (*« Another installation is already in progress »*).
-
-**Ensuite — winget n'installe que l'IDE.** Il faut **ouvrir Android Studio une fois** et laisser
-l'assistant télécharger le SDK. Compter plusieurs Go.
-
-> ⚠️ **L'installation « Standard » ne suffit pas.** Constaté le 2026-08-01 : elle pose la plateforme
-> **la plus récente** — `android-37` — et **aucune image système**, donc aucun émulateur ne peut
-> démarrer. Elle n'installe pas non plus les *Command-line Tools*, donc pas de `sdkmanager`.
-
-Or Expo SDK 57 veut l'**API 36**, et pas la plus récente. Vérifié **à la source** et non d'après la
-documentation — `node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle` :
-
-```gradle
-compileSdkVersion project.ext.safeExtGet("compileSdkVersion", 36)
-minSdkVersion     project.ext.safeExtGet("minSdkVersion", 24)
-targetSdkVersion  project.ext.safeExtGet("targetSdkVersion", 36)
-```
-
-Il faut donc compléter par **More Actions ▸ SDK Manager** :
-
-| Onglet | À cocher |
+| | |
 |---|---|
-| **SDK Platforms** (avec *Show Package Details*), sous *Android 16 (Baklava) — API 36* | **Android SDK Platform 36** · **Google APIs Intel x86_64 Atom System Image** |
-| **SDK Tools** | **Android SDK Command-line Tools (latest)** |
+| 🗺️ **Une carte** | Stations hydrométriques et points d'observation ONDE, colorés par état, avec clustering et filtres |
+| 💧 **Le débit** | En m³/s, avec sa date, son statut de qualification et sa courbe d'évolution |
+| 🏞️ **L'écoulement observé** | L'eau coule-t-elle encore, ou le lit est-il à sec ? |
+| ⚠️ **Les restrictions sécheresse** | Celles de votre zone, par profil d'usager, avec l'arrêté préfectoral |
+| 📴 **Le hors-ligne** | La dernière carte consultée reste disponible sans réseau |
 
-Puis créer un appareil virtuel : **More Actions ▸ Virtual Device Manager ▸ Create Device**.
+**Périmètre v1** — pas de backend · pas de compte utilisateur · pas de notifications · pas de
+prévision hydrologique.
 
-Enfin, déclarer le SDK et l'exposer au `PATH` :
+## Ce qu'il refuse de faire
 
-```powershell
-[Environment]::SetEnvironmentVariable("ANDROID_HOME", "$env:LOCALAPPDATA\Android\Sdk", "User")
-```
+Le produit repose sur un principe simple : **ne jamais laisser croire à ce qu'il ne sait pas.**
 
-> ⚠️ **Rouvrir VS Code après cette commande** — un terminal déjà ouvert garde l'ancien
-> environnement, et l'erreur *« Failed to resolve the Android SDK path »* persistera pour cette
-> seule raison.
+- Il ne répond **jamais** à « le débit est-il suffisant ? ». Aucune API publique n'expose de seuil
+  réglementaire par station — le vérifier a fait partie du cadrage. Le produit situe un débit par
+  rapport à l'historique de sa propre station, et nomme cela pour ce que c'est : une statistique.
+- Il ne remplace **ni** un arrêté préfectoral, **ni** une décision d'irrigation, **ni** une
+  évaluation de sécurité avant de se baigner, naviguer ou traverser.
+- Il n'affiche **aucune** donnée de qualité de l'eau : le seul jeu disponible décrit l'eau du robinet
+  après traitement, et l'afficher sur une fiche de rivière serait lu comme une autorisation de
+  baignade.
+- Aucune de ses données ne reflète les **lâchers ou manœuvres de barrages**.
 
-```bash
-npm run android
-```
+Un avertissement explicite apparaît à **quatre endroits** : au premier lancement avec acquittement
+obligatoire, en bandeau permanent sur la carte, sur chaque fiche avec la date de la mesure, et
+renforcé sur tout écran de sécheresse. Ce ne sont pas des finitions —
+[`BR-012`](docs/br/BR-012-acquittement-au-premier-lancement.md) et
+[`BR-013`](docs/br/BR-013-avertissement-renforce-sur-ecrans-ressource.md) en font une condition de
+mise en production.
 
-#### Le piège du JDK
-
-**JDK 17, et pas plus récent** — la documentation React Native est explicite : *« you may encounter
-problems using higher JDK versions »*.
-
-Or **Android Studio embarque son propre runtime Java**, et ce n'est pas un 17 : constaté le
-2026-08-01, le JBR livré avec Studio `2026.1.3.7` est un **openjdk 25.0.2**. C'est précisément la
-version déconseillée, et c'est celle que Gradle utilisera par défaut.
-
-Le JDK 17 installé séparément n'est donc **pas redondant**. Si un build Gradle échoue
-bizarrement, vérifier dans Android Studio : *Settings ▸ Build, Execution, Deployment ▸ Build Tools
-▸ Gradle ▸ Gradle JDK*, et le pointer sur `C:\Program Files\Microsoft\jdk-17...`, pas sur le JBR
-embarqué.
-
-### Les commandes
+## Démarrage rapide
 
 ```bash
-npm run verify
+npm install && npm run verify
 ```
 
-C'est la porte d'entrée : elle enchaîne les trois vérifications, et **c'est le critère de fin
-d'étape du projet**. Aucune tâche n'est terminée si elle ne passe pas.
+C'est tout ce qu'il faut pour travailler sur les couches `domain/`, `data/` et `application/` —
+elles sont du TypeScript pur testé sous Node, sans émulateur ni téléphone.
+
+Pour **voir l'application à l'écran**, il faut en plus Android Studio et un JDK 17 :
+👉 **[Guide d'installation](docs/guide-installation.md)**.
+
+> ⚠️ Ce guide contient un piège qui coûte une nuit entière : **le SDK Android doit être installé sur
+> un chemin sans espace ni parenthèse.** Le NDK ne les supporte pas, et le message d'erreur ne
+> désigne jamais la cause.
+
+## Commandes
 
 | Commande | Rôle |
 |---|---|
+| **`npm run verify`** | **Typecheck + lint + tests.** Le critère de fin d'étape du projet |
 | `npm run typecheck` | `tsc --noEmit` — TypeScript `strict`, sans concession |
 | `npm test` | Tests unitaires (Jest, environnement Node) |
 | `npm run lint` | ESLint, dont les règles de frontière entre couches |
-| `npm run verify` | Les trois d'affilée |
 | `npm start` | Serveur de développement Metro |
-| `npm run android` | Compile et lance sur un appareil ou émulateur Android |
+| `npm run android` | Compile et lance sur appareil ou émulateur Android |
 | `npm run ios` | Idem sur iOS — **macOS requis** |
 
-### Ce qu'on peut réellement exécuter, et où
+Aucune tâche n'est considérée terminée si `npm run verify` ne passe pas.
 
-Le produit ne cible que **Android et iOS** ([`ADR-010`](docs/adr/ADR-010-react-native.md)). Cela ne
-veut pas dire qu'il faut un Mac ou un téléphone pour travailler dessus — la majorité du code s'en
-passe.
+## Architecture
 
-| Ce qu'on veut faire | Windows | Linux | macOS |
-|---|:---:|:---:|:---:|
-| `domain/`, `data/`, `application/` — **l'essentiel de T0** | ✅ | ✅ | ✅ |
-| `typecheck`, `lint`, `test` | ✅ | ✅ | ✅ |
-| Outillage percentiles (script Node) | ✅ | ✅ | ✅ |
-| Lancer sur **Android** (émulateur ou appareil) | ✅ | ✅ | ✅ |
-| Lancer sur **iOS** | ❌ | ❌ | ✅ |
-| Livrer un build **iOS** | ❌ | ❌ | ✅ |
-
-**Sur Windows, on peut donc tout faire sauf iOS.** Les couches `domain/`, `data/` et `application/`
-sont du TypeScript pur testé sous Node : elles n'ont besoin ni d'émulateur, ni de téléphone, ni de
-carte. C'est délibéré — cette indépendance est l'invariant d'architecture du projet, et elle est
-vérifiée par un test (`tests/architecture/`), pas seulement recommandée.
-
-> ⚠️ **Windows n'est pas une cible du produit.** Il a été ajouté puis retiré le 2026-07-31
-> ([`ADR-009`](docs/adr/ADR-009-cible-windows.md) → [`ADR-010`](docs/adr/ADR-010-react-native.md)) :
-> `maplibre-react-native` ne le supporte pas. Windows est une machine de **développement** valable,
-> pas une plateforme de **livraison**.
-
-> ⚠️ **Expo Go ne suffira pas.** Dès que `@maplibre/maplibre-react-native` sera installé (tâche `M1`
-> du plan T0), l'application embarquera du code natif et exigera un ***development build*** :
-> `npx expo prebuild` puis `npx expo run:android`.
-
-### Travailler sous VS Code
-
-L'espace de travail est préconfiguré dans [`.vscode/`](.vscode/), versionné parce que c'est de la
-config d'équipe.
-
-**Au premier démarrage**, trois choses, dans cet ordre :
-
-1. `code .` à la racine du dépôt — **ouvrir le dossier, pas un fichier** : sans cela ni les tâches,
-   ni le débogueur, ni les chemins `@domain/*` ne fonctionnent.
-2. Accepter la bannière **« Cet espace de travail recommande des extensions »**.
-3. Ouvrir n'importe quel `.ts` et accepter l'invite **« Utiliser la version TypeScript de
-   l'espace de travail »**. Si elle ne s'affiche pas :
-   `Ctrl+Shift+P` ▸ *TypeScript: Select TypeScript Version…* ▸ **Use Workspace Version**.
-
-Les quatre extensions recommandées :
-
-| Extension | Rôle |
-|---|---|
-| `dbaeumer.vscode-eslint` | Lint en direct, dont les règles de frontière entre couches |
-| `expo.vscode-expo-tools` | Complétion et validation d'`app.json`, outils Expo |
-| `msjsdiag.vscode-react-native` | Débogage React Native, gestion de Metro |
-| `Orta.vscode-jest` | Tests dans l'explorateur, exécution au cas par cas |
-
-**Ce qui est câblé d'office :**
-
-- `Ctrl+Shift+B` lance **`verify`** — typecheck, lint et tests d'un coup. C'est la tâche de build
-  par défaut, parce que c'est le critère de fin d'étape du projet.
-- **`F5`** débogue les tests unitaires, avec points d'arrêt dans `domain/`, `data/` et
-  `application/`. Aucun appareil, aucun émulateur, aucune carte : c'est précisément ce que
-  l'indépendance de ces couches permet.
-- L'éditeur utilise **le TypeScript du projet** (`node_modules/typescript/lib`), pas celui embarqué
-  dans VS Code — sans quoi l'éditeur et `npm run typecheck` peuvent diverger, et c'est toujours
-  l'éditeur qu'on croit.
-- Deux tâches en continu sont disponibles (`Terminal ▸ Exécuter la tâche…`) :
-  `typecheck — en continu` et `test — en continu`.
-
-> ℹ️ Les extensions **C# / .NET** sont marquées comme non souhaitées : il n'y a plus une ligne de
-> C# dans ce dépôt depuis le 2026-07-31.
-
-### Arborescence
+**Clean Architecture en couches + CQRS léger** — `Query`/`Command` typés avec handlers, et une
+politique de cache portée par un **décorateur unique**. Pas d'event sourcing, pas de bibliothèque
+de médiateur, et **pas de backend** : l'application appelle directement les APIs publiques.
 
 ```
 src/
 ├── domain/        entités et règles — TypeScript pur, ZÉRO import de framework
 ├── data/          dépôts, clients HTTP, mappers
 ├── application/   Query/Command + le décorateur de cache, unique
-└── features/      écrans React (à partir de T1)
+└── features/      écrans React
 tests/             calque src/, plus tests/architecture/
 tools/             scripts hors application (asset de percentiles)
 docs/              spécification, ADR, règles métier, plans
 ```
 
-**Un écran n'appelle jamais un dépôt**, et `domain/` ne dépend de rien. Ces deux règles ne sont pas
-des conventions de revue : la première est portée par ESLint, la seconde par un test.
-Détail : [`docs/03-conception.md`](docs/03-conception.md).
+Deux invariants ne sont **pas** des conventions de revue : `domain/` ne dépend de rien — vérifié par
+un test d'architecture **et** par ESLint — et un écran n'appelle jamais un dépôt. Les unités sont
+des types *branded*, pas des `number` : confondre des l/s avec des m³/s est le bug le plus coûteux
+du projet ([`BR-002`](docs/br/BR-002-debit-en-metres-cubes-par-seconde.md)).
 
-### Contribuer
+Détail : [`docs/03-conception.md`](docs/03-conception.md) ·
+[`ADR-010`](docs/adr/ADR-010-react-native.md).
+
+### Stack
+
+**React Native** + **TypeScript** (`strict`), empaqueté par **Expo** · carte
+**`@maplibre/maplibre-react-native`** (MapLibre Native, rendu GPU) sur fond **IGN Géoplateforme** ·
+SQLite · Android et iOS.
+
+> 🚨 **Bascule du 2026-07-31** — le projet était en .NET MAUI Blazor Hybrid et ciblait aussi
+> Windows. Le commanditaire a révisé son arbitrage :
+> [`ADR-010`](docs/adr/ADR-010-react-native.md) remplace `ADR-005`, `ADR-008` et `ADR-009`. Le code
+> .NET a été retiré du dépôt le même jour ; il reste dans l'historique git (`696be3a`, `22e9850`).
+
+## Contribuer
 
 - **Code en anglais, domaine et documentation en français.**
 - **Conventional Commits**, scopes : `domain`, `data`, `ui`, `map`, `hydrometrie`, `ecoulement`,
@@ -259,51 +145,61 @@ Détail : [`docs/03-conception.md`](docs/03-conception.md).
 - **Ne jamais inventer un seuil hydrologique.** C'est la faute la plus grave possible sur ce
   produit.
 
-Les règles complètes sont dans [`CLAUDE.md`](CLAUDE.md).
-
----
+Règles complètes : [`CLAUDE.md`](CLAUDE.md) · Conventions de documentation :
+[`docs/README.md`](docs/README.md).
 
 ## Licences
 
 ### Le code — MIT
 
-Ce dépôt est distribué sous [licence MIT](LICENSE.txt) : réutilisation libre, y compris commerciale et en source fermée, sous réserve de conserver la notice de copyright.
+Distribué sous [licence MIT](LICENSE.txt) : réutilisation libre, y compris commerciale et en source
+fermée, sous réserve de conserver la notice de copyright.
 
 ### Les données — Licence Ouverte, attribution obligatoire
 
-**La licence MIT du code ne couvre pas les données.** Les jeux consommés, et l'asset dérivé redistribué dans ce dépôt, restent sous leur propre licence.
+**La licence MIT du code ne couvre pas les données.** Les jeux consommés, et l'asset dérivé
+redistribué dans ce dépôt, restent sous leur propre licence.
 
 | Source | Licence | Obligation |
 |---|---|---|
-| **Hub'Eau** — Office français de la biodiversité · [hubeau.eaufrance.fr](https://hubeau.eaufrance.fr/page/apis) | Licence Ouverte Etalab — version non précisée sur les CGU (*non vérifié*) | Citation de la source et de la date de mise à jour |
+| **Hub'Eau** — Office français de la biodiversité · [hubeau.eaufrance.fr](https://hubeau.eaufrance.fr/page/apis) | Licence Ouverte Etalab — version non précisée sur les CGU *(non vérifié)* | Citation de la source et de la date de mise à jour |
 | **VigiEau** — Ministère de la Transition écologique · [vigieau.gouv.fr](https://vigieau.gouv.fr) | Licence Ouverte 2.0 | idem |
 | **IGN Géoplateforme** — fond de carte WMTS | Licence Ouverte | idem |
 | **OpenStreetMap** — fond de carte en repli | **ODbL** | Attribution + *share-alike* sur toute base dérivée |
 
-La **Licence Ouverte 2.0** n'impose **aucun partage à l'identique** : elle autorise explicitement de « créer des "Informations dérivées" » et de « l'exploiter à titre commercial », contre la seule mention de la paternité — « sa source (a minima le nom du « Concédant ») et la date de la dernière mise à jour ». Elle se déclare compatible avec OGL (Royaume-Uni), CC-BY et ODC-BY.
-*Vérifié le 2026-07-30 sur [etalab/licence-ouverte](https://raw.githubusercontent.com/etalab/licence-ouverte/master/LO.md).*
+La **Licence Ouverte 2.0** n'impose **aucun partage à l'identique** : elle autorise explicitement de
+créer des « Informations dérivées » et de les exploiter à titre commercial, contre la seule mention
+de la paternité et de la date de dernière mise à jour. Elle se déclare compatible avec OGL, CC-BY et
+ODC-BY. *Vérifié le 2026-07-30 sur
+[etalab/licence-ouverte](https://raw.githubusercontent.com/etalab/licence-ouverte/master/LO.md).*
 
-**Conséquence pour ce dépôt** : l'asset de percentiles généré au build ([`ADR-003`](docs/adr/ADR-003-reference-percentiles-en-asset.md)) est une œuvre dérivée de l'historique Hub'Eau. Il **peut** être diffusé dans un dépôt MIT — mais l'obligation d'attribution le suit, et n'est pas éteinte par le `LICENSE.txt`.
+**Conséquence** : l'asset de percentiles généré au build
+([`ADR-003`](docs/adr/ADR-003-reference-percentiles-en-asset.md)) est une œuvre dérivée de
+l'historique Hub'Eau. Il **peut** être diffusé dans un dépôt MIT, mais l'obligation d'attribution le
+suit et n'est pas éteinte par le `LICENSE.txt`.
 
-**Sur l'ODbL** : l'application met en cache des **tuiles** (*Produced Work*), pas de la donnée OSM. Le code n'est donc pas contaminé. Cela changerait si des géométries OSM étaient un jour extraites et stockées en base (*Derivative Database*).
-⚠️ Cette lecture n'a **pas** été confirmée par relecture du texte ODbL — à vérifier si OSM devient un repli réellement servi en production.
+**Sur l'ODbL** : l'application met en cache des **tuiles** (*Produced Work*), pas de la donnée OSM —
+le code n'est donc pas contaminé. Cela changerait si des géométries OSM étaient extraites et
+stockées en base (*Derivative Database*). ⚠️ Lecture **non confirmée** par relecture du texte ODbL —
+à vérifier si OSM devient un repli réellement servi en production.
 
-### Les dépendances — toutes permissives
+### Les dépendances
 
-Aucune dépendance sous licence copyleft. BSD-3-Clause et Apache-2.0 ne sont **pas** relicenciées en MIT : leurs notices doivent être conservées et présentées dans l'écran « À propos ».
+Aucune dépendance sous licence copyleft. BSD-3-Clause et Apache-2.0 ne sont **pas** relicenciées en
+MIT : leurs notices doivent être conservées et présentées dans l'écran « À propos ».
 
 | Dépendance | Licence |
 |---|---|
-| React Native | MIT |
-| Expo | MIT |
-| `@maplibre/maplibre-react-native` | à confirmer |
+| React Native · Expo | MIT |
+| `@maplibre/maplibre-react-native` | *à confirmer* |
 | MapLibre Native | BSD-3-Clause |
-| SQLite (`expo-sqlite` ou `op-sqlite`) | à confirmer |
+| SQLite (`expo-sqlite` ou `op-sqlite`) | *à confirmer* |
 
-⚠️ **Ce tableau est à refaire intégralement.** Il listait les dépendances .NET, devenues caduques
-avec [`ADR-010`](docs/adr/ADR-010-react-native.md). **Aucune ligne ci-dessus n'a été vérifiée à la
-source** — à faire à l'ajout effectif de chaque paquet, et à dater.
+⚠️ **Ce tableau est à refaire intégralement à la source, et à dater.** Il descend de la liste des
+dépendances .NET, devenues caduques avec [`ADR-010`](docs/adr/ADR-010-react-native.md).
 
 ### Disponibilité
 
-Les services publics consommés sont mis à disposition **sans garantie de disponibilité ni de performance**, et sans quota chiffré (`C-15`). L'application prévoit un mode dégradé en conséquence.
+Les services publics consommés sont mis à disposition **sans garantie de disponibilité ni de
+performance**, et sans quota chiffré. L'application prévoit un mode dégradé et un throttle client en
+conséquence.
