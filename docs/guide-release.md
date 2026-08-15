@@ -105,6 +105,12 @@ machines et stable d'un `prebuild` à l'autre.
 **Tolérable pour une alpha technique envoyée à trois personnes que tu connais. À remplacer avant
 toute release régulière ou publique.** La marche à suivre est en annexe.
 
+> ✅ **Corrigé pour la voie B le 2026-08-15.** La CI ne peut plus publier un APK signé en debug :
+> [`plugins/withReleaseSigning.js`](../plugins/withReleaseSigning.js) câble un `signingConfigs.release`
+> piloté par propriétés Gradle, et le workflow **refuse la publication** si `apksigner` lit encore
+> `CN=Android Debug` sur le binaire produit. La voie A, manuelle, reste signée en debug tant que le
+> keystore n'est pas généré — voir l'annexe.
+
 ---
 
 ## Voie A — release manuelle, depuis ton poste
@@ -250,22 +256,41 @@ engager de release.
 > déclencherait bien le job depuis n'importe quel commit — mais il engagerait une release, ce que le
 > verrou produit interdit tant qu'il n'est pas arbitré.
 
-**Deux garde-fous, actifs uniquement sur un tag :**
+**Quatre garde-fous. Trois ne s'arment que sur un tag ; le quatrième porte sur tous les builds.**
 
 | Garde-fou | Ce qu'il empêche |
 |---|---|
 | Cohérence du tag et d'`app.json` | Publier un `v0.2.0` qui rapporte `0.1.0` une fois installé |
+| **`versionCode` strictement croissant** | Publier deux releases portant le même `versionCode`, qui ne s'installent pas l'une sur l'autre. Comparé à l'`app.json` du **tag précédent** — c'est pourquoi le *checkout* prend `fetch-depth: 0`. La première release, sans tag antérieur, est acceptée telle quelle |
 | Présence de `docs/notes-release.md`, non vide | Publier sans note rédigée. La note porte les limites tant que `BR-012` n'est pas livré, et elle est soumise à `BR-003` et `BR-014` : elle s'écrit, elle ne se génère pas depuis les messages de commit |
+| **Signature vérifiée sur l'APK produit** | Publier un binaire signé de la clé de debug publique. Le secret manquant fait échouer le job **avant** de compiler ; `apksigner verify --print-certs` reprend la vérification **après**, sur le fichier réel — un plugin qui aurait cessé de s'appliquer ou une propriété Gradle mal transmise ne se verraient nulle part ailleurs |
+
+> ⚠️ **Contrôler le `versionName` sans le `versionCode` ne fermait que la moitié du piège n° 2.**
+> Le premier est ce que lit l'humain, le second est ce que compare Android — et c'est le second qui
+> est piloté à la main, donc celui qui s'oublie.
+
+**Trois secrets de dépôt** sont nécessaires à la publication. Sans `ANDROID_KEYSTORE_BASE64`, un
+tag échoue avec un message explicite ; un `workflow_dispatch` continue en signant en debug et
+étiquette l'APK comme non distribuable.
+
+| Secret | Contenu |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | le `.jks` encodé — `base64 -w0 martinpecheur-release.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | mot de passe du magasin |
+| `ANDROID_KEY_ALIAS` · `ANDROID_KEY_PASSWORD` | alias et mot de passe de la clé |
 
 La publication passe par `gh release create`, déjà présent sur le *runner* — même commande que la
 voie A, et **aucune action tierce** dans la chaîne.
 
-**Deux points restent ouverts :**
+**Un point reste ouvert :**
 
 | # | Point |
 |---|---|
-| 1 | **Le keystore.** En l'état, la CI signe avec la clé de debug publique. Voir l'annexe pour le keystore de projet en secret GitHub |
-| 2 | **Le poids.** ⚠️ **Mesuré le 2026-08-15 : 110 Mo**, parce qu'`assembleRelease` embarque les **quatre** ABI là où `expo run:android` n'en compilait qu'une. Détail : `arm64-v8a` 25,4 Mo · `armeabi-v7a` 17,9 Mo · `x86` 26,4 Mo · `x86_64` 26,1 Mo. **Les 52,5 Mo de `x86`/`x86_64` ne servent qu'à l'émulateur.** Le workflow porte la ligne à ajouter en commentaire — `-PreactNativeArchitectures=arm64-v8a` — décision non prise |
+| 1 | **Le poids.** ⚠️ **Mesuré le 2026-08-15 : 110 Mo**, parce qu'`assembleRelease` embarque les **quatre** ABI là où `expo run:android` n'en compilait qu'une. Détail : `arm64-v8a` 25,4 Mo · `armeabi-v7a` 17,9 Mo · `x86` 26,4 Mo · `x86_64` 26,1 Mo. **Les 52,5 Mo de `x86`/`x86_64` ne servent qu'à l'émulateur.** Le workflow porte la ligne à ajouter en commentaire — `-PreactNativeArchitectures=arm64-v8a` — décision non prise |
+
+> Le **keystore** n'est plus un point ouvert côté CI : le câblage existe et est testé. Il reste à
+> **générer la clé et à déposer les secrets** — voir l'annexe. Tant que ce n'est pas fait, un tag
+> échoue avant de compiler, ce qui est le comportement voulu.
 
 > Le `versionCode`, lui, **n'est plus un point ouvert** : il reste piloté à la main dans `app.json`,
 > conformément à la convention ci-dessus, et le garde-fou de cohérence le donne à lire dans le
@@ -340,10 +365,37 @@ CI, le transmettre en secret GitHub encodé en base64, avec ses mots de passe :
 base64 -w0 martinpecheur-release.jks
 ```
 
-Reste à câbler `signingConfigs.release` dans Gradle. Comme `android/` est régénéré par `prebuild`,
-**ce câblage ne peut pas vivre dans `android/`** : il doit passer par un *config plugin* Expo
-versionné, ou par un `--gradle-property` fourni au moment du build. C'est le point ouvert de cette
-annexe, et il est à trancher avant la voie B.
+✅ **Le câblage Gradle, lui, est fait** (2026-08-15). Comme `android/` est régénéré par `prebuild`,
+il ne pouvait pas vivre dans `android/` : il vit dans un *config plugin* Expo versionné,
+[`plugins/withReleaseSigning.js`](../plugins/withReleaseSigning.js), déclaré dans `app.json`.
+
+Le plugin réécrit `android/app/build.gradle` à chaque `prebuild` pour ajouter un
+`signingConfigs.release` alimenté par quatre propriétés Gradle, et brancher le buildType `release`
+dessus **dès que `MARTINPECHEUR_STORE_FILE` est fournie** :
+
+```bash
+./gradlew assembleRelease \
+  -PMARTINPECHEUR_STORE_FILE=release.keystore \
+  -PMARTINPECHEUR_STORE_PASSWORD=… \
+  -PMARTINPECHEUR_KEY_ALIAS=… \
+  -PMARTINPECHEUR_KEY_PASSWORD=…
+```
+
+Sans ces propriétés, le comportement d'origine est conservé : un build local reste possible sans
+keystore, signé en debug. C'est la CI qui interdit d'en **publier** un.
+
+> ⚠️ **Le plugin lève si le gabarit Expo change.** S'il ne retrouve pas ses ancres
+> (`signingConfigs {`, `buildTypes {`, `release {`, `signingConfig signingConfigs.debug`), il fait
+> échouer `prebuild` au lieu de rendre le fichier inchangé — un plugin muet réintroduirait la
+> signature de debug en silence, ce qu'il existe précisément pour empêcher. Six tests couvrent ces
+> cas dans [`tests/plugins/withReleaseSigning.test.ts`](../tests/plugins/withReleaseSigning.test.ts),
+> sur une copie **réelle** du `build.gradle` généré le 2026-08-15.
+>
+> 🔄 **Non éprouvé sur un build natif** : le plugin est testé sur la transformation de texte, pas
+> encore par un `prebuild` suivi d'un `assembleRelease` signé. La première release le constatera.
+
+Il reste donc, avant de publier : générer la clé ci-dessus, et déposer les trois secrets listés à la
+voie B.
 
 ## Liens
 
