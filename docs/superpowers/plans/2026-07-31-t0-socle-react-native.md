@@ -2334,7 +2334,18 @@ git commit -m "feat(hydrometrie): script d'aspiration de l'historique obs_elab"
 [`BR-004`](../../br/BR-004-historique-insuffisant-indetermine.md) : moins de **10 années** sur une
 quinzaine → `Indetermine`. **Jamais un percentile calculé sur un échantillon trop mince.**
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+> ✅ **Exécutée le 2026-08-15**, avec **deux corrections de fond** :
+>
+> | Le plan écrit | Le défaut |
+> |---|---|
+> | `nbAnnees: echantillon.length` | **Casse `BR-004`.** `QmnJ` est un débit **journalier** : une quinzaine sur dix ans porte ~150 relevés, pas 10. Neuf années franchiraient le seuil sans que rien ne le signale. Le livrable compte les **années distinctes**, et expose `nbReleves` à part |
+> | *(la quinzaine n'est définie nulle part)* | Ni `P2` ni `P3` ne disent comment une date devient un index 0–23, alors que `BR-004` compte les années **sur la quinzaine calendaire**. `fortnightIndex` est ajouté, lu en **UTC** — passer par le fuseau local ferait basculer un relevé du 15 au 16 selon la machine qui régénère l'asset |
+>
+> Deux ajouts mineurs : les valeurs entrent en `CubicMetresPerSecond` *branded* (la conversion
+> reste dans `domain/units/conversions`, `BR-002`), et `tools/` est entré dans le périmètre
+> d'ESLint — il en était **entièrement absent**, alors qu'il produit un livrable versionné.
+
+- [x] **Step 1 : Écrire le test qui échoue**
 
 ```ts
 // tests/tools/percentiles/computePercentiles.test.ts
@@ -2367,7 +2378,7 @@ describe("percentiles par quinzaine (BR-004)", () => {
 });
 ```
 
-- [ ] **Step 2 : Lancer — il DOIT échouer**
+- [x] **Step 2 : Lancer — il DOIT échouer**
 
 ```bash
 npx jest tests/tools/percentiles --verbose
@@ -2375,7 +2386,7 @@ npx jest tests/tools/percentiles --verbose
 
 Attendu : `FAIL`, `Cannot find module`.
 
-- [ ] **Step 3 : Implémenter**
+- [x] **Step 3 : Implémenter**
 
 ```ts
 // tools/percentiles/computePercentiles.ts
@@ -2429,7 +2440,7 @@ export function percentilesForFortnight(
 }
 ```
 
-- [ ] **Step 4 : Lancer — il doit passer**
+- [x] **Step 4 : Lancer — il doit passer**
 
 ```bash
 npx jest tests/tools/percentiles --verbose
@@ -2437,7 +2448,7 @@ npx jest tests/tools/percentiles --verbose
 
 Attendu : `PASS`, 3 tests.
 
-- [ ] **Step 5 : Commit**
+- [x] **Step 5 : Commit**
 
 ```bash
 git add tools/percentiles tests/tools/percentiles

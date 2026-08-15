@@ -22,6 +22,7 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application mob
 | [`context-map.md`](context-map.md) | **Carte des contextes** — 6 contextes bornés et leurs sources externes | — |
 | [`project-state.md`](project-state.md) | **État vivant** — où on en est, ce qui bloque | — |
 | [`guide-installation.md`](guide-installation.md) | Installation du poste de développement, et ses pièges | — |
+| [`guide-release.md`](guide-release.md) | **Livrer un APK à un testeur distant** — commandes, signature, verrou produit | — |
 
 ## Cadrage produit
 

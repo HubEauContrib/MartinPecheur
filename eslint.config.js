@@ -8,7 +8,12 @@ const tseslint = require("typescript-eslint");
 module.exports = tseslint.config(
   { ignores: ["node_modules/**", "dist/**", ".expo/**", "android/**", "ios/**", "assets/**"] },
 
-  { files: ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts"], extends: [tseslint.configs.recommended] },
+  // `tools/` en fait partie : il produit un asset versionné et livré
+  // (`ADR-003`). L'en exclure le laissait hors de toute vérification.
+  {
+    files: ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tools/**/*.ts"],
+    extends: [tseslint.configs.recommended],
+  },
 
   {
     files: ["src/domain/**/*.ts"],

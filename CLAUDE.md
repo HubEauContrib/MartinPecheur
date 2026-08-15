@@ -152,6 +152,7 @@ Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 - **Ordre d'implémentation :** `domain/` → `data/` → `application/` → écrans
 - **TDD** : test rouge avant implémentation. Commencer par la conversion d'unités — c'est le bug le plus coûteux du projet
 - **Critère de fin d'étape :** `tsc --noEmit` **sans erreur**, lint propre, tests verts
+- **Release Android :** `npm run verify` → `npx expo prebuild --platform android --clean` → `cd android && ./gradlew assembleRelease` → `gh release create vX.Y.Z-alpha.N <apk> --prerelease`. Procédure, pièges et verrou produit : `docs/guide-release.md`. ⚠️ **Jamais exécutée au 2026-08-15** — deux pièges connus : le build *debug* n'est pas distribuable (Metro), et le `versionCode` reste à `1` tant qu'il n'est pas déclaré dans `app.json`
 - **TypeScript `strict` non négociable.** `any` implicite interdit. Les unités passent par des types *branded*, les nomenclatures par des unions closes avec `Inconnu`
 
 ---

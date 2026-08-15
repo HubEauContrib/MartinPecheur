@@ -23,7 +23,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "test": "jest",
-    "lint": "eslint src tests",
+    "lint": "eslint src tests tools",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm run lint && npm test"
   },
