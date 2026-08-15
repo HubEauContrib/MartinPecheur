@@ -44,7 +44,7 @@ de la stack.
 | `N4` | Client Hub'Eau — retry sur 429/5xx, jamais sur 4xx | ✅ `dbb74d3` |
 | `N5` | Décorateur `CachePolicy` **unique** — stale-while-revalidate | ✅ `2cf3ad2` |
 | `S5` | Bibliothèque SQLite → `ADR-011` | 🚫 le critère décisif exige un **Android d'entrée de gamme réel** |
-| `M1`–`M5` | Carte MapLibre, fond IGN, hors-ligne, mesure | 🚫 **outillage Android absent de la machine** — ni JDK, ni SDK, ni Android Studio |
+| `M1`–`M5` | Carte MapLibre, fond IGN, hors-ligne, mesure | 🚫 **Android Studio et le SDK manquent** (le JDK 17, lui, est en place) |
 | `P1`–`P4` | Outillage percentiles | 🔄 à faire — indépendant, aucun appareil requis |
 
 **Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
@@ -106,7 +106,7 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 | 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
 | 7 | **Hôte macOS** pour produire un build iOS | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
-| 7 bis | **Outillage Android absent de la machine de développement** — constaté le 2026-08-15 : ni `JAVA_HOME`, ni `ANDROID_HOME`, ni SDK sous `%LOCALAPPDATA%\Android\Sdk`, ni Android Studio. La procédure est écrite au `README`, elle n'a pas été exécutée ici | **Outillage.** Bloque **tout le lot 3** (`M1`–`M5`) et le critère décisif de `S5`. Ne bloque ni le lot 4, ni T1 côté logique |
+| 7 bis | **Outillage Android incomplet** — constaté le 2026-08-15. ✅ **JDK 17 présent** : `Microsoft.OpenJDK.17` en `17.0.20.8`, `C:\Program Files\Microsoft\jdk-17.0.20.8-hotspot`, `javac 17.0.20`, `JAVA_HOME` posé en portée *Machine*. 🚫 **Manquent Android Studio, le SDK Platform 36, une image système et `ANDROID_HOME`** | **Outillage.** Bloque **tout le lot 3** (`M1`–`M5`) et le critère décisif de `S5`. Ne bloque ni le lot 4, ni T1 côté logique |
 | 8 | Bibliothèque SQLite, bibliothèque de graphes, outil de test | À trancher (`ADR-010` § « Points à vérifier ») |
 | 9 | ~~Téléchargement de tuiles hors-ligne~~ — **levé le 2026-07-31** : `OfflineManager.createPack` le fournit | Clos par `ADR-010` |
 | 10 | ~~Behaviors BrilliantMediator~~, ~~AOT et trimming~~, ~~portage Windows~~ | Sans objet depuis `ADR-010` |
@@ -152,7 +152,7 @@ partage en deux, et la coupure n'est pas dans le plan : elle est dans le matéri
 | Reste | Peut démarrer ? |
 |---|---|
 | **Lot 4** — `P1`–`P4`, outillage percentiles | ✅ **Oui, tout de suite.** Script Node hors application, aucun appareil |
-| **Lot 3** — `M1`–`M5`, carte | 🚫 Non — installer d'abord JDK 17 + Android Studio + SDK 36 (procédure au `README`) |
+| **Lot 3** — `M1`–`M5`, carte | 🚫 Non — le JDK 17 est là, il manque **Android Studio + SDK 36 + image système** (procédure au `README`) |
 | `S5` — bibliothèque SQLite | 🚫 Non — son critère décisif est une mesure sur Android d'entrée de gamme |
 
 **La décision à prendre est donc celle-ci :** installer l'outillage Android maintenant, ou terminer
