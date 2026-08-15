@@ -4,7 +4,7 @@ import {
   OfflineManager,
   type OfflinePackStatus,
 } from "@maplibre/maplibre-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ignRasterStyle } from "./ignRasterStyle";
@@ -41,6 +41,20 @@ const CENTRE: [number, number] = [
   (LOIR_ET_CHER.south + LOIR_ET_CHER.north) / 2,
 ];
 const ZOOM_INITIAL = 9;
+
+/** Période d'interrogation du statut du pack. */
+const PERIODE_SUIVI_MS = 2000;
+
+/**
+ * Deadline du suivi.
+ *
+ * ⚠️ **Ce n'est pas une prudence décorative.** Le dépassement du plafond de
+ * tuiles interrompt le téléchargement sans jamais faire passer le pack à
+ * `complete` : sans borne, le minuteur interrogeait le statut toutes les deux
+ * secondes jusqu'à la fin du processus. Un suivi qui ne s'arrête pas est une
+ * panne silencieuse de plus, exactement ce que `M4` cherche à éviter.
+ */
+const DUREE_MAX_SUIVI_MS = 10 * 60 * 1000;
 
 /**
  * ⚠️ Style de **démonstration MapLibre**, choisi pour isoler le défaut.
@@ -91,7 +105,43 @@ export function OfflinePackProbe() {
 
   useEffect(rafraichirPacks, [rafraichirPacks]);
 
+  /**
+   * Le minuteur de suivi et l'identifiant du pack observé.
+   *
+   * Ils vivent dans des `ref` et non dans l'état : un `setInterval` dont la
+   * poignée n'existe que dans une portée locale ne peut plus jamais être
+   * arrêté — c'est exactement ce qui rendait un second appui capable de laisser
+   * un minuteur tourner sans que rien ne puisse l'atteindre.
+   */
+  const minuteurRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const packIdRef = useRef<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+
+  /**
+   * Libère tout : le minuteur, **et** l'abonnement natif que `createPack` a
+   * posé pour nous. La documentation de `OfflineManager.removeListener` le dit
+   * explicitement — il doit être appelé au démontage du composant.
+   */
+  const arreter = useCallback(() => {
+    if (minuteurRef.current !== null) {
+      clearInterval(minuteurRef.current);
+      minuteurRef.current = null;
+    }
+    if (packIdRef.current !== null) {
+      OfflineManager.removeListener(packIdRef.current);
+      packIdRef.current = null;
+    }
+    setEnCours(false);
+  }, []);
+
+  useEffect(() => arreter, [arreter]);
+
   const telecharger = useCallback(() => {
+    // Un second appui créerait un second pack et un second minuteur, tandis que
+    // le premier deviendrait inatteignable.
+    if (minuteurRef.current !== null || enCours) return;
+
+    setEnCours(true);
     setReleve("Téléchargement en cours…");
 
     const suivre = (status: OfflinePackStatus, elapsedMs: number) => {
@@ -119,23 +169,40 @@ export function OfflinePackProbe() {
         // progression n'arrivent jamais : c'est pourquoi on interroge le
         // statut plutôt que de les attendre.
         console.log(`M4 pack cree id=${pack.id}`);
+        packIdRef.current = pack.id;
+
         const debut = Date.now();
-        const minuteur = setInterval(() => {
+        minuteurRef.current = setInterval(() => {
+          const ecoule = Date.now() - debut;
+          if (ecoule > DUREE_MAX_SUIVI_MS) {
+            signaler(`suivi interrompu apres ${String(ecoule)} ms sans etat complete`);
+            arreter();
+            return;
+          }
+
           pack
             .status()
             .then((statut) => {
               if (statut === null || statut === undefined) return;
               setReleve(describeProgress(statut, Date.now() - debut));
               if (statut.state === "complete") {
-                clearInterval(minuteur);
+                arreter();
                 rafraichirPacks();
               }
             })
-            .catch((erreur: unknown) => signaler(`status ${String(erreur)}`));
-        }, 2000);
+            .catch((erreur: unknown) => {
+              // Un `status()` qui rejette ne se rétablit pas : continuer à
+              // l'interroger toutes les deux secondes n'apprendrait rien.
+              signaler(`status ${String(erreur)}`);
+              arreter();
+            });
+        }, PERIODE_SUIVI_MS);
       })
-      .catch((erreur: unknown) => signaler(`createPack ${String(erreur)}`));
-  }, [rafraichirPacks]);
+      .catch((erreur: unknown) => {
+        signaler(`createPack ${String(erreur)}`);
+        arreter();
+      });
+  }, [arreter, enCours, rafraichirPacks]);
 
   return (
     <View style={styles.container}>
@@ -145,9 +212,15 @@ export function OfflinePackProbe() {
         <StationLayer />
       </Map>
       <View style={styles.panneau}>
-        <Pressable style={styles.bouton} onPress={telecharger}>
+        <Pressable
+          style={[styles.bouton, enCours && styles.boutonInactif]}
+          onPress={telecharger}
+          disabled={enCours}
+        >
           <Text style={styles.boutonTexte}>
-            Reproduire le plantage MapLibre (M4) — l&apos;application va mourir
+            {enCours
+              ? "Suivi en cours…"
+              : "Reproduire le plantage MapLibre (M4) — l'application va mourir"}
           </Text>
         </Pressable>
         <Text style={styles.releve}>{releve}</Text>
@@ -164,6 +237,7 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   panneau: { backgroundColor: "rgba(255,255,255,0.92)", padding: 8, gap: 6 },
   bouton: { backgroundColor: "#8c2f2f", borderRadius: 6, padding: 10 },
+  boutonInactif: { backgroundColor: "#6b6b6b" },
   boutonTexte: { color: "#fff", fontSize: 13, textAlign: "center" },
   releve: { fontFamily: "monospace", fontSize: 11 },
   attribution: { fontSize: 11 },
