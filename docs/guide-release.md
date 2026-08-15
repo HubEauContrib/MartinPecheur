@@ -137,6 +137,36 @@ Toujours `--prerelease` tant que le verrou produit ci-dessus n'est pas levé.
 
 ---
 
+## Numéroter une release
+
+Les deux numéros ne suivent pas le même rythme, et c'est voulu.
+
+**`versionCode` — un compteur, pas une version.** `+1` à chaque binaire remis à qui que ce soit.
+Jamais remis à zéro, jamais réutilisé, même si le `versionName` ne bouge pas. C'est le seul des deux
+qu'Android regarde pour décider si une installation est une mise à jour — voir le piège n°2
+ci-dessus.
+
+**`versionName` — il suit les tranches.** C'est ce que lit l'humain : il doit dire où en est le
+produit, pas où en est le build.
+
+| `versionName` | Tranche | Ce qu'il signale |
+|---|---|---|
+| **`0.1.x`** | T0 | Socle, sondes, carte nue. **Aucun état de la ressource affiché** |
+| `0.2.x` | T1 | Carte, fiches, les 4 avertissements. Premier moment où une release publique devient envisageable |
+| `0.3.x` | T2 | Sécheresse et restrictions (VigiEau) |
+| `0.4.x` | T3 | Hors-ligne, favoris, filtres |
+| `1.0.0` | — | Production Play Store |
+
+Le `0.` de tête n'est pas une coquetterie : en semver il dit « aucune promesse de stabilité », ce qui
+est exactement le statut du produit. Et il fait coïncider le passage à `0.2.0` avec le moment où le
+verrou de [`BR-012`](br/BR-012-acquittement-au-premier-lancement.md) se lève — les deux évènements
+sont le même.
+
+**État au 2026-08-15 :** `versionName 0.1.0`, `versionCode 1` déclaré dans `app.json`, aucune release
+produite. La prochaine sera donc `v0.1.0-alpha.1`.
+
+---
+
 ## Voie B — release par GitHub Actions
 
 🔄 **Cible, non implémentée au 2026-08-15.** Le dépôt n'a aucun workflow.
