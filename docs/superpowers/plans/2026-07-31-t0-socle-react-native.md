@@ -2516,7 +2516,7 @@ export function writeAsset(asset: AssetPercentiles, chemin: string): void {
 }
 ```
 
-- [ ] **Step 2 : Générer et mesurer**
+- [x] **Step 2 : Générer et mesurer**
 
 ```bash
 node --experimental-strip-types tools/percentiles/buildAsset.ts
@@ -2526,12 +2526,12 @@ gzip -c assets/percentiles/reference.json | wc -c
 
 Relever la taille brute **et** la taille compressée — un APK compresse ses assets.
 
-- [ ] **Step 3 : Reporter le chiffre dans `ADR-003`**
+- [x] **Step 3 : Reporter le chiffre dans `ADR-003`**
 
 Le poids conditionne la décision d'embarquer l'asset. S'il dépasse ce qu'`ADR-003` anticipait,
 **c'est la décision qu'il faut revoir, pas le chiffre**.
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 
 ```bash
 git add tools/percentiles/buildAsset.ts assets/percentiles docs/adr/ADR-003-reference-percentiles-en-asset.md
@@ -2547,7 +2547,7 @@ git commit -m "feat(hydrometrie): asset de percentiles et poids mesure (ADR-003)
 
 L'asset est un **livrable versionné**, pas un fichier apparu un jour dans le dépôt.
 
-- [ ] **Step 1 : Écrire la procédure**
+- [x] **Step 1 : Écrire la procédure**
 
 ```markdown
 # Asset de percentiles — régénération
@@ -2581,7 +2581,7 @@ licence MIT du dépôt ne l'éteint pas. L'écran « À propos » doit porter :
 Remplacer chaque `_(à relever)_` par le chiffre constaté — **un livrable ne se documente pas au
 conditionnel.**
 
-- [ ] **Step 2 : Commit**
+- [x] **Step 2 : Commit**
 
 ```bash
 git add tools/percentiles/README.md

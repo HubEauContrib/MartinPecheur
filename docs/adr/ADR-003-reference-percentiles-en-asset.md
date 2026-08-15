@@ -31,8 +31,55 @@ Une station comptant moins de **10 années** de relevés sur la quinzaine consid
 |---|---|
 | L'asset **vieillit entre deux releases** | Il porte sa date de génération, affichée dans « À propos » |
 | Le script de build est un **livrable à maintenir** | Versionné, avec procédure de régénération documentée |
-| Poids ajouté au binaire — ordre de grandeur : 4 140 stations × 24 quinzaines × 5 valeurs, soit ~500 000 valeurs, quelques Mo en format compact. **À mesurer** | Format binaire compact plutôt que JSON |
-| L'aspiration initiale est longue | Job hors ligne, throttlé, exécuté rarement |
+| Poids ajouté au binaire — ~~ordre de grandeur : quelques Mo~~ **Mesuré le 2026-08-15 sur 40 stations réelles : ~2,0 Mo bruts, ~0,73 Mo compressés** (voir ci-dessous) | JSON compact suffit — le format binaire n'est pas nécessaire |
+| L'aspiration initiale est longue — **mesurée : ~1,7 s par station, soit ~2 h pour 4 150** | Job hors ligne, throttlé, exécuté rarement |
+
+## Mesure du 2026-08-15 — échantillon réel de 40 stations
+
+Chaîne complète exécutée (`tools/percentiles/build.ts`) sur **40 stations prélevées à pas
+régulier** dans le référentiel — jamais les 40 premières, qui se suivent par code et donc par
+bassin. Fenêtre : 30 ans, depuis le 1ᵉʳ janvier 1996.
+
+| Mesure | Valeur constatée |
+|---|---|
+| Octets bruts | **19 155** pour 40 stations, soit **479 par station** |
+| Octets gzip | **7 086**, soit **177 par station** |
+| Durée d'aspiration | **67,4 s**, soit **1,69 s par station** |
+
+> ⚠️ **Ce qui suit est une extrapolation, pas une mesure.** À 4 150 stations : **≈ 2,0 Mo bruts** et
+> **≈ 0,73 Mo compressés**, pour **≈ 2 heures** d'aspiration. Le chiffre définitif demande la
+> génération complète, qui n'a pas été lancée.
+
+**Le poids ne pose pas de problème.** Un APK compresse ses assets : moins d'un mégaoctet ajouté au
+binaire ne remet pas la décision en cause, et le **format binaire envisagé n'est pas nécessaire**.
+Deux choix de format y contribuent, tous deux dans `tools/percentiles/buildAsset.ts` :
+
+- les cinq percentiles sont un **tableau** `[p10, p25, p50, p75, p90]`, pas un objet nommé ;
+- les valeurs sont **arrondies à trois décimales**. Ce n'est pas une perte : `obs_elab` rend des
+  litres par seconde **entiers**, qui divisés par 1000 (`BR-002`) n'en produisent pas davantage.
+  L'interpolation des percentiles, elle, fabriquait des `5.333333333333333` — des chiffres qui
+  n'existent dans aucune mesure et qui gonflaient l'asset d'autant.
+
+### 🚨 Ce que la mesure a révélé, et qui n'était pas prévu
+
+| Constat sur l'échantillon | Chiffre |
+|---|---|
+| Quinzaines **`Indéterminé`** (`BR-004`) | **468 sur 960 — 48,8 %** |
+| Stations **sans aucune quinzaine calculable** | **19 sur 40 — 47,5 %** |
+
+Contre-épreuve faite sur une de ces stations, par appel direct : `4000000101` porte **1 336 relevés
+`QmnJ` mais seulement 9 années distinctes** (2009–2020). `BR-004` la classe donc correctement, et
+la chaîne n'est pas en cause.
+
+> **`Indéterminé` n'est pas un cas limite : c'est près d'une station sur deux.** `ADR-002` fonde le
+> positionnement statistique du débit sur cet asset ; pour la moitié des stations, ce
+> positionnement **n'existera jamais**, à aucune période de l'année. `BR-004` prévoit l'état et son
+> libellé, et la valeur en m³/s reste affichée — mais le cadrage produit n'anticipait pas cette
+> proportion. **À porter au commanditaire**, avec `04-ui.md` : un état prévu pour l'exception devient
+> l'affichage majoritaire.
+>
+> ⚠️ Le chiffre porte sur **40 stations**. Il demande confirmation sur la génération complète avant
+> d'être traité comme définitif.
 
 ## Alternatives écartées
 

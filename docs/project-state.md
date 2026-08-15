@@ -50,10 +50,12 @@ de la stack.
 | `M3` | **Clustering des 4 150 stations sur le fond IGN** — constaté à l'écran aux échelles départementale et nationale. API v11 (`GeoJSONSource` + `Layer`), 5 tests sur l'asset | ✅ |
 | `M5` | Mesure sur Android d'entrée de gamme réel (`NV-5`) | 🔄 **appareil requis** |
 | `P1` | Script d'aspiration `obs_elab` — `C-04` reconfirmé par appel réel | ✅ `e535e27` |
-| `P2`–`P4` | Percentiles par quinzaine, format d'asset, régénération | 🔄 à faire |
+| `P2` | Percentiles par quinzaine — **seuil `BR-004` sur les années distinctes**, pas sur les relevés. `fortnightIndex` en UTC | ✅ `0954f9e` |
+| `P3` | Chaîne complète et **poids mesuré sur 40 stations réelles** : 479 octets/station bruts, 177 gzip, 1,69 s/station | ✅ |
+| `P4` | Procédure de régénération — `tools/percentiles/README.md` | ✅ |
 
 **Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
-**123 tests** sur 15 suites *(mesuré le 2026-08-15, après `M4` et `M3`)*.
+**149 tests** sur 18 suites *(mesuré le 2026-08-15, après `M4`, `M3` et le lot 4)*.
 
 > ⚠️ **Neuf écarts entre le plan T0 et le code livré.** Le code a raison, le plan est une esquisse
 > antérieure. Les sept derniers ont été constatés **en jouant `M4` puis `M3`** — le plan décrit
@@ -116,7 +118,8 @@ Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
 | 2 | Trois ADR tranchés **sans arbitrage du commanditaire** : `ADR-002`, `ADR-004`, `ADR-006` | Décisions par défaut, réversibles. Chacune porte sa section « Si la décision est revue » |
 | 3 | **Réduction de périmètre à valider** : la qualité de l'eau, annoncée au cadrage, n'est pas livrée (`ADR-007`) | À porter explicitement auprès du commanditaire |
 | 4 | Le cadrage annonçait **3 modalités ONDE** ; il y en a **6** (`ADR-006`) | Corrigé dans la spec |
-| 5 | Poids réel de l'asset de percentiles | À mesurer, pas à estimer |
+| 5 | ~~Poids réel de l'asset de percentiles~~ — **mesuré le 2026-08-15** sur 40 stations réelles : 479 octets/station bruts, 177 gzip. Extrapolé à 4 150 : ≈ 2,0 Mo bruts, ≈ 0,73 Mo gzip. Le poids ne remet pas `ADR-003` en cause | Clos — reste à confirmer sur la passe complète (~2 h) |
+| 5 bis | 🚨 **`Indéterminé` concerne près d'une station sur deux.** Sur l'échantillon : **19 stations sur 40 sans aucune quinzaine calculable**, 48,8 % des quinzaines. `ADR-002` fonde le positionnement statistique du débit sur cet asset ; pour la moitié des stations il n'existera **jamais** | **À porter au commanditaire** — un état prévu pour l'exception devient l'affichage majoritaire (`BR-004`, `04-ui.md`) |
 | 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
 | 7 | **Hôte macOS** pour produire un build iOS | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
 | 7 bis | ~~Outillage Android~~ — **levé le 2026-08-15** : inventaire refait (tableau ci-dessous), tout est en place, `ANDROID_HOME` compris. Le lot 3 n'a jamais été bloqué | Clos |
