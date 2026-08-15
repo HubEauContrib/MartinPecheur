@@ -231,7 +231,10 @@ produite. La prochaine sera donc `v0.1.0-alpha.1`.
 ## Voie B — release par GitHub Actions
 
 ✅ **Posé le 2026-08-15 :** [`.github/workflows/release-android.yml`](../.github/workflows/release-android.yml).
-🔄 **Jamais déclenché** — ni par un tag, ni à la main. Rien de ce qui suit n'est constaté.
+🚨 **Déclenché deux fois le 2026-08-15, échoué deux fois** — par le tag `v0.1.0`, puis par un
+`workflow_dispatch` sur `dev`. Même erreur les deux fois, à la **troisième étape**, avant même
+`npm ci` (voir l'encadré ci-dessous). **La CI n'a encore produit aucun APK** : au-delà du *checkout*
+et de `setup-node`, rien de ce qui suit n'est constaté.
 
 L'intérêt dépasse le confort. Le *runner* `ubuntu-latest` porte un SDK Android sur un chemin sans
 espace ni parenthèse, donc **toute la saga du NDK décrite au
@@ -240,6 +243,20 @@ disparaît** — et le **piège n° 2 ci-dessus avec elle**, puisque le `ANDROID
 sur un SDK complet et inscriptible. Le passage par la CI est donc, sur ce projet, plus fiable que le
 build local. Et `prebuild --clean` y transforme le caractère volatil d'`android/` en propriété : le
 natif est reconstruit de zéro à chaque fois, donc reproductible.
+
+> 🚨 **Constaté le 2026-08-15 : `setup-java` ne peut pas se placer avant le prebuild.**
+> Son `cache: gradle` calcule sa clé de cache en cherchant des fichiers Gradle dans l'arbre de
+> travail. Or `/android` est dans le `.gitignore` : au *checkout*, il n'existe pas.
+>
+> ```
+> Error: No file in /home/runner/work/MartinPecheur/MartinPecheur matched to
+> [**/*.gradle*, **/gradle-wrapper.properties, ...]
+> ```
+>
+> L'étape est donc placée **après** `expo prebuild`, qui fait naître `android/build.gradle`,
+> `android/app/build.gradle`, `android/settings.gradle` et `gradle/wrapper/gradle-wrapper.properties`.
+> Rien avant elle n'a besoin d'un JDK : `npm ci`, la vérification, les garde-fous et le prebuild
+> lui-même sont tous en Node. **Corrigé le 2026-08-15, pas encore éprouvé.**
 
 **Deux déclencheurs :** un tag `v*` construit **et publie** ; un `workflow_dispatch` construit
 **sans rien publier** et dépose l'APK en artefact — c'est ainsi qu'on éprouve la chaîne sans

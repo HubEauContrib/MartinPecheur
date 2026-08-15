@@ -33,12 +33,6 @@ jobs:
           node-version: 24
           cache: npm
 
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: gradle
-
       - name: Installer les dépendances
         run: npm ci
 
@@ -112,6 +106,23 @@ jobs:
 
       - name: Générer le projet natif
         run: npx expo prebuild --platform android --clean --no-install
+
+      # ⚠️ `setup-java` vient **après** le prebuild, et ce n'est pas cosmétique.
+      # Son `cache: gradle` calcule sa clé en cherchant des fichiers Gradle dans
+      # l'arbre de travail ; or `/android` est dans .gitignore — il n'existe pas
+      # au checkout, il naît du prebuild. Placée avant, l'étape échouait, et le
+      # job avec elle :
+      #
+      #   Error: No file in /home/runner/work/MartinPecheur/MartinPecheur
+      #   matched to [**/*.gradle*, **/gradle-wrapper.properties, ...]
+      #
+      # Rien entre le checkout et ici n'a besoin d'un JDK : npm ci, la
+      # vérification, les trois garde-fous et le prebuild sont tous en Node.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
 
       # Le keystore n'existe que le temps du job, hors du dépôt (.gitignore
       # couvre déjà *.jks et *.key). Il arrive en base64 pour traverser
