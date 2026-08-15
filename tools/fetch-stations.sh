@@ -29,6 +29,11 @@ if ! grep -q '"FeatureCollection"' "$TMP"; then
   exit 1
 fi
 
+# `mktemp` crée en mode 600 et `mv` conserve ce mode : sans ce chmod, l'asset
+# régénéré devient illisible pour les autres utilisateurs — un CI tournant sous
+# un autre compte, par exemple. Git ne suit pas ce bit : la régression
+# n'apparaîtrait dans aucun diff.
+chmod 644 "$TMP"
 mv "$TMP" "$OUT"
 trap - EXIT
 

@@ -51,3 +51,23 @@ describe("code département", () => {
     expect(() => departementCode("0041")).toThrow(/département/i);
   });
 });
+
+describe("forme du code station, mesurée sur le référentiel", () => {
+  it("accepte les deux formes réellement observées", () => {
+    // Relevé le 2026-08-15 sur les 4 150 stations en service :
+    //   3 974 en « A999999999 » — une lettre puis neuf chiffres
+    //     176 en « 9999999999 » — dix chiffres, les stations des DOM
+    // Restreindre à ^[A-Z]\d{9}$ rejetterait ces 176 stations.
+    expect(stationCode("K447001001")).toBe("K447001001");
+    expect(stationCode("1011000101")).toBe("1011000101");
+  });
+
+  it("refuse dix caractères qui ne sont pas un code", () => {
+    // Sans contrôle de forme, ces valeurs partaient en `code_entite` vers
+    // Hub'Eau, revenaient vides, et l'écran affichait « pas de donnée » —
+    // un symptôme que BR-007 interdit de rendre neutre.
+    expect(() => stationCode("          ")).toThrow(/forme/i);
+    expect(() => stationCode("undefined0")).toThrow(/forme/i);
+    expect(() => stationCode("k447001001")).toThrow(/forme/i);
+  });
+});

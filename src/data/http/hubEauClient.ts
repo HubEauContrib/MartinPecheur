@@ -19,32 +19,55 @@ export function createHubEauClient(options: HubEauClientOptions = {}): HubEauCli
   return {
     async getJson<T>(url: string): Promise<T> {
       let lastStatus = 0;
-      let lastNetworkError: unknown = null;
+      // Les deux pannes rejouables ne se confondent pas : le diagnostic final
+      // doit dire laquelle s'est produite, sinon il envoie sur une fausse piste.
+      let lastFailure: { readonly kind: "reseau" | "corps"; readonly cause: unknown } | null = null;
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        try {
-          const response = await fetchImpl(url, { headers: { Accept: "application/json" } });
-          lastStatus = response.status;
-          lastNetworkError = null;
+        let response: Response | null = null;
 
-          // 206 est un succès : le refuser casserait toute pagination (C-06).
-          if (isSuccess(response.status)) return (await response.json()) as T;
-          if (!isRetryable(response.status)) break;
-        } catch (erreur) {
+        try {
+          response = await fetchImpl(url, { headers: { Accept: "application/json" } });
+        } catch (cause) {
           // `fetch` REJETTE sur coupure réseau, DNS ou TLS — il ne rend pas un
           // statut. C'est la panne transitoire la plus courante sur mobile :
-          // ne pas la réessayer laisserait 4 tentatives à un 500 et aucune à
-          // une perte de réseau, soit l'inverse du besoin.
-          lastNetworkError = erreur;
+          // ne pas la rejouer laisserait quatre tentatives à un 500 et aucune
+          // à une perte de réseau, soit l'inverse du besoin.
+          lastFailure = { kind: "reseau", cause };
+        }
+
+        if (response !== null) {
+          lastStatus = response.status;
+
+          // 206 est un succès : le refuser casserait toute pagination (C-06).
+          if (isSuccess(response.status)) {
+            try {
+              return (await response.json()) as T;
+            } catch (cause) {
+              // Un corps tronqué se rejoue — c'est souvent transitoire — mais
+              // ce n'est PAS une panne réseau, et le dire éviterait de chercher
+              // du côté de la connexion pendant une heure.
+              lastFailure = { kind: "corps", cause };
+            }
+          } else {
+            lastFailure = null;
+            if (!isRetryable(response.status)) break;
+          }
         }
 
         // Dernière tentative : inutile d'attendre avant d'abandonner.
         if (attempt < maxAttempts - 1) await sleep(delayForAttempt(attempt));
       }
 
+      if (lastFailure?.kind === "corps") {
+        throw new Error(
+          `Hub'Eau a répondu ${lastStatus} pour ${url}, mais avec un corps illisible : ` +
+            `${lastFailure.cause instanceof Error ? lastFailure.cause.message : String(lastFailure.cause)}`,
+        );
+      }
       // Une panne réseau est remontée telle quelle : son message dit ce qui
       // s'est passé, là où un statut inventé induirait en erreur.
-      if (lastNetworkError !== null) throw lastNetworkError;
+      if (lastFailure !== null) throw lastFailure.cause;
       throw new Error(`Hub'Eau a répondu ${lastStatus} pour ${url}`);
     },
   };

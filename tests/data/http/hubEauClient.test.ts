@@ -108,3 +108,19 @@ describe("pannes réseau", () => {
     expect(fetchStub).toHaveBeenCalledTimes(3);
   });
 });
+
+describe("corps de réponse illisible", () => {
+  it("ne fait pas passer un JSON malformé pour une panne réseau", async () => {
+    // Un 200 au corps tronqué mérite d'être rejoué — c'est souvent transitoire.
+    // Mais le message final doit dire ce qui s'est réellement passé.
+    const fetchStub = jest.fn().mockResolvedValue(new Response("{ pas du json", { status: 200 }));
+    const client = createHubEauClient({
+      fetchImpl: fetchStub,
+      sleep: async () => {},
+      maxAttempts: 2,
+    });
+
+    await expect(client.getJson("https://exemple.test/x")).rejects.toThrow(/corps illisible/i);
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+  });
+});
