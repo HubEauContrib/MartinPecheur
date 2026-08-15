@@ -104,7 +104,12 @@ Marche à suivre, et lecture du résultat :
 | Pas de plantage, `tuiles` monte | **Le problème était l'émulateur.** `M4` reprend, `NV-1`, `NV-3` et `NV-4` se mesurent enfin |
 | Pas de plantage, `tuiles` reste à 0 | Le hors-ligne raster échoue pour une autre cause — reste à chercher, mais avec un chemin vivant |
 
-Le cas de reproduction tient en un appui : `src/features/map/OfflinePackProbe.tsx`.
+Le cas de reproduction tient en un appui : `src/features/map/OfflinePackProbe.tsx`. La marche à
+suivre complète — installation, relevé du journal, lecture du résultat — est dans
+[`guide-test-appareil.md`](../guide-test-appareil.md).
+
+⚠️ **La preuve est dans le journal, pas à l'écran.** « L'application s'est fermée » est une
+impression ; c'est la ligne `regex_error` qui distingue ce plantage-ci de n'importe quel autre.
 
 > ⚠️ **Même dans le cas favorable, le hors-ligne ne sera pas livrable le jour même.** Il restera à
 > fournir le style IGN sous forme d'**URL** — `mapStyle` n'accepte pas un style en mémoire, et le

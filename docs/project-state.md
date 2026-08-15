@@ -48,7 +48,7 @@ de la stack.
 | `M2` | **Fond IGN raster affiché sur émulateur — `NV-2` levé** : le gabarit KVP survit à l'expansion `{z}/{x}/{y}` | ✅ `0c3596a` |
 | `M4` | **Pack hors-ligne — exécuté, résultat négatif.** `createPack` plante en natif (`SIGABRT`, `std::regex_error`, fil `DatabaseFileSource`), **4 essais sur 4**. `NV-1`, `NV-3`, `NV-4`, `NV-6` **non levés** | 🚨 `ADR-012` |
 | `M3` | **Clustering des 4 150 stations sur le fond IGN** — constaté à l'écran aux échelles départementale et nationale. API v11 (`GeoJSONSource` + `Layer`), 5 tests sur l'asset | ✅ |
-| `M5` | Mesure sur Android d'entrée de gamme réel (`NV-5`) | 🔄 **appareil requis** |
+| `M5` | Mesure sur Android d'entrée de gamme réel (`NV-5`) | 🔄 **appareil requis** — procédure prête : [`guide-test-appareil.md`](guide-test-appareil.md) |
 | `P1` | Script d'aspiration `obs_elab` — `C-04` reconfirmé par appel réel | ✅ `e535e27` |
 | `P2` | Percentiles par quinzaine — **seuil `BR-004` sur les années distinctes**, pas sur les relevés. `fortnightIndex` en UTC | ✅ `0954f9e` |
 | `P3` | Chaîne complète et **poids mesuré sur 40 stations réelles** : 479 octets/station bruts, 177 gzip, 1,69 s/station | ✅ |
