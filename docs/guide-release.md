@@ -239,6 +239,17 @@ natif est reconstruit de zéro à chaque fois, donc reproductible.
 **sans rien publier** et dépose l'APK en artefact — c'est ainsi qu'on éprouve la chaîne sans
 engager de release.
 
+> 🚨 **Constaté le 2026-08-15 : `workflow_dispatch` ne marche pas depuis une branche de feature.**
+> GitHub cherche le workflow sur la **branche par défaut**, et refuse même avec `--ref` explicite :
+>
+> ```
+> HTTP 404: workflow release-android.yml not found on the default branch
+> ```
+>
+> **Le workflow ne peut donc pas être éprouvé avant d'être fusionné dans `dev`.** Un tag, lui,
+> déclencherait bien le job depuis n'importe quel commit — mais il engagerait une release, ce que le
+> verrou produit interdit tant qu'il n'est pas arbitré.
+
 **Deux garde-fous, actifs uniquement sur un tag :**
 
 | Garde-fou | Ce qu'il empêche |
