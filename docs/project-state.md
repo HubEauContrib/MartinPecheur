@@ -177,6 +177,25 @@ lisant le registre plutôt que l'environnement du processus :
 > paquet manquant, il échouera. Le repli est de compléter le SDK d'Android Studio, qui est en zone
 > utilisateur.
 
+### `M1` — ce qui bloque le build natif, constaté le 2026-08-15
+
+Trois obstacles rencontrés en séquence, tous de la même famille : **le SDK vient de Visual Studio
+et ne contient pas les versions qu'attend l'écosystème React Native.**
+
+| # | Obstacle | État |
+|---|---|---|
+| 1 | `build-tools;35.0.0` réclamée par le module `:expo`, absente (seule la 36.0.0 est là). Gradle tente de l'installer et échoue : écriture refusée sous `Program Files (x86)` | ✅ **contourné** — forcer `buildToolsVersion = "36.0.0"` sur tous les sous-projets dans `android/build.gradle` fait passer le build de 28 à 144 tâches |
+| 2 | Installation par `sdkmanager` en ligne de commande | 🚫 **échoue en silence** : n'affiche que `Failed to read or create install properties file`, ne renvoie aucun code d'erreur, et n'écrit rien. Piège à connaître |
+| 3 | **NDK `27.1.12297006`** trop ancien pour React Native `0.86.2` : le link C++ d'`expo-modules-core` ne résout ni `operator new`, ni `operator delete`, ni `std::__ndk1::…` | 🚫 **non résolu** — c'est le point d'arrêt |
+
+> Le contournement du point 1 vit dans `android/`, **régénéré par `expo prebuild`** : il disparaîtra
+> au prochain prebuild. S'il faut le garder, il devra devenir un config plugin Expo versionné — et
+> ce serait alors inscrire une particularité d'un poste dans le dépôt, à peser.
+
+**Piste pour la reprise :** installer un NDK conforme à RN `0.86.2` via l'assistant d'Android Studio
+(qui gère l'élévation), dans le SDK utilisateur qui, lui, est inscriptible. **Ne pas re-tenter
+`sdkmanager` en ligne de commande** — voir le point 2.
+
 L'ancien plan ([`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md))
 reste au dépôt pour l'historique, mais **ne doit plus être exécuté** : sa voie A est un spike
 `BlazorWebView` sans objet, et sa voie B est en C#.
