@@ -63,3 +63,17 @@ describe("fraîcheur d'une observation hydrométrique (BR-005)", () => {
     expect(freshnessOf(ilYA(9 * 24 * HEURE), MAINTENANT)).toBe<Freshness>("Perimee");
   });
 });
+
+describe("date de mesure inexploitable", () => {
+  it("ne présente jamais une date invalide comme fraîche", () => {
+    // NaN >= seuil est faux deux fois : sans garde, la fonction retombe sur
+    // « Fraiche », soit l'état le MOINS sévère pour une donnée dont on ne sait
+    // rien. C'est l'inverse de la règle que porte cette fonction.
+    expect(freshnessOf(new Date(""), MAINTENANT)).toBe<Freshness>("Perimee");
+    expect(freshnessOf(new Date("pas-une-date"), MAINTENANT)).toBe<Freshness>("Perimee");
+  });
+
+  it("ne présente pas non plus un instant courant invalide comme fraîche", () => {
+    expect(freshnessOf(ilYA(1000), new Date("n'importe quoi"))).toBe<Freshness>("Perimee");
+  });
+});

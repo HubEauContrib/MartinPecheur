@@ -20,6 +20,24 @@ export interface HydroObservationPayload {
   readonly libelle_qualification_obs: string | null;
 }
 
+/**
+ * `BR-001` : aucune valeur sans sa date de mesure. Une chaîne non parsable
+ * produirait un `Invalid Date`, que rien n'arrête ensuite — il traverserait le
+ * domaine et ressortirait en « observation fraîche », l'état le moins sévère.
+ *
+ * On rejette ici, à la frontière, comme `stationCode` rejette un code site.
+ */
+function dateObsFrom(raw: string): Date {
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    throw new RangeError(
+      `Date de mesure illisible : « ${raw} ». Une observation sans date exploitable ` +
+        `ne peut pas être affichée (BR-001).`,
+    );
+  }
+  return date;
+}
+
 function grandeurFrom(raw: string): GrandeurHydro {
   if (raw === "H") return "H";
   if (raw === "Q") return "Q";
@@ -37,7 +55,7 @@ export function mapHydroObservation(payload: HydroObservationPayload): HydroObse
 
   return {
     codeStation: stationCode(payload.code_station),
-    dateObs: new Date(payload.date_obs),
+    dateObs: dateObsFrom(payload.date_obs),
     grandeur,
     debit: grandeur === "Q" && brut !== null ? toCubicMetresPerSecond(litresPerSecond(brut)) : null,
     hauteur: grandeur === "H" && brut !== null ? toMetres(millimetres(brut)) : null,

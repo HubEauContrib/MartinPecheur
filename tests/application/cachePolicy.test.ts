@@ -96,3 +96,44 @@ describe("stale-while-revalidate (03-conception.md § 4.1)", () => {
     expect(source).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("rafraîchissements concurrents", () => {
+  it("ne déclenche qu'un seul appel réseau pour N lectures simultanées", async () => {
+    // Un écran de carte lit plusieurs entrées dans le même tick. Sans
+    // déduplication, N lectures expirées produisent N appels vers une API
+    // publique sans quota (C-15) — l'inverse du throttle attendu.
+    const source = jest.fn().mockResolvedValue("frais");
+    const lire = withCachePolicy({
+      load: source,
+      readCache: async () => ({ value: "vieux", storedAt: new Date("2026-07-31T10:00:00Z") }),
+      writeCache: async () => {},
+      ttlMs: 20 * 60 * 1000,
+      now: () => new Date("2026-07-31T12:00:00Z"),
+      networkAvailable: () => true,
+    });
+
+    await Promise.all([lire(), lire(), lire(), lire()]);
+    await new Promise((r) => setImmediate(r));
+
+    expect(source).toHaveBeenCalledTimes(1);
+  });
+
+  it("autorise un nouveau rafraîchissement une fois le précédent terminé", async () => {
+    const source = jest.fn().mockResolvedValue("frais");
+    const lire = withCachePolicy({
+      load: source,
+      readCache: async () => ({ value: "vieux", storedAt: new Date("2026-07-31T10:00:00Z") }),
+      writeCache: async () => {},
+      ttlMs: 20 * 60 * 1000,
+      now: () => new Date("2026-07-31T12:00:00Z"),
+      networkAvailable: () => true,
+    });
+
+    await lire();
+    await new Promise((r) => setImmediate(r));
+    await lire();
+    await new Promise((r) => setImmediate(r));
+
+    expect(source).toHaveBeenCalledTimes(2);
+  });
+});

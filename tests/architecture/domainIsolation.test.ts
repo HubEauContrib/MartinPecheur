@@ -59,9 +59,12 @@ describe("frontière du domaine (ADR-010)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("surveille un dossier qui existe — sinon le test passerait à vide", () => {
+  it("surveille un dossier qui existe ET qui contient des fichiers", () => {
     // Un test vert parce qu'il ne regarde rien est pire qu'un test absent :
-    // il donne une garantie qu'il ne fournit pas.
+    // il donne une garantie qu'il ne fournit pas. Vérifier la seule existence
+    // du dossier ne suffit pas — un `src/domain/` vidé par un déplacement de
+    // fichiers laisserait les deux tests au vert, sans plus rien surveiller.
     expect(existsSync(DOMAIN_ROOT)).toBe(true);
+    expect(typeScriptFilesIn(DOMAIN_ROOT).length).toBeGreaterThan(0);
   });
 });

@@ -31,6 +31,15 @@ export const PERIMEE_APRES_MS = 24 * 60 * 60 * 1000;
 export function freshnessOf(observedAt: Date, now: Date): Freshness {
   const ageMs = now.getTime() - observedAt.getTime();
 
+  // Une date invalide donne `NaN`, et TOUTE comparaison avec `NaN` est fausse :
+  // sans cette garde, la fonction retomberait sur « Fraiche », c'est-à-dire
+  // l'état le MOINS sévère pour une donnée dont l'âge est inconnu. C'est
+  // exactement la faute que cette fonction existe pour empêcher.
+  //
+  // Second verrou seulement : le mapper refuse déjà une date non parsable
+  // (BR-001). Celui-ci couvre les appelants futurs.
+  if (Number.isNaN(ageMs)) return "Perimee";
+
   // La borne appartient à l'état le plus sévère : on ne minimise jamais l'âge
   // d'une donnée sur laquelle un usager peut fonder une décision.
   if (ageMs >= PERIMEE_APRES_MS) return "Perimee";

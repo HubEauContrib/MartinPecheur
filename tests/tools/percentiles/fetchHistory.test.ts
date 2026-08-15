@@ -57,7 +57,10 @@ describe("aspiration de toutes les stations", () => {
       attentes.push(ms);
     });
 
-    expect(attentes.length).toBeGreaterThanOrEqual(2);
+    // Deux stations d'une page chacune : un seul intervalle les sépare. Le
+    // throttle protège l'espace ENTRE deux appels — attendre après le dernier
+    // ne protégerait plus rien et allongerait la course pour rien.
+    expect(attentes).toHaveLength(1);
     expect(attentes.every((ms) => ms >= 1000)).toBe(true);
   });
 
@@ -79,5 +82,29 @@ describe("aspiration de toutes les stations", () => {
     expect(resultat.get("K447001001")).toEqual([1]);
     expect(resultat.has("K447001002")).toBe(false);
     expect(resultat.get("K447001003")).toEqual([1]);
+  });
+});
+
+describe("garde de pagination", () => {
+  it("interrompt une station dont le curseur se répète au lieu de boucler", async () => {
+    // Une boucle infinie ne lève pas : le try/catch par station ne la
+    // rattraperait jamais, et le script martèlerait l'API indéfiniment.
+    const getJson = jest.fn(async () => ({ data: [1], next: "page-qui-ne-bouge-pas" }));
+
+    const resultat = await fetchAllStations(["K447001001"], "1995-01-01", getJson, async () => {});
+
+    expect(getJson.mock.calls.length).toBeLessThan(5);
+    expect(resultat.get("K447001001")).toEqual([1, 1]);
+  });
+
+  it("n'attend pas après la dernière page", async () => {
+    const attentes: number[] = [];
+    const getJson = jest.fn(async () => ({ data: [1], next: null }));
+
+    await fetchAllStations(["K447001001"], "1995-01-01", getJson, async (ms) => {
+      attentes.push(ms);
+    });
+
+    expect(attentes).toHaveLength(0);
   });
 });

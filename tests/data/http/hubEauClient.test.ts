@@ -80,3 +80,31 @@ describe("client Hub'Eau", () => {
     expect(delais[1]).toBeGreaterThan(delais[0] as number);
   });
 });
+
+describe("pannes réseau", () => {
+  it("réessaie quand fetch rejette, puis réussit", async () => {
+    // fetch REJETTE sur coupure, DNS ou TLS : c'est la panne transitoire la
+    // plus courante sur mobile. Ne traiter que les statuts HTTP laisserait
+    // 4 tentatives à un 500 et aucune à une perte de réseau.
+    const fetchStub = jest
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Network request failed"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const client = createHubEauClient({ fetchImpl: fetchStub, sleep: async () => {} });
+
+    await expect(client.getJson("https://exemple.test/x")).resolves.toEqual({ ok: true });
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+  });
+
+  it("remonte la dernière panne réseau après épuisement des tentatives", async () => {
+    const fetchStub = jest.fn().mockRejectedValue(new TypeError("Network request failed"));
+    const client = createHubEauClient({
+      fetchImpl: fetchStub,
+      sleep: async () => {},
+      maxAttempts: 3,
+    });
+
+    await expect(client.getJson("https://exemple.test/x")).rejects.toThrow(/Network request failed/);
+    expect(fetchStub).toHaveBeenCalledTimes(3);
+  });
+});

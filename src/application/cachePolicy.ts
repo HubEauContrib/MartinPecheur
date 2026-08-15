@@ -29,6 +29,15 @@ export function withCachePolicy<T>(options: CachePolicyOptions<T>): () => Promis
   const now = options.now ?? (() => new Date());
   const networkAvailable = options.networkAvailable ?? (() => true);
 
+  /**
+   * Rafraîchissement en vol, s'il y en a un. Sans cette mémoire, N lectures
+   * simultanées sur une entrée expirée déclenchent N appels réseau — un écran
+   * de carte en produit autant qu'il affiche de stations. Hub'Eau n'annonce
+   * aucun quota (`C-15`) : rien ne nous arrêterait, c'est donc à nous de le
+   * faire, et ce composant est le seul endroit qui puisse le faire.
+   */
+  let enVol: Promise<void> | null = null;
+
   return async function read(): Promise<T> {
     const cached = await options.readCache();
 
@@ -41,14 +50,20 @@ export function withCachePolicy<T>(options: CachePolicyOptions<T>): () => Promis
     // La borne appartient à l'état périmé : on ne prolonge jamais un cache.
     const expired = now().getTime() - cached.storedAt.getTime() >= options.ttlMs;
 
-    if (expired && networkAvailable()) {
+    if (expired && networkAvailable() && enVol === null) {
       // Volontairement non attendu : l'affichage ne doit pas dépendre du réseau.
       // Un échec de rafraîchissement laisse la dernière valeur connue en place
       // plutôt que de vider l'écran (BR-007).
-      void options
+      enVol = options
         .load()
         .then((fresh) => options.writeCache(fresh))
-        .catch(() => undefined);
+        .catch(() => undefined)
+        // Libéré dans tous les cas : un rafraîchissement en échec ne doit pas
+        // bloquer définitivement les suivants.
+        .finally(() => {
+          enVol = null;
+        });
+      void enVol;
     }
 
     return cached.value;

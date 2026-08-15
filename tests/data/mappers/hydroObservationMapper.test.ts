@@ -58,3 +58,19 @@ describe("mapper des observations temps réel", () => {
     expect(observation.debit).toBeNull();
   });
 });
+
+describe("date de mesure (BR-001)", () => {
+  it("refuse une date non parsable plutôt que de la laisser filer", () => {
+    // Un Invalid Date traverserait tout le domaine en silence et ressortirait
+    // en « observation fraîche ». BR-001 fait de la date une donnée obligatoire.
+    expect(() => mapHydroObservation({ ...CHARGE_UTILE, date_obs: "2026-13-45" })).toThrow(
+      /date de mesure/i,
+    );
+    expect(() => mapHydroObservation({ ...CHARGE_UTILE, date_obs: "" })).toThrow(/date de mesure/i);
+  });
+
+  it("accepte la forme réellement renvoyée par l'API", () => {
+    // Relevé le 2026-07-30 sur observations_tr.
+    expect(mapHydroObservation(CHARGE_UTILE).dateObs.toISOString()).toBe("2026-07-30T10:00:00.000Z");
+  });
+});

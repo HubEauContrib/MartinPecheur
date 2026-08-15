@@ -64,16 +64,35 @@ export async function fetchAllStations<T>(
 ): Promise<Map<string, T[]>> {
   const parStation = new Map<string, T[]>();
 
-  for (const code of codes) {
+  for (const [index, code] of codes.entries()) {
+    // Le throttle sépare deux appels, pas plus : après la toute dernière
+    // station il n'y a plus rien à protéger.
+    if (index > 0) await attendre(INTERVALLE_MINIMUM_MS);
+
     try {
       const lignes: T[] = [];
       let url: string | null = buildHistoryUrl(code, debut);
 
+      const vues = new Set<string>();
+
       while (url !== null) {
+        // Un curseur qui ne progresse pas ferait boucler indéfiniment, à un
+        // appel par seconde et pour toujours. Le `try/catch` ne rattraperait
+        // rien : une boucle infinie ne lève pas. Sur un script conçu pour
+        // tourner 70 minutes sans surveillance, la panne serait invisible.
+        if (vues.has(url)) {
+          console.error(`${code} : curseur de pagination qui se répète, station interrompue`);
+          break;
+        }
+        vues.add(url);
+
         const page: PageObsElab<T> = await getJson(url);
         lignes.push(...page.data);
         url = page.next; // pagination par curseur, jamais par page+size
-        await attendre(INTERVALLE_MINIMUM_MS);
+
+        // Inutile d'attendre après la dernière page : le throttle protège
+        // l'API entre deux appels, pas après le dernier.
+        if (url !== null) await attendre(INTERVALLE_MINIMUM_MS);
       }
 
       parStation.set(code, lignes);

@@ -28,19 +28,32 @@ export function createHubEauClient(options: HubEauClientOptions = {}): HubEauCli
   return {
     async getJson<T>(url: string): Promise<T> {
       let lastStatus = 0;
+      let lastNetworkError: unknown = null;
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const response = await fetchImpl(url, { headers: { Accept: "application/json" } });
-        lastStatus = response.status;
+        try {
+          const response = await fetchImpl(url, { headers: { Accept: "application/json" } });
+          lastStatus = response.status;
+          lastNetworkError = null;
 
-        // 206 est un succès : le refuser casserait toute pagination (C-06).
-        if (isSuccess(response.status)) return (await response.json()) as T;
-        if (!isRetryable(response.status)) break;
+          // 206 est un succès : le refuser casserait toute pagination (C-06).
+          if (isSuccess(response.status)) return (await response.json()) as T;
+          if (!isRetryable(response.status)) break;
+        } catch (erreur) {
+          // `fetch` REJETTE sur coupure réseau, DNS ou TLS — il ne rend pas un
+          // statut. C'est la panne transitoire la plus courante sur mobile :
+          // ne pas la réessayer laisserait 4 tentatives à un 500 et aucune à
+          // une perte de réseau, soit l'inverse du besoin.
+          lastNetworkError = erreur;
+        }
 
         // Dernière tentative : inutile d'attendre avant d'abandonner.
         if (attempt < maxAttempts - 1) await sleep(delayForAttempt(attempt));
       }
 
+      // Une panne réseau est remontée telle quelle : son message dit ce qui
+      // s'est passé, là où un statut inventé induirait en erreur.
+      if (lastNetworkError !== null) throw lastNetworkError;
       throw new Error(`Hub'Eau a répondu ${lastStatus} pour ${url}`);
     },
   };
