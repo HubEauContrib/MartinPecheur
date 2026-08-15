@@ -4,11 +4,13 @@ Ce guide décrit comment produire un binaire Android **installable par quelqu'un
 et le publier en release GitHub. Il ne concerne pas le développement au quotidien — pour cela, voir
 le [`guide-installation.md`](guide-installation.md).
 
-> 🔄 **Aucune release n'a jamais été produite sur ce projet au 2026-08-15.** Tout ce qui suit est
-> **écrit, pas exécuté**. Les commandes viennent de la configuration réelle du dépôt, lue le
-> 2026-08-15 ; leur résultat n'est pas constaté. Sur ce projet, la nuance n'est pas cosmétique :
-> [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md) est né d'un chemin de code lu et
-> réputé bon, qui plantait à l'exécution. **Mettre ce guide à jour au premier essai réel.**
+> ✅ **La chaîne de build a été exécutée le 2026-08-15.** `prebuild` puis `assembleRelease`
+> produisent un APK : `BUILD SUCCESSFUL in 3m 51s`, 311 tâches, **110 Mo**, `versionCode=1`,
+> `versionName=0.1.0`, signé `CN=Android Debug`. La première rédaction de ce guide se trompait sur
+> **trois points**, tous corrigés ci-dessous et tous invisibles à la lecture.
+>
+> 🔄 **Aucune release n'a en revanche jamais été publiée.** Les étapes `gh release create` et la
+> réception côté testeur restent **écrites, pas exécutées**.
 
 ## 🔒 Le verrou produit — quand a-t-on le droit de publier
 
@@ -55,7 +57,7 @@ versionName "0.1.0"
 pas supérieur** à celui déjà posé. Le testeur reçoit un `App not installed` sans autre explication,
 et la seule issue est de désinstaller.
 
-**À faire avant la première release :** ajouter le champ dans `app.json`, et l'**incrémenter à chaque
+**Fait le 2026-08-15 :** le champ est déclaré dans `app.json`. Reste à l'**incrémenter à chaque
 release**.
 
 ```json
@@ -64,6 +66,11 @@ release**.
   "versionCode": 1
 }
 ```
+
+> ✅ **Câblage contre-éprouvé le 2026-08-15**, et pas seulement constaté : déclarer `1` ne prouvait
+> rien, puisque c'est aussi la valeur par défaut. Poussé temporairement à `2`, `prebuild` produit
+> bien `versionCode 2` dans `build.gradle`, et l'APK final rapporte `versionCode='1'` une fois
+> revenu à `1`. Le champ agit réellement.
 
 > `versionName` (`0.1.0`) est ce que lit l'humain ; `versionCode` est ce que compare Android. Les
 > deux doivent avancer, mais seul le second est bloquant.
@@ -83,6 +90,10 @@ release {
 (`android/app/debug.keystore`, alias `androiddebugkey`, mot de passe `android`) est le fichier fixe
 du gabarit React Native — **valide du 2013-12-31 au 2052-05-01**, donc identique sur toutes les
 machines et stable d'un `prebuild` à l'autre.
+
+> ✅ **Confirmé sur le binaire le 2026-08-15**, et pas seulement lu dans `build.gradle` :
+> `apksigner verify --print-certs` rapporte `Signer #1 certificate DN: CN=Android Debug, OU=Android,
+> O=Unknown`.
 
 | Conséquence | |
 |---|---|
@@ -116,7 +127,35 @@ npx expo prebuild --platform android --clean
 > retouche manuelle qu'on y ferait serait effacée ici : c'est ce qui est arrivé au contournement
 > `buildToolsVersion` le 2026-08-15.
 
-### 3. Compiler en release
+> 🚨 **`EBUSY` — constaté le 2026-08-15.** Si un émulateur, `adb` ou un démon Gradle tient encore
+> l'APK d'un build précédent, l'effacement d'`android/` échoue :
+> `EBUSY: resource busy or locked, unlink '…/app-debug.apk'`. Le verrou est transitoire : relancer
+> suffit le plus souvent, sinon `./gradlew --stop` avant.
+
+### 3. Pointer le bon SDK Android
+
+🚨 **Constaté le 2026-08-15, et c'est l'étape que la première version de ce guide oubliait.**
+
+`prebuild` **n'écrit pas de `android/local.properties`**. Gradle retombe donc sur `ANDROID_HOME`,
+qui vaut encore `C:\Program Files (x86)\Android\android-sdk` — le SDK Visual Studio, en lecture
+seule, qui ne porte que `build-tools;36.0.0`. Le build échoue alors en 5 s :
+
+```
+Could not determine the dependencies of task
+':maplibre_maplibre-react-native:compileReleaseJavaWithJavac'.
+> Failed to install the following SDK components:
+      build-tools;35.0.0 Android SDK Build-Tools 35
+```
+
+Le correctif de `M1` — basculer sur le SDK utilisateur, qui porte `35.0.0` **et** `36.0.0` — ne
+vivait que dans l'environnement interactif. **Il ne survit ni à un shell non interactif, ni à la CI.**
+Le forcer pour la durée du build :
+
+```bash
+export ANDROID_HOME="$LOCALAPPDATA/Android/Sdk" && export ANDROID_SDK_ROOT="$ANDROID_HOME"
+```
+
+### 4. Compiler en release
 
 ```bash
 cd android && ./gradlew assembleRelease
@@ -124,9 +163,25 @@ cd android && ./gradlew assembleRelease
 
 En PowerShell, `.\gradlew.bat assembleRelease`.
 
+> 🚨 **Ne pas enchaîner Gradle dans un tube.** `./gradlew … | tee x.log | tail` renvoie le code de
+> sortie du **dernier maillon**, pas celui de Gradle : un `BUILD FAILED` remonte alors en `exit 0`.
+> Constaté le 2026-08-15 — le build avait échoué et était rapporté comme réussi. Rediriger, ne pas
+> tuber : `./gradlew assembleRelease > build.log 2>&1`.
+
 L'APK sort dans `android/app/build/outputs/apk/release/app-release.apk`.
 
-### 4. Publier la release
+**Mesuré le 2026-08-15 :** `BUILD SUCCESSFUL in 3m 51s`, 311 tâches, **110 Mo**. Vérifier ce qu'on
+vient de produire plutôt que de le supposer — `aapt2` et `apksigner` sont dans
+`$ANDROID_HOME/build-tools/36.0.0/` :
+
+```bash
+aapt2 dump badging app-release.apk | grep -E "^package|native-code"
+```
+
+Au 2026-08-15 : `versionCode='1' versionName='0.1.0'`, `targetSdkVersion:'36'`, et
+`native-code: 'arm64-v8a' 'armeabi-v7a' 'x86' 'x86_64'`.
+
+### 5. Publier la release
 
 ```bash
 gh release create v0.1.0-alpha.1 android/app/build/outputs/apk/release/app-release.apk --prerelease --title "v0.1.0-alpha.1 — sonde hors-ligne" --notes-file docs/notes-release.md
@@ -217,7 +272,7 @@ jobs:
 |---|---|
 | 1 | **Le keystore.** En l'état, la CI signera avec la clé de debug publique. Voir l'annexe pour le keystore de projet en secret GitHub |
 | 2 | **Le `versionCode`.** Il faut l'incrémenter à chaque tag — soit à la main dans `app.json`, soit dérivé du tag par une étape du workflow |
-| 3 | **Le poids.** Restreindre l'ABI à `arm64-v8a` réduit nettement l'APK et couvre tous les téléphones réels visés. Les 58 Mo du build de développement ne sont pas une fatalité |
+| 3 | **Le poids.** ⚠️ **Mesuré le 2026-08-15 : 110 Mo**, parce qu'`assembleRelease` embarque les **quatre** ABI là où `expo run:android` n'en compilait qu'une. Détail des bibliothèques natives : `arm64-v8a` 25,4 Mo · `armeabi-v7a` 17,9 Mo · `x86` 26,4 Mo · `x86_64` 26,1 Mo. **Les 52,5 Mo de `x86`/`x86_64` ne servent qu'à l'émulateur** — les retirer est le gain le moins cher du projet |
 
 ---
 
