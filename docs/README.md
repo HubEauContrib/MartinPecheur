@@ -39,7 +39,7 @@ Les quatre livrables de cadrage, en tête de dossier :
 
 | Plan | Tranche | Statut |
 |---|---|---|
-| [`2026-07-31-t0-socle-react-native.md`](superpowers/plans/2026-07-31-t0-socle-react-native.md) | **T0** — socle Expo, domaine, données, carte, outillage percentiles | 🔄 **15 tâches sur 23** au 2026-08-15 |
+| [`2026-07-31-t0-socle-react-native.md`](superpowers/plans/2026-07-31-t0-socle-react-native.md) | **T0** — socle Expo, domaine, données, carte, outillage percentiles | 🔄 **21 tâches sur 23** au 2026-08-15 — restent `S5` et `M5`, tous deux en attente d'un **appareil Android réel** |
 | [`2026-07-30-t0-spike-carte-et-socle.md`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md) | T0 en .NET MAUI | 🚫 **caduc** — conservé pour l'historique, **ne pas exécuter** |
 
 ## Index des décisions
