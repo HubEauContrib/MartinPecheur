@@ -2,6 +2,17 @@
 
 **Mis à jour :** 2026-08-24 — après l'exécution de l'**option E** d'`ADR-012` : quatre versions du SDK natif MapLibre essayées, quatre plantages identiques. **E est épuisée**
 
+## Arbitrages récents
+
+| Date | Arbitrage |
+|---|---|
+| 2026-09-12 | **Porte de spike Flutter franchie** sur `F1` (fond IGN, Windows) + `F3` (exécutable Windows). `F2` non tranchée ; approche par défaut de la carte : marqueurs du viewport plus marge, sans clustering. Compte rendu : `spike/porte_flutter/COMPTE-RENDU.md` |
+| 2026-09-12 | **Android ⏸ différé jusqu'à nouvel ordre.** Windows seule cible construite ; iOS configuré, jamais compilé. Toute tâche Android d'un plan est marquée ⏸, ni supprimée ni comptée faite |
+| 2026-09-12 | **Arbre git frais** : `dev` repart d'un commit racine unique ; spike et outillage précédent sous le tag `archive/pre-flutter-2026-09-09`. **Plus d'outillage Node** : le générateur de percentiles (`ADR-003`) sera un script Dart |
+| 2026-09-13 | **Pas de briefs de session dans `docs/`.** La spec s'étoffe de six documents : fiches de sources avec fixtures datées (`docs/sources/`), critères d'acceptation Gherkin (`docs/acceptance/`, T1), `docs/nfr.md`, matrice de traçabilité (T1), `docs/domain-model.md`, `CHANGELOG.md` + `docs/plan-de-tests.md` |
+
+> ⚠️ Le reste de ce document date d'avant ces arbitrages et sera réécrit avec le socle Dart (T0).
+
 ## Où on en est
 
 🚨 **Bascule de stack le 2026-07-31.** Le commanditaire a révisé son arbitrage .NET : le projet
