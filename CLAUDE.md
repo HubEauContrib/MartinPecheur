@@ -81,8 +81,8 @@ docs/
 
 | Composant | Techno | État |
 |---|---|---|
-| Langage | **Dart 3.13.1** | ✅ vérifié au spike, 2026-09-09 |
-| Runtime | **Flutter 3.47.1** stable (canal `stable`, 2026-08-19) | ✅ vérifié au spike |
+| Langage | **Dart 3.13.3** | ✅ `flutter --version` le 2026-09-13 (le spike a tourné en 3.13.1) |
+| Runtime | **Flutter 3.47.4** stable | ✅ `flutter --version` le 2026-09-13 (le spike a tourné en 3.47.1) |
 | Cibles | **Windows en premier**, Android, iOS | Windows ✅ **construite et lancée hors Flutter** (`F3`, 33 Mo, 14 fichiers) · Android ⏸ différé · iOS 🔄 configuré, jamais compilé |
 | Carte | **`flutter_map` 8.3.2** · fond **IGN Géoplateforme** (WMTS KVP) · attribution « © IGN Géoplateforme — Licence Ouverte » **affichée** | ✅ **`F1` : le plan IGN s'affiche sur Windows** (2026-09-09). Signatures relevées dans le paquet installé : `TileLayer(urlTemplate:, tileDimension:, maxNativeZoom:, userAgentPackageName:)`, `Marker(point:, width:, height:, child:)`, `MapOptions(initialCenter:, initialZoom:, minZoom:, maxZoom:)`. ⚠️ `tileSize` est `@Deprecated` |
 | Marqueurs | `flutter_map_marker_cluster` 8.2.2 lié, `latlong2` 0.9.1 (par contrainte transitive) | ⏸ **`F2` non tranchée** : la mesure du 2026-09-09 donne `raster p90` 16,2 ms (budget ≤ 16,7 ms ✅) mais **jank 8,9 %** pour un seuil < 5 % ❌. **Approche par défaut : marqueurs du viewport plus une marge, sans clustering** (`F2c`), tant qu'aucune mesure ne réhabilite le regroupement |

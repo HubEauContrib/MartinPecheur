@@ -212,7 +212,7 @@ MIT : leurs notices doivent être conservées et présentées dans l'écran « �
 
 | Dépendance | Version | Licence | Vérifié |
 |---|---|---|---|
-| Flutter SDK | 3.47.1 | BSD-3-Clause | — |
+| Flutter SDK | 3.47.4 | BSD-3-Clause | `flutter --version`, 2026-09-13 |
 | `flutter_map` | 8.3.2 | BSD-3-Clause | pub.dev, 2026-09-09 |
 | `latlong2` | 0.10.1 | Apache-2.0 | pub.dev, 2026-09-09 |
 | `flutter_map_marker_cluster` | 8.2.2 | BSD-3-Clause | pub.dev, 2026-09-09 |
