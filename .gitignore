@@ -1,0 +1,41 @@
+# Flutter / Dart — la racine est le projet Flutter.
+# `android/`, `ios/` et `windows/` sont VERSIONNÉS : ils se modifient à la main
+# et portent la signature de release (ADR-013).
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+*.iml
+.idea/
+.vs/
+windows/flutter/ephemeral/
+android/.gradle/
+android/local.properties
+
+# Outillage Node (percentiles) — sous tools/, jamais à la racine
+tools/node_modules/
+tools/coverage/
+*.tsbuildinfo
+
+# Signature de release Android — clé et propriétés jamais versionnées
+android/key.properties
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# Secrets et environnement local
+.env*.local
+*.pem
+
+# Système et éditeurs
+.DS_Store
+*.swp
+
+# Claude Code — réglages personnels, propres à la machine
+# (.claude/settings.json et .claude/commands/ restent versionnés : config d'équipe)
+.claude/settings.local.json
