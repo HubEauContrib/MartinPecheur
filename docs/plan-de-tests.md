@@ -11,22 +11,30 @@ d'implémentation en cours.
 
 | Étage | Ce qu'il prouve | Coût | État |
 |---|---|---|---|
-| `test/architecture/` | Les frontières de couches tiennent : aucune infrastructure sous `lib/domain/`, aucun appel au volet sécheresse hors de son module | quelques ms | ✅ T0 (`domain_isolation_test.dart`) |
-| `test/domain/`, `test/data/`, `test/application/` | Règles métier et conversions ; tout `BR-xxx` se vérifie ici **ou nulle part** | ms | ✅ T0 |
+| `test/architecture/` | Les frontières de couches tiennent : aucune infrastructure sous `lib/domain/`, `data/` n'importe jamais `features/`, aucun `view_model` n'importe un widget, aucun appel au volet sécheresse hors de son module | quelques ms | ✅ T0 (`domain_isolation_test.dart`), complété en T1 (`layers_test.dart`) |
+| `test/domain/`, `test/data/` | Règles métier et conversions ; tout `BR-xxx` se vérifie ici **ou nulle part** | ms | ✅ T0 |
+| `test/features/<feature>/view_model/` | La logique d'écran **sans rendu** : un `ChangeNotifier` est instancié avec un faux dépôt, une action est appelée, on observe l'état et les notifications. Aucun widget monté | ms | 🔄 T1 (`ADR-014`) |
 | `test/features/` | Un écran affiche ce que la règle impose : attribution présente, marqueurs filtrés, absence jamais neutre | dizaines de ms | ✅ T0 minimal |
 | `test/features/goldens/` | Rendu d'un marqueur : contraste, halo, atténuation d'une donnée périmée | secondes | 🔄 T1 |
 | `integration_test/` | Parcours complet, sur fenêtre ou appareil réel | minutes | 🔄 T1 |
 
 ```mermaid
 graph BT
-    A[test/architecture] --> B[test/domain, data, application]
-    B --> C[test/features]
+    A[test/architecture] --> B[test/domain, test/data]
+    B --> VM["test/features/…/view_model<br/>sans rendu"]
+    VM --> C[test/features — widgets]
     C --> D[test/features/goldens]
     D --> E[integration_test]
 ```
 
 Le coût croît de bas en haut : une règle se vérifie à l'étage le plus bas où elle est visible,
 jamais plus haut « pour être sûr ».
+
+L'étage `view_model` est **le premier gain de MVVM** : ce qui se testait autrefois en montant un
+écran — l'emprise demandée au relâcher du geste, l'erreur qui reste visible plutôt qu'avalée
+(`BR-007`) — se teste désormais sur un `ChangeNotifier` observé, en millisecondes et sans
+`FlutterMap`. Un comportement d'écran qui **exige** un widget pour être vérifié est le signe qu'il
+est resté dans la vue.
 
 ## 2. Les quatre règles qui décident de l'étage
 
