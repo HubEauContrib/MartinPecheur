@@ -52,12 +52,16 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
 - `T-08` `date_observation` est une date sans heure (`"2026-08-25"`) : `BR-010` se calcule en
   jours.
 - `T-09` une observation ONDE porte les coordonnées deux fois — `latitude`/`longitude` à plat
-  et `geometry` GeoJSON — plus `code_cours_eau`, `libelle_cours_eau`, `code_departement`,
-  `code_commune`. `libelle_cours_eau` est en **casse mixte**, accentué — l'article est
-  souvent en minuscule, le nom propre porte sa majuscule : `"la Bonne Heure"`,
-  `"le Vézenne"`, mais aussi `"La Masse"`, `"La Rennes"` (15 libellés distincts dans la
-  fixture bbox, tous constatés ainsi le 2026-09-13) — ne jamais comparer ni afficher en
-  minuscules.
+  et `geometry` GeoJSON, **concordantes sur l'échantillon** (vérifié le 2026-09-13 sur la
+  fixture bbox : première ligne `latitude` 47.444182169 / `longitude` 1.78116675 contre
+  `geometry.coordinates` `[1.7811667496231998, 47.44418216904609]`, ordre
+  `[longitude, latitude]`) — plus `code_cours_eau`, `libelle_cours_eau`, `code_departement`,
+  `code_commune`. **La casse de `libelle_cours_eau` n'obéit à aucune règle** : les 15
+  libellés distincts de la fixture bbox portent chacun une majuscule, souvent sur l'article
+  (`"La Masse"`, `"La Rennes"`), parfois sur le nom propre seul (`"la Bonne Heure"`,
+  accentué : `"le Vézenne"`) — mais la fixture station donne `"ruisseau la rivière aux
+  loches"`, **entièrement en minuscules**. Jamais de comparaison ni d'affichage normalisé sur
+  ce champ.
 
 ⚠️ `T-07` **`code_campagne` change de type selon l'endpoint** : entier dans `/campagnes`
 (`109905`), chaîne dans `/observations` (`"109905"`) — un modèle qui le type `int` casse sur

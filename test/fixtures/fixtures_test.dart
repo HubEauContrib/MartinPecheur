@@ -258,8 +258,8 @@ void main() {
       );
     });
 
-    test('libelle_cours_eau est en casse mixte, jamais tout en minuscules '
-        '(T-09) — ne jamais comparer ni afficher en minuscules', () {
+    test('libelle_cours_eau porte une majuscule dans chaque libellé de la '
+        'fixture bbox (T-09) — ne jamais afficher en minuscules', () {
       final List<Map<String, dynamic>> lignes = rows(
         readFixture('onde/observations_bbox_loire_2026-09-13.json'),
       );
@@ -269,11 +269,11 @@ void main() {
       final RegExp majuscule = RegExp('[A-ZÀÂÉÈÊËÎÏÔÛÙ]');
       final RegExp accent = RegExp('[éèêëàâîïôûù]');
       expect(
-        libelles.any((String libelle) => majuscule.hasMatch(libelle)),
+        libelles.every((String libelle) => majuscule.hasMatch(libelle)),
         isTrue,
         reason:
-            '"La Masse" porte une majuscule sur l\'article, pas '
-            'seulement sur un nom propre isolé',
+            'les 15 libellés de la fixture bbox portent chacun une '
+            'majuscule, ex. "La Masse" sur l\'article',
       );
       expect(
         libelles.any((String libelle) => accent.hasMatch(libelle)),
@@ -281,6 +281,24 @@ void main() {
         reason:
             '"le Vézenne" porte un accent : la fixture doit rester '
             'lisible en UTF-8 sans normalisation',
+      );
+    });
+
+    test('libelle_cours_eau de la fixture station est tout en minuscules — '
+        "la casse n'obéit à aucune règle d'une fixture à l'autre (T-09), "
+        'jamais de comparaison ni d\'affichage normalisé', () {
+      final List<Map<String, dynamic>> lignes = rows(
+        readFixture('onde/observations_station_K4520001_2026-09-13.json'),
+      );
+      final Set<String> libelles = lignes
+          .map((Map<String, dynamic> l) => l['libelle_cours_eau'] as String)
+          .toSet();
+      expect(
+        libelles.any((String libelle) => libelle == libelle.toLowerCase()),
+        isTrue,
+        reason:
+            '"ruisseau la rivière aux loches" est entièrement en '
+            'minuscules, à l\'inverse des 15 libellés de la fixture bbox',
       );
     });
   });
