@@ -87,8 +87,7 @@ final class EnEchec extends StationMapState {
 /// inHours` tronque vers zéro : si l'une de ces bornes devenait un jour une
 /// durée non ronde en heures (90 min, par exemple), le libellé afficherait
 /// « 1 h » et non « 1,5 h ». Les valeurs actuelles (2 h, 24 h) sont rondes,
-/// donc sans perte — mais la troncature reste implicite dans `inHours` et
-/// n'est pas revérifiée ici à chaque appel.
+/// donc sans perte.
 String stationMapStateLabel(StationMapState state) => switch (state) {
   NonChargee() => '',
   Chargee(freshness: Freshness.fraiche) => '',

@@ -93,5 +93,14 @@ void main() {
         CampaignAge.ancienne,
       );
     });
+
+    test("cas deterministe en UTC : l'ancien calcul en duree absolue rendait "
+        '59 jours, quel que soit le fuseau — 2026-07-15T23:59Z vu le '
+        '2026-09-13T00:01Z est bien 60 jours calendaires', () {
+      final DateTime observedAt = DateTime.utc(2026, 7, 15, 23, 59);
+      final DateTime now = DateTime.utc(2026, 9, 13, 0, 1);
+
+      expect(campaignAgeInDays(observedAt: observedAt, now: now), 60);
+    });
   });
 }

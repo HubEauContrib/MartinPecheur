@@ -44,6 +44,9 @@ const Duration campagneAncienneApres = Duration(days: 60);
 /// Un âge négatif (observation dans le futur) n'est pas filtré ici : c'est
 /// [campaignAgeOf] qui le traite comme [CampaignAge.recente], pour la même
 /// raison que [freshnessOf] traite une mesure future comme fraîche.
+///
+/// [observedAt] et [now] doivent être exprimées dans le même fuseau ; le
+/// mapper rend `observedAt` en UTC (T-08), l'appelant passe `now` en UTC.
 int campaignAgeInDays({required DateTime observedAt, required DateTime now}) {
   final DateTime observedDay = DateTime.utc(
     observedAt.year,
@@ -62,6 +65,9 @@ int campaignAgeInDays({required DateTime observedAt, required DateTime now}) {
 /// Un âge négatif (observation dans le futur) est une anomalie de la
 /// source, pas une donnée vieille : il est traité comme [CampaignAge.recente]
 /// plutôt que d'inventer un âge inconnu — même parade que [freshnessOf].
+///
+/// [observedAt] et [now] doivent être exprimées dans le même fuseau ; le
+/// mapper rend `observedAt` en UTC (T-08), l'appelant passe `now` en UTC.
 CampaignAge campaignAgeOf({
   required DateTime observedAt,
   required DateTime now,

@@ -8,18 +8,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
 
-/// Les six états possibles d'un [StationMapState], un par branche du
-/// `switch` — une seule liste, réutilisée par le test des mots bannis et
-/// par le test du switch exhaustif, pour ne pas faire diverger deux
-/// énumérations manuelles des mêmes cas.
-final List<StationMapState> sixEtatsPossibles = <StationMapState>[
-  const NonChargee(),
-  const SansDonnee(),
-  const Chargee(Freshness.fraiche),
-  const Chargee(Freshness.ancienne),
-  const Chargee(Freshness.perimee),
-  EnEchec(Exception('panne')),
-];
+/// Les états possibles d'un [StationMapState], un par branche du `switch`
+/// — une seule liste, réutilisée par le test des mots bannis et par le
+/// test du switch exhaustif, pour ne pas faire diverger deux énumérations
+/// manuelles des mêmes cas.
+final List<StationMapState> allStates = List<StationMapState>.unmodifiable(
+  <StationMapState>[
+    const NonChargee(),
+    const SansDonnee(),
+    const Chargee(Freshness.fraiche),
+    const Chargee(Freshness.ancienne),
+    const Chargee(Freshness.perimee),
+    EnEchec(Exception('panne')),
+  ],
+);
 
 void main() {
   group('StationMapState (BR-007)', () {
@@ -85,7 +87,7 @@ void main() {
         'bon',
         'sûr',
       ];
-      final List<String> libelles = sixEtatsPossibles
+      final List<String> libelles = allStates
           .map(stationMapStateLabel)
           .toList();
 
@@ -110,9 +112,7 @@ void main() {
         EnEchec() => 'en échec',
       };
 
-      final List<String> descriptions = sixEtatsPossibles
-          .map(describe)
-          .toList();
+      final List<String> descriptions = allStates.map(describe).toList();
 
       expect(descriptions, <String>[
         'non chargée',
