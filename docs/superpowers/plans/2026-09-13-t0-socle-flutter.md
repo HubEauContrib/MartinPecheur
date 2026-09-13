@@ -1617,7 +1617,7 @@ git add docs/nfr.md docs/README.md test/project/nfr_doc_test.dart && git commit 
 
 ## Lot 5 — La porte de T0
 
-### Task P1 : L'exécutable Windows, lancé hors Flutter
+### Task P1 : L'exécutable Windows, lancé hors Flutter — ✅ constaté le 2026-09-13, f05ed04
 
 **Files:** aucun fichier modifié. C'est une **épreuve**, pas un développement.
 
@@ -1649,8 +1649,8 @@ Attendu : un poids **≤ 60 Mo** (`NFR-06`), le nombre de fichiers, et les cinq 
 ```
 Attendu, à constater **à l'écran** : (1) une fenêtre s'ouvre, **sans que l'outil de développement tourne** ; (2) **le plan IGN s'affiche** ; (3) **les pastilles de stations sont visibles** ; (4) l'attribution « © IGN Géoplateforme — Licence Ouverte » est lisible en bas à droite ; (5) le glisser à la souris déplace la carte. **Les cinq points, ou la porte n'est pas franchie.** Un point manquant se note comme manquant : ce n'est pas une porte qu'on arrondit.
 
-- [ ] **Étape 5 — épreuve hors réseau (`NFR-03`) : commanditaire.** Désactiver la carte réseau, puis relancer `./build/windows/x64/runner/Release/martinpecheur.exe`. Attendu — et **ce résultat n'est pas connu d'avance**, c'est `NV-W2` : les **pastilles** s'affichent (le référentiel est un asset embarqué, rien à télécharger) ; les **tuiles** viennent du cache de la bibliothèque **ou** le fond reste vide — **constater, ne pas supposer.** Recopier le constat dans `NFR-03` et `NV-W2`. Si le fond reste vide, c'est un **résultat**, pas un échec de la tâche : `NFR-03` passe au rouge et le travail se planifie en T1.
-- [ ] **Étape 6 — consigner.** Mettre à jour `docs/nfr.md` : colonnes « Constaté par » et « État » de `NFR-03` et `NFR-06`, et lignes `NV-W2`, `NV-W3`.
+- [x] **Étape 5 — épreuve hors réseau (`NFR-03`) : commanditaire.** Désactiver la carte réseau, puis relancer `./build/windows/x64/runner/Release/martinpecheur.exe`. Attendu — et **ce résultat n'est pas connu d'avance**, c'est `NV-W2` : les **pastilles** s'affichent (le référentiel est un asset embarqué, rien à télécharger) ; les **tuiles** viennent du cache de la bibliothèque **ou** le fond reste vide — **constater, ne pas supposer.** Recopier le constat dans `NFR-03` et `NV-W2`. Si le fond reste vide, c'est un **résultat**, pas un échec de la tâche : `NFR-03` passe au rouge et le travail se planifie en T1.
+- [x] **Étape 6 — consigner.** Mettre à jour `docs/nfr.md` : colonnes « Constaté par » et « État » de `NFR-03` et `NFR-06`, et lignes `NV-W2`, `NV-W3`.
 
 ```bash
 git add docs/nfr.md && git commit -m "docs: consigner les constats de la porte T0 sur Windows" -m "<recopier : ligne Built, duree, poids du dossier Release, nombre de fichiers, les cinq plus gros, et le comportement hors reseau tel qu il a ete VU> NFR-06 : <tenu / non tenu> a <poids> pour un budget de 60 Mo. NFR-03 : <constat>. NV-W2 : <leve ou toujours ouvert>."
@@ -1658,18 +1658,18 @@ git add docs/nfr.md && git commit -m "docs: consigner les constats de la porte T
 
 ---
 
-### Task P2 : Clore la version `0.1.0`
+### Task P2 : Clore la version `0.1.0` — ✅ 2026-09-13
 
 **Files:** modifié `CHANGELOG.md` · test `test/project/changelog_test.dart` (ajout)
 
 **Cas de test** (1 ajouté) — la ligne qui commence par `## [0.1.0]` correspond à `## \[0\.1\.0\] — \d{4}-\d{2}-\d{2}` et ne contient **pas** « à publier » : une version sans date n'est pas publiée, et si le tag et le `CHANGELOG` ne disent pas la même chose, personne ne sait ce que contient le binaire qu'il a installé.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
-- [ ] **Étape 2 — dater la version et compléter ce qui a été constaté.** Remplacer `## [0.1.0] — à publier` par `## [0.1.0] — <date du jour, AAAA-MM-JJ>` et ajouter deux sections en fin de section :
+- [x] **Étape 1** — test rouge : `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
+- [x] **Étape 2 — dater la version et compléter ce qui a été constaté.** Remplacer `## [0.1.0] — à publier` par `## [0.1.0] — <date du jour, AAAA-MM-JJ>` et ajouter deux sections en fin de section :
   - `### Constaté à l'exécution` — exécutable Windows produit et lancé **sans outil de développement** : la carte s'affiche, les pastilles sont là, l'attribution est lisible · dossier de publication : **<poids>**, **<nombre>** fichiers · hors réseau : **<ce qui a été vu, sans interprétation>**.
   - `### Non vérifié` — aucune mesure de fluidité sur Windows (`NFR-01`) · la molette ne zoome pas (`NV-W1`) · iOS n'a jamais été compilé · Android ⏸ différé le 2026-09-12.
-- [ ] **Étape 3** — `flutter test` → **tous les tests verts**, `changelog_test.dart` compris.
-- [ ] **Étape 4 — commit et tag.**
+- [x] **Étape 3** — `flutter test` → **tous les tests verts**, `changelog_test.dart` compris.
+- [x] **Étape 4 — commit et tag.**
 
 ```bash
 git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.1.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "La section Non verifie n est pas une precaution de style : NFR-01 n a aucune mesure sur Windows, la molette ne zoome pas, iOS n a jamais ete compile et Android est differe. Un CHANGELOG qui taisait cela ferait croire a un produit."
