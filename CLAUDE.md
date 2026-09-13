@@ -13,7 +13,7 @@
 |---|---|---|
 | **Porte de spike** | Fond IGN affiché (`F1`), exécutable Windows autonome (`F3`) | ✅ **franchie sur Windows, arbitrage du 2026-09-12** (exécution 2026-09-09) — `spike/porte_flutter/COMPTE-RENDU.md`. `F2` (4 150 marqueurs clusterisés) **non tranchée** |
 | **T0** | Socle Flutter + carte `flutter_map` + socle domaine + test d'architecture, sur **Windows** | ✅ **clos le 2026-09-13** — `v0.1.0`, **248 tests verts**, porte franchie sur Windows. Plan `docs/superpowers/plans/2026-09-13-t0-socle-flutter.md` : 31 tâches sur 31, 5 Android ⏸ |
-| **T1** | Carte, fiches, les 4 avertissements | 🔄 en cours — réusinage MVVM clos et relu ; lot 1 (données : fixtures ONDE, domaine, mapper, URI, dépôts hydro et ONDE, caches) clos ; lots 2 à 7 à faire |
+| **T1** | Carte, fiches, les 4 avertissements | 🔄 en cours — réusinage MVVM clos et relu ; lot 1 (données : fixtures ONDE, domaine, mapper, URI, dépôts hydro et ONDE, caches) clos ; lot 2 ouvert, `V1` fait ; `V2`→`V4` puis lots 3 à 7 |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Favoris, filtres, fraîcheur | 🔄 |
 
@@ -105,7 +105,7 @@ docs/
 | Stockage local | `ADR-011` **réservé** — `drift` candidat par défaut ; `sqflite` seul **ne couvre pas Windows** | 💭 à trancher au moment où ça bloque |
 | Gestion d'état | `ValueNotifier` + `ListenableBuilder`, zéro dépendance sauf preuve contraire | 💭 |
 | Graphes | courbe de débit (`US-11`) | 💭 à trancher |
-| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **427 verts** le 2026-09-13, après le réusinage MVVM et sa relecture (248 à la clôture de T0 : les cas du bus disparaissent avec leur sujet, ceux du ViewModel et des couches s'ajoutent) — lot 1 de T1 (données) clos le 2026-09-13 : D1 à D8 ; lot 2 ouvert, V1 fait |
+| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **427 tests, 426 verts sur ce poste** (`+426 -1` le 2026-09-14 ; seul rouge `ios_bundle_identifier_test`, dossier `android/` hors dépôt), après le réusinage MVVM et sa relecture (248 à la clôture de T0 : les cas du bus disparaissent avec leur sujet, ceux du ViewModel et des couches s'ajoutent) — lot 1 de T1 (données) clos le 2026-09-13 : D1 à D8 ; lot 2 ouvert, V1 fait |
 | Percentiles | **script Dart** produisant `assets/percentiles/` (`ADR-003`) | 🔄 |
 
 > Toute bibliothèque retenue est vérifiée sur `pub.dev` avant d'être ajoutée : **version, licence compatible GPL-3.0, plateformes — Windows incluse —, date de dernière publication.** On lit la signature dans le paquet installé, on ne l'écrit pas de mémoire.
@@ -173,6 +173,7 @@ Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 - **Diagrammes** : dispersés **à côté** de la sous-partie qu'ils illustrent, jamais en section dédiée. **Mermaid inline** uniquement.
 - Templates : `docs/{br,use-cases,adr}/*-template.md`.
 - **Trois ADR sont tranchés sans arbitrage du commanditaire** (`ADR-002`, `004`, `006`). Chacun porte une section « Si la décision est revue ». Ne pas les traiter comme définitifs.
+- **`ADR-013` et `ADR-014` sont, eux, des arbitrages du commanditaire** — bascule Flutter et Windows première cible (2026-09-12, écrit a posteriori le 2026-09-13), feature-first + MVVM (2026-09-13). Ils ne se révisent pas par défaut. `ADR-011` reste **réservé** au stockage local.
 
 ---
 

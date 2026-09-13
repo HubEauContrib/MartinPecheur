@@ -1,6 +1,6 @@
 # ADR-010 — React Native, abandon de MAUI et de la cible Windows
 
-- **Statut :** Accepté — **arbitrage du commanditaire du 2026-07-31** · ⚠️ **volet architecture applicative remplacé par [`ADR-014`](ADR-014-feature-first-mvvm.md)** le 2026-09-13 : le § « L'architecture en couches est conservée » ci-dessous, avec son `application/` et ses `Query`/`Command`, ne fait plus foi — le projet est en *feature-first* + **MVVM**, et le cache est un décorateur de dépôt. Le reste de cette décision est **également caduc** quant à la stack, arbitrée à nouveau le 2026-09-12 (bascule Flutter, cible Windows) ; il est conservé comme trace historique.
+- **Statut :** **Remplacé par [`ADR-013`](ADR-013-bascule-flutter-cible-windows.md)** le 2026-09-12 (arbitrage du commanditaire, porte de spike Flutter franchie) — *accepté à l'origine par arbitrage du commanditaire du 2026-07-31 ; le corps ci-dessous est conservé tel quel, pour l'historique* · ⚠️ **volet architecture applicative remplacé par [`ADR-014`](ADR-014-feature-first-mvvm.md)** le 2026-09-13 : le § « L'architecture en couches est conservée » ci-dessous, avec son `application/` et ses `Query`/`Command`, ne fait plus foi — le projet est en *feature-first* + **MVVM**, et le cache est un décorateur de dépôt. Le reste de cette décision est **également caduc** quant à la stack, arbitrée à nouveau le 2026-09-12 (bascule Flutter, cible Windows) ; il est conservé comme trace historique.
 - **Date :** 2026-07-31
 - **Remplace :** [`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md) (MAUI Blazor Hybrid), [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md) (CQRS léger porté par `BrilliantMediator`), [`ADR-009`](ADR-009-cible-windows.md) (cible Windows)
 
@@ -123,6 +123,7 @@ Un retour à .NET implique de refaire l'intégralité du code applicatif — il 
 ## Liens
 
 - Remplace : [`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md), [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md), [`ADR-009`](ADR-009-cible-windows.md)
+- **Remplacé par :** [`ADR-013`](ADR-013-bascule-flutter-cible-windows.md) (bascule Flutter, Windows première cible construite, 2026-09-12). Le volet « CQRS léger » repris ci-dessus est, lui, remplacé par [`ADR-014`](ADR-014-feature-first-mvvm.md) (feature-first + MVVM, 2026-09-13)
 - Toujours en vigueur : [`ADR-001`](ADR-001-api-hydrometrie-v2.md), [`ADR-002`](ADR-002-qualification-du-debit.md), [`ADR-003`](ADR-003-reference-percentiles-en-asset.md), [`ADR-004`](ADR-004-integration-vigieau.md), [`ADR-006`](ADR-006-onde-quatre-categories.md), [`ADR-007`](ADR-007-ecarter-qualite-eau.md)
 - Cas d'usage débloqué : [`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md)
 

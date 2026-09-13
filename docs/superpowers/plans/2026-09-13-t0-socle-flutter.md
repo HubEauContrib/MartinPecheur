@@ -63,7 +63,7 @@
 - Aucun générateur de percentiles. `ADR-003` décrit un script **hors application** ; il sera écrit en Dart, **hors T0**.
 - Aucun critère Gherkin, aucune matrice de traçabilité : **T1**.
 - Aucun avertissement produit (`BR-012`, `BR-013`, `BR-014`) : **T1**. Rien ne part en production sans eux — T0 ne part pas en production, il produit un exécutable de vérification.
-- Aucun `ADR-013` (bascule de stack et cible unique). Il reste à écrire ; `.gitignore` le cite déjà comme la décision qui rend `windows/` et `ios/` versionnés.
+- Aucun `ADR-013` (bascule de stack et cible unique) pendant T0 ; `.gitignore` le citait déjà comme la décision qui rend `windows/` et `ios/` versionnés. ✅ **Écrit a posteriori le 2026-09-13** : `docs/adr/ADR-013-bascule-flutter-cible-windows.md`.
 
 ---
 

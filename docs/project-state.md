@@ -1,6 +1,9 @@
 # État du projet
 
-**Mis à jour :** 2026-08-24 — après l'exécution de l'**option E** d'`ADR-012` : quatre versions du SDK natif MapLibre essayées, quatre plantages identiques. **E est épuisée**
+**Mis à jour :** 2026-09-14 — reprise de `feat/t1-mvvm-fiche-station` (audit du **lot 1 de T1**).
+
+> Ce document est l'**état vivant** du projet. En cas de contradiction avec le code, **le code a
+> raison** — et ce document se corrige dans le même commit.
 
 ## Arbitrages récents
 
@@ -10,281 +13,393 @@
 | 2026-09-12 | **Android ⏸ différé jusqu'à nouvel ordre.** Windows seule cible construite ; iOS configuré, jamais compilé. Toute tâche Android d'un plan est marquée ⏸, ni supprimée ni comptée faite |
 | 2026-09-12 | **Arbre git frais** : `dev` repart d'un commit racine unique ; spike et outillage précédent sous le tag `archive/pre-flutter-2026-09-09`. **Plus d'outillage Node** : le générateur de percentiles (`ADR-003`) sera un script Dart |
 | 2026-09-13 | **Pas de briefs de session dans `docs/`.** La spec s'étoffe de six documents : fiches de sources avec fixtures datées (`docs/sources/`), critères d'acceptation Gherkin (`docs/acceptance/`, T1), `docs/nfr.md`, matrice de traçabilité (T1), `docs/domain-model.md`, `CHANGELOG.md` + `docs/plan-de-tests.md` |
-| 2026-09-13 | **Architecture : feature-first + MVVM** (recommandation de l'équipe Flutter) remplace le CQRS léger. `domain/` et `data/` conservés ; bus, `Query`/`Command` et gestionnaires retirés à l'ouverture de T1 (`ADR-014`, plan T0 § « Suite immédiate ») |
+| 2026-09-13 | **Architecture : feature-first + MVVM** (recommandation de l'équipe Flutter) remplace le CQRS léger. `domain/` et `data/` conservés ; bus, `Query`/`Command` et gestionnaires retirés à l'ouverture de T1 ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md), plan T0 § « Suite immédiate ») — **fait** le 2026-09-13 sur cette branche (`9043df1`) |
+| 2026-09-13 | **Réusinage `R1`-`R6` exécuté sur `feat/t1-mvvm-fiche-station`** — `69ac82e` (`R1`, [`ADR-014`](adr/ADR-014-feature-first-mvvm.md)), `1bb1810` (`R2`), `b6e9aec` (`R3`), `9043df1` (`R4`), `7541928` puis `0a668be` (`R5`), `2681e12` + `7913b1a` + `9911982` + `fe1b92e` (`R6`), plus les correctifs de relecture `ce4f719` et `43a18cd`. **244 tests** à la clôture (`fe1b92e`) |
+| 2026-09-13 | **Plan T1 écrit et ouvert** — [`2026-09-13-t1-fiche-station-et-avertissements.md`](superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md), **7 lots**, **31 tâches actives** au récapitulatif, **10 décisions à valider** (`68151f6`, préalable MVVM levé par `6caac28`) |
+| 2026-09-14 | **Branche de travail : `feat/t1-mvvm-fiche-station`.** La branche `refactor/feature-first-mvvm` (7 commits, **doublon du même réusinage**) est **abandonnée, non fusionnée** : elle reste dans le clone, rien n'en sera repris. [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md) y a été **reporté** (seul apport non redondant, avec cette réécriture de `project-state.md`) : commit `docs` du 2026-09-14 sur cette branche |
+| 2026-09-14 | **Audit de reprise du lot 1 de T1 par un second agent** : lot 1 (`D1`→`D8`) et `V1` **repris tels quels**, aucun défaut bloquant. Cinq points ouverts remontés au commanditaire (§ « Ce qui bloque », lignes 15 à 19) |
 
-> ⚠️ Le reste de ce document date d'avant ces arbitrages et sera réécrit avec le socle Dart (T0).
+> ⚠️ **Le tag `archive/pre-flutter-2026-09-09` n'est pas présent dans ce clone** : `git tag` ne
+> liste que `v0.1.0` (constaté le 2026-09-13, reconstaté le 2026-09-14). L'arbitrage du 2026-09-12
+> est consigné tel qu'il a été pris ; l'existence du tag, elle, n'est **pas vérifiée**. Le tag
+> `v0.1.0` est posé **localement sur `015a245`, non poussé**.
 
 ## Où on en est
 
-🚨 **Bascule de stack le 2026-07-31.** Le commanditaire a révisé son arbitrage .NET : le projet
-passe à **React Native** et **abandonne Windows** ([`ADR-010`](adr/ADR-010-react-native.md)).
+| Tranche | Prouve | Statut |
+|---|---|---|
+| **Porte de spike** | Fond IGN affiché (`F1`), exécutable Windows autonome (`F3`) | ✅ franchie sur Windows (exécution 2026-09-09, arbitrage 2026-09-12). `F2` (4 150 marqueurs clusterisés) **non tranchée** |
+| **T0 — socle Flutter** | Carte `flutter_map`, socle domaine et données, test d'architecture, exécutable Windows | ✅ **livrée le 2026-09-13** — **31 tâches sur 31**, PR #11 fusionnée sur `dev` (`015a245`), version **`0.1.0`** (tag `v0.1.0` posé **localement, non poussé**), **248 tests** (247 du plan + `changelog_test`) constatés par `flutter test`, exécutable Windows **lancé hors outil** par le commanditaire, **31 Mo** ([`CHANGELOG.md`](../CHANGELOG.md)) |
+| **Réusinage `R1`-`R6`** | `lib/application/` retiré, `MapViewModel`, `layers_test.dart` à cinq règles, docs alignées | ✅ **exécuté et relu le 2026-09-13 sur cette branche** — **244 tests** à la clôture (`fe1b92e`). **Non fusionné sur `dev`** : PR et fusion sont pour le commanditaire (`gh` absent du bac à sable) |
+| **T1 — fiche station, écoulement ONDE, avertissements** | Carte interactive (tap, fiche), fiches station et ONDE, **les quatre avertissements** | 🔄 **en cours.** **Lot 1 (`D1`→`D8`) clos**, **`V1` fait** ; restent `V2`→`V4` puis les **lots 3 à 7** (vues, avertissements, clavier/souris, documentation, porte `0.2.0`) |
+| **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
+| **T3** | Favoris, filtres, fraîcheur | 🔄 |
 
-**L'implémentation repart de zéro.** Le cadrage produit, lui, est intact — il ne dépendait pas
-de la stack.
+**Le cadrage produit est terminé et vérifié** — il ne dépend d'aucune technologie et n'a été refait
+à aucune des deux bascules de stack.
+
+🚨 **Rien de tout cela n'est un produit.** Aucun des quatre avertissements obligatoires n'est posé
+(`BR-012`, `BR-013`) : `CLAUDE.md` interdit toute mise en production tant qu'ils manquent. Ils sont
+le **lot 4 de T1** (`W1`→`W5`), et rien n'est livrable avant eux.
 
 ## Ce qui est acquis
 
 | Sujet | État |
 |---|---|
-| Analyse des APIs | ✅ Vérifiée par appels HTTP réels les 2026-07-30 et 07-31 |
+| Analyse des APIs | ✅ Vérifiée par appels HTTP réels les 2026-07-30 et 07-31, **recapturée le 2026-09-13** (14 faits `V-01` à `V-14` du plan T0, puis `T-01` à `T-13` du plan T1) |
 | Question centrale du « débit suffisant » | ✅ Tranchée (`ADR-002`) et documentée avec ses limites |
 | Sources retenues et écartées | ✅ 7 APIs évaluées, motifs documentés |
-| Règles métier | ✅ 14 règles, chacune avec son test |
-| Cas d'usage | ✅ 6 cas, flux nominaux et alternatifs |
-| Avertissements | ✅ Les 4 emplacements spécifiés, textes rédigés |
-| Stack | ✅ **Tranchée le 2026-07-31** — React Native (`ADR-010`), arbitrage du commanditaire |
-| Hors-ligne cartographique | 🚨 **Redevenu un risque, et le plus sérieux du projet.** Le constat du 2026-07-31 était une **lecture de code source**, pas une exécution. Exécutée le **2026-08-15**, `OfflineManager.createPack` **tue le processus** — [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md) |
+| Règles métier | ✅ **14 règles**, chacune avec son test |
+| Cas d'usage | ✅ **6 cas**, flux nominaux et alternatifs |
+| Avertissements | ✅ Les 4 emplacements **spécifiés**, textes rédigés — 🔄 **aucun n'est posé dans le code** (lot 4 de T1) |
+| Stack | ✅ **Flutter / Dart**, Windows première cible ([`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md), arbitrage du commanditaire du 2026-09-12) |
+| Architecture | ✅ **feature-first + MVVM** ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md), arbitrage du 2026-09-13) — vue → ViewModel → dépôt → domaine, sans bus ni médiateur, verrouillée par cinq règles de couches |
+| Socle de domaine | ✅ Unités en `extension type` (`BR-002`), conversion l/s → m³/s et mm → m **à un seul endroit**, fraîcheur aux bornes de `BR-005`, nomenclature close à branche `Inconnu` (`BR-011`), `StationCode` à dix caractères qui refuse un code site (`C-05`) |
+| Socle de données hydrométrie | ✅ Client Hub'Eau **v2** (200 **et** 206 en succès, retry 429/5xx jamais 4xx, recul à gigue injectée), mapper unique, référentiel lu depuis l'asset embarqué, `RestrictionSource` **interface seule** |
+| Domaine de l'écoulement ONDE (`D2`) | ✅ `OndeStationCode` (8 car.), `OndePoint`, `OndeObservation`, `OndeCampaign`, âge de campagne en **jours calendaires** (`BR-010`, `T-08`), `StationMapState` — `Chargee`/`SansDonnee`/`NonChargee`/`EnEchec` |
+| Mapper ONDE (`D3`) | ✅ `mapOndeObservation` / `mapOndePoint` / `mapOndeCampaign`, testés sur la **fixture réelle du 2026-09-13** ; `code_ecoulement` lu en texte, jamais par un cast nu ; `flowCategoryFromCode` réutilisé, pas recopié |
+| URI ONDE (`D4`) | ✅ `ondeObservationsBboxUri`, `ondeObservationsStationUri`, `ondeCampagnesUri` posées **sur le `HubEauClient` existant** — aucun second client (`OndeClient` retiré). `fields` à dix champs, dates formatées en **UTC** |
+| Dépôt d'observations hydrométriques (`D5`, `D6`) | ✅ `HttpHydroObservationRepository` dans sa **forme garantie** (un appel par station), décoré par `CachedHydroObservationRepository` — `withCachePolicy`, TTL **20 min**, chiffre unique dans `lib/` |
+| Dépôt d'écoulement (`D7`, `D8`) | ✅ `HttpOndeObservationRepository` (emprise et point) + `CachedOndeObservationRepository` — TTL **30 j** de mai à septembre, **90 j** hors saison ; une observation ONDE **porte son point**, lu sur la même ligne d'API |
+| ViewModel de fiche station (`V1`) | ✅ `StationSheetViewModel` — `Fermee`/`EnCours`/`Prete`/`EnEchec`, horloge injectée, **aucun widget importé** ; libellés balayés en **mots entiers** contre le vocabulaire interdit (`BR-003`) |
+| Carte | ✅ Fond IGN Géoplateforme en tuiles raster, attribution affichée, **4 150 stations** en marqueurs du viewport plus une marge, requête au relâcher du geste — constaté à l'écran sur T0 (`dev`) ; les correctifs `ce4f719`/`43a18cd` (**la dernière emprise demandée gagne**, une emprise en erreur reste rechargeable) ne sont couverts que par les tests, `flutter run -d windows` n'ayant pas été relancé sur cette branche |
+| Politique de cache | ✅ `withCachePolicy` (stale-while-revalidate, déduplication en vol), **décorateur de dépôt** sous `lib/data/cache/` — désormais **utilisé** par les deux dépôts du lot 1 |
+| Hors-ligne cartographique | ⚠️ **Partiel.** Le cache de tuiles intégré à `flutter_map` sert les zones **déjà parcourues** (constaté hors réseau le 2026-09-13, `NV-W2`). **Aucun téléchargement de zone** : le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **non livré** |
 
 ## Code
 
-**L'implémentation React Native a commencé le 2026-07-31.** Le plan suivi est
-[`T0 — Socle React Native`](superpowers/plans/2026-07-31-t0-socle-react-native.md).
+### Disposition, telle qu'elle est sur cette branche
 
-| Tâche | Livrable | État |
+```
+lib/
+  domain/          station/{station,station_point}.dart · geo/{bounds,viewport_filter}.dart
+                   units/ · observation/{freshness,hydro_observation,station_map_state}.dart
+                   onde/{onde_station_code,onde_point,onde_observation,campaign_age}.dart
+                   nomenclature/flow_category.dart · repositories/repositories.dart
+  data/            http/{http_status,hub_eau_client,hub_eau_paging,onde_uris,retry}.dart
+                   mappers/ · cache/cache_policy.dart
+                   observations/{http,cached}_hydro_observation_repository.dart
+                   onde/{http,cached}_onde_observation_repository.dart
+                   referentiel/{asset_station_repository,asset_station_point_repository,…}.dart
+                   restrictions/restriction_source.dart
+  features/        map/{view,view_model}/ · station_sheet/view_model/
+  main.dart        racine de composition — à la racine de lib/, seul fichier exempt de la règle « features/ n'importe pas data/ »
+```
+
+⚠️ **`StationPoint`, le filtre d'emprise et `Bounds` vivent dans `lib/domain/`** —
+`lib/domain/station/station_point.dart`, `lib/domain/geo/viewport_filter.dart`,
+`lib/domain/geo/bounds.dart` — et non sous `lib/data/referentiel/` : le filtre est un calcul pur
+sur des `double`, et deux couches le consomment (le dépôt de points, la carte). Le dépôt de points
+de carte, lui, est `AssetStationPointRepository`
+(`lib/data/referentiel/asset_station_point_repository.dart`) ; son contrat
+`StationPointRepository` est déclaré dans `lib/domain/repositories/repositories.dart`.
+
+`test/architecture/layers_test.dart` verrouille **cinq règles**, nommées dans son en-tête :
+
+1. `domaine-ferme` — un fichier de `domain/` n'importe rien du projet hors `domain/`.
+2. `data-vers-features` — un fichier de `data/` n'importe aucune tranche de fonctionnalité.
+3. `view-model-sans-widget` — un ViewModel n'importe ni `material.dart`, ni `widgets.dart`, ni
+   `cupertino.dart` (`foundation.dart` reste autorisé : c'est de là que vient `ChangeNotifier`).
+4. `feature-vers-feature` — une tranche n'importe pas une autre tranche.
+5. `features-vers-data` — aucun fichier sous `features/` n'importe `data/`, **`main.dart` excepté**.
+
+La moitié « aucune infrastructure sous `lib/domain/` » reste dans `domain_isolation_test.dart`, le
+premier test du projet — `layers_test.dart` le **complète**, il ne le recopie pas.
+
+### Tranche T0, plan [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md)
+
+Le commit de chaque tâche est celui inscrit dans le titre de la tâche du plan.
+
+> ⚠️ Les hashes ci-dessous sont ceux des titres du plan T0 (commits de la branche de travail).
+> La PR #11 ayant été fusionnée en **squash** (`015a245`), **ils ne sont pas résolvables dans ce
+> clone** ; seul `015a245` l'est. Même réserve pour `a0d4279` (ligne « Transverse »).
+
+| Tâche | Livrable | Commit |
 |---|---|---|
-| `S1` | Projet Expo `57.0.9`, TypeScript `6.0.3`, code sous `src/` | ✅ `08bf832` |
-| `S2` | `tsconfig` durci — `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, alias de couches | ✅ `08bf832` |
-| `S3` | Jest projet `unit` (node, sans `jest-expo`) + ESLint + test d'architecture | ✅ `8c6ed61` |
-| `S4` | Référentiel figé — **4 150 stations**, 6 604 249 octets, tous codes à 10 caractères. ⚠️ Renommé `stations.json` en `M3` : Metro ne reconnaît le JSON que sur ce suffixe | ✅ `0a76733` |
-| `D1` | **Conversion d'unités avec types *branded*** — 10 tests | ✅ `17d3359` |
-| `D2` | Nomenclature ONDE close, branche `Inconnu`, garde `never` | ✅ `37cd92a` |
-| `D3` | Fraîcheur d'observation aux bornes de `BR-005` (2 h / 24 h) | ✅ `20842be` |
-| `D4` | Entités `Station`, `HydroObservation`, `Qualification` + interfaces de dépôt | ✅ `42948e8` |
-| `N1` | `isSuccess` — 200 **et** 206 (`C-06`) | ✅ `5504b3c` |
-| `N2` | `delayForAttempt` — backoff exponentiel à gigue injectée (`C-15`) | ✅ `5504b3c` |
-| `N3` | Mapper `observations_tr` — conversion appliquée **une seule fois** | ✅ `b13a11b` |
-| `N4` | Client Hub'Eau — retry sur 429/5xx, jamais sur 4xx | ✅ `dbb74d3` |
-| `N5` | Décorateur `CachePolicy` **unique** — stale-while-revalidate | ✅ `2cf3ad2` |
-| `S5` | Bibliothèque SQLite → `ADR-011` | 🔄 mesurable sur l'émulateur ; le critère « entrée de gamme » demande en plus un **appareil réel** |
-| `M1` | **MapLibre 11.3.6 compile et l'app démarre sur l'émulateur** — APK de 58 Mo. **Confirmé sur `arm64` réel le 2026-08-18** (Galaxy A54 5G, Android 16) | ✅ `b035424` |
-| `M2` | **Fond IGN raster affiché sur émulateur — `NV-2` levé** : le gabarit KVP survit à l'expansion `{z}/{x}/{y}`. **Confirmé sur `arm64` réel le 2026-08-18**, tuiles chargées sur réseau mobile | ✅ `0c3596a` |
-| `M4` | **Pack hors-ligne — exécuté, résultat négatif.** `createPack` plante en natif (`SIGABRT`, `std::regex_error` sur une expression `{}`, fil `DatabaseFileSource`, 22 trames dans `libmaplibre.so`). **Reproduit le 2026-08-18 sur `arm64` réel** (Galaxy A54 5G) — ⚠️ par observation seule, la signature n'y a pas été relevée. 🚨 **Option `E` exécutée le 2026-08-24 et épuisée** : `13.0.0`, `13.1.0`, `13.2.0` et `13.5.1` plantent **à l'identique**, et `12.0.0` ne compile pas (`ColorReliefLayer` absent) — l'espace de recherche se limitait à `[13.0.0 … 13.5.1]`. `NV-1` reste **ni confirmé ni infirmé**, mais le journal complet montre **zéro requête HTTP** avant la mort. **L'arbitrage A/B/C est ouvert et n'attend plus rien** | 🚨 `ADR-012` |
-| `M3` | **Clustering des 4 150 stations sur le fond IGN** — constaté à l'écran aux échelles départementale et nationale. API v11 (`GeoJSONSource` + `Layer`), 5 tests sur l'asset | ✅ |
-| `M5` | Mesure sur Android d'entrée de gamme réel (`NV-5`) | 🔄 **tentée le 2026-08-18, sans résultat.** `dumpsys gfxinfo` a rapporté `Total frames rendered: 0` — histogramme vide, aucune mesure. Hypothèse non vérifiée : décalage de profil utilisateur (`user 150`). ⚠️ L'appareil essayé est un **milieu de gamme de 2023**, pas une entrée de gamme : même réussie, la mesure n'aurait donné qu'une **borne haute** |
-| `P1` | Script d'aspiration `obs_elab` — `C-04` reconfirmé par appel réel | ✅ `e535e27` |
-| `P2` | Percentiles par quinzaine — **seuil `BR-004` sur les années distinctes**, pas sur les relevés. `fortnightIndex` en UTC | ✅ `0954f9e` |
-| `P3` | Chaîne complète et **poids mesuré sur 40 stations réelles** : 479 octets/station bruts, 177 gzip, 1,69 s/station | ✅ |
-| `P4` | Procédure de régénération — `tools/percentiles/README.md` | ✅ |
+| `S1` | Projet Flutter à la racine, plateformes `windows` et `ios` générées | ✅ `b538d8c` |
+| `S2` | Analyse statique durcie — `strict-casts`, `strict-inference`, `strict-raw-types`, `avoid_dynamic_calls` | ✅ `c90f6de` + `710d191` |
+| `S3` | **Le premier test du projet** — la frontière `lib/domain/`, écrite avant la première ligne de domaine | ✅ `f6577ac` |
+| `S4` | `CHANGELOG.md` | ✅ `90d7529` |
+| `S5` | `docs/plan-de-tests.md` | ✅ `ed37078` |
+| `D1` | Les quatre unités en `extension type`, fermées **dans les deux sens** | ✅ `e3087e7` |
+| `D2` | `toCubicMetresPerSecond` / `toMetres` — la conversion à un seul endroit (`BR-002`) | ✅ `3eb7a04` |
+| `D3` | Fraîcheur d'une observation aux bornes de `BR-005` (2 h / 24 h) | ✅ `f6c3631` |
+| `D4` | `Station`, `StationCode` (10 car.), `DepartementCode` | ✅ `b31eae2` + `b5a06c5` |
+| `D5` | `HydroObservation`, `Qualification`, `Grandeur` | ✅ `fb08460` |
+| `D6` | `FlowCategory` — `sealed`, branche `Inconnu` porteuse du code brut (`BR-011`) | ✅ `6f3798a` |
+| `D7` | Interfaces de dépôts, `Bounds` | ✅ `7f0ba0a` |
+| `D8` | `docs/domain-model.md` | ✅ `984825f` + `10b30c5` |
+| `N1` | **Fixtures réelles datées et fiches de sources d'abord** (`docs/sources/`, `test/fixtures/CAPTURES.md`) | ✅ `24134cf` + `1d7b382` |
+| `N2` | `isSuccess` — 200 **et** 206 (`C-06`) | ✅ `4ff3af6` |
+| `N3` | `delayForAttempt` — recul exponentiel à **gigue injectée**, donc testable | ✅ `96fc1d0` + `bf83c71` |
+| `N4` | Client Hub'Eau hydrométrie v2 — retry 429/5xx, **jamais** 4xx, décodage UTF-8 explicite | ✅ `790d767` |
+| `N5` | Mapper `observations_tr` — conversion appliquée **une seule fois** | ✅ `340b8c7` |
+| `N6` | Lecture du référentiel depuis l'asset embarqué | ✅ `ae6d125` |
+| `N7` | `RestrictionSource` — **interface et rien d'autre** (`ADR-004`) | ✅ `3a1b376` |
+| `A1` | `Query<R>` / `Command<R>` en `abstract interface class` | ✅ `1d929f5` — 🗑️ **retiré par `R4`** |
+| `A2` | Registre de gestionnaires `Map<Type, Handler>`, sans réflexion ni médiateur | ✅ `0bee6d2` — 🗑️ **retiré par `R4`** |
+| `A3` | `withCachePolicy`, l'unique — stale-while-revalidate | ✅ `8afb7eb` + `66820ea` — **conservé**, déplacé sous `lib/data/cache/` par `R4` |
+| `M1` | Gabarit de tuiles IGN (WMTS KVP) | ✅ `1c74c9d` |
+| `M2` | Filtre de viewport à marge proportionnelle | ✅ `f261408` + `ea497b3` |
+| `M3` | Écran carte — fond IGN et attribution affichée | ✅ `d9fa091` |
+| `M4` | Les **4 150 stations** en marqueurs du viewport | ✅ `fcc0b0b` + `e5c7e94` + `31b1cfe` |
+| `M5` | La molette sur Windows — diagnostic borné | ✅ `809ac40` |
+| `M6` | `docs/nfr.md` | ✅ `809ac40` |
+| `P1` | **L'exécutable Windows, lancé hors Flutter** | ✅ constaté le 2026-09-13, `f05ed04` |
+| `P2` | Clore la version `0.1.0` | ✅ 2026-09-13 |
+| `A⏸1`-`A⏸5` | Plateforme Android, outillage natif, signature, appareil réel, préversion | ⏸ **différées le 2026-09-12** — listées, jamais comptées faites |
 
-**Chaîne de vérification verte :** `npm run verify` → `tsc --noEmit` sans erreur, ESLint propre,
-**149 tests** sur 18 suites *(mesuré le 2026-08-15, après `M4`, `M3` et le lot 4)*.
+Transverse : licence du code **GPL-3.0-or-later** (`a0d4279`).
 
-> ⚠️ **Neuf écarts entre le plan T0 et le code livré.** Le code a raison, le plan est une esquisse
-> antérieure. Les sept derniers ont été constatés **en jouant `M4` puis `M3`** — le plan décrit
-> l'API MapLibre **v10**, le projet est en **v11** :
->
-> | Le plan écrit | Le constat |
-> |---|---|
-> | `HydroObservation.libelleQualification: string \| null` | `D2`/`D4` ont livré un objet `Qualification` à 4 champs — `BR-006` demande le **statut** aussi |
-> | `delayForAttempt(attempt, 500, 30_000)` | `delayForAttempt(attempt, jitter?)` — base et plafond sont des constantes du module |
-> | `mapStyle: JSON.stringify(ignRasterStyle)` | `mapStyle` est une **URL de style**. Un style sérialisé donne `Unable to parse resourceUrl {"version":8,…` |
-> | *(rien sur les URI `data:`)* | Une URI `data:` **n'est pas résolue** : région `active`, `tuiles=0`, **aucune erreur**. Échec silencieux |
-> | *(rien sur le plafond de tuiles)* | Le plafond par défaut est **6000** ; le dépasser **interrompt** le téléchargement et laisse un pack tronqué |
-> | `ShapeSource`, `CircleLayer`, `SymbolLayer` | **N'existent plus en v11** : `GeoJSONSource` et un `Layer` générique |
-> | `clusterMaxZoomLevel` | `clusterMaxZoom` |
-> | `style={{ circleRadius: … }}` | `paint={{ "circle-radius": … }}` — style-spec en kebab-case ; `style` est déprécié, retiré en v12 |
-> | `declare module "*.geojson"` suffit à importer l'asset | **Non.** `metro-transform-worker/src/index.js:474` ne reconnaît le JSON que sur le suffixe `.json`. L'asset est renommé **`stations.json`** et chargé par `require` typé — `resolveJsonModule` ferait sinon inférer à `tsc` le type littéral de 4 150 entités |
+> **`A1` et `A2` sont retirés par `R4`** : le bus, `Query`/`Command` et les gestionnaires
+> disparaissent avec `lib/application/`. Le code reste dans l'historique git, sur `dev` au commit
+> `015a245`. **`A3` survit** — c'est le principe « la politique de cache vit dans un seul
+> composant » qui est conservé, pas son véhicule ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md)).
 
-### Ce qui a été contre-éprouvé, et pas seulement écrit
+### Réusinage `R1`-`R6`, § « Suite immédiate » du plan T0
 
-Un garde-fou qu'on n'a pas vu mordre n'est pas un garde-fou. Trois vérifications faites le
-2026-07-31 :
+Ces commits sont **résolvables sur cette branche**.
 
-| Garde-fou | Contre-épreuve | Résultat |
+| Tâche | Livrable | Commit |
 |---|---|---|
-| Types *branded* (`BR-002`) | Retirer un `@ts-expect-error` | `TS2345: Argument of type 'number' is not assignable to parameter of type 'LitresPerSecond'` |
-| Test d'architecture | Ajouter `import { Platform } from "react-native"` dans `domain/` | `src/domain/units/conversions.ts importe « react-native »` — 1 failed |
-| ESLint `no-restricted-imports` | idem | `'react-native' import is restricted` — 1 error |
+| `R1` | [`ADR-014`](adr/ADR-014-feature-first-mvvm.md), `CLAUDE.md` aligné | ✅ `69ac82e` |
+| `R2` | Tranche carte en `view/` ; `StationPoint` et le filtre d'emprise **rangés dans `lib/domain/`** | ✅ `1bb1810` |
+| `R3` | `MapViewModel extends ChangeNotifier` remplace le contrôleur, le bus et les gestionnaires | ✅ `b6e9aec` |
+| `R4` | `lib/application/` retiré ; `withCachePolicy` devient décorateur de dépôt sous `lib/data/cache/` | ✅ `9043df1` |
+| `R5` | `test/architecture/layers_test.dart` — quatre règles, puis la **cinquième** (`features-vers-data`) | ✅ `7541928`, puis `0a668be` |
+| `R6` | Conception, carte de contexte, plan de tests, `CLAUDE.md` et `docs/nfr.md` alignés | ✅ `2681e12`, `7913b1a`, `9911982`, `fe1b92e` |
+| — | Correctifs de relecture : la dernière emprise demandée gagne, une emprise en erreur reste rechargeable ; retrait de ce que rien ne lit | ✅ `ce4f719`, `43a18cd` |
 
-### Le code .NET
+> ⚠️ Le tableau `R1`-`R6` du plan T0 et le § « Préalable » du plan T1 citent d'autres hashes
+> (`9b4e4c9`, `2a8f507`, `a705789`, `a89e88d`, sommet `c1a5755`) : ils **ne sont résolvables dans
+> aucune branche de ce clone**. Les commits ci-dessus sont ceux de `feat/t1-mvvm-fiche-station`,
+> lus dans `git log`. Les plans restent à corriger.
 
-Retiré du working tree le 2026-07-31 sur arbitrage du commanditaire (`74afe6d`). Il reste
-intégralement dans l'historique git et n'est repris nulle part :
+### Tranche T1, plan [`2026-09-13-t1-fiche-station-et-avertissements.md`](superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md)
 
-| Tâche | Livrable .NET | Sort |
+**Lot 1 clos, `V1` fait.** Chaque ligne porte le commit de la tâche, puis ses correctifs de
+relecture. Tous sont **résolvables** sur cette branche.
+
+| Tâche | Livrable | Commit |
 |---|---|---|
-| `A1` | `src/MartinPecheur.App` (MAUI Blazor Hybrid, 3 cibles vertes) | 🗑️ caduc — `696be3a` |
-| `B0` | Vérification `BrilliantMediator` (aucun *behavior*) | 🗑️ sans objet |
-| `B1` | `Domain`, `Application`, `Data`, `tests/` | 🗑️ caduc — `22e9850` |
-| `B3a` | `MeasurementUnits.cs`, 8 tests verts | 🗑️ caduc — **à réécrire en TypeScript** |
+| `D1` | **Faits d'API et fixtures d'abord** — trois fixtures ONDE capturées, `Q-01` à `Q-05` instruites, `docs/sources/onde.md` et `…/hubeau-hydrometrie.md` complétées | ✅ `adb5c0d` + `f6ea10d`, `03e0386`, `0c078b4`, `f70d11a` |
+| `D2` | Domaine de l'écoulement — `OndeStationCode`, `OndePoint`, `OndeObservation`, `OndeCampaign`, âge de campagne, `StationMapState` | ✅ `375dfa0` + `16d70fb`, `78ee3a3`, `8e93e70`, `235622e` (`BR-010`) |
+| `D3` | `mapOndeObservation` — seul point de passage, testé sur la **fixture réelle du 2026-09-13** | ✅ `00e93d9` + `993bdd2`, `f00a3af`, `e200136`, `0a83192` |
+| `D4` | URI ONDE (emprise, point, campagnes) sur le `HubEauClient` existant ; `fields` à dix champs, dates en UTC | ✅ `6fe66e0` + `90d5a76`, `c1a8b2c`, `cef1061`, `cabdc39` |
+| `D5` | `HttpHydroObservationRepository` — **forme garantie** (`findLatest` seul), `Q-01`/`Q-02` étant restées ouvertes | ✅ `44fd55f` + `271ae9b` |
+| `D6` | `CachedHydroObservationRepository` — `withCachePolicy`, TTL **20 min**, chiffre unique dans `lib/` | ✅ `246fd54` + `e161b36` |
+| `D7` | `HttpOndeObservationRepository` + `CachedOndeObservationRepository` — TTL **30 j** en saison, **90 j** hors saison | ✅ `d640f56` + `e24b24d`, `5d5cdd0`, `53626cb` |
+| `D8` | `OndeObservation` porte son `OndePoint`, lu sur la même ligne d'API (**amendement du 2026-09-13**) | ✅ `0285f58` + `9067933` |
+| `V1` | `StationSheetViewModel` — l'état de la fiche station **sans aucun widget** | ✅ `bade919` + `c8d36eb` |
+| `V2`-`V4` | `MapViewModel` enrichi, `OndeSheetViewModel`, `WarningsViewModel` | 🔄 à faire |
+| Lots 3 à 7 | Vues (`U1`-`U6`), avertissements (`W1`-`W5`), clavier/souris (`K1`-`K3`), documentation (`X1`-`X4`), porte `0.2.0` (`P1`, `P2`) | 🔄 à faire |
 
-> `B3a` mérite d'être refait **en premier** sur la nouvelle stack : la conversion d'unités reste
-> le bug le plus coûteux du projet, et TypeScript la protège moins bien que C#.
+Documentation du lot : `68151f6` (plan), `6caac28` (préalable levé), `e21b08e` (lot 1 clos),
+`9cfcb6c` (`V1` fait).
 
-## Constats d'API du 2026-07-31 — à reporter dans `01-analyse.md`
+> ⚠️ **Le récapitulatif du plan T1 annonce 31 tâches actives et compte le lot 1 comme `D1`→`D7`
+> (7).** Le corps du plan porte un **`D8`**, ajouté par amendement le 2026-09-13 : le décompte réel
+> est de **32 tâches actives**. Écart non corrigé dans le plan.
 
-Relevés pendant `A2`, avant la bascule. Indépendants de la stack :
+### Tests — l'état exact sur ce poste
 
-| Constat | Détail |
+**427 tests, 426 verts sur ce poste** (`flutter test`, 2026-09-14, sortie `+426 -1`). Le seul rouge
+est `test/project/ios_bundle_identifier_test.dart` : « le dossier android n'existe pas ». Il est
+rouge **tant qu'un dossier `android/` traîne hors dépôt** — ce dossier n'est pas versionné, le test
+dit vrai sur le dépôt et faux sur le poste. Pour mémoire : 248 à la fin de T0, **244** à la clôture
+du réusinage MVVM (`fe1b92e`), **411** à la clôture du lot 1 (`e21b08e`).
+
+### Écarts constatés à l'exécution de T0
+
+Le plan est une esquisse antérieure ; **le code a raison**. Les écarts qui portent à conséquence :
+
+| Écart | Constat |
 |---|---|
-| `size` plafonne à **10000** | Le plan T0 écrivait `size=20000` → **HTTP 400** `ValidatePageSize` |
-| **200 et 206 coexistent** | `size=1` → **206** ; `size=5000` (≥ 4 140 résultats) → **200**. Confirme `C-06` en production |
-| Volume | **4 140 stations** en service, **6,57 Mo** en GeoJSON brut, 0 géométrie manquante. ⚠️ **Re-mesuré le 2026-08-15 : 4 150 stations, 6 604 249 octets** — le référentiel bouge |
-| Codes station | 4 150 codes distincts, **tous à 10 caractères** — cohérent avec `C-05` |
+| **Unités** (`D1`) | Les `extension type` ferment **les deux sens** — un `double` nu ne devient pas une unité, pas seulement l'inverse. `.value` est la seule sortie explicite |
+| **206** (`N2`, `V-01`, `V-08`) | `size=2` répond **HTTP 206**, une page **vide** répond **HTTP 200**. Les deux sont des succès ; un client qui n'accepte que 200 casse dès la première page |
+| **`count` du code site** (`N1`) | `C-05` reproduit, mais avec d'autres chiffres que ceux anticipés : **412** pour le code site contre **206** pour le code station (le plan écrivait 430 / 216). Le référentiel bouge — les volumes se recapturent, ils ne se recopient pas |
+| **37 stations sans département** (`M4`) | 37 stations **en service** n'ont pas de `code_departement`. L'absence est lue **telle quelle**, jamais remplacée par une valeur sentinelle (`BR-007`) |
+| **Requête au relâcher du geste** (`M4`) | L'emprise est demandée à la **fin** du geste, pas à chaque trame — et les erreurs de chargement restent **visibles à l'écran** plutôt qu'avalées |
+| **`NV-W1` — la molette** (`M5`) | **Constat inverse du spike** : la molette **zoome** sur Windows à l'exécution de T0, sans qu'aucun réglage ait été posé. Le constat du 2026-09-09 n'est pas reproduit ; **la cause de l'écart n'est pas établie**, seule sa disparition est constatée. Clos par `7913b1a` |
+| **`Bounds` sans `==` / `hashCode`** (`D7`/`D8`) | **Traité en T1** : `Bounds` gagne son égalité structurelle en `e24b24d`, le jour où le cache par emprise de `D7` en a eu besoin |
+| **Identifiants** | Le plan nommait des identifiants en français (`delaiDeBase`, `taillePageMaximale`) ; ils sont implémentés en **anglais** (`baseDelay`, `maxPageSize`), par convention de `CLAUDE.md` |
 
 ## Ce qui bloque, ou reste à trancher
 
 | # | Sujet | Nature |
 |---|---|---|
-| 1 | ~~Le plan T0 est écrit pour .NET~~ — **levé le 2026-07-31** : [`T0 — Socle React Native`](superpowers/plans/2026-07-31-t0-socle-react-native.md) le remplace | Clos |
+| 1 | **Stockage local** — `ADR-011` **réservé**, aucun moteur choisi. `drift` candidat par défaut ; `sqflite` seul **ne couvre pas Windows** | À trancher **au moment où un écran en aura besoin**. Le plan T1 `W1` propose `shared_preferences` **2.5.5** (BSD-3-Clause, Windows, relevé le 2026-09-13) pour l'acquittement seul, `ADR-011` laissant le moteur structuré ouvert |
 | 2 | Trois ADR tranchés **sans arbitrage du commanditaire** : `ADR-002`, `ADR-004`, `ADR-006` | Décisions par défaut, réversibles. Chacune porte sa section « Si la décision est revue » |
 | 3 | **Réduction de périmètre à valider** : la qualité de l'eau, annoncée au cadrage, n'est pas livrée (`ADR-007`) | À porter explicitement auprès du commanditaire |
 | 4 | Le cadrage annonçait **3 modalités ONDE** ; il y en a **6** (`ADR-006`) | Corrigé dans la spec |
 | 5 | ~~Poids réel de l'asset de percentiles~~ — **mesuré le 2026-08-15** sur 40 stations réelles : 479 octets/station bruts, 177 gzip. Extrapolé à 4 150 : ≈ 2,0 Mo bruts, ≈ 0,73 Mo gzip. Le poids ne remet pas `ADR-003` en cause | Clos — reste à confirmer sur la passe complète (~2 h) |
 | 5 bis | 🚨 **`Indéterminé` concerne près d'une station sur deux.** Sur l'échantillon : **19 stations sur 40 sans aucune quinzaine calculable**, 48,8 % des quinzaines. `ADR-002` fonde le positionnement statistique du débit sur cet asset ; pour la moitié des stations il n'existera **jamais** | **Ouvert.** Le commanditaire a demandé le 2026-08-15 de **confirmer sur la passe complète** avant d'en tirer une conséquence produit. ⚠️ **Or cette passe n'est pas lancée** (~2 h, décision « pas maintenant » le même jour) : le point reste donc en attente, sans échéance. Un échantillon de 200 stations le resserrerait en ~6 minutes |
-| 6 | Script de build des percentiles | Lot d'outillage à chiffrer (`ADR-003`) |
-| 7 | **Hôte macOS** pour produire un build iOS | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
-| 7 bis | ~~Outillage Android~~ — **levé le 2026-08-15** : inventaire refait (tableau ci-dessous), tout est en place, `ANDROID_HOME` compris. Le lot 3 n'a jamais été bloqué | Clos |
-| 8 | Bibliothèque SQLite, bibliothèque de graphes, outil de test | À trancher (`ADR-010` § « Points à vérifier ») |
-| 9 | 🚨 **Téléchargement de tuiles hors-ligne — ROUVERT le 2026-08-15, et aggravé le 2026-08-24.** Le « levé » du 2026-07-31 reposait sur une lecture de code, pas sur une exécution. Exécuté, `createPack` **plante** — et **aucune version publiée du SDK natif ne le corrige** (option `E` épuisée) | **Arbitrage du commanditaire** — [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md) |
-| 10 | ~~Behaviors BrilliantMediator~~, ~~AOT et trimming~~, ~~portage Windows~~ | Sans objet depuis `ADR-010` |
+| 6 | **Script de génération des percentiles** — en **Dart** désormais (`ADR-003`, arbitrage du 2026-09-12). `assets/percentiles/` n'existe pas | Lot d'outillage à chiffrer. **Hors T1** (décision 1 du plan) : conséquence assumée, sur l'échelle « débit » toute station est `Indéterminé` au sens de `BR-004` |
+| 7 | **Hôte macOS** pour produire un build iOS — `NV-W4`, sans date | **Matériel.** Bloquant pour livrer iOS, pas pour développer |
+| 8 | **`NV-W3` — aucune mesure de fluidité sur Windows.** `NFR-01` (rastérisation p90 ≤ 16,7 ms, trames en retard < 5 %) est **non mesuré** sur la seule cible construite ; le binaire de T0 a été jugé à l'œil | Ouvert, sans date ([`nfr.md`](nfr.md)). Programmé en `X3` de T1 |
+| 9 | **Android ⏸ différé** (`NV-W5`, arbitrage du 2026-09-12). Dettes héritées du spike, toujours dues : NDK **28.2** absent (épingle `27.1.12297006`), `adb` ne voyant pas le Galaxy A54, `NV-5` (tenue sur Android réel) ouvert | Arbitrage à lever avant toute reprise |
+| 10 | **Hors-ligne de zone** — le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) et d'`US-10` **n'est pas livré**. Le cache de tuiles ne couvre que les zones déjà parcourues | La question d'[`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md) est **déplacée, pas résolue** : [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md) ne tranche aucune de ses options A, B ou C |
+| 11 | **Bibliothèque de graphes** pour la courbe de débit (`US-11`) — aucune relevée, aucune version citée | À trancher, par question fermée au commanditaire (`CLAUDE.md`). Hors T1 |
+| 12 | **`gh` est absent du bac à sable** : PR, revues et opérations GitHub sont déléguées au commanditaire | Contrainte d'outillage, permanente |
+| 13 | **Le lot clavier / souris et responsive** — [`04-ui.md`](04-ui.md) est écrite pour un écran étroit et le tactile, Windows est la seule cible construite | **Chiffré** : lot 5 de T1 (`K1`-`K3`). Premier point instruit : la molette (`NV-W1`, clos sans explication) |
+| 14 | 🚨 **`Q-01` à `Q-04` restent ouverts** — `/v2/hydrometrie/observations_tr` a répondu **503 sur 19 tentatives** le matin du 2026-09-13 (plus un 502 après 67 s et un timeout sec), puis **500 sur sept appels** l'après-midi (13:34:49 → 13:35:26 UTC), `T-10`. Appel groupé, `bbox`, `fields` et latence médiane sont donc **non mesurés** | `D5` est implémenté dans sa **forme garantie** — un appel par station — et l'interface du dépôt ne changera pas si la réponse arrive. `C-15` n'est pas rédactionnel : c'est le régime observé |
+| 15 | **YAGNI du lot 1** — `ondeCampagnesUri`, `mapOndeCampaign` et `OndeCampaign` (`/campagnes`) n'ont **aucun appelant hors tests**, et aucune tâche `V*`/`U*` du plan ne les consomme | À trancher : les garder (l'âge de campagne est calculé depuis l'observation elle-même) ou les retirer. Remonté par l'audit du 2026-09-14 |
+| 16 | **Trois amendements décidés en cours d'exécution, jamais soumis** : retrait d'`OndeClient` (plan l. 270), retrait de `findLatestForAll` (l. 301), `OndeObservation.point` (`D8`, l. 378) | À entériner ou à revoir. Le plan les porte déjà comme faits ; le commanditaire ne les a pas validés |
+| 17 | **Collision de nom public `EnEchec`** entre `lib/domain/observation/station_map_state.dart` et `lib/features/station_sheet/view_model/station_sheet_view_model.dart` | Sans conséquence aujourd'hui — à préfixer **au premier fichier qui importe les deux**, ce qui arrivera en `U1` ou `V2` |
+| 18 | **`open()` de `StationSheetViewModel` fait deux requêtes** (débit **et** hauteur), en parallèle | Conforme **si `U1` affiche la hauteur**. À confirmer en `U1` : sinon c'est un appel réseau pour rien, sur une API sans quota documenté (`C-12`, `NFR-07`) |
+| 19 | **Le fuseau affiché est « UTC »** dans `stalenessNotice` (`JJ/MM/AAAA à HH:MM UTC`) | À trancher en `U1` : UTC est exact et vérifiable, l'heure locale est lisible par l'usager. Les deux se défendent ; le choix n'a pas été porté au commanditaire |
+| 20 | **Les dix décisions du plan T1** — **engagées par le code** : 2 (état = fraîcheur, sans teinte inventée), 4 (au tap, forme garantie — le préchargement borné à 20 reste à écrire en `V2`), 5 (forme garantie), 10 (ordre des lots). **Réversibles sans toucher au code** : 1 (percentiles hors T1), 3 (`shared_preferences`), 6 (aucun framework BDD), 7 (traçabilité à la main), 8 (fenêtre 800 × 600), 9 (version d'avertissement datée) | À valider. Les quatre premières coûtent un réusinage si elles sont revues |
+| 21 | **`NV-W6` — chaque cran de molette déclenche un rechargement, sans anti-rebond.** `MapEventScrollWheelZoom` n'a pas de variante `…End` dans `flutter_map` 8.3.2 : un zoom de cinq crans fait cinq allers-retours au dépôt et cinq reconstructions des 4 150 marqueurs | Ouvert le 2026-09-13, **non mesuré**. À instruire avec `NFR-01` et `NV-W3` ([`nfr.md`](nfr.md)) |
+| 22 | **Un dossier `android/` non versionné traîne sur le poste** — 989 fichiers, **2 580 830 523 octets**, caches Gradle datés du 2026-08-24, hérités de l'outillage précédent | **À supprimer, jamais à commiter.** C'est lui qui rend `ios_bundle_identifier_test` rouge. Le dépôt, lui, n'a pas de dossier `android/` : c'est l'arbitrage ⏸ du 2026-09-12 |
+| 23 | **Six PNG hérités d'Expo** restent versionnés sous `assets/` sans qu'aucun code ne les référence : `android-icon-background`, `android-icon-foreground`, `android-icon-monochrome`, `favicon`, `icon`, `splash-icon` | À retirer, ou à réaffecter le jour où les icônes Flutter sont posées. Décision du commanditaire |
+| 24 | **La PR de `feat/t1-mvvm-fiche-station` n'est pas ouverte** ; la branche n'est pas fusionnée sur `dev` | À ouvrir **par le commanditaire** — `gh` est absent du bac à sable (ligne 12) |
 
-## Vérifications du 2026-07-31 — carte et hors-ligne
+## Constats d'API du 2026-07-31
 
-Faites avant d'écrire le plan T0, par appel réel et lecture de code source.
+Relevés avant la bascule de stack, et **indépendants d'elle** :
+
+| Constat | Détail |
+|---|---|
+| `size` | `C-08` dit ≤ 20 000 (code : `maxPageSize = 20000`, constaté sur `observations_tr`) ; le constat du 2026-07-31 sur le référentiel disait `size=20000` → HTTP 400 `ValidatePageSize`, capture faite à `size=10000`. **Contradiction non réconciliée, à vérifier par appel réel** |
+| **200 et 206 coexistent** | `size=1` → **206** ; `size=5000` (≥ 4 140 résultats) → **200**. Confirme `C-06` en production, et reconfirmé le 2026-09-13 (`V-01`, `V-08`) |
+| Volume | **4 140 stations** en service, **6,57 Mo** en GeoJSON brut, 0 géométrie manquante. ⚠️ **Re-mesuré le 2026-08-15 : 4 150 stations, 6 604 249 octets** — le référentiel bouge |
+| Codes station | 4 150 codes distincts, **tous à 10 caractères** — cohérent avec `C-05` |
+
+### Écoulement ONDE — constaté le 2026-09-13, par appel réel (lot 1 de T1)
+
+| Constat | Détail |
+|---|---|
+| `T-01` / `T-03` | `/v1/ecoulement/observations` **accepte `bbox`** (HTTP 206, `count` 1 448 sur l'emprise Loire) **et `date_observation_min`** (`count` 30 au lieu de 1 448). La carte n'a **pas** besoin de passer par le département |
+| `T-04` | `?code_station=K4520001&sort=desc` → 206, `count` **96** : le code à **8 caractères** est la clé de l'historique d'un point |
+| `T-05` / `T-06` | `/campagnes?code_departement=41` → 206, `count` 96, `api_version` `1.2.0` ; `libelle_type_campagne` en **minuscules** (`"usuelle"`) — `C-10` reproduit |
+| `T-07` | 🚨 **`code_campagne` change de type selon l'endpoint** : **entier** `109905` dans `/campagnes`, **chaîne** `"109905"` dans `/observations`. Un modèle qui le type en `int` casse sur l'un des deux. Fait **nouveau**, absent du cadrage |
+| `T-08` | `date_observation` est **une date sans heure** (`"2026-08-25"`) : `BR-010` se calcule en **jours** |
+| `T-09` | Une observation ONDE porte ses coordonnées **deux fois** — `latitude`/`longitude` à plat **et** `geometry` GeoJSON. C'est ce qui rend `D8` possible sans appel supplémentaire |
+| `Q-05` | **Répondu : zéro** `code_ecoulement` à `null` sur la fixture d'emprise. Zéro est une réponse |
+| `T-10` | 🚨 `/v2/hydrometrie/observations_tr` **indisponible ce jour-là** — voir la ligne 14 de « Ce qui bloque » |
+
+### Carte — ce qui reste vrai quelle que soit la stack
 
 | Fait | Constat | Source |
 |---|---|---|
-| WMTS IGN — capacités | **HTTP 200**, `application/xml`, 2,86 Mo | `data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0` |
-| WMTS IGN — tuile | **HTTP 200**, `image/png`, **256×256** en `TILEMATRIXSET=PM` — donc adressable en `{z}/{x}/{y}` | même hôte, `REQUEST=GetTile&TILEMATRIX=5&TILECOL=16&TILEROW=11` |
-| MapLibre télécharge bien le raster hors-ligne | `SourceType::Raster` traité **à l'identique** de `SourceType::Vector` → `queueTiles` → `Resource::tile(tileset.tiles[0], …)` | `maplibre-native`, `platform/default/src/mbgl/storage/offline_download.cpp` L191, L304, L451 |
-| Version courante | `@maplibre/maplibre-react-native@11.3.6`, publiée le 2026-06-25 — v11 confirmée | `registry.npmjs.org` |
-| API v11 confirmée | `createPack(options, progressListener, errorListener)` ; `OfflinePackCreateOptions { mapStyle, bounds, minZoom?=10, maxZoom?=20, metadata? }` ; packs identifiés par `pack.id` ; `addListener(packId)` / `removeListener(packId)` | `package/src/modules/offline/OfflineManager.ts` |
+| WMTS IGN — capacités | **HTTP 200**, `application/xml`, 2,86 Mo (2026-07-31) | `data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0` |
+| WMTS IGN — tuile | **HTTP 200**, `image/png`, **256×256** en `TILEMATRIXSET=PM` — donc adressable en `{z}/{x}/{y}` (2026-07-31) | même hôte, `REQUEST=GetTile&TILEMATRIX=5&TILECOL=16&TILEROW=11` |
+| WMTS IGN — tuile, recapture | **HTTP 200**, `image/png`, **31 087 octets** sur `GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2`, `TILEMATRIX=9` (2026-09-13, `V-13`) | `data.geopf.fr/wmts?…` |
+| Zoom 19 servi | Le géoplateforme sert **aussi** le zoom 19 (constaté par appel réel). Le zoom natif **18** retenu par `M1` est un **choix de charge**, pas une limite de la source | plan T0, écart `M1` |
 
-> **Ce que cela change :** le hors-ligne raster n'est plus une hypothèse en l'air — le chemin de
-> code existe et le fond IGN est consommable en `{z}/{x}/{y}`. **Ce n'est pas pour autant vérifié :**
-> rien n'a été exécuté. La distinction est maintenue ci-dessous.
+> Les vérifications de 2026-07-31 portant sur le SDK de cartographie de la stack précédente
+> (chemin de code du téléchargement hors-ligne, versions de paquets npm, signature de `createPack`)
+> sont **caduques** et rangées dans l'historique, en fin de document.
 
 ## Points non vérifiés, assumés comme tels
 
-- 🚨 **Que `createPack` télécharge les tuiles d'un WMTS IGN.** **Toujours pas vérifié au 2026-08-15, et désormais non testable :** l'appel plante avant qu'une tuile soit téléchargée. **Ni confirmé, ni infirmé** — `ADR-012`.
-- 🚨 **Que `tileset.tiles[0]` suffise** (`NV-3`) — bloqué par le même plantage.
-- 🚨 **Le volume d'un pack départemental** (`NV-4`) — **aucun octet mesuré**, bloqué par le même plantage.
-- 🚨 **Le chemin raster hors-ligne n'a aucun test amont** (`NV-6`) : `test/storage/offline_download.test.cpp` de `maplibre-native` ne contient aucune occurrence de « raster ». Non levé.
-- **Que le plantage de `createPack` soit propre à l'émulateur `x86_64`.** Le constat porte sur **un seul environnement**. Ni `arm64` réel, ni iOS — c'est l'essai le moins cher pour réduire la portée du problème.
-- ~~Que l'URL KVP du WMTS IGN survive au *templating*~~ — **levé le 2026-08-15** (`M2`).
-- Comportement de `maplibre-react-native` v11+ **en volume réel** (~4 140 points, clustering) sur Android d'entrée de gamme. Attendu bien meilleur qu'un WebView, mais **non mesuré**.
-- Version exacte de la Licence Ouverte Etalab pour Hub'Eau (1.0 ou 2.0).
-- Fenêtre du `X-RateLimit-Limit: 300` de VigiEau.
+Une case vide est une case vide, pas un « probablement ».
+
+- **`NV-W3`** — aucune mesure chiffrée de fluidité sur Windows (`NFR-01`). Ouvert, sans date.
+- **`NV-W4`** — iOS n'a **jamais été compilé**, faute d'hôte macOS. Sans date.
+- **`NV-W5`** — Android ⏸ différé le 2026-09-12. Sans date.
+- **`NV-W6`** — le rechargement à chaque cran de molette, **jamais mesuré** : on ne sait pas si son
+  coût est visible. Ouvert le 2026-09-13.
+- **`Q-01` à `Q-04`** — appel groupé, `bbox`, `fields` et latence de `/v2/hydrometrie` : quatre
+  questions posées, **aucune réponse**, l'endpoint ayant rendu 503 puis 500 toute la journée du
+  2026-09-13.
+- **Une zone de carte jamais chargée, hors réseau** — non constatée. Le cache de tuiles a été
+  éprouvé **sur les zones déjà parcourues seulement**, et le bandeau « tuiles manquantes » n'existe
+  pas.
+- **La contrainte SDK minimale** de `flutter_map`, `latlong2` et `http` — non affichée sur pub.dev,
+  non vérifiée.
+- Version exacte de la **Licence Ouverte Etalab** pour Hub'Eau (1.0 ou 2.0).
+- Fenêtre du `X-RateLimit-Limit: 300` de **VigiEau**.
 - Sémantique du paramètre `departement` de VigiEau `/arretes_restrictions`.
 - Existence du niveau `vigilance` dans VigiEau — non observé le 2026-07-30.
 - Mapping entre `nombre_modalite_ecoulement` (4 ou 5) et les codes ONDE disponibles.
+- **Tenue sur Android d'entrée de gamme réel** (`NV-5`) — jamais mesurée. « Attendu meilleur »
+  n'est pas « mesuré », et l'arbitrage ⏸ ne rend pas le besoin caduc.
 
 ## Prochaine étape
 
-Le plan T0 est réécrit : [`T0 — Socle React Native`](superpowers/plans/2026-07-31-t0-socle-react-native.md).
-Il s'exécute lot par lot — socle, domaine, données, carte, outillage percentiles.
+**`V2` — `MapViewModel` : un état par station, une seule échelle, un préchargement borné.**
+Concrètement : `MapScaleKind { ecoulement, debit }` avec **une seule échelle active à la fois**
+(`BR-008`), `stateOf(StationCode)` rendant `NonChargee` tant que rien n'est chargé (`BR-007`,
+jamais un état par défaut), et `preloadVisibleStations(limit: 20)` **borné et annulable** — jamais
+national (`NFR-07`, décision 4).
 
-**Au 2026-08-15, les lots 0 (hors `S5`), 1 et 2 sont livrés** — 12 tâches sur 23. Ce qui reste se
-partage en deux, et la coupure n'est pas dans le plan : elle est dans le matériel.
+⚠️ **À faire d'abord : trancher les points 15 à 20 de « Ce qui bloque ».** Les décisions 2, 4, 5
+et 10 sont déjà engagées par le code du lot 1 ; les revoir après `V2` coûterait un réusinage. Les
+points 17 (`EnEchec`) et 19 (fuseau UTC) se règlent au plus tard en `U1`.
 
-| Reste | Peut démarrer ? |
-|---|---|
-| **Lot 4** — `P1`–`P4`, outillage percentiles | ✅ **Oui, tout de suite.** Script Node hors application, aucun appareil |
-| **Lot 3** — `M1`–`M5`, carte | ✅ **Oui, tout de suite** — outillage complet, `ANDROID_HOME` posé, AVD Pixel 7 API 36 prêt |
-| `S5` — bibliothèque SQLite | 🔄 Mesurable sur l'émulateur ; « entrée de gamme » demandera un appareil réel |
-
-### Inventaire de l'outillage Android — mesuré le 2026-08-15
-
-Le constat publié plus tôt dans la journée disait cet outillage absent. **Il était faux sur les
-cinq lignes** : les sondes de chemins renvoyaient `False` sur des répertoires qui existent, et la
-lecture de `ANDROID_HOME` le donnait vide alors qu'il est posé en `HKCU\Environment`. Refait en
-lisant le registre plutôt que l'environnement du processus :
-
-| Élément | État |
-|---|---|
-| JDK | ✅ `Microsoft.OpenJDK.17` `17.0.20.8` — `javac 17.0.20`, `JAVA_HOME` en portée *Machine* |
-| Android Studio | ✅ `2026.1.3.7` — `C:\Program Files\Android\Android Studio\bin\studio64.exe` |
-| **SDK complet** | ✅ `C:\Program Files (x86)\Android\android-sdk` — plateformes `android-35` **et `android-36`**, image `android-36/google_apis_playstore/x86_64`, `cmdline-tools/latest`, `build-tools 36.0.0`, `adb 36.0.0` |
-| SDK d'Android Studio | ⚠️ `%LOCALAPPDATA%\Android\Sdk` — **`android-37.0` seulement, aucune image système, pas de `cmdline-tools`.** C'est exactement le piège de l'installation « Standard » décrit au `README` |
-| AVD | ✅ `pixel_7_-_api_36_0` — `x86_64`, `google_apis_playstore` |
-| `ANDROID_HOME` | ✅ `C:\Program Files (x86)\Android\android-sdk` — portée *User* (`HKCU\Environment`), pointe bien sur le SDK complet |
-
-> **Le SDK utilisable est celui de Visual Studio**, hérité des workloads .NET Android de la stack
-> abandonnée : c'est lui qui porte l'API 36 qu'Expo SDK 57 réclame. ⚠️ Il vit sous
-> `Program Files (x86)`, donc **non inscriptible sans élévation** : si Gradle veut y installer un
-> paquet manquant, il échouera. Le repli est de compléter le SDK d'Android Studio, qui est en zone
-> utilisateur.
-
-### `M1` — ✅ **résolu le 2026-08-15**
-
-**L'APK se compile et l'application démarre sur l'émulateur** (`app-debug.apk`, 58 Mo). MapLibre
-`11.3.6` et son code natif sont dans le binaire.
-
-**La correction :** basculer `ANDROID_HOME` du SDK Visual Studio
-(`C:\Program Files (x86)\Android\android-sdk`) vers le SDK utilisateur
-(`%LOCALAPPDATA%\Android\Sdk`) — **sans espace ni parenthèse, et inscriptible sans élévation**.
-Un seul changement, qui a levé les trois obstacles d'un coup :
-
-- `clang++.exe` garde son nom complet, donc clang compile en C++ et lie la STL ;
-- Gradle a pu **installer lui-même** `build-tools;35.0.0`, ce que le SDK en lecture seule
-  interdisait ;
-- le NDK `27.1.12297006`, recopié à ce même emplacement, est trouvé sans réglage particulier.
-
-> Aucun contournement n'a survécu : le `buildToolsVersion` forcé dans `android/build.gradle` a été
-> effacé par `expo prebuild --clean` et **n'a pas eu besoin d'être remis**. Le SDK Visual Studio est
-> intact — rien n'a été désinstallé, seulement copié.
+---
 
 <details>
-<summary>Historique du diagnostic — trois obstacles, cinq hypothèses fausses</summary>
+<summary><strong>Historique — React Native (2026-07-31 → 2026-09-12) et .NET (2026-07-30 → 07-31)</strong></summary>
 
-### Ce qui bloquait le build natif, avant le 2026-08-15
+> ⚠️ Les hashes cités dans cet historique sont ceux de l'arbre git antérieur au 2026-09-12 (`archive/pre-flutter-2026-09-09`, absent de ce clone) : **aucun n'est résolvable ici**.
 
-Trois obstacles rencontrés en séquence, tous de la même famille : **le SDK vient de Visual Studio
-et ne contient pas les versions qu'attend l'écosystème React Native.**
+**Deux socles applicatifs abandonnés en six semaines.** Le cadrage produit n'a été refait ni l'une
+ni l'autre fois — c'est ce qui a rendu ces bascules soutenables, et il ne faut pas en conclure
+qu'elles étaient bon marché. Ce qui suit est **du passé** : aucune ligne n'y décrit l'état actuel.
 
-| # | Obstacle | État |
+### .NET MAUI Blazor Hybrid — 2026-07-30 → 2026-07-31
+
+Retiré du *working tree* le 2026-07-31 sur arbitrage du commanditaire (`74afe6d`), après
+[`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md). Étaient livrés : `src/MartinPecheur.App`
+(3 cibles vertes, `696be3a`), les projets `Domain` / `Application` / `Data` / `tests` (`22e9850`),
+et `MeasurementUnits.cs` avec 8 tests verts. Motif de l'abandon : le hors-ligne cartographique était
+un **lot de développement à chiffrer** en .NET.
+
+### React Native + Expo — 2026-07-31 → 2026-09-12
+
+Plan suivi : `T0 — Socle React Native` (`docs/superpowers/plans/2026-07-31-t0-socle-react-native.md`,
+**retiré du dépôt** depuis). Vérification verte au 2026-08-15 : `tsc --noEmit` sans erreur, ESLint
+propre, **149 tests** sur 18 suites.
+
+| Tâche | Livrable | Commit |
 |---|---|---|
-| 1 | `build-tools;35.0.0` réclamée par le module `:expo`, absente (seule la 36.0.0 est là). Gradle tente de l'installer et échoue : écriture refusée sous `Program Files (x86)` | ✅ **contourné** — forcer `buildToolsVersion = "36.0.0"` sur tous les sous-projets dans `android/build.gradle` fait passer le build de 28 à 144 tâches |
-| 2 | Installation par `sdkmanager` en ligne de commande | 🚫 **échoue en silence** : n'affiche que `Failed to read or create install properties file`, ne renvoie aucun code d'erreur, et n'écrit rien. Piège à connaître |
-| 3 | Le link C++ d'`expo-modules-core` ne résout ni `operator new`, ni `operator delete`, ni `std::__ndk1::…`. **Cause réelle : le SDK est installé sous `C:\Program Files (x86)\…`.** Le NDK ne supporte pas les espaces ni les parenthèses dans son chemin : Windows le réduit en notation 8.3, `clang++.exe` devient `CLANG_~1.EXE`, et **clang choisit son mode C ou C++ d'après son propre nom d'exécutable**. Privé de ses `++`, il compile en C et ne lie pas la bibliothèque standard C++ | 🚫 **non résolu** — c'est le point d'arrêt |
+| `S1`, `S2` | Projet Expo `57.0.9`, TypeScript `6.0.3`, `tsconfig` durci | `08bf832` |
+| `S3` | Jest projet `unit` + ESLint + test d'architecture | `8c6ed61` |
+| `S4` | Référentiel figé — 4 150 stations, 6 604 249 octets | `0a76733` |
+| `D1`-`D4` | Conversion d'unités par types *branded*, nomenclature ONDE close, fraîcheur, entités et dépôts | `17d3359`, `37cd92a`, `20842be`, `42948e8` |
+| `N1`-`N5` | `isSuccess` 200/206, recul à gigue, mapper, client Hub'Eau, décorateur `CachePolicy` | `5504b3c`, `b13a11b`, `dbb74d3`, `2cf3ad2` |
+| `M1`-`M3` | MapLibre 11.3.6 compile, fond IGN raster affiché, clustering des 4 150 stations | `b035424`, `0c3596a` |
+| `P1`-`P4` | Outillage percentiles — aspiration `obs_elab`, quinzaines, poids mesuré, procédure | `e535e27`, `0954f9e` |
 
-> ⚠️ Deux diagnostics **faux** ont été écrits ici avant celui-ci : « NDK trop ancien » et « NDK
-> incomplet ». Les deux sont démentis — le NDK `27.1.12297006` (r27b, 2,3 Go) est complet, et
-> `libc++_shared.so` est présent pour **les quatre** architectures cibles, x86_64 comprise. Le NDK
-> n'est pas en cause : **son chemin l'est**.
+**Ce qui a tué la stack — `M4`, le pack hors-ligne.** Exécuté le **2026-08-15**,
+`OfflineManager.createPack` **tue le processus** : `SIGABRT` sur une `std::regex_error` non
+rattrapée dans le fil `DatabaseFileSource`, ~0,7 s après la création du pack, **4 essais sur 4**,
+base vierge comprise, avec le style vectoriel de démonstration — donc ni l'IGN ni le raster en
+cause. **Zéro requête HTTP** avant la mort. Reproduit le **2026-08-18** sur `arm64` réel (Galaxy
+A54 5G, Android 16) — ⚠️ par observation seule, la signature n'y a pas été relevée.
 
-**La correction, pour la reprise.** Le SDK utilisateur `C:\Users\<user>\AppData\Local\Android\Sdk`
-ne contient **ni espace ni parenthèse** et il est **inscriptible sans élévation** — il lève donc
-les points 1, 2 et 3 d'un coup :
+**Option E, 2026-08-24 — épuisée, pas démontrée épuisée.** Le SDK natif est épinglable par
+propriété Gradle : `13.0.0`, `13.1.0`, `13.2.0` et `13.5.1` plantent **à l'identique** ; `12.0.0` ne
+compile pas (`ColorReliefLayer` absent), ce qui bornait l'espace de recherche à
+`[13.0.0 … 13.5.1]`. Huit versions intercalaires n'ont jamais été essayées.
+Arbitrage : [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md), puis bascule Flutter
+([`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md)).
 
-1. Par l'assistant d'Android Studio (`SDK Manager`), installer dans **ce** SDK : `SDK Platform 36`,
-   `Build-Tools 36`, `NDK 27.1.12297006`, et une image système x86_64.
-2. Pointer `ANDROID_HOME` dessus, puis rouvrir le terminal.
-3. `npx expo prebuild --platform android --clean` puis `npx expo run:android`.
+**Le `createPack` n'a jamais été départagé.** « Que `createPack` télécharge les tuiles d'un WMTS
+IGN » est resté **ni confirmé ni infirmé** : l'appel plantait avant qu'une tuile soit téléchargée.
+Idem pour `tileset.tiles[0]` (`NV-3`), le volume d'un pack départemental (`NV-4`, **aucun octet
+mesuré**) et l'absence de test amont du chemin raster hors-ligne (`NV-6`).
 
-Le contournement `buildToolsVersion` d'`android/build.gradle` deviendra alors **inutile** : à ne
-pas pérenniser en config plugin tant que ce chemin n'a pas été essayé.
+### La leçon qui resservira si Android revient
+
+**Installer le SDK Android sur un chemin sans espace ni parenthèse.** Le NDK ne les supporte pas :
+sous un chemin du type `Program Files (x86)`, Windows réduit le chemin en notation 8.3, `clang++.exe` devient
+`CLANG_~1.EXE`, et **clang choisit son mode C ou C++ d'après son propre nom d'exécutable**. Privé de
+ses `++`, il compile en C et ne lie pas la bibliothèque standard C++ — le symptôme, des symboles
+C++ manquants au link, **ne désigne jamais le chemin**. Deux diagnostics faux (« NDK trop ancien »,
+« NDK incomplet ») ont été écrits avant celui-là.
+
+Basculer `ANDROID_HOME` vers le SDK utilisateur (`%LOCALAPPDATA%\Android\Sdk`) — sans espace,
+**inscriptible sans élévation** — a levé les trois obstacles d'un coup le 2026-08-15, et `M1` a
+compilé (`app-debug.apk`, 58 Mo). Deux autres pièges relevés ce jour-là :
+
+- **`sdkmanager` en ligne de commande échoue en silence** : il n'affiche que
+  `Failed to read or create install properties file`, ne renvoie aucun code d'erreur et n'écrit
+  rien. Ne pas le re-tenter.
+- **Sonder le registre (`HKCU\Environment`), pas l'environnement du processus** : un inventaire
+  publié plus tôt le 2026-08-15 déclarait l'outillage Android absent — **il était faux sur les cinq
+  lignes**.
 
 </details>
-
-> ⚠️ **À retenir pour toute nouvelle machine :** installer le SDK Android sur un chemin **sans
-> espace ni parenthèse**. Le NDK ne le supporte pas, et le symptôme — des symboles C++ manquants au
-> link — ne désigne jamais le chemin. Ne pas réutiliser un SDK hérité des workloads .NET de Visual
-> Studio.
-
-> Le contournement du point 1 vit dans `android/`, **régénéré par `expo prebuild`** : il disparaîtra
-> au prochain prebuild. S'il faut le garder, il devra devenir un config plugin Expo versionné — et
-> ce serait alors inscrire une particularité d'un poste dans le dépôt, à peser.
-
-**Piste pour la reprise :** installer un NDK conforme à RN `0.86.2` via l'assistant d'Android Studio
-(qui gère l'élévation), dans le SDK utilisateur qui, lui, est inscriptible. **Ne pas re-tenter
-`sdkmanager` en ligne de commande** — voir le point 2.
-
-L'ancien plan ([`T0 — Spike carte & socle données`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md))
-reste au dépôt pour l'historique, mais **ne doit plus être exécuté** : sa voie A est un spike
-`BlazorWebView` sans objet, et sa voie B est en C#.
-
-Ce qui a changé dans la logique du plan : **le spike carte a perdu son caractère bloquant.** Il
-existait pour lever un doute sur le WebView ; MapLibre Native le rend sans objet. La séquence est
-redevenue linéaire — socle, domaine, carte — au lieu de trois voies dont une conditionnait tout.
-
-🚨 **Et c'est exactement ce qui s'est produit.** `M4` était la seule tâche dont l'échec remettrait
-en cause une décision d'architecture. **Exécutée le 2026-08-15, elle a échoué** — non pas parce que
-le raster hors-ligne ne marche pas, mais parce que `createPack` fait mourir le processus avant de
-pouvoir le dire. Ne pas l'avoir repoussée en fin de tranche est ce qui a permis de le découvrir
-avant que des écrans en dépendent. Arbitrage :
-[`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md).
-
-⚠️ **Ce qui reste vrai malgré la bascule :** la mesure sur un **Android d'entrée de gamme réel**
-garde son intérêt. Le rendu natif est attendu bien meilleur, mais « attendu » n'est pas « mesuré ».
