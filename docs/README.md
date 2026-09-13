@@ -40,8 +40,8 @@ Les quatre livrables de cadrage, en tête de dossier :
 
 | Plan | Tranche | Statut |
 |---|---|---|
-| [`2026-07-31-t0-socle-react-native.md`](superpowers/plans/2026-07-31-t0-socle-react-native.md) | **T0** — socle Expo, domaine, données, carte, outillage percentiles | 🔄 **21 tâches sur 23** au 2026-08-15 — restent `S5` et `M5`, tous deux en attente d'un **appareil Android réel** |
-| [`2026-07-30-t0-spike-carte-et-socle.md`](superpowers/plans/2026-07-30-t0-spike-carte-et-socle.md) | T0 en .NET MAUI | 🚫 **caduc** — conservé pour l'historique, **ne pas exécuter** |
+| [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md) | **T0** — socle Flutter, domaine, données, application, carte, porte Windows | 🔄 validé le 2026-09-13, **0 tâche sur 31** (5 Android ⏸) |
+| [`2026-08-24-porte-spike-flutter.md`](superpowers/plans/2026-08-24-porte-spike-flutter.md) | Porte de spike `F1`–`F3` | ✅ franchie le 2026-09-12 sur Windows — `spike/porte_flutter/COMPTE-RENDU.md` |
 
 ## Index des décisions
 

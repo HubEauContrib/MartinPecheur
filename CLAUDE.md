@@ -60,7 +60,7 @@ analysis_options.yaml
 lib/
   domain/                       ← Dart pur (voir invariants)
   data/                         ← Hub'Eau, VigiEau (derrière RestrictionSource), stockage local
-  application/                  ← Query/Command scellés + registre + CachePolicy
+  application/                  ← Query/Command typés (abstract interface class) + registre + CachePolicy
   features/map/                 ← flutter_map, TileLayer IGN, marqueurs
   main.dart
 test/
@@ -87,7 +87,7 @@ docs/
 | Carte | **`flutter_map` 8.3.2** · fond **IGN Géoplateforme** (WMTS KVP) · attribution « © IGN Géoplateforme — Licence Ouverte » **affichée** | ✅ **`F1` : le plan IGN s'affiche sur Windows** (2026-09-09). Signatures relevées dans le paquet installé : `TileLayer(urlTemplate:, tileDimension:, maxNativeZoom:, userAgentPackageName:)`, `Marker(point:, width:, height:, child:)`, `MapOptions(initialCenter:, initialZoom:, minZoom:, maxZoom:)`. ⚠️ `tileSize` est `@Deprecated` |
 | Marqueurs | `flutter_map_marker_cluster` 8.2.2 lié, `latlong2` 0.9.1 (par contrainte transitive) | ⏸ **`F2` non tranchée** : la mesure du 2026-09-09 donne `raster p90` 16,2 ms (budget ≤ 16,7 ms ✅) mais **jank 8,9 %** pour un seuil < 5 % ❌. **Approche par défaut : marqueurs du viewport plus une marge, sans clustering** (`F2c`), tant qu'aucune mesure ne réhabilite le regroupement |
 | Cache de tuiles | **intégré à `flutter_map` depuis 8.2** (`BuiltInMapCachingProvider`, 1 Go), actif par défaut hors web | 🔄 **comportement hors réseau jamais exécuté** — constaté dans la doc seulement. C'est ce que `UC-001 A3` doit décrire |
-| CQRS | `Query`/`Command` scellés + registre `Map<Type, Handler>` + décorateur `CachePolicy`. **Aucune bibliothèque de médiateur** | 🔄 arrive avec les premiers écrans |
+| CQRS | `Query`/`Command` typés (`abstract interface class`, arbitrage 2026-09-13) + registre `Map<Type, Handler>` + décorateur `CachePolicy`. **Aucune bibliothèque de médiateur** | 🔄 arrive avec les premiers écrans |
 | HTTP | `package:http` **ou** `dart:io` `HttpClient` | 💭 **à trancher.** Quel que soit le choix : **200 et 206 sont des succès** (`C-06`), retry sur 429/5xx et **jamais** sur 4xx, backoff doublé à chaque essai, à **gigue injectée** (donc testable) |
 | Stockage local | `ADR-011` **réservé** — `drift` candidat par défaut ; `sqflite` seul **ne couvre pas Windows** | 💭 à trancher au moment où ça bloque |
 | Gestion d'état | `ValueNotifier` + `ListenableBuilder`, zéro dépendance sauf preuve contraire | 💭 |
@@ -176,13 +176,11 @@ Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 
 ### Le poste et le bac à sable
 
-- **Flutter est hors PATH** : `D:\Users\Oliver254\develop\flutter\bin\flutter.bat`. Toujours le chemin complet. `flutter` absent du PATH n'est pas une absence
-- Le dépôt est sur `D:`
+- **Aucun chemin de poste dans le dépôt** : le projet se développe sur plusieurs ordinateurs. `flutter` et `dart` sont sur le PATH ; ce qui est propre à une machine vit dans `CLAUDE.local.md` et `.claude/settings.local.json`, tous deux ignorés par git
 - **Le bac à sable de Claude ne construit rien en natif.** `flutter run -d windows` et `flutter build windows` sont lancés **par le commanditaire** : une commande par bloc `bash`, avec le résultat attendu énoncé. Ce résultat est **constaté, jamais supposé**
 - Claude lance lui-même `flutter analyze`, `flutter test`, `dart format`
 - **Ne rien toucher à Bitdefender ni au système**
-- Git via SSH : `GIT_SSH_COMMAND="ssh -i /c/Users/Oliver254/.ssh/github_sssh -o IdentitiesOnly=yes"`. **`gh` est absent du bac à sable** — toute opération qui en dépend est déléguée au commanditaire
-
+- **`gh` est absent du bac à sable** — toute opération qui en dépend est déléguée au commanditaire
 ---
 
 ## Orchestration
