@@ -163,8 +163,8 @@ void main() {
     });
 
     test("buildMapLayers ne refiltre plus : les stations passées sont toutes "
-        'dessinées, marge comprise — le filtre fait foi côté requête '
-        '(MapStationsController)', () {
+        'dessinées, marge comprise — le filtre fait foi côté dépôt '
+        '(StationPointRepository)', () {
       final List<Widget> layers = buildMapLayers(
         stations: <StationPoint>[_blois(), _guadeloupe()],
       );

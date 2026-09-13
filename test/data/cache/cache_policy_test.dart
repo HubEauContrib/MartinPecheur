@@ -4,7 +4,7 @@
 // refuse a la construction. Neuf cas, TTL 20 min sauf mention contraire.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:martinpecheur/application/cache_policy.dart';
+import 'package:martinpecheur/data/cache/cache_policy.dart';
 
 void main() {
   final DateTime maintenant = DateTime(2026, 9, 13, 12);
