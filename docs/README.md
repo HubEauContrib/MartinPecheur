@@ -24,6 +24,7 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application mob
 | [`guide-installation.md`](guide-installation.md) | Installation du poste de développement, et ses pièges | — |
 | [`guide-release.md`](guide-release.md) | **Livrer un APK à un testeur distant** — commandes, signature, verrou produit | — |
 | [`guide-test-appareil.md`](guide-test-appareil.md) | **Tester sur un Android réel** — procédure de `M4` et `M5`, seuils fixés d'avance | — |
+| [`plan-de-tests.md`](plan-de-tests.md) | **Plan de tests** — la pyramide, à quel étage une règle se vérifie | — |
 
 ## Cadrage produit
 
