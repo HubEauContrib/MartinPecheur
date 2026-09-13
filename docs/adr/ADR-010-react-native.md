@@ -1,6 +1,6 @@
 # ADR-010 — React Native, abandon de MAUI et de la cible Windows
 
-- **Statut :** Accepté — **arbitrage du commanditaire du 2026-07-31**
+- **Statut :** Accepté — **arbitrage du commanditaire du 2026-07-31** · ⚠️ **volet architecture applicative remplacé par [`ADR-014`](ADR-014-feature-first-mvvm.md)** le 2026-09-13 : le § « L'architecture en couches est conservée » ci-dessous, avec son `application/` et ses `Query`/`Command`, ne fait plus foi — le projet est en *feature-first* + **MVVM**, et le cache est un décorateur de dépôt. Le reste de cette décision est **également caduc** quant à la stack, arbitrée à nouveau le 2026-09-12 (bascule Flutter, cible Windows) ; il est conservé comme trace historique.
 - **Date :** 2026-07-31
 - **Remplace :** [`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md) (MAUI Blazor Hybrid), [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md) (CQRS léger porté par `BrilliantMediator`), [`ADR-009`](ADR-009-cible-windows.md) (cible Windows)
 

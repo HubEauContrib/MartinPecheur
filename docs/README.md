@@ -44,7 +44,7 @@ Les quatre livrables de cadrage, en tête de dossier :
 
 | Plan | Tranche | Statut |
 |---|---|---|
-| [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md) | **T0** — socle Flutter, domaine, données, application, carte, porte Windows | 🔄 validé le 2026-09-13, **0 tâche sur 31** (5 Android ⏸) |
+| [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md) | **T0** — socle Flutter, domaine, données, carte, porte Windows · § « Suite immédiate » : réusinage MVVM `R1`–`R6` | ✅ clos le 2026-09-13, **31 tâches sur 31** (5 Android ⏸), `v0.1.0`, 248 tests verts |
 | [`2026-08-24-porte-spike-flutter.md`](superpowers/plans/2026-08-24-porte-spike-flutter.md) | Porte de spike `F1`–`F3` | ✅ franchie le 2026-09-12 sur Windows — `spike/porte_flutter/COMPTE-RENDU.md` |
 
 ## Index des décisions
@@ -58,10 +58,11 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-005](adr/ADR-005-stack-maui-blazor-hybrid.md) | ~~.NET MAUI Blazor Hybrid + MapLibre GL JS~~ | **Remplacé par ADR-010** |
 | [ADR-006](adr/ADR-006-onde-quatre-categories.md) | ONDE en 4 catégories d'affichage | Accepté ⚠️ |
 | [ADR-007](adr/ADR-007-ecarter-qualite-eau.md) | Écarter la qualité de l'eau de la v1 | Accepté |
-| [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | CQRS léger, cache par décorateur de handler | **Remplacé par ADR-010** — *le principe survit* |
+| [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | ~~CQRS léger, cache par décorateur de gestionnaire~~ | **Remplacé par ADR-014** — *seul survivant : le cache en un point unique* |
 | [ADR-009](adr/ADR-009-cible-windows.md) | ~~Ajouter **Windows** aux cibles de la v1~~ | **Remplacé par ADR-010** |
-| [ADR-010](adr/ADR-010-react-native.md) | **React Native**, abandon de MAUI et de Windows | Accepté — arbitrage du commanditaire |
-| [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — `createPack` plante en natif | **Arbitré en première instance** — éprouver sur `arm64` réel avant de trancher |
+| [ADR-010](adr/ADR-010-react-native.md) | ~~Bascule de stack du 2026-07-31~~ | Accepté à sa date · **volet architecture remplacé par ADR-014** ; stack réarbitrée le 2026-09-12 |
+| [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — le téléchargement de packs plante en natif | **Arbitré en première instance** — éprouver sur `arm64` réel avant de trancher |
+| [ADR-014](adr/ADR-014-feature-first-mvvm.md) | **Feature-first + MVVM** (`ChangeNotifier`), à la place du CQRS léger | Accepté — arbitrage du commanditaire du 2026-09-13 |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».
