@@ -57,7 +57,8 @@ final class OndeObservation {
   /// Catégorie d'écoulement traduite depuis [rawFlowCode].
   final FlowCategory category;
 
-  /// Le `code_ecoulement` tel que reçu de l'API, jamais normalisé — même
+  /// Le `code_ecoulement` tel que reçu de l'API, jamais normalisé, à
+  /// l'exception de la chaîne vide vue comme une absence (BR-007) — même
   /// quand [category] est [Inconnu] (BR-011).
   final String? rawFlowCode;
 

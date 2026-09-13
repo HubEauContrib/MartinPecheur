@@ -217,8 +217,8 @@ void main() {
     );
 
     test("date_observation avec un mois hors plage ('2026-13-01') : "
-        'FormatException explicite, DateTime.utc ne déborde jamais en '
-        'silence', () {
+        'FormatException explicite, le débordement de DateTime.utc est '
+        'détecté et refusé', () {
       final Map<String, dynamic> ligne = baseRow()
         ..['date_observation'] = '2026-13-01';
 
@@ -435,16 +435,23 @@ void main() {
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
     });
 
-    test(
-      "date_campagne avec un jour hors plage ('2026-08-32') : "
-      'FormatException explicite, DateTime.utc ne déborde jamais en silence',
-      () {
-        final Map<String, dynamic> ligne = baseRow()
-          ..['date_campagne'] = '2026-08-32';
+    test("date_campagne avec un jour hors plage ('2026-08-32') : "
+        'FormatException explicite, le débordement de DateTime.utc est '
+        'détecté et refusé', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['date_campagne'] = '2026-08-32';
 
-        expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-      },
-    );
+      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test("date_campagne au 31 février ('2026-02-31') : FormatException — le "
+        'garde 1..12/1..31 ne le voit pas, il faut relire month/day après '
+        'construction', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['date_campagne'] = '2026-02-31';
+
+      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+    });
 
     test("libelle_type_campagne absent : FormatException — T-05 le relève "
         'présent sur les 96 lignes de la fixture, un repli inventerait une '
@@ -461,6 +468,17 @@ void main() {
         ..['libelle_type_campagne'] = 1;
 
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test("libelle_type_campagne ('Usuelle') : rawTypeLabel identique, casse "
+        'intacte — la comparaison en minuscules se fait côté appelant '
+        '(T-06)', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['libelle_type_campagne'] = 'Usuelle';
+
+      final OndeCampaign campagne = mapOndeCampaign(ligne);
+
+      expect(campagne.rawTypeLabel, 'Usuelle');
     });
 
     test('nombre_modalite_ecoulement absent : modalityCount à null', () {

@@ -38,10 +38,7 @@ import 'package:martinpecheur/domain/station/station.dart';
 OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
   final OndeStationCode station = _stationCode(raw);
 
-  final DateTime observedAt = _dateOnly(
-    raw['date_observation'],
-    field: 'date_observation',
-  );
+  final DateTime observedAt = _dateOnly(raw, 'date_observation');
 
   final String? rawFlowCode = _text(raw, 'code_ecoulement');
   final FlowCategory category = flowCategoryFromCode(rawFlowCode);
@@ -52,7 +49,7 @@ OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
     category: category,
     rawFlowCode: rawFlowCode,
     officialLabel: _text(raw, 'libelle_ecoulement'),
-    campaignCode: _campaignCode(raw['code_campagne']),
+    campaignCode: _campaignCode(raw, 'code_campagne'),
   );
 }
 
@@ -62,12 +59,12 @@ OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
 /// `libelle_type_campagne` sont absents ou illisibles — une campagne sans
 /// ces informations ne peut ni être identifiée, ni datée, ni classée.
 OndeCampaign mapOndeCampaign(Map<String, dynamic> raw) {
-  final String? code = _campaignCode(raw['code_campagne']);
+  final String? code = _campaignCode(raw, 'code_campagne');
   if (code == null) {
     throw const FormatException('code_campagne absent');
   }
 
-  final DateTime date = _dateOnly(raw['date_campagne'], field: 'date_campagne');
+  final DateTime date = _dateOnly(raw, 'date_campagne');
 
   final String? rawTypeLabel = _text(raw, 'libelle_type_campagne');
   if (rawTypeLabel == null) {
@@ -153,16 +150,19 @@ String? _text(Map<String, dynamic> raw, String field) {
   return value.isEmpty ? null : value;
 }
 
-/// Lit `code_campagne`, rendu tantôt en entier (`/campagnes`), tantôt en
-/// chaîne (`/observations`) — T-07. Aucun `as int` n'apparaît ici : le
-/// contenu est distingué par son type, jamais forcé. Une chaîne vide est
-/// normalisée en `null`, comme [_text] (BR-007).
-String? _campaignCode(Object? raw) => switch (raw) {
-  null => null,
-  final String value => value.isEmpty ? null : value,
-  final num value => value.toInt().toString(),
-  _ => throw FormatException('code_campagne de type inattendu : $raw'),
-};
+/// Lit `code_campagne` dans [raw] sous la clé [field], rendu tantôt en
+/// entier (`/campagnes`), tantôt en chaîne (`/observations`) — T-07. Aucun
+/// `as int` n'apparaît ici : le contenu est distingué par son type, jamais
+/// forcé. Une chaîne vide est normalisée en `null`, comme [_text] (BR-007).
+String? _campaignCode(Map<String, dynamic> raw, String field) =>
+    switch (raw[field]) {
+      null => null,
+      final String value => value.isEmpty ? null : value,
+      final num value => value.toInt().toString(),
+      final Object value => throw FormatException(
+        '$field de type inattendu : $value',
+      ),
+    };
 
 /// Motif d'une date sans heure `AAAA-MM-JJ`, ancré en début de chaîne : un
 /// éventuel suffixe d'heure ou de fuseau (`T10:00:00`, `+02:00`…) n'est pas
@@ -176,26 +176,33 @@ final RegExp _dateOnlyPattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})');
 /// décalage de jour au passage en UTC — `'2026-08-26T00:30:00+02:00'` reste
 /// le 26, pas un recul au 25.
 ///
-/// Lève une [FormatException] si [raw] est absent, ne commence pas par ce
-/// motif, ou si le mois ou le jour sont hors plage : `DateTime.utc` déborde
-/// silencieusement (le 13ᵉ mois devient janvier de l'année suivante) au lieu
-/// de lever, ce qui ferait ressortir une date fausse plutôt qu'une erreur
-/// explicite (BR-001) — une date muette ferait sinon ressortir
+/// Lève une [FormatException] si `raw[field]` est absent, ne commence pas
+/// par ce motif, ou si le mois ou le jour sont hors plage — y compris un
+/// débordement que le garde `1..12`/`1..31` ne voit pas, comme le 31 février
+/// (`'2026-02-31'`) : `DateTime.utc` déborde silencieusement vers le 3 mars
+/// au lieu de lever, ce qui ferait ressortir une date fausse plutôt qu'une
+/// erreur explicite (BR-001) — une date muette ferait sinon ressortir
 /// l'observation ou la campagne comme la plus récente, l'état le moins
-/// fiable.
-DateTime _dateOnly(Object? raw, {required String field}) {
-  if (raw is! String) {
+/// fiable. Le débordement est donc détecté après coup, en comparant la date
+/// construite à ses composantes d'origine, et refusé.
+DateTime _dateOnly(Map<String, dynamic> raw, String field) {
+  final Object? value = raw[field];
+  if (value is! String) {
     throw FormatException('$field absent ou illisible');
   }
-  final RegExpMatch? match = _dateOnlyPattern.firstMatch(raw);
+  final RegExpMatch? match = _dateOnlyPattern.firstMatch(value);
   if (match == null) {
-    throw FormatException('$field attendu au format AAAA-MM-JJ, reçu $raw');
+    throw FormatException('$field attendu au format AAAA-MM-JJ, reçu $value');
   }
   final int year = int.parse(match.group(1)!);
   final int month = int.parse(match.group(2)!);
   final int day = int.parse(match.group(3)!);
   if (month < 1 || month > 12 || day < 1 || day > 31) {
-    throw FormatException('$field hors plage : $raw');
+    throw FormatException('$field hors plage : $value');
   }
-  return DateTime.utc(year, month, day);
+  final DateTime date = DateTime.utc(year, month, day);
+  if (date.month != month || date.day != day) {
+    throw FormatException('$field hors plage : $value');
+  }
+  return date;
 }
