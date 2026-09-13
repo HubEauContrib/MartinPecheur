@@ -10,12 +10,16 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Les seize types du domaine, tels qu'ils existent sous lib/domain/ à la
-/// fin de T0 (D7 compris).
+/// Les dix-huit types du domaine, tels qu'ils existent sous lib/domain/ après
+/// le réusinage MVVM du 2026-09-13. `StationPoint` et `StationPointRepository`
+/// s'y ajoutent : ils étaient écrits sous lib/domain/ et absents du document,
+/// soit exactement le retard que ce test doit attraper.
 const List<String> typesDuDomaine = <String>[
   'StationCode',
   'DepartementCode',
   'Station',
+  'StationPoint',
+  'StationPointRepository',
   'HydroObservation',
   'Qualification',
   'Grandeur',
@@ -50,7 +54,7 @@ void main() {
       contenu = File('docs/domain-model.md').readAsStringSync();
     });
 
-    test('nomme les seize types du domaine', () {
+    test('nomme les dix-huit types du domaine', () {
       for (final String type in typesDuDomaine) {
         expect(
           contenu,

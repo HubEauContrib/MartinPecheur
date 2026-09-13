@@ -1,20 +1,21 @@
 // Le ViewModel de la tranche carte (MVVM, ADR-014, arbitrage 2026-09-13) :
-// il appelle [StationPointRepository] DIRECTEMENT et de facon typee, et
-// porte l'etat que la vue observe — les points a dessiner et l'erreur
-// eventuelle. Il remplace le controleur d'ecran, le registre de messages et
-// ses gestionnaires (`lib/application/`, retire en R4) : le registre perdait
-// le type a l'envoi (un transtypage final vers le type de reponse, donc
-// `TypeError` a l'execution la ou le projet exige une erreur de compilation)
-// sans rien decoupler pour une seule forme de lecture.
+// il appelle [StationPointRepository] DIRECTEMENT et de façon typée, et
+// porte l'état que la vue observe — les points à dessiner et l'erreur
+// éventuelle. Il remplace le contrôleur d'écran, le registre de messages et
+// ses gestionnaires (`lib/application/`, retiré en R4) : le registre perdait
+// le type à l'envoi (un transtypage final vers le type de réponse, donc
+// `TypeError` à l'exécution là où le projet exige une erreur de compilation)
+// sans rien découpler pour une seule forme de lecture.
 //
-// ⚠️ Un ViewModel ne connait aucun widget : ce fichier n'importe ni
+// ⚠️ Un ViewModel ne connaît aucun widget : ce fichier n'importe ni
 // `package:flutter/material.dart`, ni `widgets.dart`, ni `cupertino.dart` —
 // seul `foundation.dart`, pour [ChangeNotifier]. Le verrou est
 // `test/architecture/layers_test.dart` (R5).
 //
-// Il ne connait pas non plus la bibliotheque de carte : [camera] est un
-// enregistrement de `double`, pas un `MapCamera` — la vue traduit, le
-// ViewModel reste testable sans monter de `FlutterMap`.
+// Il ne connaît pas non plus la bibliothèque de carte : son seul vocabulaire
+// géographique est [Bounds], des `double` — jamais un `MapCamera` ni un
+// `LatLng`. La vue traduit, le ViewModel reste testable sans monter de
+// `FlutterMap`.
 
 import 'dart:collection' show UnmodifiableListView;
 
@@ -22,27 +23,15 @@ import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 
-/// Ce que la vue sait de la camera, sans aucun type de bibliotheque de
-/// carte : l'emprise visible en degres decimaux (WGS 84), le zoom et la
-/// rotation.
-typedef MapViewport = ({
-  double north,
-  double south,
-  double east,
-  double west,
-  double zoom,
-  double rotation,
-});
-
-/// L'etat de l'ecran carte et le seul chemin par lequel il est charge.
+/// L'état de l'écran carte et le seul chemin par lequel il est chargé.
 final class MapViewModel extends ChangeNotifier {
   MapViewModel(this._stationPoints);
 
   final StationPointRepository _stationPoints;
 
-  /// Emprise de demarrage, avant tout geste de camera : France
-  /// metropolitaine. Une emprise de demarrage nommee — pas une valeur
-  /// magique posee au milieu d'un `initState`.
+  /// Emprise de démarrage, avant tout geste de caméra : France
+  /// métropolitaine. Une emprise de démarrage nommée — pas une valeur
+  /// magique posée au milieu d'un `initState`.
   static final Bounds startupBounds = Bounds(
     west: -5.5,
     south: 41,
@@ -53,59 +42,48 @@ final class MapViewModel extends ChangeNotifier {
   List<StationPoint> _stations = const <StationPoint>[];
 
   /// Les points du viewport actuellement connu, dans l'ordre du
-  /// referentiel. Jamais `null` : une absence de donnee est une liste vide
+  /// référentiel. Jamais `null` : une absence de donnée est une liste vide
   /// (BR-007).
   ///
-  /// Vue **immuable** : la vue lit cet etat, elle ne le modifie pas. Un
+  /// Vue **immuable** : la vue lit cet état, elle ne le modifie pas. Un
   /// [UnmodifiableListView] et non `List.unmodifiable` — le second **recopie**
-  /// la liste, donc jusqu'a 4 150 elements a chaque relachement de geste, la
-  /// ou la vue n'a besoin que de se voir refuser l'ecriture (NFR-01).
+  /// la liste, donc jusqu'à 4 150 éléments à chaque relâchement de geste, là
+  /// où la vue n'a besoin que de se voir refuser l'écriture (NFR-01).
   List<StationPoint> get stations => _stations;
 
   Object? _error;
 
-  /// La derniere erreur survenue en interrogeant le depot, ou `null`. La vue
-  /// l'affiche plutot que de presenter une carte muette (BR-007) : ni le
-  /// depot ni ce ViewModel n'avalent une panne en silence.
+  /// La dernière erreur survenue en interrogeant le dépôt, ou `null`. La vue
+  /// l'affiche plutôt que de présenter une carte muette (BR-007) : ni le
+  /// dépôt ni ce ViewModel n'avalent une panne en silence.
   Object? get error => _error;
 
-  /// La derniere camera connue, posee par la vue a chaque changement de
-  /// position.
-  ///
-  /// ⚠️ **Y ecrire ne notifie personne, deliberement** (correctif de la
-  /// relecture M3/M4) : la position change a chaque frame d'un glisser, et
-  /// notifier reconstruirait les 4 150 marqueurs par frame pour une valeur
-  /// que rien ne lit encore pour le rendu (NFR-01). Elle est gardee pour un
-  /// usage a venir — rotation, `04-ui.md`. Le jour ou un rendu en depend, ce
-  /// sera avec son propre `Listenable`, pas en notifiant celui-ci.
-  MapViewport? camera;
-
-  /// Leve par [dispose] : une reponse du depot qui arrive apres coup ne doit
-  /// plus toucher l'etat ni appeler `notifyListeners` — un `ChangeNotifier`
-  /// dispose leve une assertion si on le notifie.
+  /// Levé par [dispose] : une réponse du dépôt qui arrive après coup ne doit
+  /// plus toucher l'état ni appeler `notifyListeners` — un `ChangeNotifier`
+  /// disposé lève une assertion si on le notifie.
   bool _disposed = false;
 
   Bounds? _lastRequestedBounds;
 
-  /// Numero du dernier chargement demande. Incremente a chaque [loadFor] et
-  /// compare au retour du depot : une reponse dont le numero n'est plus le
-  /// dernier appartient a une emprise abandonnee et n'ecrit rien.
+  /// Numéro du dernier chargement demandé. Incrémenté à chaque [loadFor] et
+  /// comparé au retour du dépôt : une réponse dont le numéro n'est plus le
+  /// dernier appartient à une emprise abandonnée et n'écrit rien.
   ///
-  /// Sans ce jeton, deux gestes rapproches sur des emprises differentes
-  /// laissent l'ecran sur la reponse qui arrive en **dernier**, pas sur
-  /// l'emprise demandee en dernier : la carte affiche alors les marqueurs
-  /// d'une region que l'usager a quittee.
+  /// Sans ce jeton, deux gestes rapprochés sur des emprises différentes
+  /// laissent l'écran sur la réponse qui arrive en **dernier**, pas sur
+  /// l'emprise demandée en dernier : la carte affiche alors les marqueurs
+  /// d'une région que l'usager a quittée.
   int _generation = 0;
 
-  /// Charge l'emprise de demarrage ([startupBounds]).
+  /// Charge l'emprise de démarrage ([startupBounds]).
   Future<void> loadInitial() => loadFor(startupBounds);
 
   /// Charge les points de [bounds] et notifie la vue, sauf si les **quatre
-  /// bords** sont identiques a la derniere emprise demandee — un relachement
-  /// de geste qui ne change rien ne vaut pas un aller-retour au depot ni une
+  /// bords** sont identiques à la dernière emprise demandée — un relâchement
+  /// de geste qui ne change rien ne vaut pas un aller-retour au dépôt ni une
   /// reconstruction de 4 150 marqueurs.
   ///
-  /// Une erreur du depot est posee dans [error] plutot que de remonter : les
+  /// Une erreur du dépôt est posée dans [error] plutôt que de remonter : les
   /// appels en tir-et-oublie de la vue ne doivent jamais faire tomber
   /// l'application pour une panne de lecture (BR-007).
   Future<void> loadFor(Bounds bounds) async {
@@ -134,10 +112,10 @@ final class MapViewModel extends ChangeNotifier {
       if (_disposed || generation != _generation) {
         return;
       }
-      // Une emprise qui a echoue n'est pas une emprise chargee : on oublie
-      // qu'elle a ete demandee, sinon la garde ci-dessus refuserait le
-      // nouvel essai et l'ecran resterait en erreur jusqu'a ce que l'usager
-      // deplace la carte.
+      // Une emprise qui a échoué n'est pas une emprise chargée : on oublie
+      // qu'elle a été demandée, sinon la garde ci-dessus refuserait le
+      // nouvel essai et l'écran resterait en erreur jusqu'à ce que l'usager
+      // déplace la carte.
       _lastRequestedBounds = null;
       _error = error;
     }

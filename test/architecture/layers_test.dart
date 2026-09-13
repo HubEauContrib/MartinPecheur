@@ -151,7 +151,7 @@ List<LayerViolation> layerViolationsUnder(Directory root) {
     final String path = directive.path;
     final String uri = directive.uri;
 
-    void relever(String rule) {
+    void record(String rule) {
       violations.add(
         LayerViolation(
           rule: rule,
@@ -166,29 +166,29 @@ List<LayerViolation> layerViolationsUnder(Directory root) {
     if (path.startsWith('domain/') &&
         uri.startsWith(selfPackagePrefix) &&
         !uri.startsWith('${selfPackagePrefix}domain/')) {
-      relever('domaine-ferme');
+      record('domaine-ferme');
     }
 
     // 2 — les donnees ne connaissent aucune tranche.
     if (path.startsWith('data/') &&
         uri.startsWith('${selfPackagePrefix}features/')) {
-      relever('data-vers-features');
+      record('data-vers-features');
     }
 
     // 3 — un ViewModel ne connait aucun widget.
     if (path.contains('view_model/') && widgetLibraries.contains(uri)) {
-      relever('view-model-sans-widget');
+      record('view-model-sans-widget');
     }
 
     // 4 — une tranche n'en importe pas une autre.
-    final String? tranche = _featureOf(path);
-    if (tranche != null && uri.startsWith('${selfPackagePrefix}features/')) {
-      final String importee = uri
+    final String? feature = _featureOf(path);
+    if (feature != null && uri.startsWith('${selfPackagePrefix}features/')) {
+      final String importedFeature = uri
           .substring('${selfPackagePrefix}features/'.length)
           .split('/')
           .first;
-      if (importee != tranche) {
-        relever('feature-vers-feature');
+      if (importedFeature != feature) {
+        record('feature-vers-feature');
       }
     }
   }
@@ -242,7 +242,7 @@ void main() {
       final Directory root = _tempRoot('layers_domaine_');
       _writeTemp(
         root,
-        'domain/station/fautif.dart',
+        'domain/station/offender.dart',
         "import 'package:martinpecheur/data/referentiel/stations_asset.dart';\n",
       );
       _writeTemp(
@@ -258,8 +258,8 @@ void main() {
 
       expect(violations, hasLength(1));
       expect(violations.single.rule, 'domaine-ferme');
-      expect(violations.single.path, 'domain/station/fautif.dart');
-      expect(violations.single.toString(), contains('fautif.dart:1'));
+      expect(violations.single.path, 'domain/station/offender.dart');
+      expect(violations.single.toString(), contains('offender.dart:1'));
     });
 
     test('data-vers-features : un fichier de data/ qui importe une tranche '
@@ -267,7 +267,7 @@ void main() {
       final Directory root = _tempRoot('layers_data_');
       _writeTemp(
         root,
-        'data/referentiel/fautif.dart',
+        'data/referentiel/offender.dart',
         "import 'package:martinpecheur/domain/station/station.dart';\n"
             "import 'package:martinpecheur/features/map/view/map_view.dart';\n",
       );
@@ -284,7 +284,7 @@ void main() {
       final Directory root = _tempRoot('layers_view_model_');
       _writeTemp(
         root,
-        'features/map/view_model/fautif.dart',
+        'features/map/view_model/offender.dart',
         "import 'package:flutter/material.dart';\n"
             "import 'package:flutter/widgets.dart';\n"
             "import 'package:flutter/cupertino.dart';\n",
@@ -312,7 +312,7 @@ void main() {
       final Directory root = _tempRoot('layers_features_');
       _writeTemp(
         root,
-        'features/map/view/fautif.dart',
+        'features/map/view/offender.dart',
         "import 'package:martinpecheur/features/map/view_model/"
             "map_view_model.dart';\n"
             "import 'package:martinpecheur/features/station/view/fiche.dart';\n",

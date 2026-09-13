@@ -237,13 +237,13 @@ final class HubEauClient {
           );
         }
 
-        final String corps = utf8.decode(response.bodyBytes);
+        final String body = utf8.decode(response.bodyBytes);
 
         if (!isRetryable(response.statusCode)) {
-          throw HubEauFailure('statut ${response.statusCode} : $corps');
+          throw HubEauFailure('statut ${response.statusCode} : $body');
         }
 
-        lastFailure = HubEauFailure('statut ${response.statusCode} : $corps');
+        lastFailure = HubEauFailure('statut ${response.statusCode} : $body');
       } on http.ClientException catch (error) {
         if (error.message.contains('already closed')) {
           throw HubEauFailure(

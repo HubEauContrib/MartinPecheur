@@ -22,9 +22,9 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final StationsReadResult referentiel = await loadStationsFromAsset();
+  final StationsReadResult stationsRead = await loadStationsFromAsset();
   final StationPointRepository stationPoints = AssetStationPointRepository(
-    referentiel.points,
+    stationsRead.points,
   );
 
   runApp(MartinPecheurApp(mapViewModel: MapViewModel(stationPoints)));

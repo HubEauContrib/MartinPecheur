@@ -25,15 +25,15 @@
 //   de fonction, et deux fermetures inline ne sont jamais égales même à
 //   code identique. `flutter_map` remplaçait donc l'état de son contrôleur
 //   à chaque frame (NFR-01). [_mapOptions] est un champ `late final`,
-//   construit une seule fois, avec des tear-offs de méthodes
-//   (`_handlePositionChanged`, `_handleMapEvent`) — un tear-off d'une
-//   méthode d'instance reste égal à lui-même d'un accès à l'autre.
+//   construit une seule fois, avec un tear-off de méthode
+//   (`_handleMapEvent`) — un tear-off d'une méthode d'instance reste égal à
+//   lui-même d'un accès à l'autre.
 // - la requête d'emprise partait à chaque frame d'un glisser : dix frames
 //   faisaient dix requêtes et reconstruisaient dix fois les 4 150 marqueurs.
-//   `onPositionChanged` ne fait plus que poser `MapViewModel.camera`, qui ne
-//   notifie personne exprès. La requête part sur [_handleMapEvent], câblé à
-//   `MapOptions.onMapEvent`, uniquement pour les événements de **fin** de
-//   geste — voir [shouldRefreshOn]. La marge proportionnelle
+//   `onPositionChanged` n'est plus câblé du tout : la requête part sur
+//   [_handleMapEvent], câblé à `MapOptions.onMapEvent`, uniquement pour les
+//   événements de **fin** de geste — voir [shouldRefreshOn]. La marge
+//   proportionnelle
 //   `defaultViewportMargin` (`lib/domain/geo/viewport_filter.dart`) couvre le
 //   déplacement entre-temps.
 //
@@ -260,7 +260,6 @@ class _MapViewState extends State<MapView> {
     initialZoom: initialMapZoom,
     minZoom: minimumMapZoom,
     maxZoom: maximumMapZoom,
-    onPositionChanged: _handlePositionChanged,
     onMapEvent: _handleMapEvent,
   );
 
@@ -268,22 +267,6 @@ class _MapViewState extends State<MapView> {
   void initState() {
     super.initState();
     unawaited(widget.viewModel.loadInitial());
-  }
-
-  /// Traduit la caméra de `flutter_map` en [MapViewport] — des `double`, pas
-  /// un type de bibliothèque de carte. Poser `camera` ne notifie personne
-  /// (voir [MapViewModel.camera]) : ce rappel est appelé à chaque frame d'un
-  /// geste.
-  void _handlePositionChanged(MapCamera camera, bool hasGesture) {
-    final LatLngBounds visible = camera.visibleBounds;
-    widget.viewModel.camera = (
-      north: visible.north,
-      south: visible.south,
-      east: visible.east,
-      west: visible.west,
-      zoom: camera.zoom,
-      rotation: camera.rotation,
-    );
   }
 
   /// Câblé à `MapOptions.onMapEvent` : ne déclenche un chargement que pour
