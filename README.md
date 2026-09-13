@@ -28,7 +28,8 @@ Application **Android, iOS et Windows** qui informe les usagers d'une rivière f
 
 - [Le produit](#le-produit) · [Ce qu'il refuse de faire](#ce-quil-refuse-de-faire)
 - [Où en est le projet](#où-en-est-le-projet) · [Démarrage rapide](#démarrage-rapide) · [Commandes](#commandes)
-- [Architecture](#architecture) · [Contribuer](#contribuer) · [Licences](#licences)
+- [Architecture](#architecture) · [Contribuer](#contribuer) · [Remerciements](#remerciements) ·
+  [Licences](#licences)
 
 ## Le produit
 
@@ -169,6 +170,31 @@ Détail : [`docs/03-conception.md`](docs/03-conception.md) ·
 
 Règles complètes : [`CLAUDE.md`](CLAUDE.md) · Conventions de documentation :
 [`docs/README.md`](docs/README.md).
+
+## Remerciements
+
+Rien de ce que montre MartinPêcheur n'est produit par lui. Merci aux équipes qui conçoivent et
+font vivre **Hub'Eau** — l'Office français de la biodiversité, avec le BRGM et les partenaires
+du système d'information sur l'eau — pour des APIs publiques, ouvertes, accessibles sans clé ni
+quota annoncé, sur lesquelles cette application repose entièrement.
+
+Merci aux **hydromètres** des services de l'État et de leurs partenaires, qui entretiennent les
+stations, jaugent les cours d'eau et valident les mesures : chaque débit affiché ici est le
+résultat de leur travail sur le terrain, souvent par crue ou par étiage, rarement par beau temps.
+
+Merci aux **observateurs de l'ONDE**, le réseau animé par l'OFB, qui chaque été vont regarder à
+pied si l'eau coule encore sur leur tronçon — une observation visuelle, humaine, que rien ne
+remplace.
+
+Merci à l'**IGN** pour le fond de carte de la Géoplateforme, mis à disposition sous Licence
+Ouverte, et aux équipes de **VigiEau** pour les données de restriction et les arrêtés qu'elles
+publient.
+
+Merci enfin aux mainteneurs des bibliothèques libres sur lesquelles ce projet s'appuie, à
+commencer par Flutter et `flutter_map`.
+
+MartinPêcheur ne fait que rendre lisible ce que ces personnes mesurent, observent et publient —
+aucune de ces données ne lui appartient.
 
 ## Licences
 
