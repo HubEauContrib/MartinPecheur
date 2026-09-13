@@ -109,6 +109,32 @@ void main() {
               'depot (arbitrage T0-M4)',
         );
       });
+
+      test('applique la marge par defaut du filtre (defaultViewportMargin, '
+          'viewport_filter.dart) : Blois hors de l\'emprise stricte mais '
+          'dans la marge de 0,5 est tout de meme retenu', () async {
+        registerHandlers(
+          bus,
+          stationRepository: repository,
+          stationPoints: <StationPoint>[blois, guadeloupe],
+        );
+        // Emprise stricte 1° x 1° qui exclut Blois (lat 47,58 > north
+        // 47,2 ; lon 1,335 > east 1) mais que la marge de 0,5 (moitie de
+        // la hauteur/largeur) elargit assez pour l'inclure (north+0,5 =
+        // 47,7 ; east+0,5 = 1,5).
+        final Bounds empriseEtroite = Bounds(
+          west: 0,
+          south: 46.2,
+          east: 1,
+          north: 47.2,
+        );
+
+        final List<StationPoint> resultat = await bus.send<List<StationPoint>>(
+          StationPointsWithinBoundsQuery(empriseEtroite),
+        );
+
+        expect(resultat, <StationPoint>[blois]);
+      });
     },
   );
 }

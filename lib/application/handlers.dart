@@ -13,6 +13,9 @@
 // StationPoint, et repasser par Station puis reconvertir a chaque geste de
 // camera serait une allocation inutile pour 4 150 stations (arbitrage
 // T0-M4, cf. messages.dart).
+//
+// ⚠️ dépendance application → features/map (viewport_filter) : à résoudre
+// avec ADR-014.
 
 import 'package:martinpecheur/application/bus.dart';
 import 'package:martinpecheur/application/messages.dart';

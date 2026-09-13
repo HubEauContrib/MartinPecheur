@@ -1,4 +1,4 @@
-// L'écran carte (T0-M4) : le fond IGN Géoplateforme, son attribution en
+// L'écran carte (T0-M4/M5) : le fond IGN Géoplateforme, son attribution en
 // toutes lettres — une condition d'usage de la donnée sous Licence Ouverte,
 // jamais une finition (`04-ui.md` § 3) — et les stations du référentiel en
 // marqueurs du viewport élargi. Les couches sont produites par
@@ -17,9 +17,36 @@
 // — isolé dans [MapStationsController], testable sans monter de widget ni
 // de `FlutterMap` — et un gestionnaire, câblé dans `main.dart`, répond.
 //
+// Relecture M3/M4 (2026-09-13) — deux défauts corrigés :
+// - `MapOptions` était reconstruite à chaque `build` avec des fermetures
+//   inline : `MapOptions ==` (paquet flutter_map 8.3.2,
+//   `lib/src/map/options/options.dart`) compare chaque callback par égalité
+//   de fonction, et deux fermetures inline ne sont jamais égales même à
+//   code identique. `flutter_map` remplaçait donc l'état de son contrôleur
+//   à chaque frame (NFR-01). `_mapOptions` est maintenant un champ
+//   `late final`, construit une seule fois, avec des tear-offs de méthodes
+//   (`_handlePositionChanged`, `_handleMapEvent`) — un tear-off d'une
+//   méthode d'instance reste égal à lui-même d'un accès à l'autre.
+// - `onPositionChanged` envoyait une requête au bus à chaque frame d'un
+//   glisser : un déplacement de dix frames faisait dix requêtes et
+//   reconstruisait dix fois les 4 150 marqueurs. `onPositionChanged` ne
+//   fait plus que mettre à jour [_camera] (gardé pour un futur usage —
+//   rotation, `04-ui.md` — mais délibérément absent du `Listenable.merge`
+//   de [build] : rien ne le lit pour le rendu, l'y inclure reconstruirait
+//   la carte à chaque frame pour rien). La requête part sur
+//   [_handleMapEvent], câblé à `MapOptions.onMapEvent`, uniquement pour les
+//   événements de **fin** de geste — voir [shouldRefreshOn]. La marge
+//   proportionnelle `defaultViewportMargin` (`viewport_filter.dart`) fait
+//   le travail entre-temps : les marqueurs déjà chargés couvrent le
+//   déplacement jusqu'au prochain relâcher.
+//
+// Une erreur du bus (bus sans gestionnaire, gestionnaire qui lève) n'est
+// plus avalée : [MapStationsController.error] la porte, et l'écran affiche
+// [MapErrorBanner] au lieu d'une carte muette (`BR-007`).
+//
 // État par `ValueNotifier` + `ListenableBuilder` (aucune dépendance
-// ajoutée) : les stations du viewport courant ([MapStationsController]) et
-// la caméra courante, mise à jour par `MapOptions.onPositionChanged`.
+// ajoutée) : les stations du viewport courant et l'erreur éventuelle
+// ([MapStationsController]), la caméra courante à part ([_camera]).
 
 import 'dart:async' show unawaited;
 
@@ -31,7 +58,6 @@ import 'package:martinpecheur/application/messages.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/features/map/ign_tile_template.dart';
-import 'package:martinpecheur/features/map/viewport_filter.dart';
 
 /// Centre initial de la carte : France métropolitaine.
 const double initialMapCenterLatitude = 46.6;
@@ -55,69 +81,45 @@ const double maximumMapZoom = ignMaxNativeZoom * 1.0;
 /// rendu visuel.
 const double stationMarkerSize = 12;
 
-/// Emprise visible, en degrés décimaux WGS 84 — un enregistrement nommé, pas
-/// le type de `flutter_map` (`LatLngBounds`) : [buildMapLayers] reste
-/// appelable sans dépendre de la caméra ni d'aucune bibliothèque de carte,
-/// et se teste avec de simples valeurs.
-typedef VisibleBounds = ({
-  double north,
-  double south,
-  double east,
-  double west,
-});
-
-/// Convertit la caméra courante en [VisibleBounds]. Rend `null` en l'absence
-/// de caméra — au premier rendu, avant le premier `onPositionChanged`.
-VisibleBounds? _boundsOf(MapCamera? camera) {
-  if (camera == null) {
-    return null;
-  }
-  final LatLngBounds visible = camera.visibleBounds;
-  return (
-    north: visible.north,
-    south: visible.south,
-    east: visible.east,
-    west: visible.west,
-  );
-}
+/// Décide si [event] doit déclencher une nouvelle requête d'emprise.
+/// Fonction pure, testable sans widget ni `FlutterMap` — construite avec les
+/// constructeurs de `MapEvent` du paquet, ou testée par son type runtime.
+///
+/// Seuls les événements de **fin** de geste répondent `true` : ce sont les
+/// classes `…End` du paquet flutter_map 8.3.2
+/// (`lib/src/gestures/map_events.dart`) — [MapEventMoveEnd] (ligne 219, fin
+/// d'un glisser), [MapEventFlingAnimationEnd] (ligne 262, fin d'un fling),
+/// [MapEventDoubleTapZoomEnd] (ligne 306, fin d'un double-tap) et
+/// [MapEventRotateEnd] (ligne 342, fin d'une rotation) — plus
+/// [MapEventScrollWheelZoom] (ligne 283) : le paquet ne lui connaît pas de
+/// variante `…End`, chaque cran de molette y est déjà un geste complet et
+/// discret. Un événement intermédiaire (`MapEventMove`, émis à chaque frame
+/// d'un glisser en cours) répond `false` : la marge proportionnelle
+/// `defaultViewportMargin` (`viewport_filter.dart`) couvre déjà le
+/// déplacement jusqu'au prochain relâcher — envoyer une requête à chaque
+/// frame reconstruirait les 4 150 marqueurs pour rien (NFR-01).
+bool shouldRefreshOn(MapEvent event) =>
+    event is MapEventMoveEnd ||
+    event is MapEventFlingAnimationEnd ||
+    event is MapEventScrollWheelZoom ||
+    event is MapEventDoubleTapZoomEnd ||
+    event is MapEventRotateEnd;
 
 /// Construit les couches de la carte, dans l'ordre où `FlutterMap` doit les
 /// empiler — le fond de tuiles **premier**, les marqueurs ensuite. Fonction
 /// pure, testable sans rendu ni accès réseau.
 ///
-/// [visibleBounds] filtre [stations] à l'emprise stricte, **sans marge** —
-/// la marge proportionnelle (`defaultViewportMargin`) est déjà appliquée en
-/// amont, côté requête (`MapStationsController`, via
-/// `StationPointsWithinBoundsQuery`) ; la réappliquer ici masquerait un bug
-/// de marge côté requête plutôt que de le révéler. Ce filtre strict n'est
-/// qu'un filet de sécurité pour l'affichage : il évite de dessiner
-/// brièvement des stations d'un viewport précédent pendant qu'une réponse
-/// plus fraîche est en vol. `null` (au premier rendu, ou pour un test qui
-/// exerce [buildMapLayers] seule) laisse passer toutes les [stations] —
-/// au zoom national la France entière est de toute façon visible.
-///
-/// [camera] n'est plus utilisé pour filtrer (ce rôle revient à
-/// [visibleBounds]) ; il reste dans la signature pour ne pas la changer une
-/// seconde fois et pour un futur usage (rotation, `04-ui.md`).
+/// Ne refiltre plus [stations] à une emprise : le filtre fait foi côté
+/// requête (`MapStationsController`, via `StationPointsWithinBoundsQuery`,
+/// marge `defaultViewportMargin` comprise) — le dupliquer ici masquerait un
+/// bug de marge côté requête plutôt que de le révéler, et un filtre à marge
+/// nulle ici (l'ancien comportement) supprimait purement et simplement les
+/// marqueurs de la marge que la requête venait de rapporter.
+/// [buildMapLayers] dessine exactement ce que le contrôleur lui donne.
 ///
 /// Une couche de marqueurs **vide n'est pas ajoutée** : au moins une station
 /// visible est nécessaire pour que `MarkerLayer` apparaisse dans la liste.
-List<Widget> buildMapLayers({
-  required List<StationPoint> stations,
-  required MapCamera? camera,
-  VisibleBounds? visibleBounds,
-}) {
-  final List<StationPoint> visibleStations = visibleBounds == null
-      ? stations
-      : stationsWithinViewport(
-          stations,
-          north: visibleBounds.north,
-          south: visibleBounds.south,
-          east: visibleBounds.east,
-          west: visibleBounds.west,
-          margin: 0,
-        );
-
+List<Widget> buildMapLayers({required List<StationPoint> stations}) {
   final List<Widget> layers = <Widget>[
     TileLayer(
       urlTemplate: ignTileUrlTemplate,
@@ -127,10 +129,10 @@ List<Widget> buildMapLayers({
     ),
   ];
 
-  if (visibleStations.isNotEmpty) {
+  if (stations.isNotEmpty) {
     layers.add(
       MarkerLayer(
-        markers: visibleStations
+        markers: stations
             .map(
               (StationPoint station) => Marker(
                 // ⚠️ GeoJSON range les coordonnées [longitude, latitude] ;
@@ -184,7 +186,7 @@ class StationMarkerDot extends StatelessWidget {
 
 /// Isole l'envoi de [StationPointsWithinBoundsQuery] au [Bus] et l'état qui
 /// en résulte — testable sans monter de widget ni de `FlutterMap`
-/// (`MapScreen` ne fait que le brancher à `MapOptions.onPositionChanged`).
+/// (`MapScreen` ne fait que le brancher à `MapOptions`).
 class MapStationsController {
   MapStationsController(this._bus);
 
@@ -194,7 +196,19 @@ class MapStationsController {
   final ValueNotifier<List<StationPoint>> stations =
       ValueNotifier<List<StationPoint>>(<StationPoint>[]);
 
-  Bounds? _derniereEmpriseEnvoyee;
+  /// La dernière erreur survenue en interrogeant le bus, ou `null` en
+  /// l'absence d'erreur. L'écran l'affiche dans [MapErrorBanner] au lieu
+  /// d'une carte muette (`BR-007`) : le bus n'avale aucune erreur (voir
+  /// `bus.dart`), [refresh] ne doit pas non plus l'avaler en silence.
+  final ValueNotifier<Object?> error = ValueNotifier<Object?>(null);
+
+  /// Levé par [dispose] : une réponse qui arrive après que l'écran a été
+  /// démonté ne doit plus toucher [stations] ni [error] — les deux
+  /// `ValueNotifier` sont alors déjà disposés, et leur écrire lèverait une
+  /// assertion (« A ValueNotifier was used after being disposed »).
+  bool _disposed = false;
+
+  Bounds? _lastRequestedBounds;
 
   /// Emprise de démarrage, avant tout geste de caméra : France
   /// métropolitaine. Documentée comme une emprise de démarrage — pas une
@@ -211,10 +225,15 @@ class MapStationsController {
 
   /// Envoie une [StationPointsWithinBoundsQuery] pour [bounds] et met à jour
   /// [stations], sauf si les quatre bords sont identiques à la dernière
-  /// emprise envoyée — évite un aller-retour au bus à chaque trame de
-  /// caméra.
+  /// emprise envoyée — évite un aller-retour au bus à chaque relâcher qui ne
+  /// change rien. Une erreur du bus (aucun gestionnaire, gestionnaire qui
+  /// lève) est capturée et posée dans [error] plutôt que de remonter : les
+  /// deux appels en tir-et-oublie (`unawaited`, dans `MapScreen`) qui
+  /// passent par [refresh] ne doivent jamais planter l'application pour une
+  /// panne réseau (`BR-007`) — ni, si l'écran a déjà été démonté, toucher
+  /// des `ValueNotifier` disposés ([_disposed]).
   Future<void> refresh(Bounds bounds) async {
-    final Bounds? derniere = _derniereEmpriseEnvoyee;
+    final Bounds? derniere = _lastRequestedBounds;
     if (derniere != null &&
         derniere.north == bounds.north &&
         derniere.south == bounds.south &&
@@ -223,33 +242,75 @@ class MapStationsController {
       return;
     }
 
-    _derniereEmpriseEnvoyee = bounds;
-    final List<StationPoint> reponse = await _bus.send<List<StationPoint>>(
-      StationPointsWithinBoundsQuery(bounds),
-    );
-    stations.value = reponse;
+    _lastRequestedBounds = bounds;
+    await _bus
+        .send<List<StationPoint>>(StationPointsWithinBoundsQuery(bounds))
+        .then((List<StationPoint> reponse) {
+          if (_disposed) {
+            return;
+          }
+          stations.value = reponse;
+          error.value = null;
+        })
+        .catchError((Object erreur) {
+          if (_disposed) {
+            return;
+          }
+          error.value = erreur;
+        });
   }
 
   void dispose() {
+    _disposed = true;
     stations.dispose();
+    error.dispose();
+  }
+}
+
+/// Bandeau d'erreur minimal (`BR-007`) : affiché à la place d'une carte
+/// muette quand le bus n'a pas pu répondre — bus sans gestionnaire,
+/// gestionnaire qui lève, panne réseau à venir en T1. Widget séparé,
+/// testable sans monter de `FlutterMap` (même contrainte que
+/// [IgnAttributionBadge]).
+class MapErrorBanner extends StatelessWidget {
+  const MapErrorBanner({required this.error, super.key});
+
+  /// L'erreur à afficher. Son `toString()` est montré tel quel : ce n'est
+  /// pas un message pensé pour l'utilisateur final, mais T0 n'a rien de
+  /// mieux tant que les avertissements (`BR-012`, `BR-013`) ne sont pas
+  /// arrivés.
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Colors.red),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          "Les stations n'ont pas pu être chargées : $error",
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+    );
   }
 }
 
 /// Bandeau d'attribution IGN Géoplateforme, exigé par la Licence Ouverte.
 /// Porte son propre fond opaque : un texte posé directement sur un fond de
-/// carte quelconque ne tient aucun contraste (`04-ui.md` § 3). Sous-arbre
-/// entièrement `const` — rien ici ne dépend de l'état de l'écran.
+/// carte quelconque ne tient aucun contraste (`04-ui.md` § 3). Entièrement
+/// `const` : rien ici ne dépend de l'état de l'écran.
 class IgnAttributionBadge extends StatelessWidget {
   const IgnAttributionBadge({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return const DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.all(Radius.circular(4)),
+        borderRadius: BorderRadius.all(Radius.circular(4)),
       ),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         child: Text(ignAttribution, style: TextStyle(fontSize: 11)),
       ),
@@ -275,7 +336,32 @@ class _MapScreenState extends State<MapScreen> {
   late final MapStationsController _controller = MapStationsController(
     widget.bus,
   );
+
+  /// La caméra courante, mise à jour à chaque `onPositionChanged` — gardée
+  /// pour un futur usage (rotation, `04-ui.md`), mais délibérément absente
+  /// du `Listenable.merge` de [build] : rien n'en dépend pour le rendu, l'y
+  /// inclure reconstruirait les 4 150 marqueurs à chaque frame d'un geste
+  /// pour rien (le défaut corrigé par la relecture M3/M4, voir l'en-tête du
+  /// fichier).
   final ValueNotifier<MapCamera?> _camera = ValueNotifier<MapCamera?>(null);
+
+  /// Construites une seule fois : `MapOptions ==` (paquet flutter_map
+  /// 8.3.2, `options.dart`) compare chaque callback par égalité de
+  /// fonction, et les tear-offs de méthodes d'instance ci-dessous restent
+  /// égaux d'un accès à l'autre — contrairement à des fermetures inline
+  /// recréées à chaque `build`, qui auraient fait remplacer l'état interne
+  /// du contrôleur `flutter_map` à chaque frame (NFR-01).
+  late final MapOptions _mapOptions = MapOptions(
+    initialCenter: const LatLng(
+      initialMapCenterLatitude,
+      initialMapCenterLongitude,
+    ),
+    initialZoom: initialMapZoom,
+    minZoom: minimumMapZoom,
+    maxZoom: maximumMapZoom,
+    onPositionChanged: _handlePositionChanged,
+    onMapEvent: _handleMapEvent,
+  );
 
   @override
   void initState() {
@@ -283,15 +369,27 @@ class _MapScreenState extends State<MapScreen> {
     unawaited(_controller.loadInitial());
   }
 
-  Future<void> _handlePositionChanged(MapCamera camera, bool hasGesture) {
+  void _handlePositionChanged(MapCamera camera, bool hasGesture) {
     _camera.value = camera;
-    final LatLngBounds visible = camera.visibleBounds;
-    return _controller.refresh(
-      Bounds(
-        west: visible.west,
-        south: visible.south,
-        east: visible.east,
-        north: visible.north,
+  }
+
+  /// Câblé à `MapOptions.onMapEvent` : ne déclenche une requête d'emprise
+  /// que pour les événements de fin de geste ([shouldRefreshOn]), jamais à
+  /// chaque frame d'un glisser en cours.
+  void _handleMapEvent(MapEvent event) {
+    if (!shouldRefreshOn(event)) {
+      return;
+    }
+
+    final LatLngBounds visible = event.camera.visibleBounds;
+    unawaited(
+      _controller.refresh(
+        Bounds(
+          west: visible.west,
+          south: visible.south,
+          east: visible.east,
+          north: visible.north,
+        ),
       ),
     );
   }
@@ -311,27 +409,24 @@ class _MapScreenState extends State<MapScreen> {
           ListenableBuilder(
             listenable: Listenable.merge(<Listenable>[
               _controller.stations,
-              _camera,
+              _controller.error,
             ]),
             builder: (BuildContext context, Widget? child) {
-              return FlutterMap(
-                options: MapOptions(
-                  initialCenter: const LatLng(
-                    initialMapCenterLatitude,
-                    initialMapCenterLongitude,
+              final Object? error = _controller.error.value;
+              return Stack(
+                children: <Widget>[
+                  FlutterMap(
+                    options: _mapOptions,
+                    children: buildMapLayers(
+                      stations: _controller.stations.value,
+                    ),
                   ),
-                  initialZoom: initialMapZoom,
-                  minZoom: minimumMapZoom,
-                  maxZoom: maximumMapZoom,
-                  onPositionChanged: (MapCamera camera, bool hasGesture) {
-                    unawaited(_handlePositionChanged(camera, hasGesture));
-                  },
-                ),
-                children: buildMapLayers(
-                  stations: _controller.stations.value,
-                  camera: _camera.value,
-                  visibleBounds: _boundsOf(_camera.value),
-                ),
+                  if (error != null)
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: MapErrorBanner(error: error),
+                    ),
+                ],
               );
             },
           ),

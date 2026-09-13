@@ -126,6 +126,15 @@ avec les **4 150** de l'asset versionné, filtré, ci-dessus). ⚠️ Le GeoJSON
 `[longitude, latitude]` — les inverser ne lève aucune erreur ; petit extrait déclaré de ce
 fichier : `test/fixtures/referentiel/stations_extrait_2026-09-13.json`.
 
+Fait constaté le 2026-09-13, en lisant l'asset (`parseStations`,
+`test/data/referentiel/stations_asset_test.dart`) : sur les **4 150** points, **4 113**
+entités `Station` complètes, **37** écartées de `stations` pour `code_departement` absent ou
+mal formé — des stations transfrontalières (le Rhin en Allemagne/Suisse, la Meuse et la
+Semois/l'Escaut en Belgique) plus deux stations corses (`Y880000101`, `Y971000201`). Ce n'est
+pas un bug de l'analyse : le référentiel Hub'Eau porte ces stations sans département français.
+Les 37 restent dans `points` — la carte les affiche — mais sont écartées de `stations` plutôt
+que de recevoir un département inventé (`BR-007`).
+
 ## Non vérifié
 
 - Le quota réel : `curl -sI` sur `/observations_tr` le 2026-09-13 ne renvoie aucun en-tête

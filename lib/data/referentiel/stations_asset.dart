@@ -17,8 +17,11 @@ import 'package:martinpecheur/domain/station/station.dart';
 const String stationsAssetPath = 'assets/referentiel/stations.json';
 
 /// Un point a dessiner sur la carte. Volontairement distinct de [Station] :
-/// le referentiel fige n'apporte qu'un code, un libelle et des coordonnees —
-/// jamais le departement, le cours d'eau ni l'etat de service.
+/// c'est une projection legere du referentiel — code, libelle, coordonnees —
+/// pour la carte, qui n'a besoin de rien d'autre pour 4 150 marqueurs. Le
+/// referentiel fige porte bien le departement, le cours d'eau et l'etat de
+/// service (voir [_toStationEntity]) : c'est [Station], pas [StationPoint],
+/// qui les transporte.
 final class StationPoint {
   const StationPoint({
     required this.code,

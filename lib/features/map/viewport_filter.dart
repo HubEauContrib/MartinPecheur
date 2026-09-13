@@ -5,8 +5,12 @@
 //
 // La marge est proportionnelle à l'emprise, pas un nombre de degrés fixe :
 // une marge fixe couvrirait la moitié de l'Europe au zoom national et rien
-// du tout au zoom rue. Elle existe pour que les marqueurs soient déjà là
-// quand ils entrent à l'écran, plutôt que de surgir au bord (BR-007).
+// du tout au zoom rue. Depuis la relecture M3/M4 (2026-09-13), la requête
+// d'emprise ne part qu'au relâcher d'un geste (`map_screen.dart`,
+// `shouldRefreshOn`), jamais à chaque frame d'un geste en cours : la marge
+// sert précisément à ce que les marqueurs déjà chargés couvrent le
+// déplacement jusqu'au relâcher suivant, plutôt que de les faire surgir au
+// bord une fois la requête suivante revenue (BR-007).
 //
 // Dart pur : aucun `package:flutter`, `package:flutter_map` ni
 // `package:latlong2`. Ce module ne connaît que des `double` et
