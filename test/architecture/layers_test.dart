@@ -2,9 +2,9 @@
 // l'arbitrage du 2026-09-13 (ADR-014, feature-first + MVVM), les frontieres a
 // tenir ne sont plus seulement « aucune infrastructure sous lib/domain/ »
 // — c'est ce que verrouille `domain_isolation_test.dart`, qui reste le
-// premier test du projet et n'est pas touche ici. Ce fichier le **complete**
-// avec les quatre regles de couches que la nouvelle disposition introduit, et
-// qu'aucun lint de la chaine Dart ne sait exprimer :
+// premier test du projet. Ce fichier le **complete** avec les cinq regles de
+// couches que la nouvelle disposition introduit, et qu'aucun lint de la chaine
+// Dart ne sait exprimer :
 //
 // 1. `domaine-ferme` — un fichier de `domain/` n'importe rien du projet hors
 //    `domain/`. Le domaine porte les invariants : s'il connait un depot
@@ -19,20 +19,38 @@
 //    C'est exactement la dependance qui s'etait glissee dans
 //    `application/handlers.dart` au temps du registre de messages, et que
 //    rien ne voyait.
-// 3. `view-model-sans-widget` — un fichier sous `view_model/` n'importe ni
-//    `material.dart`, ni `widgets.dart`, ni `cupertino.dart`. Un ViewModel
-//    qui connait un widget se teste en montant un arbre de widgets, donc
-//    lentement et par le rendu : la regle metier finit dans la vue.
+// 3. `view-model-sans-widget` — un ViewModel n'importe ni `material.dart`, ni
+//    `widgets.dart`, ni `cupertino.dart`. Un ViewModel qui connait un widget
+//    se teste en montant un arbre de widgets, donc lentement et par le
+//    rendu : la regle metier finit dans la vue.
 //    `package:flutter/foundation.dart` reste autorise — c'est de la ou vient
-//    `ChangeNotifier`, qui n'est pas un widget.
+//    `ChangeNotifier`, qui n'est pas un widget. Est un ViewModel tout fichier
+//    sous `view_model/` **et** tout fichier nomme `*_view_model.dart` ou
+//    qu'il soit : la regle ne doit pas se contourner en posant le fichier a
+//    plat dans la tranche.
 // 4. `feature-vers-feature` — une tranche n'importe pas une autre tranche.
 //    Deux tranches qui se citent ne sont plus deux tranches : ce qu'elles
 //    partagent appartient a `domain/` ou a `data/`.
+// 5. `features-vers-data` — aucun fichier sous `features/` n'importe
+//    `data/`, ni la vue ni le ViewModel. Un ViewModel depend d'une
+//    **interface** de depot, declaree dans `domain/` : c'est l'inversion des
+//    dependances qui rend l'ecran testable avec un double en memoire, sans
+//    asset ni reseau. `main.dart` en est exempt, et lui seul — c'est la
+//    racine de composition, son travail est precisement de choisir les
+//    implementations concretes et de les injecter.
 //
 // On lit le **texte** des directives, pas un arbre syntaxique : plus
 // grossier, mais sans dependance d'analyse et sans panne silencieuse — un
 // commentaire qui nomme un import interdit n'est pas une dependance. Meme
 // choix que `domain_isolation_test.dart`.
+//
+// ⚠️ Un import relatif franchit une frontiere aussi bien qu'un import
+// `package:` : `import '../../data/x.dart'` depuis `domain/` est exactement la
+// meme dependance que `import 'package:martinpecheur/data/x.dart'`. Les regles
+// sont donc appliquees a une forme **canonique** ([_canonicalUri]) : le chemin
+// relatif est resolu depuis le dossier du fichier importateur, puis reecrit en
+// `package:martinpecheur/…`. L'URI **relevee** reste celle qui est ecrite dans
+// le fichier, sinon le message d'echec ne suffit plus a retrouver la ligne.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -141,7 +159,38 @@ String? _featureOf(String path) {
   return segments[1];
 }
 
-/// Applique les quatre regles de couches aux fichiers sous [root], traite
+/// Reecrit [uri] en `package:martinpecheur/…` quand elle designe un fichier du
+/// projet, qu'elle soit ecrite en `package:` ou en chemin **relatif** — resolu
+/// depuis le dossier de [importerPath], `.` et `..` compris. Une URI d'un autre
+/// schema (`dart:`, un autre paquet) est rendue telle quelle : elle ne concerne
+/// aucune regle de couche.
+String _canonicalUri(String importerPath, String uri) {
+  if (uri.contains(':')) {
+    return uri;
+  }
+
+  final List<String> segments = importerPath.split('/');
+  if (segments.isNotEmpty) {
+    segments.removeLast();
+  }
+
+  for (final String part in uri.split('/')) {
+    if (part.isEmpty || part == '.') {
+      continue;
+    }
+    if (part == '..') {
+      if (segments.isNotEmpty) {
+        segments.removeLast();
+      }
+      continue;
+    }
+    segments.add(part);
+  }
+
+  return '$selfPackagePrefix${segments.join('/')}';
+}
+
+/// Applique les cinq regles de couches aux fichiers sous [root], traite
 /// comme s'il etait `lib/` : les chemins releves sont relatifs a [root]
 /// (`domain/…`, `data/…`, `features/<tranche>/…`).
 List<LayerViolation> layerViolationsUnder(Directory root) {
@@ -149,7 +198,10 @@ List<LayerViolation> layerViolationsUnder(Directory root) {
 
   for (final _Directive directive in _directivesUnder(root)) {
     final String path = directive.path;
-    final String uri = directive.uri;
+    // L'URI telle qu'elle est ECRITE sert au message ; les regles, elles,
+    // travaillent sur la forme canonique.
+    final String written = directive.uri;
+    final String uri = _canonicalUri(path, written);
 
     void record(String rule) {
       violations.add(
@@ -157,7 +209,7 @@ List<LayerViolation> layerViolationsUnder(Directory root) {
           rule: rule,
           path: path,
           line: directive.line,
-          importUri: uri,
+          importUri: written,
         ),
       );
     }
@@ -175,8 +227,12 @@ List<LayerViolation> layerViolationsUnder(Directory root) {
       record('data-vers-features');
     }
 
-    // 3 — un ViewModel ne connait aucun widget.
-    if (path.contains('view_model/') && widgetLibraries.contains(uri)) {
+    // 3 — un ViewModel ne connait aucun widget. Sous `view_model/` ou nomme
+    // `*_view_model.dart` : la regle ne se contourne pas en deplacant le
+    // fichier.
+    final bool isViewModel =
+        path.contains('view_model/') || path.endsWith('_view_model.dart');
+    if (isViewModel && widgetLibraries.contains(uri)) {
       record('view-model-sans-widget');
     }
 
@@ -190,6 +246,13 @@ List<LayerViolation> layerViolationsUnder(Directory root) {
       if (importedFeature != feature) {
         record('feature-vers-feature');
       }
+    }
+
+    // 5 — aucune tranche n'atteint `data/`. `main.dart`, la racine de
+    // composition, n'est pas sous `features/` : il reste libre.
+    if (path.startsWith('features/') &&
+        uri.startsWith('${selfPackagePrefix}data/')) {
+      record('features-vers-data');
     }
   }
 
@@ -216,7 +279,7 @@ Directory _tempRoot(String prefix) {
 
 void main() {
   group('Couches MVVM (ADR-014)', () {
-    test('lib/ respecte les quatre regles de couches', () {
+    test('lib/ respecte les cinq regles de couches', () {
       final List<LayerViolation> violations = layerViolationsUnder(
         Directory('lib'),
       );
@@ -225,7 +288,7 @@ void main() {
         violations,
         isEmpty,
         reason:
-            'Une frontiere de couche est franchie. Les quatre regles sont '
+            'Une frontiere de couche est franchie. Les cinq regles sont '
             "enoncees en tete de ce fichier, avec la raison d'etre de "
             'chacune. Manquements : '
             '${violations.map((LayerViolation v) => v.toString()).join(' · ')}',
@@ -304,6 +367,101 @@ void main() {
       expect(
         violations.map((LayerViolation v) => v.importUri).toSet(),
         widgetLibraries.toSet(),
+      );
+    });
+
+    test('features-vers-data : un fichier de features/ qui importe data/ est '
+        "releve, qu'il soit vue ou ViewModel", () {
+      final Directory root = _tempRoot('layers_features_data_');
+      _writeTemp(
+        root,
+        'features/map/view/offender.dart',
+        "import 'package:martinpecheur/data/referentiel/stations_asset.dart';\n",
+      );
+      _writeTemp(
+        root,
+        'features/map/view_model/offender.dart',
+        "import 'package:martinpecheur/data/cache/cache_policy.dart';\n",
+      );
+      _writeTemp(
+        root,
+        'features/map/view/innocent.dart',
+        "import 'package:martinpecheur/domain/geo/bounds.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(2));
+      expect(violations.map((LayerViolation v) => v.rule).toSet(), <String>{
+        'features-vers-data',
+      });
+    });
+
+    test('features-vers-data ne concerne pas main.dart : la racine de '
+        'composition cable les depots, c est son travail', () {
+      final Directory root = _tempRoot('layers_main_');
+      _writeTemp(
+        root,
+        'main.dart',
+        "import 'package:martinpecheur/data/referentiel/"
+            "asset_station_point_repository.dart';\n",
+      );
+
+      expect(layerViolationsUnder(root), isEmpty);
+    });
+
+    test('view-model-sans-widget : un fichier x_view_model.dart HORS du '
+        'dossier view_model/ est releve lui aussi', () {
+      final Directory root = _tempRoot('layers_view_model_plat_');
+      _writeTemp(
+        root,
+        'features/station/station_view_model.dart',
+        "import 'package:flutter/material.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(1));
+      expect(violations.single.rule, 'view-model-sans-widget');
+      expect(
+        violations.single.path,
+        'features/station/station_view_model.dart',
+      );
+    });
+
+    test('imports relatifs : un chemin relatif est resolu depuis le fichier '
+        "importateur, un chemin qui reste dans la couche ne l'est pas", () {
+      final Directory root = _tempRoot('layers_relatifs_');
+      _writeTemp(
+        root,
+        'domain/station/offender.dart',
+        "import '../../data/referentiel/stations_asset.dart';\n",
+      );
+      _writeTemp(
+        root,
+        'features/map/view/offender.dart',
+        "import '../../../data/referentiel/stations_asset.dart';\n",
+      );
+      _writeTemp(
+        root,
+        'domain/station/innocent.dart',
+        "import '../units/quantities.dart';\n"
+            "import './station_point.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(2));
+      expect(violations.map((LayerViolation v) => v.rule).toSet(), <String>{
+        'domaine-ferme',
+        'features-vers-data',
+      });
+      expect(
+        violations.map((LayerViolation v) => v.importUri),
+        everyElement(startsWith('..')),
+        reason:
+            "l'URI relevee reste celle qui est ECRITE dans le fichier : "
+            'sinon le message ne suffit plus a retrouver la ligne',
       );
     });
 
