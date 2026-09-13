@@ -97,6 +97,16 @@ void main() {
     });
   });
 
+  group('Gigue hors contrat (bornée dans [0, 1])', () {
+    test('jitter() > 1 (1.5) à la tentative 5 est borné à maxDelay', () {
+      expect(delayForAttempt(5, jitter: () => 1.5), maxDelay);
+    });
+
+    test('jitter() négatif (-0.2) à la tentative 0 est borné à baseDelay', () {
+      expect(delayForAttempt(0, jitter: () => -0.2), baseDelay);
+    });
+  });
+
   group('Bornes et erreurs', () {
     test('le délai ne dépasse jamais maxDelay, gigue maximale, 0 à 63', () {
       for (int attempt = 0; attempt <= 63; attempt++) {

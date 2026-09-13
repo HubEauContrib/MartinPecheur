@@ -53,6 +53,9 @@ Duration delayForAttempt(
   final int capMs = maxDelay.inMilliseconds ~/ 2;
   final int baseMs = rawBaseMs > capMs ? capMs : rawBaseMs;
 
-  final double delayMs = baseMs + jitter() * baseMs;
+  // Borné avant usage : un jitter() hors contrat (négatif, ou > 1) ferait
+  // dépasser le plafond documenté de 30 s ou descendre sous baseDelay.
+  final double clampedJitter = jitter().clamp(0.0, 1.0);
+  final double delayMs = baseMs + clampedJitter * baseMs;
   return Duration(milliseconds: delayMs.round());
 }
