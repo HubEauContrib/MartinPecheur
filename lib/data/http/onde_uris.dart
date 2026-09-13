@@ -32,12 +32,23 @@ const String _basePath = '/api/v1/ecoulement';
 /// `mapOndeObservation` et `mapOndePoint`
 /// (`lib/data/mappers/onde_observation_mapper.dart`), pas un de plus
 /// (YAGNI) — `code_cours_eau` n'y figure pas, le mapper ne lit que
-/// `libelle_cours_eau`. `fields` est accepté par l'API (T-02, constaté le
-/// 2026-09-13).
-const String _observationFields =
-    'code_station,libelle_station,code_departement,libelle_cours_eau,'
-    'code_campagne,date_observation,code_ecoulement,libelle_ecoulement,'
-    'latitude,longitude';
+/// `libelle_cours_eau`. `fields` est accepté par l'API, forme exacte
+/// vérifiée par appel réel (`T-13`, `docs/sources/onde.md`). Cette liste est
+/// maintenue en double avec `test/data/http/onde_uris_test.dart` : un ajout
+/// de lecture dans `onde_observation_mapper.dart` impose une mise à jour ici
+/// **et** dans son test.
+const List<String> _observationFields = <String>[
+  'code_station',
+  'libelle_station',
+  'code_departement',
+  'libelle_cours_eau',
+  'code_campagne',
+  'date_observation',
+  'code_ecoulement',
+  'libelle_ecoulement',
+  'latitude',
+  'longitude',
+];
 
 /// URI de `/observations` filtrée par emprise, depuis [since] (inclus).
 /// [since] est requis : sans borne, l'API renverrait l'historique complet
@@ -51,19 +62,22 @@ Uri ondeObservationsWithinBoundsUri({
   return _observationsUri(<String, String>{
     // ouest,sud,est,nord dans cet ordre exact : inverser deux valeurs ne
     // lève aucune erreur, la carte se remplit simplement d'autre chose, et
-    // cela ne se voit qu'à l'écran.
+    // cela ne se voit qu'à l'écran. Chaque coordonnée passe par
+    // `double.toString()`, sans arrondi ; sous `1e-6`, `double.toString()`
+    // rend une notation exponentielle (`3e-7`) — forme elle aussi acceptée
+    // par l'API (`T-13`).
     'bbox': '${bounds.west},${bounds.south},${bounds.east},${bounds.north}',
-    'date_observation_min': formatDateUtc(since.toUtc()),
+    'date_observation_min': formatDateUtc(since),
     'size': '$size',
   });
 }
 
 /// URI de `/observations` filtrée par [station], pour la fiche station.
-Uri ondeObservationsForStationUri(OndeStationCode station, {int limit = 10}) {
-  checkPageSize(limit);
+Uri ondeObservationsForStationUri(OndeStationCode station, {int size = 10}) {
+  checkPageSize(size);
   return _observationsUri(<String, String>{
     'code_station': station.value,
-    'size': '$limit',
+    'size': '$size',
   });
 }
 
@@ -71,7 +85,7 @@ Uri _observationsUri(Map<String, String> specificParameters) {
   return _uri('observations', <String, String>{
     ...specificParameters,
     'sort': 'desc',
-    'fields': _observationFields,
+    'fields': _observationFields.join(','),
   });
 }
 

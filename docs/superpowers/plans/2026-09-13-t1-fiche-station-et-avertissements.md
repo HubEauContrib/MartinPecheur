@@ -54,6 +54,8 @@ Ce plan est écrit **sur l'architecture cible**. Les tâches `R1` → `R6` de la
 | `T-09` | Une observation ONDE porte les coordonnées **deux fois** — `latitude`/`longitude` à plat **et** `geometry` GeoJSON — plus `code_cours_eau`, `libelle_cours_eau` (casse sans règle, voir `docs/sources/onde.md` § T-09, la fiche est la source de vérité), `code_departement`, `code_commune` | `T-04` |
 | `T-10` | 🚨 **`/v2/hydrometrie` était indisponible ce jour** : **503** sur 19 tentatives réparties sur ~25 min, un **502** après 67 s, un timeout sec. `/v1/ecoulement` répondait 206 au même moment. **`C-15` n'est pas une précaution rédactionnelle**, c'est le régime observé : le mode dégradé par source (`BR-007`, `UC-001 A4`) est la première chose à tenir. Détail des sept appels de l'après-midi : `docs/sources/hubeau-hydrometrie.md` § T-10 | `…/v2/hydrometrie/observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=2` |
 | `T-11` | `shared_preferences` **2.5.5**, publiée le **2026-03-25**, **BSD-3-Clause**, plateformes **Android, iOS, Linux, macOS, Web, Windows**. Contrainte `sdk ^3.9.0`, `flutter >=3.35.0` — satisfaite par le poste (Dart 3.13.3, Flutter 3.47.4) | `https://pub.dev/api/packages/shared_preferences` + page pub.dev |
+| `T-12` | La forme filaire à virgules encodées (`%2C`) est acceptée : `fields` honoré, les lignes de `data` ne portent que les champs demandés. Détail : `docs/sources/onde.md` § T-12 | `…/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=code_station%2Cdate_observation%2Ccode_ecoulement` |
+| `T-13` | La forme filaire exacte émise par l'app (dix champs, bbox à quinze décimales) est acceptée, ainsi que la notation exponentielle que `double.toString()` produit sous `1e-6`. Détail : `docs/sources/onde.md` § T-13 | `…/v1/ecoulement/observations?bbox=1.000000000000001%2C47.300000000000004%2C1.7811667496231998%2C47.799999999999997&date_observation_min=2026-07-15&sort=desc&fields=…&size=2` + `bbox=3e-7%2C47.3%2C1.8%2C47.8&size=1` |
 
 ### Ouvert — à établir par appel réel en `D1`, avant `D5`
 
@@ -263,7 +265,7 @@ git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): m
 **Signatures publiques**
 
 - `Uri ondeObservationsWithinBoundsUri({required Bounds bounds, required DateTime since, int size = 1000})`
-- `Uri ondeObservationsForStationUri(OndeStationCode station, {int limit = 10})`
+- `Uri ondeObservationsForStationUri(OndeStationCode station, {int size = 10})`
 - `Uri ondeCampagnesUri({required DepartementCode departement, int size = 20})`
 - ~~`OndeClient`~~ **retiré à l'exécution (2026-09-13)** : `HubEauClient.getJson` est réutilisé, fichier `onde_uris.dart`
 
@@ -273,18 +275,18 @@ git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): m
 
 - `ondeObservationsWithinBoundsUri(bounds: Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8), since: 2026-07-15)` → `bbox=1.0,47.3,1.8,47.8`, `date_observation_min=2026-07-15`, chemin `/api/v1/ecoulement/observations` (`T-01`, `T-03`).
 - L'URI porte `sort=desc` : sans lui, la « dernière » observation n'est pas la première rendue (`T-02`).
-- `ondeObservationsForStationUri(OndeStationCode('K4520001'), limit: 5)` → `code_station=K4520001&size=5&sort=desc` (`T-04`) ; `ondeCampagnesUri(departement: DepartementCode('41'))` → `code_departement=41` (`T-05`).
+- `ondeObservationsForStationUri(OndeStationCode('K4520001'), size: 5)` → `code_station=K4520001&size=5&sort=desc` (`T-04`) ; `ondeCampagnesUri(departement: DepartementCode('41'))` → `code_departement=41` (`T-05`).
 - `size: 0` → `ArgumentError` ; `size: 20001` → `ArgumentError` (`C-08`).
 - `getJson` : **206 est un succès** (`C-06`), 200 aussi ; **404 ne se rejoue pas** ; **503 se rejoue** puis lève `HubEauFailure` après `maxAttempts` (`T-10` en est le cas réel).
 - Le recul est **injecté** : le test ne dort pas. Le corps est décodé en **UTF-8 explicite** — `'ruisseau la rivière aux loches'` ressort avec son accent (`T-09`).
 
 - [x] **Étape 1** — écrire le test avec `MockClient` de `package:http/testing.dart`. **Aucun test de ce fichier ne touche le réseau** : un service sans SLA rendrait la suite rouge sans qu'aucun code soit fautif (`C-15`, `T-10`). Rouge.
-- [x] **Étape 2** — `flutter test test/data/http/onde_client_test.dart` → échec.
+- [x] **Étape 2** — `flutter test test/data/http/onde_uris_test.dart` → échec.
 - [x] **Étape 3** — implémenter en **réutilisant** `isSuccess`/`isRetryable` (`lib/data/http/http_status.dart`) et le recul de `lib/data/http/retry.dart`. Aucune recopie de logique de rejeu.
 - [x] **Étape 4** — `flutter test test/data/http` → vert, puis critère de fin et commit.
 
 ```bash
-git add lib/data/http test/data/http && git commit -m "feat(ecoulement): client ONDE, bbox et campagnes" -m "Le bbox s ecrit ouest,sud,est,nord : inverser deux valeurs ne leve rien, la carte se remplit simplement d autre chose, et cela ne se voit qu a l ecran. 206 est un succes (C-06) ; 503 se rejoue, 404 non. Le recul et le statut HTTP sont reutilises, jamais recopies."
+git add lib/data/http test/data/http docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md && git commit -m "feat(ecoulement): URI ONDE bbox, station et campagnes sur le client Hub Eau existant" -m "Le bbox s ecrit ouest,sud,est,nord : inverser deux valeurs ne leve rien, la carte se remplit simplement d autre chose, et cela ne se voit qu a l ecran. Pas de classe OndeClient : HubEauClient.getJson prend deja n importe quelle URI, avec 206 en succes (C-06), rejeu sur 503 et jamais sur 404 ; un second client aurait recopie la logique de rejeu. La verification de taille et le format de date sont reutilises, jamais recopies."
 ```
 
 ### Task D5 : `HydroObservationRepository`, enfin implémenté

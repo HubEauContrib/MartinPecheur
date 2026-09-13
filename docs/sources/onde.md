@@ -70,11 +70,6 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
 - `Q-05` `code_ecoulement` à `null` : **répondu** — zéro occurrence sur les deux nouvelles
   fixtures (0 sur 30 en bbox, 0 sur 10 en station). `Inconnu(null)` reste un cas synthétique
   en test, jamais rencontré dans une fixture capturée aujourd'hui.
-
-⚠️ `T-07` **`code_campagne` change de type selon l'endpoint** : entier dans `/campagnes`
-(`109905`), chaîne dans `/observations` (`"109905"`) — un modèle qui le type `int` casse sur
-l'un des deux.
-
 - `T-12` **la forme filaire à virgules encodées (`%2C`) est acceptée**, constaté le 2026-09-13
   15:47 UTC :
   `…/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=code_station%2Cdate_observation%2Ccode_ecoulement`
@@ -85,6 +80,20 @@ l'un des deux.
   L'API réécrit les virgules nues dans `first`/`next`. Enjeu : `Uri(queryParameters:)` de Dart
   encode toujours la virgule en `%2C` — c'est la forme filaire réellement émise par l'app, et
   elle est acceptée.
+- `T-13` **la forme filaire exacte émise par l'app est acceptée**, précision flottante complète
+  comprise, constaté le 2026-09-13 15:56:45 UTC :
+  `…/v1/ecoulement/observations?bbox=1.000000000000001%2C47.300000000000004%2C1.7811667496231998%2C47.799999999999997&date_observation_min=2026-07-15&sort=desc&fields=code_station%2Clibelle_station%2Ccode_departement%2Clibelle_cours_eau%2Ccode_campagne%2Cdate_observation%2Ccode_ecoulement%2Clibelle_ecoulement%2Clatitude%2Clongitude&size=2`
+  → HTTP **206**, `count` **30**, chaque ligne de `data` porte **exactement les dix clés
+  demandées** (première ligne :
+  `{"code_station":"K4640001","libelle_station":"LA BONNEURE A MILLANCAY","code_departement":"41","libelle_cours_eau":"la Bonne Heure","code_campagne":"109905","date_observation":"2026-08-25","code_ecoulement":"3","libelle_ecoulement":"Assec","longitude":1.78116675,"latitude":47.444182169}`).
+  C'est la forme filaire exacte émise par l'app : dix champs, bbox à quinze décimales, virgules
+  en `%2C`. Complément : `bbox=3e-7%2C47.3%2C1.8%2C47.8&size=1` (notation exponentielle, celle
+  que `double.toString()` produit sous `1e-6`) → **206**, `count` **5057** — l'API la parse
+  aussi.
+
+⚠️ `T-07` **`code_campagne` change de type selon l'endpoint** : entier dans `/campagnes`
+(`109905`), chaîne dans `/observations` (`"109905"`) — un modèle qui le type `int` casse sur
+l'un des deux.
 
 ## Non vérifié
 

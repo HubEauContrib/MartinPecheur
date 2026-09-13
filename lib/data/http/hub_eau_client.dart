@@ -109,7 +109,7 @@ Uri obsElabUri({
   return _uri('obs_elab', <String, String>{
     'code_entite': station.value,
     'grandeur_hydro_elab': 'QmnJ',
-    'date_debut_obs_elab': formatDateUtc(since.toUtc()),
+    'date_debut_obs_elab': formatDateUtc(since),
     'size': '$size',
   });
 }
@@ -139,11 +139,13 @@ void checkPageSize(int size) {
   }
 }
 
-/// Formate [utc] en `AAAA-MM-JJ`, tel qu'attendu par les paramètres de date
-/// Hub'Eau. Exposée pour que les constructeurs d'URI d'autres endpoints
-/// (ONDE, `lib/data/http/onde_uris.dart`) la réutilisent, sans jamais la
-/// recopier.
-String formatDateUtc(DateTime utc) {
+/// Formate [date] en `AAAA-MM-JJ`, tel qu'attendu par les paramètres de date
+/// Hub'Eau. Convertit lui-même en UTC (`date.toUtc()`) : une date locale
+/// n'est jamais formatée telle quelle, l'appelant n'a pas à y penser.
+/// Exposée pour que les constructeurs d'URI d'autres endpoints (ONDE,
+/// `lib/data/http/onde_uris.dart`) la réutilisent, sans jamais la recopier.
+String formatDateUtc(DateTime date) {
+  final DateTime utc = date.toUtc();
   final String year = utc.year.toString().padLeft(4, '0');
   final String month = utc.month.toString().padLeft(2, '0');
   final String day = utc.day.toString().padLeft(2, '0');

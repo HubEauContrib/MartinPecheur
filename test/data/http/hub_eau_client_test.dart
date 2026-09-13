@@ -67,6 +67,16 @@ void main() {
       expect(uri.queryParameters['date_debut_obs_elab'], '2026-08-01');
       expect(uri.queryParameters['grandeur_hydro_elab'], 'QmnJ');
     });
+
+    test('une date locale non UTC donne le jour UTC (formatDateUtc)', () {
+      final DateTime utc = DateTime.utc(2026, 8);
+      final DateTime local = utc.toLocal();
+      expect(local.isUtc, isFalse);
+
+      final Uri uri = obsElabUri(station: station, since: local);
+
+      expect(uri.queryParameters['date_debut_obs_elab'], '2026-08-01');
+    });
   });
 
   group('referentielStationUri', () {

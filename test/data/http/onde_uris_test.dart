@@ -69,9 +69,8 @@ void main() {
       expect(uri.queryParameters['sort'], 'desc');
     });
 
-    test('fields est exactement l\'ensemble des champs lus par '
-        'mapOndeObservation et mapOndePoint, ni plus ni moins (T-02, YAGNI) — '
-        'voir lib/data/mappers/onde_observation_mapper.dart', () {
+    test('fields vaut exactement les dix champs attendus (liste maintenue en '
+        'double avec le mapper, voir commentaire de _observationFields)', () {
       final Uri uri = ondeObservationsWithinBoundsUri(
         bounds: Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
         since: DateTime.utc(2026, 7, 15),
@@ -85,7 +84,7 @@ void main() {
     });
 
     test('les virgules sont encodées en %2C (forme vérifiée par appel réel le '
-        '2026-09-13, voir docs/sources/onde.md, T-12)', () {
+        '2026-09-13, voir docs/sources/onde.md, T-12, T-13)', () {
       final Uri uri = ondeObservationsWithinBoundsUri(
         bounds: Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
         since: DateTime.utc(2026, 7, 15),
@@ -121,7 +120,7 @@ void main() {
     test('construit chemin, code_station, size et sort=desc', () {
       final Uri uri = ondeObservationsForStationUri(
         OndeStationCode('K4520001'),
-        limit: 5,
+        size: 5,
       );
 
       expect(uri.path, '/api/v1/ecoulement/observations');
@@ -130,29 +129,24 @@ void main() {
       expect(uri.queryParameters['sort'], 'desc');
     });
 
-    test(
-      'fields est exactement l\'ensemble des champs lus par '
-      'mapOndeObservation et mapOndePoint, ni plus ni moins (T-02, YAGNI)',
-      () {
-        final Uri uri = ondeObservationsForStationUri(
-          OndeStationCode('K4520001'),
-          limit: 5,
-        );
+    test('fields vaut exactement les dix champs attendus (liste maintenue en '
+        'double avec le mapper, voir commentaire de _observationFields)', () {
+      final Uri uri = ondeObservationsForStationUri(
+        OndeStationCode('K4520001'),
+        size: 5,
+      );
 
-        final Set<String> fields = uri.queryParameters['fields']!
-            .split(',')
-            .toSet();
+      final Set<String> fields = uri.queryParameters['fields']!
+          .split(',')
+          .toSet();
 
-        expect(fields, _fieldsReadByMapper);
-      },
-    );
+      expect(fields, _fieldsReadByMapper);
+    });
 
-    test('limit: 0 lève ArgumentError (C-08)', () {
+    test('size: 0 lève ArgumentError (C-08)', () {
       expect(
-        () => ondeObservationsForStationUri(
-          OndeStationCode('K4520001'),
-          limit: 0,
-        ),
+        () =>
+            ondeObservationsForStationUri(OndeStationCode('K4520001'), size: 0),
         throwsArgumentError,
       );
     });
