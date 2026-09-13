@@ -36,6 +36,11 @@ manquent.
 - Documentation de spécification : fiches de sources datées, modèle de
   domaine, exigences non fonctionnelles, plan de tests.
 
+### Modifié
+
+- Licence du code : MIT → GPL-3.0-or-later (2026-09-13). Les données
+  restent sous Licence Ouverte.
+
 ### Différé
 
 - Android en entier (arbitrage du 2026-09-12) : aucune plateforme générée,
