@@ -339,11 +339,11 @@ git add lib/data/observations test/data/observations && git commit -m "feat(hydr
 - Rafraîchissement en échec → la **dernière valeur connue** reste rendue, le cache n'est pas écrasé, un rafraîchissement ultérieur repart (`BR-007`).
 - Les clés `(K447001001, debit)` et `(K447001001, hauteur)` ne partagent **jamais** une entrée. `ttl: Duration.zero` → `ArgumentError` à la construction.
 
-- [ ] **Étape 1** — écrire le test avec une horloge et un `inner` bouchons, tous deux injectés. Rouge.
-- [ ] **Étape 2** — `flutter test test/data/observations/cached_hydro_observation_repository_test.dart` → échec.
-- [ ] **Étape 3** — implémenter en **appelant** `withCachePolicy` de `lib/data/cache/cache_policy.dart`. ⚠️ Une fermeture **par clé**, conservée dans un champ — pas `withCachePolicy(...)()` à chaque lecture, qui reconstruirait un verrou toujours nul.
-- [ ] **Étape 4** — `flutter test test/data` → vert. Puis `grep -rn 'Duration(minutes' lib/` → l'occurrence est **unique**.
-- [ ] **Étape 5** — critère de fin, puis commit.
+- [x] **Étape 1** — écrire le test avec une horloge et un `inner` bouchons, tous deux injectés. Rouge.
+- [x] **Étape 2** — `flutter test test/data/observations/cached_hydro_observation_repository_test.dart` → échec.
+- [x] **Étape 3** — implémenter en **appelant** `withCachePolicy` de `lib/data/cache/cache_policy.dart`. ⚠️ Une fermeture **par clé**, conservée dans un champ — pas `withCachePolicy(...)()` à chaque lecture, qui reconstruirait un verrou toujours nul.
+- [x] **Étape 4** — `flutter test test/data` → vert. Puis `grep -rn 'Duration(minutes' lib/` → l'occurrence est **unique**.
+- [x] **Étape 5** — critère de fin, puis commit.
 
 ```bash
 git add lib/data/observations test/data/observations && git commit -m "feat(hydrometrie): decorer le depot d observations par la politique de cache, TTL 20 min" -m "Le TTL de 20 minutes n apparait qu ici : une seconde occurrence serait une divergence future. Deux lectures simultanees sur une entree perimee ne declenchent qu un appel (C-12), et la fermeture est conservee par cle — la reconstruire a chaque lecture annulerait la deduplication. Un rafraichissement en echec laisse la derniere valeur connue (BR-007)."
