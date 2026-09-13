@@ -1,0 +1,35 @@
+{
+  "type": "FeatureCollection",
+  "count": 2,
+  "api_version": "2.0.1",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "code_station": "1011000101",
+        "libelle_station": "La Grande Rivière à Goyaves à Petit-Bourg [Barbotteau]",
+        "code_departement": "971",
+        "libelle_cours_eau": "Grande Rivière à Goyaves",
+        "en_service": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-61.65898959694908, 16.18940247103205]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code_station": "K447001001",
+        "libelle_station": "La Loire à Blois",
+        "code_departement": "41",
+        "libelle_cours_eau": "la Loire",
+        "en_service": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [1.3351479476905552, 47.584957074484784]
+      }
+    }
+  ]
+}
