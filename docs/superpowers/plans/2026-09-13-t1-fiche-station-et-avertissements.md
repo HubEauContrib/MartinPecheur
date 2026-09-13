@@ -265,7 +265,7 @@ git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): m
 - `Uri ondeObservationsWithinBoundsUri({required Bounds bounds, required DateTime since, int size = 1000})`
 - `Uri ondeObservationsForStationUri(OndeStationCode station, {int limit = 10})`
 - `Uri ondeCampagnesUri({required DepartementCode departement, int size = 20})`
-- `final class OndeClient { OndeClient({http.Client? httpClient, …}); Future<Map<String, dynamic>> getJson(Uri uri); void close(); }`
+- ~~`OndeClient`~~ **retiré à l'exécution (2026-09-13)** : `HubEauClient.getJson` est réutilisé, fichier `onde_uris.dart`
 
 **Invariant :** le `bbox` s'écrit **`ouest,sud,est,nord`** dans cet ordre exact — inverser deux valeurs ne lève aucune erreur, la carte se remplit simplement d'autre chose, et cela ne se voit qu'à l'écran.
 
@@ -278,10 +278,10 @@ git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): m
 - `getJson` : **206 est un succès** (`C-06`), 200 aussi ; **404 ne se rejoue pas** ; **503 se rejoue** puis lève `HubEauFailure` après `maxAttempts` (`T-10` en est le cas réel).
 - Le recul est **injecté** : le test ne dort pas. Le corps est décodé en **UTF-8 explicite** — `'ruisseau la rivière aux loches'` ressort avec son accent (`T-09`).
 
-- [ ] **Étape 1** — écrire le test avec `MockClient` de `package:http/testing.dart`. **Aucun test de ce fichier ne touche le réseau** : un service sans SLA rendrait la suite rouge sans qu'aucun code soit fautif (`C-15`, `T-10`). Rouge.
-- [ ] **Étape 2** — `flutter test test/data/http/onde_client_test.dart` → échec.
-- [ ] **Étape 3** — implémenter en **réutilisant** `isSuccess`/`isRetryable` (`lib/data/http/http_status.dart`) et le recul de `lib/data/http/retry.dart`. Aucune recopie de logique de rejeu.
-- [ ] **Étape 4** — `flutter test test/data/http` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — écrire le test avec `MockClient` de `package:http/testing.dart`. **Aucun test de ce fichier ne touche le réseau** : un service sans SLA rendrait la suite rouge sans qu'aucun code soit fautif (`C-15`, `T-10`). Rouge.
+- [x] **Étape 2** — `flutter test test/data/http/onde_client_test.dart` → échec.
+- [x] **Étape 3** — implémenter en **réutilisant** `isSuccess`/`isRetryable` (`lib/data/http/http_status.dart`) et le recul de `lib/data/http/retry.dart`. Aucune recopie de logique de rejeu.
+- [x] **Étape 4** — `flutter test test/data/http` → vert, puis critère de fin et commit.
 
 ```bash
 git add lib/data/http test/data/http && git commit -m "feat(ecoulement): client ONDE, bbox et campagnes" -m "Le bbox s ecrit ouest,sud,est,nord : inverser deux valeurs ne leve rien, la carte se remplit simplement d autre chose, et cela ne se voit qu a l ecran. 206 est un succes (C-06) ; 503 se rejoue, 404 non. Le recul et le statut HTTP sont reutilises, jamais recopies."

@@ -1,6 +1,14 @@
-// Le client de l'API hydrométrie v2, et les seuls constructeurs d'URI vers
-// elle (ADR-001 : uniquement la v2, la v1 est arrêtée depuis le 05/05/2025,
-// C-01). `date_debut_obs_elab` est un paramètre requis de [obsElabUri],
+// [HubEauClient.getJson] sert **tous** les endpoints Hub'Eau — hydrométrie
+// v2 et écoulement ONDE v1 (`lib/data/http/onde_uris.dart`) : il prend
+// n'importe quelle URI du même hôte, rejoue sur 429/5xx (`isRetryable`),
+// accepte 200 et 206 (`isSuccess`, C-06), décode en UTF-8 explicite, avec
+// attente et gigue injectées. Recréer un second client pour ONDE aurait
+// recopié cette logique de rejeu — ce que le produit interdit. Les
+// constructeurs d'URI de ce fichier, eux, restent propres à l'hydrométrie
+// v2 (ADR-001 : uniquement la v2, la v1 est arrêtée depuis le 05/05/2025,
+// C-01) ; [checkPageSize] et [formatDateUtc] sont exposés pour être
+// réutilisés par les constructeurs d'URI d'autres endpoints, sans jamais
+// être recopiés. `date_debut_obs_elab` est un paramètre requis de [obsElabUri],
 // jamais optionnel : sans lui, `sort` est ignoré et la réponse commence au
 // 1er janvier 1900 (C-04, reproduit le 2026-09-13, voir
 // docs/sources/hubeau-hydrometrie.md). `size` au-delà de [maxPageSize] fait
@@ -79,7 +87,7 @@ Uri observationsTrUri({
   required Grandeur grandeur,
   int size = 100,
 }) {
-  _checkSize(size);
+  checkPageSize(size);
   return _uri('observations_tr', <String, String>{
     'code_entite': station.value,
     'grandeur_hydro': grandeurCode(grandeur),
@@ -95,11 +103,11 @@ Uri obsElabUri({
   required DateTime since,
   int size = 1000,
 }) {
-  _checkSize(size);
+  checkPageSize(size);
   return _uri('obs_elab', <String, String>{
     'code_entite': station.value,
     'grandeur_hydro_elab': 'QmnJ',
-    'date_debut_obs_elab': _formatDate(since.toUtc()),
+    'date_debut_obs_elab': formatDateUtc(since.toUtc()),
     'size': '$size',
   });
 }
@@ -111,7 +119,12 @@ Uri referentielStationUri(StationCode station) {
   });
 }
 
-void _checkSize(int size) {
+/// Vérifie qu'une taille de page est acceptable pour Hub'Eau (au moins 1, au
+/// plus [maxPageSize]) — commune à l'hydrométrie et à ONDE, toutes deux
+/// exposées par la même famille d'API. Lève une [ArgumentError] sinon.
+/// Exposée pour que les constructeurs d'URI d'autres endpoints (ONDE,
+/// `lib/data/http/onde_uris.dart`) la réutilisent, sans jamais la recopier.
+void checkPageSize(int size) {
   if (size < 1) {
     throw ArgumentError.value(size, 'size', 'doit être au moins 1');
   }
@@ -124,7 +137,11 @@ void _checkSize(int size) {
   }
 }
 
-String _formatDate(DateTime utc) {
+/// Formate [utc] en `AAAA-MM-JJ`, tel qu'attendu par les paramètres de date
+/// Hub'Eau. Exposée pour que les constructeurs d'URI d'autres endpoints
+/// (ONDE, `lib/data/http/onde_uris.dart`) la réutilisent, sans jamais la
+/// recopier.
+String formatDateUtc(DateTime utc) {
   final String year = utc.year.toString().padLeft(4, '0');
   final String month = utc.month.toString().padLeft(2, '0');
   final String day = utc.day.toString().padLeft(2, '0');
