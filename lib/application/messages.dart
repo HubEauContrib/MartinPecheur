@@ -9,6 +9,7 @@
 // figer la couture — Query et Command descendent toutes deux de Message afin
 // qu'un seul registre (Bus) puisse les acheminer toutes les deux.
 
+import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
@@ -42,4 +43,20 @@ final class StationByCodeQuery implements Query<Station?> {
 
   /// Le code de la station recherchee.
   final StationCode code;
+}
+
+/// Les [StationPoint] — la projection carte, pas l'entite [Station] complete
+/// — dont les coordonnees tombent dans [bounds]. Arbitrage T0-M4 : distincte
+/// de [StationsWithinBoundsQuery] pour que la carte, a chaque geste de
+/// camera, filtre directement les points deja charges plutot que de
+/// reconstruire puis reconvertir jusqu'a 4 150 [Station] par trame — un cout
+/// d'allocation inutile puisque `buildMapLayers` ne consomme que des
+/// [StationPoint]. Le gestionnaire de cette requete n'a donc pas besoin de
+/// passer par [StationRepository].
+final class StationPointsWithinBoundsQuery
+    implements Query<List<StationPoint>> {
+  const StationPointsWithinBoundsQuery(this.bounds);
+
+  /// L'emprise a l'interieur de laquelle chercher.
+  final Bounds bounds;
 }

@@ -6,6 +6,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/application/messages.dart';
+import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
@@ -28,6 +29,20 @@ void main() {
       expect(query, isA<Query<List<Station>>>());
       expect(query, isA<Message<List<Station>>>());
       expect(query.bounds, same(emprise));
+    });
+  });
+
+  group('StationPointsWithinBoundsQuery', () {
+    test('est un Query<List<StationPoint>>, distincte de '
+        "StationsWithinBoundsQuery bien qu'elle porte la meme emprise", () {
+      final Bounds emprise = Bounds(west: -1, south: 46, east: 3, north: 48);
+      final StationPointsWithinBoundsQuery query =
+          StationPointsWithinBoundsQuery(emprise);
+
+      expect(query, isA<Query<List<StationPoint>>>());
+      expect(query, isA<Message<List<StationPoint>>>());
+      expect(query.bounds, same(emprise));
+      expect(query, isNot(isA<StationsWithinBoundsQuery>()));
     });
   });
 
