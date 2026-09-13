@@ -1,5 +1,7 @@
 // Unités nommées par le type, pas par convention (BR-002). Les `extension
 // type` s'effacent à l'exécution : aucun objet alloué, aucune validation —
+// et ferment les deux sens : un `double` nu ne devient pas une unité, une
+// unité ne redevient un `double` que par `.value`, explicitement —
 // ces types nomment, ils ne refusent pas.
 
 /// Débit brut renvoyé par l'API Hydrométrie, en litres par seconde (C-02).

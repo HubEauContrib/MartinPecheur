@@ -366,7 +366,7 @@ extension type const Metres(double value) {}                // seule unité de h
 
 **Invariants et pièges**
 - Les `extension type` s'effacent à l'exécution : **aucun objet alloué**, coût nul ; ce qu'ils apportent est une interdiction de compilation.
-- Asymétrie voulue : un `LitresPerSecond` reste acceptable là où un `double` est attendu, mais un `double` n'est **jamais** acceptable là où un `LitresPerSecond` est attendu. Le sens dangereux est fermé.
+- Les deux sens sont fermés (constaté le 2026-09-13 : sans `implements double`, un `LitresPerSecond` n'est pas non plus acceptable là où un `double` est attendu). C'est voulu : la seule sortie vers le nombre nu est `.value`, explicite et lisible. Un `double` n'est **jamais** acceptable là où une unité est attendue.
 - Aucune validation ici : ces types **nomment**, ils ne refusent pas.
 
 **Cas de test** (3)
