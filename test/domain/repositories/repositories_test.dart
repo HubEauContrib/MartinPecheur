@@ -52,17 +52,29 @@ final class InMemoryOndeObservationRepository
     Bounds bounds, {
     required DateTime since,
   }) async => _observations
-      .where((OndeObservation o) => o.observedAt.isAfter(since))
+      // since est INCLUSIF, comme date_observation_min cote API : une
+      // observation datee exactement a since est retenue.
+      .where((OndeObservation o) => !o.observedAt.isBefore(since))
       .toList();
 
   @override
   Future<List<OndeObservation>> historyFor(
     OndeStationCode station, {
     int limit = 5,
-  }) async => _observations
-      .where((OndeObservation o) => o.station == station)
-      .take(limit)
-      .toList();
+  }) async {
+    final List<OndeObservation> history =
+        _observations
+            .where((OndeObservation o) => o.station == station)
+            .toList()
+          // Le contrat promet « le plus recent en tete » : le double trie donc
+          // explicitement, plutot que de rendre l'ordre d'insertion par chance.
+          ..sort(
+            (OndeObservation a, OndeObservation b) =>
+                b.observedAt.compareTo(a.observedAt),
+          );
+
+    return history.take(limit).toList();
+  }
 }
 
 void main() {
@@ -155,7 +167,9 @@ void main() {
             recente,
           ]);
 
-      test('latestWithinBounds filtre par since', () async {
+      test('le contrat s\'implemente sans infrastructure : le double filtre '
+          'since — exclut ce qui precede, inclut ce qui est date exactement '
+          'a since', () async {
         final List<OndeObservation> observations = await repository
             .latestWithinBounds(
               Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
@@ -164,16 +178,31 @@ void main() {
 
         expect(observations, hasLength(1));
         expect(observations.single.observedAt, recente.observedAt);
+
+        final List<OndeObservation> observationsSinceExact = await repository
+            .latestWithinBounds(
+              Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
+              since: recente.observedAt,
+            );
+
+        expect(
+          observationsSinceExact,
+          hasLength(1),
+          reason:
+              'since est INCLUSIF, comme date_observation_min cote API : '
+              'une observation datee exactement a since est retenue.',
+        );
       });
 
-      test('historyFor rend les observations d\'une station', () async {
+      test('le contrat s\'implemente sans infrastructure : le double rend '
+          "l'historique le plus recent en tete", () async {
         final List<OndeObservation> observations = await repository.historyFor(
           OndeStationCode('K4520001'),
         );
 
         expect(observations, hasLength(2));
-        expect(observations.first.observedAt, ancienne.observedAt);
-        expect(observations.last.observedAt, recente.observedAt);
+        expect(observations.first, same(recente));
+        expect(observations.last, same(ancienne));
       });
     },
   );

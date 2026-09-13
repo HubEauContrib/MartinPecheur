@@ -1,7 +1,10 @@
 // OndePoint est une classe immuable simple, sans validation propre (la
-// validation vit dans OndeStationCode et DepartementCode) : ce test verifie
+// validation vit dans OndeStationCode et DepartementCode) : ce test vérifie
 // seulement que les champs se portent et se lisent, y compris les absences
-// (BR-007).
+// (BR-007). Les valeurs « relevées » proviennent de la fixture réelle
+// `test/fixtures/onde/observations_station_K4520001_2026-09-13.json`
+// (station K4520001, LA RIVIERE AUX LOCHES A CHAON) — jamais inventées, et
+// jamais copiées d'une autre station (T-04).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
@@ -12,26 +15,26 @@ void main() {
     test('porte les champs relevés sur K4520001', () {
       final OndePoint point = OndePoint(
         code: OndeStationCode('K4520001'),
-        label: 'Le Loir a Vaas',
-        latitude: 47.584957074,
-        longitude: 1.335147948,
-        waterCourseLabel: 'Le Loir',
+        label: 'LA RIVIERE AUX LOCHES A CHAON',
+        latitude: 47.610620493,
+        longitude: 2.173858157,
+        waterCourseLabel: 'ruisseau la rivière aux loches',
         departement: DepartementCode('41'),
       );
 
       expect(point.code, OndeStationCode('K4520001'));
-      expect(point.label, 'Le Loir a Vaas');
-      expect(point.latitude, 47.584957074);
-      expect(point.longitude, 1.335147948);
-      expect(point.waterCourseLabel, 'Le Loir');
+      expect(point.label, 'LA RIVIERE AUX LOCHES A CHAON');
+      expect(point.latitude, 47.610620493);
+      expect(point.longitude, 2.173858157);
+      expect(point.waterCourseLabel, 'ruisseau la rivière aux loches');
       expect(point.departement, DepartementCode('41'));
     });
 
     test('waterCourseLabel et departement sont nullables — une absence, '
-        'jamais une chaine vide (BR-007)', () {
+        'jamais une chaîne vide (BR-007)', () {
       final OndePoint point = OndePoint(
         code: OndeStationCode('K4520001'),
-        label: 'Station sans cours d\'eau connu',
+        label: "Station sans cours d'eau connu",
         latitude: 47.5,
         longitude: 1.3,
         waterCourseLabel: null,

@@ -1,25 +1,25 @@
-// L'etat d'une station telle que dessinee sur la carte. Distinct de
-// Freshness (`freshness.dart`, qui qualifie une observation deja recue) :
-// StationMapState qualifie l'ECRAN — a-t-on seulement essaye de charger
+// L'état d'une station telle que dessinée sur la carte. Distinct de
+// Freshness (`freshness.dart`, qui qualifie une observation déjà reçue) :
+// StationMapState qualifie l'ÉCRAN — a-t-on seulement essayé de charger
 // cette station ? — ce que Freshness ne sait pas dire. Sans NonChargee, un
-// ecran qui n'a pas encore recu de reponse afficherait le meme etat qu'une
-// absence de donnee constatee, ce que BR-007 interdit.
+// écran qui n'a pas encore reçu de réponse afficherait le même état qu'une
+// absence de donnée constatée, ce que BR-007 interdit.
 //
-// sealed class et switch exhaustif (BR-011) : une sous-classe ajoutee sans
+// sealed class et switch exhaustif (BR-011) : une sous-classe ajoutée sans
 // branche dans stationMapStateLabel est une erreur de compilation.
 
 import 'package:martinpecheur/domain/observation/freshness.dart';
 
-/// Etat d'une station telle qu'affichee sur la carte, du point de vue du
-/// chargement — jamais de la valeur mesuree elle-meme.
+/// État d'une station telle qu'affichée sur la carte, du point de vue du
+/// chargement — jamais de la valeur mesurée elle-même.
 sealed class StationMapState {
   const StationMapState();
 }
 
-/// Aucune requete n'a encore abouti pour cette station : ni succes, ni
-/// echec, ni absence constatee. Distinct de [SansDonnee] (BR-007) — c'est
-/// cette distinction qui empeche un ecran en cours de chargement d'afficher
-/// un etat par defaut.
+/// Aucune requête n'a encore abouti pour cette station : ni succès, ni
+/// échec, ni absence constatée. Distinct de [SansDonnee] (BR-007) — c'est
+/// cette distinction qui empêche un écran en cours de chargement d'afficher
+/// un état par défaut.
 final class NonChargee extends StationMapState {
   const NonChargee();
 
@@ -30,11 +30,11 @@ final class NonChargee extends StationMapState {
   int get hashCode => runtimeType.hashCode;
 }
 
-/// Une observation a ete recue pour cette station, avec sa [freshness].
+/// Une observation a été reçue pour cette station, avec sa [freshness].
 final class Chargee extends StationMapState {
   const Chargee(this.freshness);
 
-  /// Fraicheur de l'observation recue.
+  /// Fraîcheur de l'observation reçue.
   final Freshness freshness;
 
   @override
@@ -45,8 +45,8 @@ final class Chargee extends StationMapState {
   int get hashCode => freshness.hashCode;
 }
 
-/// La requete a abouti, mais aucune observation n'existe pour cette
-/// station : un fait constate, jamais une erreur (BR-007).
+/// La requête a abouti, mais aucune observation n'existe pour cette
+/// station : un fait constaté, jamais une erreur (BR-007).
 final class SansDonnee extends StationMapState {
   const SansDonnee();
 
@@ -57,12 +57,12 @@ final class SansDonnee extends StationMapState {
   int get hashCode => runtimeType.hashCode;
 }
 
-/// La requete a echoue. Porte la [cause] pour que l'ecran puisse nommer la
-/// source defaillante (`UC-001 A4`).
+/// La requête a échoué. Porte la [cause] pour que l'écran puisse nommer la
+/// source défaillante (`UC-001 A4`).
 final class EnEchec extends StationMapState {
   const EnEchec(this.cause);
 
-  /// Cause de l'echec, telle que levee par le depot.
+  /// Cause de l'échec, telle que levée par le dépôt.
   final Object cause;
 
   @override
@@ -72,18 +72,23 @@ final class EnEchec extends StationMapState {
   int get hashCode => cause.hashCode;
 }
 
-/// Libelle affichable d'un [StationMapState]. `switch` exhaustif : une
-/// sous-classe ajoutee sans branche ici est une erreur de compilation
-/// (BR-011), pas un oubli silencieux a l'ecran.
+/// Libellé affichable d'un [StationMapState]. `switch` exhaustif : une
+/// sous-classe ajoutée sans branche ici est une erreur de compilation
+/// (BR-011), pas un oubli silencieux à l'écran.
 ///
-/// [NonChargee] ne porte aucun libelle (chaine vide) : un chargement en
-/// cours n'affiche pas de texte d'etat. [SansDonnee] porte le libelle de
+/// [NonChargee] ne porte aucun libellé (chaîne vide) : un chargement en
+/// cours n'affiche pas de texte d'état. [SansDonnee] porte le libellé de
 /// repli exact de BR-007. Aucun mot banni (*suffisant, insuffisant, normal,
-/// bon, sur*) n'apparait dans aucune branche (BR-003).
+/// bon, sûr*) n'apparaît dans aucune branche (BR-003).
 ///
-/// Les seuils affiches pour [Chargee] dérivent de [ancienneApres] et
+/// Les seuils affichés pour [Chargee] dérivent de [ancienneApres] et
 /// [perimeeApres] (`freshness.dart`) — jamais recopiés en dur ici, sans
-/// quoi une revision de BR-005 laisserait ce libelle mentir.
+/// quoi une révision de BR-005 laisserait ce libellé mentir. `Duration.
+/// inHours` tronque vers zéro : si l'une de ces bornes devenait un jour une
+/// durée non ronde en heures (90 min, par exemple), le libellé afficherait
+/// « 1 h » et non « 1,5 h ». Les valeurs actuelles (2 h, 24 h) sont rondes,
+/// donc sans perte — mais la troncature reste implicite dans `inHours` et
+/// n'est pas revérifiée ici à chaque appel.
 String stationMapStateLabel(StationMapState state) => switch (state) {
   NonChargee() => '',
   Chargee(freshness: Freshness.fraiche) => '',

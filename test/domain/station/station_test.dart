@@ -55,24 +55,30 @@ void main() {
   });
 
   group('Station', () {
-    test('porte les champs du référentiel — K447001001, relevés le '
-        '2026-09-13', () {
-      final Station station = Station(
-        code: StationCode('K447001001'),
-        label: 'Le Loir à Vaas',
-        latitude: 47.584957074,
-        longitude: 1.335147948,
-        departement: DepartementCode('41'),
-        riverLabel: 'Le Loir',
-        inService: true,
-      );
+    test(
+      'porte les champs du référentiel — K447001001, relevés le '
+      '2026-09-13 sur '
+      'test/fixtures/hubeau/referentiel_stations_K447001001_2026-09-13.json',
+      () {
+        final Station station = Station(
+          code: StationCode('K447001001'),
+          label: 'La Loire à Blois',
+          latitude: 47.584957074,
+          longitude: 1.335147948,
+          departement: DepartementCode('41'),
+          riverLabel: 'la Loire',
+          inService: true,
+        );
 
-      expect(station.code, StationCode('K447001001'));
-      expect(station.latitude, 47.584957074);
-      expect(station.longitude, 1.335147948);
-      expect(station.departement, DepartementCode('41'));
-      expect(station.inService, true);
-    });
+        expect(station.code, StationCode('K447001001'));
+        expect(station.label, 'La Loire à Blois');
+        expect(station.latitude, 47.584957074);
+        expect(station.longitude, 1.335147948);
+        expect(station.departement, DepartementCode('41'));
+        expect(station.riverLabel, 'la Loire');
+        expect(station.inService, true);
+      },
+    );
 
     test('sans cours d\'eau, riverLabel est null — jamais une chaîne vide '
         '(BR-007)', () {

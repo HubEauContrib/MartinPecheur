@@ -1,14 +1,14 @@
-// OndeCampaign et OndeObservation, dans le meme fichier (choix signale a la
-// relecture : le plan laissait le decoupage libre). Les deux sont de
+// OndeCampaign et OndeObservation, dans le même fichier (choix signalé à la
+// relecture : le plan laissait le découpage libre). Les deux sont des
 // classes immuables simples ; la conversion depuis l'API — code_campagne
-// entier cote /campagnes, chaine cote /observations (T-07) — vit dans le
+// entier côté /campagnes, chaîne côté /observations (T-07) — vit dans le
 // mapper de D3, jamais ici.
 
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 
 /// Une campagne d'observation ONDE (une session de terrain, plusieurs
-/// stations relevees le meme jour).
+/// stations relevées le même jour).
 final class OndeCampaign {
   const OndeCampaign({
     required this.code,
@@ -17,25 +17,27 @@ final class OndeCampaign {
     required this.modalityCount,
   });
 
-  /// Code de la campagne, toujours une chaine ici (T-07) — l'API le rend en
-  /// entier cote `/campagnes` et en chaine cote `/observations`, le mapper
-  /// absorbe cet ecart.
+  /// Code de la campagne, toujours une chaîne ici (T-07) — l'API le rend en
+  /// entier côté `/campagnes` et en chaîne côté `/observations`, le mapper
+  /// absorbe cet écart.
   final String code;
 
   /// Date de la campagne, sans heure : l'API n'en donne pas (T-08).
   final DateTime date;
 
-  /// Libelle du type de campagne, tel que recu — `'usuelle'`,
-  /// `'complementaire'`… La comparaison en minuscules se fait cote
+  /// Libellé du type de campagne, tel que reçu — `'usuelle'`,
+  /// `'complémentaire'`… La comparaison en minuscules se fait côté
   /// appelant (T-06), jamais ici.
   final String rawTypeLabel;
 
-  /// Nombre de points observes lors de cette campagne. `null` si absent —
-  /// jamais zero (BR-007).
+  /// Nombre de modalités de l'échelle d'écoulement observées lors de cette
+  /// campagne (`nombre_modalite_ecoulement` — 4 ou 5 selon les campagnes de
+  /// la fixture réelle), **pas** un nombre de points ni de stations. `null`
+  /// si absent.
   final int? modalityCount;
 }
 
-/// Une observation d'ecoulement ONDE, pour une station et une campagne.
+/// Une observation d'écoulement ONDE, pour une station et une campagne.
 final class OndeObservation {
   const OndeObservation({
     required this.station,
@@ -46,24 +48,24 @@ final class OndeObservation {
     required this.campaignCode,
   });
 
-  /// Station ONDE a l'origine de l'observation.
+  /// Station ONDE à l'origine de l'observation.
   final OndeStationCode station;
 
   /// Date de l'observation, sans heure : l'API n'en donne pas (T-08).
   final DateTime observedAt;
 
-  /// Categorie d'ecoulement traduite depuis [rawFlowCode].
+  /// Catégorie d'écoulement traduite depuis [rawFlowCode].
   final FlowCategory category;
 
-  /// Le `code_ecoulement` tel que recu de l'API, jamais normalise — meme
+  /// Le `code_ecoulement` tel que reçu de l'API, jamais normalisé — même
   /// quand [category] est [Inconnu] (BR-011).
   final String? rawFlowCode;
 
-  /// Libelle officiel de la modalite d'ecoulement, tel que recu de l'API.
-  /// `null` si absent — jamais une chaine vide (BR-007).
+  /// Libellé officiel de la modalité d'écoulement, tel que reçu de l'API.
+  /// `null` si absent — jamais une chaîne vide (BR-007).
   final String? officialLabel;
 
   /// Code de la campagne dont est issue cette observation. `null` si absent
-  /// — jamais une chaine vide (BR-007).
+  /// — jamais une chaîne vide (BR-007).
   final String? campaignCode;
 }

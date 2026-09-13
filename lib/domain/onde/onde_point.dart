@@ -1,16 +1,16 @@
-// La projection carte du referentiel ONDE. Sur le meme modele que
+// La projection carte du référentiel ONDE. Sur le même modèle que
 // StationPoint (`lib/domain/station/station_point.dart`), mais pour le
-// referentiel ecoulement : un code, un libelle, deux coordonnees, plus le
-// cours d'eau et le departement quand la fiche station en a besoin. Dart
-// pur : aucune dependance d'infrastructure (CLAUDE.md, invariants
+// référentiel écoulement : un code, un libellé, deux coordonnées, plus le
+// cours d'eau et le département quand la fiche station en a besoin. Dart
+// pur : aucune dépendance d'infrastructure (CLAUDE.md, invariants
 // d'architecture ; ADR-014).
 
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
-/// Un point du referentiel ONDE — station d'observation de l'ecoulement.
-/// Classe immuable simple : aucune validation propre au-dela de celle deja
-/// portee par [OndeStationCode] et [DepartementCode].
+/// Un point du référentiel ONDE — station d'observation de l'écoulement.
+/// Classe immuable simple : aucune validation propre au-delà de celle déjà
+/// portée par [OndeStationCode] et [DepartementCode].
 final class OndePoint {
   const OndePoint({
     required this.code,
@@ -21,24 +21,24 @@ final class OndePoint {
     required this.departement,
   });
 
-  /// Code de la station ONDE, a huit caracteres.
+  /// Code de la station ONDE, à huit caractères.
   final OndeStationCode code;
 
-  /// Libelle affichable de la station.
+  /// Libellé affichable de la station.
   final String label;
 
-  /// Latitude en degres decimaux, WGS 84.
+  /// Latitude en degrés décimaux, WGS 84.
   final double latitude;
 
-  /// Longitude en degres decimaux, WGS 84 (negative a l'ouest de
+  /// Longitude en degrés décimaux, WGS 84 (négative à l'ouest de
   /// Greenwich).
   final double longitude;
 
   /// Cours d'eau de la station. `null` signifie une absence — jamais une
-  /// chaine vide (BR-007).
+  /// chaîne vide (BR-007).
   final String? waterCourseLabel;
 
-  /// Departement de la station. `null` signifie une absence — jamais une
-  /// chaine vide (BR-007).
+  /// Département de la station. `null` signifie une absence — jamais une
+  /// chaîne vide (BR-007).
   final DepartementCode? departement;
 }

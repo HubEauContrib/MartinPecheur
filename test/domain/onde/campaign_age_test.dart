@@ -1,15 +1,16 @@
 // Verrouille la borne de BR-010 (60 jours), sur la date d'OBSERVATION de la
-// campagne. L'age se compte en JOURS entiers (T-08) : l'API ONDE ne donne
-// pas d'heure, une observation d'ecoulement n'est jamais datee a la minute
-// pres. `now` est un parametre, comme pour freshnessOf — meme parade pour un
-// age negatif.
+// campagne. L'âge se compte en JOURS CALENDAIRES (T-08) : l'API ONDE ne
+// donne pas d'heure, une observation d'écoulement n'est jamais datée à la
+// minute près — deux dates se comparent par leur calendrier, jamais par une
+// durée absolue en instants. `now` est un paramètre, comme pour
+// freshnessOf — même parade pour un âge négatif.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 
 void main() {
-  group('Age d\'une campagne ONDE (BR-010, T-08)', () {
+  group("Age d'une campagne ONDE (BR-010, T-08)", () {
     test('campaignAgeInDays(2026-08-25 -> 2026-09-13) vaut 19 jours, '
-        'recente', () {
+        'récente', () {
       final DateTime observedAt = DateTime.utc(2026, 8, 25);
       final DateTime now = DateTime.utc(2026, 9, 13);
 
@@ -20,7 +21,7 @@ void main() {
       );
     });
 
-    test('59 jours est recente', () {
+    test('59 jours est récente', () {
       final DateTime now = DateTime.utc(2026, 9, 13);
       final DateTime observedAt = now.subtract(const Duration(days: 59));
 
@@ -30,7 +31,7 @@ void main() {
       );
     });
 
-    test('60 jours exactement est ancienne — la borne est la plus severe', () {
+    test('60 jours exactement est ancienne — la borne est la plus sévère', () {
       final DateTime now = DateTime.utc(2026, 9, 13);
       final DateTime observedAt = now.subtract(const Duration(days: 60));
 
@@ -68,14 +69,28 @@ void main() {
       );
     });
 
-    test('une observation datee dans le futur est recente : un age negatif '
-        "est une anomalie de la source, pas une donnee vieille", () {
+    test('une observation datée dans le futur est récente : un âge négatif '
+        "est une anomalie de la source, pas une donnée vieille", () {
       final DateTime now = DateTime.utc(2026, 9, 13);
       final DateTime observedAt = now.add(const Duration(days: 3));
 
       expect(
         campaignAgeOf(observedAt: observedAt, now: now),
         CampaignAge.recente,
+      );
+    });
+
+    test("l'âge se compte en jours calendaires, pas en durée absolue : 60 "
+        'jours calendaires entre le 2026-01-29 et le 2026-03-30 restent '
+        "ancienne même si la transition d'heure d'été de fin mars "
+        'raccourcit la durée réelle écoulée (heure LOCALE, T-08)', () {
+      final DateTime observedAt = DateTime(2026, 1, 29);
+      final DateTime now = DateTime(2026, 3, 30, 0, 30);
+
+      expect(campaignAgeInDays(observedAt: observedAt, now: now), 60);
+      expect(
+        campaignAgeOf(observedAt: observedAt, now: now),
+        CampaignAge.ancienne,
       );
     });
   });

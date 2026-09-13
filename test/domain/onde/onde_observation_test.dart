@@ -1,8 +1,11 @@
 // OndeCampaign et OndeObservation sont des classes immuables simples : la
-// conversion depuis l'API (code_campagne int vs chaine, T-07) vit dans le
-// mapper de D3, pas ici. Ce test verifie le port des champs, y compris
-// rawFlowCode conserve tel que recu meme quand category est Inconnu
-// (BR-011).
+// conversion depuis l'API (code_campagne int vs chaîne, T-07) vit dans le
+// mapper de D3, pas ici. Ce test vérifie le port des champs, y compris
+// rawFlowCode conservé tel que reçu même quand category est Inconnu
+// (BR-011). Les valeurs de la campagne reprennent la première entrée de la
+// fixture réelle `test/fixtures/onde/campagnes_departement_41_2026-09-13.json`
+// : `nombre_modalite_ecoulement` y vaut 5 — le nombre de modalités de
+// l'échelle d'écoulement du protocole, pas un nombre de points.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
@@ -10,22 +13,21 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 
 void main() {
   group('OndeCampaign', () {
-    test('porte les champs d\'une campagne', () {
+    test("porte les champs d'une campagne, relevés sur la campagne 109905", () {
       final OndeCampaign campaign = OndeCampaign(
         code: '109905',
         date: DateTime.utc(2026, 8, 25),
         rawTypeLabel: 'usuelle',
-        modalityCount: 4150,
+        modalityCount: 5,
       );
 
       expect(campaign.code, '109905');
       expect(campaign.date, DateTime.utc(2026, 8, 25));
       expect(campaign.rawTypeLabel, 'usuelle');
-      expect(campaign.modalityCount, 4150);
+      expect(campaign.modalityCount, 5);
     });
 
-    test('modalityCount est nullable — une absence, jamais un zero '
-        '(BR-007)', () {
+    test('modalityCount est nullable — une absence', () {
       final OndeCampaign campaign = OndeCampaign(
         code: '109905',
         date: DateTime.utc(2026, 8, 25),
@@ -38,7 +40,7 @@ void main() {
   });
 
   group('OndeObservation (BR-011)', () {
-    test('porte les champs d\'une observation d\'assec', () {
+    test("porte les champs d'une observation d'assec", () {
       final OndeObservation observation = OndeObservation(
         station: OndeStationCode('K4520001'),
         observedAt: DateTime.utc(2026, 8, 25),
@@ -56,7 +58,7 @@ void main() {
       expect(observation.campaignCode, '109905');
     });
 
-    test('rawFlowCode est conserve tel que recu, non normalise, meme quand '
+    test('rawFlowCode est conservé tel que reçu, non normalisé, même quand '
         'category est Inconnu', () {
       final OndeObservation observation = OndeObservation(
         station: OndeStationCode('K4520001'),

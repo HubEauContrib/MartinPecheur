@@ -71,7 +71,9 @@ abstract interface class HydroObservationRepository {
 abstract interface class OndeObservationRepository {
   /// Les dernieres observations dont les stations tombent dans [bounds],
   /// filtrees sur `date_observation_min` = [since] (BR-010 : la carte ne
-  /// remonte jamais plus loin qu'une campagne recente). Une liste vide est
+  /// remonte jamais plus loin qu'une campagne recente). [since] est
+  /// INCLUSIF : une observation datee exactement a [since] est retenue,
+  /// comme le fait l'API sur `date_observation_min`. Une liste vide est
   /// une absence, jamais une erreur (BR-007).
   Future<List<OndeObservation>> latestWithinBounds(
     Bounds bounds, {
