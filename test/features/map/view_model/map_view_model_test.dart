@@ -140,7 +140,8 @@ void main() {
     expect(viewModel.stations, isEmpty);
   });
 
-  test('un chargement reussi efface une erreur precedente', () async {
+  test('un chargement reussi efface une erreur precedente, sur la MEME '
+      'emprise', () async {
     repository.answer = (int call) async {
       if (call == 1) {
         throw StateError('panne temporaire');
@@ -149,13 +150,78 @@ void main() {
     };
     final MapViewModel viewModel = MapViewModel(repository);
     addTearDown(viewModel.dispose);
+    final Bounds bounds = Bounds(west: -1, south: 46, east: 3, north: 48);
 
-    await viewModel.loadFor(Bounds(west: -1, south: 46, east: 3, north: 48));
+    await viewModel.loadFor(bounds);
     expect(viewModel.error, isNotNull);
 
-    await viewModel.loadFor(Bounds(west: -2, south: 45, east: 4, north: 49));
+    await viewModel.loadFor(bounds);
     expect(viewModel.error, isNull);
     expect(viewModel.stations, hasLength(1));
+  });
+
+  test(
+    'apres un echec, un nouveau chargement sur la MEME emprise rappelle '
+    'le depot : une emprise qui a echoue ne compte pas comme chargee, '
+    "sinon l'ecran reste en erreur jusqu'a ce que l'usager bouge la carte",
+    () async {
+      repository.answer = (int call) async {
+        if (call == 1) {
+          throw StateError('panne temporaire');
+        }
+        return <StationPoint>[_blois()];
+      };
+      final MapViewModel viewModel = MapViewModel(repository);
+      addTearDown(viewModel.dispose);
+      final Bounds bounds = Bounds(west: -1, south: 46, east: 3, north: 48);
+
+      await viewModel.loadFor(bounds);
+      await viewModel.loadFor(bounds);
+
+      expect(repository.calls, 2);
+    },
+  );
+
+  test('deux chargements rapproches sur des emprises differentes : la '
+      'reponse de la premiere, plus lente, ne doit pas ecraser celle de la '
+      'seconde', () async {
+    final Completer<List<StationPoint>> slow = Completer<List<StationPoint>>();
+    final Completer<List<StationPoint>> fast = Completer<List<StationPoint>>();
+    repository.answer = (int call) => call == 1 ? slow.future : fast.future;
+    final MapViewModel viewModel = MapViewModel(repository);
+    addTearDown(viewModel.dispose);
+
+    final Future<void> firstLoad = viewModel.loadFor(
+      Bounds(west: -1, south: 46, east: 3, north: 48),
+    );
+    final Future<void> secondLoad = viewModel.loadFor(
+      Bounds(west: -62, south: 15, east: -61, north: 17),
+    );
+
+    fast.complete(<StationPoint>[_guadeloupe()]);
+    await secondLoad;
+    slow.complete(<StationPoint>[_blois()]);
+    await firstLoad;
+
+    expect(repository.calls, 2);
+    expect(
+      viewModel.stations.single.code.value,
+      _guadeloupe().code.value,
+      reason:
+          "l'etat doit finir sur l'emprise demandee en DERNIER, quel que "
+          "soit l'ordre d'arrivee des reponses",
+    );
+  });
+
+  test("stations expose une vue immuable : un appelant ne peut pas y "
+      'ajouter un point', () async {
+    repository.answer = (int _) async => <StationPoint>[_blois()];
+    final MapViewModel viewModel = MapViewModel(repository);
+    addTearDown(viewModel.dispose);
+
+    await viewModel.loadInitial();
+
+    expect(() => viewModel.stations.add(_guadeloupe()), throwsUnsupportedError);
   });
 
   test('poser la camera ne notifie personne — elle change a chaque frame '

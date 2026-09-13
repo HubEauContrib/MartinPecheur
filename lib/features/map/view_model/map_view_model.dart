@@ -16,6 +16,8 @@
 // enregistrement de `double`, pas un `MapCamera` — la vue traduit, le
 // ViewModel reste testable sans monter de `FlutterMap`.
 
+import 'dart:collection' show UnmodifiableListView;
+
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
@@ -53,6 +55,11 @@ final class MapViewModel extends ChangeNotifier {
   /// Les points du viewport actuellement connu, dans l'ordre du
   /// referentiel. Jamais `null` : une absence de donnee est une liste vide
   /// (BR-007).
+  ///
+  /// Vue **immuable** : la vue lit cet etat, elle ne le modifie pas. Un
+  /// [UnmodifiableListView] et non `List.unmodifiable` — le second **recopie**
+  /// la liste, donc jusqu'a 4 150 elements a chaque relachement de geste, la
+  /// ou la vue n'a besoin que de se voir refuser l'ecriture (NFR-01).
   List<StationPoint> get stations => _stations;
 
   Object? _error;
@@ -80,6 +87,16 @@ final class MapViewModel extends ChangeNotifier {
 
   Bounds? _lastRequestedBounds;
 
+  /// Numero du dernier chargement demande. Incremente a chaque [loadFor] et
+  /// compare au retour du depot : une reponse dont le numero n'est plus le
+  /// dernier appartient a une emprise abandonnee et n'ecrit rien.
+  ///
+  /// Sans ce jeton, deux gestes rapproches sur des emprises differentes
+  /// laissent l'ecran sur la reponse qui arrive en **dernier**, pas sur
+  /// l'emprise demandee en dernier : la carte affiche alors les marqueurs
+  /// d'une region que l'usager a quittee.
+  int _generation = 0;
+
   /// Charge l'emprise de demarrage ([startupBounds]).
   Future<void> loadInitial() => loadFor(startupBounds);
 
@@ -92,31 +109,37 @@ final class MapViewModel extends ChangeNotifier {
   /// appels en tir-et-oublie de la vue ne doivent jamais faire tomber
   /// l'application pour une panne de lecture (BR-007).
   Future<void> loadFor(Bounds bounds) async {
-    final Bounds? derniere = _lastRequestedBounds;
-    if (derniere != null &&
-        derniere.north == bounds.north &&
-        derniere.south == bounds.south &&
-        derniere.east == bounds.east &&
-        derniere.west == bounds.west) {
+    final Bounds? previous = _lastRequestedBounds;
+    if (previous != null &&
+        previous.north == bounds.north &&
+        previous.south == bounds.south &&
+        previous.east == bounds.east &&
+        previous.west == bounds.west) {
       return;
     }
 
     _lastRequestedBounds = bounds;
+    final int generation = ++_generation;
 
     try {
-      final List<StationPoint> reponse = await _stationPoints.withinBounds(
+      final List<StationPoint> response = await _stationPoints.withinBounds(
         bounds,
       );
-      if (_disposed) {
+      if (_disposed || generation != _generation) {
         return;
       }
-      _stations = reponse;
+      _stations = UnmodifiableListView<StationPoint>(response);
       _error = null;
-    } on Object catch (erreur) {
-      if (_disposed) {
+    } on Object catch (error) {
+      if (_disposed || generation != _generation) {
         return;
       }
-      _error = erreur;
+      // Une emprise qui a echoue n'est pas une emprise chargee : on oublie
+      // qu'elle a ete demandee, sinon la garde ci-dessus refuserait le
+      // nouvel essai et l'ecran resterait en erreur jusqu'a ce que l'usager
+      // deplace la carte.
+      _lastRequestedBounds = null;
+      _error = error;
     }
 
     notifyListeners();
