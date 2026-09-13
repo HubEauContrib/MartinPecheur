@@ -22,6 +22,7 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application mob
 | [`glossary.md`](glossary.md) | **Langage omniprésent** — termes métier, ce qui est dit à l'usager, vocabulaire proscrit | — |
 | [`context-map.md`](context-map.md) | **Carte des contextes** — 6 contextes bornés et leurs sources externes | — |
 | [`domain-model.md`](domain-model.md) | **Modèle de domaine** — objets-valeur, entités, agrégats, ce que le domaine ne contient pas | — |
+| [`nfr.md`](nfr.md) | **Exigences non fonctionnelles** — seuils chiffrés, et constats ouverts | — |
 | [`project-state.md`](project-state.md) | **État vivant** — où on en est, ce qui bloque | — |
 | [`guide-installation.md`](guide-installation.md) | Installation du poste de développement, et ses pièges | — |
 | [`guide-release.md`](guide-release.md) | **Livrer un APK à un testeur distant** — commandes, signature, verrou produit | — |
