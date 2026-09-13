@@ -28,7 +28,14 @@ Statuts HTTP constatés à la capture de chacune (quand ils l'ont été) et rejo
 `HubEauClient.getJson` (`lib/data/http/hub_eau_client.dart`) rejoue sur 429 et 5xx en
 espaçant les tentatives via `delayForAttempt` (`lib/data/http/retry.dart`, C-12), et accepte
 206 comme un succès au même titre que 200 (C-06). Un 4xx hors 429 échoue immédiatement, sans
-attente : ce n'est pas une panne transitoire.
+attente : ce n'est pas une panne transitoire. Un corps qui prétend être un succès mais ne se
+décode pas en JSON (206 tronqué en cours de transfert, par exemple) est rejoué au même titre
+qu'une panne réseau. Le corps est toujours décodé en UTF-8 explicite
+(`utf8.decode(response.bodyBytes)`), jamais via `response.body` qui retombe sur latin1 sans
+en-tête `Content-Type`. Une panne TLS (`HandshakeException`/`TlsException`) traverse
+`IOClient` sans être enveloppée en `ClientException` et est rejouée comme une panne réseau ;
+un client déjà fermé (`ClientException` « already closed ») ne l'est pas. Les tentatives
+épuisées (`maxAttempts`, 4 par défaut) lèvent `HubEauFailure`.
 
 ```mermaid
 sequenceDiagram
@@ -36,7 +43,7 @@ sequenceDiagram
     participant Client as HubEauClient
     participant Retry as retry.dart
     participant API as Hub'Eau v2
-
+    Note over Écran,API: Panne transitoire (503) puis succès (206)
     Écran->>Client: getJson(uri)
     Client->>API: GET (tentative 0)
     API-->>Client: 503
@@ -45,11 +52,27 @@ sequenceDiagram
     Client->>API: GET (tentative 1)
     API-->>Client: 206 + corps
     Client-->>Écran: corps décodé
-
+    Note over Écran,API: Statut non rejouable — échec immédiat, sans attente
     Écran->>Client: getJson(uri)
     Client->>API: GET (tentative 0)
     API-->>Client: 400
-    Client-->>Écran: HubEauFailure (échec immédiat, aucune attente)
+    Client-->>Écran: HubEauFailure
+    Note over Écran,API: Corps illisible malgré un succès — rejouable aussi
+    Écran->>Client: getJson(uri)
+    Client->>API: GET (tentative 0)
+    API-->>Client: 206, corps tronqué
+    Client->>Retry: delayForAttempt(0)
+    Retry-->>Client: délai à gigue
+    Client->>API: GET (tentative 1)
+    API-->>Client: 200 + corps
+    Client-->>Écran: corps décodé
+    Note over Écran,API: Épuisement des tentatives (maxAttempts=4)
+    Écran->>Client: getJson(uri)
+    loop 4 tentatives, 503 constant
+        Client->>API: GET
+        API-->>Client: 503
+    end
+    Client-->>Écran: HubEauFailure (4 appels, 3 attentes)
 ```
 
 ## Faits constatés le 2026-09-13

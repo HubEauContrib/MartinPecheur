@@ -161,7 +161,11 @@ void main() {
       final http.Client mock = MockClient((http.Request request) async {
         appels++;
         if (appels == 1) {
-          return http.Response('trop de requêtes', 429);
+          // .bytes + utf8.encode : la même chose que l'API réelle enverrait
+          // sur le fil. http.Response(String, ...) sans en-tête
+          // Content-Type encoderait implicitement en latin1 (BaseResponse),
+          // ce qui ne représente pas fidèlement une réponse HTTP réelle.
+          return http.Response.bytes(utf8.encode('trop de requêtes'), 429);
         }
         return http.Response(jsonEncode(<String, int>{'count': 0}), 200);
       });
@@ -291,7 +295,8 @@ void main() {
       );
     });
 
-    test('un corps JSON qui est un tableau échoue immédiatement', () async {
+    test('un corps JSON qui est un tableau échoue immédiatement, message avec '
+        'le type reçu', () async {
       final http.Client mock = MockClient((http.Request request) async {
         return http.Response('[1,2,3]', 200);
       });
@@ -300,7 +305,118 @@ void main() {
         maxAttempts: 1,
       );
 
-      await expectLater(client.getJson(cible), throwsA(isA<HubEauFailure>()));
+      await expectLater(
+        client.getJson(cible),
+        throwsA(
+          isA<HubEauFailure>().having(
+            (HubEauFailure echec) => echec.message,
+            'message',
+            contains('List<dynamic>'),
+          ),
+        ),
+      );
+    });
+
+    test('sans en-tête Content-Type, "Pré-validée" se décode en UTF-8, pas en '
+        'latin1', () async {
+      final http.Client mock = MockClient((http.Request request) async {
+        return http.Response.bytes(
+          utf8.encode('{"count":1,"data":[{"libelle_statut":"Pré-validée"}]}'),
+          200,
+        );
+      });
+      final HubEauClient client = HubEauClient(httpClient: mock);
+
+      final Map<String, dynamic> corps = await client.getJson(cible);
+
+      final List<dynamic> lignes = corps['data'] as List<dynamic>;
+      final Map<String, dynamic> premiere = lignes[0] as Map<String, dynamic>;
+      expect(premiere['libelle_statut'], 'Pré-validée');
+    });
+
+    test(
+      'une panne TLS (HandshakeException/TlsException) traverse IOClient '
+      'sans être enveloppée, et est rejouée comme une panne réseau',
+      () async {
+        int appels = 0;
+        final http.Client mock = MockClient((http.Request request) async {
+          appels++;
+          throw const TlsException('poignee de main');
+        });
+        final HubEauClient client = HubEauClient(
+          httpClient: mock,
+          maxAttempts: 3,
+          jitter: () => 0,
+          sleep: (Duration duree) async {},
+        );
+
+        await expectLater(
+          client.getJson(cible),
+          throwsA(
+            isA<HubEauFailure>().having(
+              (HubEauFailure echec) => echec.message,
+              'message',
+              contains('poignee de main'),
+            ),
+          ),
+        );
+        expect(appels, 3);
+      },
+    );
+  });
+
+  group('HubEauClient.new — maxAttempts', () {
+    test('maxAttempts < 1 lève ArgumentError au constructeur', () {
+      expect(
+        () => HubEauClient(
+          httpClient: MockClient(
+            (http.Request request) async => http.Response('{}', 200),
+          ),
+          maxAttempts: 0,
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group('_checkSize — size minimal', () {
+    test('size: 0 lève ArgumentError', () {
+      expect(
+        () => observationsTrUri(
+          station: station,
+          grandeur: Grandeur.debit,
+          size: 0,
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group('HubEauClient.getJson — client fermé', () {
+    test('un client déjà fermé (ClientException "already closed") échoue '
+        'immédiatement, sans être rejoué', () async {
+      int appels = 0;
+      final http.Client mock = MockClient((http.Request request) async {
+        appels++;
+        throw http.ClientException('Client is already closed.');
+      });
+      final HubEauClient client = HubEauClient(
+        httpClient: mock,
+        maxAttempts: 4,
+        sleep: (Duration duree) async {},
+      );
+
+      await expectLater(
+        client.getJson(cible),
+        throwsA(
+          isA<HubEauFailure>().having(
+            (HubEauFailure echec) => echec.message,
+            'message',
+            contains('already closed'),
+          ),
+        ),
+      );
+      expect(appels, 1);
     });
   });
 
@@ -313,6 +429,17 @@ void main() {
 
       expect(client.close, returnsNormally);
     });
+
+    test('close() appelé deux fois reste sans lever', () {
+      final http.Client mock = MockClient(
+        (http.Request request) async => http.Response('{}', 200),
+      );
+      final HubEauClient client = HubEauClient(httpClient: mock);
+
+      client.close();
+
+      expect(client.close, returnsNormally);
+    });
   });
 
   group('Fixture réelle (2026-09-13)', () {
@@ -322,7 +449,11 @@ void main() {
         'test/fixtures/hubeau/observations_tr_K447001001_Q_2026-09-13.json',
       ).readAsStringSync();
       final http.Client mock = MockClient((http.Request request) async {
-        return http.Response(fixture, 200);
+        // .bytes + utf8.encode : la fixture est un fichier UTF-8 (comme le
+        // serait la réponse réelle d'Hub'Eau) ; http.Response(String, ...)
+        // sans en-tête Content-Type ré-encoderait en latin1, corrompant les
+        // libellés accentués avant même d'atteindre le client.
+        return http.Response.bytes(utf8.encode(fixture), 200);
       });
       final HubEauClient client = HubEauClient(httpClient: mock);
 

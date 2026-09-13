@@ -11,19 +11,33 @@
 //
 // Trois pannes sont distinguées dans [HubEauFailure.message], parce que
 // trois causes différentes appellent trois diagnostics différents : un
-// statut HTTP hors succès, une panne réseau (`http.ClientException` — le
-// client HTTP la lève sur coupure, échec DNS ou TLS, sans le moindre statut ;
-// c'est la panne transitoire la plus courante, et elle est rejouable), un
-// corps qui prétend être un succès mais ne se décode pas en JSON (rejouable
-// aussi — un 206 tronqué en cours de transfert n'est pas la faute de la
-// requête). Un statut non rejouable (4xx sauf 429, `isRetryable` en décide
-// à lui seul, C-06/C-12) échoue immédiatement, sans attente : le rejouer ne
-// corrigerait pas une requête mal formée.
+// statut HTTP hors succès, une panne réseau (`http.ClientException`, levée
+// par `IOClient` sur coupure ou échec DNS — mais **pas** sur un échec TLS :
+// `IOClient.send` n'enveloppe que `SocketException` et `HttpException`
+// (`package:http` 1.6.0, `io_client.dart`), donc `HandshakeException` et
+// `TlsException` (`dart:io`) traversent tels quels et sont rattrapées ici
+// via `on IOException`, avec le même traitement rejouable — sans le moindre
+// statut, c'est la panne transitoire la plus courante), un corps qui
+// prétend être un succès mais ne se décode pas en JSON (rejouable aussi —
+// un 206 tronqué en cours de transfert n'est pas la faute de la requête).
+// Un statut non rejouable (4xx sauf 429, `isRetryable` en décide à lui
+// seul, C-06/C-12) échoue immédiatement, sans attente : le rejouer ne
+// corrigerait pas une requête mal formée. Un client déjà fermé
+// (`ClientException` dont le message contient « already closed ») n'est
+// pas davantage rejoué : aucune attente ne rouvrira le client.
+//
+// Le corps est toujours décodé en UTF-8 explicite (`utf8.decode
+// (response.bodyBytes)`), jamais via `response.body` : JSON est UTF-8 par
+// définition (RFC 8259), alors que `response.body` retombe sur latin1 dès
+// que l'en-tête `Content-Type` ne précise pas de charset
+// (`package:http` 1.6.0, `response.dart`) — un accent d'un libellé Hub'Eau
+// (`Pré-validée`) arriverait alors corrompu jusqu'à l'écran.
 //
 // Le tirage aléatoire de la gigue n'existe qu'à un seul endroit du produit,
 // `lib/data/http/retry.dart` : ce fichier n'importe pas `dart:math`, et
 // délègue à [delayForAttempt] pour chaque délai d'attente.
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:martinpecheur/data/http/http_status.dart';
@@ -98,6 +112,9 @@ Uri referentielStationUri(StationCode station) {
 }
 
 void _checkSize(int size) {
+  if (size < 1) {
+    throw ArgumentError.value(size, 'size', 'doit être au moins 1');
+  }
   if (size > maxPageSize) {
     throw ArgumentError.value(
       size,
@@ -143,6 +160,8 @@ Future<void> _sleep(Duration duration) => Future<void>.delayed(duration);
 /// Client HTTP de l'API hydrométrie v2, avec recul exponentiel à gigue
 /// injectée (C-12) sur les pannes rejouables.
 final class HubEauClient {
+  /// Lève [ArgumentError] si [maxAttempts] est inférieur à 1 : une tentative
+  /// est le minimum pour qu'un appel ait un sens.
   HubEauClient({
     required http.Client httpClient,
     Future<void> Function(Duration) sleep = _sleep,
@@ -150,7 +169,16 @@ final class HubEauClient {
     this.maxAttempts = 4,
   }) : _httpClient = httpClient, // ignore: prefer_initializing_formals
        _sleepFn = sleep,
-       _jitter = jitter; // ignore: prefer_initializing_formals
+       // ignore: prefer_initializing_formals
+       _jitter = jitter {
+    if (maxAttempts < 1) {
+      throw ArgumentError.value(
+        maxAttempts,
+        'maxAttempts',
+        'doit être au moins 1 (une tentative)',
+      );
+    }
+  }
 
   final http.Client _httpClient;
 
@@ -162,15 +190,21 @@ final class HubEauClient {
   final double Function()? _jitter;
 
   /// Nombre maximal de tentatives, première comprise. La dernière n'attend
-  /// jamais avant d'abandonner.
+  /// jamais avant d'abandonner. Doit être au moins 1 — vérifié au
+  /// constructeur, qui lève [ArgumentError] sinon.
   final int maxAttempts;
 
-  /// Récupère [uri] et renvoie son corps décodé en objet JSON.
+  /// Récupère [uri] et renvoie son corps décodé en objet JSON, décodé en
+  /// UTF-8 explicite (JSON est UTF-8 par définition, RFC 8259).
   ///
   /// Rejoue sur 429 et 5xx (`isRetryable`, C-12), sur une panne réseau
-  /// (`http.ClientException`) et sur un corps illisible malgré un statut de
-  /// succès. Échoue immédiatement, sans attente, sur un statut non
-  /// rejouable ou sur un corps JSON qui n'est pas un objet.
+  /// (`http.ClientException`), sur une panne TLS qui traverse `IOClient`
+  /// sans être enveloppée (`HandshakeException`/`TlsException`, `on
+  /// IOException`) et sur un corps illisible malgré un statut de succès.
+  /// Échoue immédiatement, sans attente, sur un statut non rejouable, sur
+  /// un corps JSON qui n'est pas un objet, ou sur un client déjà fermé
+  /// (`ClientException` dont le message contient « already closed ») :
+  /// aucune attente ne le rouvrira.
   Future<Map<String, dynamic>> getJson(Uri uri) async {
     HubEauFailure? lastFailure;
 
@@ -184,7 +218,7 @@ final class HubEauClient {
         if (isSuccess(response.statusCode)) {
           final Object? decoded;
           try {
-            decoded = jsonDecode(response.body);
+            decoded = jsonDecode(utf8.decode(response.bodyBytes));
           } on FormatException catch (error) {
             lastFailure = HubEauFailure(
               'corps illisible (statut ${response.statusCode}) : $error',
@@ -197,23 +231,32 @@ final class HubEauClient {
             return decoded;
           }
 
-          throw const HubEauFailure(
-            'corps JSON invalide : un objet est attendu, reçu autre chose '
-            '(un tableau par exemple)',
+          throw HubEauFailure(
+            'corps JSON invalide : un objet est attendu, reçu '
+            '${decoded.runtimeType} (un tableau par exemple)',
           );
         }
+
+        final String corps = utf8.decode(response.bodyBytes);
 
         if (!isRetryable(response.statusCode)) {
-          throw HubEauFailure(
-            'statut ${response.statusCode} : ${response.body}',
-          );
+          throw HubEauFailure('statut ${response.statusCode} : $corps');
         }
 
-        lastFailure = HubEauFailure(
-          'statut ${response.statusCode} : ${response.body}',
-        );
+        lastFailure = HubEauFailure('statut ${response.statusCode} : $corps');
       } on http.ClientException catch (error) {
+        if (error.message.contains('already closed')) {
+          throw HubEauFailure(
+            'client HTTP déjà fermé, non rejouable : ${error.message}',
+          );
+        }
         lastFailure = HubEauFailure('panne réseau : ${error.message}');
+      } on IOException catch (error) {
+        // `IOClient.send` n'enveloppe en `ClientException` que
+        // `SocketException` et `HttpException` — une panne TLS
+        // (`HandshakeException`/`TlsException`) traverse sans enveloppe,
+        // et atterrit ici plutôt que dans le catch ci-dessus.
+        lastFailure = HubEauFailure('panne réseau : $error');
       }
 
       await _waitBeforeNextAttempt(attempt);
