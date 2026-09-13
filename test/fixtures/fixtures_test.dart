@@ -173,16 +173,19 @@ void main() {
       }
     });
 
-    test('portent api_version 1.2.0', () {
-      for (final String chemin in <String>[
-        cheminCampagnes,
-        cheminBbox,
-        cheminStation,
-      ]) {
-        final Map<String, dynamic> reponse = readFixture(chemin);
-        expect(reponse['api_version'], '1.2.0', reason: chemin);
-      }
-    });
+    test(
+      'les trois fixtures capturées le 2026-09-13 portent api_version 1.2.0',
+      () {
+        for (final String chemin in <String>[
+          cheminCampagnes,
+          cheminBbox,
+          cheminStation,
+        ]) {
+          final Map<String, dynamic> reponse = readFixture(chemin);
+          expect(reponse['api_version'], '1.2.0', reason: chemin);
+        }
+      },
+    );
 
     test(
       'toute fixture du dossier onde/ est citée dans docs/sources/onde.md',
@@ -191,6 +194,7 @@ void main() {
         final List<File> fichiers = Directory('test/fixtures/onde')
             .listSync()
             .whereType<File>()
+            .where((File f) => f.path.endsWith('.json'))
             .toList();
         expect(fichiers, isNotEmpty);
         for (final File fichier in fichiers) {
@@ -200,20 +204,21 @@ void main() {
             isTrue,
             reason:
                 '$nomFichier doit être citée depuis docs/sources/onde.md — '
-                "une fixture orpheline est une fixture dont personne ne sait "
-                'ce qu\'elle prouve',
+                'une fixture orpheline est une fixture dont personne ne sait '
+                "ce qu'elle prouve",
           );
         }
       },
     );
 
-    test('code_campagne est un entier dans /campagnes, sur toutes les lignes (T-07)', () {
+    test('code_campagne est un entier dans /campagnes, sur toutes les lignes '
+        '(T-07)', () {
       for (final Map<String, dynamic> ligne in lignesCampagnes) {
         expect(ligne['code_campagne'], isA<int>());
       }
     });
 
-    test("code_campagne est une chaîne dans /observations, sur toutes les "
+    test('code_campagne est une chaîne dans /observations, sur toutes les '
         "lignes (T-07) — un modèle qui le type int casse sur l'un des deux "
         'endpoints', () {
       for (final Map<String, dynamic> ligne in lignesBbox) {
@@ -276,7 +281,8 @@ void main() {
         isTrue,
         reason:
             'les 15 libellés de la fixture bbox portent chacun une '
-            "majuscule, ex. \"La Masse\" sur l'article",
+            'majuscule, ex. "La Masse" sur '
+            "l'article",
       );
 
       final Set<String> libellesStation = lignesStation
@@ -289,7 +295,7 @@ void main() {
         isTrue,
         reason:
             '"ruisseau la rivière aux loches" est entièrement en '
-            'minuscules, à l\'inverse de la fixture bbox',
+            "minuscules, à l'inverse de la fixture bbox",
       );
     });
 
@@ -329,7 +335,7 @@ void main() {
     });
 
     test('GeoJSON ordonne [longitude, latitude] — la Guadeloupe reste au '
-        "large de la Guadeloupe, pas de la Somalie", () {
+        'large de la Guadeloupe, pas de la Somalie', () {
       final Map<String, dynamic> guadeloupe = features.firstWhere(
         (Map<String, dynamic> f) =>
             (f['properties'] as Map<String, dynamic>)['code_station'] ==

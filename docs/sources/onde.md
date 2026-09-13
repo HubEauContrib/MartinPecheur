@@ -40,7 +40,7 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
   (`…/v1/ecoulement/observations?bbox=1.0,47.3,1.8,47.8&size=3` → 206, count 1 448 le matin
   du 2026-09-13). La carte n'a pas besoin de passer par le département.
 - `T-02` le même endpoint accepte `sort=desc` et `fields`
-  (`…&sort=desc&fields=code_station,date_observation,code_ecoulement,libelle_ecoulement,latitude,longitude`
+  (`https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?bbox=1.0,47.3,1.8,47.8&sort=desc&fields=code_station,date_observation,code_ecoulement,libelle_ecoulement,latitude,longitude&size=3`
   → 206 sans erreur).
 - `T-03` il accepte `date_observation_min` — `2026-07-15` sur la même emprise → count 30
   contre 1 448. Fixture : `observations_bbox_loire_2026-09-13.json`.
