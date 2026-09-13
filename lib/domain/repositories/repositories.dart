@@ -1,7 +1,9 @@
 // Les depots restent betes : ils lisent, ils n'orchestrent pas, et ils ne
 // decident pas de la politique de cache — cela reste au seul decorateur
-// CachePolicy (couche application). Un ecran n'appelle jamais un depot : il
-// envoie une Query ou une Command, un handler orchestre.
+// CachePolicy (`lib/data/cache/cache_policy.dart`). Un widget n'appelle
+// jamais un depot : il passe par le ViewModel de sa tranche, qui appelle le
+// depot directement et de facon typee (R3/R4, arbitrage 2026-09-13 —
+// ADR-014 remplace le volet CQRS leger d'ADR-008).
 //
 // Bounds refuse une emprise inversee a la construction : west >= east ou
 // south >= north ne leverait aucune erreur reseau, la carte s'afficherait
@@ -10,8 +12,11 @@
 // L'antimeridien (longitude proche de +180/-180) n'est pas traite : aucune
 // emprise francaise ne le franchit.
 
+import 'package:martinpecheur/domain/geo/viewport_filter.dart'
+    show defaultViewportMargin;
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/station/station.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
 
 /// Emprise rectangulaire en degres decimaux, WGS 84.
 ///
@@ -78,6 +83,28 @@ abstract interface class StationRepository {
 
   /// Les stations du departement [code].
   Future<List<Station>> findByDepartement(DepartementCode code);
+}
+
+/// Depot des points de carte du referentiel : la projection [StationPoint],
+/// pas l'entite [Station] complete.
+///
+/// Un depot a lui seul, et non une methode de plus sur [StationRepository]
+/// (R3, arbitrage 2026-09-13) : la carte, a chaque relachement de geste, n'a
+/// besoin que de code, libelle et coordonnees ; repasser par [Station] puis
+/// reconvertir couterait jusqu'a 4 150 allocations inutiles par geste, et
+/// la marge d'emprise n'a de sens que pour la carte.
+abstract interface class StationPointRepository {
+  /// Les points dont les coordonnees tombent dans [bounds], elargie de
+  /// [margin] fois sa hauteur et sa largeur de chaque cote.
+  ///
+  /// [margin] est proportionnel, jamais un nombre de degres fixe (voir
+  /// `stationsWithinViewport`) : c'est le seul endroit ou la marge par
+  /// defaut est nommee dans un contrat de depot. Une liste vide est une
+  /// absence, jamais une erreur (BR-007).
+  Future<List<StationPoint>> withinBounds(
+    Bounds bounds, {
+    double margin = defaultViewportMargin,
+  });
 }
 
 /// Depot des observations hydrometriques. Lit la derniere observation
