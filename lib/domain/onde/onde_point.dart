@@ -2,7 +2,8 @@
 // StationPoint (`lib/domain/station/station_point.dart`), mais pour le
 // referentiel ecoulement : un code, un libelle, deux coordonnees, plus le
 // cours d'eau et le departement quand la fiche station en a besoin. Dart
-// pur : aucune dependance d'infrastructure (BR-002).
+// pur : aucune dependance d'infrastructure (CLAUDE.md, invariants
+// d'architecture ; ADR-014).
 
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';

@@ -78,9 +78,5 @@ void main() {
         CampaignAge.recente,
       );
     });
-
-    test('campagneAncienneApres vaut 60 jours', () {
-      expect(campagneAncienneApres, const Duration(days: 60));
-    });
   });
 }

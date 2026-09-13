@@ -48,6 +48,22 @@ void main() {
       );
     });
 
+    test('Chargee(ancienne) est exactement construit sur ancienneApres — '
+        'pas un « 2 » recopié en dur', () {
+      expect(
+        stationMapStateLabel(const Chargee(Freshness.ancienne)),
+        'Dernière mesure il y a plus de ${ancienneApres.inHours} h',
+      );
+    });
+
+    test('Chargee(perimee) est exactement construit sur perimeeApres — '
+        'pas un « 24 » recopié en dur', () {
+      expect(
+        stationMapStateLabel(const Chargee(Freshness.perimee)),
+        'Dernière mesure il y a plus de ${perimeeApres.inHours} h',
+      );
+    });
+
     test('EnEchec -> "Donnée indisponible pour le moment."', () {
       expect(
         stationMapStateLabel(EnEchec(Exception('panne'))),

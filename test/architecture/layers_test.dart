@@ -9,7 +9,8 @@
 // 1. `domaine-ferme` — un fichier de `domain/` n'importe rien du projet hors
 //    `domain/`. Le domaine porte les invariants : s'il connait un depot
 //    concret, un ViewModel ou un widget, ces invariants ne sont plus
-//    testables sans eux (BR-002). La moitie « aucune infrastructure »
+//    testables sans eux (CLAUDE.md, invariants d'architecture ; ADR-014).
+//    La moitie « aucune infrastructure »
 //    (paquets, `dart:io`, `dart:ui`) reste dans
 //    `domain_isolation_test.dart` : ce fichier ne la recopie pas.
 // 2. `data-vers-features` — un fichier de `data/` n'importe aucune tranche de

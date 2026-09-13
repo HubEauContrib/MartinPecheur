@@ -5,7 +5,8 @@
 // un code, un libelle, deux coordonnees — rien de la provenance, ni asset ni
 // reseau. Le module de lecture d'asset le CONSTRUIT ; il ne le possede pas.
 //
-// Dart pur : aucune dependance d'infrastructure (BR-002).
+// Dart pur : aucune dependance d'infrastructure (CLAUDE.md, invariants
+// d'architecture ; ADR-014).
 
 import 'package:martinpecheur/domain/station/station.dart';
 

@@ -44,10 +44,10 @@ CampaignAge campaignAgeOf({
   required DateTime observedAt,
   required DateTime now,
 }) {
-  final Duration age = now.difference(observedAt);
+  final int ageInDays = campaignAgeInDays(observedAt: observedAt, now: now);
 
-  if (age < campagneAncienneApres) {
-    return CampaignAge.recente;
+  if (ageInDays >= campagneAncienneApres.inDays) {
+    return CampaignAge.ancienne;
   }
-  return CampaignAge.ancienne;
+  return CampaignAge.recente;
 }

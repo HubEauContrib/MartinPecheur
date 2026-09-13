@@ -80,15 +80,17 @@ final class EnEchec extends StationMapState {
 /// cours n'affiche pas de texte d'etat. [SansDonnee] porte le libelle de
 /// repli exact de BR-007. Aucun mot banni (*suffisant, insuffisant, normal,
 /// bon, sur*) n'apparait dans aucune branche (BR-003).
+///
+/// Les seuils affiches pour [Chargee] dérivent de [ancienneApres] et
+/// [perimeeApres] (`freshness.dart`) — jamais recopiés en dur ici, sans
+/// quoi une revision de BR-005 laisserait ce libelle mentir.
 String stationMapStateLabel(StationMapState state) => switch (state) {
   NonChargee() => '',
   Chargee(freshness: Freshness.fraiche) => '',
   Chargee(freshness: Freshness.ancienne) =>
-    'Dernière mesure il y a plus de '
-        '2 h',
+    'Dernière mesure il y a plus de ${ancienneApres.inHours} h',
   Chargee(freshness: Freshness.perimee) =>
-    'Dernière mesure il y a plus de '
-        '24 h',
+    'Dernière mesure il y a plus de ${perimeeApres.inHours} h',
   SansDonnee() => 'Aucune donnée disponible ici.',
   EnEchec() => 'Donnée indisponible pour le moment.',
 };

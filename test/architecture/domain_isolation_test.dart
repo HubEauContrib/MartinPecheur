@@ -1,7 +1,8 @@
 // Le premier test du projet : il a été écrit avant la première ligne de
 // `lib/domain/`, et posait la frontière avant qu'il y ait quoi que ce soit à
 // protéger. Dart n'offre aucun lint de restriction d'import par dossier
-// (BR-002) : ce test est le seul verrou mécanique de la frontière.
+// (CLAUDE.md, invariants d'architecture ; ADR-014) : ce test est le seul
+// verrou mécanique de la frontière.
 //
 // Il relève deux fautes, qui n'en font qu'une : un paquet d'infrastructure
 // importé sous `lib/domain/`, et un chemin relatif qui SORT de `lib/domain/`.
@@ -122,104 +123,113 @@ List<String> forbiddenImportsUnder(Directory root) {
 }
 
 void main() {
-  group('Frontière du domaine (BR-002)', () {
-    test("lib/domain/ n'importe aucune infrastructure", () {
-      final List<String> findings = forbiddenImportsUnder(
-        Directory('lib/domain'),
+  group(
+    "Frontière du domaine (CLAUDE.md, invariants d'architecture ; ADR-014)",
+    () {
+      test("lib/domain/ n'importe aucune infrastructure", () {
+        final List<String> findings = forbiddenImportsUnder(
+          Directory('lib/domain'),
+        );
+
+        expect(
+          findings,
+          isEmpty,
+          reason:
+              "Une dépendance d'infrastructure a été trouvée dans "
+              'lib/domain/. Déplacer le code fautif vers data/ ou '
+              'features/, et y accéder depuis le domaine via une '
+              "interface de dépôt (CLAUDE.md, invariants d'architecture ; "
+              'ADR-014). Relevés : $findings',
+        );
+      });
+
+      test(
+        'un dossier absent ou un dossier temporaire vide ne relèvent rien',
+        () {
+          expect(
+            forbiddenImportsUnder(Directory('lib/domain_absent')),
+            isEmpty,
+          );
+
+          final Directory emptyTempDir = Directory.systemTemp.createTempSync(
+            'domain_isolation_vide_',
+          );
+          addTearDown(() {
+            if (emptyTempDir.existsSync()) {
+              emptyTempDir.deleteSync(recursive: true);
+            }
+          });
+
+          expect(forbiddenImportsUnder(emptyTempDir), isEmpty);
+        },
       );
 
-      expect(
-        findings,
-        isEmpty,
-        reason:
-            "Une dépendance d'infrastructure a été trouvée dans "
-            'lib/domain/. Déplacer le code fautif vers data/ ou '
-            'features/, et y accéder depuis le domaine via une '
-            'interface de dépôt (BR-002). Relevés : $findings',
-      );
-    });
-
-    test(
-      'un dossier absent ou un dossier temporaire vide ne relèvent rien',
-      () {
-        expect(forbiddenImportsUnder(Directory('lib/domain_absent')), isEmpty);
-
-        final Directory emptyTempDir = Directory.systemTemp.createTempSync(
-          'domain_isolation_vide_',
+      test("un fichier fautif est relevé, un commentaire citant un paquet "
+          "interdit ne l'est pas", () {
+        final Directory tempDir = Directory.systemTemp.createTempSync(
+          'domain_isolation_fautif_',
         );
         addTearDown(() {
-          if (emptyTempDir.existsSync()) {
-            emptyTempDir.deleteSync(recursive: true);
+          if (tempDir.existsSync()) {
+            tempDir.deleteSync(recursive: true);
           }
         });
 
-        expect(forbiddenImportsUnder(emptyTempDir), isEmpty);
-      },
-    );
+        File('${tempDir.path}${Platform.pathSeparator}offender.dart')
+            .writeAsStringSync(
+              "import 'package:flutter/material.dart';\n"
+              '\n'
+              'const int offender = 1;\n',
+            );
+        File(
+          '${tempDir.path}${Platform.pathSeparator}innocent.dart',
+        ).writeAsStringSync(
+          "import 'dart:math';\n"
+          '\n'
+          '// pas une dependance : mention de package:http/ en commentaire\n'
+          'const double innocent = pi;\n',
+        );
 
-    test("un fichier fautif est relevé, un commentaire citant un paquet "
-        "interdit ne l'est pas", () {
-      final Directory tempDir = Directory.systemTemp.createTempSync(
-        'domain_isolation_fautif_',
-      );
-      addTearDown(() {
-        if (tempDir.existsSync()) {
-          tempDir.deleteSync(recursive: true);
-        }
+        final List<String> findings = forbiddenImportsUnder(tempDir);
+
+        expect(findings, hasLength(1));
+        expect(findings.single, contains('package:flutter/'));
+        expect(findings.single, contains('offender.dart:1'));
       });
 
-      File('${tempDir.path}${Platform.pathSeparator}offender.dart')
-          .writeAsStringSync(
-            "import 'package:flutter/material.dart';\n"
-            '\n'
-            'const int offender = 1;\n',
-          );
-      File('${tempDir.path}${Platform.pathSeparator}innocent.dart')
-          .writeAsStringSync(
-            "import 'dart:math';\n"
-            '\n'
-            '// pas une dependance : mention de package:http/ en commentaire\n'
-            'const double innocent = pi;\n',
-          );
+      test("un import relatif qui SORT du domaine est relevé, un import "
+          "relatif interne ne l'est pas", () {
+        final Directory tempDir = Directory.systemTemp.createTempSync(
+          'domain_isolation_relatif_',
+        );
+        addTearDown(() {
+          if (tempDir.existsSync()) {
+            tempDir.deleteSync(recursive: true);
+          }
+        });
+        final Directory station = Directory('${tempDir.path}/station')
+          ..createSync(recursive: true);
 
-      final List<String> findings = forbiddenImportsUnder(tempDir);
+        File(
+          '${station.path}/escapee.dart',
+        ).writeAsStringSync("import '../../data/http/hub_eau_client.dart';\n");
+        File('${station.path}/innocent_relatif.dart').writeAsStringSync(
+          "import '../units/quantities.dart';\n"
+          "import './station_point.dart';\n",
+        );
 
-      expect(findings, hasLength(1));
-      expect(findings.single, contains('package:flutter/'));
-      expect(findings.single, contains('offender.dart:1'));
-    });
+        final List<String> findings = forbiddenImportsUnder(tempDir);
 
-    test("un import relatif qui SORT du domaine est relevé, un import "
-        "relatif interne ne l'est pas", () {
-      final Directory tempDir = Directory.systemTemp.createTempSync(
-        'domain_isolation_relatif_',
-      );
-      addTearDown(() {
-        if (tempDir.existsSync()) {
-          tempDir.deleteSync(recursive: true);
-        }
+        expect(
+          findings,
+          hasLength(1),
+          reason:
+              'un `package:` interdit et un `../../` qui sort de lib/domain/ '
+              'sont la meme faute écrite de deux façons : le domaine dépend '
+              "de l'infrastructure. Relevés : $findings",
+        );
+        expect(findings.single, contains('escapee.dart:1'));
       });
-      final Directory station = Directory('${tempDir.path}/station')
-        ..createSync(recursive: true);
-
-      File('${station.path}/escapee.dart')
-          .writeAsStringSync("import '../../data/http/hub_eau_client.dart';\n");
-      File('${station.path}/innocent_relatif.dart').writeAsStringSync(
-        "import '../units/quantities.dart';\n"
-        "import './station_point.dart';\n",
-      );
-
-      final List<String> findings = forbiddenImportsUnder(tempDir);
-
-      expect(
-        findings,
-        hasLength(1),
-        reason:
-            'un `package:` interdit et un `../../` qui sort de lib/domain/ '
-            'sont la meme faute écrite de deux façons : le domaine dépend '
-            "de l'infrastructure. Relevés : $findings",
-      );
-      expect(findings.single, contains('escapee.dart:1'));
-    });
-  });
+    },
+  );
 }
