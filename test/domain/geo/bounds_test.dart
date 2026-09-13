@@ -30,5 +30,35 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('deux emprises aux quatre bords identiques sont egales, et '
+        'partagent le meme hashCode', () {
+      final Bounds a = Bounds(west: -1, south: 46, east: 3, north: 48);
+      final Bounds b = Bounds(west: -1, south: 46, east: 3, north: 48);
+
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('une emprise dont un seul bord differe n est pas egale', () {
+      final Bounds reference = Bounds(west: -1, south: 46, east: 3, north: 48);
+
+      expect(
+        reference,
+        isNot(Bounds(west: -1.1, south: 46, east: 3, north: 48)),
+      );
+      expect(
+        reference,
+        isNot(Bounds(west: -1, south: 46.1, east: 3, north: 48)),
+      );
+      expect(
+        reference,
+        isNot(Bounds(west: -1, south: 46, east: 3.1, north: 48)),
+      );
+      expect(
+        reference,
+        isNot(Bounds(west: -1, south: 46, east: 3, north: 48.1)),
+      );
+    });
   });
 }

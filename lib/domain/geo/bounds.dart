@@ -64,4 +64,20 @@ final class Bounds {
 
   /// Bord nord, en degrés décimaux.
   final double north;
+
+  /// Égalité structurelle sur les quatre bords — c'est ce qui permet
+  /// d'utiliser une [Bounds] comme composante de clé de cache (D7,
+  /// `CachedOndeObservationRepository`) : deux emprises aux quatre bords
+  /// identiques doivent tomber sur la même entrée, jamais recréer une
+  /// entrée distincte par identité d'objet.
+  @override
+  bool operator ==(Object other) =>
+      other is Bounds &&
+      other.west == west &&
+      other.south == south &&
+      other.east == east &&
+      other.north == north;
+
+  @override
+  int get hashCode => Object.hash(west, south, east, north);
 }
