@@ -36,12 +36,14 @@ import 'package:martinpecheur/domain/station/station.dart';
 /// `Inconnu(null)`, jamais `Inconnu('')`, une chaîne vide n'étant pas un
 /// code.
 ///
-/// [point] est lu par [mapOndePoint], réutilisé, pas recopié (D8) : une
-/// ligne sans coordonnées ou sans `code_station` valide lève donc désormais
-/// aussi la [FormatException]/[ArgumentError] que lève [mapOndePoint], en
-/// plus de celles propres à cette fonction.
+/// [OndeObservation.point] est lu par [mapOndePoint], réutilisé, pas
+/// recopié (D8) ; [OndeObservation.station] est dérivé de `point.code`, une
+/// seule validation de `code_station` pour les deux champs. L'[ArgumentError]
+/// sur `code_station` d'une forme inconnue existait déjà avant D8 ; ce que
+/// D8 ajoute, c'est que l'absence ou l'illisibilité de `latitude`/
+/// `longitude` lève désormais aussi une [FormatException], en plus de celle
+/// propre à `date_observation`.
 OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
-  final OndeStationCode station = _stationCode(raw);
   final OndePoint point = mapOndePoint(raw);
 
   final DateTime observedAt = _dateOnly(raw, 'date_observation');
@@ -50,7 +52,7 @@ OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
   final FlowCategory category = flowCategoryFromCode(rawFlowCode);
 
   return OndeObservation(
-    station: station,
+    station: point.code,
     point: point,
     observedAt: observedAt,
     category: category,

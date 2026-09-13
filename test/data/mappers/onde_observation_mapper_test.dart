@@ -36,7 +36,7 @@ void main() {
       expect(observation.officialLabel, 'Assec');
       expect(observation.rawFlowCode, '3');
       expect(observation.campaignCode, '109905');
-      // Le point est lu sur la même ligne, via mapOndePoint reutilise (D8).
+      // Le point est lu sur la même ligne, via mapOndePoint réutilisé (D8).
       expect(observation.point.label, 'LA RIVIERE AUX LOCHES A CHAON');
       expect(observation.point.latitude, closeTo(47.610620493, 1e-9));
     });

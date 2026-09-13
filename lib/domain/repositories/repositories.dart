@@ -88,7 +88,10 @@ abstract interface class OndeObservationRepository {
 
   /// L'historique des [limit] dernieres observations connues pour
   /// [station], le plus recent en tete. [limit] vaut 5 par defaut : c'est
-  /// ce que la fiche station ONDE (T1) affiche.
+  /// ce que la fiche station ONDE (T1) affiche. Chaque observation rendue
+  /// porte le meme `OndePoint` (D8) : l'API le repete sur chaque ligne, et
+  /// c'est assume ici plutot que factorise — un second appel pour ne lire
+  /// le point qu'une fois coterait plus qu'il n'economise.
   Future<List<OndeObservation>> historyFor(
     OndeStationCode station, {
     int limit = 5,

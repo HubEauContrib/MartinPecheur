@@ -50,7 +50,9 @@ final class OndeObservation {
     required this.campaignCode,
   });
 
-  /// Station ONDE à l'origine de l'observation.
+  /// Station ONDE à l'origine de l'observation. Toujours égal à
+  /// `point.code` ; conservé pour le regroupement par station, le mapper le
+  /// dérive du point (D8).
   final OndeStationCode station;
 
   /// Le point observé, lu sur la même ligne d'API que l'observation (T-09) ;
