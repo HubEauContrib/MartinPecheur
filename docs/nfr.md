@@ -15,10 +15,10 @@ qu'un budget d'image ou une taille d'exécutable doive changer avec la plateform
 |---|---|---|---|---|
 | `NFR-01` | Fluidité de la carte pendant un geste | rastérisation **p90 ≤ 16,7 ms** et trames en retard **< 5 %** | relevé de percentiles de trame pendant des gestes définis d'avance | 🔄 non mesuré sur Windows |
 | `NFR-02` | Démarrage | première image **≤ 3 s**, référentiel de 4 150 stations chargé **≤ 5 s**, sur le poste de développement | chronométrage | 🔄 non mesuré |
-| `NFR-03` | Tenue hors réseau | l'écran carte s'ouvre, se déplace, affiche les marqueurs sans réseau ; bandeau explicite si les tuiles manquent | exécution avec la carte réseau désactivée | 🔄 non constaté ; cache de tuiles actif par défaut mais jamais éprouvé hors réseau |
+| `NFR-03` | Tenue hors réseau | l'écran carte s'ouvre, se déplace, affiche les marqueurs sans réseau ; bandeau explicite si les tuiles manquent | exécution avec la carte réseau désactivée | ✅ **constaté le 2026-09-13** par le commanditaire, exécutable lancé seul, carte réseau désactivée : la carte s'ouvre, se déplace, les 4 150 pastilles s'affichent, le fond de carte s'affiche depuis le cache de tuiles de la bibliothèque sur les zones déjà parcourues, aucun message d'erreur. Non constaté : une zone jamais chargée (le bandeau « tuiles manquantes » n'existe pas encore) |
 | `NFR-04` | Accessibilité | seuils de [`04-ui.md § 3`](04-ui.md) sans exception : contraste texte ≥ 7:1 sur les valeurs et les avertissements, ≥ 3:1 non textuel, halo de 2 px | audit, puis tests de rendu de référence en T1 | 🔄 partiel : le contour de 2 px est posé et vérifié par test ; les ratios ne sont pas audités |
 | `NFR-05` | Géolocalisation et vie privée | **aucune géolocalisation en T0** ; aucune donnée personnelle, **aucun identifiant** d'appareil ou d'installation, aucune mesure d'audience, aucune trace envoyée. À l'arrivée de la géolocalisation : ponctuelle, précision approximative, jamais de suivi continu | par construction — aucune dépendance de géolocalisation, de mesure d'audience ni de journalisation distante au `pubspec.yaml` | ✅ par construction, à revérifier à chaque ajout de dépendance |
-| `NFR-06` | Taille de l'exécutable | dossier de publication **≤ 60 Mo** | mesure après `flutter build windows --release` | 🔄 non mesuré ; repère du spike : 33 Mo, 14 fichiers |
+| `NFR-06` | Taille de l'exécutable | dossier de publication **≤ 60 Mo** | mesure après `flutter build windows --release` | ✅ **mesuré le 2026-09-13** : `Release` = **31 Mo**, dont `flutter_windows.dll` 21 Mo et le référentiel 6,4 Mo (repère du spike : 33 Mo) |
 | `NFR-07` | Charge sur les sources publiques | aucun appel national en bloc ; au plus **4 tentatives**, recul plafonné à **30 s**, gigue systématique ; référentiel embarqué, **zéro appel** | tests unitaires du recul et du client | ✅ test — 11 cas dans `test/data/http/retry_test.dart`, 24 dans `test/data/http/hub_eau_client_test.dart` |
 | `NFR-08` | Robustesse de lecture | aucune valeur d'API non reconnue ne fait échouer un écran ; toute entité écartée est comptée | tests de nomenclature et de lecture du référentiel | ✅ test |
 
@@ -58,7 +58,7 @@ Une case vide est une case vide, pas un « probablement ».
 | Constat | État |
 |---|---|
 | `NV-W1` — la molette ne zoomait pas sur Windows au spike (2026-09-09) | **Clos le 2026-09-13**, constaté à l'écran à l'exécution de l'écran carte de T0 (`flutter run -d windows`, commit `d9fa091`) : la molette zoome, le glisser déplace la carte. Aucun réglage n'a été posé — `MapOptions` sans `interactionOptions` explicite, drapeaux par défaut de `flutter_map` 8.3.2. Le constat du spike n'est pas reproduit ; sa cause d'alors reste **non établie**, seule sa disparition est constatée — réserve : non réexpliqué |
-| `NV-W2` — cache de tuiles hors réseau jamais exécuté | ouvert, sans date — bloque `NFR-03` |
+| `NV-W2` — cache de tuiles hors réseau | **levé le 2026-09-13** : éprouvé à l'écran sur les zones déjà parcourues ; une zone jamais chargée reste non constatée |
 | `NV-W3` — aucune mesure de fluidité sur Windows | ouvert, sans date — bloque `NFR-01` |
 | `NV-W4` — iOS jamais compilé, faute d'hôte macOS | sans date |
 | `NV-W5` — Android ⏸ différé le 2026-09-12 | sans date |
