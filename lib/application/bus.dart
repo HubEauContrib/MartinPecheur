@@ -20,6 +20,10 @@ final class Bus {
 
   /// Enregistre [handler] pour les messages de type [M]. Leve un
   /// [StateError] si [M] a deja un gestionnaire enregistre.
+  ///
+  /// La cle du registre est le type **concret** [M] : un gestionnaire par
+  /// type concret, jamais par hierarchie. Une sous-classe de [M] n'herite
+  /// pas du gestionnaire enregistre pour [M] — elle a besoin du sien.
   void register<M extends Message<R>, R>(
     Future<R> Function(M message) handler,
   ) {
@@ -37,6 +41,11 @@ final class Bus {
   /// [StateError] si aucun gestionnaire n'est enregistre pour le type de
   /// [message] ; laisse remonter telle quelle toute erreur levee par le
   /// gestionnaire (BR-007) : le bus n'avale aucune erreur.
+  ///
+  /// Le type [R] n'est pas verifie a l'enregistrement — l'effacement de type
+  /// de [register] l'accepte tel quel. Un [R] incoherent avec celui declare
+  /// par [message] ne se voit donc pas au moment d'enregistrer le
+  /// gestionnaire : il se paie ici, en [TypeError], au moment de l'envoi.
   Future<R> send<R>(Message<R> message) async {
     final _ErasedHandler? handler = _handlers[message.runtimeType];
     if (handler == null) {
@@ -46,7 +55,7 @@ final class Bus {
       );
     }
 
-    final Object? reponse = await handler(message);
-    return reponse as R;
+    final Object? response = await handler(message);
+    return response as R;
   }
 }

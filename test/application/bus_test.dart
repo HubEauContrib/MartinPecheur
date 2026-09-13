@@ -74,6 +74,24 @@ void main() {
       },
     );
 
+    test('un message sans gestionnaire nomme aussi la liste des gestionnaires '
+        'connus', () {
+      bus.register<StationsWithinBoundsQuery, List<Station>>(
+        (StationsWithinBoundsQuery query) async => <Station>[blois],
+      );
+
+      expect(
+        () => bus.send<Station?>(StationByCodeQuery(blois.code)),
+        throwsA(
+          isA<StateError>().having(
+            (StateError e) => e.message,
+            'message',
+            contains('Gestionnaires connus'),
+          ),
+        ),
+      );
+    });
+
     test('deux messages differents rendent chacun sa propre valeur', () async {
       bus.register<StationByCodeQuery, Station?>(
         (StationByCodeQuery query) async =>

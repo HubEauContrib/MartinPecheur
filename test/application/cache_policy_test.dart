@@ -230,6 +230,58 @@ void main() {
     expect(appelsLoad, 2);
   });
 
+  test('(10) cache perime, load leve de facon synchrone (fonction non async) : '
+      'trois lectures separees par un tour de boucle appellent load trois '
+      'fois', () async {
+    int appelsLoad = 0;
+
+    final Future<String> Function() lire = withCachePolicy<String>(
+      // Non async : le throw est synchrone, avant tout await.
+      load: () {
+        appelsLoad++;
+        throw const FormatException('sync');
+      },
+      readCache: () async => CachedValue<String>(
+        value: 'vieux',
+        storedAt: maintenant.subtract(const Duration(hours: 2)),
+      ),
+      writeCache: (String v) async {},
+      ttl: ttl,
+      now: () => maintenant,
+    );
+
+    await lire();
+    await Future<void>.delayed(Duration.zero);
+    await lire();
+    await Future<void>.delayed(Duration.zero);
+    await lire();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(appelsLoad, 3);
+  });
+
+  test('(11) cache vide, writeCache leve : la lecture rend quand meme "frais", '
+      "l'echec d'ecriture est absorbe", () async {
+    int appelsLoad = 0;
+
+    final Future<String> Function() lire = withCachePolicy<String>(
+      load: () async {
+        appelsLoad++;
+        return 'frais';
+      },
+      readCache: () async => null,
+      writeCache: (String v) async {
+        throw StateError('disque plein');
+      },
+      ttl: ttl,
+    );
+
+    final String resultat = await lire();
+
+    expect(resultat, 'frais');
+    expect(appelsLoad, 1);
+  });
+
   test('(9) un ttl de duree nulle est refuse', () {
     expect(
       () => withCachePolicy<String>(

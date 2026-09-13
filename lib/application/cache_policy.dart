@@ -21,7 +21,7 @@ final class CachedValue<T> {
   final DateTime storedAt;
 }
 
-bool _toujoursDisponible() => true;
+bool _alwaysAvailable() => true;
 
 /// Construit une fonction de lecture stale-while-revalidate.
 ///
@@ -38,10 +38,27 @@ bool _toujoursDisponible() => true;
 ///
 /// Un cache vide (`readCache` rend `null`) attend [load], le rend et
 /// l'ecrit : rien n'est encore perime, il n'y a rien de perime a afficher en
-/// attendant.
+/// attendant. **Y compris quand [networkAvailable] repond `false`** : la
+/// fonction ne consulte [networkAvailable] que sur une entree perimee, jamais
+/// sur un cache vide. [load] est donc tente malgre tout ; s'il echoue,
+/// l'echec remonte tel quel a l'appelant (BR-007), a qui revient d'afficher
+/// une absence explicite plutot qu'une valeur inventee.
+///
+/// Un echec de [writeCache] n'est jamais qu'un confort perdu, jamais une
+/// condition de lecture : que le cache soit vide ou perime, une valeur
+/// fraichement chargee par [load] est rendue meme si son ecriture en cache
+/// echoue. Seul un echec de [load] peut faire echouer la lecture.
 ///
 /// Leve un [ArgumentError] si [ttl] n'est pas strictement positif — a la
 /// construction de la fonction, avant tout appel.
+///
+/// ⚠️ **Piege d'usage** : la deduplication des rafraichissements en vol vit
+/// dans la fermeture rendue par cet appel, pas dans [withCachePolicy]
+/// lui-meme. L'appelant doit donc **conserver une seule fermeture par entree
+/// de cache** (par exemple dans un champ de depot) et l'invoquer a chaque
+/// lecture. Appeler `withCachePolicy(...)()` a chaque lecture reconstruit une
+/// fermeture neuve — donc un nouveau verrou toujours `null` — et annule la
+/// deduplication : chaque lecture simultanee relancerait son propre [load].
 Future<T> Function() withCachePolicy<T>({
   required Future<T> Function() load,
   required Future<CachedValue<T>?> Function() readCache,
@@ -54,43 +71,56 @@ Future<T> Function() withCachePolicy<T>({
     throw ArgumentError.value(ttl, 'ttl', 'doit etre strictement positif');
   }
 
-  final DateTime Function() horloge = now ?? DateTime.now;
-  final bool Function() reseauDisponible =
-      networkAvailable ?? _toujoursDisponible;
+  final DateTime Function() clock = now ?? DateTime.now;
+  final bool Function() isNetworkAvailable =
+      networkAvailable ?? _alwaysAvailable;
 
-  Future<T>? rafraichissementEnVol;
+  Future<T>? refreshInFlight;
 
-  Future<T> rafraichir() {
-    final Future<T>? existant = rafraichissementEnVol;
-    if (existant != null) {
-      return existant;
+  Future<T> refresh() {
+    final Future<T>? existing = refreshInFlight;
+    if (existing != null) {
+      return existing;
     }
 
-    Future<T> lancer() async {
+    Future<T> run() async {
       try {
-        final T valeur = await load();
-        await writeCache(valeur);
-        return valeur;
+        // Future.sync garantit que meme un load() synchrone (fonction non
+        // async qui leve immediatement) echoue de facon ASYNCHRONE : sans
+        // cela, l'exception remonterait pendant la partie synchrone de
+        // run(), le `finally` liberait le verrou avant que l'affectation
+        // `refreshInFlight = launched` ci-dessous n'ait eu lieu, et cette
+        // affectation ecraserait ensuite le verrou libere avec un future
+        // deja en echec — bloque a vie (relecture du 2026-09-13).
+        final T value = await Future<T>.sync(load);
+        try {
+          await writeCache(value);
+        } catch (_) {
+          // Le cache est un confort, pas une condition de lecture : la
+          // valeur fraiche vient d'etre chargee avec succes, un echec
+          // d'ecriture ne doit pas la faire perdre.
+        }
+        return value;
       } finally {
-        rafraichissementEnVol = null;
+        refreshInFlight = null;
       }
     }
 
-    final Future<T> lance = lancer();
-    rafraichissementEnVol = lance;
-    return lance;
+    final Future<T> launched = run();
+    refreshInFlight = launched;
+    return launched;
   }
 
   return () async {
-    final CachedValue<T>? enCache = await readCache();
-    if (enCache == null) {
-      return rafraichir();
+    final CachedValue<T>? cached = await readCache();
+    if (cached == null) {
+      return refresh();
     }
 
-    final bool perime = horloge().difference(enCache.storedAt) >= ttl;
-    if (perime && reseauDisponible()) {
+    final bool isStale = clock().difference(cached.storedAt) >= ttl;
+    if (isStale && isNetworkAvailable()) {
       unawaited(
-        rafraichir().then<void>(
+        refresh().then<void>(
           (T _) {},
           onError: (Object _) {
             // La derniere valeur connue reste en cache (BR-007) : l'echec
@@ -101,6 +131,6 @@ Future<T> Function() withCachePolicy<T>({
       );
     }
 
-    return enCache.value;
+    return cached.value;
   };
 }
