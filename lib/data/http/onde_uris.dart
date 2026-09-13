@@ -30,14 +30,14 @@ const String _basePath = '/api/v1/ecoulement';
 
 /// Champs Hub'Eau retenus sur `/observations` : exactement ceux que lisent
 /// `mapOndeObservation` et `mapOndePoint`
-/// (`lib/data/mappers/onde_observation_mapper.dart`), plus `code_cours_eau`
-/// (pas encore lu par le mapper, mais du même objet que `libelle_cours_eau`
-/// qu'il lit déjà). `fields` est accepté par l'API (T-02, constaté le
+/// (`lib/data/mappers/onde_observation_mapper.dart`), pas un de plus
+/// (YAGNI) — `code_cours_eau` n'y figure pas, le mapper ne lit que
+/// `libelle_cours_eau`. `fields` est accepté par l'API (T-02, constaté le
 /// 2026-09-13).
 const String _observationFields =
-    'code_station,libelle_station,code_departement,code_cours_eau,'
-    'libelle_cours_eau,code_campagne,date_observation,code_ecoulement,'
-    'libelle_ecoulement,latitude,longitude';
+    'code_station,libelle_station,code_departement,libelle_cours_eau,'
+    'code_campagne,date_observation,code_ecoulement,libelle_ecoulement,'
+    'latitude,longitude';
 
 /// URI de `/observations` filtrée par emprise, depuis [since] (inclus).
 /// [since] est requis : sans borne, l'API renverrait l'historique complet

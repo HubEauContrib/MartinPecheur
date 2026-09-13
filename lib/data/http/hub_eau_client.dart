@@ -53,8 +53,10 @@ import 'package:martinpecheur/data/http/retry.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
-/// Taille de page maximale acceptée par l'API hydrométrie v2 avant de
-/// répondre `400` (C-08, constaté sur `/observations_tr`).
+/// Taille de page maximale acceptée par Hub'Eau avant de répondre `400`
+/// (C-08, constaté sur `/observations_tr`) — commune aux endpoints
+/// hydrométrie v2 et ONDE v1 (`lib/data/http/onde_uris.dart`), pas propre à
+/// un seul.
 const int maxPageSize = 20000;
 
 /// Hôte unique de l'API hydrométrie v2 (ADR-001).

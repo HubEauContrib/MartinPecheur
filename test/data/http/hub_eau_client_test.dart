@@ -379,7 +379,7 @@ void main() {
     });
   });
 
-  group('_checkSize — size minimal', () {
+  group('checkPageSize — size minimal', () {
     test('size: 0 lève ArgumentError', () {
       expect(
         () => observationsTrUri(

@@ -121,7 +121,7 @@ lib/domain/                             Dart pur — ajouts de T1
   warnings/warning_texts.dart           les quatre textes + leur version (W2)
 lib/data/
   cache/cache_policy.dart               withCachePolicy, unique (pose par R4)
-  http/onde_client.dart                                          (D4)
+  http/onde_uris.dart                                            (D4)
   mappers/onde_observation_mapper.dart                           (D3)
   observations/http_hydro_observation_repository.dart             (D5)
   observations/cached_hydro_observation_repository.dart  TTL 20 min (D6)
@@ -258,7 +258,7 @@ git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): m
 
 ### Task D4 : Le client ONDE et ses URI
 
-**Files:** créé `lib/data/http/onde_client.dart` · test miroir
+**Files:** créé `lib/data/http/onde_uris.dart` · test miroir
 
 **Signatures publiques**
 

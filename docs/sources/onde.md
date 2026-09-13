@@ -75,6 +75,17 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
 (`109905`), chaîne dans `/observations` (`"109905"`) — un modèle qui le type `int` casse sur
 l'un des deux.
 
+- `T-12` **la forme filaire à virgules encodées (`%2C`) est acceptée**, constaté le 2026-09-13
+  15:47 UTC :
+  `…/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=code_station%2Cdate_observation%2Ccode_ecoulement`
+  → HTTP **206**, `count` **30** (identique à la forme à virgules nues au même instant), et
+  `fields` **honoré** : les lignes de `data` ne portent que `code_station`,
+  `date_observation`, `code_ecoulement` (première ligne :
+  `{"code_station":"K4640001","date_observation":"2026-08-25","code_ecoulement":"3"}`).
+  L'API réécrit les virgules nues dans `first`/`next`. Enjeu : `Uri(queryParameters:)` de Dart
+  encode toujours la virgule en `%2C` — c'est la forme filaire réellement émise par l'app, et
+  elle est acceptée.
+
 ## Non vérifié
 
 - La récurrence de `code_ecoulement` à `null` sur d'autres emprises n'est pas connue : 0

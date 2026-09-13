@@ -16,6 +16,23 @@ import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
+/// Les dix champs — ni plus ni moins (YAGNI) — que lisent
+/// `mapOndeObservation` et `mapOndePoint`
+/// (`lib/data/mappers/onde_observation_mapper.dart`). `fields` doit
+/// coïncider exactement avec cet ensemble sur les deux URI d'observations.
+const Set<String> _fieldsReadByMapper = <String>{
+  'code_station',
+  'date_observation',
+  'code_ecoulement',
+  'libelle_ecoulement',
+  'code_campagne',
+  'latitude',
+  'longitude',
+  'libelle_station',
+  'libelle_cours_eau',
+  'code_departement',
+};
+
 void main() {
   group('ondeObservationsWithinBoundsUri (T-01, T-03)', () {
     test('construit host, chemin, bbox, date_observation_min et size', () {
@@ -52,43 +69,29 @@ void main() {
       expect(uri.queryParameters['sort'], 'desc');
     });
 
-    test('fields contient chaque champ lu par mapOndeObservation et '
-        'mapOndePoint (T-02) — voir lib/data/mappers/onde_observation_mapper.dart', () {
+    test('fields est exactement l\'ensemble des champs lus par '
+        'mapOndeObservation et mapOndePoint, ni plus ni moins (T-02, YAGNI) — '
+        'voir lib/data/mappers/onde_observation_mapper.dart', () {
       final Uri uri = ondeObservationsWithinBoundsUri(
         bounds: Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
         since: DateTime.utc(2026, 7, 15),
       );
 
-      final List<String> fields = uri.queryParameters['fields']!.split(',');
+      final Set<String> fields = uri.queryParameters['fields']!
+          .split(',')
+          .toSet();
 
-      // Champs lus par mapOndeObservation.
-      const List<String> readByMapOndeObservation = <String>[
-        'code_station',
-        'date_observation',
-        'code_ecoulement',
-        'libelle_ecoulement',
-        'code_campagne',
-      ];
-      // Champs lus par mapOndePoint.
-      const List<String> readByMapOndePoint = <String>[
-        'code_station',
-        'latitude',
-        'longitude',
-        'libelle_station',
-        'libelle_cours_eau',
-        'code_departement',
-      ];
+      expect(fields, _fieldsReadByMapper);
+    });
 
-      for (final String field in <String>[
-        ...readByMapOndeObservation,
-        ...readByMapOndePoint,
-      ]) {
-        expect(
-          fields,
-          contains(field),
-          reason: '$field est lu par le mapper mais absent de fields',
-        );
-      }
+    test('les virgules sont encodées en %2C (forme vérifiée par appel réel le '
+        '2026-09-13, voir docs/sources/onde.md, T-12)', () {
+      final Uri uri = ondeObservationsWithinBoundsUri(
+        bounds: Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
+        since: DateTime.utc(2026, 7, 15),
+      );
+
+      expect(uri.toString(), contains('bbox=1.0%2C47.3%2C1.8%2C47.8'));
     });
 
     test('size: 0 lève ArgumentError (C-08)', () {
@@ -126,6 +129,23 @@ void main() {
       expect(uri.queryParameters['size'], '5');
       expect(uri.queryParameters['sort'], 'desc');
     });
+
+    test(
+      'fields est exactement l\'ensemble des champs lus par '
+      'mapOndeObservation et mapOndePoint, ni plus ni moins (T-02, YAGNI)',
+      () {
+        final Uri uri = ondeObservationsForStationUri(
+          OndeStationCode('K4520001'),
+          limit: 5,
+        );
+
+        final Set<String> fields = uri.queryParameters['fields']!
+            .split(',')
+            .toSet();
+
+        expect(fields, _fieldsReadByMapper);
+      },
+    );
 
     test('limit: 0 lève ArgumentError (C-08)', () {
       expect(
