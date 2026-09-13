@@ -179,6 +179,80 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     });
+
+    test("data d'un type inattendu (un entier) : FormatException", () async {
+      final http.Client mock = MockClient((http.Request request) async {
+        return http.Response(jsonEncode(<String, Object?>{'data': 3}), 200);
+      });
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(HubEauClient(httpClient: mock));
+
+      await expectLater(
+        repository.latestWithinBounds(bounds, since: since),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test("une ligne de data qui n'est pas un objet (un entier) : "
+        'FormatException', () async {
+      final http.Client mock = MockClient((http.Request request) async {
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'data': <Object?>[1],
+          }),
+          200,
+        );
+      });
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(HubEauClient(httpClient: mock));
+
+      await expectLater(
+        repository.latestWithinBounds(bounds, since: since),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  });
+
+  group('historyFor — tri et troncature côté client', () {
+    test('trois lignes désordonnées, limit:2 : triées décroissantes PUIS '
+        'tronquées — la troncature vient après le tri, pas avant', () async {
+      final http.Client mock = MockClient((http.Request request) async {
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'count': 3,
+            'data': <Object?>[
+              <String, Object?>{
+                'code_station': 'A1234567',
+                'date_observation': '2026-01-01',
+                'code_ecoulement': '3',
+              },
+              <String, Object?>{
+                'code_station': 'A1234567',
+                'date_observation': '2026-06-01',
+                'code_ecoulement': '1a',
+              },
+              <String, Object?>{
+                'code_station': 'A1234567',
+                'date_observation': '2026-03-01',
+                'code_ecoulement': '2',
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(HubEauClient(httpClient: mock));
+
+      final List<OndeObservation> observations = await repository.historyFor(
+        OndeStationCode('A1234567'),
+        limit: 2,
+      );
+
+      expect(observations, hasLength(2));
+      expect(observations[0].observedAt, DateTime.utc(2026, 6, 1));
+      expect(observations[1].observedAt, DateTime.utc(2026, 3, 1));
+    });
   });
 
   group('historyFor — fixture réelle (2026-09-13)', () {

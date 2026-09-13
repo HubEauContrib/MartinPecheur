@@ -196,6 +196,33 @@ void main() {
       expect(bouchon.appelsBounds, 3);
     });
 
+    test('since normalisé à son jour calendaire : UTC minuit et local 10 h '
+        'du même jour partagent la même entrée', () async {
+      final _DepotOndeBouchon bouchon = _DepotOndeBouchon();
+      final DateTime sinceUtcMinuit = DateTime.utc(2026, 7, 15);
+      final DateTime sinceLocal10h = DateTime(2026, 7, 15, 10);
+      bouchon.valeursBounds[(bounds, sinceUtcMinuit)] = <OndeObservation>[
+        _observation('K4640001', DateTime.utc(2026, 8, 25)),
+      ];
+      final DateTime maintenant = DateTime.utc(2026, 7, 20);
+
+      final CachedOndeObservationRepository depot =
+          CachedOndeObservationRepository(
+            inner: bouchon,
+            now: () => maintenant,
+          );
+
+      await depot.latestWithinBounds(bounds, since: sinceUtcMinuit);
+      expect(bouchon.appelsBounds, 1);
+
+      final List<OndeObservation> second = await depot.latestWithinBounds(
+        bounds,
+        since: sinceLocal10h,
+      );
+      expect(second, hasLength(1));
+      expect(bouchon.appelsBounds, 1);
+    });
+
     test('périmé (31 j, en saison) : ancienne liste immédiate, '
         'rafraîchissement en tâche de fond', () async {
       final _DepotOndeBouchon bouchon = _DepotOndeBouchon();
