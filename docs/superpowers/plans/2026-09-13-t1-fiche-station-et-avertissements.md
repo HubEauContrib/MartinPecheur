@@ -12,9 +12,9 @@
 
 ## Préalable bloquant — le réusinage MVVM doit être clos
 
-Ce plan est écrit **sur l'architecture cible**. Les tâches `R1` → `R6` de la § « Suite immédiate » de [`2026-09-13-t0-socle-flutter.md`](2026-09-13-t0-socle-flutter.md) sont un **préalable**, pas un lot de T1 : `R1` (ADR-014) et `R2` (disposition `view/`, `domain/geo/`, `StationPoint`) sont faits ; `R3` (`MapViewModel`, `StationPointRepository`), `R4` (`withCachePolicy` sous `lib/data/cache/`), `R5` (`layers_test.dart`) et `R6` (docs MVVM) restent.
+Ce plan est écrit **sur l'architecture cible**. Les tâches `R1` → `R6` de la § « Suite immédiate » de [`2026-09-13-t0-socle-flutter.md`](2026-09-13-t0-socle-flutter.md) sont un **préalable**, pas un lot de T1. ✅ **Préalable levé le 2026-09-13** : `R1` à `R6` sont faits et relus sur `feat/t1-mvvm-fiche-station` (sommet `c1a5755`, 244 tests verts) — `MapViewModel` appelle `StationPointRepository` par un appel typé, `withCachePolicy` vit sous `lib/data/cache/`, `test/architecture/layers_test.dart` verrouille cinq règles de couches, `lib/application/` n'existe plus.
 
-⚠️ **Aucune tâche de T1 ne démarre avant que `R5` soit vert.** Sans lui, le premier ViewModel peut importer `material.dart` sans que rien ne le voie — et c'est exactement le défaut que la relecture de T0 a trouvé.
+⚠️ **Aucune tâche de T1 ne démarrait avant que `R5` soit vert.** Sans lui, le premier ViewModel peut importer `material.dart` sans que rien ne le voie — et c'est exactement le défaut que la relecture de T0 a trouvé. Il est vert : la règle `view-model-sans-widget` est en place.
 
 ---
 
