@@ -13,10 +13,11 @@
 // `TypeError` non documenté si l'API rendait un jour un entier là où une
 // chaîne est attendue ; `_text` lève une `FormatException` à la place, et
 // normalise la chaîne vide en `null` (BR-007, jamais une chaîne vide).
-// `code_ecoulement` est délégué à `flowCategoryFromCode`
-// (`lib/domain/nomenclature/flow_category.dart`), jamais recopié : un code
-// non reconnu devient `Inconnu`, il ne fait jamais planter l'appelant
-// (C-10, BR-011).
+// `code_ecoulement` est lui aussi lu par `_text` puis délégué à
+// `flowCategoryFromCode` (`lib/domain/nomenclature/flow_category.dart`),
+// jamais recopié : un code non reconnu devient `Inconnu`, il ne fait jamais
+// planter l'appelant (C-10, BR-011) — une chaîne vide devient `Inconnu(null)`
+// et non `Inconnu('')`, `_text` l'ayant déjà normalisée en absence.
 
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
@@ -30,7 +31,10 @@ import 'package:martinpecheur/domain/station/station.dart';
 /// Lève une [FormatException] si `code_station` ou `date_observation` sont
 /// absents ou illisibles, une [ArgumentError] si `code_station` est d'une
 /// forme inconnue (via [OndeStationCode]). `code_ecoulement` inconnu ou
-/// absent ne lève jamais : il devient [Inconnu] (BR-011).
+/// absent ne lève jamais : il devient [Inconnu] (BR-011) — y compris une
+/// chaîne vide, normalisée en absence par [_text] (BR-007) : elle rend
+/// `Inconnu(null)`, jamais `Inconnu('')`, une chaîne vide n'étant pas un
+/// code.
 OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
   final OndeStationCode station = _stationCode(raw);
 
@@ -39,7 +43,7 @@ OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
     field: 'date_observation',
   );
 
-  final String? rawFlowCode = raw['code_ecoulement'] as String?;
+  final String? rawFlowCode = _text(raw, 'code_ecoulement');
   final FlowCategory category = flowCategoryFromCode(rawFlowCode);
 
   return OndeObservation(

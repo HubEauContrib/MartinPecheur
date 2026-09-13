@@ -131,6 +131,23 @@ void main() {
       expect(observation.category, const Inconnu(null));
       expect(observation.rawFlowCode, isNull);
     });
+
+    test("code_ecoulement vide ('') -> Inconnu(null), jamais Inconnu('') — "
+        "une chaîne vide n'est pas un code (BR-007)", () {
+      final Map<String, dynamic> ligne = baseRow()..['code_ecoulement'] = '';
+
+      final OndeObservation observation = mapOndeObservation(ligne);
+
+      expect(observation.category, const Inconnu(null));
+      expect(observation.rawFlowCode, isNull);
+    });
+
+    test('code_ecoulement numérique (3) : FormatException, jamais un '
+        'TypeError nu', () {
+      final Map<String, dynamic> ligne = baseRow()..['code_ecoulement'] = 3;
+
+      expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
+    });
   });
 
   group('mapOndeObservation — lignes synthétiques dérivées', () {
