@@ -10,6 +10,42 @@
 
 ---
 
+## Avancement
+
+**Mise à jour : 2026-09-13.**
+
+| Lot | Tâches faites / total |
+|---|---|
+| Lot 0 — Socle | 5/5 |
+| Lot 1 — Domaine | 8/8 |
+| Lot 2 — Données | 7/7 |
+| Lot 3 — Application | 3/3 |
+| Lot 4 — Carte | 6/6 |
+| Lot 5 — La porte de T0 | P1 en cours (étapes 1-4 faites, 5-6 en cours) |
+| Android | 0/5 ⏸ |
+
+**Tests verts : 247.**
+
+### Écarts constatés à l'exécution
+
+- S2 : aucun rouge sur le gabarit généré (déjà conforme) ; l'outillage ajoute `ios/**` et `windows/**` à `analyzer.exclude` ; `require_trailing_commas` inopérante en Dart 3.13, `dart format --set-exit-if-changed` fait foi (`710d191`).
+- D1 : les `extension type` ferment **les deux sens** (pas d'asymétrie), `.value` seule sortie (`7873f1e`).
+- D4 : doc des coordonnées ajoutée après relecture (`b5a06c5`).
+- D7/D8 : `Bounds` sans `==`/`hashCode` — à traiter si un cache par emprise apparaît (A3 ne le requiert pas) ; diagramme complété (`10b30c5`).
+- N1 : `count` du code site **412** contre 206 (le plan anticipait 430/216) ; fixture `date_debut_obs_elab=2026-09-01` ajoutée ; statuts HTTP consignés dans `test/fixtures/CAPTURES.md` (`1d7b382`).
+- N3 : gigue bornée dans `[0, 1]` (`bf83c71`).
+- N4 : relecture → décodage UTF-8 explicite, pannes TLS, `maxAttempts ≥ 1`, `size ≥ 1` (correctif en cours).
+- N6 : le tag d'archive du spike n'était plus accessible ; le code a été réécrit d'après les signatures et invariants du plan.
+- A1 : `abstract interface class` retenue pour `Query`/`Command`, et non `sealed` — une requête se déclare dans sa tranche, le registre achemine par `Type` sans exiger l'exhaustivité (`1d929f5`).
+- A3 : correctif après relecture — le verrou de rafraîchissement est libéré si `load` lève **synchronement** (pas seulement en cas d'échec asynchrone), et un échec d'écriture du cache n'annule plus la lecture fraîche déjà obtenue (`66820ea`).
+- M1 : le zoom **19** est lui aussi servi par le géoplateforme IGN (constaté par appel réel) ; le zoom natif **18** est conservé comme **choix de charge**, pas comme limite technique de la source (`ea497b3`).
+- M2 : une emprise inversée est **refusée** à l'appel plutôt que silencieusement acceptée (`ea497b3`).
+- M4 : correctifs après relecture — les entités du référentiel sont lues **réellement** (département, cours d'eau, état de service), sans valeur sentinelle ; **37 stations** en service n'ont pas de `code_departement` (`e5c7e94`) ; la requête d'emprise part au **relâcher du geste** plutôt qu'à chaque trame, et les erreurs de chargement restent visibles à l'écran plutôt qu'avalées (`31b1cfe`).
+- M5 : constat inverse de celui du spike — la **molette zoome** sur Windows à l'exécution de T0, le glisser fonctionne aussi ; la cause de l'écart avec le constat du spike n'est **pas établie**, consigné `NV-W1` dans `docs/nfr.md` (`809ac40`).
+- Transverse : licence du code GPL-3.0-or-later (`a0d4279`) ; identifiants du plan en français (`delaiDeBase`, `taillePageMaximale`, `_attendre`) implémentés en anglais (`baseDelay`, `maxPageSize`, `_sleep`) par convention.
+
+---
+
 ## Cible et périmètre
 
 | Cible | État dans ce plan |
@@ -41,7 +77,7 @@ Tous relevés par **appel HTTP réel** ce jour. Un fait absent de ce tableau est
 | V-02 | **Débit en l/s** : `resultat_obs` = `47800.0` sur `K447001001`, soit **47,8 m³/s** | idem V-01 |
 | V-03 | **Hauteur en mm, et négative** : `resultat_obs` = `-1232.0`, soit **−1,232 m**. Aucun contrôle de signe ne doit être ajouté | `…&grandeur_hydro=H&size=1` |
 | V-04 | La dernière observation de `K447001001` date du **2026-08-27T08:00:00Z**, soit **dix-sept jours**. Le « temps réel » est périmé au sens de `BR-005` sur une station de référence | idem V-01 |
-| V-05 | **`C-05` reproduit** : le code **site** `K4470010` (8 car.) renvoie chaque mesure **en double**, dont une ligne à `code_station: null`. `count` = **430** contre **216** pour le code station | `…?code_entite=K4470010&grandeur_hydro=Q&size=2` |
+| V-05 | **`C-05` reproduit** : le code **site** `K4470010` (8 car.) renvoie chaque mesure **en double**, dont une ligne à `code_station: null`. `count` = **430** contre **216** pour le code station (recapture du 2026-09-13 : 412 / 206, voir `test/fixtures/CAPTURES.md`) | `…?code_entite=K4470010&grandeur_hydro=Q&size=2` |
 | V-06 | **`C-04` reproduit** : `obs_elab` sans `date_debut_obs_elab` commence au **`1900-01-01`** (`resultat_obs_elab` `155000.0`, `count` 44 733) | `…/v2/hydrometrie/obs_elab?code_entite=K447001001&grandeur_hydro_elab=QmnJ&size=2` |
 | V-07 | Avec `date_debut_obs_elab=2026-08-01` : `count` **26**, première valeur `48524.0` au `2026-08-01`, `libelle_statut` « Donnée pré-validée » | `…&date_debut_obs_elab=2026-08-01&size=3` |
 | V-08 | `date_debut_obs_elab=2026-09-01` → `count` **0**, **HTTP 200**. Une page vide est un 200 ; une page partielle un 206 (`C-06`) | `…&date_debut_obs_elab=2026-09-01&size=2` |
@@ -151,22 +187,22 @@ docs/
 
 ## Lot 0 — Socle
 
-### Task S1 : Créer le projet Flutter, Windows et iOS
+### Task S1 : Créer le projet Flutter, Windows et iOS — ✅ b538d8c
 
 **Files:** créés `pubspec.yaml`, `analysis_options.yaml`, `lib/main.dart`, `.metadata`, `windows/**`, `ios/**`, `test/project/ios_bundle_identifier_test.dart` · modifiés `pubspec.yaml`, `ios/Runner.xcodeproj/project.pbxproj` · **protégés** `.gitignore`, `README.md`, `CLAUDE.md`, `LICENSE.txt` (⚠️ `flutter create` écrase les deux premiers)
 
-- [ ] **Étape 1 — photographier l'arbre.** `git status --porcelain && ls -1` → arbre propre ; à la racine `CLAUDE.md`, `LICENSE.txt`, `README.md`, `assets`, `docs`, `spike`. **Pas de `lib/`, pas de `pubspec.yaml`.** Si `lib/` existe, s'arrêter et le signaler.
+- [x] **Étape 1 — photographier l'arbre.** `git status --porcelain && ls -1` → arbre propre ; à la racine `CLAUDE.md`, `LICENSE.txt`, `README.md`, `assets`, `docs`, `spike`. **Pas de `lib/`, pas de `pubspec.yaml`.** Si `lib/` existe, s'arrêter et le signaler.
 
-- [ ] **Étape 2 — créer le projet (commanditaire).** ⚠️ écrase `.gitignore` et `README.md` par ses gabarits ; c'est attendu et réparé à l'étape 3.
+- [x] **Étape 2 — créer le projet (commanditaire).** ⚠️ écrase `.gitignore` et `README.md` par ses gabarits ; c'est attendu et réparé à l'étape 3.
 
 ```bash
 flutter create --project-name martinpecheur --org fr.martinpecheur --platforms windows,ios .
 ```
 Attendu : `All done!` puis `Wrote NN files.` ; `windows/` et `ios/` existent, **`android/` n'existe PAS** — sinon `--platforms` n'a pas été pris, recommencer.
 
-- [ ] **Étape 3 — rendre les deux fichiers écrasés.** `git checkout -- .gitignore README.md && git status --porcelain | head -30` → les deux ne sont plus modifiés ; le reste apparaît en `??`.
+- [x] **Étape 3 — rendre les deux fichiers écrasés.** `git checkout -- .gitignore README.md && git status --porcelain | head -30` → les deux ne sont plus modifiés ; le reste apparaît en `??`.
 
-- [ ] **Étape 4 — version, dépendances, asset.** Dans `pubspec.yaml` : `version: 0.1.0+1` ; supprimer `cupertino_icons` (rien ne l'utilise) ; bloc `dependencies:` et asset :
+- [x] **Étape 4 — version, dépendances, asset.** Dans `pubspec.yaml` : `version: 0.1.0+1` ; supprimer `cupertino_icons` (rien ne l'utilise) ; bloc `dependencies:` et asset :
 
 ```yaml
 dependencies:
@@ -180,36 +216,36 @@ flutter:
     - assets/referentiel/stations.json   # 6 604 249 octets, count 4150
 ```
 
-- [ ] **Étape 5 — résoudre.** `flutter pub get` → `Got dependencies!`, sans conflit.
+- [x] **Étape 5 — résoudre.** `flutter pub get` → `Got dependencies!`, sans conflit.
 
-- [ ] **Étape 6 — constater les versions liées.** `flutter pub deps --style=compact | grep -Ei 'flutter_map|latlong2|^- http|http [0-9]'` → trois lignes, une version chacune. **Recopier dans le corps du commit.** Si `latlong2` n'est pas en `0.9.x`, le noter : le constat remplace l'attente.
+- [x] **Étape 6 — constater les versions liées.** `flutter pub deps --style=compact | grep -Ei 'flutter_map|latlong2|^- http|http [0-9]'` → trois lignes, une version chacune. **Recopier dans le corps du commit.** Si `latlong2` n'est pas en `0.9.x`, le noter : le constat remplace l'attente.
 
-- [ ] **Étape 7 — aligner l'identifiant de bundle iOS.** `--org fr.martinpecheur` + `--project-name martinpecheur` produit `fr.martinpecheur.martinpecheur` ; la cible est `fr.martinpecheur.app`.
+- [x] **Étape 7 — aligner l'identifiant de bundle iOS.** `--org fr.martinpecheur` + `--project-name martinpecheur` produit `fr.martinpecheur.martinpecheur` ; la cible est `fr.martinpecheur.app`.
 
 ```bash
 sed -i 's/fr\.martinpecheur\.martinpecheur/fr.martinpecheur.app/g' ios/Runner.xcodeproj/project.pbxproj && grep -c 'fr\.martinpecheur\.app' ios/Runner.xcodeproj/project.pbxproj && grep -c 'fr\.martinpecheur\.martinpecheur' ios/Runner.xcodeproj/project.pbxproj || true
 ```
 Attendu : premier compte **≥ 3**, second à **0**. Les variantes `…app.RunnerTests` sont correctes.
 
-- [ ] **Étape 8 — test de non-régression.** `test/project/ios_bundle_identifier_test.dart`, deux cas :
+- [x] **Étape 8 — test de non-régression.** `test/project/ios_bundle_identifier_test.dart`, deux cas :
   - `ios/Runner.xcodeproj/project.pbxproj` existe, contient `fr.martinpecheur.app`, ne contient plus `fr.martinpecheur.martinpecheur` → une régénération iOS remettrait le gabarit sans bruit.
   - `Directory('android').existsSync()` → `false` : le différé est une décision, il se vérifie.
 
-- [ ] **Étape 9 — supprimer le test de gabarit.** `rm -f test/widget_test.dart` (il teste un compteur qui n'existera pas).
+- [x] **Étape 9 — supprimer le test de gabarit.** `rm -f test/widget_test.dart` (il teste un compteur qui n'existera pas).
 
-- [ ] **Étape 10 — vérifier.** `flutter test test/project/ios_bundle_identifier_test.dart` → **2 tests passent**.
+- [x] **Étape 10 — vérifier.** `flutter test test/project/ios_bundle_identifier_test.dart` → **2 tests passent**.
 
-- [ ] **Étape 11 — commit.**
+- [x] **Étape 11 — commit.**
 
 ```bash
 git add -A && git commit -m "build: creer le projet Flutter, cibles Windows et iOS, version 0.1.0" -m "flutter create --platforms windows,ios : android/ n est pas genere, differe le 2026-09-12. flutter_map, latlong2, http declares (versions liees recopiees ici) ; cupertino_icons retire. assets/referentiel/stations.json declare (6 604 249 octets, count 4150). bundleIdentifier iOS aligne sur fr.martinpecheur.app, verrouille par test. .gitignore et README.md rendus apres ecrasement par le gabarit."
 ```
 
-### Task S2 : Durcir l'analyse statique
+### Task S2 : Durcir l'analyse statique — ✅ c90f6de + 710d191
 
 **Files:** modifiés `analysis_options.yaml`, `lib/main.dart`
 
-- [ ] **Étape 1 — remplacer le contenu généré** (il n'inclut que `flutter_lints`) :
+- [x] **Étape 1 — remplacer le contenu généré** (il n'inclut que `flutter_lints`) :
 
 ```yaml
 # `CLAUDE.md` : mode strict non négociable. Sans `strict-casts`, un `dynamic`
@@ -244,11 +280,11 @@ linter:
     - always_use_package_imports    # le chemin de couche lisible sur la ligne d'import (S3)
 ```
 
-- [ ] **Étape 2 — constater ce que le durcissement casse.** `flutter analyze` → **des remarques** sur le `lib/main.dart` généré. **C'est le rouge de cette tâche** ; recopier le nombre de remarques.
+- [x] **Étape 2 — constater ce que le durcissement casse.** `flutter analyze` → **des remarques** sur le `lib/main.dart` généré. **C'est le rouge de cette tâche** ; recopier le nombre de remarques.
 
-- [ ] **Étape 3 — réduire `lib/main.dart`** à la plus petite application conforme : `void main()` + `class MartinPecheurApp extends StatelessWidget` → `MaterialApp(title: 'MartinPêcheur', home: Scaffold(body: Center(child: Text('MartinPêcheur'))))`, tout `const`. `M4` le réécrit.
+- [x] **Étape 3 — réduire `lib/main.dart`** à la plus petite application conforme : `void main()` + `class MartinPecheurApp extends StatelessWidget` → `MaterialApp(title: 'MartinPêcheur', home: Scaffold(body: Center(child: Text('MartinPêcheur'))))`, tout `const`. `M4` le réécrit.
 
-- [ ] **Étape 4 — vérifier** (`analyze` → `No issues found!`, `dart format --set-exit-if-changed` → 0) puis commit.
+- [x] **Étape 4 — vérifier** (`analyze` → `No issues found!`, `dart format --set-exit-if-changed` → 0) puis commit.
 
 ```bash
 git add analysis_options.yaml lib/main.dart && git commit -m "build: durcir l analyse statique — strict-casts, strict-inference, strict-raw-types" -m "Sans strict-casts, une lecture de JSON mal typee traverse la frontiere de couche sans bruit et une valeur brute d API atteint la vue (BR-002). main.dart reduit a la plus petite application conforme ; l ecran carte le remplace en M4."
@@ -256,7 +292,7 @@ git add analysis_options.yaml lib/main.dart && git commit -m "build: durcir l an
 
 ---
 
-### Task S3 : Le premier test du projet — la frontière `domain/`
+### Task S3 : Le premier test du projet — la frontière `domain/` — ✅ f6577ac
 
 **C'est le premier test écrit, avant toute ligne de `lib/domain/`.** Un verrou posé après le code ne verrouille rien : il constate.
 
@@ -281,16 +317,16 @@ List<String> relevesInterditsSous(Directory racine);  // → 'chemin:ligne → i
 - dossier absent (`lib/domain_absent`) et dossier temporaire vide → vides. Le test est écrit **avant** la première ligne de domaine : il doit être vert à ce moment-là, sinon il serait désactivé et jamais rallumé.
 - cas négatif sur fichiers temporaires : `fautif.dart` important `package:flutter/material.dart` + `innocent.dart` important `dart:math` et **citant** `package:http/` en commentaire → exactement **1** relevé, contenant `package:flutter/` et `fautif.dart:1`. Sans ce cas, un détecteur qui ne détecte plus rien reste vert.
 
-- [ ] **Étape 1** — écrire le test. `flutter test test/architecture/domain_isolation_test.dart` → **3 tests passent**.
+- [x] **Étape 1** — écrire le test. `flutter test test/architecture/domain_isolation_test.dart` → **3 tests passent**.
 
-- [ ] **Étape 2 — constater le rouge sur le vrai dossier, puis l'effacer.**
+- [x] **Étape 2 — constater le rouge sur le vrai dossier, puis l'effacer.**
 
 ```bash
 mkdir -p lib/domain && printf "import 'package:flutter/material.dart';\n\nconst int sonde = 1;\n" > lib/domain/sonde_temporaire.dart && flutter test test/architecture/domain_isolation_test.dart ; rm -f lib/domain/sonde_temporaire.dart
 ```
 Attendu : le **premier test échoue** avec `lib/domain/sonde_temporaire.dart:1 → package:flutter/` ; le fichier est ensuite supprimé. Revérifier ensuite : **3 tests passent**.
 
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add test/architecture/domain_isolation_test.dart && git commit -m "test(domain): verrouiller la frontiere du domaine avant d y ecrire une ligne" -m "Dart n offre aucun lint de restriction d import par dossier : ce test est le seul verrou mecanique, et il tourne a chaque flutter test. Trois cas : le vrai dossier, un dossier absent ou vide, et un cas negatif sur fichier temporaire — sans ce dernier, un detecteur qui ne detecte plus rien resterait vert."
@@ -298,7 +334,7 @@ git add test/architecture/domain_isolation_test.dart && git commit -m "test(doma
 
 ---
 
-### Task S4 : `CHANGELOG.md`
+### Task S4 : `CHANGELOG.md` — ✅ 90d7529
 
 **Files:** créés `CHANGELOG.md`, `test/project/changelog_test.dart`
 
@@ -310,9 +346,9 @@ git add test/architecture/domain_isolation_test.dart && git commit -m "test(doma
   - `### Ajouté` : cible **Windows** construite, **iOS** déclarée jamais compilée · écran carte, fond **IGN Géoplateforme** en tuiles raster, attribution « © IGN Géoplateforme — Licence Ouverte » affichée, **4 150 stations** en marqueurs limités à l'emprise visible plus marge · socle de domaine : unités typées (m³/s, m), fraîcheur (`BR-005`), nomenclature d'écoulement tolérante à l'inconnu (`BR-011`), code station à dix caractères · socle de données : client hydrométrie **v2** avec nouvelle tentative à gigue, `200` et `206` en succès, conversion en un seul point · politique de cache unique · documentation de spécification : fiches de sources datées, modèle de domaine, exigences non fonctionnelles, plan de tests.
   - `### Différé` : **Android** en entier (arbitrage 2026-09-12) — aucune plateforme générée, aucune signature, aucune publication · stockage local, `ADR-011` réservé · volet sécheresse, `SourceRestriction` n'est qu'une interface (T2).
 
-- [ ] **Étape 1** — écrire le test, le lancer : `flutter test test/project/changelog_test.dart` → échec `PathNotFoundException` sur `CHANGELOG.md`.
-- [ ] **Étape 2** — écrire le document, relancer → **1 test passe**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — écrire le test, le lancer : `flutter test test/project/changelog_test.dart` → échec `PathNotFoundException` sur `CHANGELOG.md`.
+- [x] **Étape 2** — écrire le document, relancer → **1 test passe**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: ouvrir le CHANGELOG en 0.1.0, format Keep a Changelog" -m "Un test lie la version du CHANGELOG a celle du pubspec : une version annoncee d un cote et absente de l autre, c est une release dont on ne sait pas ce qu elle contient."
@@ -320,7 +356,7 @@ git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: ou
 
 ---
 
-### Task S5 : `docs/plan-de-tests.md`
+### Task S5 : `docs/plan-de-tests.md` — ✅ ed37078
 
 **Files:** créé `docs/plan-de-tests.md` · modifié `docs/README.md` (ligne d'index)
 
@@ -332,10 +368,10 @@ git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: ou
 - **Ce qu'on ne teste pas, et pourquoi** : le rendu des tuiles (c'est la bibliothèque — on teste **le gabarit d'URL**, car `TILECOL`/`TILEROW` inversés donnent une carte transposée sans aucune erreur) · le réseau réel en test automatisé (aucun SLA, `C-15` : la suite serait rouge sans code fautif ; les appels réels servent à **produire les fixtures**) · la couverture chiffrée (un pourcentage ne dit pas si `BR-002` est couvert ; la question de revue est « quel test tombe si cette règle est cassée ? ») · le hors-ligne en T0 (aucun stockage local n'existe ; `NFR-03` le chiffre).
 - **Fixtures** : un fichier par appel, `<endpoint>_<parametres>_<AAAA-MM-JJ>.json` · contenu **verbatim**, sauf extrait déclaré comme tel dans la fiche de source · la date est celle de **capture** ; une fixture ne se met pas à jour, on en capture une nouvelle et la fiche dit laquelle fait foi · toute fixture est référencée depuis `docs/sources/*.md` — une fixture orpheline est une fixture dont personne ne sait ce qu'elle prouve.
 
-- [ ] **Étape 1** — écrire le document.
-- [ ] **Étape 2** — indexer dans `docs/README.md`, tableau « Organisation », après `guide-test-appareil.md` : `| [`plan-de-tests.md`](plan-de-tests.md) | **Plan de tests** — la pyramide, à quel étage une règle se vérifie | — |`
-- [ ] **Étape 3 — vérifier.** `grep -c 'plan-de-tests' docs/README.md && grep -c 'classDiagram\|graph BT' docs/plan-de-tests.md` → `1` puis `1`.
-- [ ] **Étape 4 — commit.**
+- [x] **Étape 1** — écrire le document.
+- [x] **Étape 2** — indexer dans `docs/README.md`, tableau « Organisation », après `guide-test-appareil.md` : `| [`plan-de-tests.md`](plan-de-tests.md) | **Plan de tests** — la pyramide, à quel étage une règle se vérifie | — |`
+- [x] **Étape 3 — vérifier.** `grep -c 'plan-de-tests' docs/README.md && grep -c 'classDiagram\|graph BT' docs/plan-de-tests.md` → `1` puis `1`.
+- [x] **Étape 4 — commit.**
 
 ```bash
 git add docs/plan-de-tests.md docs/README.md && git commit -m "docs: poser le plan de tests, cinq etages et quatre regles de placement" -m "Le document ne liste pas les tests : il dit a quel etage une regle se verifie et pourquoi pas ailleurs. Une regle metier qui exige un widget pour etre verifiee est au mauvais endroit."
@@ -349,7 +385,7 @@ git add docs/plan-de-tests.md docs/README.md && git commit -m "docs: poser le pl
 
 > ⚠️ **Ordre :** le code station (`D4`) précède l'observation (`D5`) — `HydroObservation` porte un `StationCode`, et un type ne peut pas référencer un type qui n'existe pas. Seul écart d'ordre du lot.
 
-### Task D1 : Les unités, nommées par le type
+### Task D1 : Les unités, nommées par le type — ✅ e3087e7
 
 **Files:** créé `lib/domain/units/quantities.dart` · test `test/domain/units/quantities_test.dart`
 
@@ -366,7 +402,7 @@ extension type const Metres(double value) {}                // seule unité de h
 
 **Invariants et pièges**
 - Les `extension type` s'effacent à l'exécution : **aucun objet alloué**, coût nul ; ce qu'ils apportent est une interdiction de compilation.
-- Asymétrie voulue : un `LitresPerSecond` reste acceptable là où un `double` est attendu, mais un `double` n'est **jamais** acceptable là où un `LitresPerSecond` est attendu. Le sens dangereux est fermé.
+- Les deux sens sont fermés (constaté le 2026-09-13 : sans `implements double`, un `LitresPerSecond` n'est pas non plus acceptable là où un `double` est attendu). C'est voulu : la seule sortie vers le nombre nu est `.value`, explicite et lisible. Un `double` n'est **jamais** acceptable là où une unité est attendue.
 - Aucune validation ici : ces types **nomment**, ils ne refusent pas.
 
 **Cas de test** (3)
@@ -374,16 +410,16 @@ extension type const Metres(double value) {}                // seule unité de h
 - `Millimetres(-1232.0).value → -1232.0` : hauteur négative acceptée, **aucun contrôle de signe** ne doit exister.
 - `CubicMetresPerSecond(47.8)` et `Metres(-1.232)` : les seules unités affichables.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/domain/units/quantities_test.dart` → `Target of URI doesn't exist` ; puis implémenter → **3 tests passent**.
+- [x] **Étape 1** — test rouge : `flutter test test/domain/units/quantities_test.dart` → `Target of URI doesn't exist` ; puis implémenter → **3 tests passent**.
 
-- [ ] **Étape 2 — constater l'interdiction de compilation, puis effacer la sonde.** La séparation des unités est une garantie du **compilateur**, pas d'une assertion.
+- [x] **Étape 2 — constater l'interdiction de compilation, puis effacer la sonde.** La séparation des unités est une garantie du **compilateur**, pas d'une assertion.
 
 ```bash
 printf "import 'package:martinpecheur/domain/units/quantities.dart';\n\nCubicMetresPerSecond sonde() {\n  const brut = LitresPerSecond(47800.0);\n  return brut;\n}\n" > lib/domain/units/sonde_temporaire.dart && flutter analyze lib/domain/units/sonde_temporaire.dart ; rm -f lib/domain/units/sonde_temporaire.dart
 ```
 Attendu : une erreur `argument_type_not_assignable` ou `return_of_invalid_type`. **Recopier le message exact dans le corps du commit.**
 
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/domain/units/quantities.dart test/domain/units/quantities_test.dart && git commit -m "feat(domain): nommer les quatre unites par le type, pas par convention" -m "BR-002 : le bug le plus couteux du projet est un double en l/s passe la ou des m3/s sont attendus. Les extension type ferment ce sens-la a la compilation, sans rien allouer. Erreur d analyse constatee : <recopier>. Valeurs relevees le 2026-09-13 sur K447001001 : 47800.0 l/s et -1232.0 mm."
@@ -391,7 +427,7 @@ git add lib/domain/units/quantities.dart test/domain/units/quantities_test.dart 
 
 ---
 
-### Task D2 : La conversion, à un seul endroit
+### Task D2 : La conversion, à un seul endroit — ✅ 3eb7a04
 
 **Files:** créé `lib/domain/units/conversions.dart` · test `test/domain/units/conversions_test.dart`
 
@@ -417,9 +453,9 @@ Metres? toMetres(Millimetres? raw);
 - `-1232.0 mm → -1.232 m`.
 - `null` mm → `null`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/domain/units/conversions_test.dart` ; puis implémenter → **6 tests passent**.
-- [ ] **Étape 2 — vérifier l'unicité.** `grep -rn '1000' lib/ --include='*.dart' | grep -v 'conversions.dart'` → **aucune ligne**. Toute ligne future est soit une seconde conversion (fausse), soit une constante de temps mal placée.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/domain/units/conversions_test.dart` ; puis implémenter → **6 tests passent**.
+- [x] **Étape 2 — vérifier l'unicité.** `grep -rn '1000' lib/ --include='*.dart' | grep -v 'conversions.dart'` → **aucune ligne**. Toute ligne future est soit une seconde conversion (fausse), soit une constante de temps mal placée.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/domain/units/conversions.dart test/domain/units/conversions_test.dart && git commit -m "feat(domain): convertir l/s en m3/s et mm en m, a un seul endroit" -m "BR-002, BR-007, C-02. Le facteur mille n apparait que dans ce fichier. Un zero mesure reste un zero, une absence reste une absence, une valeur non finie leve. Valeurs de test : 47800.0, 48524.0, -1232.0 (2026-09-13), 53000.0 et 350571.0 (2026-07-30)."
@@ -427,7 +463,7 @@ git add lib/domain/units/conversions.dart test/domain/units/conversions_test.dar
 
 ---
 
-### Task D3 : La fraîcheur d'une observation
+### Task D3 : La fraîcheur d'une observation — ✅ f6c3631
 
 **Files:** créé `lib/domain/observation/freshness.dart` · test `test/domain/observation/freshness_test.dart`
 
@@ -458,8 +494,8 @@ Freshness freshnessOf({required DateTime measuredAt, required DateTime now});
 - heure locale vs UTC : une mesure à `-3 h` convertie en local → `ancienne`. `difference` compare des instants absolus ; ce test empêche d'ajouter un `toUtc()` « au cas où ».
 - `ancienneApres == 2 h` et `perimeeApres == 24 h`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/domain/observation/freshness_test.dart` ; puis implémenter → **8 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/domain/observation/freshness_test.dart` ; puis implémenter → **8 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/domain/observation/freshness.dart test/domain/observation/freshness_test.dart && git commit -m "feat(domain): calculer la fraicheur d une observation aux bornes de BR-005" -m "Seuils absolus 2 h puis 24 h, sur la date de MESURE et jamais de recuperation. La borne appartient a l etat le plus severe. L instant courant est un parametre : une borne non testable n est pas une borne. Constate le 2026-09-13 : la derniere observation de K447001001 datait de dix-sept jours."
@@ -467,7 +503,7 @@ git add lib/domain/observation/freshness.dart test/domain/observation/freshness_
 
 ---
 
-### Task D4 : La station et son code à dix caractères
+### Task D4 : La station et son code à dix caractères — ✅ b31eae2 + b5a06c5
 
 **Files:** créé `lib/domain/station/station.dart` · test `test/domain/station/station_test.dart`
 
@@ -511,8 +547,8 @@ final class Station {
 - `Station` porte les champs du référentiel : `K447001001`, `latitude 47.584957074`, `longitude 1.335147948`, `departement '41'`, `inService true` (relevés le 2026-09-13, HTTP 200).
 - `Station` sans cours d'eau : `1011000101`, `16.189402`, `-61.658989`, `'971'`, `riverLabel == null`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/domain/station/station_test.dart` ; puis implémenter → **10 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/domain/station/station_test.dart` ; puis implémenter → **10 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/domain/station/station.dart test/domain/station/station_test.dart && git commit -m "feat(domain): typer le code station a dix caracteres, et le code departement en chaine" -m "C-05 reproduit le 2026-09-13 : le code site K4470010 renvoie chaque mesure en double, dont une ligne a code_station null — count 430 contre 216. La forme acceptee est celle MESUREE sur les 4 150 stations : 3 974 en lettre + neuf chiffres, 176 en dix chiffres pour les DOM."
@@ -520,7 +556,7 @@ git add lib/domain/station/station.dart test/domain/station/station_test.dart &&
 
 ---
 
-### Task D5 : L'observation hydrométrique
+### Task D5 : L'observation hydrométrique — ✅ fb08460
 
 **Files:** créé `lib/domain/observation/hydro_observation.dart` · test `test/domain/observation/hydro_observation_test.dart`
 
@@ -558,8 +594,8 @@ final class HydroObservation {
 - qualification relevée le 2026-09-13 conservée : `statusCode 12`, `statusLabel 'Pré-validée'`, `qualificationCode 20`, `qualificationLabel 'Bonne'`.
 - qualification entièrement absente (quatre champs `null`) → acceptée.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/domain/observation/hydro_observation_test.dart` ; puis implémenter → **7 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/domain/observation/hydro_observation_test.dart` ; puis implémenter → **7 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/domain/observation/hydro_observation.dart test/domain/observation/hydro_observation_test.dart && git commit -m "feat(domain): l observation hydrometrique, deja convertie et toujours datee" -m "BR-001, BR-002, BR-006, BR-007, BR-011. Le debit et la hauteur portent un type d unite, pas un double nu. null veut dire la station n a pas transmis, jamais zero. Une hauteur negative traverse sans controle : -1,232 m releve le 2026-09-13. Grandeur porte une branche inconnu."
@@ -567,7 +603,7 @@ git add lib/domain/observation/hydro_observation.dart test/domain/observation/hy
 
 ---
 
-### Task D6 : La nomenclature d'écoulement, tolérante à l'inconnu
+### Task D6 : La nomenclature d'écoulement, tolérante à l'inconnu — ✅ 6f3798a
 
 **Files:** créé `lib/domain/nomenclature/flow_category.dart` · test `test/domain/nomenclature/flow_category_test.dart`
 
@@ -610,16 +646,16 @@ String flowCategoryLabel(FlowCategory category);
 - aucun libellé ne contient `assec`, `normal`, `suffisant`, `insuffisant`, `rien à signaler` (vocabulaire proscrit).
 - `NonObserve() == Inconnu(null)` → `false`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/domain/nomenclature/flow_category_test.dart` ; puis implémenter → **10 tests passent**.
+- [x] **Étape 1** — test rouge : `flutter test test/domain/nomenclature/flow_category_test.dart` ; puis implémenter → **10 tests passent**.
 
-- [ ] **Étape 2 — constater l'exhaustivité, puis effacer la sonde.** Le garde-fou de `BR-011` est le **compilateur**.
+- [x] **Étape 2 — constater l'exhaustivité, puis effacer la sonde.** Le garde-fou de `BR-011` est le **compilateur**.
 
 ```bash
 printf "import 'package:martinpecheur/domain/nomenclature/flow_category.dart';\n\nString sonde(FlowCategory c) => switch (c) {\n  Assec() => 'a',\n};\n" > lib/domain/nomenclature/sonde_temporaire.dart && flutter analyze lib/domain/nomenclature/sonde_temporaire.dart ; rm -f lib/domain/nomenclature/sonde_temporaire.dart
 ```
 Attendu : `non_exhaustive_switch_expression` nommant les cas manquants. **Recopier le message dans le commit.**
 
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/domain/nomenclature/flow_category.dart test/domain/nomenclature/flow_category_test.dart && git commit -m "feat(domain): la nomenclature d ecoulement, close et tolerante a l inconnu" -m "BR-011, C-10, ADR-006. sealed class plutot qu enumeration : Inconnu doit PORTER la valeur brute recue. NonObserve et Inconnu restent distincts — fait de terrain contre notre ignorance (BR-007). Codes releves le 2026-09-13 sur 300 observations du departement 41 : 1a 116, 1f 95, 2 24, 3 65 ; les codes 1 et 4 sont acceptes sans etre exiges."
@@ -627,7 +663,7 @@ git add lib/domain/nomenclature/flow_category.dart test/domain/nomenclature/flow
 
 ---
 
-### Task D7 : Les interfaces de dépôts
+### Task D7 : Les interfaces de dépôts — ✅ 7f0ba0a
 
 **Files:** créé `lib/domain/repositories/repositories.dart` · test `test/domain/repositories/repositories_test.dart`
 
@@ -664,9 +700,9 @@ abstract interface class HydroObservationRepository {
 - contrat implémentable **sans infrastructure** (double de test en mémoire) : `findByCode('K447001001')→blois`, `findByCode('ZZZZZZZZZZ')→null`, `findByDepartement('971')→[goyaves]`, `findWithinBounds`→`[blois]` et l'emprise demandée est enregistrée.
 - signature de `HydroObservationRepository` présente et `Grandeur.values.length == 3`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/domain/repositories/repositories_test.dart` ; puis implémenter → **4 tests passent**.
-- [ ] **Étape 2 — vérifier que le lot n'a rien fait entrer dans le domaine.** `flutter test test/architecture/domain_isolation_test.dart` → **3 tests passent** ; le domaine compte sept fichiers et n'importe toujours rien.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/domain/repositories/repositories_test.dart` ; puis implémenter → **4 tests passent**.
+- [x] **Étape 2 — vérifier que le lot n'a rien fait entrer dans le domaine.** `flutter test test/architecture/domain_isolation_test.dart` → **3 tests passent** ; le domaine compte sept fichiers et n'importe toujours rien.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/domain/repositories/repositories.dart test/domain/repositories/repositories_test.dart && git commit -m "feat(domain): les interfaces de depots, et rien de plus" -m "Les depots restent betes : ils lisent, ils n orchestrent pas, et ils ne decident pas de la politique de cache (A3). Une emprise inversee est refusee a la construction : elle ne leverait aucune erreur et la carte s afficherait vide, ce que l ecran presenterait comme aucune station (BR-007)."
@@ -674,7 +710,7 @@ git add lib/domain/repositories/repositories.dart test/domain/repositories/repos
 
 ---
 
-### Task D8 : `docs/domain-model.md`
+### Task D8 : `docs/domain-model.md` — ✅ 984825f + 10b30c5
 
 **Files:** créé `docs/domain-model.md` · modifié `docs/README.md` · test `test/project/domain_model_doc_test.dart`
 
@@ -753,9 +789,9 @@ classDiagram
     Millimetres ..> Metres : toMetres
 ```
 
-- [ ] **Étape 1** — test rouge : `flutter test test/project/domain_model_doc_test.dart` → `PathNotFoundException`.
-- [ ] **Étape 2** — écrire le document, puis indexer dans `docs/README.md` après `context-map.md` : `| [`domain-model.md`](domain-model.md) | **Modèle de domaine** — objets-valeur, entités, agrégats, ce que le domaine ne contient pas | — |`. Relancer → **3 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/project/domain_model_doc_test.dart` → `PathNotFoundException`.
+- [x] **Étape 2** — écrire le document, puis indexer dans `docs/README.md` après `context-map.md` : `| [`domain-model.md`](domain-model.md) | **Modèle de domaine** — objets-valeur, entités, agrégats, ce que le domaine ne contient pas | — |`. Relancer → **3 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add docs/domain-model.md docs/README.md test/project/domain_model_doc_test.dart && git commit -m "docs(domain): documenter le modele de domaine, objets-valeur, entites, agregats" -m "Un test lie le document au code dans les deux sens : un type du domaine absent echoue, et un type documente mais jamais ecrit echoue aussi. Diagramme classDiagram inline. Il n y a pas d agregat etat de la riviere : les trois echelles restent separees (BR-008)."
@@ -767,11 +803,11 @@ git add docs/domain-model.md docs/README.md test/project/domain_model_doc_test.d
 
 **Les fixtures d'abord.** Les tests de `data/` s'appuient dessus : les écrire après reviendrait à tester du code contre des valeurs inventées.
 
-### Task N1 : Capturer les fixtures réelles et écrire les fiches de sources
+### Task N1 : Capturer les fixtures réelles et écrire les fiches de sources — ✅ 24134cf + 1d7b382
 
 **Files:** créés 8 fixtures sous `test/fixtures/{hubeau,onde,referentiel}/`, `docs/sources/hubeau-hydrometrie.md`, `docs/sources/onde.md`, `test/fixtures/fixtures_test.dart` · modifié `docs/README.md`
 
-- [ ] **Étape 1 — capturer les six réponses de l'API hydrométrie**, une commande par fixture, contenu **verbatim**, jamais retouché.
+- [x] **Étape 1 — capturer les six réponses de l'API hydrométrie**, une commande par fixture, contenu **verbatim**, jamais retouché.
 
 ```bash
 mkdir -p test/fixtures/hubeau test/fixtures/onde test/fixtures/referentiel && curl -s -w '[%{http_code}]\n' -o test/fixtures/hubeau/observations_tr_K447001001_Q_2026-09-13.json 'https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=2'
@@ -803,28 +839,28 @@ curl -s -w '[%{http_code}]\n' -o test/fixtures/hubeau/referentiel_stations_K4470
 ```
 Attendu `[200]` — une page complète, pas partielle.
 
-- [ ] **Étape 2 — capturer la réponse d'écoulement.**
+- [x] **Étape 2 — capturer la réponse d'écoulement.**
 
 ```bash
 curl -s -w '[%{http_code}]\n' -o test/fixtures/onde/observations_departement_41_2026-09-13.json 'https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_departement=41&size=300'
 ```
 Attendu `[206]`, environ **330 ko**.
 
-- [ ] **Étape 3 — relever la distribution des codes, pour la fiche.**
+- [x] **Étape 3 — relever la distribution des codes, pour la fiche.**
 
 ```bash
 grep -o '"code_ecoulement":"[^"]*"' test/fixtures/onde/observations_departement_41_2026-09-13.json | sort | uniq -c
 ```
 Attendu, relevé le 2026-09-13 : `116` pour `"1a"`, `95` pour `"1f"`, `24` pour `"2"`, `65` pour `"3"`. **Recopier les chiffres obtenus dans la fiche** — s'ils diffèrent, c'est la fiche qui s'aligne sur le constat.
 
-- [ ] **Étape 4 — extraire deux entités du référentiel versionné.** L'asset complet fait 6,6 Mo ; cet extrait est **déclaré comme extrait** dans la fiche, propriétés réduites aux champs lus. Créer `test/fixtures/referentiel/stations_extrait_2026-09-13.json` : une `FeatureCollection` (`count` 2, `api_version` `2.0.1`) de deux `Feature` — (1) `coordinates [-61.658989, 16.189402]`, `code_station "1011000101"`, `libelle_station "La Grande Rivière à Goyaves à Petit-Bourg [Barbotteau]"`, `code_departement "971"`, `libelle_cours_eau "Grande Rivière à Goyaves"`, `en_service true` ; (2) `coordinates [1.335147948, 47.584957074]`, `code_station "K447001001"`, `libelle_station "La Loire à Blois"`, `code_departement "41"`, `libelle_cours_eau "la Loire"`, `en_service true`. Vérifier que les deux codes existent dans l'asset réel :
+- [x] **Étape 4 — extraire deux entités du référentiel versionné.** L'asset complet fait 6,6 Mo ; cet extrait est **déclaré comme extrait** dans la fiche, propriétés réduites aux champs lus. Créer `test/fixtures/referentiel/stations_extrait_2026-09-13.json` : une `FeatureCollection` (`count` 2, `api_version` `2.0.1`) de deux `Feature` — (1) `coordinates [-61.658989, 16.189402]`, `code_station "1011000101"`, `libelle_station "La Grande Rivière à Goyaves à Petit-Bourg [Barbotteau]"`, `code_departement "971"`, `libelle_cours_eau "Grande Rivière à Goyaves"`, `en_service true` ; (2) `coordinates [1.335147948, 47.584957074]`, `code_station "K447001001"`, `libelle_station "La Loire à Blois"`, `code_departement "41"`, `libelle_cours_eau "la Loire"`, `en_service true`. Vérifier que les deux codes existent dans l'asset réel :
 
 ```bash
 grep -c '"code_station":"1011000101"' assets/referentiel/stations.json && grep -c '"code_station":"K447001001"' assets/referentiel/stations.json
 ```
 Attendu : `1` puis `1`.
 
-- [ ] **Étape 5 — écrire `test/fixtures/fixtures_test.dart`.** Aides : `Map<String, dynamic> lireFixture(String chemin)` et `List<Map<String, dynamic>> donnees(Map<String, dynamic> reponse)` (lit `response['data']`). **Cas de test** (11) :
+- [x] **Étape 5 — écrire `test/fixtures/fixtures_test.dart`.** Aides : `Map<String, dynamic> lireFixture(String chemin)` et `List<Map<String, dynamic>> donnees(Map<String, dynamic> reponse)` (lit `response['data']`). **Cas de test** (11) :
   - débit en l/s : `resultat_obs > 1000` et `grandeur_hydro == 'Q'` — 47 800 m³/s dépasserait la crue historique de la Loire d'un facteur mille.
   - hauteur en mm : `grandeur_hydro == 'H'`, `resultat_obs.abs() > 100`, valeur négative.
   - `C-05` : au moins une ligne à `code_station == null`, et `lignes[0]['date_obs'] == lignes[1]['date_obs']` — sans elle, le mapper n'a plus de cas réel à refuser.
@@ -839,27 +875,27 @@ Attendu : `1` puis `1`.
 
   `flutter test test/fixtures/fixtures_test.dart` → **11 tests passent.** Un échec est un **fait nouveau sur l'API**, pas un bug de test : le consigner dans la fiche avant toute autre chose.
 
-- [ ] **Étape 6 — écrire `docs/sources/hubeau-hydrometrie.md`.** Base URL `https://hubeau.eaufrance.fr/api/v2/hydrometrie` · `api_version` `2.0.1` (2026-09-13) · aucune authentification · Licence Ouverte Etalab, **citation de l'auteur obligatoire**, version non précisée aux CGU : *non vérifié* · rôle : débit, hauteur, historique journalier, référentiel · décision liée `ADR-001` (cibler la v2, **la v1 est arrêtée** depuis le 05/05/2025, HTTP 403, `C-01`). Tout fait est daté ; un fait sans date n'a rien à faire dans la fiche.
+- [x] **Étape 6 — écrire `docs/sources/hubeau-hydrometrie.md`.** Base URL `https://hubeau.eaufrance.fr/api/v2/hydrometrie` · `api_version` `2.0.1` (2026-09-13) · aucune authentification · Licence Ouverte Etalab, **citation de l'auteur obligatoire**, version non précisée aux CGU : *non vérifié* · rôle : débit, hauteur, historique journalier, référentiel · décision liée `ADR-001` (cibler la v2, **la v1 est arrêtée** depuis le 05/05/2025, HTTP 403, `C-01`). Tout fait est daté ; un fait sans date n'a rien à faire dans la fiche.
   - **Endpoints** : `/observations_tr` (pagination **curseur**) → fixture `observations_tr_K447001001_Q_2026-09-13.json` · `/obs_elab` `grandeur_hydro_elab=QmnJ` (**curseur**) → `obs_elab_K447001001_depuis_2026-08-01_2026-09-13.json` · `/referentiel/stations` (`page`+`size`) → `referentiel_stations_K447001001_2026-09-13.json`.
   - **Faits constatés le 2026-09-13**, un par ligne avec sa conséquence dans le code : débit en l/s (`47800.0` = 47,8 m³/s → division par mille dans le mapper, une seule fois, `BR-002`) · hauteur en mm et négative (`-1232.0` = −1,232 m → aucun contrôle de signe) · `206` est un succès (`size=2` → 206, `count=0` → 200 → `isSuccess` accepte les deux, `C-06`) · un code site renvoie tout en double (`K4470010` : `count` **430**, dont une ligne à `code_station: null` ; code station : **216** → `StationCode` refuse huit caractères, `C-05`) · `obs_elab` ignore `sort` (sans `date_debut_obs_elab`, première ligne au `1900-01-01`, `resultat_obs_elab` `155000.0`, `count` `44 733` → paramètre **requis** du constructeur d'URI, `C-04`) · latence de `obs_elab` (`2026-09-01` → `count` 0 ; `2026-08-01` → `count` 26, « Donnée pré-validée » → l'historique du mois courant n'existe pas encore) · le champ de qualification change de nom (`libelle_qualification_obs` vs `libelle_qualification` → deux mappers, jamais un nom réutilisé de mémoire) · le référentiel nomme les coordonnées autrement (`latitude_station`/`longitude_station` vs `latitude`/`longitude`) · le temps réel peut être très vieux (dernière observation `2026-08-27T08:00:00Z`, **dix-sept jours** → `BR-005` s'applique à une station de référence, pas à un cas de bord).
   - **Contraintes subies** : renvoyer au tableau `C-xx` de `01-analyse.md § 4` — `C-01`, `C-02`, `C-03`, `C-04`, `C-05`, `C-06`, `C-07`, `C-08`, `C-09`, `C-12`, `C-15`, `C-17`.
   - **Référentiel figé** : `assets/referentiel/stations.json`, **6 604 249 octets**, `"count": 4150`, `api_version` `2.0.1`, obtenu avec `en_service=1&format=geojson&size=10000` ; versionné parce que la carte ne peut pas attendre 6,6 Mo au premier lancement et qu'il n'existe **aucun filtre géographique** sur cet endpoint (`C-09`). ⚠️ GeoJSON ordonne `[longitude, latitude]` ; les inverser ne lève aucune erreur.
   - **Non vérifié** : le quota réel (aucun en-tête `X-RateLimit-*`, aucun chiffre aux CGU, `C-12` — on throttle à l'aveugle) · le comportement sous forte charge concurrente · la stabilité du curseur entre deux appels espacés.
 
-- [ ] **Étape 7 — écrire `docs/sources/onde.md`.** Base URL `https://hubeau.eaufrance.fr/api/v1/ecoulement` · `api_version` `1.2.0` (2026-09-13) · aucune authentification · Licence Ouverte Etalab · rôle : observations visuelles de terrain · décision liée `ADR-006` (quatre catégories d'affichage). ⚠️ **Ce n'est pas une mesure, c'est un regard** : des agents se déplacent quelques fois par an, de mai à septembre ; entre deux campagnes personne ne regarde, et `BR-010` impose d'afficher l'âge de la campagne pour cette raison.
+- [x] **Étape 7 — écrire `docs/sources/onde.md`.** Base URL `https://hubeau.eaufrance.fr/api/v1/ecoulement` · `api_version` `1.2.0` (2026-09-13) · aucune authentification · Licence Ouverte Etalab · rôle : observations visuelles de terrain · décision liée `ADR-006` (quatre catégories d'affichage). ⚠️ **Ce n'est pas une mesure, c'est un regard** : des agents se déplacent quelques fois par an, de mai à septembre ; entre deux campagnes personne ne regarde, et `BR-010` impose d'afficher l'âge de la campagne pour cette raison.
   - **Endpoints** : `/observations` (`page`+`size`) → fixture `observations_departement_41_2026-09-13.json` · `/campagnes` → 🔄 à capturer avec l'écran d'écoulement (T1).
   - **Faits constatés le 2026-09-13** — appel `/observations?code_departement=41&size=300` → **HTTP 206**, `count` **2 821** : `code_ecoulement` est une chaîne (`"1a"` 116, `"1f"` 95, `"2"` 24, `"3"` 65 ; un parsing en entier échoue sur `"1a"`, `C-10`) · `"1"` et `"4"` absents de cet échantillon, constatés le 2026-08-01 sur huit départements → **acceptés sans être exigés** · libellés : `"1a"` « Ecoulement visible acceptable », `"1f"` « Ecoulement visible faible », `"2"` « Ecoulement non visible », `"3"` « Assec » · **le code de station y fait huit caractères** (`"K4520001"`) : ce n'est **pas** un code de station hydrométrique, les deux référentiels sont distincts et `StationCode` ne s'applique pas ici · coordonnées fournies deux fois (`latitude`/`longitude` plats **et** objet `geometry` GeoJSON, concordants sur l'échantillon) · `"date_observation":"2026-08-25"` — une date sans heure.
   - ⚠️ **Le libellé `"Assec"` de l'API n'est pas ce qu'on affiche** : `glossary.md` proscrit le mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour la traçabilité.
   - **Non vérifié** : `code_ecoulement` à `null` — **30 sur 7 000** le 2026-08-01, plus fréquent que le code `"4"` ; aucune occurrence dans l'échantillon du 2026-09-13, le cas reste nominal · la casse des libellés de campagne (`"usuelle"` en minuscules, `C-10`), constatée le 2026-07-30, non revérifiée · l'absence de station en DOM (`974` → 0 station), non revérifiée · les campagnes, aucun appel en T0.
 
-- [ ] **Étape 8 — indexer et vérifier.** Dans `docs/README.md`, après la ligne de `superpowers/plans/` : `| [`sources/`](sources/) | **Fiches de sources de données** — faits vérifiés et datés, fixtures associées | `<source>.md` |`
+- [x] **Étape 8 — indexer et vérifier.** Dans `docs/README.md`, après la ligne de `superpowers/plans/` : `| [`sources/`](sources/) | **Fiches de sources de données** — faits vérifiés et datés, fixtures associées | `<source>.md` |`
 
 ```bash
 flutter test && du -sh test/fixtures && grep -c 'sources/' docs/README.md
 ```
 Attendu : tous les tests verts, un poids de fixtures de l'ordre de **340 ko**, au moins `1` pour l'index.
 
-- [ ] **Étape 9 — commit.**
+- [x] **Étape 9 — commit.**
 
 ```bash
 git add test/fixtures docs/sources docs/README.md && git commit -m "docs(data): fiches de sources et fixtures reelles datees du 2026-09-13" -m "Huit fixtures capturees verbatim par appel reel, onze tests qui verifient sur elles ce que les fiches affirment. Faits reproduits : debit en l/s (47800.0 = 47,8 m3/s), hauteur en mm et negative (-1232.0), 206 en succes, code site renvoyant tout en double (count 430 contre 216), obs_elab sans date_debut commencant en 1900, code_ecoulement en chaine. Deux faits NOUVEAUX : le champ de qualification ne porte pas le meme nom selon l endpoint, et le code de station d ecoulement fait huit caracteres."
@@ -867,7 +903,7 @@ git add test/fixtures docs/sources docs/README.md && git commit -m "docs(data): 
 
 ---
 
-### Task N2 : Ce qu'est un succès HTTP
+### Task N2 : Ce qu'est un succès HTTP — ✅ 4ff3af6
 
 **Files:** créé `lib/data/http/http_status.dart` · test `test/data/http/http_status_test.dart`
 
@@ -882,8 +918,8 @@ bool isRetryable(int statusCode);  // 429 || >= 500
 
 **Cas de test** (8) — `200` et `206` → succès · `204` et `304` → non · `400/403/404/409/429/500/503` → non · `429` → rejouable · `500/502/503/599` → rejouables · `400/401/403/404/409/422` → non rejouables · `200`/`206` → non rejouables.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/data/http/http_status_test.dart` ; puis implémenter → **8 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/data/http/http_status_test.dart` ; puis implémenter → **8 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/data/http/http_status.dart test/data/http/http_status_test.dart && git commit -m "feat(data): normaliser 200 et 206 en succes, au seul endroit qui en decide" -m "C-06. Constate le 2026-09-13 sur le meme endpoint : size=2 renvoie 206, une reponse vide renvoie 200. 429 et 5xx sont rejouables ; aucun 4xx ne l est — il vient de notre requete."
@@ -891,16 +927,16 @@ git add lib/data/http/http_status.dart test/data/http/http_status_test.dart && g
 
 ---
 
-### Task N3 : La nouvelle tentative, à gigue injectée
+### Task N3 : La nouvelle tentative, à gigue injectée — ✅ 96fc1d0 + bf83c71
 
 **Files:** créé `lib/data/http/retry.dart` · test `test/data/http/retry_test.dart`
 
 **Signatures**
 
 ```dart
-const Duration delaiDeBase = Duration(milliseconds: 500);
-const Duration delaiMaximal = Duration(seconds: 30);
-Duration delayForAttempt(int attempt, {double Function() jitter = _gigueParDefaut});
+const Duration baseDelay = Duration(milliseconds: 500);
+const Duration maxDelay = Duration(seconds: 30);
+Duration delayForAttempt(int attempt, {double Function() jitter = _defaultJitter});
 ```
 
 **Invariants et pièges**
@@ -916,12 +952,12 @@ Duration delayForAttempt(int attempt, {double Function() jitter = _gigueParDefau
 - gigue maximale : `5 → 30000` et `40 → 30000` — exactement le plafond.
 - gigue médiane au plateau : `5 → 22500` et `20 → 22500` — **la gigue étale encore** ; c'est le piège de la formule naïve.
 - gigue médiane `0 → 750` ; gigue maximale `0 → 1000`.
-- pour `attempt` de 0 à 63 avec gigue maximale : `délai <= delaiMaximal`.
+- pour `attempt` de 0 à 63 avec gigue maximale : `délai <= maxDelay`.
 - `attempt == -1` → `ArgumentError` (un indice négatif produirait un décalage de bits invalide).
-- `delaiDeBase == 500 ms` et `delaiMaximal == 30 s`.
+- `baseDelay == 500 ms` et `maxDelay == 30 s`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/data/http/retry_test.dart` ; puis implémenter → **8 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/data/http/retry_test.dart` ; puis implémenter → **8 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/data/http/retry.dart test/data/http/retry_test.dart && git commit -m "feat(data): recul exponentiel a gigue injectee, plafond sur la base" -m "C-12 : aucun quota chiffre, aucun service intermediaire pour mutualiser la charge. Le plafond porte sur la BASE : plafonner le resultat ferait valoir min(30000 + gigue, 30000) des la sixieme tentative, et la gigue disparaitrait quand elle compte le plus. Deux tests couvrent ce plateau."
@@ -929,7 +965,7 @@ git add lib/data/http/retry.dart test/data/http/retry_test.dart && git commit -m
 
 ---
 
-### Task N4 : Le client de l'API hydrométrie, et ses URI
+### Task N4 : Le client de l'API hydrométrie, et ses URI — ✅ 790d767
 
 **Files:** créé `lib/data/http/hub_eau_client.dart` · test `test/data/http/hub_eau_client_test.dart`
 
@@ -938,14 +974,14 @@ git add lib/data/http/retry.dart test/data/http/retry_test.dart && git commit -m
 **Signatures**
 
 ```dart
-const int taillePageMaximale = 20000;                 // au-delà, l'API renvoie 400 (C-08)
+const int maxPageSize = 20000;                 // au-delà, l'API renvoie 400 (C-08)
 String grandeurCode(Grandeur grandeur);               // 'H' / 'Q' ; inconnu → lève
 Uri observationsTrUri({required StationCode station, required Grandeur grandeur, int size = 100});
 Uri obsElabUri({required StationCode station, required DateTime since, int size = 1000});
 Uri referentielStationUri(StationCode station);
 final class HubEauFailure implements Exception { const HubEauFailure(this.message); final String message; }
 final class HubEauClient {
-  HubEauClient({required http.Client httpClient, Future<void> Function(Duration) sleep = _attendre,
+  HubEauClient({required http.Client httpClient, Future<void> Function(Duration) sleep = _sleep,
     double Function()? jitter, this.maxAttempts = 4});
   Future<Map<String, dynamic>> getJson(Uri uri);
   void close();
@@ -982,9 +1018,9 @@ final class HubEauClient {
 - `close()` est appelable.
 - une réponse de la forme réelle (`count 216`, `resultat_obs 47800.0`) se décode par ce chemin : si le décodage marche ici, il marche en production.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/data/http/hub_eau_client_test.dart` ; puis implémenter → **18 tests passent**.
-- [ ] **Étape 2 — vérifier qu'aucun tirage aléatoire ne s'est dispersé.** `grep -rn 'Random' lib/ --include='*.dart'` → **une seule ligne**, dans `lib/data/http/retry.dart`.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/data/http/hub_eau_client_test.dart` ; puis implémenter → **18 tests passent**.
+- [x] **Étape 2 — vérifier qu'aucun tirage aléatoire ne s'est dispersé.** `grep -rn 'Random' lib/ --include='*.dart'` → **une seule ligne**, dans `lib/data/http/retry.dart`.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/data/http/hub_eau_client.dart test/data/http/hub_eau_client_test.dart && git commit -m "feat(data): client de l API hydrometrie v2, et constructeurs d URI qui ferment C-04" -m "date_debut_obs_elab est un parametre REQUIS de la signature : sans lui la reponse commence au 1er janvier 1900, reproduit le 2026-09-13, count 44 733. Trois pannes distinguees : un statut, une panne reseau, un corps illisible. Grandeur.inconnu leve plutot que d etre interrogee (BR-007). Le tirage aleatoire n existe qu a un seul endroit."
@@ -992,7 +1028,7 @@ git add lib/data/http/hub_eau_client.dart test/data/http/hub_eau_client_test.dar
 
 ---
 
-### Task N5 : Le mapper, seul point de conversion
+### Task N5 : Le mapper, seul point de conversion — ✅ 340b8c7
 
 **Files:** créé `lib/data/mappers/hydro_observation_mapper.dart` · test `test/data/mappers/hydro_observation_mapper_test.dart`
 
@@ -1026,9 +1062,9 @@ HydroObservation mapHydroObservation(Map<String, dynamic> raw);
 - qualification entièrement absente (quatre clés retirées) → acceptée, champs `null`.
 - champ inédit (`champ_inedit_2027`) → `returnsNormally` : `BR-011` s'applique aussi aux champs supplémentaires.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/data/mappers/hydro_observation_mapper_test.dart` ; puis implémenter → **13 tests passent**.
-- [ ] **Étape 2 — vérifier que la conversion reste unique.** `grep -rn 'toCubicMetresPerSecond\|toMetres' lib/ --include='*.dart' | grep -v 'domain/units/conversions.dart'` → **deux lignes seulement**, dans le mapper. Toute autre occurrence est une seconde conversion.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/data/mappers/hydro_observation_mapper_test.dart` ; puis implémenter → **13 tests passent**.
+- [x] **Étape 2 — vérifier que la conversion reste unique.** `grep -rn 'toCubicMetresPerSecond\|toMetres' lib/ --include='*.dart' | grep -v 'domain/units/conversions.dart'` → **deux lignes seulement**, dans le mapper. Toute autre occurrence est une seconde conversion.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/data/mappers/hydro_observation_mapper.dart test/data/mappers/hydro_observation_mapper_test.dart && git commit -m "feat(data): mapper les observations temps reel, la conversion une seule fois" -m "BR-001, BR-002, BR-006, BR-007, BR-011, C-05. Treize tests, dont cinq sur les fixtures reelles du 2026-09-13. La ligne a code_station null est REFUSEE : l accepter ferait entrer un doublon dans l ecran. Une date illisible est refusee a la frontiere — elle ressortirait sinon en observation fraiche, l etat le moins severe. resultat_obs est lu en num : l API rend tantot 47800 tantot 47800.0."
@@ -1036,7 +1072,7 @@ git add lib/data/mappers/hydro_observation_mapper.dart test/data/mappers/hydro_o
 
 ---
 
-### Task N6 : Lire le référentiel depuis l'asset
+### Task N6 : Lire le référentiel depuis l'asset — ✅ ae6d125
 
 **Files:** créés `lib/data/referentiel/stations_asset.dart`, `lib/data/referentiel/stations_asset_loader.dart` · test `test/data/referentiel/stations_asset_test.dart`
 
@@ -1078,8 +1114,8 @@ Future<StationsReadResult> loadStationsFromAsset({AssetBundle? bundle});
 - `pubspec.yaml` contient `assets/referentiel/stations.json` — un asset non déclaré ne lève qu'à l'exécution, sur l'appareil, dans une fenêtre déjà ouverte.
 - asset réel lu en entier → **4 150** points, `skipped == 0`. Seul test qui touche les 6,6 Mo : il vaut son coût, c'est la volumétrie réelle de la carte. Toute entité écartée doit être expliquée avant de passer.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/data/referentiel/stations_asset_test.dart` ; puis implémenter → **11 tests passent** (le dernier est sensiblement plus lent, c'est normal).
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/data/referentiel/stations_asset_test.dart` ; puis implémenter → **11 tests passent** (le dernier est sensiblement plus lent, c'est normal).
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/data/referentiel test/data/referentiel && git commit -m "feat(data): lire le referentiel fige, ordre lon/lat verrouille par test" -m "L ordre GeoJSON [longitude, latitude] est tenu par un test : l inverser ne leve aucune erreur, la Guadeloupe se retrouve au large de la Somalie et la carte s affiche sans broncher. Toute entite ecartee est COMPTEE (BR-007). L analyse est separee du chargement : parseStations reste testable sans rendu. Un test lit l asset entier et verifie les 4 150 points."
@@ -1087,7 +1123,7 @@ git add lib/data/referentiel test/data/referentiel && git commit -m "feat(data):
 
 ---
 
-### Task N7 : `RestrictionSource`, interface et rien d'autre
+### Task N7 : `RestrictionSource`, interface et rien d'autre — ✅ 3a1b376
 
 **Files:** créé `lib/data/restrictions/restriction_source.dart` · test `test/data/restrictions/restriction_source_test.dart`
 
@@ -1118,8 +1154,8 @@ abstract interface class RestrictionSource {
 - **aucune mention hors du module** : parcourir `lib/` en excluant `lib/data/restrictions/`, aucun fichier ne contient `vigieau`, `beta.gouv` ni `restriction` (casse indifférente). Un confinement qui ne se vérifie pas n'en est pas un (`ADR-004`).
 - aucun fichier de `lib/data/restrictions` ne contient `package:http/` : l'implémentation est en T2.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/data/restrictions/restriction_source_test.dart` ; puis implémenter → **4 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/data/restrictions/restriction_source_test.dart` ; puis implémenter → **4 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/data/restrictions test/data/restrictions && git commit -m "feat(data): poser la couture du volet secheresse, sans aucune implementation" -m "ADR-004, C-14, C-16. La source est en version 0.1 sur un domaine beta : le risque de rupture est confine a un module, et un test VERIFIE que rien de ce vocabulaire n apparait ailleurs sous lib/. La signature ne propose pas de commune : un appel par commune renvoie un 409 des que la commune porte plusieurs zones. Le niveau de gravite est conserve brut (BR-011)."
@@ -1131,7 +1167,7 @@ git add lib/data/restrictions test/data/restrictions && git commit -m "feat(data
 
 **CQRS léger, et rien de plus** : des messages typés, un registre explicite, un décorateur de cache. **Aucune bibliothèque de médiateur.** Pas de second modèle, aucun événement de domaine, aucune projection.
 
-### Task A1 : `Query<R>` et `Command<R>`, interfaces typées
+### Task A1 : `Query<R>` et `Command<R>`, interfaces typées — ✅ 1d929f5
 
 **Files:** créé `lib/application/messages.dart` · test `test/application/messages_test.dart`
 
@@ -1161,8 +1197,8 @@ final class StationByCodeQuery implements Query<Station?> {
 - une requête **n'est pas** un `Command<Object?>`.
 - `Query<void>` n'est pas `Command<void>`, et une requête est bien un `Message<Station?>` — c'est ce qui permet **un** registre et non deux.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/application/messages_test.dart` ; puis implémenter → **4 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/application/messages_test.dart` ; puis implémenter → **4 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/application/messages.dart test/application/messages_test.dart && git commit -m "feat(ui): messages types, le type de la reponse voyage avec la requete" -m "abstract interface class et non sealed (arbitrage 2026-09-13) : une requete se declare dans sa tranche, le registre achemine par Type. Aucune commande en T0 : le type est pose pour figer la couture, et les deux familles descendent du meme Message."
@@ -1170,7 +1206,7 @@ git add lib/application/messages.dart test/application/messages_test.dart && git
 
 ---
 
-### Task A2 : Le registre de gestionnaires
+### Task A2 : Le registre de gestionnaires — ✅ 0bee6d2
 
 **Files:** créé `lib/application/bus.dart` · test `test/application/bus_test.dart`
 
@@ -1202,8 +1238,8 @@ final class Bus {
 - une erreur du gestionnaire (`FormatException`) remonte **telle quelle**.
 - `registeredMessages` est vide au départ, puis `{StationByCodeQuery}`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/application/bus_test.dart` ; puis implémenter → **7 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/application/bus_test.dart` ; puis implémenter → **7 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/application/bus.dart test/application/bus_test.dart && git commit -m "feat(ui): un registre explicite de gestionnaires, sans bibliotheque de mediateur" -m "Une Map<Type, gestionnaire> suffit, et elle peut dire ce qu elle connait — un ecran muet est presque toujours un gestionnaire oublie. Le type de la reponse est preserve de bout en bout : l effacement a lieu une seule fois, a l enregistrement. Un second gestionnaire pour le meme message est refuse. Le bus n avale aucune erreur."
@@ -1211,7 +1247,7 @@ git add lib/application/bus.dart test/application/bus_test.dart && git commit -m
 
 ---
 
-### Task A3 : `CachePolicy`, l'unique
+### Task A3 : `CachePolicy`, l'unique — ✅ 8afb7eb + 66820ea
 
 **Files:** créé `lib/application/cache_policy.dart` · test `test/application/cache_policy_test.dart`
 
@@ -1251,9 +1287,9 @@ Future<T> Function() withCachePolicy<T>({
 8. deux lectures séparées par un tour de boucle → **2 appels** : un échec ou une fin de rafraîchissement ne bloque pas le suivant.
 9. `ttl: Duration.zero` → `ArgumentError`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/application/cache_policy_test.dart` ; puis implémenter → **9 tests passent**.
-- [ ] **Étape 2 — vérifier que la politique reste unique.** `grep -rln 'storedAt\|CachedValue\|withCachePolicy' lib/ --include='*.dart'` → **une seule ligne**, `lib/application/cache_policy.dart`. Toute occurrence sous `lib/data/` ou `lib/features/` est une recopie de la politique.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/application/cache_policy_test.dart` ; puis implémenter → **9 tests passent**.
+- [x] **Étape 2 — vérifier que la politique reste unique.** `grep -rln 'storedAt\|CachedValue\|withCachePolicy' lib/ --include='*.dart'` → **une seule ligne**, `lib/application/cache_policy.dart`. Toute occurrence sous `lib/data/` ou `lib/features/` est une recopie de la politique.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/application/cache_policy.dart test/application/cache_policy_test.dart && git commit -m "feat(ui): la politique de cache, une seule fois, neuf cas couverts" -m "Six cas de rendu immediat puis rafraichissement, deux cas de concurrence, un TTL refuse. Sans deduplication des rafraichissements en vol, N lectures expirees produisent N appels vers une API sans quota (C-12). La borne appartient a l etat perime. Un rafraichissement en echec laisse la derniere valeur connue (BR-007) et ne bloque pas les suivants. Le TTL est celui du CACHE."
@@ -1265,7 +1301,7 @@ git add lib/application/cache_policy.dart test/application/cache_policy_test.dar
 
 **Approche par défaut : marqueurs du viewport plus une marge, sans regroupement.** L'épreuve de regroupement du spike n'est pas tranchée et sa remesure est différée ; rien ne justifie d'en dépendre.
 
-### Task M1 : Le gabarit de tuiles IGN
+### Task M1 : Le gabarit de tuiles IGN — ✅ 1c74c9d
 
 **Files:** créé `lib/features/map/ign_tile_template.dart` · test `test/features/map/ign_tile_template_test.dart`
 
@@ -1293,15 +1329,15 @@ const String ignUserAgentPackageName = 'fr.martinpecheur.app';
 
 **Cas de test** (8) — `TILEMATRIX={z}`, `TILECOL={x}`, `TILEROW={y}` présents · `LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2`, `TILEMATRIXSET=PM`, `FORMAT=image/png`, `SERVICE=WMTS`, `REQUEST=GetTile` · commence par `https://data.geopf.fr/wmts?` et compte plus de 5 `&` · marqueurs remplacés par `9`/`253`/`180` → `Uri.parse` donne `host 'data.geopf.fr'`, `TILEMATRIX '9'`, `TILECOL '253'`, `TILEROW '180'` (un gabarit non analysable ne donne aucune tuile et aucune erreur, juste un fond gris) · `ignTileDimension == 256` · `ignMaxNativeZoom == 18` · `ignAttribution` contient `IGN` et `Licence Ouverte` · `ignUserAgentPackageName == 'fr.martinpecheur.app'`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/features/map/ign_tile_template_test.dart` ; puis implémenter → **8 tests passent**.
-- [ ] **Étape 2 — revérifier la tuile par appel réel.**
+- [x] **Étape 1** — test rouge : `flutter test test/features/map/ign_tile_template_test.dart` ; puis implémenter → **8 tests passent**.
+- [x] **Étape 2 — revérifier la tuile par appel réel.**
 
 ```bash
 curl -s -o /dev/null -w 'http=%{http_code} type=%{content_type} octets=%{size_download}\n' 'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX=9&TILECOL=253&TILEROW=180'
 ```
 Attendu : `http=200 type=image/png`, de l'ordre de **31 ko**. **Recopier les valeurs obtenues** dans le corps du commit, avec la date du jour.
 
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/features/map/ign_tile_template.dart test/features/map/ign_tile_template_test.dart && git commit -m "feat(map): le gabarit de tuiles IGN, ordre TILECOL/TILEROW verrouille par test" -m "Intervertir TILECOL et TILEROW produit une carte qui s affiche, transposee : aucune erreur, aucune tuile manquante, une panne silencieuse que seul un test attrape. Verifie par appel reel le 2026-09-13 : HTTP 200, image/png, 31 087 octets sur TILEMATRIX=9. L attribution Licence Ouverte est une constante du module, pas une chaine recopiee dans un widget."
@@ -1309,7 +1345,7 @@ git add lib/features/map/ign_tile_template.dart test/features/map/ign_tile_templ
 
 ---
 
-### Task M2 : Le filtre de viewport, à marge proportionnelle
+### Task M2 : Le filtre de viewport, à marge proportionnelle — ✅ f261408 + ea497b3
 
 **Files:** créé `lib/features/map/viewport_filter.dart` · test `test/features/map/viewport_filter_test.dart`
 
@@ -1342,8 +1378,8 @@ List<StationPoint> stationsWithinViewport(List<StationPoint> stations,
 - `margin: -0.1` → `ArgumentError`.
 - sur **4 150** points, emprise `47 → 48` / `1 → 2` → nombre retenu strictement inférieur au total : le repli n'a d'intérêt que s'il coupe.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/features/map/viewport_filter_test.dart` ; puis implémenter → **9 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/features/map/viewport_filter_test.dart` ; puis implémenter → **9 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/features/map/viewport_filter.dart test/features/map/viewport_filter_test.dart && git commit -m "feat(map): filtrer les stations au viewport elargi d une marge proportionnelle" -m "La marge est proportionnelle, pas un nombre de degres : une marge fixe couvrirait la moitie de l Europe au zoom national et rien du tout au zoom rue. Un test tient cette propriete sur une emprise etroite. Dart pur, que des double : le repli est testable sans aucun rendu. Une marge negative est refusee — elle retrecirait l emprise et les marqueurs disparaitraient avant de sortir de l ecran."
@@ -1351,7 +1387,7 @@ git add lib/features/map/viewport_filter.dart test/features/map/viewport_filter_
 
 ---
 
-### Task M3 : L'écran carte — fond IGN et attribution
+### Task M3 : L'écran carte — fond IGN et attribution — ✅ d9fa091
 
 **Files:** créé `lib/features/map/map_screen.dart` · modifié `lib/main.dart` · test `test/features/map/map_screen_test.dart`
 
@@ -1399,16 +1435,16 @@ class MapScreen extends StatefulWidget {
 - `IgnAttributionBadge` : le premier `DecoratedBox` porte une `BoxDecoration` de couleur non nulle, **`a > 0.8`** — un fond translucide ne garantit aucun contraste.
 - `initialMapCenterLatitude` ≈ 46,6 (± 0,5), `initialMapCenterLongitude` ≈ 2,2 (± 0,5), `initialMapZoom == 5`, `minimumMapZoom < initialMapZoom`, `maximumMapZoom == ignMaxNativeZoom`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/features/map/map_screen_test.dart` ; puis implémenter → **5 tests passent**.
-- [ ] **Étape 2 — câbler `lib/main.dart`** : `runApp(const MartinPecheurApp())`, un `MaterialApp` de titre `MartinPêcheur` dont le `home` est `MapScreen(loadStations: loadStationsFromAsset)`.
-- [ ] **Étape 3 — voir la carte : commanditaire.**
+- [x] **Étape 1** — test rouge : `flutter test test/features/map/map_screen_test.dart` ; puis implémenter → **5 tests passent**.
+- [x] **Étape 2 — câbler `lib/main.dart`** : `runApp(const MartinPecheurApp())`, un `MaterialApp` de titre `MartinPêcheur` dont le `home` est `MapScreen(loadStations: loadStationsFromAsset)`.
+- [x] **Étape 3 — voir la carte : commanditaire.**
 
 ```bash
 flutter run -d windows
 ```
 Attendu, à constater **à l'écran** et à recopier dans le compte rendu : (1) une fenêtre s'ouvre ; (2) **le plan IGN de la France s'affiche** ; (3) le glisser à la souris déplace la carte ; (4) l'attribution « © IGN Géoplateforme — Licence Ouverte » est lisible **en bas à droite** ; (5) la **molette** — noter son comportement, quel qu'il soit, c'est l'objet de `M5`. Aucun marqueur n'est attendu : ils arrivent en `M4`.
 
-- [ ] **Étape 4 — commit.**
+- [x] **Étape 4 — commit.**
 
 ```bash
 git add lib/features/map/map_screen.dart lib/main.dart test/features/map/map_screen_test.dart && git commit -m "feat(map): l ecran carte, fond IGN et attribution en toutes lettres" -m "L attribution Licence Ouverte n est pas une finition : c est une condition d usage de la donnee. Elle porte son propre fond opaque — un texte pose sur un fond de carte quelconque ne tient aucun contraste (04-ui section 3). Les couches sont produites par une fonction PURE, testable sans rendu : rendre une carte dans un test declenche des chargements de tuiles que l environnement de test refuse, et on obtiendrait un echec qui ne dit rien sur le code. Etat par ValueNotifier et ListenableBuilder : aucune dependance ajoutee pour un ecran qui a deux etats."
@@ -1416,7 +1452,7 @@ git add lib/features/map/map_screen.dart lib/main.dart test/features/map/map_scr
 
 ---
 
-### Task M4 : Les 4 150 stations en marqueurs du viewport
+### Task M4 : Les 4 150 stations en marqueurs du viewport — ✅ fcc0b0b + e5c7e94 + 31b1cfe
 
 **Files:** modifiés `lib/features/map/map_screen.dart`, `test/features/map/map_screen_test.dart`
 
@@ -1456,22 +1492,22 @@ class StationMarkerDot extends StatelessWidget { const StationMarkerDot({super.k
 - `stations: []` → **1** seule couche, pas de couche de marqueurs vide.
 - l'écran monté avec un registre dont le gestionnaire bouchon rend deux stations envoie **une** `StationsWithinBoundsQuery` et affiche **2** marqueurs — aucun appel direct au dépôt.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/features/map/map_screen_test.dart` ; puis implémenter → **13 tests passent**.
-- [ ] **Étape 2 — vérifier l'ensemble.**
+- [x] **Étape 1** — test rouge : `flutter test test/features/map/map_screen_test.dart` ; puis implémenter → **13 tests passent**.
+- [x] **Étape 2 — vérifier l'ensemble.**
 
 ```bash
 flutter analyze && flutter test && dart format --set-exit-if-changed lib test
 ```
 Attendu : `No issues found!`, tous les tests verts, code de sortie 0.
 
-- [ ] **Étape 3 — voir les marqueurs : commanditaire.**
+- [x] **Étape 3 — voir les marqueurs : commanditaire.**
 
 ```bash
 flutter run -d windows
 ```
 Attendu, à constater **à l'écran** et à recopier dans le compte rendu : (1) le plan IGN s'affiche, **avec des pastilles bleues cerclées de blanc** ; (2) au zoom national les pastilles couvrent la France — **c'est le cas des 4 150 points** ; (3) le glisser déplace la carte et les pastilles suivent ; (4) l'attribution reste lisible en bas à droite ; (5) **noter si le déplacement est fluide ou saccadé** — aucun chiffre n'est mesuré ici, c'est une impression et elle s'écrit comme telle ; la mesure chiffrée relève de `NFR-01` et n'est pas faite en T0.
 
-- [ ] **Étape 4 — commit.**
+- [x] **Étape 4 — commit.**
 
 ```bash
 git add lib/features/map/map_screen.dart test/features/map/map_screen_test.dart && git commit -m "feat(map): les 4 150 stations en marqueurs du viewport elargi, sans regroupement" -m "L epreuve de regroupement du spike n est pas tranchee et sa remesure est differee : rien ne justifie d en dependre. Au zoom national la France entiere est visible et les 4 150 points sont donc TOUS dessines — c est le prix reel de l approche, pas un defaut. La pastille est une forme decoree et non un glyphe de police : un glyphe coute une passe de texte par marqueur. Contour de 2 px exige par 04-ui section 3, faute de quoi le contraste depend du fond de carte donc de rien. La couleur ne porte AUCUN etat : les trois echelles restent separees et arrivent en T1 avec leur legende (BR-008)."
@@ -1479,7 +1515,7 @@ git add lib/features/map/map_screen.dart test/features/map/map_screen_test.dart 
 
 ---
 
-### Task M5 : La molette ne zoome pas sur Windows — diagnostic borné
+### Task M5 : La molette ne zoome pas sur Windows — diagnostic borné — ✅ 809ac40
 
 **Files:** modifiés `lib/features/map/map_screen.dart` et `test/features/map/map_screen_test.dart` **seulement si la cause est trouvée**
 
@@ -1487,14 +1523,14 @@ git add lib/features/map/map_screen.dart test/features/map/map_screen_test.dart 
 >
 > ⚠️ **Tâche bornée à 45 minutes.** Au-delà, on ne cherche plus : on reporte en T1 avec ce qui a été lu, et on l'écrit. Un diagnostic qui déborde sur un socle est un diagnostic qui retarde tout le reste.
 
-- [ ] **Étape 1 — lire les typages installés, au lieu de supposer.**
+- [x] **Étape 1 — lire les typages installés, au lieu de supposer.**
 
 ```bash
 dart pub cache list | grep -i flutter_map
 ```
 Attendu : le chemin du paquet `flutter_map` dans le cache, avec sa version. **Le recopier** — le reste de la tâche lit dans ce dossier.
 
-- [ ] **Étape 2 — relever la valeur par défaut des drapeaux d'interaction.**
+- [x] **Étape 2 — relever la valeur par défaut des drapeaux d'interaction.**
 
 ```bash
 grep -rn 'scrollWheelZoom\|class InteractionOptions\|InteractiveFlag' "$(dart pub cache list 2>/dev/null | grep -oi '[A-Za-z]:[^"]*flutter_map-[0-9.]*' | head -1)/lib/src/map/options" | head -40
@@ -1505,15 +1541,15 @@ Attendu : les déclarations de `InteractiveFlag` et la valeur par défaut de `In
 find "$LOCALAPPDATA/Pub/Cache/hosted/pub.dev" -maxdepth 1 -name 'flutter_map-*' -type d
 ```
 
-- [ ] **Étape 3 — chercher si un paramètre de molette est distinct du drapeau.**
+- [x] **Étape 3 — chercher si un paramètre de molette est distinct du drapeau.**
 
 ```bash
 grep -rn 'PointerScrollEvent\|scrollWheelVelocity\|onPointerSignal' "$(find "$LOCALAPPDATA/Pub/Cache/hosted/pub.dev" -maxdepth 1 -name 'flutter_map-*' -type d | head -1)/lib" | head -30
 ```
 Attendu : l'endroit où l'événement de molette est traité, et le nom du réglage de vitesse s'il existe. **Deux issues possibles, et il faut trancher laquelle : (a)** le drapeau est actif mais la vitesse par défaut rend le zoom imperceptible → un réglage suffit ; **(b)** l'événement n'est pas reçu du tout sur cette plateforme → c'est un défaut de la bibliothèque, et il se reporte.
 
-- [ ] **Étape 4 — si et seulement si la cause est (a) : poser le réglage.** Ajouter à `MapOptions` un `interactionOptions: const InteractionOptions(flags: InteractiveFlag.all)`, **déclaré explicitement** : s'appuyer sur une valeur par défaut qui a déjà surpris une fois serait reproduire l'erreur. Extraire la construction des options dans `MapOptions mapOptionsForScreen({required void Function(MapCamera, bool) onPositionChanged})` — l'écran l'appelle, le test aussi — et ajouter un cas de test : `mapOptionsForScreen(...).interactionOptions.flags == InteractiveFlag.all`.
-- [ ] **Étape 5 — si la cause est (b), ou si les 45 minutes sont écoulées : reporter, par écrit.** `docs/nfr.md` porte une ligne `NV-W1` pour ce constat, écrite en `M6`. Si `M6` est déjà faite, **compléter** `NV-W1` ; sinon consigner le relevé dans le corps du commit et le reporter dans `NV-W1` au moment d'écrire `M6`. Forme de la ligne complétée :
+- [ ] **Étape 4 — si et seulement si la cause est (a) : poser le réglage.** — **Sans objet — constat contraire** : la molette zoome sans qu'aucun réglage n'ait été posé, le drapeau `InteractiveFlag.all` était déjà actif par défaut et suffisant. Ajouter à `MapOptions` un `interactionOptions: const InteractionOptions(flags: InteractiveFlag.all)`, **déclaré explicitement** : s'appuyer sur une valeur par défaut qui a déjà surpris une fois serait reproduire l'erreur. Extraire la construction des options dans `MapOptions mapOptionsForScreen({required void Function(MapCamera, bool) onPositionChanged})` — l'écran l'appelle, le test aussi — et ajouter un cas de test : `mapOptionsForScreen(...).interactionOptions.flags == InteractiveFlag.all`.
+- [x] **Étape 5 — si la cause est (b), ou si les 45 minutes sont écoulées : reporter, par écrit.** `docs/nfr.md` porte une ligne `NV-W1` pour ce constat, écrite en `M6`. Si `M6` est déjà faite, **compléter** `NV-W1` ; sinon consigner le relevé dans le corps du commit et le reporter dans `NV-W1` au moment d'écrire `M6`. Forme de la ligne complétée :
 
 ```markdown
 | `NV-W1` | **La molette ne zoome pas sur Windows.** Le glisser fonctionne. Constaté au spike, reconstaté à l'exécution de `M3`. Diagnostic mené 45 minutes : <ce qui a été lu, avec le chemin du fichier et le numéro de ligne>. Cause **non établie**. Contournement à l'usage : des boutons de zoom, absents en T0 | **reporté en T1** |
@@ -1521,8 +1557,8 @@ Attendu : l'endroit où l'événement de molette est traité, et le nom du régl
 
 **Ne pas écrire « probablement ».** Ce qui a été lu s'écrit ; ce qui n'a pas été établi se déclare non établi.
 
-- [ ] **Étape 6 — vérifier : commanditaire, uniquement si le réglage a été posé.** `flutter run -d windows` → la molette **zoome**, vers l'avant pour rapprocher. Si elle ne zoome toujours pas, la cause était (b) : revenir à l'étape 5, retirer le réglage, et reporter.
-- [ ] **Étape 7 — commit.**
+- [ ] **Étape 6 — vérifier : commanditaire, uniquement si le réglage a été posé.** — **Sans objet — constat contraire** : aucun réglage n'a été posé (étape 4), rien à vérifier ici. Le constat que la molette zoome a été fait directement à l'exécution de `M3`/`M4`. `flutter run -d windows` → la molette **zoome**, vers l'avant pour rapprocher. Si elle ne zoome toujours pas, la cause était (b) : revenir à l'étape 5, retirer le réglage, et reporter.
+- [ ] **Étape 7 — commit.** — **Sans objet — constat contraire** : aucun commit dédié à cette tâche, le constat est consigné dans `NV-W1` de `docs/nfr.md`, commit `809ac40` de `M6`.
 
 ```bash
 git add -A && git commit -m "fix(map): declarer explicitement les drapeaux d interaction de la carte" -m "La molette ne zoomait pas sur Windows. Diagnostic borne a 45 minutes, mene en lisant les sources du paquet installe et non de memoire. <recopier ici la ligne exacte relevee : valeur par defaut des drapeaux, et l endroit ou l evenement de molette est traite> Les drapeaux sont desormais declares explicitement : s appuyer sur une valeur par defaut qui a deja surpris une fois serait reproduire l erreur."
@@ -1536,7 +1572,7 @@ git add docs/nfr.md && git commit -m "docs(map): consigner NV-W1, la molette ne 
 
 ---
 
-### Task M6 : `docs/nfr.md`
+### Task M6 : `docs/nfr.md` — ✅ 809ac40
 
 **Files:** créé `docs/nfr.md` · modifié `docs/README.md` · test `test/project/nfr_doc_test.dart`
 
@@ -1569,9 +1605,9 @@ git add docs/nfr.md && git commit -m "docs(map): consigner NV-W1, la molette ne 
 
 `## Constats ouverts` — « une case vide est une case vide, pas un “probablement” » ; un tableau constat / état : `NV-W1` la molette ne zoome pas sur Windows, le glisser fonctionne, constaté au spike et reconstaté à l'exécution de T0 → voir `M5` · `NV-W2` le cache de tuiles hors réseau n'a **jamais été exécuté**, documenté comme actif par défaut, ce qui n'est pas la même chose que constaté → bloque `NFR-03` · `NV-W3` aucune mesure de fluidité sur Windows, les seuls chiffres existants viennent d'une autre plateforme et d'une approche différente → bloque `NFR-01` · `NV-W4` iOS n'a jamais été compilé, faute d'hôte ; la plateforme est déclarée, rien de plus → sans date · `NV-W5` Android en entier, ⏸ différé le 2026-09-12 → sans date.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/project/nfr_doc_test.dart` → `PathNotFoundException` sur `docs/nfr.md`.
-- [ ] **Étape 2** — écrire le document, puis indexer dans `docs/README.md` après la ligne de `domain-model.md` : `| [`nfr.md`](nfr.md) | **Exigences non fonctionnelles** — seuils chiffrés, et constats ouverts | — |`. Relancer → **6 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/project/nfr_doc_test.dart` → `PathNotFoundException` sur `docs/nfr.md`.
+- [x] **Étape 2** — écrire le document, puis indexer dans `docs/README.md` après la ligne de `domain-model.md` : `| [`nfr.md`](nfr.md) | **Exigences non fonctionnelles** — seuils chiffrés, et constats ouverts | — |`. Relancer → **6 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add docs/nfr.md docs/README.md test/project/nfr_doc_test.dart && git commit -m "docs: chiffrer les exigences non fonctionnelles, et lister les constats ouverts" -m "Une exigence sans chiffre est une intention : on ne peut ni la tenir ni constater qu on l a manquee. Huit exigences, chacune avec son seuil et la facon de le constater. Un test refuse qu une exigence soit marquee tenue sans nommer ce qui l a constatee — c est le piege exact de ce type de document. Les seuils de fluidite sont ceux fixes AVANT toute mesure. Les contrastes ne sont pas recopies : ils renvoient a 04-ui, sinon ce document deviendrait une seconde source de verite qui divergerait."
@@ -1581,40 +1617,40 @@ git add docs/nfr.md docs/README.md test/project/nfr_doc_test.dart && git commit 
 
 ## Lot 5 — La porte de T0
 
-### Task P1 : L'exécutable Windows, lancé hors Flutter
+### Task P1 : L'exécutable Windows, lancé hors Flutter — ✅ constaté le 2026-09-13, f05ed04
 
 **Files:** aucun fichier modifié. C'est une **épreuve**, pas un développement.
 
-- [ ] **Étape 1 — vérifier une dernière fois, avant de construire.** Claude :
+- [x] **Étape 1 — vérifier une dernière fois, avant de construire.** Claude :
 
 ```bash
 flutter analyze && flutter test && dart format --set-exit-if-changed lib test
 ```
 Attendu : `No issues found!`, **tous les tests verts**, code de sortie 0 au formatage. **Recopier le nombre total de tests** : c'est un chiffre de la porte.
 
-- [ ] **Étape 2 — construire : commanditaire.**
+- [x] **Étape 2 — construire : commanditaire.**
 
 ```bash
 flutter build windows --release
 ```
 Attendu : une ligne finale `√ Built` (ou `Built`) nommant le chemin de l'exécutable sous `build\windows\`. **Recopier la ligne exacte et la durée.** ⚠️ **Ne pas mettre cette commande dans un tube** : un tube masque le code de sortie de l'outil de construction, et on croit avoir réussi alors que rien n'a été produit.
 
-- [ ] **Étape 3 — mesurer le dossier produit (`NFR-06`).** Claude :
+- [x] **Étape 3 — mesurer le dossier produit (`NFR-06`).** Claude :
 
 ```bash
 du -sh build/windows/x64/runner/Release && ls -1 build/windows/x64/runner/Release | wc -l && du -ah build/windows/x64/runner/Release | sort -rh | head -5
 ```
 Attendu : un poids **≤ 60 Mo** (`NFR-06`), le nombre de fichiers, et les cinq plus gros. Si le chemin diffère, le corriger d'après la ligne `Built` de l'étape 2 — le chemin s'énonce d'après le constat, pas d'après la mémoire. **Recopier les trois chiffres** dans le compte rendu et dans `NFR-06`.
 
-- [ ] **Étape 4 — lancer l'exécutable seul : commanditaire.** **Fermer d'abord toute session de développement en cours** : l'épreuve est qu'il tourne **sans** l'outil.
+- [x] **Étape 4 — lancer l'exécutable seul : commanditaire.** **Fermer d'abord toute session de développement en cours** : l'épreuve est qu'il tourne **sans** l'outil.
 
 ```bash
 ./build/windows/x64/runner/Release/martinpecheur.exe
 ```
 Attendu, à constater **à l'écran** : (1) une fenêtre s'ouvre, **sans que l'outil de développement tourne** ; (2) **le plan IGN s'affiche** ; (3) **les pastilles de stations sont visibles** ; (4) l'attribution « © IGN Géoplateforme — Licence Ouverte » est lisible en bas à droite ; (5) le glisser à la souris déplace la carte. **Les cinq points, ou la porte n'est pas franchie.** Un point manquant se note comme manquant : ce n'est pas une porte qu'on arrondit.
 
-- [ ] **Étape 5 — épreuve hors réseau (`NFR-03`) : commanditaire.** Désactiver la carte réseau, puis relancer `./build/windows/x64/runner/Release/martinpecheur.exe`. Attendu — et **ce résultat n'est pas connu d'avance**, c'est `NV-W2` : les **pastilles** s'affichent (le référentiel est un asset embarqué, rien à télécharger) ; les **tuiles** viennent du cache de la bibliothèque **ou** le fond reste vide — **constater, ne pas supposer.** Recopier le constat dans `NFR-03` et `NV-W2`. Si le fond reste vide, c'est un **résultat**, pas un échec de la tâche : `NFR-03` passe au rouge et le travail se planifie en T1.
-- [ ] **Étape 6 — consigner.** Mettre à jour `docs/nfr.md` : colonnes « Constaté par » et « État » de `NFR-03` et `NFR-06`, et lignes `NV-W2`, `NV-W3`.
+- [x] **Étape 5 — épreuve hors réseau (`NFR-03`) : commanditaire.** Désactiver la carte réseau, puis relancer `./build/windows/x64/runner/Release/martinpecheur.exe`. Attendu — et **ce résultat n'est pas connu d'avance**, c'est `NV-W2` : les **pastilles** s'affichent (le référentiel est un asset embarqué, rien à télécharger) ; les **tuiles** viennent du cache de la bibliothèque **ou** le fond reste vide — **constater, ne pas supposer.** Recopier le constat dans `NFR-03` et `NV-W2`. Si le fond reste vide, c'est un **résultat**, pas un échec de la tâche : `NFR-03` passe au rouge et le travail se planifie en T1.
+- [x] **Étape 6 — consigner.** Mettre à jour `docs/nfr.md` : colonnes « Constaté par » et « État » de `NFR-03` et `NFR-06`, et lignes `NV-W2`, `NV-W3`.
 
 ```bash
 git add docs/nfr.md && git commit -m "docs: consigner les constats de la porte T0 sur Windows" -m "<recopier : ligne Built, duree, poids du dossier Release, nombre de fichiers, les cinq plus gros, et le comportement hors reseau tel qu il a ete VU> NFR-06 : <tenu / non tenu> a <poids> pour un budget de 60 Mo. NFR-03 : <constat>. NV-W2 : <leve ou toujours ouvert>."
@@ -1622,18 +1658,18 @@ git add docs/nfr.md && git commit -m "docs: consigner les constats de la porte T
 
 ---
 
-### Task P2 : Clore la version `0.1.0`
+### Task P2 : Clore la version `0.1.0` — ✅ 2026-09-13
 
 **Files:** modifié `CHANGELOG.md` · test `test/project/changelog_test.dart` (ajout)
 
 **Cas de test** (1 ajouté) — la ligne qui commence par `## [0.1.0]` correspond à `## \[0\.1\.0\] — \d{4}-\d{2}-\d{2}` et ne contient **pas** « à publier » : une version sans date n'est pas publiée, et si le tag et le `CHANGELOG` ne disent pas la même chose, personne ne sait ce que contient le binaire qu'il a installé.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
-- [ ] **Étape 2 — dater la version et compléter ce qui a été constaté.** Remplacer `## [0.1.0] — à publier` par `## [0.1.0] — <date du jour, AAAA-MM-JJ>` et ajouter deux sections en fin de section :
+- [x] **Étape 1** — test rouge : `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
+- [x] **Étape 2 — dater la version et compléter ce qui a été constaté.** Remplacer `## [0.1.0] — à publier` par `## [0.1.0] — <date du jour, AAAA-MM-JJ>` et ajouter deux sections en fin de section :
   - `### Constaté à l'exécution` — exécutable Windows produit et lancé **sans outil de développement** : la carte s'affiche, les pastilles sont là, l'attribution est lisible · dossier de publication : **<poids>**, **<nombre>** fichiers · hors réseau : **<ce qui a été vu, sans interprétation>**.
   - `### Non vérifié` — aucune mesure de fluidité sur Windows (`NFR-01`) · la molette ne zoome pas (`NV-W1`) · iOS n'a jamais été compilé · Android ⏸ différé le 2026-09-12.
-- [ ] **Étape 3** — `flutter test` → **tous les tests verts**, `changelog_test.dart` compris.
-- [ ] **Étape 4 — commit et tag.**
+- [x] **Étape 3** — `flutter test` → **tous les tests verts**, `changelog_test.dart` compris.
+- [x] **Étape 4 — commit et tag.**
 
 ```bash
 git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.1.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "La section Non verifie n est pas une precaution de style : NFR-01 n a aucune mesure sur Windows, la molette ne zoome pas, iOS n a jamais ete compile et Android est differe. Un CHANGELOG qui taisait cela ferait croire a un produit."
@@ -1728,3 +1764,22 @@ Le lot 4 dépend du lot 3 : l'écran carte passe par le registre de messages (ar
 1. **Inventer un seuil hydrologique.** Aucune source n'en expose ; c'est la faute la plus grave possible sur ce produit (`ADR-002`, `BR-003`).
 2. **Écrire un fait d'API sans l'avoir appelé.** La documentation de la source est en écart avec la production sur au moins cinq points, dont deux découverts le 2026-09-13.
 3. **Déclarer une case verte sans l'avoir vue.** Une porte ne s'arrondit pas. « Attendu » n'est pas « constaté ».
+
+---
+
+## Suite immédiate de T0 — réusinage feature-first + MVVM (arbitrage du commanditaire, 2026-09-13)
+
+**Décision :** l'architecture CQRS légère (bus `Map<Type, handler>`, `Query`/`Command`, gestionnaires) n'est pas adaptée : pas de backend, presque aucune écriture, une seule forme de lecture, et un typage perdu à l'envoi (`TypeError` à l'exécution au lieu d'une erreur de compilation). Le projet adopte l'**architecture recommandée par l'équipe Flutter** : *feature-first* + **MVVM** (View = widgets, ViewModel = `ChangeNotifier` par écran, Repository/Service en couche données). `domain/` et `data/` sont conservés tels quels : c'est là que vivent les invariants et l'essentiel des tests.
+
+**Quand :** en ouverture de T1, **avant** toute fiche station, après la porte T0 (le binaire de la porte est construit sur le code actuel).
+
+| Tâche | Contenu | Critère |
+|---|---|---|
+| `R1` | `docs/adr/ADR-014-feature-first-mvvm.md` — remplace le volet « CQRS léger » d'`ADR-008` et d'`ADR-010` ; alternatives écartées : garder le bus, MVVM avec bibliothèque d'état. `CLAUDE.md` § Architecture et disposition du dépôt mis à jour dans le même commit | ADR relu, `CLAUDE.md` cohérent avec le code après `R4` |
+| `R2` | Disposition : `lib/features/<feature>/{view,view_model}` (`map/` d'abord), `lib/domain/`, `lib/data/` partagés ; `viewport_filter.dart` et `StationPoint` rangés du côté qui les consomme (données ou feature), plus jamais importés par une couche transverse | `flutter analyze` propre, imports sans cycle |
+| `R3` | `MapViewModel extends ChangeNotifier` remplace `MapStationsController` + bus + `handlers.dart` : appel typé au dépôt, état (`stations`, `error`, `camera`), requête au relâcher du geste ; `MapView` ne fait que brancher | mêmes tests de comportement qu'aujourd'hui, réécrits sur le ViewModel, sans rendu de `FlutterMap` |
+| `R4` | Retrait de `lib/application/messages.dart`, `bus.dart`, `handlers.dart` et de leurs tests ; `CachePolicy` déplacé dans `lib/data/` comme décorateur de dépôt (le principe « un seul endroit » survit, pas le véhicule) | `grep -rn 'Bus\|Query<\|Command<' lib/` vide ; `withCachePolicy` unique sous `lib/data/` |
+| `R5` | Test d'architecture : `test/architecture/layers_test.dart` interdit `data/ → features/`, `domain/ → *`, et un `view_model` qui importe `package:flutter/material.dart` ou `widgets.dart` (un ViewModel ne connaît pas de widget) | 3 cas verts, un cas négatif sur fichier temporaire |
+| `R6` | `docs/03-conception.md` et `docs/context-map.md` : schéma MVVM en Mermaid à côté de la section architecture ; `docs/plan-de-tests.md` : l'étage « view_model » | index et diagrammes à jour |
+
+Coût estimé : une demi-journée. Zéro bibliothèque d'état ajoutée (`ChangeNotifier` est dans Flutter).

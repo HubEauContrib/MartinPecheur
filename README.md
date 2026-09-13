@@ -8,7 +8,7 @@ Application **Android, iOS et Windows** qui informe les usagers d'une rivière f
 état — **écoulement**, **débit**, **sécheresse** — à partir des données publiques ouvertes
 **Hub'Eau** et **VigiEau**.
 
-[![Licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE.txt)
+[![Licence](https://img.shields.io/badge/licence-GPL--3.0-blue.svg)](LICENSE.txt)
 [![Flutter](https://img.shields.io/badge/Flutter-3.47%20stable-02569B.svg?logo=flutter)](docs/superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md)
 [![Dart](https://img.shields.io/badge/Dart-3.13-0175C2.svg?logo=dart)](docs/superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md)
 [![Plateformes](https://img.shields.io/badge/plateformes-Android%20%7C%20iOS%20%7C%20Windows-3ddc84.svg)](docs/superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md)
@@ -28,7 +28,8 @@ Application **Android, iOS et Windows** qui informe les usagers d'une rivière f
 
 - [Le produit](#le-produit) · [Ce qu'il refuse de faire](#ce-quil-refuse-de-faire)
 - [Où en est le projet](#où-en-est-le-projet) · [Démarrage rapide](#démarrage-rapide) · [Commandes](#commandes)
-- [Architecture](#architecture) · [Contribuer](#contribuer) · [Licences](#licences)
+- [Architecture](#architecture) · [Contribuer](#contribuer) · [Remerciements](#remerciements) ·
+  [Licences](#licences)
 
 ## Le produit
 
@@ -170,16 +171,42 @@ Détail : [`docs/03-conception.md`](docs/03-conception.md) ·
 Règles complètes : [`CLAUDE.md`](CLAUDE.md) · Conventions de documentation :
 [`docs/README.md`](docs/README.md).
 
+## Remerciements
+
+Rien de ce que montre MartinPêcheur n'est produit par lui. Merci aux équipes qui conçoivent et
+font vivre **Hub'Eau** — l'Office français de la biodiversité, avec le BRGM et les partenaires
+du système d'information sur l'eau — pour des APIs publiques, ouvertes, accessibles sans clé ni
+quota annoncé, sur lesquelles cette application repose entièrement.
+
+Merci aux **hydromètres** des services de l'État et de leurs partenaires, qui entretiennent les
+stations, jaugent les cours d'eau et valident les mesures : chaque débit affiché ici est le
+résultat de leur travail sur le terrain, souvent par crue ou par étiage, rarement par beau temps.
+
+Merci aux **observateurs de l'ONDE**, le réseau animé par l'OFB, qui chaque été vont regarder à
+pied si l'eau coule encore sur leur tronçon — une observation visuelle, humaine, que rien ne
+remplace.
+
+Merci à l'**IGN** pour le fond de carte de la Géoplateforme, mis à disposition sous Licence
+Ouverte, et aux équipes de **VigiEau** pour les données de restriction et les arrêtés qu'elles
+publient.
+
+Merci enfin aux mainteneurs des bibliothèques libres sur lesquelles ce projet s'appuie, à
+commencer par Flutter et `flutter_map`.
+
+MartinPêcheur ne fait que rendre lisible ce que ces personnes mesurent, observent et publient —
+aucune de ces données ne lui appartient.
+
 ## Licences
 
-### Le code — MIT
+### Le code — GPL-3.0-or-later
 
-Distribué sous [licence MIT](LICENSE.txt) : réutilisation libre, y compris commerciale et en source
-fermée, sous réserve de conserver la notice de copyright.
+Distribué sous [licence GPL-3.0-or-later](LICENSE.txt) : réutilisation libre, y compris
+commerciale, sous réserve de redistribuer les sources et les modifications sous la même licence.
+Aucune fermeture possible.
 
 ### Les données — Licence Ouverte, attribution obligatoire
 
-**La licence MIT du code ne couvre pas les données.** Les jeux consommés, et l'asset dérivé
+**La licence GPL-3.0 du code ne couvre pas les données.** Les jeux consommés, et l'asset dérivé
 redistribué dans ce dépôt, restent sous leur propre licence.
 
 | Source | Licence | Obligation |
@@ -197,8 +224,8 @@ ODC-BY. *Vérifié le 2026-07-30 sur
 
 **Conséquence** : l'asset de percentiles généré au build
 ([`ADR-003`](docs/adr/ADR-003-reference-percentiles-en-asset.md)) est une œuvre dérivée de
-l'historique Hub'Eau. Il **peut** être diffusé dans un dépôt MIT, mais l'obligation d'attribution le
-suit et n'est pas éteinte par le `LICENSE.txt`.
+l'historique Hub'Eau. Il **peut** être diffusé dans un dépôt GPL-3.0, mais l'obligation
+d'attribution le suit et n'est pas éteinte par le `LICENSE.txt`.
 
 **Sur l'ODbL** : l'application met en cache des **tuiles** (*Produced Work*), pas de la donnée OSM —
 le code n'est donc pas contaminé. Cela changerait si des géométries OSM étaient extraites et
@@ -207,8 +234,8 @@ stockées en base (*Derivative Database*). ⚠️ Lecture **non confirmée** par
 
 ### Les dépendances
 
-Aucune dépendance sous licence copyleft. BSD-3-Clause et Apache-2.0 ne sont **pas** relicenciées en
-MIT : leurs notices doivent être conservées et présentées dans l'écran « À propos ».
+BSD-3-Clause et Apache-2.0 restent compatibles avec la GPL-3.0 : leurs notices doivent être
+conservées et présentées dans l'écran « À propos ».
 
 | Dépendance | Version | Licence | Vérifié |
 |---|---|---|---|
@@ -218,9 +245,8 @@ MIT : leurs notices doivent être conservées et présentées dans l'écran « �
 | `flutter_map_marker_cluster` | 8.2.2 | BSD-3-Clause | pub.dev, 2026-09-09 |
 | `drift` *(candidat, non retenu)* | 2.34.x | MIT | pub.dev, 2026-08-24 |
 
-⚠️ La bibliothèque `flutter_map_tile_caching` est en **GPL-3.0** : elle est incompatible avec ce
-dépôt et ne doit pas y entrer. Le retrait du pré-téléchargement cartographique rend la question sans
-objet.
+La bibliothèque `flutter_map_tile_caching` est en **GPL-3.0** : elle est désormais compatible avec
+ce dépôt, mais la question est sans objet — le pré-téléchargement cartographique a été retiré.
 
 ### Disponibilité
 

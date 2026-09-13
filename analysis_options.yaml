@@ -1,0 +1,32 @@
+# `CLAUDE.md` : mode strict non négociable. Sans `strict-casts`, un `dynamic`
+# traverse une frontière de couche sans bruit et une valeur brute d'API atteint
+# la vue (`BR-002`).
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true       # un transtypage depuis dynamic devient une erreur
+    strict-inference: true   # un paramètre de type non inférable devient une erreur
+    strict-raw-types: true   # `List` sans paramètre devient une erreur
+  errors:
+    dead_code: error         # branche de nomenclature crue atteinte et qui ne l'est pas
+    unused_import: error
+    unused_local_variable: error
+    unnecessary_cast: error
+  exclude:
+    - build/**
+    - ios/**
+    - windows/**
+
+linter:
+  rules:
+    - always_declare_return_types   # un retour omis vaut dynamic
+    - avoid_dynamic_calls           # contournerait tout le typage des unités
+    - avoid_print
+    - unawaited_futures             # un Future ni attendu ni délaissé est une course
+    - prefer_final_locals
+    - prefer_final_in_for_each
+    - require_trailing_commas       # inopérante en Dart ≥ 3.7 (le formateur impose déjà les virgules) : le verrou réel est dart format --set-exit-if-changed
+    - use_super_parameters
+    - directives_ordering
+    - always_use_package_imports    # le chemin de couche lisible sur la ligne d'import (S3)

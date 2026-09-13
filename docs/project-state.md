@@ -10,6 +10,7 @@
 | 2026-09-12 | **Android ⏸ différé jusqu'à nouvel ordre.** Windows seule cible construite ; iOS configuré, jamais compilé. Toute tâche Android d'un plan est marquée ⏸, ni supprimée ni comptée faite |
 | 2026-09-12 | **Arbre git frais** : `dev` repart d'un commit racine unique ; spike et outillage précédent sous le tag `archive/pre-flutter-2026-09-09`. **Plus d'outillage Node** : le générateur de percentiles (`ADR-003`) sera un script Dart |
 | 2026-09-13 | **Pas de briefs de session dans `docs/`.** La spec s'étoffe de six documents : fiches de sources avec fixtures datées (`docs/sources/`), critères d'acceptation Gherkin (`docs/acceptance/`, T1), `docs/nfr.md`, matrice de traçabilité (T1), `docs/domain-model.md`, `CHANGELOG.md` + `docs/plan-de-tests.md` |
+| 2026-09-13 | **Architecture : feature-first + MVVM** (recommandation de l'équipe Flutter) remplace le CQRS léger. `domain/` et `data/` conservés ; bus, `Query`/`Command` et gestionnaires retirés à l'ouverture de T1 (`ADR-014`, plan T0 § « Suite immédiate ») |
 
 > ⚠️ Le reste de ce document date d'avant ces arbitrages et sera réécrit avec le socle Dart (T0).
 

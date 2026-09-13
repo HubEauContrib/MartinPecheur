@@ -95,7 +95,7 @@ docs/
 | Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, application, features | 🔄 |
 | Percentiles | **script Dart** produisant `assets/percentiles/` (`ADR-003`) | 🔄 |
 
-> Toute bibliothèque retenue est vérifiée sur `pub.dev` avant d'être ajoutée : **version, licence compatible MIT, plateformes — Windows incluse —, date de dernière publication.** On lit la signature dans le paquet installé, on ne l'écrit pas de mémoire.
+> Toute bibliothèque retenue est vérifiée sur `pub.dev` avant d'être ajoutée : **version, licence compatible GPL-3.0, plateformes — Windows incluse —, date de dernière publication.** On lit la signature dans le paquet installé, on ne l'écrit pas de mémoire.
 
 **Constat ouvert, non diagnostiqué :** sur Windows, **la molette ne zoome pas** ; le glisser déplace bien la carte. À instruire dans le lot clavier/souris.
 
