@@ -353,7 +353,7 @@ git add lib/data/observations test/data/observations && git commit -m "feat(hydr
 
 **Files:** créés `lib/data/onde/http_onde_observation_repository.dart`, `lib/data/onde/cached_onde_observation_repository.dart` · tests miroirs
 
-**Signatures publiques** — `final class HttpOndeObservationRepository implements OndeObservationRepository { HttpOndeObservationRepository(OndeClient client); }` · `final class CachedOndeObservationRepository implements OndeObservationRepository { CachedOndeObservationRepository({required OndeObservationRepository inner, DateTime Function()? now}); }` · `Duration ondeTtlFor(DateTime date)`
+**Signatures publiques** — `final class HttpOndeObservationRepository implements OndeObservationRepository { HttpOndeObservationRepository(HubEauClient client); }` (`OndeClient` retiré en D4 : aucun second client, `HubEauClient` sert déjà les deux endpoints) · `final class CachedOndeObservationRepository implements OndeObservationRepository { CachedOndeObservationRepository({required OndeObservationRepository inner, DateTime Function()? now}); }` · `Duration ondeTtlFor(DateTime date)`
 
 **Invariants :** `latestWithinBounds` ne garde qu'**une** observation par `OndeStationCode`, la plus récente — l'API en rend une par campagne et par point (`T-04`, `count` 96 pour un seul point) ; le TTL dépend du **mois observé**, jamais d'une saison codée ailleurs.
 
@@ -366,10 +366,10 @@ git add lib/data/observations test/data/observations && git commit -m "feat(hydr
 - Réponse vide sur une emprise → **liste vide**, jamais une erreur : une zone hors couverture ONDE est un fait, pas une panne (`BR-007`, `UC-001 A5`). HTTP 503 → exception propagée, les points hydrométriques restent (`UC-001 A4`).
 - `grep -rn 'stale\|revalidate' lib/data/onde/` ne rend **aucune** ligne : le décorateur réutilise `withCachePolicy`.
 
-- [ ] **Étape 1** — écrire les deux tests, tous deux rouges.
-- [ ] **Étape 2** — `flutter test test/data/onde` → échec.
-- [ ] **Étape 3** — implémenter les deux fichiers.
-- [ ] **Étape 4** — `flutter test test/data` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — écrire les deux tests, tous deux rouges.
+- [x] **Étape 2** — `flutter test test/data/onde` → échec.
+- [x] **Étape 3** — implémenter les deux fichiers.
+- [x] **Étape 4** — `flutter test test/data` → vert, puis critère de fin et commit.
 
 ```bash
 git add lib/data/onde test/data/onde && git commit -m "feat(ecoulement): depot ONDE par emprise et par point, cache 30 j en saison et 90 j hors saison" -m "L API rend une observation par campagne et par point : 96 lignes pour la seule station K4520001. Le depot n en garde qu une, la plus recente, sinon la carte dessinerait un point par campagne. Le TTL suit le mois observe : de octobre a avril personne n observe, et un TTL de 30 jours y provoquerait des appels pour rien."

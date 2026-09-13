@@ -66,8 +66,12 @@ abstract interface class HydroObservationRepository {
 }
 
 /// Depot des observations d'ecoulement ONDE. Lit, ne decide de rien : le
-/// regroupement par station et le TTL saisonnier restent au decorateur de
-/// cache (`lib/data/onde/`), jamais ici.
+/// TTL saisonnier reste au seul decorateur de cache (`lib/data/onde/
+/// cached_onde_observation_repository.dart`), jamais ici. Le regroupement
+/// d'une observation par station, lui, est un fait de lecture — pas une
+/// politique de cache : il vit dans `latestWithinBounds` du depot HTTP
+/// (`lib/data/onde/http_onde_observation_repository.dart`), au meme titre
+/// que la conversion d'unites faite par le mapper.
 abstract interface class OndeObservationRepository {
   /// Les dernieres observations dont les stations tombent dans [bounds],
   /// filtrees sur `date_observation_min` = [since] (BR-010 : la carte ne
