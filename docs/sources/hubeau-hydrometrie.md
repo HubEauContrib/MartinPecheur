@@ -135,8 +135,36 @@ pas un bug de l'analyse : le référentiel Hub'Eau porte ces stations sans dépa
 Les 37 restent dans `points` — la carte les affiche — mais sont écartées de `stations` plutôt
 que de recevoir un département inventé (`BR-007`).
 
+## Panne constatée le 2026-09-13
+
+`T-10` `/v2/hydrometrie/observations_tr` est indisponible : **503 × 19 tentatives en 25 min**
+le matin du 2026-09-13, puis **500 × 3 tentatives** à **13:34:49, 13:35:03 et 13:35:26 UTC**,
+pour toutes les formes d'appel — y compris la forme garantie à un seul code
+(`…observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=2` → 500). Corps de la
+réponse identique aux trois tentatives de l'après-midi :
+`{"code":"Internal server error","message":"","field_errors":null}`. Au même moment,
+`/v2/hydrometrie/referentiel/stations?code_station=K447001001&size=1` répondait normalement
+(`count` 1, `api_version` 2.0.1) : c'est l'endpoint d'observations qui est en panne, pas
+l'API entière.
+
 ## Non vérifié
 
+- `Q-01` codes multiples en une requête :
+  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001,K4620020&grandeur_hydro=Q&size=4`
+  → 500, l'une des trois tentatives du 2026-09-13 (13:34:49, 13:35:03 ou 13:35:26 UTC,
+  correspondance exacte non consignée à la capture). Enjeu : 1 requête au lieu de 50 pour
+  peupler la carte d'un coup.
+- `Q-02` par emprise (`bbox`) :
+  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?bbox=1.0,47.3,1.8,47.8&grandeur_hydro=Q&size=3`
+  → 500, l'une des trois tentatives du 2026-09-13 (mêmes horodatages). Enjeu : 1 appel par
+  emprise plutôt qu'un appel par station visible.
+- `Q-03` `fields` + `size=1` :
+  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=1&fields=code_station,date_obs,resultat_obs`
+  → 500, l'une des trois tentatives du 2026-09-13 (mêmes horodatages). Enjeu : coût réseau,
+  ne récupérer que les champs utilisés par la fiche station.
+- `Q-04` latence médiane de l'endpoint : non mesurable — les trois tentatives du
+  2026-09-13 (13:34:49, 13:35:03, 13:35:26 UTC) et les dix-neuf du matin ont toutes échoué.
+  Enjeu : sans latence mesurée, l'intervalle du préchargement serait un chiffre inventé.
 - Le quota réel : `curl -sI` sur `/observations_tr` le 2026-09-13 ne renvoie aucun en-tête
   `X-RateLimit-*` ; les CGU ne chiffrent rien (`C-12`) — throttle client à l'aveugle.
 - Le comportement sous charge concurrente.

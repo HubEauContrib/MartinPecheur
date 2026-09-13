@@ -160,6 +160,105 @@ void main() {
     });
   });
 
+  group('Écoulement ONDE — campagnes et observations (T-06 à T-09, Q-05)', () {
+    test('les trois nouvelles fixtures ONDE se décodent en JSON et portent '
+        'api_version', () {
+      for (final String chemin in <String>[
+        'onde/campagnes_departement_41_2026-09-13.json',
+        'onde/observations_bbox_loire_2026-09-13.json',
+        'onde/observations_station_K4520001_2026-09-13.json',
+      ]) {
+        final Map<String, dynamic> reponse = readFixture(chemin);
+        expect(reponse['api_version'], '1.2.0');
+      }
+    });
+
+    test(
+      'chaque nouvelle fixture ONDE est citée dans docs/sources/onde.md',
+      () {
+        final String doc = File('docs/sources/onde.md').readAsStringSync();
+        for (final String nomFichier in <String>[
+          'campagnes_departement_41_2026-09-13.json',
+          'observations_bbox_loire_2026-09-13.json',
+          'observations_station_K4520001_2026-09-13.json',
+        ]) {
+          expect(
+            doc.contains(nomFichier),
+            isTrue,
+            reason: '$nomFichier doit être citée depuis docs/sources/onde.md',
+          );
+        }
+      },
+    );
+
+    test('code_campagne est un entier dans /campagnes (T-07)', () {
+      final List<Map<String, dynamic>> lignes = rows(
+        readFixture('onde/campagnes_departement_41_2026-09-13.json'),
+      );
+      expect(lignes.first['code_campagne'], isA<int>());
+    });
+
+    test('code_campagne est une chaîne dans /observations (T-07) — un modèle '
+        'qui le type int casse sur l\'un des deux endpoints', () {
+      final List<Map<String, dynamic>> lignesBbox = rows(
+        readFixture('onde/observations_bbox_loire_2026-09-13.json'),
+      );
+      expect(lignesBbox.first['code_campagne'], isA<String>());
+
+      final List<Map<String, dynamic>> lignesStation = rows(
+        readFixture('onde/observations_station_K4520001_2026-09-13.json'),
+      );
+      expect(lignesStation.first['code_campagne'], isA<String>());
+    });
+
+    test(
+      'libelle_type_campagne est en minuscules, y compris accentué (T-06)',
+      () {
+        final List<Map<String, dynamic>> lignes = rows(
+          readFixture('onde/campagnes_departement_41_2026-09-13.json'),
+        );
+        final Set<String> libelles = lignes
+            .map(
+              (Map<String, dynamic> l) => l['libelle_type_campagne'] as String,
+            )
+            .toSet();
+        expect(libelles, contains('usuelle'));
+        expect(libelles, contains('complémentaire'));
+        for (final String libelle in libelles) {
+          expect(libelle, libelle.toLowerCase());
+        }
+      },
+    );
+
+    test(
+      'date_observation est une date sans heure, format YYYY-MM-DD (T-08)',
+      () {
+        final List<Map<String, dynamic>> lignes = rows(
+          readFixture('onde/observations_station_K4520001_2026-09-13.json'),
+        );
+        final RegExp formatDate = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+        for (final Map<String, dynamic> ligne in lignes) {
+          expect(
+            formatDate.hasMatch(ligne['date_observation'] as String),
+            isTrue,
+          );
+        }
+      },
+    );
+
+    test('aucun code_ecoulement null dans la fixture bbox filtrée par '
+        'date_observation_min (Q-05) — zéro est une réponse, Inconnu(null) '
+        'reste un cas synthétique en test', () {
+      final List<Map<String, dynamic>> lignes = rows(
+        readFixture('onde/observations_bbox_loire_2026-09-13.json'),
+      );
+      expect(
+        lignes.where((Map<String, dynamic> l) => l['code_ecoulement'] == null),
+        isEmpty,
+      );
+    });
+  });
+
   group('Extrait GeoJSON du référentiel (déclaré comme extrait)', () {
     late List<Map<String, dynamic>> features;
 
