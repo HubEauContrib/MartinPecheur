@@ -1,13 +1,15 @@
-// Verrouille HttpHydroObservationRepository : la derniere observation
-// connue pour une station et une grandeur, adossee au client Hub'Eau v2 deja
-// verrouille (`hub_eau_client_test.dart`) et au mapper deja verrouille
-// (`hydro_observation_mapper_test.dart`). Rien n'est reteste ici sur la
-// forme de l'URI ou la conversion d'unite (BR-002) : seule la composition
-// des deux est verifiee, plus les invariants propres au depot — une
-// absence rend null (BR-007), une panne de source leve (T-10).
+// Verrouille HttpHydroObservationRepository : la dernière observation
+// connue pour une station et une grandeur, adossée au client Hub'Eau v2 déjà
+// verrouillé (`hub_eau_client_test.dart`) et au mapper déjà verrouillé
+// (`hydro_observation_mapper_test.dart`). Rien n'est retesté ici sur la
+// forme de l'URI ou la conversion d'unité (BR-002) : seule la composition
+// des deux est vérifiée, plus les invariants propres au dépôt — une absence
+// rend `null` (BR-007), une panne de source lève, qu'elle vienne du client
+// (`HubEauFailure`) ou d'un corps inattendu que le mapper ou ce dépôt ne
+// savent pas lire (`FormatException`).
 //
 // Pas de findLatestForAll : amendement du 2026-09-13 (voir le plan T1,
-// tache D5) — le prechargement borne et annulable vit dans MapViewModel
+// tâche D5) — le préchargement borné et annulable vit dans MapViewModel
 // (V2), qui appelle findLatest station par station.
 import 'dart:convert';
 import 'dart:io';
@@ -27,9 +29,9 @@ String _readFixture(String path) =>
 void main() {
   final StationCode station = StationCode('K447001001');
 
-  group('findLatest — fixtures reelles (2026-09-13)', () {
-    test('debit (Q) : discharge converti, measuredAt UTC, size=1 demande '
-        'la ligne la plus recente', () async {
+  group('findLatest — fixtures réelles (2026-09-13)', () {
+    test('débit (Q) : discharge converti, measuredAt UTC, size=1 demande '
+        'la ligne la plus récente', () async {
       http.Request? capturedRequest;
       final http.Client mock = MockClient((http.Request request) async {
         capturedRequest = request;
@@ -57,9 +59,11 @@ void main() {
       expect(uri?.queryParameters['size'], '1');
     });
 
-    test('hauteur (H) : level converti, signe conserve, aucun controle '
-        'ajoute', () async {
+    test('hauteur (H) : level converti, signe conservé, aucun contrôle '
+        'ajouté, et grandeur_hydro=H dans la requête reçue', () async {
+      http.Request? capturedRequest;
       final http.Client mock = MockClient((http.Request request) async {
+        capturedRequest = request;
         final String fixture = _readFixture(
           'observations_tr_K447001001_H_2026-09-13.json',
         );
@@ -76,12 +80,13 @@ void main() {
       expect(observation, isNotNull);
       expect(observation!.level, const Metres(-1.232));
       expect(observation.measuredAt, DateTime.utc(2026, 8, 27, 8));
+      expect(capturedRequest?.url.queryParameters['grandeur_hydro'], 'H');
     });
   });
 
   group('findLatest — absence (BR-007)', () {
     test('{"count":0,"data":[]} en 200 rend null, jamais une exception ni '
-        'un zero', () async {
+        'un zéro', () async {
       final http.Client mock = MockClient((http.Request request) async {
         return http.Response(
           jsonEncode(<String, Object?>{'count': 0, 'data': <Object?>[]}),
@@ -101,7 +106,7 @@ void main() {
   });
 
   group('findLatest — panne de source (T-10)', () {
-    test('503 sur toutes les tentatives : HubEauFailure propagee, le test '
+    test('503 sur toutes les tentatives : HubEauFailure propagée, le test '
         'ne dort pas', () async {
       int appels = 0;
       final http.Client mock = MockClient((http.Request request) async {
@@ -127,7 +132,7 @@ void main() {
   });
 
   group('findLatest — grandeur inconnue (BR-007, BR-011)', () {
-    test('Grandeur.inconnu leve un ArgumentError, aucun appel HTTP', () async {
+    test('Grandeur.inconnu lève un ArgumentError, aucun appel HTTP', () async {
       int appels = 0;
       final http.Client mock = MockClient((http.Request request) async {
         appels++;
@@ -144,9 +149,9 @@ void main() {
     });
   });
 
-  group('findLatest — corps inattendu', () {
+  group('findLatest — corps inattendu, une panne de source (UC-001 A4)', () {
     test('une ligne sans date_obs : la FormatException du mapper est '
-        'propagee, pas avalee', () async {
+        'propagée, pas avalée', () async {
       final http.Client mock = MockClient((http.Request request) async {
         return http.Response(
           jsonEncode(<String, Object?>{
@@ -158,6 +163,51 @@ void main() {
                 'resultat_obs': 47800.0,
               },
             ],
+          }),
+          200,
+        );
+      });
+      final HttpHydroObservationRepository repository =
+          HttpHydroObservationRepository(HubEauClient(httpClient: mock));
+
+      await expectLater(
+        repository.findLatest(station, Grandeur.debit),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('data absent (clé manquante) : FormatException, pas null', () async {
+      final http.Client mock = MockClient((http.Request request) async {
+        return http.Response(jsonEncode(<String, Object?>{'count': 0}), 200);
+      });
+      final HttpHydroObservationRepository repository =
+          HttpHydroObservationRepository(HubEauClient(httpClient: mock));
+
+      await expectLater(
+        repository.findLatest(station, Grandeur.debit),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('data d\'un type inattendu (un entier) : FormatException', () async {
+      final http.Client mock = MockClient((http.Request request) async {
+        return http.Response(jsonEncode(<String, Object?>{'data': 3}), 200);
+      });
+      final HttpHydroObservationRepository repository =
+          HttpHydroObservationRepository(HubEauClient(httpClient: mock));
+
+      await expectLater(
+        repository.findLatest(station, Grandeur.debit),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('une ligne de data qui n\'est pas un objet (un entier) : '
+        'FormatException', () async {
+      final http.Client mock = MockClient((http.Request request) async {
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'data': <Object?>[1],
           }),
           200,
         );

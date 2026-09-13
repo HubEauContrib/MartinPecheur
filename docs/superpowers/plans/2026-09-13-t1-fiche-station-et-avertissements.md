@@ -300,7 +300,7 @@ git add lib/data/http test/data/http docs/superpowers/plans/2026-09-13-t1-fiche-
 - `final class HttpHydroObservationRepository implements HydroObservationRepository { HttpHydroObservationRepository(HubEauClient client); }`
 - ~~`findLatestForAll`~~ **retirée à l'exécution (2026-09-13)** : le préchargement borné et annulable vit dans `MapViewModel` (V2), qui appelle `findLatest` station par station.
 
-**Invariants :** une absence de donnée rend **`null`**, jamais une erreur et jamais zéro (`BR-007`) ; une panne de source **lève**, pour que l'écran puisse nommer la source défaillante (`UC-001 A4`) ; `findLatestForAll` **espace** ses appels et ne fait **jamais** d'appel national (`NFR-07`, `C-12`).
+**Invariants :** une absence de donnée rend **`null`**, jamais une erreur et jamais zéro (`BR-007`) ; une panne de source **lève**, pour que l'écran puisse nommer la source défaillante (`UC-001 A4`) ; ~~`findLatestForAll` **espace** ses appels et ne fait **jamais** d'appel national (`NFR-07`, `C-12`)~~.
 
 **Cas de test**
 
@@ -308,8 +308,8 @@ git add lib/data/http test/data/http docs/superpowers/plans/2026-09-13-t1-fiche-
 - Même appel en `Grandeur.hauteur` sur la fixture `_H_` → `level.value` **−1,232** m, signe conservé, aucun contrôle ajouté.
 - `{"count":0,"data":[]}` en **HTTP 200** → **`null`** (`BR-007`), jamais une exception ni un zéro. **HTTP 503** → `HubEauFailure` propagée (`T-10`).
 - L'URI porte un **code station à 10 caractères**, jamais un code site : `findLatest` n'accepte qu'un `StationCode`, le type l'interdit (`C-05`).
-- `findLatestForAll` avec 3 codes et un `interval` injecté → **3 appels**, dans l'ordre, chacun précédé de l'attente sauf le premier ; le test **ne dort pas**.
-- L'échec d'**un** code laisse les deux autres renseignés, la clé fautive porte `null` — un écran partiel vaut mieux qu'un écran blanc (`BR-007`). Liste vide → **zéro appel**.
+- ~~`findLatestForAll` avec 3 codes et un `interval` injecté → **3 appels**, dans l'ordre, chacun précédé de l'attente sauf le premier ; le test **ne dort pas**.~~
+- ~~L'échec d'**un** code laisse les deux autres renseignés, la clé fautive porte `null` — un écran partiel vaut mieux qu'un écran blanc (`BR-007`). Liste vide → **zéro appel**.~~
 
 - [x] **Étape 1** — **relire** les réponses à `Q-01`/`Q-02` consignées en `D1`. Les deux restent ouvertes (panne `T-10`, 500 le 2026-09-13 après-midi) : la forme garantie s'applique, un appel par station. ⚠️ Ne pas deviner : lire ce qui a été écrit.
 - [x] **Étape 2** — écrire le test avec `MockClient` et les fixtures de T0. Rouge.
@@ -318,7 +318,7 @@ git add lib/data/http test/data/http docs/superpowers/plans/2026-09-13-t1-fiche-
 - [x] **Étape 5** — `flutter test test/data` → vert, puis critère de fin et commit.
 
 ```bash
-git add lib/data/observations test/data/observations && git commit -m "feat(hydrometrie): implementer HydroObservationRepository sur le client Hub Eau" -m "Une page vide en 200 rend null, jamais zero et jamais une erreur : l absence est un etat affiche (BR-007). Une panne de source leve, pour que l ecran nomme la source defaillante. findLatestForAll espace ses appels tant que l appel groupe n est pas confirme, et ne fait jamais d appel national (NFR-07)."
+git add lib/data/observations test/data/observations && git commit -m "feat(hydrometrie): implementer HydroObservationRepository sur le client Hub Eau" -m "Une page vide en 200 rend null, jamais zero et jamais une erreur : l absence est un etat affiche (BR-007). Une panne de source leve, pour que l ecran nomme la source defaillante. Pas de findLatestForAll : le prechargement borne et annulable vit dans le ViewModel de carte, qui appelle findLatest station par station ; Q-01 et Q-02 restent ouverts, la forme garantie s applique."
 ```
 
 ### Task D6 : Le cache, décorateur de dépôt et rien d'autre
