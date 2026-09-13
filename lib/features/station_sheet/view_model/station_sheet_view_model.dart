@@ -1,20 +1,21 @@
 // Le ViewModel de la fiche station (MVVM, ADR-014) : au tap d'un point, il
-// charge la station puis ses deux dernieres observations (debit, hauteur) et
-// porte l'etat que la vue affiche. Meme style que `MapViewModel` — jeton de
-// generation contre une reponse tardive, `_disposed` contre une notification
-// apres `dispose()`.
+// charge la station puis ses deux dernières observations (débit, hauteur)
+// et porte l'état que la vue affiche. Même style que `MapViewModel` — jeton
+// de génération contre une réponse tardive, `_disposed` contre une
+// notification après `dispose()`.
 //
-// ⚠️ Un ViewModel ne connait aucun widget : ce fichier n'importe ni
+// ⚠️ Un ViewModel ne connaît aucun widget : ce fichier n'importe ni
 // `package:flutter/material.dart`, ni `widgets.dart`, ni `cupertino.dart` —
 // seul `foundation.dart`, pour [ChangeNotifier]. Le verrou est
-// `test/architecture/layers_test.dart` (regle `view-model-sans-widget`).
+// `test/architecture/layers_test.dart` (règle `view-model-sans-widget`).
 //
 // Aucun formatage de NOMBRE ici (BR-002 : le mapper convertit une seule
 // fois, ce ViewModel ne reconvertit rien) — [StationSheetData] expose des
 // types du domaine, la vue formate leur valeur. La seule mise en forme
-// tenue ici est une DATE ou une duree en heures entieres, dans
-// [StationSheetData.stalenessNotice], sur le meme vocabulaire que
-// `stationMapStateLabel` (`domain/observation/station_map_state.dart`).
+// tenue ici est une DATE ou une durée en heures entières, dans
+// [StationSheetData.stalenessNotice] : préfixe commun avec
+// `stationMapStateLabel` (« Dernière mesure … »), mais la fiche donne
+// l'âge RÉEL de la mesure là où la carte se contente de la borne franchie.
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:martinpecheur/domain/observation/freshness.dart';
@@ -22,56 +23,58 @@ import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
-/// Libelle de repli quand `libelle_statut` est absent ou vide (BR-006,
-/// BR-011) : jamais une chaine vide a l'ecran.
-const String _statutNonRenseigne = 'non renseigné';
+/// Libellé de repli quand `libelle_statut` est absent ou vide (BR-006,
+/// BR-011) : jamais une chaîne vide à l'écran.
+const String _statusFallback = 'non renseigné';
 
-/// Libelle de repli quand `libelle_qualification` est absent ou vide
+/// Libellé de repli quand `libelle_qualification` est absent ou vide
 /// (BR-006, BR-011).
-const String _qualificationNonRenseignee = 'non qualifiée';
+const String _qualificationFallback = 'non qualifiée';
 
-/// Etat de l'ecran fiche station. `sealed` + `switch` exhaustif (BR-011) :
-/// une sous-classe ajoutee sans branche ailleurs devient une erreur de
-/// compilation, jamais un oubli silencieux a l'ecran.
+/// État de l'écran fiche station. `sealed` + `switch` exhaustif (BR-011) :
+/// une sous-classe ajoutée sans branche ailleurs devient une erreur de
+/// compilation, jamais un oubli silencieux à l'écran.
 sealed class StationSheetState {
   const StationSheetState();
 }
 
-/// Aucune station n'est demandee, ou la fiche vient d'etre fermee.
+/// Aucune station n'est demandée, ou la fiche vient d'être fermée.
 final class Fermee extends StationSheetState {
   const Fermee();
 }
 
-/// La station [code] est en cours de chargement : ni succes, ni echec.
+/// La station [code] est en cours de chargement : ni succès, ni échec.
 final class EnCours extends StationSheetState {
   const EnCours(this.code);
 
-  /// Code de la station demandee.
+  /// Code de la station demandée.
   final StationCode code;
 }
 
-/// La station et ses observations ont ete chargees avec succes.
+/// La station et ses observations ont été chargées avec succès.
 final class Prete extends StationSheetState {
   const Prete(this.data);
 
-  /// Donnees pretes pour l'affichage.
+  /// Données prêtes pour l'affichage.
   final StationSheetData data;
 }
 
-/// Le chargement de [code] a echoue, pour [cause] — la vue nommera la
-/// source defaillante (UC-001 A4).
+/// Le chargement de [code] a échoué, pour [cause] (UC-001 A4). La vue nomme
+/// la source défaillante depuis [code] et son PROPRE libellé — jamais
+/// depuis `cause.toString()`, qui reste une donnée de diagnostic technique,
+/// pas un texte à afficher.
 final class EnEchec extends StationSheetState {
   const EnEchec(this.code, this.cause);
 
-  /// Code de la station dont le chargement a echoue.
+  /// Code de la station dont le chargement a échoué.
   final StationCode code;
 
-  /// Cause de l'echec, telle que levee par le depot appele.
+  /// Cause de l'échec, telle que levée par le dépôt appelé.
   final Object cause;
 }
 
-/// Donnees pretes pour la fiche station. Types du domaine uniquement —
-/// aucune valeur brute d'API, aucun nombre pre-formate (BR-002).
+/// Données prêtes pour la fiche station. Types du domaine uniquement —
+/// aucune valeur brute d'API, aucun nombre pré-formaté (BR-002).
 final class StationSheetData {
   const StationSheetData({
     required this.station,
@@ -83,49 +86,47 @@ final class StationSheetData {
     required this.stalenessNotice,
   });
 
-  /// Station affichee.
+  /// Station affichée.
   final Station station;
 
-  /// Derniere observation de debit connue. `null` si la station n'a
-  /// transmis aucune mesure de debit (BR-007) — jamais un zero.
+  /// Dernière observation de débit connue. `null` si la station n'a
+  /// transmis aucune mesure de débit (BR-007) — jamais un zéro.
   final HydroObservation? discharge;
 
-  /// Derniere observation de hauteur connue. `null` si la station n'a
-  /// transmis aucune mesure de hauteur (BR-007) — jamais un zero.
+  /// Dernière observation de hauteur connue. `null` si la station n'a
+  /// transmis aucune mesure de hauteur (BR-007) — jamais un zéro.
   final HydroObservation? level;
 
-  /// Fraicheur du debit, ou `null` si [discharge] est absent : sans mesure,
-  /// il n'y a rien a dater.
+  /// Fraîcheur du débit, ou `null` si [discharge] est absent : sans mesure,
+  /// il n'y a rien à dater.
   final Freshness? freshness;
 
-  /// Libelle de statut du debit, replie sur [_statutNonRenseigne] si absent
-  /// ou vide, y compris quand [discharge] est `null`.
+  /// Libellé de statut du débit, replié sur [_statusFallback] si absent ou
+  /// vide, y compris quand [discharge] est `null`.
   final String statusLabel;
 
-  /// Libelle de qualification du debit, replie sur
-  /// [_qualificationNonRenseignee] si absent ou vide, y compris quand
+  /// Libellé de qualification du débit, replié sur
+  /// [_qualificationFallback] si absent ou vide, y compris quand
   /// [discharge] est `null`.
   final String qualificationLabel;
 
-  /// Avis de fraicheur, dans le meme vocabulaire que
-  /// `stationMapStateLabel` : « Dernière mesure il y a N h » (ancienne) ou
-  /// « Dernière mesure le JJ/MM/AAAA à HH:MM UTC » (perimee). `null` si
-  /// [discharge] est absent ou si la mesure est [Freshness.fraiche] — une
-  /// mesure fraiche ne porte aucune mention (BR-005).
+  /// Avis de fraîcheur, préfixé comme `stationMapStateLabel`
+  /// (« Dernière mesure … ») mais avec l'âge RÉEL de la mesure — la fiche
+  /// dit « il y a 3 h » quand la carte se contenterait de la borne
+  /// franchie (« plus de 2 h »). `null` si [discharge] est absent ou si la
+  /// mesure est [Freshness.fraiche] — une mesure fraîche ne porte aucune
+  /// mention (BR-005).
   final String? stalenessNotice;
 }
 
-/// ViewModel de la fiche station : porte l'etat de l'ecran et le seul
-/// chemin par lequel il est charge.
+/// ViewModel de la fiche station : porte l'état de l'écran et le seul
+/// chemin par lequel il est chargé.
 final class StationSheetViewModel extends ChangeNotifier {
   StationSheetViewModel({
-    required HydroObservationRepository observations,
-    required StationRepository stations,
+    required this._observations,
+    required this._stations,
     DateTime Function()? now,
-  }) : _observations = observations, // ignore: prefer_initializing_formals
-       // ignore: prefer_initializing_formals
-       _stations = stations,
-       _now = now ?? DateTime.now;
+  }) : _now = now ?? DateTime.now;
 
   final HydroObservationRepository _observations;
   final StationRepository _stations;
@@ -133,23 +134,23 @@ final class StationSheetViewModel extends ChangeNotifier {
 
   StationSheetState _state = const Fermee();
 
-  /// Etat courant de la fiche.
+  /// État courant de la fiche.
   StationSheetState get state => _state;
 
-  /// Leve par [dispose] : une reponse qui arrive apres coup ne doit plus
-  /// toucher l'etat ni appeler `notifyListeners`.
+  /// Levé par [dispose] : une réponse qui arrive après coup ne doit plus
+  /// toucher l'état ni appeler `notifyListeners`.
   bool _disposed = false;
 
-  /// Numero du dernier chargement demande. Une reponse dont le numero n'est
-  /// plus le dernier appartient a un `open()` abandonne — par un `close()`
-  /// ou par un `open()` plus recent — et n'ecrit rien (meme garde que
-  /// `MapViewModel._generation`).
+  /// Numéro du dernier chargement demandé. Une réponse dont le numéro
+  /// n'est plus le dernier appartient à un `open()` abandonné — par un
+  /// `close()` ou par un `open()` plus récent — et n'écrit rien (même
+  /// garde que `MapViewModel._generation`).
   int _generation = 0;
 
   /// Charge la station [code] : la station d'abord (`stations.findByCode`),
-  /// puis ses deux dernieres observations (debit, hauteur), les deux
-  /// toujours demandees — si l'une des deux leve, l'etat final est
-  /// [EnEchec], quelle que soit celle qui a leve.
+  /// puis ses deux dernières observations (débit, hauteur), les deux
+  /// toujours demandées — si l'une des deux lève, l'état final est
+  /// [EnEchec], quelle que soit celle qui a levé.
   Future<void> open(StationCode code) async {
     final int generation = ++_generation;
     _emit(generation, EnCours(code));
@@ -164,12 +165,15 @@ final class StationSheetViewModel extends ChangeNotifier {
         return;
       }
 
-      // `Future.sync` enveloppe un appel qui leverait de facon SYNCHRONE :
-      // sans lui, une levee immediate du premier appel empecherait le
-      // second d'etre meme construit, et la hauteur ne serait jamais
-      // demandee — contraire a l'invariant "les deux observations sont
-      // demandees".
-      final List<HydroObservation?> resultats =
+      // `Future.sync` enveloppe un appel qui lèverait de façon SYNCHRONE :
+      // sans lui, une levée immédiate du premier appel empêcherait le
+      // second d'être même construit, et la hauteur ne serait jamais
+      // demandée — contraire à l'invariant "les deux observations sont
+      // demandées" (`CachedHydroObservationRepository.findLatest` n'est
+      // pas `async` et peut lever ainsi). `Future.wait` garde son
+      // `eagerError` par défaut (`false`) : `open` attend que les DEUX
+      // appels se terminent avant de basculer en échec.
+      final List<HydroObservation?> results =
           await Future.wait<HydroObservation?>(<Future<HydroObservation?>>[
             Future<HydroObservation?>.sync(
               () => _observations.findLatest(code, Grandeur.debit),
@@ -178,13 +182,11 @@ final class StationSheetViewModel extends ChangeNotifier {
               () => _observations.findLatest(code, Grandeur.hauteur),
             ),
           ]);
-      final HydroObservation? discharge = resultats[0];
-      final HydroObservation? level = resultats[1];
+      final HydroObservation? discharge = results[0];
+      final HydroObservation? level = results[1];
 
       final DateTime now = _now();
-      final Freshness? freshness = discharge == null
-          ? null
-          : freshnessOf(measuredAt: discharge.measuredAt, now: now);
+      final Freshness? freshness = discharge?.freshnessAt(now);
 
       _emit(
         generation,
@@ -194,36 +196,36 @@ final class StationSheetViewModel extends ChangeNotifier {
             discharge: discharge,
             level: level,
             freshness: freshness,
-            statusLabel: _replie(
+            statusLabel: _orFallback(
               discharge?.qualification.statusLabel,
-              _statutNonRenseigne,
+              _statusFallback,
             ),
-            qualificationLabel: _replie(
+            qualificationLabel: _orFallback(
               discharge?.qualification.qualificationLabel,
-              _qualificationNonRenseignee,
+              _qualificationFallback,
             ),
-            stalenessNotice: _avisDeFraicheur(
+            stalenessNotice: _stalenessNotice(
               freshness: freshness,
-              mesureLe: discharge?.measuredAt,
-              maintenant: now,
+              measuredAt: discharge?.measuredAt,
+              now: now,
             ),
           ),
         ),
       );
-    } on Object catch (erreur) {
-      _emit(generation, EnEchec(code, erreur));
+    } on Object catch (error) {
+      _emit(generation, EnEchec(code, error));
     }
   }
 
-  /// Ferme la fiche : toute reponse d'un `open()` en cours devient tardive
-  /// et n'ecrira plus rien (le jeton de generation change ici aussi).
+  /// Ferme la fiche : toute réponse d'un `open()` en cours devient tardive
+  /// et n'écrira plus rien (le jeton de génération change ici aussi).
   void close() {
     final int generation = ++_generation;
     _emit(generation, const Fermee());
   }
 
-  /// Applique [next] si [generation] est toujours la derniere demandee et
-  /// que ce ViewModel n'est pas dispose ; notifie dans ce seul cas.
+  /// Applique [next] si [generation] est toujours la dernière demandée et
+  /// que ce ViewModel n'est pas disposé ; notifie dans ce seul cas.
   void _emit(int generation, StationSheetState next) {
     if (_disposed || generation != _generation) {
       return;
@@ -239,44 +241,47 @@ final class StationSheetViewModel extends ChangeNotifier {
   }
 }
 
-/// Rend [libelle] s'il est non nul et non vide, sinon [repli].
-String _replie(String? libelle, String repli) {
-  if (libelle == null || libelle.isEmpty) {
-    return repli;
+/// Rend [label] s'il est non nul et non vide, sinon [fallback].
+String _orFallback(String? label, String fallback) {
+  if (label == null || label.isEmpty) {
+    return fallback;
   }
-  return libelle;
+  return label;
 }
 
-/// Avis de fraicheur affichable, ou `null` si aucune mention n'est due
-/// (pas de mesure, ou mesure [Freshness.fraiche]). Vocabulaire partage avec
-/// `stationMapStateLabel` : « il y a N h » pour une mesure ancienne, une
-/// date JJ/MM/AAAA pour une mesure perimee — jamais un nombre nu (BR-005).
-String? _avisDeFraicheur({
+/// Avis de fraîcheur affichable, ou `null` si aucune mention n'est due
+/// (pas de mesure, ou mesure [Freshness.fraiche]). Même préfixe que
+/// `stationMapStateLabel` (« Dernière mesure … »), mais l'âge RÉEL plutôt
+/// que la borne franchie : « il y a N h » pour une mesure ancienne, une
+/// date JJ/MM/AAAA pour une mesure périmée — jamais un nombre nu (BR-005).
+/// `Duration.inHours` tronque vers zéro, comme dans `stationMapStateLabel` :
+/// à 2 h 59 de mesure, l'avis affiche encore « il y a 2 h ».
+String? _stalenessNotice({
   required Freshness? freshness,
-  required DateTime? mesureLe,
-  required DateTime maintenant,
+  required DateTime? measuredAt,
+  required DateTime now,
 }) {
-  if (freshness == null || mesureLe == null) {
+  if (freshness == null || measuredAt == null) {
     return null;
   }
   return switch (freshness) {
     Freshness.fraiche => null,
     Freshness.ancienne =>
-      'Dernière mesure il y a ${maintenant.difference(mesureLe).inHours} h',
-    Freshness.perimee => 'Dernière mesure le ${_dateEtHeureUtc(mesureLe)}',
+      'Dernière mesure il y a ${now.difference(measuredAt).inHours} h',
+    Freshness.perimee => 'Dernière mesure le ${_utcDateAndTime(measuredAt)}',
   };
 }
 
 /// Formate [instant] en `JJ/MM/AAAA à HH:MM UTC` — la seule mise en forme
 /// admise dans ce ViewModel : une date, jamais un nombre (BR-002 reste
-/// tenu : aucune unite physique n'est convertie ici).
-String _dateEtHeureUtc(DateTime instant) {
+/// tenu : aucune unité physique n'est convertie ici).
+String _utcDateAndTime(DateTime instant) {
   final DateTime utc = instant.toUtc();
-  final String jour = _deuxChiffres(utc.day);
-  final String mois = _deuxChiffres(utc.month);
-  final String heure = _deuxChiffres(utc.hour);
-  final String minute = _deuxChiffres(utc.minute);
-  return '$jour/$mois/${utc.year} à $heure:$minute UTC';
+  final String day = _twoDigits(utc.day);
+  final String month = _twoDigits(utc.month);
+  final String hour = _twoDigits(utc.hour);
+  final String minute = _twoDigits(utc.minute);
+  return '$day/$month/${utc.year} à $hour:$minute UTC';
 }
 
-String _deuxChiffres(int valeur) => valeur.toString().padLeft(2, '0');
+String _twoDigits(int value) => value.toString().padLeft(2, '0');

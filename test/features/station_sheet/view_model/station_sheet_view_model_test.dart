@@ -1,7 +1,8 @@
 // Verrouille le ViewModel de la fiche station, sans monter aucun widget.
-// Meme style que `test/features/map/view_model/map_view_model_test.dart` :
-// des doubles de depot qui comptent leurs appels et rendent ce qu'on leur dit
-// de rendre, une horloge injectee, des `Completer` pour rejouer les courses.
+// Même style que `test/features/map/view_model/map_view_model_test.dart` :
+// des doubles de dépôt qui comptent leurs appels et rendent ce qu'on leur
+// dit de rendre, une horloge injectée, des `Completer` pour rejouer les
+// courses.
 
 import 'dart:async';
 
@@ -26,15 +27,15 @@ Station _station(StationCode code) => Station(
   inService: true,
 );
 
-/// Libellés choisis pour ne recouper aucun mot banni de BR-003 : un vrai
-/// libellé Hub'Eau de qualification (« Bonne ») contiendrait « bon » et
-/// ferait échouer le balayage à tort — ce test évite volontairement ce
-/// libellé plutôt que d'affaiblir le balayage.
-HydroObservation _debit({
+/// Le libellé de qualification RÉEL de Hub'Eau est « Bonne » (BR-006 :
+/// transporté verbatim, ce n'est jamais l'app qui qualifie un débit) — un
+/// balayage par SOUS-CHAÎNE le confondrait à tort avec le mot banni « bon » ;
+/// le balayage par MOT ENTIER du test BR-003 ci-dessous l'évite correctement.
+HydroObservation _dischargeObservation({
   required DateTime measuredAt,
   CubicMetresPerSecond value = const CubicMetresPerSecond(47.8),
   String? statusLabel = 'Temps réel',
-  String? qualificationLabel = 'Certifiée',
+  String? qualificationLabel = 'Bonne',
 }) => HydroObservation(
   station: _codeBlois(),
   measuredAt: measuredAt,
@@ -46,6 +47,25 @@ HydroObservation _debit({
     statusLabel: statusLabel,
     qualificationCode: null,
     qualificationLabel: qualificationLabel,
+  ),
+);
+
+/// Observation de hauteur, distincte de [_dischargeObservation] : sert à
+/// prouver que débit et hauteur ne sont jamais confondus (`Grandeur`).
+HydroObservation _levelObservation({
+  required DateTime measuredAt,
+  Metres value = const Metres(-1.232),
+}) => HydroObservation(
+  station: _codeBlois(),
+  measuredAt: measuredAt,
+  grandeur: Grandeur.hauteur,
+  discharge: null,
+  level: value,
+  qualification: const Qualification(
+    statusCode: null,
+    statusLabel: null,
+    qualificationCode: null,
+    qualificationLabel: null,
   ),
 );
 
@@ -68,6 +88,10 @@ final class _StationRepositoryDouble implements StationRepository {
 
 /// Double du dépôt d'observations hydrométriques : compte les appels PAR
 /// grandeur, pour vérifier que le débit ET la hauteur sont demandés.
+/// [answer] n'est PAS forcément `async` : un des tests le déclare volontairement
+/// synchrone, pour prouver que `Future.sync` protège contre une levée
+/// immédiate (`CachedHydroObservationRepository.findLatest` n'est pas
+/// `async` et peut lever ainsi en production).
 final class _HydroObservationRepositoryDouble
     implements HydroObservationRepository {
   int calls = 0;
@@ -105,7 +129,7 @@ void main() {
     () async {
       observations.answer = (StationCode code, Grandeur grandeur) async =>
           grandeur == Grandeur.debit
-          ? _debit(measuredAt: DateTime.utc(2026, 9, 13, 9))
+          ? _dischargeObservation(measuredAt: DateTime.utc(2026, 9, 13, 9))
           : null;
       final StationSheetViewModel viewModel = StationSheetViewModel(
         observations: observations,
@@ -113,14 +137,14 @@ void main() {
         now: () => DateTime.utc(2026, 9, 13, 10),
       );
       addTearDown(viewModel.dispose);
-      final List<StationSheetState> vus = <StationSheetState>[];
-      viewModel.addListener(() => vus.add(viewModel.state));
+      final List<StationSheetState> seen = <StationSheetState>[];
+      viewModel.addListener(() => seen.add(viewModel.state));
 
       await viewModel.open(_codeBlois());
 
-      expect(vus, hasLength(2));
-      expect(vus.first, isA<EnCours>());
-      expect(vus.last, isA<Prete>());
+      expect(seen, hasLength(2));
+      expect(seen.first, isA<EnCours>());
+      expect(seen.last, isA<Prete>());
     },
   );
 
@@ -143,11 +167,33 @@ void main() {
     },
   );
 
-  test('le debit converti vaut 47,8 m3/s, et aucun libelle produit ne contient '
-      'un mot banni (BR-003)', () async {
+  test('quand le depot rend un debit ET une hauteur, les deux restent '
+      'distincts dans les donnees pretes', () async {
+    final DateTime measuredAt = DateTime.utc(2026, 9, 13, 9);
     observations.answer = (StationCode code, Grandeur grandeur) async =>
         grandeur == Grandeur.debit
-        ? _debit(measuredAt: DateTime.utc(2026, 9, 13, 9, 30))
+        ? _dischargeObservation(measuredAt: measuredAt)
+        : _levelObservation(measuredAt: measuredAt);
+    final StationSheetViewModel viewModel = StationSheetViewModel(
+      observations: observations,
+      stations: stations,
+      now: () => measuredAt,
+    );
+    addTearDown(viewModel.dispose);
+
+    await viewModel.open(_codeBlois());
+
+    final StationSheetData data = (viewModel.state as Prete).data;
+    expect(data.discharge?.discharge, const CubicMetresPerSecond(47.8));
+    expect(data.level?.level, const Metres(-1.232));
+    expect(data.discharge, isNot(same(data.level)));
+  });
+
+  test('le debit converti vaut 47,8 m3/s, et aucun MOT ENTIER produit ne '
+      'correspond a un mot banni (BR-003)', () async {
+    observations.answer = (StationCode code, Grandeur grandeur) async =>
+        grandeur == Grandeur.debit
+        ? _dischargeObservation(measuredAt: DateTime.utc(2026, 9, 13, 9, 30))
         : null;
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
@@ -163,28 +209,31 @@ void main() {
     final StationSheetData data = (state as Prete).data;
     expect(data.discharge?.discharge, const CubicMetresPerSecond(47.8));
 
-    const List<String> motsBannis = <String>[
+    const List<String> bannedWords = <String>[
       'suffisant',
       'insuffisant',
       'normal',
       'bon',
       'sûr',
     ];
-    final List<String?> libelles = <String?>[
+    final List<String?> labels = <String?>[
       data.statusLabel,
       data.qualificationLabel,
       data.stalenessNotice,
     ];
-    for (final String? libelle in libelles) {
-      if (libelle == null) {
+    for (final String? label in labels) {
+      if (label == null) {
         continue;
       }
-      final String enMinuscules = libelle.toLowerCase();
-      for (final String mot in motsBannis) {
+      final Set<String> words = label
+          .toLowerCase()
+          .split(RegExp(r'[^a-zà-öø-ÿ]+'))
+          .toSet();
+      for (final String banned in bannedWords) {
         expect(
-          enMinuscules.contains(mot),
-          isFalse,
-          reason: '"$mot" trouve dans le libelle "$libelle" (BR-003)',
+          words,
+          isNot(contains(banned)),
+          reason: '"$banned" trouve MOT POUR MOT dans "$label" (BR-003)',
         );
       }
     }
@@ -196,7 +245,7 @@ void main() {
     () async {
       observations.answer = (StationCode code, Grandeur grandeur) async =>
           grandeur == Grandeur.debit
-          ? _debit(measuredAt: DateTime.utc(2026, 8, 27, 8))
+          ? _dischargeObservation(measuredAt: DateTime.utc(2026, 8, 27, 8))
           : null;
       final StationSheetViewModel viewModel = StationSheetViewModel(
         observations: observations,
@@ -216,38 +265,40 @@ void main() {
 
   test('vue 1 h apres la mesure : fraiche et aucun avis ; vue 3 h apres : '
       'ancienne et « il y a 3 h » (BR-005)', () async {
-    final DateTime mesure = DateTime.utc(2026, 9, 13, 8);
+    final DateTime measuredAt = DateTime.utc(2026, 9, 13, 8);
     observations.answer = (StationCode code, Grandeur grandeur) async =>
-        grandeur == Grandeur.debit ? _debit(measuredAt: mesure) : null;
+        grandeur == Grandeur.debit
+        ? _dischargeObservation(measuredAt: measuredAt)
+        : null;
 
-    final StationSheetViewModel fraiche = StationSheetViewModel(
+    final StationSheetViewModel freshViewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
-      now: () => mesure.add(const Duration(hours: 1)),
+      now: () => measuredAt.add(const Duration(hours: 1)),
     );
-    addTearDown(fraiche.dispose);
-    await fraiche.open(_codeBlois());
-    final StationSheetData donneesFraiches = (fraiche.state as Prete).data;
-    expect(donneesFraiches.freshness, Freshness.fraiche);
-    expect(donneesFraiches.stalenessNotice, isNull);
+    addTearDown(freshViewModel.dispose);
+    await freshViewModel.open(_codeBlois());
+    final StationSheetData freshData = (freshViewModel.state as Prete).data;
+    expect(freshData.freshness, Freshness.fraiche);
+    expect(freshData.stalenessNotice, isNull);
 
-    final StationSheetViewModel ancienne = StationSheetViewModel(
+    final StationSheetViewModel staleViewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
-      now: () => mesure.add(const Duration(hours: 3)),
+      now: () => measuredAt.add(const Duration(hours: 3)),
     );
-    addTearDown(ancienne.dispose);
-    await ancienne.open(_codeBlois());
-    final StationSheetData donneesAnciennes = (ancienne.state as Prete).data;
-    expect(donneesAnciennes.freshness, Freshness.ancienne);
-    expect(donneesAnciennes.stalenessNotice, contains('il y a 3 h'));
+    addTearDown(staleViewModel.dispose);
+    await staleViewModel.open(_codeBlois());
+    final StationSheetData staleData = (staleViewModel.state as Prete).data;
+    expect(staleData.freshness, Freshness.ancienne);
+    expect(staleData.stalenessNotice, contains('il y a 3 h'));
   });
 
   test('qualification et statut absents deviennent "non qualifiee" et "non '
       'renseigne", jamais une chaine vide (BR-006, BR-011)', () async {
     observations.answer = (StationCode code, Grandeur grandeur) async =>
         grandeur == Grandeur.debit
-        ? _debit(
+        ? _dischargeObservation(
             measuredAt: DateTime.utc(2026, 9, 13, 9),
             statusLabel: null,
             qualificationLabel: null,
@@ -265,8 +316,6 @@ void main() {
     final StationSheetData data = (viewModel.state as Prete).data;
     expect(data.statusLabel, 'non renseigné');
     expect(data.qualificationLabel, 'non qualifiée');
-    expect(data.statusLabel, isNotEmpty);
-    expect(data.qualificationLabel, isNotEmpty);
   });
 
   test('un debit absent laisse Prete sans valeur, sans fraicheur ni avis : '
@@ -289,9 +338,9 @@ void main() {
 
   test('un depot d observations qui leve fait passer en EnEchec, la cause est '
       'conservee (UC-001 A4)', () async {
-    final Exception panne = Exception('panne');
+    final Exception failure = Exception('panne');
     observations.answer = (StationCode code, Grandeur grandeur) async =>
-        throw panne;
+        throw failure;
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
@@ -302,9 +351,38 @@ void main() {
 
     final StationSheetState state = viewModel.state;
     expect(state, isA<EnEchec>());
-    expect((state as EnEchec).cause, same(panne));
+    expect((state as EnEchec).cause, same(failure));
     expect(state.code, _codeBlois());
   });
+
+  test(
+    'un depot dont findLatest leve de facon SYNCHRONE (sans async) est '
+    'quand meme interroge sur les DEUX grandeurs avant l etat EnEchec',
+    () async {
+      final Exception failure = Exception('panne synchrone');
+      final List<Grandeur> requestedBeforeFailure = <Grandeur>[];
+      // Pas de `async` ici : la levee survient AVANT tout `await`, ce que
+      // `Future.sync` (dans le ViewModel) doit absorber sans empecher le
+      // second appel.
+      observations.answer = (StationCode code, Grandeur grandeur) {
+        requestedBeforeFailure.add(grandeur);
+        throw failure;
+      };
+      final StationSheetViewModel viewModel = StationSheetViewModel(
+        observations: observations,
+        stations: stations,
+      );
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+
+      expect(requestedBeforeFailure.toSet(), <Grandeur>{
+        Grandeur.debit,
+        Grandeur.hauteur,
+      });
+      expect(viewModel.state, isA<EnEchec>());
+    },
+  );
 
   test('une station inconnue (findByCode rend null) fait passer en EnEchec, '
       'avec une cause qui nomme le code', () async {
@@ -340,22 +418,22 @@ void main() {
 
   test('une reponse tardive d un open() precedent n ecrase pas close() '
       '(garde par jeton de generation, comme MapViewModel)', () async {
-    final Completer<Station?> tardive = Completer<Station?>();
-    stations.answer = (StationCode code) => tardive.future;
+    final Completer<Station?> late = Completer<Station?>();
+    stations.answer = (StationCode code) => late.future;
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
     );
     addTearDown(viewModel.dispose);
 
-    final Future<void> enCours = viewModel.open(_codeBlois());
+    final Future<void> opening = viewModel.open(_codeBlois());
     expect(viewModel.state, isA<EnCours>());
 
     viewModel.close();
     expect(viewModel.state, isA<Fermee>());
 
-    tardive.complete(_station(_codeBlois()));
-    await enCours;
+    late.complete(_station(_codeBlois()));
+    await opening;
 
     expect(
       viewModel.state,
@@ -364,16 +442,16 @@ void main() {
     );
   });
 
-  test('open(B) pendant que open(A) est en cours : l etat final est celui de '
-      'B, quel que soit l ordre d arrivee des reponses', () async {
+  test('B ouvert pendant A : B gagne (garde par jeton de generation, comme '
+      'MapViewModel)', () async {
     final StationCode codeA = _codeBlois();
     final StationCode codeB = _codeGoyaves();
-    final Completer<Station?> lente = Completer<Station?>();
-    final Completer<Station?> rapide = Completer<Station?>();
-    int appel = 0;
+    final Completer<Station?> slow = Completer<Station?>();
+    final Completer<Station?> fast = Completer<Station?>();
+    int attempt = 0;
     stations.answer = (StationCode code) {
-      appel++;
-      return appel == 1 ? lente.future : rapide.future;
+      attempt++;
+      return attempt == 1 ? slow.future : fast.future;
     };
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
@@ -381,13 +459,13 @@ void main() {
     );
     addTearDown(viewModel.dispose);
 
-    final Future<void> chargementA = viewModel.open(codeA);
-    final Future<void> chargementB = viewModel.open(codeB);
+    final Future<void> openingA = viewModel.open(codeA);
+    final Future<void> openingB = viewModel.open(codeB);
 
-    rapide.complete(_station(codeB));
-    await chargementB;
-    lente.complete(_station(codeA));
-    await chargementA;
+    fast.complete(_station(codeB));
+    await openingB;
+    slow.complete(_station(codeA));
+    await openingA;
 
     final StationSheetState state = viewModel.state;
     expect(state, isA<Prete>());
@@ -396,8 +474,8 @@ void main() {
 
   test('open sur un ViewModel dispose ne leve rien : la reponse tardive ne '
       'notifie plus', () async {
-    final Completer<Station?> tardive = Completer<Station?>();
-    stations.answer = (StationCode code) => tardive.future;
+    final Completer<Station?> late = Completer<Station?>();
+    stations.answer = (StationCode code) => late.future;
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
@@ -405,11 +483,11 @@ void main() {
     int notifications = 0;
     viewModel.addListener(() => notifications++);
 
-    final Future<void> enCours = viewModel.open(_codeBlois());
+    final Future<void> opening = viewModel.open(_codeBlois());
     viewModel.dispose();
-    tardive.complete(_station(_codeBlois()));
+    late.complete(_station(_codeBlois()));
 
-    await expectLater(enCours, completes);
+    await expectLater(opening, completes);
     expect(
       notifications,
       1,
@@ -420,13 +498,13 @@ void main() {
   test('switch exhaustif sur StationSheetState, sans default (BR-011)', () {
     const StationSheetState state = Fermee();
 
-    final String libelle = switch (state) {
+    final String label = switch (state) {
       Fermee() => 'fermee',
       EnCours() => 'en cours',
       Prete() => 'prete',
       EnEchec() => 'en echec',
     };
 
-    expect(libelle, 'fermee');
+    expect(label, 'fermee');
   });
 }
