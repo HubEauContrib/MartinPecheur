@@ -102,11 +102,11 @@ void main() {
         }
       });
 
-      File('${tempDir.path}${Platform.pathSeparator}fautif.dart')
+      File('${tempDir.path}${Platform.pathSeparator}offender.dart')
           .writeAsStringSync(
             "import 'package:flutter/material.dart';\n"
             '\n'
-            'const int fautif = 1;\n',
+            'const int offender = 1;\n',
           );
       File('${tempDir.path}${Platform.pathSeparator}innocent.dart')
           .writeAsStringSync(
@@ -120,7 +120,7 @@ void main() {
 
       expect(findings, hasLength(1));
       expect(findings.single, contains('package:flutter/'));
-      expect(findings.single, contains('fautif.dart:1'));
+      expect(findings.single, contains('offender.dart:1'));
     });
   });
 }

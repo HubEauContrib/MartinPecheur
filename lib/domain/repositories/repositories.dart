@@ -71,28 +71,27 @@ final class Bounds {
 
 /// Depot du referentiel des stations. Lit, ne decide de rien : ni cache, ni
 /// orchestration.
+///
+/// Une seule methode, et elle suffit (YAGNI) : `findWithinBounds` et
+/// `findByDepartement` ont ete retirees a la relecture du 2026-09-13 — rien
+/// ne les appelait. La carte passe par [StationPointRepository] ; un filtre
+/// par departement viendra avec l'ecran qui le demande, pas avant.
 abstract interface class StationRepository {
   /// La station de code [code], ou `null` si aucune station ne porte ce
-  /// code (BR-007) — jamais une erreur pour une absence attendue.
+  /// code (BR-007) — jamais une erreur pour une absence attendue. Premier
+  /// appelant : la fiche station (T1).
   Future<Station?> findByCode(StationCode code);
-
-  /// Les stations dont les coordonnees tombent dans [bounds]. Filtre a la
-  /// source : jamais charger les 4 150 stations du referentiel pour filtrer
-  /// ensuite en memoire.
-  Future<List<Station>> findWithinBounds(Bounds bounds);
-
-  /// Les stations du departement [code].
-  Future<List<Station>> findByDepartement(DepartementCode code);
 }
 
 /// Depot des points de carte du referentiel : la projection [StationPoint],
 /// pas l'entite [Station] complete.
 ///
 /// Un depot a lui seul, et non une methode de plus sur [StationRepository]
-/// (R3, arbitrage 2026-09-13) : la carte, a chaque relachement de geste, n'a
-/// besoin que de code, libelle et coordonnees ; repasser par [Station] puis
-/// reconvertir couterait jusqu'a 4 150 allocations inutiles par geste, et
-/// la marge d'emprise n'a de sens que pour la carte.
+/// (R3, arbitrage 2026-09-13) : c'est une segregation d'interface (le `I` de
+/// SOLID). La carte n'a besoin que de code, libelle et coordonnees, et la
+/// marge d'emprise n'a de sens que pour elle — la fiche station, qui lit une
+/// [Station] complete par son code, n'a rien a faire d'une emprise elargie
+/// et ne doit pas dependre d'une methode qu'elle n'appelle jamais.
 abstract interface class StationPointRepository {
   /// Les points dont les coordonnees tombent dans [bounds], elargie de
   /// [margin] fois sa hauteur et sa largeur de chaque cote.

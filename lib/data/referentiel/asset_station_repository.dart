@@ -3,6 +3,11 @@
 // le reseau. Le depot reste bete (cf. domain/repositories/repositories.dart)
 // : il lit, ne decide de rien.
 //
+// Une seule methode, comme son interface : `findWithinBounds` et
+// `findByDepartement` ont ete retirees a la relecture du 2026-09-13, faute
+// d'appelant (YAGNI). Le filtre d'emprise de la carte vit dans
+// `AssetStationPointRepository`, et nulle part ailleurs.
+//
 // Arbitrage 2026-09-13 : l'asset porte code_departement, libelle_cours_eau
 // et en_service pour chaque entite (cf. stations_asset.dart) — une valeur
 // inventee dans le domaine viole BR-007. Le depot est donc construit
@@ -12,7 +17,8 @@
 // comptee (`stationsSkipped`) au moment de l'analyse — ce depot ne voit que
 // des entites completes.
 
-import 'package:martinpecheur/domain/repositories/repositories.dart';
+import 'package:martinpecheur/domain/repositories/repositories.dart'
+    show StationRepository;
 import 'package:martinpecheur/domain/station/station.dart';
 
 /// Depot du referentiel des stations, adosse a l'asset fige (ADR-003).
@@ -29,25 +35,5 @@ final class AssetStationRepository implements StationRepository {
       }
     }
     return null;
-  }
-
-  @override
-  Future<List<Station>> findWithinBounds(Bounds bounds) async {
-    return _stations
-        .where(
-          (Station station) =>
-              station.latitude <= bounds.north &&
-              station.latitude >= bounds.south &&
-              station.longitude <= bounds.east &&
-              station.longitude >= bounds.west,
-        )
-        .toList();
-  }
-
-  @override
-  Future<List<Station>> findByDepartement(DepartementCode code) async {
-    return _stations
-        .where((Station station) => station.departement == code)
-        .toList();
   }
 }

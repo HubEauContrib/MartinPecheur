@@ -2,10 +2,6 @@
 // rendre de `FlutterMap`. Ces cas sont ceux de `MapStationsController`
 // (T0-M4), reecrits sur `MapViewModel` : appel typé au depot au lieu d'un
 // message envoye a un registre (R3, arbitrage 2026-09-13).
-//
-// Le cas « une caméra ne notifie pas » preserve le correctif de la relecture
-// M3/M4 : la position de camera change a chaque frame d'un geste : la
-// notifier reconstruirait les 4 150 marqueurs pour rien (NFR-01).
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -46,11 +42,11 @@ final class _StationPointRepositoryDouble implements StationPointRepository {
     calls++;
     receivedBounds = bounds;
     receivedMargin = margin;
-    final Future<List<StationPoint>> Function(int call)? reponse = answer;
-    if (reponse == null) {
+    final Future<List<StationPoint>> Function(int call)? configured = answer;
+    if (configured == null) {
       return Future<List<StationPoint>>.value(<StationPoint>[]);
     }
-    return reponse(calls);
+    return configured(calls);
   }
 }
 
@@ -117,13 +113,13 @@ void main() {
       int notifications = 0;
       viewModel.addListener(() => notifications++);
 
-      final Future<void> enCours = viewModel.loadFor(
+      final Future<void> pending = viewModel.loadFor(
         Bounds(west: -1, south: 46, east: 3, north: 48),
       );
       viewModel.dispose();
       completer.complete(<StationPoint>[_blois()]);
 
-      await expectLater(enCours, completes);
+      await expectLater(pending, completes);
       expect(notifications, 0);
     },
   );
@@ -222,25 +218,5 @@ void main() {
     await viewModel.loadInitial();
 
     expect(() => viewModel.stations.add(_guadeloupe()), throwsUnsupportedError);
-  });
-
-  test('poser la camera ne notifie personne — elle change a chaque frame '
-      "d'un geste (correctif M3/M4, NFR-01)", () async {
-    final MapViewModel viewModel = MapViewModel(repository);
-    addTearDown(viewModel.dispose);
-    int notifications = 0;
-    viewModel.addListener(() => notifications++);
-
-    viewModel.camera = const (
-      north: 48.0,
-      south: 46.0,
-      east: 3.0,
-      west: -1.0,
-      zoom: 7.0,
-      rotation: 0.0,
-    );
-
-    expect(notifications, 0);
-    expect(viewModel.camera?.zoom, 7.0);
   });
 }

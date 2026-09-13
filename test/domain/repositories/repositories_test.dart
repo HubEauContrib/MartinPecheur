@@ -6,16 +6,13 @@ import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
-/// Double en memoire de [StationRepository]. Enregistre la derniere emprise
-/// demandee : verifie que l'appelant la transmet telle quelle, sans charger
-/// l'integralite du referentiel pour filtrer ensuite.
+/// Double en memoire de [StationRepository] : une seule methode, comme son
+/// interface depuis la relecture du 2026-09-13. Verifie que le contrat est
+/// implementable sans infrastructure.
 final class InMemoryStationRepository implements StationRepository {
   InMemoryStationRepository(this._stations);
 
   final List<Station> _stations;
-
-  /// La derniere emprise passee a [findWithinBounds].
-  Bounds? lastBoundsRequested;
 
   @override
   Future<Station?> findByCode(StationCode code) async {
@@ -25,26 +22,6 @@ final class InMemoryStationRepository implements StationRepository {
       }
     }
     return null;
-  }
-
-  @override
-  Future<List<Station>> findByDepartement(DepartementCode code) async =>
-      _stations
-          .where((Station station) => station.departement == code)
-          .toList();
-
-  @override
-  Future<List<Station>> findWithinBounds(Bounds bounds) async {
-    lastBoundsRequested = bounds;
-    return _stations
-        .where(
-          (Station station) =>
-              station.longitude >= bounds.west &&
-              station.longitude <= bounds.east &&
-              station.latitude >= bounds.south &&
-              station.latitude <= bounds.north,
-        )
-        .toList();
   }
 }
 
@@ -123,26 +100,6 @@ void main() {
         );
 
         expect(found, isNull);
-      },
-    );
-
-    test('findByDepartement filtre par departement', () async {
-      final List<Station> found = await repository.findByDepartement(
-        DepartementCode('971'),
-      );
-
-      expect(found, <Station>[goyaves]);
-    });
-
-    test(
-      'findWithinBounds filtre a la source et enregistre l emprise demandee',
-      () async {
-        final Bounds emprise = Bounds(west: -1, south: 46, east: 3, north: 48);
-
-        final List<Station> found = await repository.findWithinBounds(emprise);
-
-        expect(found, <Station>[blois]);
-        expect(repository.lastBoundsRequested, same(emprise));
       },
     );
   });

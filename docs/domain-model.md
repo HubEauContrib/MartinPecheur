@@ -47,6 +47,11 @@ Identité + cycle de vie, à la différence des objets-valeur.
 
 - **`Station`** — identité : `StationCode`. `riverLabel` peut être absent (`null`), jamais une
   chaîne vide (`BR-007`).
+- **`StationPoint`** — la **projection** de `Station` que la carte dessine : code, libellé,
+  latitude, longitude, et rien de plus. Volontairement distincte de `Station` — au zoom national
+  les 4 150 points sont tous dessinés, et porter le département, le cours d'eau et l'état de
+  service dans chacun ne servirait aucun pixel (`NFR-01`). Son dépôt est `StationPointRepository`,
+  séparé de `StationRepository` par ségrégation d'interface.
 - **`HydroObservation`** — identité : `StationCode` + `measuredAt`. Jamais de valeur sans sa
   date de mesure (`BR-001`). `discharge` et `level` sont déjà convertis (`BR-002`) : aucun
   `double` nu. `null` ≠ zéro (`BR-007`) — un zéro mesuré est un assec, une absence est une
@@ -56,8 +61,11 @@ Identité + cycle de vie, à la différence des objets-valeur.
 
 - **Station observée** — racine `Station`, dernière observation connue par `Grandeur`. Une
   station sans observation est un état valide, affiché comme tel (`BR-007`) — jamais masqué.
-- **Emprise** — racine `Bounds`, unité de chargement des stations : jamais les 4 150 d'un coup
-  (`StationRepository.findWithinBounds`).
+- **Emprise** — racine `Bounds`, unité de chargement des points de carte : jamais les 4 150 d'un
+  coup (`StationPointRepository.withinBounds`, marge proportionnelle comprise).
+  `StationRepository` ne porte **plus** de recherche par emprise ni par département depuis la
+  relecture du 2026-09-13 : rien ne les appelait, et la carte lit des `StationPoint`, pas des
+  `Station` complètes.
 
 Il n'existe **pas** d'agrégat « état de la rivière » : écoulement (fait observé), débit
 (statistique) et sécheresse (décision préfectorale) restent trois échelles séparées, jamais
@@ -115,11 +123,19 @@ classDiagram
     class Inconnu { +String? rawCode }
     class Grandeur { <<enumeration>> hauteur debit inconnu }
     class Freshness { <<enumeration>> fraiche ancienne perimee }
+    class StationPoint {
+        +StationCode code
+        +String label
+        +double latitude
+        +double longitude
+    }
     class StationRepository {
         <<interface>>
         +findByCode(StationCode) Station?
-        +findWithinBounds(Bounds) Station[]
-        +findByDepartement(DepartementCode) Station[]
+    }
+    class StationPointRepository {
+        <<interface>>
+        +withinBounds(Bounds, double margin) StationPoint[]
     }
     class HydroObservationRepository {
         <<interface>>
@@ -136,8 +152,10 @@ classDiagram
     HydroObservation --> Grandeur
     HydroObservation ..> Freshness : calcule
     FlowCategory <|-- Inconnu
+    StationPoint --> StationCode : identifie par
     StationRepository ..> Station
-    StationRepository ..> Bounds
+    StationPointRepository ..> StationPoint
+    StationPointRepository ..> Bounds
     HydroObservationRepository ..> HydroObservation
     LitresPerSecond ..> CubicMetresPerSecond : toCubicMetresPerSecond
     Millimetres ..> Metres : toMetres
