@@ -298,7 +298,7 @@ git add lib/data/http test/data/http docs/superpowers/plans/2026-09-13-t1-fiche-
 **Signatures publiques**
 
 - `final class HttpHydroObservationRepository implements HydroObservationRepository { HttpHydroObservationRepository(HubEauClient client); }`
-- `Future<Map<StationCode, HydroObservation?>> findLatestForAll(List<StationCode> stations, Grandeur grandeur, {Duration interval = const Duration(milliseconds: 200)})`
+- ~~`findLatestForAll`~~ **retirée à l'exécution (2026-09-13)** : le préchargement borné et annulable vit dans `MapViewModel` (V2), qui appelle `findLatest` station par station.
 
 **Invariants :** une absence de donnée rend **`null`**, jamais une erreur et jamais zéro (`BR-007`) ; une panne de source **lève**, pour que l'écran puisse nommer la source défaillante (`UC-001 A4`) ; `findLatestForAll` **espace** ses appels et ne fait **jamais** d'appel national (`NFR-07`, `C-12`).
 
@@ -311,11 +311,11 @@ git add lib/data/http test/data/http docs/superpowers/plans/2026-09-13-t1-fiche-
 - `findLatestForAll` avec 3 codes et un `interval` injecté → **3 appels**, dans l'ordre, chacun précédé de l'attente sauf le premier ; le test **ne dort pas**.
 - L'échec d'**un** code laisse les deux autres renseignés, la clé fautive porte `null` — un écran partiel vaut mieux qu'un écran blanc (`BR-007`). Liste vide → **zéro appel**.
 
-- [ ] **Étape 1** — **relire** les réponses à `Q-01`/`Q-02` consignées en `D1`. Si l'une est confirmée, `findLatestForAll` fait une requête groupée ou par emprise et le cas « 3 appels » devient « 1 appel, 3 codes dans l'URI » ; sinon la forme garantie s'applique. ⚠️ Ne pas deviner : lire ce qui a été écrit.
-- [ ] **Étape 2** — écrire le test avec `MockClient` et les fixtures de T0. Rouge.
-- [ ] **Étape 3** — `flutter test test/data/observations` → échec.
-- [ ] **Étape 4** — implémenter. `mapHydroObservation` est **réutilisé** : aucune conversion d'unité n'apparaît ici (`BR-002`).
-- [ ] **Étape 5** — `flutter test test/data` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — **relire** les réponses à `Q-01`/`Q-02` consignées en `D1`. Les deux restent ouvertes (panne `T-10`, 500 le 2026-09-13 après-midi) : la forme garantie s'applique, un appel par station. ⚠️ Ne pas deviner : lire ce qui a été écrit.
+- [x] **Étape 2** — écrire le test avec `MockClient` et les fixtures de T0. Rouge.
+- [x] **Étape 3** — `flutter test test/data/observations` → échec.
+- [x] **Étape 4** — implémenter. `mapHydroObservation` est **réutilisé** : aucune conversion d'unité n'apparaît ici (`BR-002`).
+- [x] **Étape 5** — `flutter test test/data` → vert, puis critère de fin et commit.
 
 ```bash
 git add lib/data/observations test/data/observations && git commit -m "feat(hydrometrie): implementer HydroObservationRepository sur le client Hub Eau" -m "Une page vide en 200 rend null, jamais zero et jamais une erreur : l absence est un etat affiche (BR-007). Une panne de source leve, pour que l ecran nomme la source defaillante. findLatestForAll espace ses appels tant que l appel groupe n est pas confirme, et ne fait jamais d appel national (NFR-07)."
