@@ -219,11 +219,11 @@ git add test/fixtures docs/sources && git commit -m "docs(ecoulement): capturer 
 - `switch` exhaustif sur `StationMapState` : une sous-classe sans branche est une **erreur de compilation** (`BR-011`).
 - `OndeObservation` conserve `rawFlowCode` tel que reçu, non normalisé, même quand `category` est `Inconnu` (`BR-011`).
 
-- [ ] **Étape 1** — écrire les cinq fichiers de test, tous rouges.
-- [ ] **Étape 2** — `flutter test test/domain` → échec, types absents.
-- [ ] **Étape 3** — implémenter les cinq fichiers de `lib/domain/` et les deux interfaces de dépôt.
-- [ ] **Étape 4** — `flutter test test/domain test/architecture/domain_isolation_test.dart` → vert : aucun import d'infrastructure n'est entré dans le domaine.
-- [ ] **Étape 5** — critère de fin, puis commit.
+- [x] **Étape 1** — écrire les cinq fichiers de test, tous rouges.
+- [x] **Étape 2** — `flutter test test/domain` → échec, types absents.
+- [x] **Étape 3** — implémenter les cinq fichiers de `lib/domain/` et les deux interfaces de dépôt.
+- [x] **Étape 4** — `flutter test test/domain test/architecture/domain_isolation_test.dart` → vert : aucun import d'infrastructure n'est entré dans le domaine.
+- [x] **Étape 5** — critère de fin, puis commit.
 
 ```bash
 git add lib/domain test/domain && git commit -m "feat(domain): typer l ecoulement ONDE et l etat d une station sur la carte" -m "OndeStationCode fait huit caracteres, StationCode dix : les deux referentiels sont distincts et les types ne se substituent pas. L age de campagne se compte en jours parce que l API ne donne pas d heure ; la borne de 60 jours appartient a l etat le plus severe (BR-010). StationMapState distingue NonChargee de SansDonnee : un ecran en cours de chargement n affiche pas d etat par defaut (BR-007)."

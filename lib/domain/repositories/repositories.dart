@@ -13,6 +13,8 @@ import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 
@@ -61,4 +63,26 @@ abstract interface class HydroObservationRepository {
   /// [grandeur] est obligatoire : une hauteur et un debit ne sont jamais
   /// confondus.
   Future<HydroObservation?> findLatest(StationCode station, Grandeur grandeur);
+}
+
+/// Depot des observations d'ecoulement ONDE. Lit, ne decide de rien : le
+/// regroupement par station et le TTL saisonnier restent au decorateur de
+/// cache (`lib/data/onde/`), jamais ici.
+abstract interface class OndeObservationRepository {
+  /// Les dernieres observations dont les stations tombent dans [bounds],
+  /// filtrees sur `date_observation_min` = [since] (BR-010 : la carte ne
+  /// remonte jamais plus loin qu'une campagne recente). Une liste vide est
+  /// une absence, jamais une erreur (BR-007).
+  Future<List<OndeObservation>> latestWithinBounds(
+    Bounds bounds, {
+    required DateTime since,
+  });
+
+  /// L'historique des [limit] dernieres observations connues pour
+  /// [station], le plus recent en tete. [limit] vaut 5 par defaut : c'est
+  /// ce que la fiche station ONDE (T1) affiche.
+  Future<List<OndeObservation>> historyFor(
+    OndeStationCode station, {
+    int limit = 5,
+  });
 }
