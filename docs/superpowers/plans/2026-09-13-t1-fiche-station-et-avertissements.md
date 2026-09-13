@@ -418,10 +418,10 @@ git add lib/domain/onde lib/data/mappers test/domain test/data/mappers test/data
 - Dépôt qui lève `HubEauFailure` → `EnEchec`, `cause` conservée pour que la vue **nomme la source** (`UC-001 A4`).
 - `close()` → `Fermee` ; une réponse tardive d'un `open()` précédent **n'écrase pas** l'état (garde par jeton) ; après `dispose()`, aucun `notifyListeners`, aucune assertion.
 
-- [ ] **Étape 1** — écrire le test avec des dépôts bouchons et une horloge injectée. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/station_sheet` → échec.
-- [ ] **Étape 3** — implémenter.
-- [ ] **Étape 4** — `flutter test test/features test/architecture` → vert, `layers_test.dart` compris. Puis critère de fin et commit.
+- [x] **Étape 1** — écrire le test avec des dépôts bouchons et une horloge injectée. Rouge.
+- [x] **Étape 2** — `flutter test test/features/station_sheet` → échec.
+- [x] **Étape 3** — implémenter.
+- [x] **Étape 4** — `flutter test test/features test/architecture` → vert, `layers_test.dart` compris. Puis critère de fin et commit.
 
 ```bash
 git add lib/features/station_sheet test/features/station_sheet && git commit -m "feat(ui): StationSheetViewModel, l etat de la fiche station sans aucun widget" -m "L horloge est injectee : les bornes de BR-005 se testent aux valeurs exactes 1 h, 3 h et 17 jours plutot qu a ce que la machine affiche. La qualification absente devient non qualifiee, jamais une chaine vide (BR-006). Une valeur absente reste absente : jamais un zero (BR-007). Un balayage de tous les libelles produits refuse les cinq mots bannis (BR-003)."
