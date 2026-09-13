@@ -1,6 +1,10 @@
 // Le referentiel est un GeoJSON `FeatureCollection` fige, produit hors
 // execution (ADR-003) : `parseStations` n'est qu'une analyse, jamais un
-// appel reseau. ⚠️ L'ordre GeoJSON des coordonnees est [longitude,
+// appel reseau. Ce module CONSTRUIT des [StationPoint] et des [Station] ; il
+// ne les possede pas — les deux types vivent sous `lib/domain/station/`
+// (R2, arbitrage 2026-09-13).
+//
+// ⚠️ L'ordre GeoJSON des coordonnees est [longitude,
 // latitude] — le tenir a l'envers ne leve aucune erreur, un point de la
 // Guadeloupe se retrouverait au large de la Somalie et la carte s'afficherait
 // sans broncher. Toute entite ecartee est COMPTEE dans `skipped` (BR-007) :
@@ -12,36 +16,10 @@
 import 'dart:convert';
 
 import 'package:martinpecheur/domain/station/station.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
 
 /// Chemin de l'asset du referentiel, fige a la generation (ADR-003).
 const String stationsAssetPath = 'assets/referentiel/stations.json';
-
-/// Un point a dessiner sur la carte. Volontairement distinct de [Station] :
-/// c'est une projection legere du referentiel — code, libelle, coordonnees —
-/// pour la carte, qui n'a besoin de rien d'autre pour 4 150 marqueurs. Le
-/// referentiel fige porte bien le departement, le cours d'eau et l'etat de
-/// service (voir [_toStationEntity]) : c'est [Station], pas [StationPoint],
-/// qui les transporte.
-final class StationPoint {
-  const StationPoint({
-    required this.code,
-    required this.label,
-    required this.latitude,
-    required this.longitude,
-  });
-
-  /// Code de la station.
-  final StationCode code;
-
-  /// Libelle affichable. Replie sur [code] si `libelle_station` est absent.
-  final String label;
-
-  /// Latitude en degres decimaux, WGS 84.
-  final double latitude;
-
-  /// Longitude en degres decimaux, WGS 84 (negative a l'ouest de Greenwich).
-  final double longitude;
-}
 
 /// Resultat de l'analyse du referentiel : les points exploitables, les
 /// entites [Station] completes, et les deux compteurs d'entites ecartees

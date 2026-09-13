@@ -55,9 +55,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/application/bus.dart';
 import 'package:martinpecheur/application/messages.dart';
-import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
-import 'package:martinpecheur/features/map/ign_tile_template.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 
 /// Centre initial de la carte : France métropolitaine.
 const double initialMapCenterLatitude = 46.6;
