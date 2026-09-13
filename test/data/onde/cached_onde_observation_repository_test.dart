@@ -196,14 +196,42 @@ void main() {
       expect(bouchon.appelsBounds, 3);
     });
 
-    test('since normalisé à son jour calendaire : UTC minuit et local 10 h '
-        'du même jour partagent la même entrée', () async {
+    test(
+      'since : deux horaires UTC du même jour partagent la même entrée, '
+      'un jour distinct en ouvre une autre (identité = formatDateUtc)',
+      () async {
+        final _DepotOndeBouchon bouchon = _DepotOndeBouchon();
+        final DateTime sinceMatin = DateTime.utc(2026, 7, 15, 0, 30);
+        final DateTime sinceSoir = DateTime.utc(2026, 7, 15, 23, 30);
+        final DateTime sinceVeille = DateTime.utc(2026, 7, 14, 23, 30);
+        final DateTime maintenant = DateTime.utc(2026, 7, 20);
+
+        final CachedOndeObservationRepository depot =
+            CachedOndeObservationRepository(
+              inner: bouchon,
+              now: () => maintenant,
+            );
+
+        await depot.latestWithinBounds(bounds, since: sinceMatin);
+        expect(bouchon.appelsBounds, 1);
+
+        await depot.latestWithinBounds(bounds, since: sinceSoir);
+        expect(bouchon.appelsBounds, 1);
+
+        await depot.latestWithinBounds(bounds, since: sinceVeille);
+        expect(bouchon.appelsBounds, 2);
+      },
+    );
+
+    test('N1 : un since UTC minuit et son équivalent local moins 30 min '
+        "(dont l'UTC tombe la veille) sont deux entrées, deux requêtes — la "
+        "clé est la chaîne envoyée à l'API, jamais les composantes du "
+        'DateTime d origine', () async {
       final _DepotOndeBouchon bouchon = _DepotOndeBouchon();
-      final DateTime sinceUtcMinuit = DateTime.utc(2026, 7, 15);
-      final DateTime sinceLocal10h = DateTime(2026, 7, 15, 10);
-      bouchon.valeursBounds[(bounds, sinceUtcMinuit)] = <OndeObservation>[
-        _observation('K4640001', DateTime.utc(2026, 8, 25)),
-      ];
+      final DateTime sinceUtc = DateTime.utc(2026, 7, 15);
+      final DateTime sinceLocalVeille = sinceUtc.toLocal().subtract(
+        const Duration(minutes: 30),
+      );
       final DateTime maintenant = DateTime.utc(2026, 7, 20);
 
       final CachedOndeObservationRepository depot =
@@ -212,15 +240,11 @@ void main() {
             now: () => maintenant,
           );
 
-      await depot.latestWithinBounds(bounds, since: sinceUtcMinuit);
+      await depot.latestWithinBounds(bounds, since: sinceUtc);
       expect(bouchon.appelsBounds, 1);
 
-      final List<OndeObservation> second = await depot.latestWithinBounds(
-        bounds,
-        since: sinceLocal10h,
-      );
-      expect(second, hasLength(1));
-      expect(bouchon.appelsBounds, 1);
+      await depot.latestWithinBounds(bounds, since: sinceLocalVeille);
+      expect(bouchon.appelsBounds, 2);
     });
 
     test('périmé (31 j, en saison) : ancienne liste immédiate, '

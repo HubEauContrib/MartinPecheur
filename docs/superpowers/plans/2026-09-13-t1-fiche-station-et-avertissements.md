@@ -353,7 +353,7 @@ git add lib/data/observations test/data/observations && git commit -m "feat(hydr
 
 **Files:** créés `lib/data/onde/http_onde_observation_repository.dart`, `lib/data/onde/cached_onde_observation_repository.dart` · tests miroirs
 
-**Signatures publiques** — `final class HttpOndeObservationRepository implements OndeObservationRepository { HttpOndeObservationRepository(HubEauClient client); }` (`OndeClient` retiré en D4 : aucun second client, `HubEauClient` sert déjà les deux endpoints) · `final class CachedOndeObservationRepository implements OndeObservationRepository { CachedOndeObservationRepository({required OndeObservationRepository inner, DateTime Function()? now}); }` · `Duration ondeTtlFor(DateTime date)`
+**Signatures publiques** — `final class HttpOndeObservationRepository implements OndeObservationRepository { HttpOndeObservationRepository(HubEauClient client); }` (`OndeClient` retiré en D4 : aucun second client, `HubEauClient` sert déjà les deux endpoints) · `final class CachedOndeObservationRepository implements OndeObservationRepository { CachedOndeObservationRepository({required OndeObservationRepository inner, DateTime Function()? now, bool Function()? networkAvailable}); }` · `Duration ondeTtlFor(DateTime date)`
 
 **Invariants :** `latestWithinBounds` ne garde qu'**une** observation par `OndeStationCode`, la plus récente — l'API en rend une par campagne et par point (`T-04`, `count` 96 pour un seul point) ; le TTL dépend du **mois observé**, jamais d'une saison codée ailleurs.
 

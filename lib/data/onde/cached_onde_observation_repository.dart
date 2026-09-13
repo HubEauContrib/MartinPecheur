@@ -18,7 +18,7 @@
 // Stockage en mémoire, sans purge : aucun stockage local n'existe encore
 // (ADR-011 réservé). La clé `(OndeStationCode, int)` de `historyFor` reste
 // bornée par le référentiel, comme `CachedHydroObservationRepository`
-// (D6) ; la clé `(Bounds, since)` de `latestWithinBounds`, elle, ne l'EST
+// (D6) ; la clé `(Bounds, String)` de `latestWithinBounds`, elle, ne l'EST
 // PAS — la vue construit une emprise neuve à chaque relâchement de geste, et
 // une entrée s'accumule par emprise visitée, pour toute la durée de la
 // session, jamais purgée. Acceptable tant que la carte reste la seule
@@ -44,8 +44,16 @@
 // même choix que `CachedHydroObservationRepository` pour `null` (D6) :
 // c'est ce qui évite de réinterroger une absence déjà constatée avant le
 // TTL.
+//
+// Une seule résolution d'horloge dans ce fichier : `CachedOndeObservationRepository`
+// calcule `now ?? DateTime.now` une fois, dans son constructeur, et
+// transmet cette fonction déjà résolue aux deux `_TtlCache` (leur champ
+// `clock` n'est plus nullable) — `withCachePolicy`, dans
+// `cache_policy.dart`, fait sa propre résolution par ailleurs, mais c'est
+// un fichier distinct.
 
 import 'package:martinpecheur/data/cache/cache_policy.dart';
+import 'package:martinpecheur/data/http/hub_eau_paging.dart' show formatDateUtc;
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
@@ -78,7 +86,13 @@ Duration ondeTtlFor(DateTime date) {
   return ondeTtlOffSeason;
 }
 
-typedef _BoundsKey = (Bounds, DateTime);
+/// Clé de `latestWithinBounds` : la CHAÎNE envoyée à l'API pour
+/// `date_observation_min` (voir [formatDateUtc]), pas une [DateTime]
+/// reconstruite ici — il n'y aurait alors plus deux fonctions à garder
+/// d'accord sur ce qu'est « le même jour ». `since.year`/`.month`/`.day` lus
+/// sans `toUtc()` auraient pu faire partager une entrée à deux requêtes
+/// dont l'API reçoit deux `date_observation_min` différents (N1).
+typedef _BoundsKey = (Bounds, String);
 typedef _StationKey = (OndeStationCode, int);
 
 /// Cache stale-while-revalidate générique pour UNE forme de clé [K] et de
@@ -86,11 +100,13 @@ typedef _StationKey = (OndeStationCode, int);
 /// (clé, ttl) — voir le commentaire d'en-tête sur le piège d'usage de
 /// `withCachePolicy` et le partage d'entrée au changement de saison. Seul
 /// endroit qui connaît ce couplage clé/TTL ; `CachedOndeObservationRepository`
-/// en instancie un par méthode, sans le recopier.
+/// en instancie un par méthode, sans le recopier. [clock] est déjà résolue
+/// par l'appelant (jamais nullable ici) : voir le commentaire d'en-tête sur
+/// la résolution unique de l'horloge.
 final class _TtlCache<K, V> {
-  _TtlCache({this.now, this.networkAvailable});
+  _TtlCache({required this.clock, this.networkAvailable});
 
-  final DateTime Function()? now;
+  final DateTime Function() clock;
   final bool Function()? networkAvailable;
 
   final Map<K, CachedValue<V>> _values = <K, CachedValue<V>>{};
@@ -108,13 +124,10 @@ final class _TtlCache<K, V> {
         load: load,
         readCache: () async => _values[key],
         writeCache: (V value) async {
-          _values[key] = CachedValue<V>(
-            value: value,
-            storedAt: (now ?? DateTime.now)(),
-          );
+          _values[key] = CachedValue<V>(value: value, storedAt: clock());
         },
         ttl: ttl,
-        now: now,
+        now: clock,
         networkAvailable: networkAvailable,
       ),
     );
@@ -126,43 +139,44 @@ final class _TtlCache<K, V> {
 /// stale-while-revalidate, avec un TTL qui dépend du mois de lecture.
 final class CachedOndeObservationRepository
     implements OndeObservationRepository {
-  /// [networkAvailable] n'est retenu que le temps de construire les deux
-  /// caches ci-dessous : chacun garde sa propre référence, ce champ ne
-  /// serait plus jamais lu ensuite (contrairement à [_now], réutilisé par
-  /// [_clock] à chaque lecture).
+  /// [now] est résolu une seule fois ici (`now ?? DateTime.now`), puis
+  /// transmis déjà résolu aux deux caches ci-dessous : c'est la seule
+  /// résolution d'horloge de ce fichier (N3). [networkAvailable] n'est
+  /// retenu, lui, que le temps de construire les deux caches : chacun garde
+  /// sa propre référence, un champ ici ne serait plus jamais lu ensuite.
   CachedOndeObservationRepository({
     required this._inner,
-    this._now,
+    DateTime Function()? now,
     bool Function()? networkAvailable,
-  }) : _boundsCache = _TtlCache<_BoundsKey, List<OndeObservation>>(
-         now: _now,
-         networkAvailable: networkAvailable,
-       ),
-       _stationCache = _TtlCache<_StationKey, List<OndeObservation>>(
-         now: _now,
-         networkAvailable: networkAvailable,
-       );
+  }) : _clock = now ?? DateTime.now {
+    _boundsCache = _TtlCache<_BoundsKey, List<OndeObservation>>(
+      clock: _clock,
+      networkAvailable: networkAvailable,
+    );
+    _stationCache = _TtlCache<_StationKey, List<OndeObservation>>(
+      clock: _clock,
+      networkAvailable: networkAvailable,
+    );
+  }
 
   final OndeObservationRepository _inner;
-  final DateTime Function()? _now;
+  final DateTime Function() _clock;
 
-  final _TtlCache<_BoundsKey, List<OndeObservation>> _boundsCache;
-  final _TtlCache<_StationKey, List<OndeObservation>> _stationCache;
-
-  DateTime _clock() => (_now ?? DateTime.now)();
+  late final _TtlCache<_BoundsKey, List<OndeObservation>> _boundsCache;
+  late final _TtlCache<_StationKey, List<OndeObservation>> _stationCache;
 
   @override
   Future<List<OndeObservation>> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
   }) async {
-    // Normalisée à son jour calendaire — mêmes composantes que celles lues
-    // par `formatDateUtc` sur la requête — pour que deux horaires du même
-    // jour ne ratent jamais le cache l'un de l'autre.
-    final DateTime sinceKey = DateTime.utc(since.year, since.month, since.day);
-
+    // La fermeture `load` capturée par `putIfAbsent` garde le `since` du
+    // premier appelant à créer l'entrée ; comme la clé est maintenant la
+    // chaîne UTC envoyée à l'API, deux appelants dont la clé coïncide
+    // demandent forcément la même chose — capturer l'un ou l'autre `since`
+    // interroge la même URI.
     final List<OndeObservation> value = await _boundsCache.read(
-      (bounds, sinceKey),
+      (bounds, formatDateUtc(since)),
       ttl: ondeTtlFor(_clock()),
       load: () => _inner.latestWithinBounds(bounds, since: since),
     );

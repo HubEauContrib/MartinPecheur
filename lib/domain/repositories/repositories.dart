@@ -71,10 +71,9 @@ abstract interface class HydroObservationRepository {
 /// d'une observation par station, lui, est un fait de lecture — pas une
 /// politique de cache : il vit dans `latestWithinBounds` du depot HTTP
 /// (`lib/data/onde/http_onde_observation_repository.dart`), au meme titre
-/// que la conversion d'unites faite par le mapper. Les listes rendues par
-/// les deux methodes ne se modifient jamais en place (le decorateur de
-/// cache les rend via `List.unmodifiable`) : les copier avant toute
-/// modification.
+/// que la conversion d'unites faite par le mapper. Contrat des deux
+/// methodes : la liste rendue ne doit jamais etre modifiee en place (une
+/// implementation peut la rendre immuable) ; copier avant de trier.
 abstract interface class OndeObservationRepository {
   /// Les dernieres observations dont les stations tombent dans [bounds],
   /// filtrees sur `date_observation_min` = [since] (BR-010 : la carte ne
