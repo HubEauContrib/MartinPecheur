@@ -16,7 +16,7 @@ Future<void> main() async {
 
   final StationsReadResult referentiel = await loadStationsFromAsset();
   final StationRepository stationRepository = AssetStationRepository(
-    referentiel.points,
+    referentiel.stations,
   );
   final Bus bus = Bus();
   registerHandlers(

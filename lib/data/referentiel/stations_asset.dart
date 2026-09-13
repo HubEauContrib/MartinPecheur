@@ -40,17 +40,34 @@ final class StationPoint {
   final double longitude;
 }
 
-/// Resultat de l'analyse du referentiel : les points exploitables, et le
-/// nombre d'entites ecartees (BR-007).
+/// Resultat de l'analyse du referentiel : les points exploitables, les
+/// entites [Station] completes, et les deux compteurs d'entites ecartees
+/// (BR-007) — un seul parcours du JSON construit les quatre.
 final class StationsReadResult {
-  const StationsReadResult({required this.points, required this.skipped});
+  const StationsReadResult({
+    required this.points,
+    required this.skipped,
+    required this.stations,
+    required this.stationsSkipped,
+  });
 
   /// Points exploitables, dans l'ordre du fichier.
   final List<StationPoint> points;
 
-  /// Nombre d'entites ecartees — code absent ou mal forme, geometrie ou
-  /// coordonnees incompletes. Jamais un plantage silencieux (BR-007).
+  /// Nombre d'entites ecartees au niveau du point — code absent ou mal
+  /// forme, geometrie ou coordonnees incompletes. Jamais un plantage
+  /// silencieux (BR-007).
   final int skipped;
+
+  /// Entites [Station] completes, dans l'ordre du fichier. Un sous-ensemble
+  /// de [points] : toute entite dont le departement ou l'etat de service
+  /// est absent ou mal forme est ecartee ici sans etre inventee (BR-007) —
+  /// jamais une valeur fabriquee de toutes pieces.
+  final List<Station> stations;
+
+  /// Nombre d'entites valides comme [StationPoint] mais ecartees de
+  /// [stations] — departement ou `en_service` absent ou mal forme.
+  final int stationsSkipped;
 }
 
 /// Analyse [jsonText], un GeoJSON `FeatureCollection` du referentiel des
@@ -75,23 +92,48 @@ StationsReadResult parseStations(String jsonText) {
 
   final List<StationPoint> points = <StationPoint>[];
   int skipped = 0;
+  final List<Station> stations = <Station>[];
+  int stationsSkipped = 0;
 
   for (final Object? feature in features) {
-    final StationPoint? point = _parseFeature(feature);
-    if (point == null) {
+    final _ParsedFeature? parsed = _parseFeature(feature);
+    if (parsed == null) {
       skipped++;
+      continue;
+    }
+
+    points.add(parsed.point);
+
+    final Station? station = _toStationEntity(parsed);
+    if (station == null) {
+      stationsSkipped++;
     } else {
-      points.add(point);
+      stations.add(station);
     }
   }
 
-  return StationsReadResult(points: points, skipped: skipped);
+  return StationsReadResult(
+    points: points,
+    skipped: skipped,
+    stations: stations,
+    stationsSkipped: stationsSkipped,
+  );
+}
+
+/// Un point valide, avec ses proprietes brutes conservees pour construire
+/// l'entite [Station] sans reparcourir le JSON (departement, cours d'eau,
+/// etat de service).
+final class _ParsedFeature {
+  const _ParsedFeature(this.point, this.properties);
+
+  final StationPoint point;
+  final Map<String, dynamic> properties;
 }
 
 /// Analyse une entite `Feature` isolee. Renvoie `null` — jamais une
 /// exception — des que le code, la geometrie ou les coordonnees sont
 /// incomplets (BR-007) : l'appelant compte ces `null` dans `skipped`.
-StationPoint? _parseFeature(Object? feature) {
+_ParsedFeature? _parseFeature(Object? feature) {
   if (feature is! Map<String, dynamic>) {
     return null;
   }
@@ -131,10 +173,55 @@ StationPoint? _parseFeature(Object? feature) {
 
   final String label = properties['libelle_station'] as String? ?? code.value;
 
-  return StationPoint(
-    code: code,
-    label: label,
-    latitude: rawLatitude.toDouble(),
-    longitude: rawLongitude.toDouble(),
+  return _ParsedFeature(
+    StationPoint(
+      code: code,
+      label: label,
+      latitude: rawLatitude.toDouble(),
+      longitude: rawLongitude.toDouble(),
+    ),
+    properties,
+  );
+}
+
+/// Construit l'entite [Station] complete a partir de [parsed]. Renvoie
+/// `null` — jamais une valeur fabriquee — des que `code_departement` ou
+/// `en_service` sont absents ou mal formes (BR-007) : l'appelant compte ces
+/// `null` dans `stationsSkipped`. `libelle_cours_eau` absent ou vide rend un
+/// `riverLabel` `null`, une absence honnete plutot qu'une chaine vide.
+Station? _toStationEntity(_ParsedFeature parsed) {
+  final Map<String, dynamic> properties = parsed.properties;
+
+  final Object? rawDepartement = properties['code_departement'];
+  if (rawDepartement is! String) {
+    return null;
+  }
+
+  final DepartementCode departement;
+  try {
+    departement = DepartementCode(rawDepartement);
+  } on ArgumentError {
+    return null;
+  }
+
+  final Object? rawEnService = properties['en_service'];
+  if (rawEnService is! bool) {
+    return null;
+  }
+
+  final Object? rawRiverLabel = properties['libelle_cours_eau'];
+  final String? riverLabel =
+      (rawRiverLabel is String && rawRiverLabel.trim().isNotEmpty)
+      ? rawRiverLabel
+      : null;
+
+  return Station(
+    code: parsed.point.code,
+    label: parsed.point.label,
+    latitude: parsed.point.latitude,
+    longitude: parsed.point.longitude,
+    departement: departement,
+    riverLabel: riverLabel,
+    inService: rawEnService,
   );
 }

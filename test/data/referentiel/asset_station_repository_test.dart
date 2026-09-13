@@ -1,9 +1,7 @@
-// Verrouille AssetStationRepository : filtrage par emprise et par code sur
-// un extrait reel du referentiel, l'ecart documente sur le departement
-// (sentinelle, jamais une valeur plausible) et le refus explicite de
-// findByDepartement — un StationPoint ne porte pas le departement, la
-// methode ne doit ni fabriquer un resultat vide (confondu avec une absence
-// reelle, BR-007) ni planter en silence : elle leve, documentee « T1 ».
+// Verrouille AssetStationRepository : filtrage par emprise, par code et par
+// departement sur un extrait reel du referentiel, construit directement sur
+// les entites Station completes (arbitrage 2026-09-13) — plus aucune
+// sentinelle, plus aucune hypothese non verifiee sur l'etat de service.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -16,13 +14,13 @@ String _readFixture(String path) =>
     File('test/fixtures/$path').readAsStringSync();
 
 void main() {
-  late List<StationPoint> extrait;
+  late List<Station> extrait;
 
   setUpAll(() {
     final StationsReadResult result = parseStations(
       _readFixture('referentiel/stations_extrait_2026-09-13.json'),
     );
-    extrait = result.points;
+    extrait = result.stations;
   });
 
   group('findByCode — extrait reel du 2026-09-13', () {
@@ -50,16 +48,17 @@ void main() {
       expect(absente, isNull);
     });
 
-    test('le departement est la sentinelle documentee, jamais une valeur '
-        'plausible', () async {
+    test('le departement, le cours d\'eau et l\'etat de service viennent '
+        'du referentiel, jamais d\'une sentinelle', () async {
       final AssetStationRepository repository = AssetStationRepository(extrait);
 
       final Station? trouvee = await repository.findByCode(
         StationCode('K447001001'),
       );
 
-      expect(trouvee!.departement, sentinelDepartementInconnu);
-      expect(trouvee.riverLabel, isNull);
+      expect(trouvee!.departement, DepartementCode('41'));
+      expect(trouvee.riverLabel, 'la Loire');
+      expect(trouvee.inService, isTrue);
     });
   });
 
@@ -93,27 +92,45 @@ void main() {
       expect(dansEmprise, hasLength(1));
       expect(dansEmprise.single.code.value, 'K447001001');
     });
+
+    test('bornes incluses, sans marge : un point exactement sur le bord '
+        'nord/est est retenu', () async {
+      final AssetStationRepository repository = AssetStationRepository(extrait);
+
+      final List<Station> dansEmprise = await repository.findWithinBounds(
+        Bounds(
+          west: 1,
+          south: 40,
+          east: 1.3351479476905552,
+          north: 47.584957074484784,
+        ),
+      );
+
+      expect(dansEmprise, hasLength(1));
+      expect(dansEmprise.single.code.value, 'K447001001');
+    });
   });
 
-  group(
-    'findByDepartement — non implementable sans enrichir le referentiel',
-    () {
-      test('leve un UnimplementedError documentant le manque (T1)', () async {
-        final AssetStationRepository repository = AssetStationRepository(
-          extrait,
-        );
+  group('findByDepartement — extrait reel du 2026-09-13', () {
+    test('le departement 971 ne rend que Goyaves', () async {
+      final AssetStationRepository repository = AssetStationRepository(extrait);
 
-        expect(
-          () => repository.findByDepartement(DepartementCode('41')),
-          throwsA(
-            isA<UnimplementedError>().having(
-              (UnimplementedError e) => e.message,
-              'message',
-              contains('T1'),
-            ),
-          ),
-        );
-      });
-    },
-  );
+      final List<Station> deGoyaves = await repository.findByDepartement(
+        DepartementCode('971'),
+      );
+
+      expect(deGoyaves, hasLength(1));
+      expect(deGoyaves.single.code.value, '1011000101');
+    });
+
+    test('un departement absent de l\'extrait rend une liste vide', () async {
+      final AssetStationRepository repository = AssetStationRepository(extrait);
+
+      final List<Station> deLIsere = await repository.findByDepartement(
+        DepartementCode('38'),
+      );
+
+      expect(deLIsere, isEmpty);
+    });
+  });
 }
