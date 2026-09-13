@@ -3,23 +3,21 @@
 // Licence Ouverte est affichée en toutes lettres, sur son propre fond
 // opaque. ⚠️ Aucun `FlutterMap` n'est rendu ici : les couches sont produites
 // par une fonction PURE, testable sans déclencher de chargement de tuiles —
-// refusé par l'environnement de test. La logique d'envoi au bus
-// (`MapStationsController`) et la décision « cet événement déclenche-t-il
-// une requête ? » (`shouldRefreshOn`) sont, elles aussi, testées sans
-// widget.
-import 'dart:async';
-
+// refusé par l'environnement de test. La décision « cet événement
+// déclenche-t-il un chargement ? » (`shouldRefreshOn`) est, elle aussi,
+// testée sans widget.
+//
+// Le chargement lui-même n'est plus ici : il appartient au ViewModel
+// (`test/features/map/view_model/map_view_model_test.dart`), qui le teste
+// sans monter aucun widget (R3, arbitrage 2026-09-13).
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:martinpecheur/application/bus.dart';
-import 'package:martinpecheur/application/messages.dart';
-import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
-import 'package:martinpecheur/features/map/view/map_screen.dart';
+import 'package:martinpecheur/features/map/view/map_view.dart';
 
 StationPoint _blois() => StationPoint(
   code: StationCode('K447001001'),
@@ -345,99 +343,4 @@ void main() {
       });
     },
   );
-
-  group('MapStationsController — envoie au bus, sans widget ni FlutterMap', () {
-    test(
-      'charge deux points au démarrage, en une seule requête au bus',
-      () async {
-        int appels = 0;
-        final Bus bus = Bus();
-        bus.register<StationPointsWithinBoundsQuery, List<StationPoint>>((
-          StationPointsWithinBoundsQuery query,
-        ) async {
-          appels++;
-          return <StationPoint>[_blois(), _guadeloupe()];
-        });
-        final MapStationsController controller = MapStationsController(bus);
-
-        await controller.loadInitial();
-
-        expect(appels, 1);
-        expect(controller.stations.value, hasLength(2));
-      },
-    );
-
-    test('refresh — une emprise inchangée ne renvoie pas de requête', () async {
-      int appels = 0;
-      final Bus bus = Bus();
-      bus.register<StationPointsWithinBoundsQuery, List<StationPoint>>((
-        StationPointsWithinBoundsQuery query,
-      ) async {
-        appels++;
-        return <StationPoint>[_blois()];
-      });
-      final MapStationsController controller = MapStationsController(bus);
-      final Bounds emprise = Bounds(west: -1, south: 46, east: 3, north: 48);
-
-      await controller.refresh(emprise);
-      await controller.refresh(Bounds(west: -1, south: 46, east: 3, north: 48));
-
-      expect(appels, 1);
-    });
-
-    test(
-      'refresh sur un contrôleur disposé ne lève rien et ne notifie pas',
-      () async {
-        final Completer<List<StationPoint>> completer =
-            Completer<List<StationPoint>>();
-        final Bus bus = Bus();
-        bus.register<StationPointsWithinBoundsQuery, List<StationPoint>>(
-          (StationPointsWithinBoundsQuery query) => completer.future,
-        );
-        final MapStationsController controller = MapStationsController(bus);
-        int notifications = 0;
-        controller.stations.addListener(() => notifications++);
-
-        final Future<void> enCours = controller.refresh(
-          Bounds(west: -1, south: 46, east: 3, north: 48),
-        );
-        controller.dispose();
-        completer.complete(<StationPoint>[_blois()]);
-
-        await expectLater(enCours, completes);
-        expect(notifications, 0);
-      },
-    );
-
-    test('un bus sans gestionnaire enregistré rend une erreur visible via '
-        'error, plutôt que de la laisser remonter (BR-007)', () async {
-      final Bus bus = Bus(); // aucun gestionnaire enregistré
-      final MapStationsController controller = MapStationsController(bus);
-
-      await controller.refresh(Bounds(west: -1, south: 46, east: 3, north: 48));
-
-      expect(controller.error.value, isA<StateError>());
-    });
-
-    test('un refresh réussi efface une erreur précédente', () async {
-      int appels = 0;
-      final Bus bus = Bus();
-      bus.register<StationPointsWithinBoundsQuery, List<StationPoint>>((
-        StationPointsWithinBoundsQuery query,
-      ) async {
-        appels++;
-        if (appels == 1) {
-          throw StateError('panne temporaire');
-        }
-        return <StationPoint>[_blois()];
-      });
-      final MapStationsController controller = MapStationsController(bus);
-
-      await controller.refresh(Bounds(west: -1, south: 46, east: 3, north: 48));
-      expect(controller.error.value, isNotNull);
-
-      await controller.refresh(Bounds(west: -2, south: 45, east: 4, north: 49));
-      expect(controller.error.value, isNull);
-    });
-  });
 }
