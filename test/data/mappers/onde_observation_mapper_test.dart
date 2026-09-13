@@ -1,8 +1,9 @@
 // Verrouille le mapper ONDE comme seul point de passage (BR-002) entre une
-// ligne brute de `/ecoulement/observations` ou `/ecoulement/campagnes` et le
-// domaine. Le cas central est T-07 : `code_campagne` est un entier côté
-// `/campagnes` et une chaîne côté `/observations` — les deux doivent rendre
-// la même chaîne, sans jamais passer par un `as int`.
+// ligne brute de `/ecoulement/observations` et le domaine. `code_campagne`
+// est lu en `Object?` et rendu en `String` sans jamais passer par un `as
+// int` (T-07) : `/campagnes` le rend en entier, mais ce endpoint n'a plus
+// d'appelant (retiré le 2026-09-14) — `_campaignCode` reste tolérant aux
+// deux formes malgré tout.
 import 'dart:convert';
 import 'dart:io';
 
@@ -48,37 +49,6 @@ void main() {
       )..remove('latitude');
 
       expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
-    });
-  });
-
-  group('mapOndeCampaign — fixture réelle du 2026-09-13', () {
-    test('première campagne du département 41', () {
-      final Map<String, dynamic> ligne = _readFixtureRow(
-        'onde/campagnes_departement_41_2026-09-13.json',
-      );
-
-      final OndeCampaign campagne = mapOndeCampaign(ligne);
-
-      expect(campagne.code, '109905');
-      expect(campagne.date, DateTime.utc(2026, 8, 25));
-      expect(campagne.rawTypeLabel, 'usuelle');
-      expect(campagne.modalityCount, 5);
-    });
-
-    test('code_campagne entier (109905) rend la même chaîne que la forme '
-        "chaîne côté observations — c'est T-07", () {
-      final Map<String, dynamic> campagneLigne = _readFixtureRow(
-        'onde/campagnes_departement_41_2026-09-13.json',
-      );
-      final Map<String, dynamic> observationLigne = _readFixtureRow(
-        'onde/observations_station_K4520001_2026-09-13.json',
-      );
-
-      final OndeCampaign campagne = mapOndeCampaign(campagneLigne);
-      final OndeObservation observation = mapOndeObservation(observationLigne);
-
-      expect(campagne.code, '109905');
-      expect(observation.campaignCode, '109905');
     });
   });
 
@@ -417,121 +387,6 @@ void main() {
       final Map<String, dynamic> ligne = baseRow()..['champ_inedit'] = 1;
 
       expect(() => mapOndePoint(ligne), returnsNormally);
-    });
-  });
-
-  group('mapOndeCampaign — lignes synthétiques dérivées', () {
-    Map<String, dynamic> baseRow() => <String, dynamic>{
-      'code_campagne': 109905,
-      'date_campagne': '2026-08-25',
-      'nombre_modalite_ecoulement': 5,
-      'libelle_type_campagne': 'usuelle',
-    };
-
-    test('code_campagne absent : FormatException', () {
-      final Map<String, dynamic> ligne = baseRow()..remove('code_campagne');
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test('code_campagne en booléen : FormatException — type inattendu, '
-        'branche par défaut de _campaignCode', () {
-      final Map<String, dynamic> ligne = baseRow()..['code_campagne'] = true;
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test('date_campagne absente : FormatException (BR-001)', () {
-      final Map<String, dynamic> ligne = baseRow()..remove('date_campagne');
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test("date_campagne illisible ('25/08/2026') : FormatException "
-        '(BR-001)', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..['date_campagne'] = '25/08/2026';
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test("date_campagne avec un jour hors plage ('2026-08-32') : "
-        'FormatException explicite, le débordement de DateTime.utc est '
-        'détecté et refusé', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..['date_campagne'] = '2026-08-32';
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test("date_campagne au 31 février ('2026-02-31') : FormatException — le "
-        'garde 1..12/1..31 ne le voit pas, il faut relire month/day après '
-        'construction', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..['date_campagne'] = '2026-02-31';
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test("libelle_type_campagne absent : FormatException — T-05 le relève "
-        'présent sur les 96 lignes de la fixture, un repli inventerait une '
-        'modalité', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..remove('libelle_type_campagne');
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test('libelle_type_campagne numérique (1) : FormatException, jamais un '
-        'TypeError nu', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..['libelle_type_campagne'] = 1;
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test("libelle_type_campagne ('Usuelle') : rawTypeLabel identique, casse "
-        'intacte — la comparaison en minuscules se fait côté appelant '
-        '(T-06)', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..['libelle_type_campagne'] = 'Usuelle';
-
-      final OndeCampaign campagne = mapOndeCampaign(ligne);
-
-      expect(campagne.rawTypeLabel, 'Usuelle');
-    });
-
-    test('nombre_modalite_ecoulement absent : modalityCount à null', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..remove('nombre_modalite_ecoulement');
-
-      final OndeCampaign campagne = mapOndeCampaign(ligne);
-
-      expect(campagne.modalityCount, isNull);
-    });
-
-    test("nombre_modalite_ecoulement en chaîne ('5') : refusé à la "
-        'frontière, jamais un TypeError nu (parité avec le mapper hydro)', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..['nombre_modalite_ecoulement'] = '5';
-
-      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
-    });
-
-    test('nombre_modalite_ecoulement en nombre non entier (5.0) : converti '
-        'en 5 malgré tout — preuve du .toInt()', () {
-      final Map<String, dynamic> ligne = baseRow()
-        ..['nombre_modalite_ecoulement'] = 5.0;
-
-      final OndeCampaign campagne = mapOndeCampaign(ligne);
-
-      expect(campagne.modalityCount, 5);
-    });
-
-    test('champ inédit (champ_inedit) : lu sans échouer (BR-011)', () {
-      final Map<String, dynamic> ligne = baseRow()..['champ_inedit'] = 1;
-
-      expect(() => mapOndeCampaign(ligne), returnsNormally);
     });
   });
 }

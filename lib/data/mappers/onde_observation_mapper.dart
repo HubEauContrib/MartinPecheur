@@ -1,11 +1,13 @@
 // Le mapper est le seul point de passage entre une ligne brute de
-// `/ecoulement/observations` ou `/ecoulement/campagnes` et le domaine
-// (BR-002). `code_campagne` est l'écart le plus coûteux de cette API : un
-// entier côté `/campagnes`, une chaîne côté `/observations` (T-07). Il est
-// donc lu en `Object?` et rendu en `String` sans jamais passer par un
-// `as int` — un tel cast casserait sur l'une des deux formes, sans qu'aucun
-// test de l'autre ne le voie. `date_observation` et `date_campagne` sont des
-// dates sans heure (T-08) : aucune heure n'est inventée, la date est
+// `/ecoulement/observations` et le domaine (BR-002). `code_campagne` est
+// l'écart le plus coûteux de cette API : un entier côté `/campagnes`, une
+// chaîne côté `/observations` (T-07) — `/campagnes` n'a aucun appelant
+// (retiré le 2026-09-14), mais `_campaignCode` reste tolérant aux deux
+// formes puisque `code_campagne` peut en théorie arriver dans l'une ou
+// l'autre selon la source. Il est donc lu en `Object?` et rendu en `String`
+// sans jamais passer par un `as int` — un tel cast casserait sur l'une des
+// deux formes, sans qu'aucun test de l'autre ne le voie. `date_observation`
+// est une date sans heure (T-08) : aucune heure n'est inventée, la date est
 // reconstruite en UTC minuit explicite à partir de ses seules composantes
 // année/mois/jour, lues sur les dix premiers caractères `AAAA-MM-JJ`
 // seulement — un suffixe d'heure ou de fuseau est ignoré, jamais converti.
@@ -59,40 +61,6 @@ OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
     rawFlowCode: rawFlowCode,
     officialLabel: _text(raw, 'libelle_ecoulement'),
     campaignCode: _campaignCode(raw, 'code_campagne'),
-  );
-}
-
-/// Convertit une ligne brute de `/ecoulement/campagnes` en [OndeCampaign].
-///
-/// Lève une [FormatException] si `code_campagne`, `date_campagne` ou
-/// `libelle_type_campagne` sont absents ou illisibles — une campagne sans
-/// ces informations ne peut ni être identifiée, ni datée, ni classée.
-OndeCampaign mapOndeCampaign(Map<String, dynamic> raw) {
-  final String? code = _campaignCode(raw, 'code_campagne');
-  if (code == null) {
-    throw const FormatException('code_campagne absent');
-  }
-
-  final DateTime date = _dateOnly(raw, 'date_campagne');
-
-  final String? rawTypeLabel = _text(raw, 'libelle_type_campagne');
-  if (rawTypeLabel == null) {
-    throw const FormatException('libelle_type_campagne absent');
-  }
-
-  final Object? rawModalityCount = raw['nombre_modalite_ecoulement'];
-  if (rawModalityCount != null && rawModalityCount is! num) {
-    throw FormatException(
-      'nombre_modalite_ecoulement attendu numérique, reçu $rawModalityCount',
-    );
-  }
-  final int? modalityCount = (rawModalityCount as num?)?.toInt();
-
-  return OndeCampaign(
-    code: code,
-    date: date,
-    rawTypeLabel: rawTypeLabel,
-    modalityCount: modalityCount,
   );
 }
 

@@ -210,6 +210,8 @@ git add test/fixtures docs/sources && git commit -m "docs(ecoulement): capturer 
 
 **Invariants :** `OndeStationCode` (8 car.) et `StationCode` (10 car.) sont **deux types qui ne se substituent jamais** (`T-04`) ; l'âge de campagne se compte en **jours**, l'API ne donnant pas d'heure (`T-08`) ; `StationMapState` distingue **« pas encore chargé »** de **« aucune donnée »**, sans quoi un écran en cours de chargement afficherait un état par défaut, ce que `BR-007` interdit.
 
+⚠️ Amendement du 2026-09-14 : `OndeCampaign`, `mapOndeCampaign`, `ondeCampagnesUri` retirés — aucun appelant, aucune tâche `V*`/`U*` ne les consomme (YAGNI, CLAUDE.md) ; la fixture `/campagnes` et `T-07` restent.
+
 **Cas de test**
 
 - `OndeStationCode('K4520001')` accepté ; `'K447001001'` (10 car.) → `ArgumentError` ; `'k4520001'` → `ArgumentError` ; `''` → `ArgumentError`.
@@ -238,6 +240,8 @@ git add lib/domain test/domain && git commit -m "feat(domain): typer l ecoulemen
 **Signatures publiques** — `OndeObservation mapOndeObservation(Map<String, dynamic> raw)` · `OndeCampaign mapOndeCampaign(Map<String, dynamic> raw)` · `OndePoint mapOndePoint(Map<String, dynamic> raw)`
 
 **Invariant :** `code_campagne` est lu en `Object?` puis rendu en `String` — entier côté `/campagnes`, chaîne côté `/observations` (`T-07`) ; **aucun `as int`** n'apparaît dans ce fichier.
+
+⚠️ Voir l'amendement du 2026-09-14 sous `D2` : `mapOndeCampaign` retiré.
 
 **Cas de test**
 
@@ -270,6 +274,8 @@ git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): m
 - ~~`OndeClient`~~ **retiré à l'exécution (2026-09-13)** : `HubEauClient.getJson` est réutilisé, fichier `onde_uris.dart`
 
 **Invariant :** le `bbox` s'écrit **`ouest,sud,est,nord`** dans cet ordre exact — inverser deux valeurs ne lève aucune erreur, la carte se remplit simplement d'autre chose, et cela ne se voit qu'à l'écran.
+
+⚠️ Voir l'amendement du 2026-09-14 sous `D2` : `ondeCampagnesUri` retiré.
 
 **Cas de test**
 

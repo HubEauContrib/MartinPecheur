@@ -1,5 +1,5 @@
-// Verrouille les trois constructeurs d'URI vers l'API écoulement ONDE v1
-// (C-08, T-01 à T-05) et prouve, par un aller-retour sur une fixture réelle,
+// Verrouille les deux constructeurs d'URI vers l'API écoulement ONDE v1
+// (C-08, T-01 à T-04) et prouve, par un aller-retour sur une fixture réelle,
 // que `HubEauClient.getJson` — déjà indépendant de l'endpoint — sert aussi
 // bien ONDE qu'hydrométrie (206 en succès, C-06). Aucun test de rejeu ici :
 // 404 non rejoué, 503 rejoué, UTF-8 sans charset sont déjà verrouillés dans
@@ -14,7 +14,6 @@ import 'package:martinpecheur/data/http/hub_eau_client.dart';
 import 'package:martinpecheur/data/http/onde_uris.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 
 /// Liste maintenue en double avec `_observationFields`
 /// (`lib/data/http/onde_uris.dart`) : un ajout de lecture dans
@@ -148,23 +147,6 @@ void main() {
       expect(
         () =>
             ondeObservationsForStationUri(OndeStationCode('K4520001'), size: 0),
-        throwsArgumentError,
-      );
-    });
-  });
-
-  group('ondeCampagnesUri (T-05)', () {
-    test('construit chemin, code_departement et size', () {
-      final Uri uri = ondeCampagnesUri(departement: DepartementCode('41'));
-
-      expect(uri.path, '/api/v1/ecoulement/campagnes');
-      expect(uri.queryParameters['code_departement'], '41');
-      expect(uri.queryParameters['size'], '20');
-    });
-
-    test('size: 20001 lève ArgumentError (C-08)', () {
-      expect(
-        () => ondeCampagnesUri(departement: DepartementCode('41'), size: 20001),
         throwsArgumentError,
       );
     });

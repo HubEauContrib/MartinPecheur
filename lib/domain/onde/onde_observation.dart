@@ -1,42 +1,11 @@
-// OndeCampaign et OndeObservation, dans le même fichier (choix signalé à la
-// relecture : le plan laissait le découpage libre). Les deux sont des
-// classes immuables simples ; la conversion depuis l'API — code_campagne
-// entier côté /campagnes, chaîne côté /observations (T-07) — vit dans le
-// mapper de D3, jamais ici.
+// OndeObservation (choix signalé à la relecture : le plan laissait le
+// découpage libre). Classe immuable simple ; la conversion depuis l'API —
+// code_campagne entier côté /campagnes, chaîne côté /observations (T-07) —
+// vit dans le mapper de D3, jamais ici.
 
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
-
-/// Une campagne d'observation ONDE (une session de terrain, plusieurs
-/// stations relevées le même jour).
-final class OndeCampaign {
-  const OndeCampaign({
-    required this.code,
-    required this.date,
-    required this.rawTypeLabel,
-    required this.modalityCount,
-  });
-
-  /// Code de la campagne, toujours une chaîne ici (T-07) — l'API le rend en
-  /// entier côté `/campagnes` et en chaîne côté `/observations`, le mapper
-  /// absorbe cet écart.
-  final String code;
-
-  /// Date de la campagne, sans heure : l'API n'en donne pas (T-08).
-  final DateTime date;
-
-  /// Libellé du type de campagne, tel que reçu — `'usuelle'`,
-  /// `'complémentaire'`… La comparaison en minuscules se fait côté
-  /// appelant (T-06), jamais ici.
-  final String rawTypeLabel;
-
-  /// Nombre de modalités de l'échelle d'écoulement observées lors de cette
-  /// campagne (`nombre_modalite_ecoulement` — 4 ou 5 selon les campagnes de
-  /// la fixture réelle), **pas** un nombre de points ni de stations. `null`
-  /// si absent.
-  final int? modalityCount;
-}
 
 /// Une observation d'écoulement ONDE, pour une station et une campagne.
 final class OndeObservation {

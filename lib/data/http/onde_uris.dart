@@ -1,4 +1,4 @@
-// Les trois constructeurs d'URI vers l'API écoulement ONDE v1 de Hub'Eau.
+// Les deux constructeurs d'URI vers l'API écoulement ONDE v1 de Hub'Eau.
 // Aucun client ici : `HubEauClient.getJson` (`lib/data/http/hub_eau_client.
 // dart`) est déjà indépendant de l'endpoint — il prend n'importe quelle URI
 // du même hôte, rejoue sur 429/5xx, accepte 200 et 206 (C-06), décode en
@@ -19,7 +19,6 @@
 import 'package:martinpecheur/data/http/hub_eau_paging.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 
 /// Hôte unique de Hub'Eau — le même que l'hydrométrie v2, ONDE n'étant
 /// qu'un autre endpoint de la même plateforme (constaté le 2026-07-30,
@@ -87,15 +86,6 @@ Uri _observationsUri(Map<String, String> specificParameters) {
     ...specificParameters,
     'sort': 'desc',
     'fields': _observationFields.join(','),
-  });
-}
-
-/// URI de `/campagnes`, filtrée sur un unique [departement].
-Uri ondeCampagnesUri({required DepartementCode departement, int size = 20}) {
-  checkPageSize(size);
-  return _uri('campagnes', <String, String>{
-    'code_departement': departement.value,
-    'size': '$size',
   });
 }
 
