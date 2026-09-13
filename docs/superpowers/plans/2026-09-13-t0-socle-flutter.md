@@ -1758,3 +1758,22 @@ Le lot 4 dépend du lot 3 : l'écran carte passe par le registre de messages (ar
 1. **Inventer un seuil hydrologique.** Aucune source n'en expose ; c'est la faute la plus grave possible sur ce produit (`ADR-002`, `BR-003`).
 2. **Écrire un fait d'API sans l'avoir appelé.** La documentation de la source est en écart avec la production sur au moins cinq points, dont deux découverts le 2026-09-13.
 3. **Déclarer une case verte sans l'avoir vue.** Une porte ne s'arrondit pas. « Attendu » n'est pas « constaté ».
+
+---
+
+## Suite immédiate de T0 — réusinage feature-first + MVVM (arbitrage du commanditaire, 2026-09-13)
+
+**Décision :** l'architecture CQRS légère (bus `Map<Type, handler>`, `Query`/`Command`, gestionnaires) n'est pas adaptée : pas de backend, presque aucune écriture, une seule forme de lecture, et un typage perdu à l'envoi (`TypeError` à l'exécution au lieu d'une erreur de compilation). Le projet adopte l'**architecture recommandée par l'équipe Flutter** : *feature-first* + **MVVM** (View = widgets, ViewModel = `ChangeNotifier` par écran, Repository/Service en couche données). `domain/` et `data/` sont conservés tels quels : c'est là que vivent les invariants et l'essentiel des tests.
+
+**Quand :** en ouverture de T1, **avant** toute fiche station, après la porte T0 (le binaire de la porte est construit sur le code actuel).
+
+| Tâche | Contenu | Critère |
+|---|---|---|
+| `R1` | `docs/adr/ADR-014-feature-first-mvvm.md` — remplace le volet « CQRS léger » d'`ADR-008` et d'`ADR-010` ; alternatives écartées : garder le bus, MVVM avec bibliothèque d'état. `CLAUDE.md` § Architecture et disposition du dépôt mis à jour dans le même commit | ADR relu, `CLAUDE.md` cohérent avec le code après `R4` |
+| `R2` | Disposition : `lib/features/<feature>/{view,view_model}` (`map/` d'abord), `lib/domain/`, `lib/data/` partagés ; `viewport_filter.dart` et `StationPoint` rangés du côté qui les consomme (données ou feature), plus jamais importés par une couche transverse | `flutter analyze` propre, imports sans cycle |
+| `R3` | `MapViewModel extends ChangeNotifier` remplace `MapStationsController` + bus + `handlers.dart` : appel typé au dépôt, état (`stations`, `error`, `camera`), requête au relâcher du geste ; `MapView` ne fait que brancher | mêmes tests de comportement qu'aujourd'hui, réécrits sur le ViewModel, sans rendu de `FlutterMap` |
+| `R4` | Retrait de `lib/application/messages.dart`, `bus.dart`, `handlers.dart` et de leurs tests ; `CachePolicy` déplacé dans `lib/data/` comme décorateur de dépôt (le principe « un seul endroit » survit, pas le véhicule) | `grep -rn 'Bus\|Query<\|Command<' lib/` vide ; `withCachePolicy` unique sous `lib/data/` |
+| `R5` | Test d'architecture : `test/architecture/layers_test.dart` interdit `data/ → features/`, `domain/ → *`, et un `view_model` qui importe `package:flutter/material.dart` ou `widgets.dart` (un ViewModel ne connaît pas de widget) | 3 cas verts, un cas négatif sur fichier temporaire |
+| `R6` | `docs/03-conception.md` et `docs/context-map.md` : schéma MVVM en Mermaid à côté de la section architecture ; `docs/plan-de-tests.md` : l'étage « view_model » | index et diagrammes à jour |
+
+Coût estimé : une demi-journée. Zéro bibliothèque d'état ajoutée (`ChangeNotifier` est dans Flutter).
