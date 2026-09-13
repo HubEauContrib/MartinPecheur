@@ -13,13 +13,13 @@
 |---|---|---|
 | **Porte de spike** | Fond IGN affiché (`F1`), exécutable Windows autonome (`F3`) | ✅ **franchie sur Windows, arbitrage du 2026-09-12** (exécution 2026-09-09) — `spike/porte_flutter/COMPTE-RENDU.md`. `F2` (4 150 marqueurs clusterisés) **non tranchée** |
 | **T0** | Socle Flutter + carte `flutter_map` + socle domaine + test d'architecture, sur **Windows** | ✅ **clos le 2026-09-13** — `v0.1.0`, **248 tests verts**, porte franchie sur Windows. Plan `docs/superpowers/plans/2026-09-13-t0-socle-flutter.md` : 31 tâches sur 31, 5 Android ⏸ |
-| **T1** | Carte, fiches, les 4 avertissements | 🔄 **en cours** — d'abord le réusinage feature-first + MVVM (`ADR-014`, tâches `R1`–`R6`), puis la fiche station |
+| **T1** | Carte, fiches, les 4 avertissements | 🔄 **en cours** — réusinage feature-first + MVVM **clos** (`ADR-014`, `R1`–`R6`) et **relu** (correctifs du 2026-09-13 : course entre deux emprises, emprise en erreur rechargeable, cinquième règle de couches) ; la fiche station reste à écrire |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Favoris, filtres, fraîcheur | 🔄 |
 
 **Android ⏸ différé jusqu'à nouvel ordre (arbitrage 2026-09-12).** Dans un plan, une tâche Android est marquée ⏸ : ni supprimée, ni comptée faite. Windows est la **seule cible construite** ; iOS est configuré et **jamais compilé** (aucun hôte macOS).
 
-Le cadrage produit est terminé et vérifié — il ne dépend pas de la technologie. **L'implémentation a son socle** (T0) ; T1 l'ouvre par un réusinage d'architecture avant d'ajouter un écran.
+Le cadrage produit est terminé et vérifié — il ne dépend pas de la technologie. **L'implémentation a son socle** (T0), et T1 s'est ouvert par le réusinage d'architecture : il est fait et relu, le premier écran de T1 s'écrit dessus.
 
 ---
 
@@ -45,7 +45,9 @@ flowchart LR
 
 - **`lib/domain/` ne dépend de rien.** Dart pur : aucun `package:flutter`, `package:latlong2`, `package:http`, `package:drift`, `package:sqflite`, `dart:io`, `dart:ui`. Le verrou est `test/architecture/domain_isolation_test.dart`, **écrit avant la première ligne de `lib/domain/`**. Une dépendance d'infrastructure depuis le domaine est une erreur d'architecture, pas un détail.
 - **Un widget n'appelle jamais un dépôt.** Il passe par le ViewModel de son écran, qui expose l'état et les actions. Un widget branche et affiche ; il ne décide pas.
-- **Un ViewModel n'importe aucun widget** — ni `package:flutter/material.dart`, ni `widgets.dart`. C'est ce qui le rend testable **sans rendu**. `test/architecture/layers_test.dart` le refuse, comme il refuse `data/ → features/`.
+- **Un ViewModel n'importe aucun widget** — ni `package:flutter/material.dart`, ni `widgets.dart`. C'est ce qui le rend testable **sans rendu**. La règle vaut pour tout fichier sous `view_model/` **et** pour tout `*_view_model.dart` posé à plat : on ne la contourne pas en déplaçant le fichier.
+- **Aucun fichier sous `lib/features/` n'importe `lib/data/`** — ni la vue, ni le ViewModel. Un ViewModel dépend d'une **interface** de dépôt déclarée dans `domain/` ; c'est ce qui rend l'écran testable avec un double en mémoire. `main.dart` en est exempt, et lui seul : la racine de composition choisit les implémentations concrètes. `test/architecture/layers_test.dart` porte les **cinq** règles (`domaine-ferme`, `data-vers-features`, `view-model-sans-widget`, `feature-vers-feature`, `features-vers-data`) et résout aussi les imports **relatifs** — `import '../../data/x.dart'` est la même dépendance que la forme `package:`.
+- **Une emprise (`Bounds`) vit dans `lib/domain/geo/bounds.dart`**, pas dans le fichier des contrats de dépôt : la vue en construit une à chaque relâchement de geste et n'a pas à importer `StationRepository` pour cela.
 - **La politique de cache vit dans un seul composant** — le décorateur de dépôt `CachePolicy`, sous `lib/data/`, stale-while-revalidate. Jamais recopiée dans un dépôt nu, un ViewModel ou un widget.
 - **Les unités sont typées, pas conventionnelles.** Un `double` nu passe en l/s là où on attend des m³/s : utiliser des `extension type` — `LitresPerSecond`, `CubicMetresPerSecond`, `Millimetres`, `Metres`. C'est le bug le plus coûteux du projet (`BR-002`).
 - **Aucune valeur brute d'API n'atteint la vue.** La conversion l/s → m³/s et mm → m se fait dans le mapper, une seule fois (`BR-002`).
@@ -62,15 +64,21 @@ flowchart LR
 pubspec.yaml                    ← la racine EST le projet Flutter
 analysis_options.yaml
 lib/
-  domain/                       ← Dart pur, transverse (voir invariants)
+  domain/                       ← Dart pur, transverse (voir invariants) ; geo/bounds.dart y porte
+                                  l'emprise, hors des contrats de dépôt
   data/                         ← dépôts + services : Hub'Eau, VigiEau (derrière RestrictionSource),
                                   asset du référentiel, stockage local, décorateur CachePolicy
   features/map/view/            ← widgets : FlutterMap, TileLayer IGN, marqueurs, attribution
   features/map/view_model/      ← ChangeNotifier : état de l'écran et ses actions, aucun widget
-  main.dart                     ← câble dépôts et ViewModels
+  main.dart                     ← câble dépôts et ViewModels ; SEUL fichier autorisé à importer data/
 test/
   architecture/                 ← LE PREMIER TEST À ÉCRIRE — frontières de couches
   domain/  data/  features/     ← features/ contient les tests de view_model (sans rendu)
+  project/                      ← non-régression sur la doc et la configuration : domain-model.md,
+                                  nfr.md, CHANGELOG, identifiant de bundle iOS. `dart:io` y est
+                                  autorisé, jamais sous lib/domain/
+  fixtures/                     ← réponses d'API et extraits de référentiel réels, datés dans leur
+                                  nom : une fixture est un fait constaté, jamais une invention
 android/  ios/  windows/        ← versionnés
 assets/
   referentiel/stations.json
@@ -92,12 +100,12 @@ docs/
 | Carte | **`flutter_map` 8.3.2** · fond **IGN Géoplateforme** (WMTS KVP) · attribution « © IGN Géoplateforme — Licence Ouverte » **affichée** | ✅ **`F1` : le plan IGN s'affiche sur Windows** (2026-09-09). Signatures relevées dans le paquet installé : `TileLayer(urlTemplate:, tileDimension:, maxNativeZoom:, userAgentPackageName:)`, `Marker(point:, width:, height:, child:)`, `MapOptions(initialCenter:, initialZoom:, minZoom:, maxZoom:)`. ⚠️ `tileSize` est `@Deprecated` |
 | Marqueurs | `flutter_map_marker_cluster` 8.2.2 lié, `latlong2` 0.9.1 (par contrainte transitive) | ⏸ **`F2` non tranchée** : la mesure du 2026-09-09 donne `raster p90` 16,2 ms (budget ≤ 16,7 ms ✅) mais **jank 8,9 %** pour un seuil < 5 % ❌. **Approche par défaut : marqueurs du viewport plus une marge, sans clustering** (`F2c`), tant qu'aucune mesure ne réhabilite le regroupement |
 | Cache de tuiles | **intégré à `flutter_map` depuis 8.2** (`BuiltInMapCachingProvider`, 1 Go), actif par défaut hors web | 🔄 **comportement hors réseau jamais exécuté** — constaté dans la doc seulement. C'est ce que `UC-001 A3` doit décrire |
-| Architecture | **feature-first + MVVM**, `ChangeNotifier` par écran (`ADR-014`, arbitrage 2026-09-13) · `CachePolicy` en décorateur de dépôt · **zéro bibliothèque d'état** | 🔄 réusinage en ouverture de T1 (`R1`–`R6`) — le CQRS léger de T0 est retiré |
+| Architecture | **feature-first + MVVM**, `ChangeNotifier` par écran (`ADR-014`, arbitrage 2026-09-13) · `CachePolicy` en décorateur de dépôt · **zéro bibliothèque d'état** | ✅ **réusinage fait** (`R1`–`R6`, 2026-09-13) et relu : le CQRS léger de T0 est retiré (`grep 'Bus\|Query<\|Command<' lib/` vide), `MapViewModel` appelle son dépôt par un appel typé, `test/architecture/layers_test.dart` verrouille cinq règles de couches |
 | HTTP | `package:http` **ou** `dart:io` `HttpClient` | 💭 **à trancher.** Quel que soit le choix : **200 et 206 sont des succès** (`C-06`), retry sur 429/5xx et **jamais** sur 4xx, backoff doublé à chaque essai, à **gigue injectée** (donc testable) |
 | Stockage local | `ADR-011` **réservé** — `drift` candidat par défaut ; `sqflite` seul **ne couvre pas Windows** | 💭 à trancher au moment où ça bloque |
 | Gestion d'état | `ValueNotifier` + `ListenableBuilder`, zéro dépendance sauf preuve contraire | 💭 |
 | Graphes | courbe de débit (`US-11`) | 💭 à trancher |
-| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu) | ✅ 248 verts à la clôture de T0 |
+| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **244 verts** le 2026-09-13, après le réusinage MVVM et sa relecture (248 à la clôture de T0 : les cas du bus disparaissent avec leur sujet, ceux du ViewModel et des couches s'ajoutent) |
 | Percentiles | **script Dart** produisant `assets/percentiles/` (`ADR-003`) | 🔄 |
 
 > Toute bibliothèque retenue est vérifiée sur `pub.dev` avant d'être ajoutée : **version, licence compatible GPL-3.0, plateformes — Windows incluse —, date de dernière publication.** On lit la signature dans le paquet installé, on ne l'écrit pas de mémoire.
