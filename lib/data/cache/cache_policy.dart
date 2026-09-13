@@ -1,8 +1,15 @@
 // La politique de cache vit ici, et nulle part ailleurs (cf. CLAUDE.md §
-// Architecture) : jamais recopiee dans un depot ni dans un ecran. Rendu
-// immediat depuis le cache, rafraichissement en tache de fond
+// Architecture) : jamais recopiee dans un depot, un ViewModel ni un widget.
+// Rendu immediat depuis le cache, rafraichissement en tache de fond
 // (stale-while-revalidate) si l'entree est perimee et le reseau disponible.
 // L'affichage n'attend jamais le reseau.
+//
+// C'est un **decorateur de depot** (R4, arbitrage 2026-09-13 — ADR-014) : un
+// depot enveloppe sa propre lecture dans [withCachePolicy] et garde la
+// fermeture obtenue dans un champ. Le principe « un seul endroit » survit ;
+// seul le vehicule a change — il vivait sous `lib/application/`, au temps ou
+// un registre de messages l'inserait dans un pipeline. Le corps de ce fichier
+// n'a pas bouge d'un caractere avec ce deplacement.
 
 import 'dart:async';
 

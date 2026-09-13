@@ -1,10 +1,11 @@
 // Le ViewModel de la tranche carte (MVVM, ADR-014, arbitrage 2026-09-13) :
 // il appelle [StationPointRepository] DIRECTEMENT et de facon typee, et
 // porte l'etat que la vue observe — les points a dessiner et l'erreur
-// eventuelle. Il remplace `MapStationsController` + `Bus` + `handlers.dart` :
-// le registre perdait le type a l'envoi (`response as R`, donc `TypeError` a
-// l'execution la ou le projet exige une erreur de compilation) sans rien
-// decoupler pour une seule forme de lecture.
+// eventuelle. Il remplace le controleur d'ecran, le registre de messages et
+// ses gestionnaires (`lib/application/`, retire en R4) : le registre perdait
+// le type a l'envoi (un transtypage final vers le type de reponse, donc
+// `TypeError` a l'execution la ou le projet exige une erreur de compilation)
+// sans rien decoupler pour une seule forme de lecture.
 //
 // ⚠️ Un ViewModel ne connait aucun widget : ce fichier n'importe ni
 // `package:flutter/material.dart`, ni `widgets.dart`, ni `cupertino.dart` —
