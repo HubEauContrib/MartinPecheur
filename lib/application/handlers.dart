@@ -14,15 +14,17 @@
 // camera serait une allocation inutile pour 4 150 stations (arbitrage
 // T0-M4, cf. messages.dart).
 //
-// ⚠️ dépendance application → features/map (viewport_filter) : à résoudre
-// avec ADR-014.
+// La dépendance application → features/map (viewport_filter) a disparu en
+// R2 : le filtre est rangé sous `lib/domain/geo/`, un calcul pur sur des
+// `double` que n'importe quelle couche peut appeler sans traverser une
+// tranche de fonctionnalité.
 
 import 'package:martinpecheur/application/bus.dart';
 import 'package:martinpecheur/application/messages.dart';
-import 'package:martinpecheur/data/referentiel/stations_asset.dart';
+import 'package:martinpecheur/domain/geo/viewport_filter.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
-import 'package:martinpecheur/features/map/viewport_filter.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
 
 /// Enregistre sur [bus] les gestionnaires connus de T0 : [stationRepository]
 /// repond a [StationsWithinBoundsQuery], [stationPoints] (le referentiel

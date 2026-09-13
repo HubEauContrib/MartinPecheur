@@ -15,11 +15,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/application/bus.dart';
 import 'package:martinpecheur/application/messages.dart';
-import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
-import 'package:martinpecheur/features/map/ign_tile_template.dart';
-import 'package:martinpecheur/features/map/map_screen.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_screen.dart';
 
 StationPoint _blois() => StationPoint(
   code: StationCode('K447001001'),

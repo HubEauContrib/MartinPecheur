@@ -9,9 +9,9 @@
 // figer la couture — Query et Command descendent toutes deux de Message afin
 // qu'un seul registre (Bus) puisse les acheminer toutes les deux.
 
-import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
 
 /// Un message porte a la fois sa nature (Query ou Command) et le type [R] de
 /// sa reponse.

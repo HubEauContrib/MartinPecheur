@@ -6,7 +6,7 @@
 // La marge est proportionnelle à l'emprise, pas un nombre de degrés fixe :
 // une marge fixe couvrirait la moitié de l'Europe au zoom national et rien
 // du tout au zoom rue. Depuis la relecture M3/M4 (2026-09-13), la requête
-// d'emprise ne part qu'au relâcher d'un geste (`map_screen.dart`,
+// d'emprise ne part qu'au relâcher d'un geste (`features/map/view/`,
 // `shouldRefreshOn`), jamais à chaque frame d'un geste en cours : la marge
 // sert précisément à ce que les marqueurs déjà chargés couvrent le
 // déplacement jusqu'au relâcher suivant, plutôt que de les faire surgir au
@@ -16,8 +16,13 @@
 // `package:latlong2`. Ce module ne connaît que des `double` et
 // [StationPoint] ; le repli est testable sans aucun rendu. L'antiméridien
 // n'est pas traité — hors emprise du produit (rivières françaises).
+//
+// Rangé sous `lib/domain/geo/` depuis R2 (arbitrage 2026-09-13) : c'est un
+// calcul pur sur des `double`, il ne connaît ni carte ni asset, et la
+// tranche carte n'est plus la seule à pouvoir s'en servir — un dépôt de
+// points l'applique désormais côté données.
 
-import 'package:martinpecheur/data/referentiel/stations_asset.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
 
 /// Marge proportionnelle par défaut : une demi-hauteur de l'emprise ajoutée
 /// en haut et en bas, une demi-largeur ajoutée de chaque côté.

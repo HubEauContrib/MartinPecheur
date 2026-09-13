@@ -5,7 +5,7 @@ import 'package:martinpecheur/data/referentiel/asset_station_repository.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset_loader.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
-import 'package:martinpecheur/features/map/map_screen.dart';
+import 'package:martinpecheur/features/map/view/map_screen.dart';
 
 // Le référentiel est chargé une fois, avant `runApp` : c'est ici, et nulle
 // part ailleurs, que le dépôt est câblé au gestionnaire puis au registre

@@ -6,9 +6,9 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/application/messages.dart';
-import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
 
 /// Double minimal pour tester la relation de type `Query<void>` /
 /// `Command<void>` sans dependre d'une requete reelle : aucune des deux

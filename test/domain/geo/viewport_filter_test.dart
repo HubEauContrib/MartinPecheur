@@ -6,8 +6,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
+import 'package:martinpecheur/domain/geo/viewport_filter.dart';
 import 'package:martinpecheur/domain/station/station.dart';
-import 'package:martinpecheur/features/map/viewport_filter.dart';
+import 'package:martinpecheur/domain/station/station_point.dart';
 
 StationPoint _pointAt(
   double latitude,

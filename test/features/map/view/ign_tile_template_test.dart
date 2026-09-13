@@ -3,7 +3,7 @@
 // TILECOL et TILEROW produit une carte qui s'affiche, transposée : seul un
 // test qui distingue x et y à l'exécution attrape la panne.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:martinpecheur/features/map/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 
 void main() {
   group('ignTileUrlTemplate', () {
