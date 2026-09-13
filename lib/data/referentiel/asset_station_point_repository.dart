@@ -11,6 +11,7 @@
 // `stationsWithinViewport` (`lib/domain/geo/viewport_filter.dart`), et il
 // n'est recopie nulle part.
 
+import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';

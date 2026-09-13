@@ -6,7 +6,7 @@
 // un message a un registre.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/referentiel/asset_station_point_repository.dart';
-import 'package:martinpecheur/domain/repositories/repositories.dart';
+import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 

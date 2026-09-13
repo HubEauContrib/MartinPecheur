@@ -5,69 +5,16 @@
 // depot directement et de facon typee (R3/R4, arbitrage 2026-09-13 —
 // ADR-014 remplace le volet CQRS leger d'ADR-008).
 //
-// Bounds refuse une emprise inversee a la construction : west >= east ou
-// south >= north ne leverait aucune erreur reseau, la carte s'afficherait
-// simplement vide, ce que l'ecran presenterait comme « aucune station »
-// (BR-007) — un faux negatif silencieux plutot qu'une erreur explicite.
-// L'antimeridien (longitude proche de +180/-180) n'est pas traite : aucune
-// emprise francaise ne le franchit.
+// Bounds ne vit plus ici mais dans `lib/domain/geo/bounds.dart` (relecture du
+// 2026-09-13) : la vue en construit une a chaque relachement de geste, et elle
+// n'a pas a importer les contrats de depot pour cela.
 
+import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
-
-/// Emprise rectangulaire en degres decimaux, WGS 84.
-///
-/// Une classe et non un `extension type` : comme [StationCode], elle
-/// **valide**. Jamais `const` : la validation a la construction l'interdit.
-final class Bounds {
-  /// Valide que [west] < [east] et [south] < [north]. Leve une
-  /// [ArgumentError] sinon.
-  factory Bounds({
-    required double west,
-    required double south,
-    required double east,
-    required double north,
-  }) {
-    if (west >= east) {
-      throw ArgumentError.value(
-        east,
-        'east',
-        'doit etre strictement superieur a west ($west)',
-      );
-    }
-    if (south >= north) {
-      throw ArgumentError.value(
-        north,
-        'north',
-        'doit etre strictement superieur a south ($south)',
-      );
-    }
-
-    return Bounds._(west: west, south: south, east: east, north: north);
-  }
-
-  const Bounds._({
-    required this.west,
-    required this.south,
-    required this.east,
-    required this.north,
-  });
-
-  /// Bord ouest, en degres decimaux (negatif a l'ouest de Greenwich).
-  final double west;
-
-  /// Bord sud, en degres decimaux.
-  final double south;
-
-  /// Bord est, en degres decimaux.
-  final double east;
-
-  /// Bord nord, en degres decimaux.
-  final double north;
-}
 
 /// Depot du referentiel des stations. Lit, ne decide de rien : ni cache, ni
 /// orchestration.

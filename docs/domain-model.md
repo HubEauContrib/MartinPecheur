@@ -20,7 +20,7 @@ Immuables, sans identité — deux instances aux mêmes champs sont interchangea
 | `StationCode` | Code station à dix caractères. Refuse un code site à huit caractères (`C-05`) — une classe, pas un `extension type`, parce qu'elle **valide**. |
 | `DepartementCode` | Code département en chaîne. Refuse un entier déguisé : `"01"` interprété comme un nombre deviendrait `1`, et la Corse (`2A`/`2B`) rendrait la conversion impossible de toute façon. |
 | `Qualification` | Statut et qualification d'une observation, transportés tels quels (`BR-006`) — aucun champ n'est interprété ni filtré ici. |
-| `Bounds` | Emprise rectangulaire WGS 84. Refuse une emprise inversée (`west >= east` ou `south >= north`) à la construction. |
+| `Bounds` | Emprise rectangulaire WGS 84 (`lib/domain/geo/bounds.dart`). Refuse une emprise inversée (`west >= east` ou `south >= north`) à la construction. Rangée sous `geo/` et non dans le fichier des contrats de dépôt : la vue en construit une à chaque relâchement de geste, et elle n'a pas à importer `StationRepository` pour cela. |
 
 `StationCode`, `DepartementCode`, `Qualification` et `Bounds` sont des classes, et non des
 `extension type` comme les unités, précisément **parce qu'elles valident**.

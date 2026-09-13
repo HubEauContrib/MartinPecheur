@@ -20,6 +20,7 @@
 import 'dart:collection' show UnmodifiableListView;
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 
