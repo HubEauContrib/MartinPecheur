@@ -93,10 +93,12 @@ classDiagram
         +bool inService
     }
     class HydroObservation {
+        +StationCode station
         +DateTime measuredAt
         +Grandeur grandeur
         +CubicMetresPerSecond? discharge
         +Metres? level
+        +Qualification qualification
         +freshnessAt(DateTime) Freshness
     }
     class Qualification {
