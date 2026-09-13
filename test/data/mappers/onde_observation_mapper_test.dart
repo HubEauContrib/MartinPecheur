@@ -259,6 +259,13 @@ void main() {
       expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
     });
 
+    test('longitude absente : FormatException — un point sans coordonnees '
+        "n'est pas placable", () {
+      final Map<String, dynamic> ligne = baseRow()..remove('longitude');
+
+      expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
+    });
+
     test('geometry presente mais ignoree : latitude/longitude a plat font '
         'foi seules (T-09)', () {
       final Map<String, dynamic> ligne = baseRow()
@@ -294,8 +301,30 @@ void main() {
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
     });
 
+    test('code_campagne en booleen : FormatException — type inattendu, '
+        'branche par defaut de _campaignCode', () {
+      final Map<String, dynamic> ligne = baseRow()..['code_campagne'] = true;
+
+      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test('date_campagne absente : FormatException (BR-001)', () {
+      final Map<String, dynamic> ligne = baseRow()..remove('date_campagne');
+
+      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+    });
+
     test('date_campagne illisible : FormatException (BR-001)', () {
       final Map<String, dynamic> ligne = baseRow()..['date_campagne'] = 'hier';
+
+      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test('libelle_type_campagne absent : FormatException — T-05 le releve '
+        'present sur les 96 lignes de la fixture, un repli inventerait une '
+        'modalite', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..remove('libelle_type_campagne');
 
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
     });
@@ -307,6 +336,24 @@ void main() {
       final OndeCampaign campagne = mapOndeCampaign(ligne);
 
       expect(campagne.modalityCount, isNull);
+    });
+
+    test('nombre_modalite_ecoulement en chaine ("5") : refuse a la '
+        'frontiere, jamais un TypeError nu (parite avec le mapper hydro)', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['nombre_modalite_ecoulement'] = '5';
+
+      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test('nombre_modalite_ecoulement en nombre non entier (5.0) : converti '
+        'en 5 malgre tout — preuve du .toInt()', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['nombre_modalite_ecoulement'] = 5.0;
+
+      final OndeCampaign campagne = mapOndeCampaign(ligne);
+
+      expect(campagne.modalityCount, 5);
     });
 
     test('champ inedit (champ_inedit) : lu sans echouer (BR-011)', () {
