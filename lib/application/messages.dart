@@ -38,6 +38,11 @@ final class StationsWithinBoundsQuery implements Query<List<Station>> {
 
 /// La station de code [code]. Rend `null` si aucune station ne porte ce
 /// code — une absence, jamais une erreur (BR-007).
+///
+/// Posée pour la fiche station de T1 : aucun gestionnaire n'y est encore
+/// enregistré en production (cf. `registerHandlers`, qui ne câble que les
+/// requêtes d'emprise de la carte). Elle n'est exercée qu'en test
+/// (`test/application/bus_test.dart`).
 final class StationByCodeQuery implements Query<Station?> {
   const StationByCodeQuery(this.code);
 
