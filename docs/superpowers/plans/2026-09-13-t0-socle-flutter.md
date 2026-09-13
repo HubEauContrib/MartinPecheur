@@ -19,12 +19,12 @@
 | Lot 0 — Socle | 5/5 |
 | Lot 1 — Domaine | 8/8 |
 | Lot 2 — Données | 7/7 |
-| Lot 3 — Application | 0/3 |
-| Lot 4 — Carte | 0/6 |
-| Lot 5 — La porte de T0 | 0/2 |
+| Lot 3 — Application | 3/3 |
+| Lot 4 — Carte | 6/6 |
+| Lot 5 — La porte de T0 | P1 en cours (étapes 1-4 faites, 5-6 en cours) |
 | Android | 0/5 ⏸ |
 
-**Tests verts : 145.**
+**Tests verts : 247.**
 
 ### Écarts constatés à l'exécution
 
@@ -36,6 +36,12 @@
 - N3 : gigue bornée dans `[0, 1]` (`bf83c71`).
 - N4 : relecture → décodage UTF-8 explicite, pannes TLS, `maxAttempts ≥ 1`, `size ≥ 1` (correctif en cours).
 - N6 : le tag d'archive du spike n'était plus accessible ; le code a été réécrit d'après les signatures et invariants du plan.
+- A1 : `abstract interface class` retenue pour `Query`/`Command`, et non `sealed` — une requête se déclare dans sa tranche, le registre achemine par `Type` sans exiger l'exhaustivité (`1d929f5`).
+- A3 : correctif après relecture — le verrou de rafraîchissement est libéré si `load` lève **synchronement** (pas seulement en cas d'échec asynchrone), et un échec d'écriture du cache n'annule plus la lecture fraîche déjà obtenue (`66820ea`).
+- M1 : le zoom **19** est lui aussi servi par le géoplateforme IGN (constaté par appel réel) ; le zoom natif **18** est conservé comme **choix de charge**, pas comme limite technique de la source (`ea497b3`).
+- M2 : une emprise inversée est **refusée** à l'appel plutôt que silencieusement acceptée (`ea497b3`).
+- M4 : correctifs après relecture — les entités du référentiel sont lues **réellement** (département, cours d'eau, état de service), sans valeur sentinelle ; **37 stations** en service n'ont pas de `code_departement` (`e5c7e94`) ; la requête d'emprise part au **relâcher du geste** plutôt qu'à chaque trame, et les erreurs de chargement restent visibles à l'écran plutôt qu'avalées (`31b1cfe`).
+- M5 : constat inverse de celui du spike — la **molette zoome** sur Windows à l'exécution de T0, le glisser fonctionne aussi ; la cause de l'écart avec le constat du spike n'est **pas établie**, consigné `NV-W1` dans `docs/nfr.md` (`809ac40`).
 - Transverse : licence du code GPL-3.0-or-later (`a0d4279`) ; identifiants du plan en français (`delaiDeBase`, `taillePageMaximale`, `_attendre`) implémentés en anglais (`baseDelay`, `maxPageSize`, `_sleep`) par convention.
 
 ---
@@ -1161,7 +1167,7 @@ git add lib/data/restrictions test/data/restrictions && git commit -m "feat(data
 
 **CQRS léger, et rien de plus** : des messages typés, un registre explicite, un décorateur de cache. **Aucune bibliothèque de médiateur.** Pas de second modèle, aucun événement de domaine, aucune projection.
 
-### Task A1 : `Query<R>` et `Command<R>`, interfaces typées
+### Task A1 : `Query<R>` et `Command<R>`, interfaces typées — ✅ 1d929f5
 
 **Files:** créé `lib/application/messages.dart` · test `test/application/messages_test.dart`
 
@@ -1191,8 +1197,8 @@ final class StationByCodeQuery implements Query<Station?> {
 - une requête **n'est pas** un `Command<Object?>`.
 - `Query<void>` n'est pas `Command<void>`, et une requête est bien un `Message<Station?>` — c'est ce qui permet **un** registre et non deux.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/application/messages_test.dart` ; puis implémenter → **4 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/application/messages_test.dart` ; puis implémenter → **4 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/application/messages.dart test/application/messages_test.dart && git commit -m "feat(ui): messages types, le type de la reponse voyage avec la requete" -m "abstract interface class et non sealed (arbitrage 2026-09-13) : une requete se declare dans sa tranche, le registre achemine par Type. Aucune commande en T0 : le type est pose pour figer la couture, et les deux familles descendent du meme Message."
@@ -1200,7 +1206,7 @@ git add lib/application/messages.dart test/application/messages_test.dart && git
 
 ---
 
-### Task A2 : Le registre de gestionnaires
+### Task A2 : Le registre de gestionnaires — ✅ 0bee6d2
 
 **Files:** créé `lib/application/bus.dart` · test `test/application/bus_test.dart`
 
@@ -1232,8 +1238,8 @@ final class Bus {
 - une erreur du gestionnaire (`FormatException`) remonte **telle quelle**.
 - `registeredMessages` est vide au départ, puis `{StationByCodeQuery}`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/application/bus_test.dart` ; puis implémenter → **7 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/application/bus_test.dart` ; puis implémenter → **7 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/application/bus.dart test/application/bus_test.dart && git commit -m "feat(ui): un registre explicite de gestionnaires, sans bibliotheque de mediateur" -m "Une Map<Type, gestionnaire> suffit, et elle peut dire ce qu elle connait — un ecran muet est presque toujours un gestionnaire oublie. Le type de la reponse est preserve de bout en bout : l effacement a lieu une seule fois, a l enregistrement. Un second gestionnaire pour le meme message est refuse. Le bus n avale aucune erreur."
@@ -1241,7 +1247,7 @@ git add lib/application/bus.dart test/application/bus_test.dart && git commit -m
 
 ---
 
-### Task A3 : `CachePolicy`, l'unique
+### Task A3 : `CachePolicy`, l'unique — ✅ 8afb7eb + 66820ea
 
 **Files:** créé `lib/application/cache_policy.dart` · test `test/application/cache_policy_test.dart`
 
@@ -1281,9 +1287,9 @@ Future<T> Function() withCachePolicy<T>({
 8. deux lectures séparées par un tour de boucle → **2 appels** : un échec ou une fin de rafraîchissement ne bloque pas le suivant.
 9. `ttl: Duration.zero` → `ArgumentError`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/application/cache_policy_test.dart` ; puis implémenter → **9 tests passent**.
-- [ ] **Étape 2 — vérifier que la politique reste unique.** `grep -rln 'storedAt\|CachedValue\|withCachePolicy' lib/ --include='*.dart'` → **une seule ligne**, `lib/application/cache_policy.dart`. Toute occurrence sous `lib/data/` ou `lib/features/` est une recopie de la politique.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/application/cache_policy_test.dart` ; puis implémenter → **9 tests passent**.
+- [x] **Étape 2 — vérifier que la politique reste unique.** `grep -rln 'storedAt\|CachedValue\|withCachePolicy' lib/ --include='*.dart'` → **une seule ligne**, `lib/application/cache_policy.dart`. Toute occurrence sous `lib/data/` ou `lib/features/` est une recopie de la politique.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/application/cache_policy.dart test/application/cache_policy_test.dart && git commit -m "feat(ui): la politique de cache, une seule fois, neuf cas couverts" -m "Six cas de rendu immediat puis rafraichissement, deux cas de concurrence, un TTL refuse. Sans deduplication des rafraichissements en vol, N lectures expirees produisent N appels vers une API sans quota (C-12). La borne appartient a l etat perime. Un rafraichissement en echec laisse la derniere valeur connue (BR-007) et ne bloque pas les suivants. Le TTL est celui du CACHE."
@@ -1295,7 +1301,7 @@ git add lib/application/cache_policy.dart test/application/cache_policy_test.dar
 
 **Approche par défaut : marqueurs du viewport plus une marge, sans regroupement.** L'épreuve de regroupement du spike n'est pas tranchée et sa remesure est différée ; rien ne justifie d'en dépendre.
 
-### Task M1 : Le gabarit de tuiles IGN
+### Task M1 : Le gabarit de tuiles IGN — ✅ 1c74c9d
 
 **Files:** créé `lib/features/map/ign_tile_template.dart` · test `test/features/map/ign_tile_template_test.dart`
 
@@ -1323,15 +1329,15 @@ const String ignUserAgentPackageName = 'fr.martinpecheur.app';
 
 **Cas de test** (8) — `TILEMATRIX={z}`, `TILECOL={x}`, `TILEROW={y}` présents · `LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2`, `TILEMATRIXSET=PM`, `FORMAT=image/png`, `SERVICE=WMTS`, `REQUEST=GetTile` · commence par `https://data.geopf.fr/wmts?` et compte plus de 5 `&` · marqueurs remplacés par `9`/`253`/`180` → `Uri.parse` donne `host 'data.geopf.fr'`, `TILEMATRIX '9'`, `TILECOL '253'`, `TILEROW '180'` (un gabarit non analysable ne donne aucune tuile et aucune erreur, juste un fond gris) · `ignTileDimension == 256` · `ignMaxNativeZoom == 18` · `ignAttribution` contient `IGN` et `Licence Ouverte` · `ignUserAgentPackageName == 'fr.martinpecheur.app'`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/features/map/ign_tile_template_test.dart` ; puis implémenter → **8 tests passent**.
-- [ ] **Étape 2 — revérifier la tuile par appel réel.**
+- [x] **Étape 1** — test rouge : `flutter test test/features/map/ign_tile_template_test.dart` ; puis implémenter → **8 tests passent**.
+- [x] **Étape 2 — revérifier la tuile par appel réel.**
 
 ```bash
 curl -s -o /dev/null -w 'http=%{http_code} type=%{content_type} octets=%{size_download}\n' 'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX=9&TILECOL=253&TILEROW=180'
 ```
 Attendu : `http=200 type=image/png`, de l'ordre de **31 ko**. **Recopier les valeurs obtenues** dans le corps du commit, avec la date du jour.
 
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/features/map/ign_tile_template.dart test/features/map/ign_tile_template_test.dart && git commit -m "feat(map): le gabarit de tuiles IGN, ordre TILECOL/TILEROW verrouille par test" -m "Intervertir TILECOL et TILEROW produit une carte qui s affiche, transposee : aucune erreur, aucune tuile manquante, une panne silencieuse que seul un test attrape. Verifie par appel reel le 2026-09-13 : HTTP 200, image/png, 31 087 octets sur TILEMATRIX=9. L attribution Licence Ouverte est une constante du module, pas une chaine recopiee dans un widget."
@@ -1339,7 +1345,7 @@ git add lib/features/map/ign_tile_template.dart test/features/map/ign_tile_templ
 
 ---
 
-### Task M2 : Le filtre de viewport, à marge proportionnelle
+### Task M2 : Le filtre de viewport, à marge proportionnelle — ✅ f261408 + ea497b3
 
 **Files:** créé `lib/features/map/viewport_filter.dart` · test `test/features/map/viewport_filter_test.dart`
 
@@ -1372,8 +1378,8 @@ List<StationPoint> stationsWithinViewport(List<StationPoint> stations,
 - `margin: -0.1` → `ArgumentError`.
 - sur **4 150** points, emprise `47 → 48` / `1 → 2` → nombre retenu strictement inférieur au total : le repli n'a d'intérêt que s'il coupe.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/features/map/viewport_filter_test.dart` ; puis implémenter → **9 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/features/map/viewport_filter_test.dart` ; puis implémenter → **9 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add lib/features/map/viewport_filter.dart test/features/map/viewport_filter_test.dart && git commit -m "feat(map): filtrer les stations au viewport elargi d une marge proportionnelle" -m "La marge est proportionnelle, pas un nombre de degres : une marge fixe couvrirait la moitie de l Europe au zoom national et rien du tout au zoom rue. Un test tient cette propriete sur une emprise etroite. Dart pur, que des double : le repli est testable sans aucun rendu. Une marge negative est refusee — elle retrecirait l emprise et les marqueurs disparaitraient avant de sortir de l ecran."
@@ -1381,7 +1387,7 @@ git add lib/features/map/viewport_filter.dart test/features/map/viewport_filter_
 
 ---
 
-### Task M3 : L'écran carte — fond IGN et attribution
+### Task M3 : L'écran carte — fond IGN et attribution — ✅ d9fa091
 
 **Files:** créé `lib/features/map/map_screen.dart` · modifié `lib/main.dart` · test `test/features/map/map_screen_test.dart`
 
@@ -1429,16 +1435,16 @@ class MapScreen extends StatefulWidget {
 - `IgnAttributionBadge` : le premier `DecoratedBox` porte une `BoxDecoration` de couleur non nulle, **`a > 0.8`** — un fond translucide ne garantit aucun contraste.
 - `initialMapCenterLatitude` ≈ 46,6 (± 0,5), `initialMapCenterLongitude` ≈ 2,2 (± 0,5), `initialMapZoom == 5`, `minimumMapZoom < initialMapZoom`, `maximumMapZoom == ignMaxNativeZoom`.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/features/map/map_screen_test.dart` ; puis implémenter → **5 tests passent**.
-- [ ] **Étape 2 — câbler `lib/main.dart`** : `runApp(const MartinPecheurApp())`, un `MaterialApp` de titre `MartinPêcheur` dont le `home` est `MapScreen(loadStations: loadStationsFromAsset)`.
-- [ ] **Étape 3 — voir la carte : commanditaire.**
+- [x] **Étape 1** — test rouge : `flutter test test/features/map/map_screen_test.dart` ; puis implémenter → **5 tests passent**.
+- [x] **Étape 2 — câbler `lib/main.dart`** : `runApp(const MartinPecheurApp())`, un `MaterialApp` de titre `MartinPêcheur` dont le `home` est `MapScreen(loadStations: loadStationsFromAsset)`.
+- [x] **Étape 3 — voir la carte : commanditaire.**
 
 ```bash
 flutter run -d windows
 ```
 Attendu, à constater **à l'écran** et à recopier dans le compte rendu : (1) une fenêtre s'ouvre ; (2) **le plan IGN de la France s'affiche** ; (3) le glisser à la souris déplace la carte ; (4) l'attribution « © IGN Géoplateforme — Licence Ouverte » est lisible **en bas à droite** ; (5) la **molette** — noter son comportement, quel qu'il soit, c'est l'objet de `M5`. Aucun marqueur n'est attendu : ils arrivent en `M4`.
 
-- [ ] **Étape 4 — commit.**
+- [x] **Étape 4 — commit.**
 
 ```bash
 git add lib/features/map/map_screen.dart lib/main.dart test/features/map/map_screen_test.dart && git commit -m "feat(map): l ecran carte, fond IGN et attribution en toutes lettres" -m "L attribution Licence Ouverte n est pas une finition : c est une condition d usage de la donnee. Elle porte son propre fond opaque — un texte pose sur un fond de carte quelconque ne tient aucun contraste (04-ui section 3). Les couches sont produites par une fonction PURE, testable sans rendu : rendre une carte dans un test declenche des chargements de tuiles que l environnement de test refuse, et on obtiendrait un echec qui ne dit rien sur le code. Etat par ValueNotifier et ListenableBuilder : aucune dependance ajoutee pour un ecran qui a deux etats."
@@ -1446,7 +1452,7 @@ git add lib/features/map/map_screen.dart lib/main.dart test/features/map/map_scr
 
 ---
 
-### Task M4 : Les 4 150 stations en marqueurs du viewport
+### Task M4 : Les 4 150 stations en marqueurs du viewport — ✅ fcc0b0b + e5c7e94 + 31b1cfe
 
 **Files:** modifiés `lib/features/map/map_screen.dart`, `test/features/map/map_screen_test.dart`
 
@@ -1486,22 +1492,22 @@ class StationMarkerDot extends StatelessWidget { const StationMarkerDot({super.k
 - `stations: []` → **1** seule couche, pas de couche de marqueurs vide.
 - l'écran monté avec un registre dont le gestionnaire bouchon rend deux stations envoie **une** `StationsWithinBoundsQuery` et affiche **2** marqueurs — aucun appel direct au dépôt.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/features/map/map_screen_test.dart` ; puis implémenter → **13 tests passent**.
-- [ ] **Étape 2 — vérifier l'ensemble.**
+- [x] **Étape 1** — test rouge : `flutter test test/features/map/map_screen_test.dart` ; puis implémenter → **13 tests passent**.
+- [x] **Étape 2 — vérifier l'ensemble.**
 
 ```bash
 flutter analyze && flutter test && dart format --set-exit-if-changed lib test
 ```
 Attendu : `No issues found!`, tous les tests verts, code de sortie 0.
 
-- [ ] **Étape 3 — voir les marqueurs : commanditaire.**
+- [x] **Étape 3 — voir les marqueurs : commanditaire.**
 
 ```bash
 flutter run -d windows
 ```
 Attendu, à constater **à l'écran** et à recopier dans le compte rendu : (1) le plan IGN s'affiche, **avec des pastilles bleues cerclées de blanc** ; (2) au zoom national les pastilles couvrent la France — **c'est le cas des 4 150 points** ; (3) le glisser déplace la carte et les pastilles suivent ; (4) l'attribution reste lisible en bas à droite ; (5) **noter si le déplacement est fluide ou saccadé** — aucun chiffre n'est mesuré ici, c'est une impression et elle s'écrit comme telle ; la mesure chiffrée relève de `NFR-01` et n'est pas faite en T0.
 
-- [ ] **Étape 4 — commit.**
+- [x] **Étape 4 — commit.**
 
 ```bash
 git add lib/features/map/map_screen.dart test/features/map/map_screen_test.dart && git commit -m "feat(map): les 4 150 stations en marqueurs du viewport elargi, sans regroupement" -m "L epreuve de regroupement du spike n est pas tranchee et sa remesure est differee : rien ne justifie d en dependre. Au zoom national la France entiere est visible et les 4 150 points sont donc TOUS dessines — c est le prix reel de l approche, pas un defaut. La pastille est une forme decoree et non un glyphe de police : un glyphe coute une passe de texte par marqueur. Contour de 2 px exige par 04-ui section 3, faute de quoi le contraste depend du fond de carte donc de rien. La couleur ne porte AUCUN etat : les trois echelles restent separees et arrivent en T1 avec leur legende (BR-008)."
@@ -1509,7 +1515,7 @@ git add lib/features/map/map_screen.dart test/features/map/map_screen_test.dart 
 
 ---
 
-### Task M5 : La molette ne zoome pas sur Windows — diagnostic borné
+### Task M5 : La molette ne zoome pas sur Windows — diagnostic borné — ✅ 809ac40
 
 **Files:** modifiés `lib/features/map/map_screen.dart` et `test/features/map/map_screen_test.dart` **seulement si la cause est trouvée**
 
@@ -1517,14 +1523,14 @@ git add lib/features/map/map_screen.dart test/features/map/map_screen_test.dart 
 >
 > ⚠️ **Tâche bornée à 45 minutes.** Au-delà, on ne cherche plus : on reporte en T1 avec ce qui a été lu, et on l'écrit. Un diagnostic qui déborde sur un socle est un diagnostic qui retarde tout le reste.
 
-- [ ] **Étape 1 — lire les typages installés, au lieu de supposer.**
+- [x] **Étape 1 — lire les typages installés, au lieu de supposer.**
 
 ```bash
 dart pub cache list | grep -i flutter_map
 ```
 Attendu : le chemin du paquet `flutter_map` dans le cache, avec sa version. **Le recopier** — le reste de la tâche lit dans ce dossier.
 
-- [ ] **Étape 2 — relever la valeur par défaut des drapeaux d'interaction.**
+- [x] **Étape 2 — relever la valeur par défaut des drapeaux d'interaction.**
 
 ```bash
 grep -rn 'scrollWheelZoom\|class InteractionOptions\|InteractiveFlag' "$(dart pub cache list 2>/dev/null | grep -oi '[A-Za-z]:[^"]*flutter_map-[0-9.]*' | head -1)/lib/src/map/options" | head -40
@@ -1535,15 +1541,15 @@ Attendu : les déclarations de `InteractiveFlag` et la valeur par défaut de `In
 find "$LOCALAPPDATA/Pub/Cache/hosted/pub.dev" -maxdepth 1 -name 'flutter_map-*' -type d
 ```
 
-- [ ] **Étape 3 — chercher si un paramètre de molette est distinct du drapeau.**
+- [x] **Étape 3 — chercher si un paramètre de molette est distinct du drapeau.**
 
 ```bash
 grep -rn 'PointerScrollEvent\|scrollWheelVelocity\|onPointerSignal' "$(find "$LOCALAPPDATA/Pub/Cache/hosted/pub.dev" -maxdepth 1 -name 'flutter_map-*' -type d | head -1)/lib" | head -30
 ```
 Attendu : l'endroit où l'événement de molette est traité, et le nom du réglage de vitesse s'il existe. **Deux issues possibles, et il faut trancher laquelle : (a)** le drapeau est actif mais la vitesse par défaut rend le zoom imperceptible → un réglage suffit ; **(b)** l'événement n'est pas reçu du tout sur cette plateforme → c'est un défaut de la bibliothèque, et il se reporte.
 
-- [ ] **Étape 4 — si et seulement si la cause est (a) : poser le réglage.** Ajouter à `MapOptions` un `interactionOptions: const InteractionOptions(flags: InteractiveFlag.all)`, **déclaré explicitement** : s'appuyer sur une valeur par défaut qui a déjà surpris une fois serait reproduire l'erreur. Extraire la construction des options dans `MapOptions mapOptionsForScreen({required void Function(MapCamera, bool) onPositionChanged})` — l'écran l'appelle, le test aussi — et ajouter un cas de test : `mapOptionsForScreen(...).interactionOptions.flags == InteractiveFlag.all`.
-- [ ] **Étape 5 — si la cause est (b), ou si les 45 minutes sont écoulées : reporter, par écrit.** `docs/nfr.md` porte une ligne `NV-W1` pour ce constat, écrite en `M6`. Si `M6` est déjà faite, **compléter** `NV-W1` ; sinon consigner le relevé dans le corps du commit et le reporter dans `NV-W1` au moment d'écrire `M6`. Forme de la ligne complétée :
+- [ ] **Étape 4 — si et seulement si la cause est (a) : poser le réglage.** — **Sans objet — constat contraire** : la molette zoome sans qu'aucun réglage n'ait été posé, le drapeau `InteractiveFlag.all` était déjà actif par défaut et suffisant. Ajouter à `MapOptions` un `interactionOptions: const InteractionOptions(flags: InteractiveFlag.all)`, **déclaré explicitement** : s'appuyer sur une valeur par défaut qui a déjà surpris une fois serait reproduire l'erreur. Extraire la construction des options dans `MapOptions mapOptionsForScreen({required void Function(MapCamera, bool) onPositionChanged})` — l'écran l'appelle, le test aussi — et ajouter un cas de test : `mapOptionsForScreen(...).interactionOptions.flags == InteractiveFlag.all`.
+- [x] **Étape 5 — si la cause est (b), ou si les 45 minutes sont écoulées : reporter, par écrit.** `docs/nfr.md` porte une ligne `NV-W1` pour ce constat, écrite en `M6`. Si `M6` est déjà faite, **compléter** `NV-W1` ; sinon consigner le relevé dans le corps du commit et le reporter dans `NV-W1` au moment d'écrire `M6`. Forme de la ligne complétée :
 
 ```markdown
 | `NV-W1` | **La molette ne zoome pas sur Windows.** Le glisser fonctionne. Constaté au spike, reconstaté à l'exécution de `M3`. Diagnostic mené 45 minutes : <ce qui a été lu, avec le chemin du fichier et le numéro de ligne>. Cause **non établie**. Contournement à l'usage : des boutons de zoom, absents en T0 | **reporté en T1** |
@@ -1551,8 +1557,8 @@ Attendu : l'endroit où l'événement de molette est traité, et le nom du régl
 
 **Ne pas écrire « probablement ».** Ce qui a été lu s'écrit ; ce qui n'a pas été établi se déclare non établi.
 
-- [ ] **Étape 6 — vérifier : commanditaire, uniquement si le réglage a été posé.** `flutter run -d windows` → la molette **zoome**, vers l'avant pour rapprocher. Si elle ne zoome toujours pas, la cause était (b) : revenir à l'étape 5, retirer le réglage, et reporter.
-- [ ] **Étape 7 — commit.**
+- [ ] **Étape 6 — vérifier : commanditaire, uniquement si le réglage a été posé.** — **Sans objet — constat contraire** : aucun réglage n'a été posé (étape 4), rien à vérifier ici. Le constat que la molette zoome a été fait directement à l'exécution de `M3`/`M4`. `flutter run -d windows` → la molette **zoome**, vers l'avant pour rapprocher. Si elle ne zoome toujours pas, la cause était (b) : revenir à l'étape 5, retirer le réglage, et reporter.
+- [ ] **Étape 7 — commit.** — **Sans objet — constat contraire** : aucun commit dédié à cette tâche, le constat est consigné dans `NV-W1` de `docs/nfr.md`, commit `809ac40` de `M6`.
 
 ```bash
 git add -A && git commit -m "fix(map): declarer explicitement les drapeaux d interaction de la carte" -m "La molette ne zoomait pas sur Windows. Diagnostic borne a 45 minutes, mene en lisant les sources du paquet installe et non de memoire. <recopier ici la ligne exacte relevee : valeur par defaut des drapeaux, et l endroit ou l evenement de molette est traite> Les drapeaux sont desormais declares explicitement : s appuyer sur une valeur par defaut qui a deja surpris une fois serait reproduire l erreur."
@@ -1566,7 +1572,7 @@ git add docs/nfr.md && git commit -m "docs(map): consigner NV-W1, la molette ne 
 
 ---
 
-### Task M6 : `docs/nfr.md`
+### Task M6 : `docs/nfr.md` — ✅ 809ac40
 
 **Files:** créé `docs/nfr.md` · modifié `docs/README.md` · test `test/project/nfr_doc_test.dart`
 
@@ -1599,9 +1605,9 @@ git add docs/nfr.md && git commit -m "docs(map): consigner NV-W1, la molette ne 
 
 `## Constats ouverts` — « une case vide est une case vide, pas un “probablement” » ; un tableau constat / état : `NV-W1` la molette ne zoome pas sur Windows, le glisser fonctionne, constaté au spike et reconstaté à l'exécution de T0 → voir `M5` · `NV-W2` le cache de tuiles hors réseau n'a **jamais été exécuté**, documenté comme actif par défaut, ce qui n'est pas la même chose que constaté → bloque `NFR-03` · `NV-W3` aucune mesure de fluidité sur Windows, les seuls chiffres existants viennent d'une autre plateforme et d'une approche différente → bloque `NFR-01` · `NV-W4` iOS n'a jamais été compilé, faute d'hôte ; la plateforme est déclarée, rien de plus → sans date · `NV-W5` Android en entier, ⏸ différé le 2026-09-12 → sans date.
 
-- [ ] **Étape 1** — test rouge : `flutter test test/project/nfr_doc_test.dart` → `PathNotFoundException` sur `docs/nfr.md`.
-- [ ] **Étape 2** — écrire le document, puis indexer dans `docs/README.md` après la ligne de `domain-model.md` : `| [`nfr.md`](nfr.md) | **Exigences non fonctionnelles** — seuils chiffrés, et constats ouverts | — |`. Relancer → **6 tests passent**.
-- [ ] **Étape 2 — commit.**
+- [x] **Étape 1** — test rouge : `flutter test test/project/nfr_doc_test.dart` → `PathNotFoundException` sur `docs/nfr.md`.
+- [x] **Étape 2** — écrire le document, puis indexer dans `docs/README.md` après la ligne de `domain-model.md` : `| [`nfr.md`](nfr.md) | **Exigences non fonctionnelles** — seuils chiffrés, et constats ouverts | — |`. Relancer → **6 tests passent**.
+- [x] **Étape 2 — commit.**
 
 ```bash
 git add docs/nfr.md docs/README.md test/project/nfr_doc_test.dart && git commit -m "docs: chiffrer les exigences non fonctionnelles, et lister les constats ouverts" -m "Une exigence sans chiffre est une intention : on ne peut ni la tenir ni constater qu on l a manquee. Huit exigences, chacune avec son seuil et la facon de le constater. Un test refuse qu une exigence soit marquee tenue sans nommer ce qui l a constatee — c est le piege exact de ce type de document. Les seuils de fluidite sont ceux fixes AVANT toute mesure. Les contrastes ne sont pas recopies : ils renvoient a 04-ui, sinon ce document deviendrait une seconde source de verite qui divergerait."
@@ -1615,28 +1621,28 @@ git add docs/nfr.md docs/README.md test/project/nfr_doc_test.dart && git commit 
 
 **Files:** aucun fichier modifié. C'est une **épreuve**, pas un développement.
 
-- [ ] **Étape 1 — vérifier une dernière fois, avant de construire.** Claude :
+- [x] **Étape 1 — vérifier une dernière fois, avant de construire.** Claude :
 
 ```bash
 flutter analyze && flutter test && dart format --set-exit-if-changed lib test
 ```
 Attendu : `No issues found!`, **tous les tests verts**, code de sortie 0 au formatage. **Recopier le nombre total de tests** : c'est un chiffre de la porte.
 
-- [ ] **Étape 2 — construire : commanditaire.**
+- [x] **Étape 2 — construire : commanditaire.**
 
 ```bash
 flutter build windows --release
 ```
 Attendu : une ligne finale `√ Built` (ou `Built`) nommant le chemin de l'exécutable sous `build\windows\`. **Recopier la ligne exacte et la durée.** ⚠️ **Ne pas mettre cette commande dans un tube** : un tube masque le code de sortie de l'outil de construction, et on croit avoir réussi alors que rien n'a été produit.
 
-- [ ] **Étape 3 — mesurer le dossier produit (`NFR-06`).** Claude :
+- [x] **Étape 3 — mesurer le dossier produit (`NFR-06`).** Claude :
 
 ```bash
 du -sh build/windows/x64/runner/Release && ls -1 build/windows/x64/runner/Release | wc -l && du -ah build/windows/x64/runner/Release | sort -rh | head -5
 ```
 Attendu : un poids **≤ 60 Mo** (`NFR-06`), le nombre de fichiers, et les cinq plus gros. Si le chemin diffère, le corriger d'après la ligne `Built` de l'étape 2 — le chemin s'énonce d'après le constat, pas d'après la mémoire. **Recopier les trois chiffres** dans le compte rendu et dans `NFR-06`.
 
-- [ ] **Étape 4 — lancer l'exécutable seul : commanditaire.** **Fermer d'abord toute session de développement en cours** : l'épreuve est qu'il tourne **sans** l'outil.
+- [x] **Étape 4 — lancer l'exécutable seul : commanditaire.** **Fermer d'abord toute session de développement en cours** : l'épreuve est qu'il tourne **sans** l'outil.
 
 ```bash
 ./build/windows/x64/runner/Release/martinpecheur.exe
