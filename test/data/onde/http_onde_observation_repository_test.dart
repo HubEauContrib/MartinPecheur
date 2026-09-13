@@ -56,6 +56,10 @@ void main() {
         (OndeObservation o) => o.station == OndeStationCode('K4640001'),
       );
       expect(k4640001.observedAt, DateTime.utc(2026, 8, 25));
+      // Le point est porté par l'observation (D8), lu sur la même ligne —
+      // première ligne de la fixture bbox pour ce code de station.
+      expect(k4640001.point.latitude, closeTo(47.444182169, 1e-9));
+      expect(k4640001.point.longitude, closeTo(1.78116675, 1e-9));
 
       final Uri? uri = capturedRequest?.url;
       expect(uri?.path, '/api/v1/ecoulement/observations');
@@ -76,11 +80,15 @@ void main() {
                 'code_station': 'A1234567',
                 'date_observation': '2026-01-01',
                 'code_ecoulement': '3',
+                'latitude': 47.5,
+                'longitude': 1.5,
               },
               <String, Object?>{
                 'code_station': 'A1234567',
                 'date_observation': '2026-06-01',
                 'code_ecoulement': '1a',
+                'latitude': 47.5,
+                'longitude': 1.5,
               },
             ],
           }),
@@ -225,16 +233,22 @@ void main() {
                 'code_station': 'A1234567',
                 'date_observation': '2026-01-01',
                 'code_ecoulement': '3',
+                'latitude': 47.5,
+                'longitude': 1.5,
               },
               <String, Object?>{
                 'code_station': 'A1234567',
                 'date_observation': '2026-06-01',
                 'code_ecoulement': '1a',
+                'latitude': 47.5,
+                'longitude': 1.5,
               },
               <String, Object?>{
                 'code_station': 'A1234567',
                 'date_observation': '2026-03-01',
                 'code_ecoulement': '2',
+                'latitude': 47.5,
+                'longitude': 1.5,
               },
             ],
           }),

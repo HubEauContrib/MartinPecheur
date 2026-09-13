@@ -6,9 +6,21 @@ import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
+
+/// Le point réel de la station K4520001 (D8), relevé sur la fixture
+/// `test/fixtures/onde/observations_station_K4520001_2026-09-13.json`.
+OndePoint _pointK4520001() => OndePoint(
+  code: OndeStationCode('K4520001'),
+  label: 'LA RIVIERE AUX LOCHES A CHAON',
+  latitude: 47.610620493,
+  longitude: 2.173858157,
+  waterCourseLabel: 'ruisseau la rivière aux loches',
+  departement: DepartementCode('41'),
+);
 
 /// Double en memoire de [StationRepository] : une seule methode, comme son
 /// interface depuis la relecture du 2026-09-13. Verifie que le contrat est
@@ -147,6 +159,7 @@ void main() {
     () {
       final OndeObservation ancienne = OndeObservation(
         station: OndeStationCode('K4520001'),
+        point: _pointK4520001(),
         observedAt: DateTime.utc(2026, 7, 1),
         category: const Ecoulement(),
         rawFlowCode: '1',
@@ -155,6 +168,7 @@ void main() {
       );
       final OndeObservation recente = OndeObservation(
         station: OndeStationCode('K4520001'),
+        point: _pointK4520001(),
         observedAt: DateTime.utc(2026, 8, 25),
         category: const Assec(),
         rawFlowCode: '3',

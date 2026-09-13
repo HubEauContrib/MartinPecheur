@@ -10,12 +10,25 @@ import 'package:martinpecheur/data/onde/cached_onde_observation_repository.dart'
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart'
     show OndeObservationRepository;
 
+/// Point synthétique : seul le code compte pour ces tests de cache, les
+/// autres champs sont des valeurs de convenance clairement fictives.
+OndePoint _pointSynthetique(String code) => OndePoint(
+  code: OndeStationCode(code),
+  label: 'Point synthétique $code',
+  latitude: 0,
+  longitude: 0,
+  waterCourseLabel: null,
+  departement: null,
+);
+
 OndeObservation _observation(String code, DateTime date) => OndeObservation(
   station: OndeStationCode(code),
+  point: _pointSynthetique(code),
   observedAt: date,
   category: const Assec(),
   rawFlowCode: '3',

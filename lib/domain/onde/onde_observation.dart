@@ -5,6 +5,7 @@
 // mapper de D3, jamais ici.
 
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
+import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 
 /// Une campagne d'observation ONDE (une session de terrain, plusieurs
@@ -41,6 +42,7 @@ final class OndeCampaign {
 final class OndeObservation {
   const OndeObservation({
     required this.station,
+    required this.point,
     required this.observedAt,
     required this.category,
     required this.rawFlowCode,
@@ -50,6 +52,11 @@ final class OndeObservation {
 
   /// Station ONDE à l'origine de l'observation.
   final OndeStationCode station;
+
+  /// Le point observé, lu sur la même ligne d'API que l'observation (T-09) ;
+  /// c'est ce qui permet à la carte de placer l'observation et à la fiche
+  /// d'afficher le libellé sans second appel (D8).
+  final OndePoint point;
 
   /// Date de l'observation, sans heure : l'API n'en donne pas (T-08).
   final DateTime observedAt;

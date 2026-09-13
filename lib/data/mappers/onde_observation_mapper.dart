@@ -35,8 +35,14 @@ import 'package:martinpecheur/domain/station/station.dart';
 /// chaîne vide, normalisée en absence par [_text] (BR-007) : elle rend
 /// `Inconnu(null)`, jamais `Inconnu('')`, une chaîne vide n'étant pas un
 /// code.
+///
+/// [point] est lu par [mapOndePoint], réutilisé, pas recopié (D8) : une
+/// ligne sans coordonnées ou sans `code_station` valide lève donc désormais
+/// aussi la [FormatException]/[ArgumentError] que lève [mapOndePoint], en
+/// plus de celles propres à cette fonction.
 OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
   final OndeStationCode station = _stationCode(raw);
+  final OndePoint point = mapOndePoint(raw);
 
   final DateTime observedAt = _dateOnly(raw, 'date_observation');
 
@@ -45,6 +51,7 @@ OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
 
   return OndeObservation(
     station: station,
+    point: point,
     observedAt: observedAt,
     category: category,
     rawFlowCode: rawFlowCode,

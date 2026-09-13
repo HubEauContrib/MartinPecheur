@@ -202,7 +202,7 @@ git add test/fixtures docs/sources && git commit -m "docs(ecoulement): capturer 
 - `final class OndeStationCode { factory OndeStationCode(String raw); final String value; }` — `^[A-Z0-9]{8}$`, avec `==`/`hashCode`/`toString`
 - `final class OndePoint { OndeStationCode code; String label; double latitude; double longitude; String? waterCourseLabel; DepartementCode? departement; }`
 - `final class OndeCampaign { String code; DateTime date; String rawTypeLabel; int? modalityCount; }`
-- `final class OndeObservation { OndeStationCode station; DateTime observedAt; FlowCategory category; String? rawFlowCode; String? officialLabel; String? campaignCode; }`
+- `final class OndeObservation { OndeStationCode station; OndePoint point; DateTime observedAt; FlowCategory category; String? rawFlowCode; String? officialLabel; String? campaignCode; }` — `point` (D8)
 - `enum CampaignAge { recente, ancienne }` · `const Duration campagneAncienneApres = Duration(days: 60);`
 - `CampaignAge campaignAgeOf({required DateTime observedAt, required DateTime now})` · `int campaignAgeInDays({required DateTime observedAt, required DateTime now})`
 - `sealed class StationMapState` avec `NonChargee`, `Chargee(Freshness freshness)`, `SansDonnee`, `EnEchec(Object cause)` · `String stationMapStateLabel(StationMapState state)`
@@ -375,6 +375,21 @@ git add lib/data/observations test/data/observations && git commit -m "feat(hydr
 git add lib/data/onde test/data/onde && git commit -m "feat(ecoulement): depot ONDE par emprise et par point, cache 30 j en saison et 90 j hors saison" -m "L API rend une observation par campagne et par point : 96 lignes pour la seule station K4520001. Le depot n en garde qu une, la plus recente, sinon la carte dessinerait un point par campagne. Le TTL suit le mois observe : de octobre a avril personne n observe, et un TTL de 30 jours y provoquerait des appels pour rien."
 ```
 
+### Task D8 : Le point porté par l'observation ONDE (amendement du 2026-09-13)
+
+**Pourquoi (décision du chef d'orchestre) :** `OndeObservationRepository.latestWithinBounds` rend des `OndeObservation` qui ne portent ni coordonnées ni libellé. Or la carte (`U3`) doit placer les points ONDE, et la fiche ONDE (`V3`/`U4`) attend un `OndePoint`. Chaque ligne de `/observations` porte pourtant `libelle_station`, `latitude`, `longitude`, `code_departement`, `libelle_cours_eau` (`T-09`), et `mapOndePoint` sait déjà les lire. Décision : `OndeObservation` gagne un champ `final OndePoint point`, construit par le mapper depuis la même ligne. Un seul type circule alors du dépôt à la carte et à la fiche, sans changer les interfaces de dépôt. Corollaire : `OndeSheetViewModel.open` prend un `OndePoint` (et non un `OndeStationCode`), ce qui permet l'état « aucune campagne » (historique vide) sans retirer le point de la carte (`UC-004 A4`) — reporté en `V3`.
+
+**Files:** modifiés `lib/domain/onde/onde_observation.dart`, `lib/data/mappers/onde_observation_mapper.dart`, `test/domain/onde/onde_observation_test.dart`, `test/domain/repositories/repositories_test.dart`, `test/data/mappers/onde_observation_mapper_test.dart`, `test/data/onde/http_onde_observation_repository_test.dart`, `test/data/onde/cached_onde_observation_repository_test.dart`, ce plan
+
+- [x] **Domaine** — `OndeObservation` gagne `required this.point` (`OndePoint`), documenté ; test miroir mis à jour, construit avec le point réel de K4520001.
+- [x] **Mapper** — `mapOndeObservation` renseigne `point: mapOndePoint(raw)`, réutilisé, jamais recopié ; une observation sans coordonnées ou sans `code_station` valide lève désormais aussi la `FormatException`/`ArgumentError` de `mapOndePoint`, documenté.
+- [x] **Tests** — tous les points de construction manuelle d'`OndeObservation` (`test/domain/onde/`, `test/domain/repositories/repositories_test.dart`, `test/data/onde/*`) reçoivent un `point` ; le test bbox de `http_onde_observation_repository_test.dart` assert désormais `point.latitude`/`point.longitude` de `K4640001`.
+- [x] **Plan** — cette section, la signature de `D2` et l'ouverture de `V3` amendées.
+
+```bash
+git add lib/domain/onde lib/data/mappers test/domain test/data/mappers test/data/onde docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md && git commit -m "feat(ecoulement): l observation ONDE porte son point, lu sur la meme ligne d API" -m "latestWithinBounds rendait des observations sans coordonnees ni libelle : la carte ne pouvait pas les placer, la fiche ne pouvait pas les nommer. Chaque ligne de /observations porte pourtant le point (T-09) et mapOndePoint sait le lire. Un seul type circule du depot a la carte et a la fiche, les interfaces de depot ne changent pas."
+```
+
 ---
 
 ## Lot 2 — ViewModels
@@ -443,13 +458,13 @@ git add lib/features/map test/features/map && git commit -m "feat(map): un etat 
 
 **Files:** créé `lib/features/onde_sheet/view_model/onde_sheet_view_model.dart` · test miroir
 
-**Signatures publiques** — `final class OndeSheetViewModel extends ChangeNotifier { OndeSheetViewModel({required OndeObservationRepository onde, DateTime Function()? now}); }` · `Future<void> open(OndeStationCode code)` · `void close()` · `sealed class OndeSheetState` : `Fermee`, `EnCours`, `Prete(OndeSheetData)`, `EnEchec` · `final class OndeSheetData { OndePoint point; OndeObservation latest; List<OndeObservation> history; CampaignAge age; int ageInDays; String officialModalityText; String seasonNotice; }`
+**Signatures publiques** — `final class OndeSheetViewModel extends ChangeNotifier { OndeSheetViewModel({required OndeObservationRepository onde, DateTime Function()? now}); }` · `Future<void> open(OndePoint point)` (amendé en D8, remplace `open(OndeStationCode code)`) · `void close()` · `sealed class OndeSheetState` : `Fermee`, `EnCours`, `Prete(OndeSheetData)`, `EnEchec` · `final class OndeSheetData { OndePoint point; OndeObservation latest; List<OndeObservation> history; CampaignAge age; int ageInDays; String officialModalityText; String seasonNotice; }`
 
 **Invariants :** la **modalité officielle exacte** est toujours présente en second niveau — le regroupement en quatre catégories (`ADR-006`) ne se substitue jamais à la source ; l'**âge de la campagne** figure dans tous les cas, sans exception (`BR-010`).
 
 **Cas de test**
 
-- `open(OndeStationCode('K4520001'))` avec `now` = `2026-09-13` → `latest.observedAt` `2026-08-25`, `ageInDays` **19**, `age` `recente`.
+- `open(point K4520001)` avec `now` = `2026-09-13` → `latest.observedAt` `2026-08-25`, `ageInDays` **19**, `age` `recente`.
 - `officialModalityText` contient **« code 3 »** et **« Assec »** (`ADR-006`, `UC-004 § 3`) ; le libellé **affiché** de la catégorie est **« À sec »**, jamais « Assec » — `glossary.md` proscrit le mot côté interface.
 - `history` → 5 campagnes décroissantes, chacune avec sa date et sa catégorie (`UC-004 § 4`).
 - `seasonNotice` présent **dans tous les cas**, contenant « mai » et « septembre » (`BR-010`, `UC-004 § 5`).

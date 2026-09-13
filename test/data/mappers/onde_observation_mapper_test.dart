@@ -36,6 +36,18 @@ void main() {
       expect(observation.officialLabel, 'Assec');
       expect(observation.rawFlowCode, '3');
       expect(observation.campaignCode, '109905');
+      // Le point est lu sur la même ligne, via mapOndePoint reutilise (D8).
+      expect(observation.point.label, 'LA RIVIERE AUX LOCHES A CHAON');
+      expect(observation.point.latitude, closeTo(47.610620493, 1e-9));
+    });
+
+    test('une ligne sans latitude : FormatException, propagée depuis '
+        'mapOndePoint (D8)', () {
+      final Map<String, dynamic> ligne = _readFixtureRow(
+        'onde/observations_station_K4520001_2026-09-13.json',
+      )..remove('latitude');
+
+      expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
     });
   });
 
@@ -92,6 +104,10 @@ void main() {
       'code_station': 'K4520001',
       'date_observation': '2026-08-25',
       'code_campagne': '109905',
+      // latitude/longitude requises depuis D8 : mapOndeObservation délègue
+      // désormais à mapOndePoint. Valeurs réelles de K4520001.
+      'latitude': 47.610620493,
+      'longitude': 2.173858157,
     };
 
     void expectCategory(String? rawCode, FlowCategory attendue) {
@@ -157,6 +173,10 @@ void main() {
       'code_ecoulement': '3',
       'libelle_ecoulement': 'Assec',
       'code_campagne': '109905',
+      // latitude/longitude requises depuis D8 : mapOndeObservation délègue
+      // désormais à mapOndePoint. Valeurs réelles de K4520001.
+      'latitude': 47.610620493,
+      'longitude': 2.173858157,
     };
 
     test("code_station de mauvaise forme ('K452000') : ArgumentError", () {
