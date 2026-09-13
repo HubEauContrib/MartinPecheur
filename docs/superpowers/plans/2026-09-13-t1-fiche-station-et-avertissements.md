@@ -162,7 +162,7 @@ docs/  acceptance/*.feature (X1) · tracabilite.md (X2) · adr/ADR-011-stockage-
 
 **Invariant :** un fait d'API non obtenu par appel réel n'entre pas dans le code ; il reste écrit comme ouvert, avec l'URL consultée et la date.
 
-- [ ] **Étape 1 — capturer les trois fixtures ONDE**, verbatim, une par appel :
+- [x] **Étape 1 — capturer les trois fixtures ONDE**, verbatim, une par appel :
 
 ```bash
 curl -s "https://hubeau.eaufrance.fr/api/v1/ecoulement/campagnes?code_departement=41&size=20" -o test/fixtures/onde/campagnes_departement_41_$(date +%F).json
@@ -171,7 +171,7 @@ curl -s "https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_station
 ```
 Attendu : trois fichiers non vides, chacun avec `"api_version"` et `"count"`. **Recopier le statut HTTP et le `count` de chacun dans `test/fixtures/CAPTURES.md`.**
 
-- [ ] **Étape 2 — répondre à `Q-01` à `Q-04`.** Trois appels, statut et durée recopiés :
+- [x] **Étape 2 — répondre à `Q-01` à `Q-04`.** Trois appels, statut et durée recopiés :
 
 ```bash
 curl -s -w '\nHTTP=%{http_code} time=%{time_total}\n' "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001,K4620020&grandeur_hydro=Q&size=4"
@@ -180,12 +180,12 @@ curl -s -w '\nHTTP=%{http_code} time=%{time_total}\n' "https://hubeau.eaufrance.
 ```
 Attendu : **inconnu — c'est l'objet de la tâche.** ⚠️ Le 2026-09-13 ces appels ont répondu **503** (`T-10`). Si le service est encore indisponible, **ne pas insister** : consigner `Q-01` à `Q-04` comme ouverts avec la date et l'heure, et implémenter `D5` dans sa forme garantie. Trois tentatives espacées suffisent.
 
-- [ ] **Étape 3 — répondre à `Q-05`** : `grep -c '"code_ecoulement":null' test/fixtures/onde/observations_bbox_loire_*.json`. Attendu : un compte, **zéro compris — zéro est une réponse**.
-- [ ] **Étape 4 — compléter `docs/sources/onde.md`** : ligne `/campagnes` renseignée (fixture, `count` 96, champs de `T-05`), `T-06` à `T-09` en § « Faits constatés », **`T-07` en encart ⚠️**, § « Non vérifié » réduite à ce qui reste ouvert.
-- [ ] **Étape 5 — compléter `docs/sources/hubeau-hydrometrie.md`** : `T-10` avec l'heure de la tentative, et `Q-01` à `Q-04` en § « Non vérifié » avec leur URL.
-- [ ] **Étape 6 — étendre `test/fixtures/fixtures_test.dart`** : chaque nouvelle fixture est lisible en JSON, porte `api_version`, et est **citée** depuis `docs/sources/onde.md` — une fixture orpheline est une fixture dont personne ne sait ce qu'elle prouve.
-- [ ] **Étape 7** — `flutter test test/fixtures/fixtures_test.dart` → vert, puis le critère de fin.
-- [ ] **Étape 8 — commit.**
+- [x] **Étape 3 — répondre à `Q-05`** : `grep -c '"code_ecoulement":null' test/fixtures/onde/observations_bbox_loire_*.json`. Attendu : un compte, **zéro compris — zéro est une réponse**.
+- [x] **Étape 4 — compléter `docs/sources/onde.md`** : ligne `/campagnes` renseignée (fixture, `count` 96, champs de `T-05`), `T-06` à `T-09` en § « Faits constatés », **`T-07` en encart ⚠️**, § « Non vérifié » réduite à ce qui reste ouvert.
+- [x] **Étape 5 — compléter `docs/sources/hubeau-hydrometrie.md`** : `T-10` avec l'heure de la tentative, et `Q-01` à `Q-04` en § « Non vérifié » avec leur URL.
+- [x] **Étape 6 — étendre `test/fixtures/fixtures_test.dart`** : chaque nouvelle fixture est lisible en JSON, porte `api_version`, et est **citée** depuis `docs/sources/onde.md` — une fixture orpheline est une fixture dont personne ne sait ce qu'elle prouve.
+- [x] **Étape 7** — `flutter test test/fixtures/fixtures_test.dart` → vert, puis le critère de fin.
+- [x] **Étape 8 — commit.**
 
 ```bash
 git add test/fixtures docs/sources && git commit -m "docs(ecoulement): capturer campagnes et observations ONDE, et consigner ce qui reste ouvert" -m "code_campagne est un ENTIER dans /campagnes et une CHAINE dans /observations : un modele qui le type en int casse sur l un des deux. bbox, sort, fields et date_observation_min sont acceptes par /observations — la carte n a pas besoin du departement. Hydrometrie v2 a repondu 503 sur <N> tentatives : Q-01 a Q-04 restent ouverts, ecrits comme tels."

@@ -28,9 +28,7 @@ Appel `/observations?code_departement=41&size=300` → HTTP **206**, `count` **2
 - Le code de station fait **huit caractères** (exemple réel : `"K4520001"`) : ce n'est pas un
   code de station hydrométrique — les deux référentiels sont distincts, `StationCode` ne
   s'applique pas ici.
-- Les coordonnées sont fournies deux fois : `latitude`/`longitude` à plat **et** un objet
-  `geometry` GeoJSON, concordants sur l'échantillon.
-- `"date_observation":"2026-08-25"` — une date sans heure.
+- Coordonnées et date d'observation : voir `T-09` et `T-08` ci-dessous.
 
 ⚠️ **Le libellé `"Assec"` de l'API n'est pas ce qu'on affiche** : `glossary.md` proscrit le
 mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour la traçabilité.
@@ -54,8 +52,12 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
 - `T-08` `date_observation` est une date sans heure (`"2026-08-25"`) : `BR-010` se calcule en
   jours.
 - `T-09` une observation ONDE porte les coordonnées deux fois — `latitude`/`longitude` à plat
-  et `geometry` GeoJSON — plus `code_cours_eau`, `libelle_cours_eau` (minuscules, accentué),
-  `code_departement`, `code_commune`.
+  et `geometry` GeoJSON — plus `code_cours_eau`, `libelle_cours_eau`, `code_departement`,
+  `code_commune`. `libelle_cours_eau` est en **casse mixte**, accentué — l'article est
+  souvent en minuscule, le nom propre porte sa majuscule : `"la Bonne Heure"`,
+  `"le Vézenne"`, mais aussi `"La Masse"`, `"La Rennes"` (15 libellés distincts dans la
+  fixture bbox, tous constatés ainsi le 2026-09-13) — ne jamais comparer ni afficher en
+  minuscules.
 
 ⚠️ `T-07` **`code_campagne` change de type selon l'endpoint** : entier dans `/campagnes`
 (`109905`), chaîne dans `/observations` (`"109905"`) — un modèle qui le type `int` casse sur

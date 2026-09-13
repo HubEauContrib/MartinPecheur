@@ -257,6 +257,32 @@ void main() {
         isEmpty,
       );
     });
+
+    test('libelle_cours_eau est en casse mixte, jamais tout en minuscules '
+        '(T-09) — ne jamais comparer ni afficher en minuscules', () {
+      final List<Map<String, dynamic>> lignes = rows(
+        readFixture('onde/observations_bbox_loire_2026-09-13.json'),
+      );
+      final Set<String> libelles = lignes
+          .map((Map<String, dynamic> l) => l['libelle_cours_eau'] as String)
+          .toSet();
+      final RegExp majuscule = RegExp('[A-ZÀÂÉÈÊËÎÏÔÛÙ]');
+      final RegExp accent = RegExp('[éèêëàâîïôûù]');
+      expect(
+        libelles.any((String libelle) => majuscule.hasMatch(libelle)),
+        isTrue,
+        reason:
+            '"La Masse" porte une majuscule sur l\'article, pas '
+            'seulement sur un nom propre isolé',
+      );
+      expect(
+        libelles.any((String libelle) => accent.hasMatch(libelle)),
+        isTrue,
+        reason:
+            '"le Vézenne" porte un accent : la fixture doit rester '
+            'lisible en UTF-8 sans normalisation',
+      );
+    });
   });
 
   group('Extrait GeoJSON du référentiel (déclaré comme extrait)', () {

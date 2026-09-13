@@ -16,9 +16,9 @@ pas l'histoire.
 | `hubeau/obs_elab_K447001001_depuis_2026-09-01_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v2/hydrometrie/obs_elab?code_entite=K447001001&grandeur_hydro_elab=QmnJ&date_debut_obs_elab=2026-09-01&size=2` | `200` (capturé le 2026-09-13 avec `curl -w`, conservé cette fois) | `200` |
 | `hubeau/referentiel_stations_K447001001_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?code_station=K447001001&page=1&size=1` | rapporté par l'opérateur, non conservé | `200` |
 | `onde/observations_departement_41_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_departement=41&size=300` | rapporté par l'opérateur, non conservé | `206` |
-| `onde/campagnes_departement_41_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/campagnes?code_departement=41&size=20` | `206` (capturé le 2026-09-13, conservé cette fois), 0,52 s, `count` 96 | `206` |
-| `onde/observations_bbox_loire_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?bbox=1.0,47.3,1.8,47.8&date_observation_min=2026-07-15&size=30&sort=desc` | `200` (capturé le 2026-09-13, conservé cette fois), 0,23 s, `count` 30 | `200` |
-| `onde/observations_station_K4520001_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_station=K4520001&sort=desc&size=10` | `206` (capturé le 2026-09-13, conservé cette fois), 0,20 s, `count` 96 | `206` |
+| `onde/campagnes_departement_41_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/campagnes?code_departement=41&size=20` | `206` (capturé le 2026-09-13 avec `curl -w`, conservé cette fois), `time_total` 0,52 s, `count` 96 | `206` |
+| `onde/observations_bbox_loire_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?bbox=1.0,47.3,1.8,47.8&date_observation_min=2026-07-15&size=30&sort=desc` | `200` (capturé le 2026-09-13 avec `curl -w`, conservé cette fois), `time_total` 0,23 s, `count` 30 | `200` |
+| `onde/observations_station_K4520001_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_station=K4520001&sort=desc&size=10` | `206` (capturé le 2026-09-13 avec `curl -w`, conservé cette fois), `time_total` 0,20 s, `count` 96 | `206` |
 | `referentiel/stations_extrait_2026-09-13.json` | — | non applicable — copie déclarée de `assets/referentiel/stations.json`, pas un appel HTTP | non applicable |
 
 Les URL ci-dessus omettent `cursor=` (vide au premier appel, reconstituée depuis le champ

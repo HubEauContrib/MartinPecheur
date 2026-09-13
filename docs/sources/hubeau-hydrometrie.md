@@ -162,9 +162,12 @@ l'API entière.
   `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=1&fields=code_station,date_obs,resultat_obs`
   → 500, l'une des trois tentatives du 2026-09-13 (mêmes horodatages). Enjeu : coût réseau,
   ne récupérer que les champs utilisés par la fiche station.
-- `Q-04` latence médiane de l'endpoint : non mesurable — les trois tentatives du
-  2026-09-13 (13:34:49, 13:35:03, 13:35:26 UTC) et les dix-neuf du matin ont toutes échoué.
-  Enjeu : sans latence mesurée, l'intervalle du préchargement serait un chiffre inventé.
+- `Q-04` latence médiane de l'endpoint. Protocole prévu : `curl -w` sur
+  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=1`,
+  médiane de `time_total` sur 10 appels espacés. Non mesurable le 2026-09-13 — les
+  dix-neuf tentatives du matin (503) et les trois de l'après-midi (500, 13:34:49, 13:35:03,
+  13:35:26 UTC) ont toutes échoué. Enjeu : sans latence mesurée, l'intervalle du
+  préchargement serait un chiffre inventé.
 - Le quota réel : `curl -sI` sur `/observations_tr` le 2026-09-13 ne renvoie aucun en-tête
   `X-RateLimit-*` ; les CGU ne chiffrent rien (`C-12`) — throttle client à l'aveugle.
 - Le comportement sous charge concurrente.
