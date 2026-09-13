@@ -16,6 +16,35 @@ aujourd'hui).
 | `/obs_elab` (`grandeur_hydro_elab=QmnJ`) | curseur | `obs_elab_K447001001_depuis_2026-08-01_2026-09-13.json` |
 | `/referentiel/stations` | `page` + `size` | `referentiel_stations_K447001001_2026-09-13.json` |
 
+## Comportement du client
+
+`HubEauClient.getJson` (`lib/data/http/hub_eau_client.dart`) rejoue sur 429 et 5xx en
+espaçant les tentatives via `delayForAttempt` (`lib/data/http/retry.dart`, C-12), et accepte
+206 comme un succès au même titre que 200 (C-06). Un 4xx hors 429 échoue immédiatement, sans
+attente : ce n'est pas une panne transitoire.
+
+```mermaid
+sequenceDiagram
+    participant Écran as Écran / handler
+    participant Client as HubEauClient
+    participant Retry as retry.dart
+    participant API as Hub'Eau v2
+
+    Écran->>Client: getJson(uri)
+    Client->>API: GET (tentative 0)
+    API-->>Client: 503
+    Client->>Retry: delayForAttempt(0)
+    Retry-->>Client: délai à gigue
+    Client->>API: GET (tentative 1)
+    API-->>Client: 206 + corps
+    Client-->>Écran: corps décodé
+
+    Écran->>Client: getJson(uri)
+    Client->>API: GET (tentative 0)
+    API-->>Client: 400
+    Client-->>Écran: HubEauFailure (échec immédiat, aucune attente)
+```
+
 ## Faits constatés le 2026-09-13
 
 - Le débit arrive en litres/seconde (`47800.0` = 47,8 m³/s) → division par mille dans le
