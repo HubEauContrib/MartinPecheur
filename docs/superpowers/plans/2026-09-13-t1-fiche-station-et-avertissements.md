@@ -451,10 +451,18 @@ git add lib/features/station_sheet test/features/station_sheet && git commit -m 
 - Échelle `ecoulement` → `ondeObservations` alimenté avec `since = now - 60 jours` (`BR-010`, `T-03`) ; échelle `debit` → **aucun** appel ONDE.
 - Après `dispose()` pendant un préchargement : aucun `notifyListeners`, aucune assertion.
 
-- [ ] **Étape 1** — étendre le test existant : rouge sur les nouveaux cas, **vert sur les anciens** — ce qui marchait en T0 continue de marcher.
-- [ ] **Étape 2** — `flutter test test/features/map/view_model` → échec sur les nouveaux cas seulement.
-- [ ] **Étape 3** — implémenter les ajouts.
-- [ ] **Étape 4** — `flutter test` → **tous** verts ; recopier le total. Puis critère de fin et commit.
+- [x] **Étape 1** — étendre le test existant : rouge sur les nouveaux cas, **vert sur les anciens** — ce qui marchait en T0 continue de marcher.
+- [x] **Étape 2** — `flutter test test/features/map/view_model` → échec sur les nouveaux cas seulement.
+- [x] **Étape 3** — implémenter les ajouts.
+- [x] **Étape 4** — `flutter test` → **437 tests, 436 verts** ; seul rouge : `test/project/ios_bundle_identifier_test.dart`, artefact de poste connu (un dossier `android/` non versionné), sans rapport avec `V2`. `flutter analyze` → `No issues found!` · `dart format --set-exit-if-changed lib test` → `0 changed`. Puis critère de fin et commit.
+
+**Relecture du 2026-09-14** : `loadFor` notifie dès les points, avant l'ONDE (UC-001 § 4).
+
+**Écart constaté** — deux points que la spec laissait ouverts, tranchés ici et documentés dans le code :
+1. `loadFor` **annule** le préchargement en cours mais n'en **relance pas** un : c'est la vue qui rappelle `preloadVisibleStations` après un geste. Un écran qui ne veut pas de préchargement n'a ainsi rien à annuler.
+2. Un passage à l'échelle `debit` **ne vide pas** `ondeObservations` : le retour à `ecoulement` a de quoi dessiner pendant que le rechargement tourne. C'est `scale`, et elle seule, qui dit à la vue quelle échelle afficher (BR-008 porte sur l'affichage, pas sur la mémoire).
+
+Granularité des notifications, que le plan laissait libre : **une notification par état de station reçu** pendant un préchargement, la carte se remplissant au fil des réponses plutôt qu'en un bloc après quatre secondes.
 
 ```bash
 git add lib/features/map test/features/map && git commit -m "feat(map): un etat par station, une echelle active, un prechargement borne" -m "Une station dont l observation n est pas chargee porte NonChargee et pas SansDonnee : un ecran en cours de chargement n affiche pas d etat par defaut (BR-007). Le prechargement est borne a 20 stations et annulable au geste suivant : 50 requetes pour un deplacement de carte, sur une API sans quota documente, est exactement ce que NFR-07 interdit. Changer d echelle change marqueurs et legende ensemble (BR-008)."

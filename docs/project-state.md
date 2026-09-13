@@ -31,7 +31,7 @@
 | **Porte de spike** | Fond IGN affiché (`F1`), exécutable Windows autonome (`F3`) | ✅ franchie sur Windows (exécution 2026-09-09, arbitrage 2026-09-12). `F2` (4 150 marqueurs clusterisés) **non tranchée** |
 | **T0 — socle Flutter** | Carte `flutter_map`, socle domaine et données, test d'architecture, exécutable Windows | ✅ **livrée le 2026-09-13** — **31 tâches sur 31**, PR #11 fusionnée sur `dev` (`015a245`), version **`0.1.0`** (tag `v0.1.0` posé **localement, non poussé**), **248 tests** (247 du plan + `changelog_test`) constatés par `flutter test`, exécutable Windows **lancé hors outil** par le commanditaire, **31 Mo** ([`CHANGELOG.md`](../CHANGELOG.md)) |
 | **Réusinage `R1`-`R6`** | `lib/application/` retiré, `MapViewModel`, `layers_test.dart` à cinq règles, docs alignées | ✅ **exécuté et relu le 2026-09-13 sur cette branche** — **244 tests** à la clôture (`fe1b92e`). **Non fusionné sur `dev`** : PR et fusion sont pour le commanditaire (`gh` absent du bac à sable) |
-| **T1 — fiche station, écoulement ONDE, avertissements** | Carte interactive (tap, fiche), fiches station et ONDE, **les quatre avertissements** | 🔄 **en cours.** **Lot 1 (`D1`→`D8`) clos**, **`V1` fait** ; restent `V2`→`V4` puis les **lots 3 à 7** (vues, avertissements, clavier/souris, documentation, porte `0.2.0`) |
+| **T1 — fiche station, écoulement ONDE, avertissements** | Carte interactive (tap, fiche), fiches station et ONDE, **les quatre avertissements** | 🔄 **en cours.** **Lot 1 (`D1`→`D8`) clos**, **`V1` et `V2` faites** (`V2` le 2026-09-14 : échelle, état par station, préchargement borné) ; restent `V3`, `V4` puis les **lots 3 à 7** (vues, avertissements, clavier/souris, documentation, porte `0.2.0`) |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Favoris, filtres, fraîcheur | 🔄 |
 
@@ -191,7 +191,8 @@ relecture. Tous sont **résolvables** sur cette branche.
 | `D7` | `HttpOndeObservationRepository` + `CachedOndeObservationRepository` — TTL **30 j** en saison, **90 j** hors saison | ✅ `d640f56` + `e24b24d`, `5d5cdd0`, `53626cb` |
 | `D8` | `OndeObservation` porte son `OndePoint`, lu sur la même ligne d'API (**amendement du 2026-09-13**) | ✅ `0285f58` + `9067933` |
 | `V1` | `StationSheetViewModel` — l'état de la fiche station **sans aucun widget** | ✅ `bade919` + `c8d36eb` |
-| `V2`-`V4` | `MapViewModel` enrichi, `OndeSheetViewModel`, `WarningsViewModel` | 🔄 à faire |
+| `V2` | `MapViewModel` — `MapScaleKind`, une seule échelle active (BR-008), `stateOf` par station (BR-007), préchargement borné à 20 et annulable (NFR-07), ONDE de l'emprise sur 60 jours (BR-010) ; relu, `loadFor` notifie dès les points avant l'ONDE (UC-001 § 4) | ✅ 2026-09-14 — commit `V2` (celui qui porte cette ligne) |
+| `V3`-`V4` | `OndeSheetViewModel`, `WarningsViewModel` | 🔄 à faire |
 | Lots 3 à 7 | Vues (`U1`-`U6`), avertissements (`W1`-`W5`), clavier/souris (`K1`-`K3`), documentation (`X1`-`X4`), porte `0.2.0` (`P1`, `P2`) | 🔄 à faire |
 
 Documentation du lot : `68151f6` (plan), `6caac28` (préalable levé), `e21b08e` (lot 1 clos),
@@ -203,7 +204,7 @@ Documentation du lot : `68151f6` (plan), `6caac28` (préalable levé), `e21b08e`
 
 ### Tests — l'état exact sur ce poste
 
-**427 tests, 426 verts sur ce poste** (`flutter test`, 2026-09-14, sortie `+426 -1`). Le seul rouge
+**437 tests, 436 verts sur ce poste** (`flutter test`, 2026-09-14 après `V2`, sortie `+436 -1` ; 427 avant `V2`, 19 tests `/campagnes` retirés puis 29 ajoutés). Le seul rouge
 est `test/project/ios_bundle_identifier_test.dart` : « le dossier android n'existe pas ». Il est
 rouge **tant qu'un dossier `android/` traîne hors dépôt** — ce dossier n'est pas versionné, le test
 dit vrai sur le dépôt et faux sur le poste. Pour mémoire : 248 à la fin de T0, **244** à la clôture
@@ -248,7 +249,7 @@ Le plan est une esquisse antérieure ; **le code a raison**. Les écarts qui por
 | 17 | **Collision de nom public `EnEchec`** entre `lib/domain/observation/station_map_state.dart` et `lib/features/station_sheet/view_model/station_sheet_view_model.dart` | Sans conséquence aujourd'hui — à préfixer **au premier fichier qui importe les deux**, ce qui arrivera en `U1` ou `V2` |
 | 18 | **`open()` de `StationSheetViewModel` fait deux requêtes** (débit **et** hauteur), en parallèle | Conforme **si `U1` affiche la hauteur**. À confirmer en `U1` : sinon c'est un appel réseau pour rien, sur une API sans quota documenté (`C-12`, `NFR-07`) |
 | 19 | **Le fuseau affiché est « UTC »** dans `stalenessNotice` (`JJ/MM/AAAA à HH:MM UTC`) | À trancher en `U1` : UTC est exact et vérifiable, l'heure locale est lisible par l'usager. Les deux se défendent ; le choix n'a pas été porté au commanditaire |
-| 20 | **Les dix décisions du plan T1** — **engagées par le code** : 2 (état = fraîcheur, sans teinte inventée), 4 (au tap, forme garantie — le préchargement borné à 20 reste à écrire en `V2`), 5 (forme garantie), 10 (ordre des lots). **Réversibles sans toucher au code** : 1 (percentiles hors T1), 3 (`shared_preferences`), 6 (aucun framework BDD), 7 (traçabilité à la main), 8 (fenêtre 800 × 600), 9 (version d'avertissement datée) | À valider. Les quatre premières coûtent un réusinage si elles sont revues |
+| 20 | **Les dix décisions du plan T1** — **engagées par le code** : 2 (état = fraîcheur, sans teinte inventée), 4 (au tap, forme garantie ; préchargement borné à 20 écrit en `V2`, non encore appelé par une vue avant `U2`), 5 (forme garantie), 10 (ordre des lots). **Réversibles sans toucher au code** : 1 (percentiles hors T1), 3 (`shared_preferences`), 6 (aucun framework BDD), 7 (traçabilité à la main), 8 (fenêtre 800 × 600), 9 (version d'avertissement datée) | À valider. Les quatre premières coûtent un réusinage si elles sont revues |
 | 21 | **`NV-W6` — chaque cran de molette déclenche un rechargement, sans anti-rebond.** `MapEventScrollWheelZoom` n'a pas de variante `…End` dans `flutter_map` 8.3.2 : un zoom de cinq crans fait cinq allers-retours au dépôt et cinq reconstructions des 4 150 marqueurs | Ouvert le 2026-09-13, **non mesuré**. À instruire avec `NFR-01` et `NV-W3` ([`nfr.md`](nfr.md)) |
 | 22 | **Un dossier `android/` non versionné traîne sur le poste** — 989 fichiers, **2 580 830 523 octets**, caches Gradle datés du 2026-08-24, hérités de l'outillage précédent | **À supprimer, jamais à commiter.** C'est lui qui rend `ios_bundle_identifier_test` rouge. Le dépôt, lui, n'a pas de dossier `android/` : c'est l'arbitrage ⏸ du 2026-09-12 |
 | 23 | **Six PNG hérités d'Expo** restent versionnés sous `assets/` sans qu'aucun code ne les référence : `android-icon-background`, `android-icon-foreground`, `android-icon-monochrome`, `favicon`, `icon`, `splash-icon` | À retirer, ou à réaffecter le jour où les icônes Flutter sont posées. Décision du commanditaire |
@@ -318,14 +319,13 @@ Une case vide est une case vide, pas un « probablement ».
 
 ## Prochaine étape
 
-**`V2` — `MapViewModel` : un état par station, une seule échelle, un préchargement borné.**
-Concrètement : `MapScaleKind { ecoulement, debit }` avec **une seule échelle active à la fois**
-(`BR-008`), `stateOf(StationCode)` rendant `NonChargee` tant que rien n'est chargé (`BR-007`,
-jamais un état par défaut), et `preloadVisibleStations(limit: 20)` **borné et annulable** — jamais
-national (`NFR-07`, décision 4).
+**`V3` — `OndeSheetViewModel`** (plan T1 l.457), puis `V4` (`WarningsViewModel`), avant les vues du
+lot 3. ⚠️ Depuis `V2`, `loadFor` appelle l'ONDE à chaque geste sur l'échelle par défaut alors
+qu'aucune vue ne lit encore `ondeObservations` (`U3`) : du trafic pour une donnée non dessinée, sur une
+API sans quota documenté (`C-15`) — à brancher ou à différer au moment où `U3` la consomme.
 
 ⚠️ **À faire d'abord : trancher les points 15 à 20 de « Ce qui bloque ».** Les décisions 2, 4, 5
-et 10 sont déjà engagées par le code du lot 1 ; les revoir après `V2` coûterait un réusinage. Les
+et 10 sont déjà engagées par le code du lot 1 ; les revoir après `V2` coûte désormais un réusinage. Les
 points 17 (`EnEchec`) et 19 (fuseau UTC) se règlent au plus tard en `U1`.
 
 ---
