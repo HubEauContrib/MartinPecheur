@@ -247,10 +247,10 @@ git add lib/domain test/domain && git commit -m "feat(domain): typer l ecoulemen
 - `mapOndePoint` lit `latitude`/`longitude` **à plat** et ignore `geometry` : deux sources concordantes, une seule lue (`T-09`). `libelle_station` absent → `label` replié sur le code, jamais une chaîne vide.
 - Une charge utile avec un champ inédit (`'champ_inedit': 1`) se lit sans échouer (`BR-011`).
 
-- [ ] **Étape 1** — écrire le test sur la **fixture réelle** de `D1`, jamais sur un objet écrit de mémoire (`docs/plan-de-tests.md § 2`). Rouge.
-- [ ] **Étape 2** — `flutter test test/data/mappers/onde_observation_mapper_test.dart` → échec.
-- [ ] **Étape 3** — implémenter. `flowCategoryFromCode` est **réutilisé**, pas recopié.
-- [ ] **Étape 4** — `flutter test test/data/mappers` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — écrire le test sur la **fixture réelle** de `D1`, jamais sur un objet écrit de mémoire (`docs/plan-de-tests.md § 2`). Rouge.
+- [x] **Étape 2** — `flutter test test/data/mappers/onde_observation_mapper_test.dart` → échec.
+- [x] **Étape 3** — implémenter. `flowCategoryFromCode` est **réutilisé**, pas recopié.
+- [x] **Étape 4** — `flutter test test/data/mappers` → vert, puis critère de fin et commit.
 
 ```bash
 git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): mapper ONDE, teste sur la fixture reelle du 2026-09-13" -m "code_campagne est lu en Object? et rendu en String : entier dans /campagnes, chaine dans /observations. Un as int aurait casse sur l un des deux, sans qu aucun test de l autre ne le voie. date_observation est une date sans heure : aucune heure n est inventee (BR-001)."
