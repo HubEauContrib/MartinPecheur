@@ -64,3 +64,4 @@ jamais plus haut « pour être sûr ».
   laquelle fait foi.
 - Toute fixture est référencée depuis `docs/sources/*.md`. Une fixture orpheline est une
   fixture dont personne ne sait ce qu'elle prouve.
+- Le statut HTTP de chaque capture est consigné dans `test/fixtures/CAPTURES.md`.

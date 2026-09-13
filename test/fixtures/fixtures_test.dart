@@ -82,6 +82,15 @@ void main() {
       },
     );
 
+    test('date_debut_obs_elab=2026-09-01 (mois courant) : aucune donnée encore '
+        'disponible, count 0, data vide', () {
+      final Map<String, dynamic> reponse = readFixture(
+        'hubeau/obs_elab_K447001001_depuis_2026-09-01_2026-09-13.json',
+      );
+      expect(reponse['count'], 0);
+      expect(rows(reponse), isEmpty);
+    });
+
     test('le champ de qualification ne porte pas le même nom selon '
         "l'endpoint : observations_tr expose libelle_qualification_obs "
         '(jamais libelle_qualification), obs_elab expose '
