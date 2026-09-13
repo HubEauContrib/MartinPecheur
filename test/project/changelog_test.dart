@@ -27,5 +27,17 @@ void main() {
     expect(contenuChangelog, contains('## [$version]'));
     expect(contenuChangelog, contains('## [Non publié]'));
     expect(contenuChangelog, contains('keepachangelog.com'));
+
+  test('la version 0.1.0 est datee : une version sans date n''est pas publiee', () {
+    final String contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    final String? ligne = contenuChangelog
+        .split('
+')
+        .where((String l) => l.startsWith('## [0.1.0]'))
+        .firstOrNull;
+    expect(ligne, isNotNull);
+    expect(ligne, matches(RegExp(r'^## [0.1.0] — d{4}-d{2}-d{2}')));
+    expect(ligne, isNot(contains('à publier')));
+  });
   });
 }

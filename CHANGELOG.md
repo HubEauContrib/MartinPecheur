@@ -11,7 +11,7 @@ observable n'y figure pas.
 
 ## [Non publié]
 
-## [0.1.0] — à publier
+## [0.1.0] — 2026-09-13
 
 Première tranche technique, **rien de tout cela n'est un produit** : aucun
 des quatre avertissements obligatoires n'est encore posé (`BR-012`,
@@ -48,3 +48,23 @@ manquent.
 - Stockage local, `ADR-011` réservé.
 - Volet sécheresse : `RestrictionSource` n'est encore qu'une interface
   (prévu en T2).
+
+### Constaté à l'exécution
+
+- Exécutable Windows (`flutter build windows --release`) produit et lancé **sans
+  outil de développement** par le commanditaire le 2026-09-13 : la carte IGN
+  s'affiche, les 4 150 pastilles sont là, l'attribution est lisible, le glisser
+  déplace la carte, la molette zoome.
+- Dossier de publication : **31 Mo** (budget 60 Mo), dont `flutter_windows.dll`
+  21 Mo et le référentiel 6,4 Mo.
+- Hors réseau, carte réseau désactivée : la carte s'ouvre, les pastilles et le
+  fond de carte s'affichent depuis le cache de tuiles sur les zones déjà
+  parcourues, aucun message d'erreur. Une zone jamais chargée n'a pas été
+  constatée.
+
+### Non vérifié
+
+- Aucune mesure chiffrée de fluidité sur Windows (`NFR-01`).
+- Une zone de carte jamais chargée, hors réseau.
+- iOS n'a jamais été compilé, faute d'hôte.
+- Android ⏸ différé le 2026-09-12.
