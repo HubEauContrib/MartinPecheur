@@ -26,7 +26,7 @@ linter:
     - unawaited_futures             # un Future ni attendu ni délaissé est une course
     - prefer_final_locals
     - prefer_final_in_for_each
-    - require_trailing_commas
+    - require_trailing_commas       # inopérante en Dart ≥ 3.7 (le formateur impose déjà les virgules) : le verrou réel est dart format --set-exit-if-changed
     - use_super_parameters
     - directives_ordering
     - always_use_package_imports    # le chemin de couche lisible sur la ligne d'import (S3)
