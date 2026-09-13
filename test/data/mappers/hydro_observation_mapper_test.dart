@@ -172,5 +172,15 @@ void main() {
 
       expect(() => mapHydroObservation(ligne), returnsNormally);
     });
+
+    test('resultat_obs en chaine ("47800.0") : refuse a la frontiere, jamais un TypeError nu', () {
+      final Map<String, dynamic> ligne = <String, dynamic>{
+        'code_station': 'K447001001',
+        'date_obs': '2026-08-27T08:00:00Z',
+        'grandeur_hydro': 'Q',
+        'resultat_obs': '47800.0',
+      };
+      expect(() => mapHydroObservation(ligne), throwsFormatException);
+    });
   });
 }

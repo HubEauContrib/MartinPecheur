@@ -20,7 +20,7 @@ import 'package:martinpecheur/domain/units/quantities.dart';
 /// [FormatException] si `code_station` ou `date_obs` sont absents ou
 /// illisibles, une [ArgumentError] si `code_station` est d'une forme
 /// inconnue (C-05, via [StationCode]). Une grandeur non reconnue range sa
-/// valeur nulle part plutot que de la mal etiqueter (BR-011).
+/// value nulle part plutot que de la mal etiqueter (BR-011).
 HydroObservation mapHydroObservation(Map<String, dynamic> raw) {
   final String? rawStationCode = raw['code_station'] as String?;
   if (rawStationCode == null) {
@@ -33,17 +33,20 @@ HydroObservation mapHydroObservation(Map<String, dynamic> raw) {
   final DateTime measuredAt = _measuredAt(raw['date_obs']);
   final Grandeur grandeur = grandeurFromCode(raw['grandeur_hydro'] as String?);
 
-  final num? resultatObs = raw['resultat_obs'] as num?;
-  final double? valeur = resultatObs?.toDouble();
+  final Object? rawResult = raw['resultat_obs'];
+  if (rawResult != null && rawResult is! num) {
+    throw FormatException('resultat_obs attendu numerique, recu ', rawResult);
+  }
+  final double? value = (rawResult as num?)?.toDouble();
 
   final (CubicMetresPerSecond? discharge, Metres? level) = switch (grandeur) {
     Grandeur.debit => (
-      toCubicMetresPerSecond(valeur == null ? null : LitresPerSecond(valeur)),
+      toCubicMetresPerSecond(value == null ? null : LitresPerSecond(value)),
       null,
     ),
     Grandeur.hauteur => (
       null,
-      toMetres(valeur == null ? null : Millimetres(valeur)),
+      toMetres(value == null ? null : Millimetres(value)),
     ),
     Grandeur.inconnu => (null, null),
   };
