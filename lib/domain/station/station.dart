@@ -113,8 +113,11 @@ final class Station {
   /// Libellé de la station.
   final String label;
 
+  /// Latitude en degrés décimaux, WGS 84 (`latitude_station` au référentiel,
+  /// `latitude` en temps réel : le mapper absorbe l'écart).
   final double latitude;
 
+  /// Longitude en degrés décimaux, WGS 84, négative à l'ouest de Greenwich.
   final double longitude;
 
   /// Département où se situe la station.
