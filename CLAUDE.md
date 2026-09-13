@@ -105,7 +105,7 @@ docs/
 | Stockage local | `ADR-011` **réservé** — `drift` candidat par défaut ; `sqflite` seul **ne couvre pas Windows** | 💭 à trancher au moment où ça bloque |
 | Gestion d'état | `ValueNotifier` + `ListenableBuilder`, zéro dépendance sauf preuve contraire | 💭 |
 | Graphes | courbe de débit (`US-11`) | 💭 à trancher |
-| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **411 verts** le 2026-09-13, après le réusinage MVVM et sa relecture (248 à la clôture de T0 : les cas du bus disparaissent avec leur sujet, ceux du ViewModel et des couches s'ajoutent) — lot 1 de T1 (données) clos le 2026-09-13 : D1 à D8 |
+| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **427 verts** le 2026-09-13, après le réusinage MVVM et sa relecture (248 à la clôture de T0 : les cas du bus disparaissent avec leur sujet, ceux du ViewModel et des couches s'ajoutent) — lot 1 de T1 (données) clos le 2026-09-13 : D1 à D8 ; lot 2 ouvert, V1 fait |
 | Percentiles | **script Dart** produisant `assets/percentiles/` (`ADR-003`) | 🔄 |
 
 > Toute bibliothèque retenue est vérifiée sur `pub.dev` avant d'être ajoutée : **version, licence compatible GPL-3.0, plateformes — Windows incluse —, date de dernière publication.** On lit la signature dans le paquet installé, on ne l'écrit pas de mémoire.
