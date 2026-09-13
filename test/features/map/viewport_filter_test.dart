@@ -154,6 +154,34 @@ void main() {
     );
   });
 
+  test('une emprise nord/sud inversee leve une ArgumentError plutot que de '
+      'rendre une liste vide en silence (BR-007)', () {
+    expect(
+      () => stationsWithinViewport(
+        <StationPoint>[_pointAt(45, 5)],
+        north: 40,
+        south: 50,
+        east: 10,
+        west: 0,
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('une emprise est/ouest inversee leve une ArgumentError plutot que de '
+      'rendre une liste vide en silence (BR-007)', () {
+    expect(
+      () => stationsWithinViewport(
+        <StationPoint>[_pointAt(45, 5)],
+        north: 50,
+        south: 40,
+        east: 0,
+        west: 10,
+      ),
+      throwsArgumentError,
+    );
+  });
+
   test('sur les 4 150 points du referentiel reel, une emprise etroite en '
       'retient strictement moins que le total, et au moins un', () {
     final String jsonText = File('assets/referentiel/stations.json')

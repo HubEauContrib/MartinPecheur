@@ -24,6 +24,14 @@ const int ignTileDimension = 256;
 
 /// Niveau de zoom natif maximal du plan IGN ; au-delà, la couche agrandit le
 /// niveau 18 plutôt que d'interroger un niveau inexistant.
+///
+/// Vérifié le 2026-09-13 par appel réel sur Paris (lat 48.85, lon 2.35,
+/// Pseudo-Mercator) : `z18` (`TILECOL=132783&TILEROW=90192`) → HTTP 200,
+/// `image/png`, 34 147 octets ; `z19` (`TILECOL=265566&TILEROW=180384`) →
+/// HTTP 200, `image/png`, 32 250 octets. **Le niveau 19 existe aussi** côté
+/// serveur : `18` reste un choix de charge (moins de tuiles demandées), pas
+/// une limite constatée du service — à revoir en T1 si le rendu au zoom rue
+/// justifie d'aller plus loin.
 const int ignMaxNativeZoom = 18;
 
 /// Attribution exigée par la Licence Ouverte — une constante du module,

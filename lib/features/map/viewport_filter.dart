@@ -30,6 +30,14 @@ const double defaultViewportMargin = 0.5;
 /// l'emprise, et les marqueurs disparaîtraient avant de sortir de l'écran
 /// (BR-007).
 ///
+/// Une emprise inversée (`north` <= `south`, ou `east` <= `west`) lève aussi
+/// une [ArgumentError] : sans ce contrôle, elle ne rendrait aucune station,
+/// en silence — un faux négatif que l'écran présenterait comme « aucune
+/// station », alors que c'est l'emprise passée qui est invalide (BR-007).
+/// C'est la même règle que `Bounds` (`lib/domain/repositories/repositories.dart`)
+/// applique à la construction ; ce module ne reçoit pas de `Bounds` et la
+/// revalide donc lui-même.
+///
 /// L'antiméridien n'est pas traité : une emprise qui le franchit (`east` <
 /// `west` une fois élargie) ne retient aucune station à l'est de `west`.
 List<StationPoint> stationsWithinViewport(
@@ -47,6 +55,22 @@ List<StationPoint> stationsWithinViewport(
       'doit être positive ou nulle : une marge négative rétrécirait '
           "l'emprise et les marqueurs disparaîtraient avant de sortir de "
           "l'écran (BR-007)",
+    );
+  }
+  if (north <= south) {
+    throw ArgumentError.value(
+      north,
+      'north',
+      'doit être strictement supérieur à south ($south) : une emprise '
+          'inversée rendrait une liste vide en silence (BR-007)',
+    );
+  }
+  if (east <= west) {
+    throw ArgumentError.value(
+      east,
+      'east',
+      'doit être strictement supérieur à west ($west) : une emprise '
+          'inversée rendrait une liste vide en silence (BR-007)',
     );
   }
 
