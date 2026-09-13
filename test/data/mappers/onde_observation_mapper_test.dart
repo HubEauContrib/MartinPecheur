@@ -22,8 +22,8 @@ Map<String, dynamic> _readFixtureRow(String path, {int index = 0}) {
 }
 
 void main() {
-  group('mapOndeObservation — fixture reelle du 2026-09-13', () {
-    test('premiere observation de la station K4520001', () {
+  group('mapOndeObservation — fixture réelle du 2026-09-13', () {
+    test('première observation de la station K4520001', () {
       final Map<String, dynamic> ligne = _readFixtureRow(
         'onde/observations_station_K4520001_2026-09-13.json',
       );
@@ -39,8 +39,8 @@ void main() {
     });
   });
 
-  group('mapOndeCampaign — fixture reelle du 2026-09-13', () {
-    test('premiere campagne du departement 41', () {
+  group('mapOndeCampaign — fixture réelle du 2026-09-13', () {
+    test('première campagne du département 41', () {
       final Map<String, dynamic> ligne = _readFixtureRow(
         'onde/campagnes_departement_41_2026-09-13.json',
       );
@@ -53,8 +53,8 @@ void main() {
       expect(campagne.modalityCount, 5);
     });
 
-    test('code_campagne entier (109905) rend la meme chaine que la forme '
-        "chaine cote observations — c'est T-07", () {
+    test('code_campagne entier (109905) rend la même chaîne que la forme '
+        "chaîne côté observations — c'est T-07", () {
       final Map<String, dynamic> campagneLigne = _readFixtureRow(
         'onde/campagnes_departement_41_2026-09-13.json',
       );
@@ -70,8 +70,8 @@ void main() {
     });
   });
 
-  group('mapOndePoint — fixture reelle du 2026-09-13', () {
-    test('premiere observation de la station K4520001 lue comme un point', () {
+  group('mapOndePoint — fixture réelle du 2026-09-13', () {
+    test('première observation de la station K4520001 lue comme un point', () {
       final Map<String, dynamic> ligne = _readFixtureRow(
         'onde/observations_station_K4520001_2026-09-13.json',
       );
@@ -87,7 +87,7 @@ void main() {
     });
   });
 
-  group('mapOndeObservation — categories d ecoulement (C-10, BR-011)', () {
+  group("mapOndeObservation — catégories d'écoulement (C-10, BR-011)", () {
     Map<String, dynamic> baseRow() => <String, dynamic>{
       'code_station': 'K4520001',
       'date_observation': '2026-08-25',
@@ -123,7 +123,7 @@ void main() {
       () => expectCategory('9z', const Inconnu('9z')),
     );
 
-    test('code_ecoulement absent -> Inconnu(null), ne leve pas', () {
+    test("code_ecoulement absent -> Inconnu(null), ne lève pas", () {
       final Map<String, dynamic> ligne = baseRow();
 
       final OndeObservation observation = mapOndeObservation(ligne);
@@ -133,7 +133,7 @@ void main() {
     });
   });
 
-  group('mapOndeObservation — lignes synthetiques derivees', () {
+  group('mapOndeObservation — lignes synthétiques dérivées', () {
     Map<String, dynamic> baseRow() => <String, dynamic>{
       'code_station': 'K4520001',
       'date_observation': '2026-08-25',
@@ -155,20 +155,60 @@ void main() {
       expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
     });
 
+    test('code_station numérique (12345678) : FormatException, jamais un '
+        'TypeError nu', () {
+      final Map<String, dynamic> ligne = baseRow()..['code_station'] = 12345678;
+
+      expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
+    });
+
     test('date_observation absente : FormatException (BR-001)', () {
       final Map<String, dynamic> ligne = baseRow()..remove('date_observation');
 
       expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
     });
 
-    test("date_observation illisible ('hier') : FormatException (BR-001)", () {
+    test("date_observation illisible ('25/08/2026') : FormatException "
+        '(BR-001)', () {
       final Map<String, dynamic> ligne = baseRow()
-        ..['date_observation'] = 'hier';
+        ..['date_observation'] = '25/08/2026';
 
       expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
     });
 
-    test('campaignCode absent : null, jamais une chaine vide (BR-007)', () {
+    test("date_observation avec heure ('2026-08-25T10:00:00') : seule la date "
+        'est lue, aucune heure conservée', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['date_observation'] = '2026-08-25T10:00:00';
+
+      final OndeObservation observation = mapOndeObservation(ligne);
+
+      expect(observation.observedAt, DateTime.utc(2026, 8, 25));
+    });
+
+    test(
+      "date_observation avec heure et fuseau ('2026-08-26T00:30:00+02:00') : "
+      "le jour reste le 26, aucun recul au 25",
+      () {
+        final Map<String, dynamic> ligne = baseRow()
+          ..['date_observation'] = '2026-08-26T00:30:00+02:00';
+
+        final OndeObservation observation = mapOndeObservation(ligne);
+
+        expect(observation.observedAt, DateTime.utc(2026, 8, 26));
+      },
+    );
+
+    test("date_observation avec un mois hors plage ('2026-13-01') : "
+        'FormatException explicite, DateTime.utc ne déborde jamais en '
+        'silence', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['date_observation'] = '2026-13-01';
+
+      expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test('campaignCode absent : null, jamais une chaîne vide (BR-007)', () {
       final Map<String, dynamic> ligne = baseRow()..remove('code_campagne');
 
       final OndeObservation observation = mapOndeObservation(ligne);
@@ -176,7 +216,16 @@ void main() {
       expect(observation.campaignCode, isNull);
     });
 
-    test('officialLabel absent : null, jamais une chaine vide (BR-007)', () {
+    test("code_campagne vide ('') : campaignCode à null, jamais une chaîne "
+        'vide (BR-007)', () {
+      final Map<String, dynamic> ligne = baseRow()..['code_campagne'] = '';
+
+      final OndeObservation observation = mapOndeObservation(ligne);
+
+      expect(observation.campaignCode, isNull);
+    });
+
+    test('officialLabel absent : null, jamais une chaîne vide (BR-007)', () {
       final Map<String, dynamic> ligne = baseRow()
         ..remove('libelle_ecoulement');
 
@@ -185,14 +234,21 @@ void main() {
       expect(observation.officialLabel, isNull);
     });
 
-    test('champ inedit (champ_inedit) : lu sans echouer (BR-011)', () {
+    test('libelle_ecoulement numérique (5) : FormatException, jamais un '
+        'TypeError nu', () {
+      final Map<String, dynamic> ligne = baseRow()..['libelle_ecoulement'] = 5;
+
+      expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test('champ inédit (champ_inedit) : lu sans échouer (BR-011)', () {
       final Map<String, dynamic> ligne = baseRow()..['champ_inedit'] = 1;
 
       expect(() => mapOndeObservation(ligne), returnsNormally);
     });
   });
 
-  group('mapOndePoint — lignes synthetiques derivees', () {
+  group('mapOndePoint — lignes synthétiques dérivées', () {
     Map<String, dynamic> baseRow() => <String, dynamic>{
       'code_station': 'K4520001',
       'libelle_station': 'LA RIVIERE AUX LOCHES A CHAON',
@@ -215,8 +271,15 @@ void main() {
       expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
     });
 
-    test('libelle_station absent : label replie sur le code, jamais une '
-        'chaine vide (BR-007)', () {
+    test('code_station numérique (12345678) : FormatException, jamais un '
+        'TypeError nu', () {
+      final Map<String, dynamic> ligne = baseRow()..['code_station'] = 12345678;
+
+      expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test('libelle_station absent : label replié sur le code, jamais une '
+        'chaîne vide (BR-007)', () {
       final Map<String, dynamic> ligne = baseRow()..remove('libelle_station');
 
       final OndePoint point = mapOndePoint(ligne);
@@ -224,7 +287,16 @@ void main() {
       expect(point.label, 'K4520001');
     });
 
-    test('code_departement absent : departement a null', () {
+    test("libelle_station vide ('') : label replié sur le code, comme une "
+        'absence (BR-007)', () {
+      final Map<String, dynamic> ligne = baseRow()..['libelle_station'] = '';
+
+      final OndePoint point = mapOndePoint(ligne);
+
+      expect(point.label, 'K4520001');
+    });
+
+    test('code_departement absent : departement à null', () {
       final Map<String, dynamic> ligne = baseRow()..remove('code_departement');
 
       final OndePoint point = mapOndePoint(ligne);
@@ -232,7 +304,14 @@ void main() {
       expect(point.departement, isNull);
     });
 
-    test('libelle_cours_eau absent : waterCourseLabel a null', () {
+    test('code_departement numérique (41) : FormatException, jamais un '
+        'TypeError nu', () {
+      final Map<String, dynamic> ligne = baseRow()..['code_departement'] = 41;
+
+      expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test('libelle_cours_eau absent : waterCourseLabel à null', () {
       final Map<String, dynamic> ligne = baseRow()..remove('libelle_cours_eau');
 
       final OndePoint point = mapOndePoint(ligne);
@@ -240,8 +319,25 @@ void main() {
       expect(point.waterCourseLabel, isNull);
     });
 
-    test('latitude/longitude en entier (coordonnee ronde) : converties en '
-        'double malgre tout', () {
+    test('libelle_cours_eau numérique (42) : FormatException, jamais un '
+        'TypeError nu', () {
+      final Map<String, dynamic> ligne = baseRow()..['libelle_cours_eau'] = 42;
+
+      expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test("libelle_cours_eau ('Ruisseau LA Rivière') : waterCourseLabel "
+        'identique, casse intacte — aucune règle de casse (T-09)', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['libelle_cours_eau'] = 'Ruisseau LA Rivière';
+
+      final OndePoint point = mapOndePoint(ligne);
+
+      expect(point.waterCourseLabel, 'Ruisseau LA Rivière');
+    });
+
+    test('latitude/longitude en entier (coordonnée ronde) : converties en '
+        'double malgré tout', () {
       final Map<String, dynamic> ligne = baseRow()
         ..['latitude'] = 47
         ..['longitude'] = 2;
@@ -252,21 +348,21 @@ void main() {
       expect(point.longitude, 2.0);
     });
 
-    test('latitude absente : FormatException — un point sans coordonnees '
-        "n'est pas placable", () {
+    test('latitude absente : FormatException — un point sans coordonnées '
+        "n'est pas plaçable", () {
       final Map<String, dynamic> ligne = baseRow()..remove('latitude');
 
       expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
     });
 
-    test('longitude absente : FormatException — un point sans coordonnees '
-        "n'est pas placable", () {
+    test('longitude absente : FormatException — un point sans coordonnées '
+        "n'est pas plaçable", () {
       final Map<String, dynamic> ligne = baseRow()..remove('longitude');
 
       expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
     });
 
-    test('geometry presente mais ignoree : latitude/longitude a plat font '
+    test('geometry présente mais ignorée : latitude/longitude à plat font '
         'foi seules (T-09)', () {
       final Map<String, dynamic> ligne = baseRow()
         ..['geometry'] = <String, dynamic>{
@@ -280,14 +376,14 @@ void main() {
       expect(point.longitude, closeTo(2.173858157, 1e-9));
     });
 
-    test('champ inedit (champ_inedit) : lu sans echouer (BR-011)', () {
+    test('champ inédit (champ_inedit) : lu sans échouer (BR-011)', () {
       final Map<String, dynamic> ligne = baseRow()..['champ_inedit'] = 1;
 
       expect(() => mapOndePoint(ligne), returnsNormally);
     });
   });
 
-  group('mapOndeCampaign — lignes synthetiques derivees', () {
+  group('mapOndeCampaign — lignes synthétiques dérivées', () {
     Map<String, dynamic> baseRow() => <String, dynamic>{
       'code_campagne': 109905,
       'date_campagne': '2026-08-25',
@@ -301,8 +397,8 @@ void main() {
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
     });
 
-    test('code_campagne en booleen : FormatException — type inattendu, '
-        'branche par defaut de _campaignCode', () {
+    test('code_campagne en booléen : FormatException — type inattendu, '
+        'branche par défaut de _campaignCode', () {
       final Map<String, dynamic> ligne = baseRow()..['code_campagne'] = true;
 
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
@@ -314,22 +410,43 @@ void main() {
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
     });
 
-    test('date_campagne illisible : FormatException (BR-001)', () {
-      final Map<String, dynamic> ligne = baseRow()..['date_campagne'] = 'hier';
+    test("date_campagne illisible ('25/08/2026') : FormatException "
+        '(BR-001)', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['date_campagne'] = '25/08/2026';
 
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
     });
 
-    test('libelle_type_campagne absent : FormatException — T-05 le releve '
-        'present sur les 96 lignes de la fixture, un repli inventerait une '
-        'modalite', () {
+    test(
+      "date_campagne avec un jour hors plage ('2026-08-32') : "
+      'FormatException explicite, DateTime.utc ne déborde jamais en silence',
+      () {
+        final Map<String, dynamic> ligne = baseRow()
+          ..['date_campagne'] = '2026-08-32';
+
+        expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+      },
+    );
+
+    test("libelle_type_campagne absent : FormatException — T-05 le relève "
+        'présent sur les 96 lignes de la fixture, un repli inventerait une '
+        'modalité', () {
       final Map<String, dynamic> ligne = baseRow()
         ..remove('libelle_type_campagne');
 
       expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
     });
 
-    test('nombre_modalite_ecoulement absent : modalityCount a null', () {
+    test('libelle_type_campagne numérique (1) : FormatException, jamais un '
+        'TypeError nu', () {
+      final Map<String, dynamic> ligne = baseRow()
+        ..['libelle_type_campagne'] = 1;
+
+      expect(() => mapOndeCampaign(ligne), throwsA(isA<FormatException>()));
+    });
+
+    test('nombre_modalite_ecoulement absent : modalityCount à null', () {
       final Map<String, dynamic> ligne = baseRow()
         ..remove('nombre_modalite_ecoulement');
 
@@ -338,8 +455,8 @@ void main() {
       expect(campagne.modalityCount, isNull);
     });
 
-    test('nombre_modalite_ecoulement en chaine ("5") : refuse a la '
-        'frontiere, jamais un TypeError nu (parite avec le mapper hydro)', () {
+    test("nombre_modalite_ecoulement en chaîne ('5') : refusé à la "
+        'frontière, jamais un TypeError nu (parité avec le mapper hydro)', () {
       final Map<String, dynamic> ligne = baseRow()
         ..['nombre_modalite_ecoulement'] = '5';
 
@@ -347,7 +464,7 @@ void main() {
     });
 
     test('nombre_modalite_ecoulement en nombre non entier (5.0) : converti '
-        'en 5 malgre tout — preuve du .toInt()', () {
+        'en 5 malgré tout — preuve du .toInt()', () {
       final Map<String, dynamic> ligne = baseRow()
         ..['nombre_modalite_ecoulement'] = 5.0;
 
@@ -356,7 +473,7 @@ void main() {
       expect(campagne.modalityCount, 5);
     });
 
-    test('champ inedit (champ_inedit) : lu sans echouer (BR-011)', () {
+    test('champ inédit (champ_inedit) : lu sans échouer (BR-011)', () {
       final Map<String, dynamic> ligne = baseRow()..['champ_inedit'] = 1;
 
       expect(() => mapOndeCampaign(ligne), returnsNormally);

@@ -7,7 +7,13 @@
 // test de l'autre ne le voie. `date_observation` et `date_campagne` sont des
 // dates sans heure (T-08) : aucune heure n'est inventée, la date est
 // reconstruite en UTC minuit explicite à partir de ses seules composantes
-// année/mois/jour. `code_ecoulement` est délégué à `flowCategoryFromCode`
+// année/mois/jour, lues sur les dix premiers caractères `AAAA-MM-JJ`
+// seulement — un suffixe d'heure ou de fuseau est ignoré, jamais converti.
+// Tout champ texte passe par `_text` : un `as String?` nu lèverait un
+// `TypeError` non documenté si l'API rendait un jour un entier là où une
+// chaîne est attendue ; `_text` lève une `FormatException` à la place, et
+// normalise la chaîne vide en `null` (BR-007, jamais une chaîne vide).
+// `code_ecoulement` est délégué à `flowCategoryFromCode`
 // (`lib/domain/nomenclature/flow_category.dart`), jamais recopié : un code
 // non reconnu devient `Inconnu`, il ne fait jamais planter l'appelant
 // (C-10, BR-011).
@@ -26,13 +32,7 @@ import 'package:martinpecheur/domain/station/station.dart';
 /// forme inconnue (via [OndeStationCode]). `code_ecoulement` inconnu ou
 /// absent ne lève jamais : il devient [Inconnu] (BR-011).
 OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
-  final String? rawStationCode = raw['code_station'] as String?;
-  if (rawStationCode == null) {
-    throw const FormatException(
-      'code_station absent — la station ne peut pas être identifiée',
-    );
-  }
-  final OndeStationCode station = OndeStationCode(rawStationCode);
+  final OndeStationCode station = _stationCode(raw);
 
   final DateTime observedAt = _dateOnly(
     raw['date_observation'],
@@ -47,7 +47,7 @@ OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
     observedAt: observedAt,
     category: category,
     rawFlowCode: rawFlowCode,
-    officialLabel: raw['libelle_ecoulement'] as String?,
+    officialLabel: _text(raw, 'libelle_ecoulement'),
     campaignCode: _campaignCode(raw['code_campagne']),
   );
 }
@@ -60,12 +60,12 @@ OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
 OndeCampaign mapOndeCampaign(Map<String, dynamic> raw) {
   final String? code = _campaignCode(raw['code_campagne']);
   if (code == null) {
-    throw const FormatException('code_campagne absent ou illisible');
+    throw const FormatException('code_campagne absent');
   }
 
   final DateTime date = _dateOnly(raw['date_campagne'], field: 'date_campagne');
 
-  final String? rawTypeLabel = raw['libelle_type_campagne'] as String?;
+  final String? rawTypeLabel = _text(raw, 'libelle_type_campagne');
   if (rawTypeLabel == null) {
     throw const FormatException('libelle_type_campagne absent');
   }
@@ -92,16 +92,10 @@ OndeCampaign mapOndeCampaign(Map<String, dynamic> raw) {
 /// ignorée — deux sources concordantes, une seule lue (T-09). Lève une
 /// [FormatException] si `code_station`, `latitude` ou `longitude` sont
 /// absents ou illisibles : un point sans coordonnées n'est pas plaçable.
-/// `libelle_station` absent replie [OndePoint.label] sur le code, jamais une
-/// chaîne vide (BR-007).
+/// `libelle_station` absent ou vide replie [OndePoint.label] sur le code,
+/// jamais une chaîne vide (BR-007).
 OndePoint mapOndePoint(Map<String, dynamic> raw) {
-  final String? rawStationCode = raw['code_station'] as String?;
-  if (rawStationCode == null) {
-    throw const FormatException(
-      'code_station absent — la station ne peut pas être identifiée',
-    );
-  }
-  final OndeStationCode code = OndeStationCode(rawStationCode);
+  final OndeStationCode code = _stationCode(raw);
 
   final Object? rawLatitude = raw['latitude'];
   final Object? rawLongitude = raw['longitude'];
@@ -112,41 +106,92 @@ OndePoint mapOndePoint(Map<String, dynamic> raw) {
     );
   }
 
-  final String? departementRaw = raw['code_departement'] as String?;
-
   return OndePoint(
     code: code,
-    label: (raw['libelle_station'] as String?) ?? rawStationCode,
+    label: _text(raw, 'libelle_station') ?? code.value,
     latitude: rawLatitude.toDouble(),
     longitude: rawLongitude.toDouble(),
-    waterCourseLabel: raw['libelle_cours_eau'] as String?,
-    departement: departementRaw == null
-        ? null
-        : DepartementCode(departementRaw),
+    waterCourseLabel: _text(raw, 'libelle_cours_eau'),
+    departement: switch (_text(raw, 'code_departement')) {
+      null => null,
+      final String value => DepartementCode(value),
+    },
   );
+}
+
+/// Lit et valide `code_station`, partagé par [mapOndeObservation] et
+/// [mapOndePoint]. Lève une [FormatException] si absent, une
+/// [ArgumentError] si la forme est mauvaise (via [OndeStationCode]).
+OndeStationCode _stationCode(Map<String, dynamic> raw) {
+  final String? rawStationCode = _text(raw, 'code_station');
+  if (rawStationCode == null) {
+    throw const FormatException(
+      'code_station absent — la station ne peut pas être identifiée',
+    );
+  }
+  return OndeStationCode(rawStationCode);
+}
+
+/// Lit un champ texte de [raw]. Rend `null` si absent ou vide — la chaîne
+/// vide est normalisée en `null` (BR-007 : jamais une chaîne vide comme
+/// valeur). Lève une [FormatException] si le champ est présent mais n'est
+/// pas une chaîne : un `as String?` nu lèverait sinon un `TypeError` non
+/// documenté à la frontière, la première fois que l'API rend un entier là
+/// où une chaîne était attendue.
+String? _text(Map<String, dynamic> raw, String field) {
+  final Object? value = raw[field];
+  if (value == null) {
+    return null;
+  }
+  if (value is! String) {
+    throw FormatException('$field attendu textuel, reçu $value');
+  }
+  return value.isEmpty ? null : value;
 }
 
 /// Lit `code_campagne`, rendu tantôt en entier (`/campagnes`), tantôt en
 /// chaîne (`/observations`) — T-07. Aucun `as int` n'apparaît ici : le
-/// contenu est distingué par son type, jamais forcé.
+/// contenu est distingué par son type, jamais forcé. Une chaîne vide est
+/// normalisée en `null`, comme [_text] (BR-007).
 String? _campaignCode(Object? raw) => switch (raw) {
   null => null,
-  final String value => value,
+  final String value => value.isEmpty ? null : value,
   final num value => value.toInt().toString(),
   _ => throw FormatException('code_campagne de type inattendu : $raw'),
 };
 
-/// Lit une date sans heure (`'2026-08-25'` — l'API n'en donne pas, T-08) et
-/// la rend en UTC minuit explicite, construite à partir des seules
-/// composantes année/mois/jour : `DateTime.parse` sur une chaîne sans fuseau
-/// rend un minuit LOCAL, jamais réutilisable tel quel. Lève une
-/// [FormatException] si [raw] est absent ou illisible (BR-001) — une date
-/// muette ferait sinon ressortir l'observation ou la campagne comme la plus
-/// récente, l'état le moins fiable.
+/// Motif d'une date sans heure `AAAA-MM-JJ`, ancré en début de chaîne : un
+/// éventuel suffixe d'heure ou de fuseau (`T10:00:00`, `+02:00`…) n'est pas
+/// capturé, donc jamais lu.
+final RegExp _dateOnlyPattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})');
+
+/// Lit une date sans heure (l'API n'en donne pas, T-08) et la rend en UTC
+/// minuit explicite. Seuls les dix premiers caractères `AAAA-MM-JJ` sont
+/// lus, via [_dateOnlyPattern] : un suffixe d'heure ou de fuseau observé sur
+/// certains flux est ignoré, jamais converti, pour ne jamais introduire de
+/// décalage de jour au passage en UTC — `'2026-08-26T00:30:00+02:00'` reste
+/// le 26, pas un recul au 25.
+///
+/// Lève une [FormatException] si [raw] est absent, ne commence pas par ce
+/// motif, ou si le mois ou le jour sont hors plage : `DateTime.utc` déborde
+/// silencieusement (le 13ᵉ mois devient janvier de l'année suivante) au lieu
+/// de lever, ce qui ferait ressortir une date fausse plutôt qu'une erreur
+/// explicite (BR-001) — une date muette ferait sinon ressortir
+/// l'observation ou la campagne comme la plus récente, l'état le moins
+/// fiable.
 DateTime _dateOnly(Object? raw, {required String field}) {
   if (raw is! String) {
     throw FormatException('$field absent ou illisible');
   }
-  final DateTime parsed = DateTime.parse(raw);
-  return DateTime.utc(parsed.year, parsed.month, parsed.day);
+  final RegExpMatch? match = _dateOnlyPattern.firstMatch(raw);
+  if (match == null) {
+    throw FormatException('$field attendu au format AAAA-MM-JJ, reçu $raw');
+  }
+  final int year = int.parse(match.group(1)!);
+  final int month = int.parse(match.group(2)!);
+  final int day = int.parse(match.group(3)!);
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    throw FormatException('$field hors plage : $raw');
+  }
+  return DateTime.utc(year, month, day);
 }
