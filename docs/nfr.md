@@ -62,3 +62,4 @@ Une case vide est une case vide, pas un « probablement ».
 | `NV-W3` — aucune mesure de fluidité sur Windows | ouvert, sans date — bloque `NFR-01` |
 | `NV-W4` — iOS jamais compilé, faute d'hôte macOS | sans date |
 | `NV-W5` — Android ⏸ différé le 2026-09-12 | sans date |
+| `NV-W6` — chaque cran de molette déclenche un rechargement, sans anti-rebond | ouvert le 2026-09-13, **non mesuré**. `MapEventScrollWheelZoom` n'a pas de variante `…End` dans `flutter_map` 8.3.2 : `shouldRefreshOn` répond donc `true` à **chaque** cran, et un zoom de cinq crans fait cinq allers-retours au dépôt et cinq reconstructions des 4 150 marqueurs. Aucun anti-rebond n'est posé, et la garde d'emprise inchangée ne sert à rien ici — chaque cran change bien l'emprise. À instruire avec `NFR-01`, en même temps que `NV-W3` : sans relevé de trames, on ne sait pas si le coût est visible ou non |
