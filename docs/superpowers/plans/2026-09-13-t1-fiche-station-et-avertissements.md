@@ -123,7 +123,7 @@ lib/domain/                             Dart pur — ajouts de T1
   warnings/warning_texts.dart           les quatre textes + leur version (W2)
 lib/data/
   cache/cache_policy.dart               withCachePolicy, unique (pose par R4)
-  http/onde_uris.dart                                            (D4)
+  http/onde_uris.dart  http/hub_eau_paging.dart                  (D4)
   mappers/onde_observation_mapper.dart                           (D3)
   observations/http_hydro_observation_repository.dart             (D5)
   observations/cached_hydro_observation_repository.dart  TTL 20 min (D6)

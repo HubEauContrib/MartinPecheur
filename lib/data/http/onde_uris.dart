@@ -4,7 +4,9 @@
 // du même hôte, rejoue sur 429/5xx, accepte 200 et 206 (C-06), décode en
 // UTF-8 explicite. Recréer un `OndeClient` aurait recopié cette logique de
 // rejeu, ce que le produit interdit. `checkPageSize` et `formatDateUtc` sont
-// réutilisés depuis `hub_eau_client.dart`, jamais recopiés.
+// réutilisés depuis `lib/data/http/hub_eau_paging.dart` — pas depuis
+// `hub_eau_client.dart` : ce fichier n'a aucune raison de dépendre du module
+// d'un autre endpoint pour deux fonctions utilitaires communes.
 //
 // `date_observation_min` est requis sur la recherche par emprise : sans
 // borne, l'API ONDE renverrait l'historique complet plutôt que les
@@ -14,8 +16,7 @@
 // que lisent `mapOndeObservation` et `mapOndePoint`
 // (`lib/data/mappers/onde_observation_mapper.dart`), jamais recopiés à la
 // main ailleurs.
-import 'package:martinpecheur/data/http/hub_eau_client.dart'
-    show checkPageSize, formatDateUtc;
+import 'package:martinpecheur/data/http/hub_eau_paging.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';

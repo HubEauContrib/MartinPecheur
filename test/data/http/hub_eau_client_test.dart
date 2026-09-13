@@ -4,6 +4,9 @@
 // touche l'API réelle : http.testing.MockClient sert des réponses
 // préparées, et l'attente entre tentatives est injectée pour ne jamais
 // dormir — delayForAttempt lui-même reste vérifié seul dans retry_test.dart.
+// maxPageSize, checkPageSize et formatDateUtc, communs à tous les endpoints
+// Hub'Eau, sont vérifiés directement dans hub_eau_paging_test.dart — ici, on
+// ne teste plus que leur usage par les constructeurs d'URI de ce fichier.
 import 'dart:convert';
 import 'dart:io';
 
@@ -66,16 +69,6 @@ void main() {
       expect(uri.path, '/api/v2/hydrometrie/obs_elab');
       expect(uri.queryParameters['date_debut_obs_elab'], '2026-08-01');
       expect(uri.queryParameters['grandeur_hydro_elab'], 'QmnJ');
-    });
-
-    test('une date locale non UTC donne le jour UTC (formatDateUtc)', () {
-      final DateTime utc = DateTime.utc(2026, 8);
-      final DateTime local = utc.toLocal();
-      expect(local.isUtc, isFalse);
-
-      final Uri uri = obsElabUri(station: station, since: local);
-
-      expect(uri.queryParameters['date_debut_obs_elab'], '2026-08-01');
     });
   });
 
@@ -383,19 +376,6 @@ void main() {
             (http.Request request) async => http.Response('{}', 200),
           ),
           maxAttempts: 0,
-        ),
-        throwsArgumentError,
-      );
-    });
-  });
-
-  group('checkPageSize — size minimal', () {
-    test('size: 0 lève ArgumentError', () {
-      expect(
-        () => observationsTrUri(
-          station: station,
-          grandeur: Grandeur.debit,
-          size: 0,
         ),
         throwsArgumentError,
       );

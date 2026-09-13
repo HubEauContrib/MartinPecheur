@@ -6,9 +6,10 @@
 // recopié cette logique de rejeu — ce que le produit interdit. Les
 // constructeurs d'URI de ce fichier, eux, restent propres à l'hydrométrie
 // v2 (ADR-001 : uniquement la v2, la v1 est arrêtée depuis le 05/05/2025,
-// C-01) ; [checkPageSize] et [formatDateUtc] sont exposés pour être
-// réutilisés par les constructeurs d'URI d'autres endpoints, sans jamais
-// être recopiés. `date_debut_obs_elab` est un paramètre requis de [obsElabUri],
+// C-01) ; `checkPageSize`, `maxPageSize` et `formatDateUtc` vivent dans
+// `lib/data/http/hub_eau_paging.dart`, communs aux deux endpoints, pour que
+// `onde_uris.dart` n'ait pas à importer ce fichier pour deux fonctions
+// utilitaires. `date_debut_obs_elab` est un paramètre requis de [obsElabUri],
 // jamais optionnel : sans lui, `sort` est ignoré et la réponse commence au
 // 1er janvier 1900 (C-04, reproduit le 2026-09-13, voir
 // docs/sources/hubeau-hydrometrie.md). `size` au-delà de [maxPageSize] fait
@@ -49,15 +50,10 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:martinpecheur/data/http/http_status.dart';
+import 'package:martinpecheur/data/http/hub_eau_paging.dart';
 import 'package:martinpecheur/data/http/retry.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/station/station.dart';
-
-/// Taille de page maximale acceptée par Hub'Eau avant de répondre `400`
-/// (C-08, constaté sur `/observations_tr`) — commune aux endpoints
-/// hydrométrie v2 et ONDE v1 (`lib/data/http/onde_uris.dart`), pas propre à
-/// un seul.
-const int maxPageSize = 20000;
 
 /// Hôte unique de l'API hydrométrie v2 (ADR-001).
 const String _host = 'hubeau.eaufrance.fr';
@@ -119,37 +115,6 @@ Uri referentielStationUri(StationCode station) {
   return _uri('referentiel/stations', <String, String>{
     'code_station': station.value,
   });
-}
-
-/// Vérifie qu'une taille de page est acceptable pour Hub'Eau (au moins 1, au
-/// plus [maxPageSize]) — commune à l'hydrométrie et à ONDE, toutes deux
-/// exposées par la même famille d'API. Lève une [ArgumentError] sinon.
-/// Exposée pour que les constructeurs d'URI d'autres endpoints (ONDE,
-/// `lib/data/http/onde_uris.dart`) la réutilisent, sans jamais la recopier.
-void checkPageSize(int size) {
-  if (size < 1) {
-    throw ArgumentError.value(size, 'size', 'doit être au moins 1');
-  }
-  if (size > maxPageSize) {
-    throw ArgumentError.value(
-      size,
-      'size',
-      'dépasse maxPageSize ($maxPageSize) — l\'API répond 400 (C-08)',
-    );
-  }
-}
-
-/// Formate [date] en `AAAA-MM-JJ`, tel qu'attendu par les paramètres de date
-/// Hub'Eau. Convertit lui-même en UTC (`date.toUtc()`) : une date locale
-/// n'est jamais formatée telle quelle, l'appelant n'a pas à y penser.
-/// Exposée pour que les constructeurs d'URI d'autres endpoints (ONDE,
-/// `lib/data/http/onde_uris.dart`) la réutilisent, sans jamais la recopier.
-String formatDateUtc(DateTime date) {
-  final DateTime utc = date.toUtc();
-  final String year = utc.year.toString().padLeft(4, '0');
-  final String month = utc.month.toString().padLeft(2, '0');
-  final String day = utc.day.toString().padLeft(2, '0');
-  return '$year-$month-$day';
 }
 
 Uri _uri(String path, Map<String, String> queryParameters) {
