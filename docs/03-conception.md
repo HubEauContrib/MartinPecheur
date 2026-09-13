@@ -31,38 +31,51 @@ C'est le hors-ligne qui a fait basculer la décision : il était un **lot de dé
 
 ## 2. Architecture
 
-**Clean Architecture en couches + CQRS léger.** Le principe est repris d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) ; seul son véhicule .NET disparaît ([`ADR-010`](adr/ADR-010-react-native.md)).
+> ⚠️ **Cette section est réécrite le 2026-09-13** ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md), arbitrage du commanditaire). Elle décrivait une architecture en couches avec un contrat `Query`/`Command` et un registre de gestionnaires, repris d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) : ce volet est abandonné.
 
-Couches : **UI** (écrans et composants React) → **application/** (`Query`/`Command` typés + handlers, décorateur de cache) → **domain/** (entités, règles, interfaces de dépôt — **aucun import de framework**) → **data/** (dépôts, sources distantes et locales, mappers).
+**Feature-first + MVVM**, l'architecture recommandée par l'équipe Flutter (guide lu le 2026-09-13). Deux couches, et une **tranche par écran** :
 
-**Un composant d'écran n'appelle jamais un dépôt** : il envoie une requête ou une commande. Les handlers orchestrent, les dépôts restent bêtes.
+| Élément | Où | Rôle |
+|---|---|---|
+| **View** | `lib/features/<feature>/view/` | widgets. Elle branche et affiche ; elle ne décide pas, et **n'appelle jamais un dépôt** |
+| **ViewModel** | `lib/features/<feature>/view_model/` | un `ChangeNotifier` par écran : il expose l'état et les actions, et appelle les dépôts par des **appels typés**. Il **n'importe aucun widget** — c'est ce qui le rend testable sans rendu |
+| **Repository** | `lib/data/` | source de vérité d'une donnée, décorée par `CachePolicy`. Produit des objets de domaine, jamais des valeurs brutes d'API |
+| **Service / DataSource** | `lib/data/` | enveloppe une source : Hub'Eau v2, ONDE v1, VigiEau derrière `RestrictionSource`, asset des percentiles, stockage local |
+| **`domain/`** | `lib/domain/` | Dart pur, **transverse** : entités, unités typées, nomenclatures, interfaces de dépôt. Ne dépend de rien |
 
-**Pas de bibliothèque de médiateur.** Des handlers typés résolus par un registre explicite suffisent — c'est ce que `ADR-008` appelait déjà son repli, et il devient ici la solution nominale.
+**Zéro bibliothèque de gestion d'état** : `ChangeNotifier` et `ListenableBuilder` sont dans Flutter. **Aucune couche de cas d'usage** non plus — le guide l'annonce optionnelle, et aucun des six cas d'usage n'orchestre encore deux dépôts ; elle se réintroduirait **entre** ViewModel et dépôt, sans rien défaire.
 
-Modules : `core/{network,cache,data,geo}` · `features/{map,station-detail,onde,restrictions,favorites,settings}`.
+Tranches prévues : `features/{map,station_detail,onde,restrictions,favorites,settings}`, plus `data/` et `domain/` partagés.
 
 ```mermaid
-graph TD
-  UI["UI — écrans React<br/>carte MapLibre Native"]
-  MED["application/ — Query / Command<br/>+ CachePolicy (décorateur unique)"]
-  DOM["domain/ — entités, règles,<br/>interfaces de dépôt"]
-  REPO["data/ — dépôts + mappers"]
-  REM["RemoteDataSource<br/>fetch + retry avec backoff"]
-  LOC["LocalDataSource<br/>SQLite + packs MapLibre"]
-  ASSET["Asset embarqué<br/>référence percentiles"]
+flowchart LR
+  subgraph FEAT["features/&lt;feature&gt;/ — une tranche par écran"]
+    V["view/<br/>widgets"]
+    VM["view_model/<br/>ChangeNotifier :<br/>état + actions"]
+  end
+  subgraph DATA["data/ — partagé"]
+    REPO["Repository + mappers<br/>décoré par CachePolicy"]
+    REM["RemoteDataSource<br/>retry, backoff à gigue"]
+    LOC["LocalDataSource<br/>base locale + cache de tuiles"]
+    ASSET["Asset embarqué<br/>référence percentiles"]
+  end
+  DOM["domain/ — Dart pur, transverse<br/>entités, unités, nomenclatures,<br/>interfaces de dépôt"]
 
-  UI --> MED --> DOM
-  MED --> REPO
+  V -->|écoute, déclenche une action| VM
+  VM -->|appel typé| REPO
   REPO --> REM
   REPO --> LOC
   REPO --> ASSET
   REM -.-> HE[("Hub'Eau v2 hydrométrie<br/>Hub'Eau v1 écoulement")]
-  REM -.-> VE[("VigiEau — derrière IRestrictionSource")]
+  REM -.-> VE[("VigiEau — derrière RestrictionSource")]
+  VM -.-> DOM
+  REPO -.-> DOM
+  style DOM fill:#27ae60,color:#fff
 ```
 
-**Pas de CQRS complet, pas d'event sourcing** : il n'y a ni deux modèles ni événements de domaine. « Léger » signifie ici un contrat `IQuery`/`ICommand` avec handlers, et un pipeline. Rien de plus.
+**Le sens des dépendances est verrouillé par un test**, pas seulement écrit : `data/` n'importe jamais `features/`, `domain/` n'importe aucune infrastructure, et un `view_model` n'importe ni `material.dart` ni `widgets.dart`.
 
-**Isolation du risque VigiEau** : une seule interface `IRestrictionSource`, deux implémentations (API, puis export data.gouv en repli). Une rupture de l'API `0.1` n'impacte qu'une classe.
+**Isolation du risque VigiEau** : une seule interface `RestrictionSource`, deux implémentations (API, puis export data.gouv en repli). Une rupture de l'API `0.1` n'impacte qu'une classe.
 
 ## 3. Modèle de données local
 
@@ -113,7 +126,7 @@ graph TD
 >
 > Une observation peut être **fraîchement téléchargée et vieille de neuf jours** : c'est le cas en production (`BR-001`). Appliquer « 2 × TTL » à l'âge de la mesure déclarerait périmée une observation de 40 minutes, à qui `BR-005` laisse 24 heures.
 
-> Cette règle est portée par **un composant unique** — le décorateur `CachePolicy`, en amont des handlers de lecture ([`ADR-010`](adr/ADR-010-react-native.md), principe repris d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md)) — jamais recopiée dans un dépôt ni dans un composant d'écran.
+> Cette règle est portée par **un composant unique** — le décorateur de dépôt `CachePolicy`, sous `lib/data/` ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md) ; le principe « un seul endroit » vient d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md), son véhicule a changé) — jamais recopiée dans un dépôt nu, un ViewModel ou un widget.
 
 ### 4.2 Implémentation React Native
 

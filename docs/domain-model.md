@@ -75,7 +75,8 @@ défaut.
 - Aucun type de réponse d'API — la traduction est au mapper (`data/`), pas ici.
 - Aucun accès réseau, disque ou écran — verrouillé par
   `test/architecture/domain_isolation_test.dart`.
-- Aucune politique de cache — un seul décorateur `CachePolicy`, en couche application.
+- Aucune politique de cache — un seul décorateur de dépôt `CachePolicy`, sous `data/`
+  (`ADR-014`).
 - **Aucun seuil hydrologique** (`ADR-002`, `BR-003`) — la faute la plus grave possible sur ce
   produit.
 

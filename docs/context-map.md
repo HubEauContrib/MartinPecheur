@@ -57,11 +57,33 @@ flowchart TB
 **Les trois échelles ne fusionnent jamais** (`BR-008`) : un fait observé, une statistique
 et une décision préfectorale sont trois natures distinctes.
 
+## Comment un écran atteint un contexte
+
+Un contexte borné est atteint **par un dépôt, jamais autrement**. Le chemin est le même pour
+les six, et il est direct — **View → ViewModel → Repository → Service**
+([`ADR-014`](adr/ADR-014-feature-first-mvvm.md), *feature-first* + MVVM) :
+
+```mermaid
+flowchart LR
+    V["View<br/>widgets d'une tranche"] -->|"écoute, déclenche une action"| VM["ViewModel<br/>ChangeNotifier, un par écran"]
+    VM -->|"appel typé"| R["Repository du contexte<br/>+ décorateur CachePolicy"]
+    R --> S["Service / DataSource"]
+    S -.-> EXT[("source externe<br/>ou asset embarqué")]
+```
+
+Trois conséquences sur la carte des contextes :
+
+- **Un widget n'atteint aucun contexte directement.** Il passe par le ViewModel de son écran.
+- **Un écran qui croise deux contextes croise deux dépôts**, dans son ViewModel — c'est là, et
+  nulle part ailleurs, que l'agrégation du contexte `Carte` s'écrit.
+- **Le contexte `Avertissement` reste transverse** : il ne dépend d'aucune donnée, donc d'aucun
+  dépôt. Il traverse les vues (`BR-012`, `BR-013`).
+
 ## Couches anticorruption
 
 | Source | Protection | Motif |
 |---|---|---|
-| VigiEau | **`IRestrictionSource`**, deux implémentations | API en version `0.1` sur `beta.gouv.fr`, rupture possible sans préavis (`ADR-004`) |
+| VigiEau | **`RestrictionSource`**, deux implémentations | API en version `0.1` sur `beta.gouv.fr`, rupture possible sans préavis (`ADR-004`) |
 | Hub'Eau | Mappers dédiés par endpoint | Unités trompeuses, nomenclatures incomplètes, doublons site/station (`BR-002`, `BR-011`) |
 | Toutes | `BR-011` — branche par défaut obligatoire | Sources publiques sans engagement de stabilité |
 
@@ -71,5 +93,5 @@ et une décision préfectorale sont trois natures distinctes.
 |---|---|
 | Backend, base serveur | Hors périmètre v1. Contourné par un asset généré au build (`ADR-003`) |
 | Compte utilisateur | Hors périmètre v1. Les favoris sont locaux |
-| Catalogue d'événements | Aucun événement de domaine, aucun event sourcing, aucune projection. Le CQRS d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) se limite à `IQuery`/`ICommand` + handlers + pipeline : il n'introduit **pas** d'`IEvent` |
+| Catalogue d'événements | Aucun événement de domaine, aucun event sourcing, aucune projection, **aucun registre de messages** ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md)). Un écran demande une donnée par un **appel typé** de son ViewModel à un dépôt ; rien ne publie, rien ne s'abonne — sauf la vue, qui écoute son propre ViewModel |
 | Contexte `Qualite` | Écarté (`ADR-007`) |
