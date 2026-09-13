@@ -258,7 +258,7 @@ git add lib/domain test/domain && git commit -m "feat(domain): typer l ecoulemen
 git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): mapper ONDE, teste sur la fixture reelle du 2026-09-13" -m "code_campagne est lu en Object? et rendu en String : entier dans /campagnes, chaine dans /observations. Un as int aurait casse sur l un des deux, sans qu aucun test de l autre ne le voie. date_observation est une date sans heure : aucune heure n est inventee (BR-001)."
 ```
 
-### Task D4 : Le client ONDE et ses URI
+### Task D4 : Les URI ONDE, sur le client Hub'Eau existant
 
 **Files:** créé `lib/data/http/onde_uris.dart` · test miroir
 
@@ -284,6 +284,8 @@ git add lib/data/mappers test/data/mappers && git commit -m "feat(ecoulement): m
 - [x] **Étape 2** — `flutter test test/data/http/onde_uris_test.dart` → échec.
 - [x] **Étape 3** — implémenter en **réutilisant** `isSuccess`/`isRetryable` (`lib/data/http/http_status.dart`) et le recul de `lib/data/http/retry.dart`. Aucune recopie de logique de rejeu.
 - [x] **Étape 4** — `flutter test test/data/http` → vert, puis critère de fin et commit.
+
+Cas 404/503 de `getJson` non réécrits ici : déjà verrouillés dans `hub_eau_client_test.dart` (déviation notée le 2026-09-13).
 
 ```bash
 git add lib/data/http test/data/http docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md && git commit -m "feat(ecoulement): URI ONDE bbox, station et campagnes sur le client Hub Eau existant" -m "Le bbox s ecrit ouest,sud,est,nord : inverser deux valeurs ne leve rien, la carte se remplit simplement d autre chose, et cela ne se voit qu a l ecran. Pas de classe OndeClient : HubEauClient.getJson prend deja n importe quelle URI, avec 206 en succes (C-06), rejeu sur 503 et jamais sur 404 ; un second client aurait recopie la logique de rejeu. La verification de taille et le format de date sont reutilises, jamais recopies."

@@ -86,10 +86,12 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
   → HTTP **206**, `count` **30**, chaque ligne de `data` porte **exactement les dix clés
   demandées** (première ligne :
   `{"code_station":"K4640001","libelle_station":"LA BONNEURE A MILLANCAY","code_departement":"41","libelle_cours_eau":"la Bonne Heure","code_campagne":"109905","date_observation":"2026-08-25","code_ecoulement":"3","libelle_ecoulement":"Assec","longitude":1.78116675,"latitude":47.444182169}`).
-  C'est la forme filaire exacte émise par l'app : dix champs, bbox à quinze décimales, virgules
-  en `%2C`. Complément : `bbox=3e-7%2C47.3%2C1.8%2C47.8&size=1` (notation exponentielle, celle
-  que `double.toString()` produit sous `1e-6`) → **206**, `count` **5057** — l'API la parse
-  aussi.
+  Bbox à quinze décimales, du même ordre que ce qu'émet la carte : dix champs, virgules en
+  `%2C` (`47.799999999999997` n'est pas nécessairement ce que `double.toString()` produirait
+  pour cette valeur précise — l'appel vérifie que l'API accepte cet ordre de précision, pas
+  une capture verbatim de l'app). Complément : `bbox=3e-7%2C47.3%2C1.8%2C47.8&size=1` (notation
+  exponentielle, celle que `double.toString()` produit sous `1e-6`) → **206**, `count` **5057**
+  — l'API la parse aussi.
 
 ⚠️ `T-07` **`code_campagne` change de type selon l'endpoint** : entier dans `/campagnes`
 (`109905`), chaîne dans `/observations` (`"109905"`) — un modèle qui le type `int` casse sur

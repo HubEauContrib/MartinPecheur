@@ -32,10 +32,22 @@ void main() {
       expect(formatDateUtc(DateTime.utc(2026, 8, 1)), '2026-08-01');
     });
 
-    test('une date locale non UTC donne le jour UTC', () {
-      final DateTime utc = DateTime.utc(2026, 8, 1);
-      final DateTime local = utc.toLocal();
-      expect(local.isUtc, isFalse);
+    // Deux cas symétriques : lequel des deux fait rougir le test sans
+    // .toUtc() dépend du signe du décalage horaire local de la machine qui
+    // exécute le test — décalage positif (est de l'UTC), c'est 23h59 qui
+    // bascule au jour suivant ; décalage négatif (ouest de l'UTC), c'est
+    // 00h01 qui bascule à la veille. `DateTime.utc(2026, 8, 1)` seul ne
+    // discriminait rien : minuit reste le 1er quel que soit le signe.
+    test('une date locale non UTC donne le jour UTC — décalage positif, '
+        "c'est 23h59 qui bascule", () {
+      final DateTime local = DateTime.utc(2026, 8, 1, 23, 59).toLocal();
+
+      expect(formatDateUtc(local), '2026-08-01');
+    });
+
+    test('une date locale non UTC donne le jour UTC — décalage négatif, '
+        "c'est 00h01 qui bascule", () {
+      final DateTime local = DateTime.utc(2026, 8, 1, 0, 1).toLocal();
 
       expect(formatDateUtc(local), '2026-08-01');
     });

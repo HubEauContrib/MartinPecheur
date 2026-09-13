@@ -16,11 +16,12 @@ import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
-/// Les dix champs — ni plus ni moins (YAGNI) — que lisent
-/// `mapOndeObservation` et `mapOndePoint`
-/// (`lib/data/mappers/onde_observation_mapper.dart`). `fields` doit
-/// coïncider exactement avec cet ensemble sur les deux URI d'observations.
-const Set<String> _fieldsReadByMapper = <String>{
+/// Liste maintenue en double avec `_observationFields`
+/// (`lib/data/http/onde_uris.dart`) : un ajout de lecture dans
+/// `onde_observation_mapper.dart` impose de toucher les deux.
+/// `fields` doit coïncider exactement avec cet ensemble sur les deux URI
+/// d'observations.
+const Set<String> _expectedFields = <String>{
   'code_station',
   'date_observation',
   'code_ecoulement',
@@ -80,7 +81,7 @@ void main() {
           .split(',')
           .toSet();
 
-      expect(fields, _fieldsReadByMapper);
+      expect(fields, _expectedFields);
     });
 
     test('les virgules sont encodées en %2C (forme vérifiée par appel réel le '
@@ -140,7 +141,7 @@ void main() {
           .split(',')
           .toSet();
 
-      expect(fields, _fieldsReadByMapper);
+      expect(fields, _expectedFields);
     });
 
     test('size: 0 lève ArgumentError (C-08)', () {
