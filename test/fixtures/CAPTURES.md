@@ -19,7 +19,15 @@ pas l'histoire.
 | `onde/campagnes_departement_41_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/campagnes?code_departement=41&size=20` | `206` (capturé le 2026-09-13 avec `curl -w`, conservé cette fois), `time_total` 0,52 s, `count` 96 | `206` |
 | `onde/observations_bbox_loire_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?bbox=1.0,47.3,1.8,47.8&date_observation_min=2026-07-15&size=30&sort=desc` | `200` (capturé le 2026-09-13 avec `curl -w`, conservé cette fois), `time_total` 0,23 s, `count` 30 | `200` |
 | `onde/observations_station_K4520001_2026-09-13.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_station=K4520001&sort=desc&size=10` | `206` (capturé le 2026-09-13 avec `curl -w`, conservé cette fois), `time_total` 0,20 s, `count` 96 | `206` |
+| `onde/observations_station_A721_3011_espace_2026-09-14.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_station=A721%203011&sort=desc&fields=…&size=3` | `206` (capturé le **2026-09-14**), `count` **40** | non rejoué |
+| `onde/observations_station_A7213011_sans_espace_2026-09-14.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_station=A7213011&sort=desc&fields=…&size=3` | `206` (capturé le **2026-09-14**), `count` **63** | non rejoué |
+| `onde/observations_station_P9130001_code_ecoulement_null_2026-09-14.json` | `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?code_station=P9130001&sort=desc&fields=…&size=3` | `206` (capturé le **2026-09-14**), `count` **126** | non rejoué |
 | `referentiel/stations_extrait_2026-09-13.json` | — | non applicable — copie déclarée de `assets/referentiel/stations.json`, pas un appel HTTP | non applicable |
+
+Les trois captures du **2026-09-14** portent leur statut d'origine et n'ont pas été rejouées :
+la colonne de droite ne réécrit pas une vérification qui n'a pas eu lieu. Leur `fields` est la
+liste des dix champs de `lib/data/http/onde_uris.dart`, abrégée ici en `…` et lisible verbatim
+dans le champ `first` de chaque fixture. Ce qu'elles prouvent : `T-14`, `docs/sources/onde.md`.
 
 Les URL ci-dessus omettent `cursor=` (vide au premier appel, reconstituée depuis le champ
 `first` de chaque fixture) ; elles reproduisent sinon exactement les paramètres de la

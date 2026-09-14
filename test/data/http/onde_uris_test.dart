@@ -150,6 +150,39 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test("un code à espace intérieur ('A721 3011') passe l'espace au fil sous "
+        'la forme `+`, que `Uri(queryParameters:)` produit — forme acceptée '
+        "par l'API, vérifiée par appel réel le 2026-09-14 (T-14)", () {
+      final Uri uri = ondeObservationsForStationUri(
+        OndeStationCode('A721 3011'),
+        size: 3,
+      );
+
+      // Ce que l'app émet réellement au fil : `+`, pas `%20`. Les deux
+      // rendent 206 et `count` 40 (T-14) ; l'API réécrit de toute façon le
+      // séparateur en `%20` dans le champ `first` de sa réponse — visible
+      // dans la fixture citée plus bas — comme elle réécrit les virgules
+      // nues (T-12).
+      expect(uri.toString(), contains('code_station=A721+3011'));
+      // Et l'espace survit à l'aller-retour : ni perdu, ni doublé, ni `trim`é.
+      expect(uri.queryParameters['code_station'], 'A721 3011');
+    });
+
+    test("l'espace n'est jamais supprimé : 'A721 3011' et 'A7213011' "
+        "construisent deux URI distinctes — l'API rend deux historiques "
+        'différents (count 40 contre 63, T-14)', () {
+      final Uri avecEspace = ondeObservationsForStationUri(
+        OndeStationCode('A721 3011'),
+      );
+      final Uri sansEspace = ondeObservationsForStationUri(
+        OndeStationCode('A7213011'),
+      );
+
+      expect(avecEspace.queryParameters['code_station'], 'A721 3011');
+      expect(sansEspace.queryParameters['code_station'], 'A7213011');
+      expect(avecEspace, isNot(sansEspace));
+    });
   });
 
   group('Fixture réelle (2026-09-13) — HubEauClient réutilisé pour ONDE', () {
@@ -178,6 +211,38 @@ void main() {
       final List<dynamic> lignes = corps['data'] as List<dynamic>;
       final Map<String, dynamic> premiere = lignes[0] as Map<String, dynamic>;
       expect(premiere['libelle_cours_eau'], 'ruisseau la rivière aux loches');
+    });
+
+    test("l'URI construite pour 'A721 3011' porte les mêmes paramètres que "
+        "celle que l'API a elle-même rendue dans le champ `first` de la "
+        'capture du 2026-09-14 (T-14)', () {
+      final Map<String, dynamic> capture = jsonDecode(
+        File(
+          'test/fixtures/onde/'
+          'observations_station_A721_3011_espace_2026-09-14.json',
+        ).readAsStringSync(),
+      ) as Map<String, dynamic>;
+      final Uri rendueParLApi = Uri.parse(capture['first'] as String);
+
+      final Uri construite = ondeObservationsForStationUri(
+        OndeStationCode('A721 3011'),
+        size: 3,
+      );
+
+      // Comparaison sur les paramètres décodés, pas sur la chaîne : l'API
+      // réécrit l'espace en `%20` et les virgules de `fields` en clair,
+      // quand `Uri(queryParameters:)` émet `+` et `%2C`. Les trois formes
+      // désignent la même requête, et les trois sont acceptées (T-12, T-14).
+      expect(
+        rendueParLApi.queryParameters['code_station'],
+        construite.queryParameters['code_station'],
+      );
+      expect(construite.queryParameters['code_station'], 'A721 3011');
+      expect(rendueParLApi.path, construite.path);
+      expect(
+        rendueParLApi.queryParameters['fields']!.split(',').toSet(),
+        _expectedFields,
+      );
     });
   });
 }

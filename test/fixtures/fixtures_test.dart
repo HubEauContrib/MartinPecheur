@@ -323,6 +323,90 @@ void main() {
     );
   });
 
+  group('Écoulement ONDE — captures du 2026-09-14 (T-14)', () {
+    const String cheminEspace =
+        'onde/observations_station_A721_3011_espace_2026-09-14.json';
+    const String cheminSansEspace =
+        'onde/observations_station_A7213011_sans_espace_2026-09-14.json';
+    const String cheminEcoulementNull =
+        'onde/observations_station_P9130001_code_ecoulement_null_2026-09-14'
+        '.json';
+
+    test('les trois captures du 2026-09-14 sont lisibles et portent '
+        'api_version 1.2.0', () {
+      for (final String chemin in <String>[
+        cheminEspace,
+        cheminSansEspace,
+        cheminEcoulementNull,
+      ]) {
+        final Map<String, dynamic> reponse = readFixture(chemin);
+        expect(reponse['api_version'], '1.2.0', reason: chemin);
+        expect(rows(reponse), isNotEmpty, reason: chemin);
+      }
+    });
+
+    test("un code de station porte un espace intérieur et neuf caractères : "
+        "la forme à huit caractères de T-04 n'est pas générale", () {
+      final Map<String, dynamic> reponse = readFixture(cheminEspace);
+      expect(reponse['count'], 40);
+      for (final Map<String, dynamic> ligne in rows(reponse)) {
+        expect(ligne['code_station'], 'A721 3011');
+      }
+      expect(RegExp(r'^[A-Z0-9]{8}$').hasMatch('A721 3011'), isFalse);
+    });
+
+    test("l'espace est significatif : le même code sans espace rend un autre "
+        'count et un autre libellé de station (T-14)', () {
+      final Map<String, dynamic> avecEspace = readFixture(cheminEspace);
+      final Map<String, dynamic> sansEspace = readFixture(cheminSansEspace);
+
+      expect(avecEspace['count'], 40);
+      expect(sansEspace['count'], 63);
+      expect(
+        rows(avecEspace).first['libelle_station'],
+        'Le Trey à Vilcey-sur-Trey',
+      );
+      expect(
+        rows(sansEspace).first['libelle_station'],
+        'Le Trey à Vilcey sur Trey',
+      );
+      expect(rows(sansEspace).first['code_station'], 'A7213011');
+    });
+
+    test("l'URL rendue par l'API dans `first` encode l'espace en %20 — c'est "
+        'la forme que le service réécrit, pas celle que Dart émet (`+`, '
+        'T-14 c) : les deux sont acceptées', () {
+      final String premiere = readFixture(cheminEspace)['first'] as String;
+
+      expect(premiere, contains('code_station=A721%203011'));
+      expect(Uri.parse(premiere).queryParameters['code_station'], 'A721 3011');
+    });
+
+    test('code_ecoulement à null existe bel et bien en capture réelle — '
+        "Q-05 ne valait que de l'emprise Loire (T-14 e)", () {
+      final Map<String, dynamic> reponse = readFixture(cheminEcoulementNull);
+      final List<Map<String, dynamic>> lignes = rows(reponse);
+
+      expect(reponse['count'], 126);
+      final List<Map<String, dynamic>> nulles = lignes
+          .where((Map<String, dynamic> l) => l['code_ecoulement'] == null)
+          .toList();
+      expect(nulles, isNotEmpty);
+      // libelle_ecoulement est null sur les mêmes lignes : les deux champs
+      // manquent ensemble, jamais l'un sans l'autre.
+      for (final Map<String, dynamic> ligne in nulles) {
+        expect(ligne['libelle_ecoulement'], isNull);
+      }
+      // Et la capture porte aussi une ligne renseignée : la fixture prouve
+      // le mélange des deux cas dans une même réponse, pas seulement
+      // l'absence.
+      expect(
+        lignes.any((Map<String, dynamic> l) => l['code_ecoulement'] != null),
+        isTrue,
+      );
+    });
+  });
+
   group('Extrait GeoJSON du référentiel (déclaré comme extrait)', () {
     late List<Map<String, dynamic>> features;
 

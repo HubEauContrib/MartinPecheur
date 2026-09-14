@@ -7,6 +7,13 @@
 // (T-04, `count` 96 pour la seule station K4520001), et une liste
 // désordonnée prouve que le regroupement compare les dates plutôt que de se
 // fier à `sort=desc`.
+//
+// Second invariant propre à ce dépôt depuis le 2026-09-14 : la **tolérance
+// par ligne** (T-14). Une ligne que le mapper ne sait pas lire est ignorée
+// et comptée ; ce qui décrit la forme de la réponse (`data` absent, une
+// ligne qui n'est pas un objet) reste fatal. Le groupe « Tolérance par
+// ligne » ci-dessous verrouille les deux côtés de cette frontière : un test
+// qui ne prouverait que le saut laisserait passer un dépôt qui avale tout.
 import 'dart:convert';
 import 'dart:io';
 
@@ -166,28 +173,6 @@ void main() {
       );
     });
 
-    test("une ligne sans date_observation : la FormatException du mapper "
-        'est propagée, pas avalée', () async {
-      final http.Client mock = MockClient((http.Request request) async {
-        return http.Response(
-          jsonEncode(<String, Object?>{
-            'count': 1,
-            'data': <Object?>[
-              <String, Object?>{'code_station': 'A1234567'},
-            ],
-          }),
-          200,
-        );
-      });
-      final HttpOndeObservationRepository repository =
-          HttpOndeObservationRepository(HubEauClient(httpClient: mock));
-
-      await expectLater(
-        repository.latestWithinBounds(bounds, since: since),
-        throwsA(isA<FormatException>()),
-      );
-    });
-
     test("data d'un type inattendu (un entier) : FormatException", () async {
       final http.Client mock = MockClient((http.Request request) async {
         return http.Response(jsonEncode(<String, Object?>{'data': 3}), 200);
@@ -218,6 +203,187 @@ void main() {
         repository.latestWithinBounds(bounds, since: since),
         throwsA(isA<FormatException>()),
       );
+    });
+  });
+
+  group('Tolérance par ligne (T-14, BR-007)', () {
+    // Le 2026-09-14, 507 lignes sur 10 234 de la page nationale étaient
+    // refusées par la validation de forme d'alors : le bandeau rouge de la
+    // carte a fait disparaître 9 727 lignes lisibles pour 507 illisibles.
+    // Une ligne individuellement illisible est désormais ignorée et
+    // **comptée** — l'absence s'explique (BR-007), elle ne se propage pas.
+    http.Client mockRendant(Object? corps) =>
+        MockClient((http.Request request) async {
+          return http.Response(jsonEncode(corps), 200);
+        });
+
+    Map<String, Object?> ligneValide(String code, String date) =>
+        <String, Object?>{
+          'code_station': code,
+          'date_observation': date,
+          'code_ecoulement': '3',
+          'latitude': 47.5,
+          'longitude': 1.5,
+        };
+
+    test('une page de trois lignes dont une à code_station null : deux '
+        'observations rendues, une ligne comptée', () async {
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(
+            HubEauClient(
+              httpClient: mockRendant(<String, Object?>{
+                'count': 3,
+                'data': <Object?>[
+                  ligneValide('A1234567', '2026-06-01'),
+                  <String, Object?>{
+                    'code_station': null,
+                    'date_observation': '2026-06-01',
+                    'latitude': 47.5,
+                    'longitude': 1.5,
+                  },
+                  ligneValide('B7654321', '2026-06-02'),
+                ],
+              }),
+            ),
+          );
+
+      final List<OndeObservation> observations = await repository
+          .latestWithinBounds(bounds, since: since);
+
+      expect(observations, hasLength(2));
+      expect(repository.skippedRowCount, 1);
+    });
+
+    test("une ligne dont le code_station est blanc (l'ArgumentError du "
+        'domaine) est ignorée elle aussi, pas seulement la FormatException '
+        'du mapper', () async {
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(
+            HubEauClient(
+              httpClient: mockRendant(<String, Object?>{
+                'count': 2,
+                'data': <Object?>[
+                  ligneValide('   ', '2026-06-01'),
+                  ligneValide('A1234567', '2026-06-02'),
+                ],
+              }),
+            ),
+          );
+
+      final List<OndeObservation> observations = await repository
+          .latestWithinBounds(bounds, since: since);
+
+      expect(observations, hasLength(1));
+      expect(observations.single.station, OndeStationCode('A1234567'));
+      expect(repository.skippedRowCount, 1);
+    });
+
+    test(
+      'une page dont toutes les lignes sont illisibles rend une liste '
+      "vide et un compte égal au nombre de lignes — l'absence est "
+      "expliquée par le compte, elle n'est pas une panne de source",
+      () async {
+        final HttpOndeObservationRepository repository =
+            HttpOndeObservationRepository(
+              HubEauClient(
+                httpClient: mockRendant(<String, Object?>{
+                  'count': 2,
+                  'data': <Object?>[
+                    <String, Object?>{'code_station': 'A1234567'},
+                    <String, Object?>{'code_station': 'B7654321'},
+                  ],
+                }),
+              ),
+            );
+
+        final List<OndeObservation> observations = await repository
+            .latestWithinBounds(bounds, since: since);
+
+        expect(observations, isEmpty);
+        expect(repository.skippedRowCount, 2);
+      },
+    );
+
+    test('le compte est cumulé par instance, jamais remis à zéro entre deux '
+        'appels', () async {
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(
+            HubEauClient(
+              httpClient: mockRendant(<String, Object?>{
+                'count': 2,
+                'data': <Object?>[
+                  ligneValide('A1234567', '2026-06-01'),
+                  <String, Object?>{'code_station': 'B7654321'},
+                ],
+              }),
+            ),
+          );
+
+      await repository.latestWithinBounds(bounds, since: since);
+      expect(repository.skippedRowCount, 1);
+
+      await repository.latestWithinBounds(bounds, since: since);
+      expect(repository.skippedRowCount, 2);
+    });
+
+    test('un dépôt neuf compte zéro ligne ignorée', () {
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(
+            HubEauClient(httpClient: mockRendant(<String, Object?>{})),
+          );
+
+      expect(repository.skippedRowCount, 0);
+    });
+
+    test('historyFor applique la même tolérance : la ligne illisible est '
+        'ignorée et comptée, les autres sont rendues', () async {
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(
+            HubEauClient(
+              httpClient: mockRendant(<String, Object?>{
+                'count': 3,
+                'data': <Object?>[
+                  ligneValide('A1234567', '2026-01-01'),
+                  <String, Object?>{
+                    'code_station': 'A1234567',
+                    'date_observation': '32/06/2026',
+                    'latitude': 47.5,
+                    'longitude': 1.5,
+                  },
+                  ligneValide('A1234567', '2026-06-01'),
+                ],
+              }),
+            ),
+          );
+
+      final List<OndeObservation> observations = await repository.historyFor(
+        OndeStationCode('A1234567'),
+        limit: 5,
+      );
+
+      expect(observations, hasLength(2));
+      expect(observations.first.observedAt, DateTime.utc(2026, 6, 1));
+      expect(repository.skippedRowCount, 1);
+    });
+
+    test("une ligne qui n'est pas un objet reste une panne de source : "
+        "FormatException, jamais un saut silencieux — ce n'est pas une "
+        "ligne illisible, c'est une réponse qui ne ressemble à rien de "
+        'connu', () async {
+      final HttpOndeObservationRepository repository =
+          HttpOndeObservationRepository(
+            HubEauClient(
+              httpClient: mockRendant(<String, Object?>{
+                'data': <Object?>[1],
+              }),
+            ),
+          );
+
+      await expectLater(
+        repository.latestWithinBounds(bounds, since: since),
+        throwsA(isA<FormatException>()),
+      );
+      expect(repository.skippedRowCount, 0);
     });
   });
 

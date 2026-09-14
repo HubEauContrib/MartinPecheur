@@ -52,6 +52,53 @@ void main() {
     });
   });
 
+  group('mapOndeObservation — fixture réelle du 2026-09-14, code à espace '
+      'intérieur (T-14)', () {
+    test("la station 'A721 3011' se lit sans perdre son espace : le code "
+        "traverse le mapper verbatim, le point et la catégorie sont lus", () {
+      final Map<String, dynamic> ligne = _readFixtureRow(
+        'onde/observations_station_A721_3011_espace_2026-09-14.json',
+      );
+
+      final OndeObservation observation = mapOndeObservation(ligne);
+
+      // Le code porte un espace intérieur et neuf caractères : la forme à
+      // huit caractères de T-04 n'était vraie que de l'échantillon Loire.
+      expect(observation.station.value, 'A721 3011');
+      expect(observation.observedAt, DateTime.utc(2026, 9, 8));
+      expect(observation.category, const Ecoulement());
+      expect(observation.rawFlowCode, '1a');
+      expect(observation.point.label, 'Le Trey à Vilcey-sur-Trey');
+      expect(observation.point.waterCourseLabel, 'Le Trey');
+      expect(observation.point.departement, DepartementCode('54'));
+      expect(observation.point.latitude, closeTo(48.931956125, 1e-9));
+      expect(observation.point.longitude, closeTo(5.964665997, 1e-9));
+    });
+
+    test("'A721 3011' et 'A7213011' restent deux stations distinctes après "
+        "le mapper — l'API en rend deux historiques différents (count 40 "
+        'contre 63, T-14) : les fondre en une seule masquerait un point', () {
+      final OndeObservation avecEspace = mapOndeObservation(
+        _readFixtureRow(
+          'onde/observations_station_A721_3011_espace_2026-09-14.json',
+        ),
+      );
+      final OndeObservation sansEspace = mapOndeObservation(
+        _readFixtureRow(
+          'onde/observations_station_A7213011_sans_espace_2026-09-14.json',
+        ),
+      );
+
+      expect(avecEspace.station.value, 'A721 3011');
+      expect(sansEspace.station.value, 'A7213011');
+      expect(avecEspace.station == sansEspace.station, isFalse);
+      // Même rivière en apparence, deux libellés distincts dans le
+      // référentiel — constat brut, non interprété (T-14).
+      expect(avecEspace.point.label, 'Le Trey à Vilcey-sur-Trey');
+      expect(sansEspace.point.label, 'Le Trey à Vilcey sur Trey');
+    });
+  });
+
   group('mapOndePoint — fixture réelle du 2026-09-13', () {
     test('première observation de la station K4520001 lue comme un point', () {
       final Map<String, dynamic> ligne = _readFixtureRow(
@@ -149,9 +196,18 @@ void main() {
       'longitude': 2.173858157,
     };
 
-    test("code_station de mauvaise forme ('K452000') : ArgumentError", () {
+    test("code_station d'une longueur inattendue ('K452000', sept "
+        'caractères) : accepté verbatim, plus refusé — la forme à huit '
+        "caractères de T-04 n'est vraie que de l'échantillon Loire (T-14)", () {
       final Map<String, dynamic> ligne = baseRow()
         ..['code_station'] = 'K452000';
+
+      expect(mapOndeObservation(ligne).station.value, 'K452000');
+    });
+
+    test('code_station entièrement blanc : ArgumentError — un code blanc '
+        "n'identifie aucune station (BR-007)", () {
+      final Map<String, dynamic> ligne = baseRow()..['code_station'] = '   ';
 
       expect(() => mapOndeObservation(ligne), throwsArgumentError);
     });
@@ -161,6 +217,19 @@ void main() {
 
       expect(() => mapOndeObservation(ligne), throwsA(isA<FormatException>()));
     });
+
+    test(
+      "code_station vide ('') : FormatException — _text normalise la "
+      "chaîne vide en absence avant d'atteindre OndeStationCode (BR-007)",
+      () {
+        final Map<String, dynamic> ligne = baseRow()..['code_station'] = '';
+
+        expect(
+          () => mapOndeObservation(ligne),
+          throwsA(isA<FormatException>()),
+        );
+      },
+    );
 
     test('code_station numérique (12345678) : FormatException, jamais un '
         'TypeError nu', () {
@@ -265,9 +334,16 @@ void main() {
       'longitude': 2.173858157,
     };
 
-    test("code_station de mauvaise forme ('K452000') : ArgumentError", () {
+    test("code_station d'une longueur inattendue ('K452000', sept "
+        'caractères) : accepté verbatim, plus refusé (T-14)', () {
       final Map<String, dynamic> ligne = baseRow()
         ..['code_station'] = 'K452000';
+
+      expect(mapOndePoint(ligne).code.value, 'K452000');
+    });
+
+    test('code_station entièrement blanc : ArgumentError (BR-007)', () {
+      final Map<String, dynamic> ligne = baseRow()..['code_station'] = '   ';
 
       expect(() => mapOndePoint(ligne), throwsArgumentError);
     });

@@ -19,10 +19,22 @@
 // Une réponse vide (`count:0`, `data: []`) rend une liste vide : une
 // absence de donnée n'est jamais une erreur (BR-007, UC-001 A5). Une
 // `HubEauFailure` (statut, panne réseau, corps illisible malgré un succès)
-// ou une `FormatException` (corps qui prétend être un succès mais ne
-// ressemble à rien de connu — `data` absent, d'un type inattendu, une ligne
-// qui n'est pas un objet, ou une ligne que `mapOndeObservation` ne sait pas
-// lire) remontent telles quelles, jamais avalées (UC-001 A4).
+// ou une `FormatException` **structurelle** (corps qui prétend être un
+// succès mais ne ressemble à rien de connu — `data` absent, d'un type
+// inattendu, une ligne qui n'est pas un objet) remontent telles quelles,
+// jamais avalées (UC-001 A4).
+//
+// ⚠️ **Une ligne individuellement illisible n'est pas une panne de source**
+// (contrat révisé le 2026-09-14, bug vu à l'écran). Auparavant, l'exception
+// que `mapOndeObservation` levait sur une ligne remontait telle quelle : la
+// carte affichait un bandeau rouge et **zéro station**. Sur la page
+// nationale du 2026-09-14, 507 lignes sur 10 234 étaient refusées (codes de
+// station à espaces, `T-14`) : 9 727 lignes lisibles ont disparu pour 507
+// illisibles. Désormais, une `FormatException` ou une `ArgumentError` levée
+// **par le mapper sur une ligne** est ignorée et **comptée**
+// (`skippedRowCount`) : l'absence s'explique (BR-007), elle ne se propage
+// pas. La frontière est nette — ce qui décrit la **forme de la réponse**
+// reste fatal, ce qui décrit **une ligne** ne l'est pas.
 
 import 'package:martinpecheur/data/http/hub_eau_client.dart';
 import 'package:martinpecheur/data/http/onde_uris.dart';
@@ -39,6 +51,22 @@ final class HttpOndeObservationRepository implements OndeObservationRepository {
   HttpOndeObservationRepository(this._client);
 
   final HubEauClient _client;
+
+  int _skippedRowCount = 0;
+
+  /// Nombre de lignes ignorées parce qu'illisibles, **cumulé sur la durée de
+  /// vie de cette instance** et jamais remis à zéro. Cumulé plutôt que par
+  /// appel : le dépôt est enveloppé par `CachedOndeObservationRepository`, si
+  /// bien qu'un appel peut être servi par le cache sans relire aucune ligne
+  /// — un compteur « du dernier appel » serait alors périmé sans que rien ne
+  /// le dise. Un compteur monotone n'a pas ce piège : il se lit comme « voilà
+  /// ce que cette session a laissé de côté », jamais comme un chiffre d'écran.
+  ///
+  /// C'est un compteur de **diagnostic** : il explique une absence (BR-007),
+  /// il ne se destine pas tel quel à un libellé « N stations ignorées » sur
+  /// un écran — ce chiffre-là devrait accompagner les lignes d'un appel
+  /// donné, pas vivre dans un champ mutable.
+  int get skippedRowCount => _skippedRowCount;
 
   @override
   Future<List<OndeObservation>> latestWithinBounds(
@@ -80,24 +108,49 @@ final class HttpOndeObservationRepository implements OndeObservationRepository {
     return rows.take(limit).toList();
   }
 
-  /// Convertit `body['data']` en observations. Lève une [FormatException]
-  /// si `data` est absent, d'un type autre qu'une liste, ou si une ligne
-  /// n'est pas un objet — même règle que `HttpHydroObservationRepository`
-  /// (D5). Une ligne que [mapOndeObservation] ne sait pas lire lève telle
-  /// quelle, jamais avalée.
+  /// Convertit `body['data']` en observations.
+  ///
+  /// Lève une [FormatException] si `data` est absent, d'un type autre qu'une
+  /// liste, ou si une ligne n'est pas un objet — même règle que
+  /// `HttpHydroObservationRepository` (D5) : ces trois cas décrivent la
+  /// **forme de la réponse**, pas son contenu, et une réponse informe est
+  /// une panne de source (UC-001 A4).
+  ///
+  /// En revanche, une ligne que [mapOndeObservation] ne sait pas lire —
+  /// [FormatException] sur un champ, [ArgumentError] sur le code de station
+  /// — est **ignorée et comptée** dans [skippedRowCount] : une ligne
+  /// illisible ne fait pas disparaître les autres (`T-14`, BR-007). Seules
+  /// ces deux exceptions sont rattrapées ; toute autre remonte, un bug du
+  /// mapper ne devant pas se déguiser en donnée manquante. ⚠️ [RangeError]
+  /// et [IndexError] **dérivent** d'[ArgumentError] dans le SDK : ils sont
+  /// relancés explicitement avant la clause générale, sinon un `substring`
+  /// ou un index fautif du mapper serait compté comme une ligne illisible.
+  /// Ce bord n'est pas couvert par un test : le mapper n'est pas injectable
+  /// ici et aucune ligne réelle ne le déclenche.
   List<OndeObservation> _rows(Map<String, dynamic> body) {
     final Object? rawRows = body['data'];
     if (rawRows is! List<dynamic>) {
       throw FormatException('data absent ou mal formé : $rawRows');
     }
 
-    return rawRows.map((Object? row) {
+    final List<OndeObservation> observations = <OndeObservation>[];
+    for (final Object? row in rawRows) {
       if (row is! Map<String, dynamic>) {
         throw FormatException(
           'une ligne de data attendue en objet, reçue : $row',
         );
       }
-      return mapOndeObservation(row);
-    }).toList();
+      try {
+        observations.add(mapOndeObservation(row));
+      } on FormatException {
+        _skippedRowCount++;
+      } on RangeError {
+        // Dérive d'ArgumentError : un index fautif est un bug, pas une ligne.
+        rethrow;
+      } on ArgumentError {
+        _skippedRowCount++;
+      }
+    }
+    return observations;
   }
 }

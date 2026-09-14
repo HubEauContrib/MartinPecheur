@@ -31,8 +31,10 @@ import 'package:martinpecheur/domain/station/station.dart';
 /// [OndeObservation].
 ///
 /// Lève une [FormatException] si `code_station` ou `date_observation` sont
-/// absents ou illisibles, une [ArgumentError] si `code_station` est d'une
-/// forme inconnue (via [OndeStationCode]). `code_ecoulement` inconnu ou
+/// absents ou illisibles, une [ArgumentError] si `code_station` est
+/// entièrement blanc (via [OndeStationCode] — plus aucune validation de
+/// forme depuis le 2026-09-14 : le code ONDE est une chaîne libre, `T-14`).
+/// `code_ecoulement` inconnu ou
 /// absent ne lève jamais : il devient [Inconnu] (BR-011) — y compris une
 /// chaîne vide, normalisée en absence par [_text] (BR-007) : elle rend
 /// `Inconnu(null)`, jamais `Inconnu('')`, une chaîne vide n'étant pas un
@@ -40,11 +42,14 @@ import 'package:martinpecheur/domain/station/station.dart';
 ///
 /// [OndeObservation.point] est lu par [mapOndePoint], réutilisé, pas
 /// recopié (D8) ; [OndeObservation.station] est dérivé de `point.code`, une
-/// seule validation de `code_station` pour les deux champs. L'[ArgumentError]
-/// sur `code_station` d'une forme inconnue existait déjà avant D8 ; ce que
-/// D8 ajoute, c'est que l'absence ou l'illisibilité de `latitude`/
-/// `longitude` lève désormais aussi une [FormatException], en plus de celle
-/// propre à `date_observation`.
+/// seule lecture de `code_station` pour les deux champs. D8 a ajouté que
+/// l'absence ou l'illisibilité de `latitude`/`longitude` lève une
+/// [FormatException], en plus de celle propre à `date_observation`.
+///
+/// ⚠️ Ces exceptions restent **par ligne** : depuis le 2026-09-14, c'est à
+/// l'appelant de décider si une ligne illisible est fatale.
+/// `HttpOndeObservationRepository` les ignore et les compte, plutôt que de
+/// perdre une page entière pour une ligne (`T-14`, `BR-007`).
 OndeObservation mapOndeObservation(Map<String, dynamic> raw) {
   final OndePoint point = mapOndePoint(raw);
 
@@ -97,9 +102,11 @@ OndePoint mapOndePoint(Map<String, dynamic> raw) {
   );
 }
 
-/// Lit et valide `code_station`, partagé par [mapOndeObservation] et
-/// [mapOndePoint]. Lève une [FormatException] si absent, une
-/// [ArgumentError] si la forme est mauvaise (via [OndeStationCode]).
+/// Lit `code_station`, partagé par [mapOndeObservation] et [mapOndePoint].
+/// Lève une [FormatException] si absent (ou vide — [_text] normalise la
+/// chaîne vide en absence), une [ArgumentError] si le code est entièrement
+/// blanc (via [OndeStationCode]). Aucune forme n'est exigée : le code est
+/// conservé verbatim, espaces intérieurs et de bord compris (`T-14`).
 OndeStationCode _stationCode(Map<String, dynamic> raw) {
   final String? rawStationCode = _text(raw, 'code_station');
   if (rawStationCode == null) {
