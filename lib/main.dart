@@ -11,10 +11,13 @@ import 'package:martinpecheur/data/referentiel/asset_station_point_repository.da
 import 'package:martinpecheur/data/referentiel/asset_station_repository.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset_loader.dart';
+import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
+import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
@@ -52,7 +55,9 @@ import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_vi
 // nommer la tranche fiche station. La racine de composition, elle, connaît
 // les deux — elle assemble donc `StationSheetPanel` avec son ViewModel et
 // l'INJECTE dans `MapView`, avec le rappel de tap. La carte affiche un
-// `Widget` dont elle ignore tout.
+// `Widget` dont elle ignore tout. `OndeSheetPanel` est câblé de la même
+// façon depuis T1-U4, sur le MÊME dépôt ONDE décoré que la carte : une seule
+// politique de cache, un seul cache.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -81,19 +86,26 @@ Future<void> main() async {
         observations: observations,
         stations: AssetStationRepository(stationsRead.stations),
       ),
+      // Le MÊME dépôt ONDE décoré que celui du ViewModel de la carte : le
+      // cache est une politique unique, partagée, jamais recopiée par
+      // tranche (CLAUDE.md, invariants).
+      ondeSheetViewModel: OndeSheetViewModel(onde: onde),
     ),
   );
 }
 
-// L'écran carte (T0-M4, complété par la fiche station de T1-U1) : fond IGN,
-// attribution, stations en marqueurs du viewport élargi, et la feuille de
-// résumé au tap d'un marqueur. Aucun des quatre avertissements (`BR-012`,
-// `BR-013`) n'est encore posé — ils arrivent en T1, avant toute mise en
-// production.
+// L'écran carte (T0-M4, complété par la fiche station de T1-U1 et la fiche
+// d'un point ONDE de T1-U4) : fond IGN, attribution, marqueurs du viewport
+// élargi, et la feuille de résumé au tap d'un marqueur. Les deux fiches ne
+// sont jamais ouvertes ensemble — l'exclusivité est garantie par la racine
+// de composition ci-dessous, pas par les échelles (relecture 2026-09-14).
+// Aucun des quatre avertissements (`BR-012`, `BR-013`) n'est encore posé —
+// ils arrivent en T1, avant toute mise en production.
 class MartinPecheurApp extends StatelessWidget {
   const MartinPecheurApp({
     required this.mapViewModel,
     required this.stationSheetViewModel,
+    required this.ondeSheetViewModel,
     super.key,
   });
 
@@ -106,6 +118,10 @@ class MartinPecheurApp extends StatelessWidget {
   /// possédé par cette racine, au même titre que [mapViewModel].
   final StationSheetViewModel stationSheetViewModel;
 
+  /// Le ViewModel de la tranche fiche ONDE, construit dans [main] et possédé
+  /// par cette racine, au même titre que les deux autres.
+  final OndeSheetViewModel ondeSheetViewModel;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -115,8 +131,17 @@ class MartinPecheurApp extends StatelessWidget {
         // `open` rend un `Future` que personne n'attend : l'état de la
         // fiche passe par le ViewModel, pas par ce futur. `unawaited` le
         // dit explicitement plutôt que de le laisser tomber en silence.
-        onStationTap: (StationCode code) =>
-            unawaited(stationSheetViewModel.open(code)),
+        //
+        // Les deux fiches ne sont jamais ouvertes ensemble : chaque rappel
+        // ferme l'AUTRE fiche avant d'ouvrir la sienne. C'est cette racine
+        // de composition qui garantit l'exclusivité — les deux ViewModels
+        // s'ignorent l'un l'autre (règle `feature-vers-feature`) et ne
+        // peuvent pas se fermer eux-mêmes. Aucun test ne couvre `main.dart` :
+        // la garantie est documentée ici, pas verrouillée par un test.
+        onStationTap: (StationCode code) {
+          ondeSheetViewModel.close();
+          unawaited(stationSheetViewModel.open(code));
+        },
         // Le panneau est un `ListenableBuilder` sur le ViewModel de la
         // fiche : il se reconstruit seul à chaque changement d'état, sans
         // reconstruire la carte ni ses 4 150 marqueurs.
@@ -125,6 +150,21 @@ class MartinPecheurApp extends StatelessWidget {
           builder: (BuildContext context, Widget? child) => StationSheetPanel(
             state: stationSheetViewModel.state,
             onClose: stationSheetViewModel.close,
+          ),
+        ),
+        // Même câblage pour la fiche ONDE (T1-U4) : la carte ne connaît ni
+        // ce ViewModel ni sa tranche — elle reçoit un rappel de tap et un
+        // `Widget` (règle `feature-vers-feature`). Symétrique du rappel
+        // ci-dessus : ferme la fiche station avant d'ouvrir la fiche ONDE.
+        onOndeTap: (OndePoint point) {
+          stationSheetViewModel.close();
+          unawaited(ondeSheetViewModel.open(point));
+        },
+        ondeSheet: ListenableBuilder(
+          listenable: ondeSheetViewModel,
+          builder: (BuildContext context, Widget? child) => OndeSheetPanel(
+            state: ondeSheetViewModel.state,
+            onClose: ondeSheetViewModel.close,
           ),
         ),
       ),

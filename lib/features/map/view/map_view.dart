@@ -429,7 +429,11 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    (`BR-007` : jamais une carte muette). Posé **sous** les puces, dans la
 ///    même colonne : la largeur de cette colonne est bornée, elle réserve
 ///    toute la place de la légende et n'empiète jamais dessus ;
-/// 4. le **panneau de fiche**, s'il est fourni, en bas à gauche ;
+/// 4. les **panneaux de fiche** — station ([stationSheet]) et point ONDE
+///    ([ondeSheet]) —, chacun s'il est fourni, en bas à gauche et dans cet
+///    ordre. Les deux dépendent d'échelles différentes et ne sont jamais
+///    ouverts ensemble en production ; fournis ensemble, ils s'empilent
+///    plutôt que de se masquer (`BR-007`) ;
 /// 5. l'**attribution IGN**, toujours, en bas à droite — une condition
 ///    d'usage de la Licence Ouverte, jamais une finition (`04-ui.md` § 3).
 ///
@@ -441,9 +445,11 @@ List<Widget> buildMapOverlays({
   required void Function(MapScaleKind kind) onSelect,
   required Object? error,
   Widget? stationSheet,
+  Widget? ondeSheet,
 }) {
   final Object? bannerError = error;
   final Widget? sheet = stationSheet;
+  final Widget? onde = ondeSheet;
 
   return <Widget>[
     Align(
@@ -482,7 +488,7 @@ List<Widget> buildMapOverlays({
         ),
       ),
     ),
-    if (sheet != null)
+    if (sheet != null || onde != null)
       Align(
         alignment: Alignment.bottomLeft,
         child: Padding(
@@ -497,7 +503,27 @@ List<Widget> buildMapOverlays({
           ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _sheetMaxWidth),
-            child: sheet,
+            // Les deux fiches partagent le MÊME emplacement : elles ne sont
+            // jamais ouvertes ensemble, mais cette garantie vient de la
+            // racine de composition (`main.dart` : chaque rappel de tap
+            // ferme l'autre fiche avant d'ouvrir la sienne), pas des
+            // échelles (relecture 2026-09-14). Une `Column` plutôt qu'une
+            // superposition tout de même : si les deux panneaux arrivaient
+            // ensemble, aucun n'écraserait l'autre — un panneau masqué
+            // serait pire qu'un panneau de trop (`BR-007`). L'ordre est
+            // fixé — station au-dessus, ONDE en dessous — pour que
+            // l'empilement soit une décision testée et non un hasard de
+            // `Stack`.
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                ?sheet,
+                if (sheet != null && onde != null)
+                  const SizedBox(height: _overlayPadding),
+                ?onde,
+              ],
+            ),
           ),
         ),
       ),
@@ -718,21 +744,25 @@ class MapView extends StatefulWidget {
   /// tout de suite un câblage à moitié fait, plutôt que de laisser un écran
   /// silencieusement inerte.
   ///
-  /// ⚠️ [onOndeTap], lui, est accepté **seul** et sans assert de couplage :
-  /// la fiche ONDE n'existe pas encore (`U4`). Il n'est pas câblé par
-  /// `main.dart` en `U3` — la carte sait déjà appeler un rappel de tap sur
-  /// un point ONDE, il n'y a simplement rien à ouvrir au bout.
+  /// [onOndeTap] et [ondeSheet] sont couplés de la même façon depuis `U4` :
+  /// la fiche ONDE existe et se branche au tap d'un marqueur d'écoulement.
   const MapView({
     required this.viewModel,
     this.onStationTap,
     this.onOndeTap,
     this.stationSheet,
+    this.ondeSheet,
     this.now = DateTime.now,
     super.key,
   }) : assert(
          (onStationTap == null) == (stationSheet == null),
          'onStationTap et stationSheet vont ensemble : une fiche sans tap '
          "ne s'ouvre jamais, un tap sans fiche n'affiche rien",
+       ),
+       assert(
+         (onOndeTap == null) == (ondeSheet == null),
+         "onOndeTap et ondeSheet vont ensemble : une fiche sans tap ne s'ouvre "
+         "jamais, un tap sans fiche n'affiche rien",
        );
 
   /// Le ViewModel de la tranche carte, construit dans `main.dart`
@@ -748,8 +778,8 @@ class MapView extends StatefulWidget {
 
   /// Appelé avec le point ONDE tapé. Injecté de la même façon, et pour la
   /// même raison : `features/map/` ne peut pas nommer `features/onde_sheet/`
-  /// (règle `feature-vers-feature`). **Pas encore câblé** — c'est `U4` qui
-  /// pose la fiche ONDE et le branche sur son ViewModel.
+  /// (règle `feature-vers-feature`). `main.dart` le branche sur
+  /// `OndeSheetViewModel.open` depuis `U4`.
   final void Function(OndePoint point)? onOndeTap;
 
   /// L'instant de lecture, dont dépend l'âge de chaque campagne ONDE
@@ -769,6 +799,15 @@ class MapView extends StatefulWidget {
   /// `StationSheetViewModel.close`) : un tap sur la carte hors marqueur ne
   /// la ferme pas.
   final Widget? stationSheet;
+
+  /// Le panneau de la fiche d'un point ONDE, déjà composé avec son ViewModel
+  /// par `main.dart`, et affiché au même endroit que [stationSheet]. `null`
+  /// tant qu'aucune fiche ONDE n'est branchée.
+  ///
+  /// Les deux panneaux ne sont jamais ouverts en même temps en production :
+  /// ils dépendent d'échelles différentes, et un seul jeu de marqueurs est
+  /// tapable à la fois.
+  final Widget? ondeSheet;
 
   @override
   State<MapView> createState() => _MapViewState();
@@ -910,6 +949,7 @@ class _MapViewState extends State<MapView> {
                 onSelect: _handleScaleSelected,
                 error: widget.viewModel.error,
                 stationSheet: widget.stationSheet,
+                ondeSheet: widget.ondeSheet,
               ),
             ],
           );

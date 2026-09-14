@@ -634,6 +634,7 @@ void main() {
       void Function(MapScaleKind kind)? onSelect,
       Object? error,
       Widget? stationSheet,
+      Widget? ondeSheet,
     }) {
       return tester.pumpWidget(
         MaterialApp(
@@ -644,6 +645,7 @@ void main() {
                 onSelect: onSelect ?? (MapScaleKind kind) {},
                 error: error,
                 stationSheet: stationSheet,
+                ondeSheet: ondeSheet,
               ),
             ),
           ),
@@ -693,6 +695,41 @@ void main() {
         stationSheet: const SizedBox.shrink(key: sheet),
       );
       expect(find.byKey(sheet), findsOneWidget);
+    });
+
+    testWidgets("le panneau ONDE n'est présent que s'il est fourni (T1-U4)", (
+      WidgetTester tester,
+    ) async {
+      const Key onde = Key('fiche-onde');
+
+      await pumpOverlays(tester);
+      expect(find.byKey(onde), findsNothing);
+
+      await pumpOverlays(tester, ondeSheet: const SizedBox.shrink(key: onde));
+      expect(find.byKey(onde), findsOneWidget);
+    });
+
+    // Les deux fiches dépendent d'échelles différentes et ne sont jamais
+    // ouvertes ensemble en production ; l'empilement reste néanmoins défini
+    // et testé, plutôt que laissé au hasard d'un `Stack`.
+    testWidgets('les deux panneaux fournis ensemble sont rendus TOUS LES DEUX, '
+        "empilés, aucun n'écrase l'autre", (WidgetTester tester) async {
+      const Key station = Key('fiche-station');
+      const Key onde = Key('fiche-onde');
+
+      await pumpOverlays(
+        tester,
+        stationSheet: const SizedBox(width: 10, height: 10, key: station),
+        ondeSheet: const SizedBox(width: 10, height: 10, key: onde),
+      );
+
+      expect(find.byKey(station), findsOneWidget);
+      expect(find.byKey(onde), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byKey(station)).dy,
+        lessThan(tester.getTopLeft(find.byKey(onde)).dy),
+        reason: 'le panneau ONDE se pose SOUS le panneau station',
+      );
     });
 
     testWidgets("l'attribution IGN est TOUJOURS présente — une condition "
@@ -1286,15 +1323,41 @@ void main() {
     });
   });
 
-  group('MapView — le câblage de U3', () {
-    test('onOndeTap est accepté SEUL : le panneau ONDE arrive en U4, et '
-        "aucun assert n'exige encore son pendant", () {
+  // Depuis `U4`, `onOndeTap` et `ondeSheet` sont couplés comme leurs pendants
+  // station : une fiche sans tap ne s'ouvrirait jamais, un tap sans fiche
+  // n'afficherait rien. L'assert fait échouer tout de suite un câblage à
+  // moitié fait, plutôt que de laisser un écran silencieusement inerte.
+  group('MapView — onOndeTap et ondeSheet vont ensemble (U4)', () {
+    test('les deux présents : le câblage complet de T1-U4', () {
       expect(
-        () => MapView(viewModel: _viewModel(), onOndeTap: (OndePoint point) {}),
+        () => MapView(
+          viewModel: _viewModel(),
+          onOndeTap: (OndePoint point) {},
+          ondeSheet: const SizedBox.shrink(),
+        ),
         returnsNormally,
       );
     });
 
+    test('un tap ONDE sans fiche lève : rien ne s afficherait', () {
+      expect(
+        () => MapView(viewModel: _viewModel(), onOndeTap: (OndePoint point) {}),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('une fiche ONDE sans tap lève : elle ne s ouvrirait jamais', () {
+      expect(
+        () => MapView(
+          viewModel: _viewModel(),
+          ondeSheet: const SizedBox.shrink(),
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+  });
+
+  group('MapView — le câblage de U3', () {
     test("`now` a une valeur par défaut : l'horloge du poste, sauf dans un "
         'test qui la fixe', () {
       final MapView view = MapView(viewModel: _viewModel());
