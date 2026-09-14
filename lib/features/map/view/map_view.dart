@@ -5,6 +5,11 @@
 // [buildMapLayers], une fonction PURE : rendre un `FlutterMap` dans un test
 // déclenche des chargements de tuiles que l'environnement de test refuse.
 //
+// ⚠️ Au zoom national, les 4 150 zones de tap de 44 pt se chevauchent, et le
+// marqueur qui reçoit le tap est le plus tardif dans l'ordre de l'asset, pas
+// le plus proche du doigt — écart assumé pour T1, acté sous `U1` dans le plan
+// (`docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md`).
+//
 // ⚠️ Au zoom national, la France entière est visible : les 4 150 stations
 // sont TOUTES dessinées — c'est le prix réel de l'approche par défaut
 // (`F2c`, aucun clustering tant qu'aucune mesure ne le réhabilite), pas un
@@ -39,6 +44,22 @@
 //
 // Une erreur de lecture n'est pas avalée : [MapViewModel.error] la porte, et
 // la vue affiche [MapErrorBanner] au lieu d'une carte muette (`BR-007`).
+//
+// ⚠️ La fiche station est **injectée**, pas importée (T1-U1). La règle
+// `feature-vers-feature` de `test/architecture/layers_test.dart` interdit à
+// une tranche d'en citer une autre : `features/map/` ne peut donc nommer ni
+// `features/station_sheet/view/…`, ni son ViewModel. [MapView] reçoit donc
+// le panneau déjà composé ([MapView.stationSheet], un `Widget`) et le rappel
+// de tap ([MapView.onStationTap], un `void Function(StationCode)`) ; c'est
+// `main.dart`, la racine de composition — le seul fichier exempté de ces
+// règles — qui assemble `StationSheetPanel` avec son ViewModel et les passe
+// ici. La carte reste ignorante de ce qu'elle affiche par-dessus elle : elle
+// **branche**, elle ne décide pas.
+//
+// Un `Widget` déjà construit suffit, et un `WidgetBuilder` n'apporterait
+// rien : le panneau injecté est un `ListenableBuilder` sur le ViewModel de
+// la fiche, qui se reconstruit tout seul quand la fiche change d'état — la
+// carte, elle, n'a aucune raison d'être reconstruite pour cela.
 
 import 'dart:async' show unawaited;
 
@@ -46,6 +67,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
+import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
@@ -67,10 +89,24 @@ const double minimumMapZoom = 4;
 const double maximumMapZoom = ignMaxNativeZoom * 1.0;
 
 /// Taille d'une pastille de station, en pixels logiques. Volontairement
-/// petite : ce n'est **pas** une cible tactile (`04-ui.md` § 3 exige
-/// 44 × 44 pt) — le tap arrive en T1, avec un halo de zone de tap séparé du
-/// rendu visuel.
+/// petite : ce n'est **pas** la cible tactile — celle-ci vaut
+/// [stationMarkerTapTarget], et la pastille est centrée dedans. Quatre mille
+/// cent cinquante pastilles de 44 px couvriraient la France d'un aplat ;
+/// c'est la zone de tap, invisible, qui porte l'exigence d'accessibilité.
 const double stationMarkerSize = 12;
+
+/// Côté de la zone de tap d'un marqueur, en pixels logiques : 44 × 44 pt,
+/// recopié de `04-ui.md` § 3 (cibles tactiles ≥ 44 × 44 pt iOS).
+///
+/// ⚠️ La fiche station porte la même exigence, avec sa PROPRE constante
+/// (`minimumTapTarget`,
+/// `lib/features/station_sheet/view/station_summary_sheet.dart`) : une
+/// tranche n'importe pas une autre tranche
+/// (`test/architecture/layers_test.dart`, règle `feature-vers-feature`). Les
+/// deux constantes recopient la même ligne de `04-ui.md`, jamais l'une
+/// l'autre — le jour où une troisième tranche en a besoin, c'est le signe
+/// qu'il faut un endroit commun, et cela se tranche avec le commanditaire.
+const double stationMarkerTapTarget = 44;
 
 /// Décide si [event] doit déclencher un nouveau chargement d'emprise.
 /// Fonction pure, testable sans widget ni `FlutterMap` — construite avec les
@@ -114,7 +150,20 @@ bool shouldRefreshOn(MapEvent event) =>
 ///
 /// Une couche de marqueurs **vide n'est pas ajoutée** : au moins une station
 /// visible est nécessaire pour que `MarkerLayer` apparaisse dans la liste.
-List<Widget> buildMapLayers({required List<StationPoint> stations}) {
+///
+/// [onStationTap] est appelé avec le code de la station tapée. Nommé et
+/// **optionnel** : le `Marker` existe déjà sans lui — la carte de T0 n'était
+/// pas interactive — et un appelant qui ne veut pas de tap n'a rien à
+/// fournir. Sans rappel, le marqueur reste inerte : `GestureDetector` sans
+/// `onTap` ne participe pas au test de toucher, même en
+/// [HitTestBehavior.opaque].
+List<Widget> buildMapLayers({
+  required List<StationPoint> stations,
+  void Function(StationCode code)? onStationTap,
+}) {
+  // Copié dans un local `final` : la promotion de type survit ainsi dans la
+  // fermeture construite pour chaque marqueur.
+  final void Function(StationCode code)? handleTap = onStationTap;
   final List<Widget> layers = <Widget>[
     TileLayer(
       urlTemplate: ignTileUrlTemplate,
@@ -136,9 +185,25 @@ List<Widget> buildMapLayers({required List<StationPoint> stations}) {
                 // ici, `station.latitude`/`station.longitude` sont déjà dans
                 // l'ordre attendu par `LatLng`.
                 point: LatLng(station.latitude, station.longitude),
-                width: stationMarkerSize,
-                height: stationMarkerSize,
-                child: const StationMarkerDot(),
+                // Le marqueur mesure la ZONE DE TAP (44 pt, `04-ui.md`
+                // § 3) ; la pastille de 12 px reste centrée dedans. Les
+                // deux tailles sont distinctes à dessein : ce qui se voit
+                // et ce qui se touche n'ont pas la même exigence.
+                width: stationMarkerTapTarget,
+                height: stationMarkerTapTarget,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: handleTap == null
+                      ? null
+                      : () => handleTap(station.code),
+                  child: const Center(
+                    child: SizedBox(
+                      width: stationMarkerSize,
+                      height: stationMarkerSize,
+                      child: StationMarkerDot(),
+                    ),
+                  ),
+                ),
               ),
             )
             .toList(),
@@ -233,13 +298,42 @@ class IgnAttributionBadge extends StatelessWidget {
 /// viewport. N'appelle aucun dépôt — il observe [viewModel] et lui demande
 /// des emprises.
 class MapView extends StatefulWidget {
-  const MapView({required this.viewModel, super.key});
+  /// [onStationTap] et [stationSheet] restent **optionnels** — la carte de
+  /// T0 n'était pas interactive, et ses tests les omettent toujours — mais
+  /// ils ne sont pas indépendants : une fiche sans tap ne s'ouvrirait
+  /// jamais, un tap sans fiche n'afficherait rien. L'assert fait échouer
+  /// tout de suite un câblage à moitié fait, plutôt que de laisser un écran
+  /// silencieusement inerte.
+  const MapView({
+    required this.viewModel,
+    this.onStationTap,
+    this.stationSheet,
+    super.key,
+  }) : assert(
+         (onStationTap == null) == (stationSheet == null),
+         'onStationTap et stationSheet vont ensemble : une fiche sans tap '
+         "ne s'ouvre jamais, un tap sans fiche n'affiche rien",
+       );
 
   /// Le ViewModel de la tranche carte, construit dans `main.dart`
   /// (asset → dépôts → ViewModel → vue). La vue ne le **possède pas** :
   /// c'est la racine de composition qui le crée et qui le disposera — cette
   /// vue ne doit pas disposer un objet dont elle n'est pas propriétaire.
   final MapViewModel viewModel;
+
+  /// Appelé avec le code de la station tapée. Injecté par `main.dart`, qui
+  /// le branche sur `StationSheetViewModel.open` : la carte ne connaît ni ce
+  /// ViewModel ni sa tranche (règle `feature-vers-feature`).
+  final void Function(StationCode code)? onStationTap;
+
+  /// Le panneau de la fiche station, déjà composé avec son ViewModel par
+  /// `main.dart`, et affiché en bas de la carte. `null` tant qu'aucune fiche
+  /// n'est branchée — la carte reste alors ce qu'elle était en T0.
+  ///
+  /// La fiche ne se ferme que par son propre bouton (et par
+  /// `StationSheetViewModel.close`) : un tap sur la carte hors marqueur ne
+  /// la ferme pas.
+  final Widget? stationSheet;
 
   @override
   State<MapView> createState() => _MapViewState();
@@ -292,6 +386,8 @@ class _MapViewState extends State<MapView> {
 
   @override
   Widget build(BuildContext context) {
+    final Widget? stationSheet = widget.stationSheet;
+
     return Scaffold(
       body: Stack(
         children: <Widget>[
@@ -305,6 +401,7 @@ class _MapViewState extends State<MapView> {
                     options: _mapOptions,
                     children: buildMapLayers(
                       stations: widget.viewModel.stations,
+                      onStationTap: widget.onStationTap,
                     ),
                   ),
                   if (error != null)
@@ -316,6 +413,20 @@ class _MapViewState extends State<MapView> {
               );
             },
           ),
+          if (stationSheet != null)
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                // Marge basse plus épaisse : elle dégage le bandeau
+                // d'attribution IGN, qui reste lisible en toutes
+                // circonstances (Licence Ouverte, `04-ui.md` § 3).
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: stationSheet,
+                ),
+              ),
+            ),
           const Align(
             alignment: Alignment.bottomRight,
             child: Padding(

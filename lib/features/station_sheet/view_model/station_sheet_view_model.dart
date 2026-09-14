@@ -59,10 +59,29 @@ final class Prete extends StationSheetState {
   final StationSheetData data;
 }
 
-/// Le chargement de [code] a échoué, pour [cause] (UC-001 A4). La vue nomme
-/// la source défaillante depuis [code] et son PROPRE libellé — jamais
-/// depuis `cause.toString()`, qui reste une donnée de diagnostic technique,
-/// pas un texte à afficher.
+/// La station [code] est sur la carte mais **absente du référentiel
+/// embarqué** : `assets/referentiel/stations.json` porte 4 150 points et
+/// seulement 4 113 entités complètes — 37 stations en service n'ont pas de
+/// `code_departement` (stations transfrontalières, plus deux corses) et sont
+/// écartées plutôt que de recevoir un département inventé (fait constaté le
+/// 2026-09-13, `test/data/referentiel/stations_asset_test.dart`).
+///
+/// ⚠️ **Aucun appel réseau n'a eu lieu** : `AssetStationRepository` lit un
+/// asset embarqué. Cet état est donc distinct d'[EnEchec], qui ne porte que
+/// les échecs de dépôt — nommer Hub'Eau ici serait une accusation fausse
+/// (`BR-007`, `UC-001 A4`).
+final class Introuvable extends StationSheetState {
+  const Introuvable(this.code);
+
+  /// Code de la station demandée, absente du référentiel embarqué.
+  final StationCode code;
+}
+
+/// Le chargement de [code] a échoué, pour [cause] (UC-001 A4) : une panne du
+/// dépôt — réseau, lecture d'asset — jamais une simple absence, qui est
+/// [Introuvable]. La vue nomme la source défaillante depuis [code] et son
+/// PROPRE libellé — jamais depuis `cause.toString()`, qui reste une donnée
+/// de diagnostic technique, pas un texte à afficher.
 final class EnEchec extends StationSheetState {
   const EnEchec(this.code, this.cause);
 
@@ -151,6 +170,10 @@ final class StationSheetViewModel extends ChangeNotifier {
   /// puis ses deux dernières observations (débit, hauteur), les deux
   /// toujours demandées — si l'une des deux lève, l'état final est
   /// [EnEchec], quelle que soit celle qui a levé.
+  ///
+  /// Deux issues négatives, jamais confondues : `findByCode` qui rend `null`
+  /// donne [Introuvable] — une absence du référentiel embarqué, sans aucun
+  /// appel réseau — là où un dépôt qui LÈVE donne [EnEchec].
   Future<void> open(StationCode code) async {
     final int generation = ++_generation;
     _emit(generation, EnCours(code));
@@ -158,10 +181,12 @@ final class StationSheetViewModel extends ChangeNotifier {
     try {
       final Station? station = await _stations.findByCode(code);
       if (station == null) {
-        _emit(
-          generation,
-          EnEchec(code, StateError('Station inconnue : ${code.value}')),
-        );
+        // Absence, pas panne : le dépôt a répondu, et il a répondu « je ne
+        // l'ai pas ». Les 37 stations sans `code_departement` sont dans ce
+        // cas — sur la carte, pas dans le référentiel. Aucun appel réseau
+        // n'a eu lieu, donc aucune source distante n'est mise en cause
+        // (`BR-007`).
+        _emit(generation, Introuvable(code));
         return;
       }
 

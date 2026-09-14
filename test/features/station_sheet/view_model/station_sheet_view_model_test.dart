@@ -384,8 +384,16 @@ void main() {
     },
   );
 
-  test('une station inconnue (findByCode rend null) fait passer en EnEchec, '
-      'avec une cause qui nomme le code', () async {
+  // Les 37 stations du referentiel sans `code_departement` sont dans
+  // `points` (la carte les affiche, elles sont tapables) mais absentes de
+  // `stations` (fait constate le 2026-09-13,
+  // `test/data/referentiel/stations_asset_test.dart`). `findByCode` rend
+  // alors `null` SANS qu'aucun appel reseau ait eu lieu : l'etat est
+  // `Introuvable`, jamais `EnEchec`, qui nommerait Hub'Eau a tort (BR-007,
+  // UC-001 A4).
+  test('une station absente du referentiel embarque (findByCode rend null) '
+      'fait passer en Introuvable, avec son code, sans appeler le depot '
+      'd observations', () async {
     stations.answer = (StationCode code) async => null;
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
@@ -396,9 +404,40 @@ void main() {
     await viewModel.open(_codeBlois());
 
     final StationSheetState state = viewModel.state;
-    expect(state, isA<EnEchec>());
-    expect((state as EnEchec).cause.toString(), contains('K447001001'));
+    expect(state, isA<Introuvable>());
+    expect((state as Introuvable).code, _codeBlois());
     expect(observations.calls, 0);
+  });
+
+  test('Introuvable n est PAS un EnEchec : un echec de depot et une absence '
+      'du referentiel ne se confondent pas', () async {
+    stations.answer = (StationCode code) async => null;
+    final StationSheetViewModel viewModel = StationSheetViewModel(
+      observations: observations,
+      stations: stations,
+    );
+    addTearDown(viewModel.dispose);
+
+    await viewModel.open(_codeBlois());
+
+    expect(viewModel.state, isNot(isA<EnEchec>()));
+  });
+
+  test('un depot de stations qui LEVE reste un EnEchec : la panne de lecture '
+      'n est pas une absence (UC-001 A4)', () async {
+    final Exception failure = Exception('asset illisible');
+    stations.answer = (StationCode code) async => throw failure;
+    final StationSheetViewModel viewModel = StationSheetViewModel(
+      observations: observations,
+      stations: stations,
+    );
+    addTearDown(viewModel.dispose);
+
+    await viewModel.open(_codeBlois());
+
+    final StationSheetState state = viewModel.state;
+    expect(state, isA<EnEchec>());
+    expect((state as EnEchec).cause, same(failure));
   });
 
   test('close() ferme immediatement, avec une notification', () {
@@ -503,6 +542,7 @@ void main() {
       EnCours() => 'en cours',
       Prete() => 'prete',
       EnEchec() => 'en echec',
+      Introuvable() => 'introuvable',
     };
 
     expect(label, 'fermee');

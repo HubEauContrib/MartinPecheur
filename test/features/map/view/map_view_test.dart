@@ -14,10 +14,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:martinpecheur/domain/geo/bounds.dart';
+import 'package:martinpecheur/domain/geo/viewport_filter.dart'
+    show defaultViewportMargin;
+import 'package:martinpecheur/domain/observation/hydro_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_station_code.dart';
+import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 
 StationPoint _blois() => StationPoint(
   code: StationCode('K447001001'),
@@ -31,6 +39,48 @@ StationPoint _guadeloupe() => StationPoint(
   label: 'Grande Rivière à Goyaves',
   latitude: 16.18940247103205,
   longitude: -61.65898959694908,
+);
+
+/// Dépôts vides, juste assez pour CONSTRUIRE un [MapViewModel] : les tests
+/// qui les utilisent ne montent aucun widget et ne déclenchent donc aucun
+/// chargement. Le comportement du ViewModel est verrouillé ailleurs
+/// (`test/features/map/view_model/map_view_model_test.dart`).
+final class _EmptyStationPointRepository implements StationPointRepository {
+  @override
+  Future<List<StationPoint>> withinBounds(
+    Bounds bounds, {
+    double margin = defaultViewportMargin,
+  }) async => const <StationPoint>[];
+}
+
+final class _EmptyHydroObservationRepository
+    implements HydroObservationRepository {
+  @override
+  Future<HydroObservation?> findLatest(
+    StationCode station,
+    Grandeur grandeur,
+  ) async => null;
+}
+
+final class _EmptyOndeObservationRepository
+    implements OndeObservationRepository {
+  @override
+  Future<List<OndeObservation>> latestWithinBounds(
+    Bounds bounds, {
+    required DateTime since,
+  }) async => const <OndeObservation>[];
+
+  @override
+  Future<List<OndeObservation>> historyFor(
+    OndeStationCode station, {
+    int limit = 5,
+  }) async => const <OndeObservation>[];
+}
+
+MapViewModel _viewModel() => MapViewModel(
+  stationPoints: _EmptyStationPointRepository(),
+  observations: _EmptyHydroObservationRepository(),
+  onde: _EmptyOndeObservationRepository(),
 );
 
 /// Une caméra minimale, pour construire des `MapEvent` de test — sa valeur
@@ -148,18 +198,25 @@ void main() {
       expect(marker.point.longitude, closeTo(1.335147948, 1e-9));
     });
 
-    test('chaque marqueur est carré, à stationMarkerSize, avec une pastille '
-        'décorée — jamais un glyphe de police', () {
+    test('chaque marqueur est carré, à stationMarkerTapTarget — la ZONE DE '
+        'TAP, pas la pastille — avec une pastille décorée dedans, jamais un '
+        'glyphe de police', () {
       final List<Widget> layers = buildMapLayers(
         stations: <StationPoint>[_blois()],
       );
 
       final MarkerLayer markerLayer = layers[1] as MarkerLayer;
       final Marker marker = markerLayer.markers.single;
-      expect(marker.width, stationMarkerSize);
-      expect(marker.height, stationMarkerSize);
+      expect(marker.width, stationMarkerTapTarget);
+      expect(marker.height, stationMarkerTapTarget);
       expect(marker.child, isNot(isA<Icon>()));
       expect(marker.child, isNot(isA<Text>()));
+    });
+
+    test('la zone de tap vaut 44 pt (04-ui.md § 3) et reste plus grande que '
+        'la pastille', () {
+      expect(stationMarkerTapTarget, 44.0);
+      expect(stationMarkerSize, lessThan(stationMarkerTapTarget));
     });
 
     test("buildMapLayers ne refiltre plus : les stations passées sont toutes "
@@ -180,6 +237,146 @@ void main() {
       );
 
       expect(layers, hasLength(1));
+    });
+  });
+
+  group('buildMapLayers — le tap sur un marqueur (T1-U1)', () {
+    testWidgets('le rappel onStationTap reçoit le code de la station tapée — '
+        'le `child` du marqueur est rendu SEUL, jamais dans un FlutterMap', (
+      WidgetTester tester,
+    ) async {
+      final List<StationCode> tapped = <StationCode>[];
+      final List<Widget> layers = buildMapLayers(
+        stations: <StationPoint>[_blois(), _guadeloupe()],
+        onStationTap: tapped.add,
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: stationMarkerTapTarget,
+                height: stationMarkerTapTarget,
+                child: markerLayer.markers[1].child,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(StationMarkerDot));
+      await tester.pump();
+
+      expect(tapped, hasLength(1));
+      expect(tapped.single, StationCode('1011000101'));
+    });
+
+    testWidgets('sans rappel, le marqueur reste inerte — aucune exception au '
+        'tap', (WidgetTester tester) async {
+      final List<Widget> layers = buildMapLayers(
+        stations: <StationPoint>[_blois()],
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: stationMarkerTapTarget,
+                height: stationMarkerTapTarget,
+                child: markerLayer.markers.single.child,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(StationMarkerDot));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('la pastille garde sa taille de 12 px au centre de la zone '
+        'de tap de 44', (WidgetTester tester) async {
+      final List<Widget> layers = buildMapLayers(
+        stations: <StationPoint>[_blois()],
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: stationMarkerTapTarget,
+                height: stationMarkerTapTarget,
+                child: markerLayer.markers.single.child,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSize(find.byType(StationMarkerDot)),
+        const Size(stationMarkerSize, stationMarkerSize),
+      );
+      // Centrée, et pas seulement de la bonne taille : (44 − 12) / 2 = 16 de
+      // marge de chaque côté. Le `SizedBox` de test est posé en haut à
+      // gauche, l'origine de la pastille est donc directement comparable.
+      expect(
+        tester.getTopLeft(find.byType(StationMarkerDot)),
+        const Offset(16, 16),
+      );
+    });
+  });
+
+  // `onStationTap` et `stationSheet` restent OPTIONNELS — la carte de T0
+  // n'était pas interactive et ses tests les omettent toujours — mais ils ne
+  // sont pas indépendants : une fiche sans tap ne s'ouvrirait jamais, un tap
+  // sans fiche n'afficherait rien. L'assert transforme ce câblage à moitié
+  // fait en échec immédiat, au lieu d'un écran silencieusement inerte.
+  group('MapView — onStationTap et stationSheet vont ensemble', () {
+    test('les deux absents : la carte de T0, non interactive', () {
+      expect(() => MapView(viewModel: _viewModel()), returnsNormally);
+    });
+
+    test('les deux présents : le câblage complet de T1-U1', () {
+      expect(
+        () => MapView(
+          viewModel: _viewModel(),
+          onStationTap: (StationCode code) {},
+          stationSheet: const SizedBox.shrink(),
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('un tap sans fiche lève : rien ne s afficherait', () {
+      expect(
+        () => MapView(
+          viewModel: _viewModel(),
+          onStationTap: (StationCode code) {},
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('une fiche sans tap lève : elle ne s ouvrirait jamais', () {
+      expect(
+        () => MapView(
+          viewModel: _viewModel(),
+          stationSheet: const SizedBox.shrink(),
+        ),
+        throwsA(isA<AssertionError>()),
+      );
     });
   });
 

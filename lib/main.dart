@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:martinpecheur/data/http/hub_eau_client.dart';
@@ -6,11 +8,15 @@ import 'package:martinpecheur/data/observations/http_hydro_observation_repositor
 import 'package:martinpecheur/data/onde/cached_onde_observation_repository.dart';
 import 'package:martinpecheur/data/onde/http_onde_observation_repository.dart';
 import 'package:martinpecheur/data/referentiel/asset_station_point_repository.dart';
+import 'package:martinpecheur/data/referentiel/asset_station_repository.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset_loader.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
+import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
+import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
 // La racine de composition, et elle seule (MVVM, ADR-014, arbitrage
 // 2026-09-13) : asset et HTTP → dépôts → décorateurs de cache → ViewModel →
@@ -35,10 +41,18 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 // un dépôt : elle observe son ViewModel, qui appelle les dépôts directement
 // et de façon typée.
 //
-// `AssetStationRepository` (le dépôt des entités `Station` complètes) n'est
-// délibérément pas câblé ici : aucun écran ne le consomme encore. Son premier
-// appelant sera la fiche station (T1, tâche U1) ; le câbler d'avance mettrait
-// dans la racine de composition un objet que rien ne lit.
+// `AssetStationRepository` (le dépôt des entités `Station` complètes) est
+// câblé depuis T1-U1 : son premier appelant est arrivé, c'est
+// `StationSheetViewModel`. Il lit `stationsRead.stations` — les entités
+// complètes, un sous-ensemble de `points` — et non `points`, qui ne portent
+// ni département ni cours d'eau.
+//
+// C'est aussi ici qu'est résolue la règle `feature-vers-feature`
+// (`test/architecture/layers_test.dart`) : la tranche carte ne peut pas
+// nommer la tranche fiche station. La racine de composition, elle, connaît
+// les deux — elle assemble donc `StationSheetPanel` avec son ViewModel et
+// l'INJECTE dans `MapView`, avec le rappel de tap. La carte affiche un
+// `Widget` dont elle ignore tout.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -63,27 +77,57 @@ Future<void> main() async {
         observations: observations,
         onde: onde,
       ),
+      stationSheetViewModel: StationSheetViewModel(
+        observations: observations,
+        stations: AssetStationRepository(stationsRead.stations),
+      ),
     ),
   );
 }
 
-// L'écran carte (T0-M4) : fond IGN, attribution, et les stations en
-// marqueurs du viewport élargi. Aucun des quatre avertissements (`BR-012`,
+// L'écran carte (T0-M4, complété par la fiche station de T1-U1) : fond IGN,
+// attribution, stations en marqueurs du viewport élargi, et la feuille de
+// résumé au tap d'un marqueur. Aucun des quatre avertissements (`BR-012`,
 // `BR-013`) n'est encore posé — ils arrivent en T1, avant toute mise en
 // production.
 class MartinPecheurApp extends StatelessWidget {
-  const MartinPecheurApp({required this.mapViewModel, super.key});
+  const MartinPecheurApp({
+    required this.mapViewModel,
+    required this.stationSheetViewModel,
+    super.key,
+  });
 
   /// Le ViewModel de la tranche carte, construit dans [main]. C'est cette
   /// racine qui le possède : il vit aussi longtemps que l'application, et la
   /// vue ne dispose pas un objet dont elle n'est pas propriétaire.
   final MapViewModel mapViewModel;
 
+  /// Le ViewModel de la tranche fiche station, construit dans [main] et
+  /// possédé par cette racine, au même titre que [mapViewModel].
+  final StationSheetViewModel stationSheetViewModel;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MartinPêcheur',
-      home: MapView(viewModel: mapViewModel),
+      home: MapView(
+        viewModel: mapViewModel,
+        // `open` rend un `Future` que personne n'attend : l'état de la
+        // fiche passe par le ViewModel, pas par ce futur. `unawaited` le
+        // dit explicitement plutôt que de le laisser tomber en silence.
+        onStationTap: (StationCode code) =>
+            unawaited(stationSheetViewModel.open(code)),
+        // Le panneau est un `ListenableBuilder` sur le ViewModel de la
+        // fiche : il se reconstruit seul à chaque changement d'état, sans
+        // reconstruire la carte ni ses 4 150 marqueurs.
+        stationSheet: ListenableBuilder(
+          listenable: stationSheetViewModel,
+          builder: (BuildContext context, Widget? child) => StationSheetPanel(
+            state: stationSheetViewModel.state,
+            onClose: stationSheetViewModel.close,
+          ),
+        ),
+      ),
     );
   }
 }

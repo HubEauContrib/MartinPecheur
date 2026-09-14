@@ -27,6 +27,7 @@ Le débit n'est presque jamais mesuré : il est **calculé** à partir d'une hau
 - `code_methode_obs = 8` (« Calculée ») **existe en production mais est absent de la documentation**. Toute valeur hors nomenclature suit `BR-011`.
 - Sur l'historique `obs_elab`, les statuts diffèrent : `Donnée validée`, méthode `Expertisée`, qualification `Bonne`. La distinction historique/temps réel est portée à l'écran.
 - Absent de la carte : le statut figure sur la fiche, pas sur le marqueur — il ne doit pas concurrencer l'échelle d'état active (`BR-008`).
+- Les libellés `libelle_statut` et `libelle_qualification_obs` sont cités **verbatim** (ex. « Bonne », « Pré-validée ») : ce sont des qualifications de la **mesure** par le producteur, jamais une qualification du **débit** par le produit — ils échappent donc au balayage de `BR-003`, qui ne porte que sur la copie rédigée par le produit. Même exemption que les niveaux de gravité VigiEau, repris tels quels parce qu'ils émanent d'une autorité et sont attribués (`BR-003`, dernier invariant ; `BR-014`). Conséquence pour les tests : un balayage de vocabulaire neutralise ces deux libellés avant de mesurer, et il balaye **par mot entier** — une recherche par sous-chaîne confondrait « Bonne » avec le mot banni « bon ».
 
 ## Vérifiable par
 
