@@ -18,6 +18,7 @@
 | 2026-09-13 | **Plan T1 écrit et ouvert** — [`2026-09-13-t1-fiche-station-et-avertissements.md`](superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md), **7 lots**, **31 tâches actives** au récapitulatif, **10 décisions à valider** (`68151f6`, préalable MVVM levé par `6caac28`) |
 | 2026-09-14 | **Branche de travail : `feat/t1-mvvm-fiche-station`.** La branche `refactor/feature-first-mvvm` (7 commits, **doublon du même réusinage**) est **abandonnée, non fusionnée** : elle reste dans le clone, rien n'en sera repris. [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md) y a été **reporté** (seul apport non redondant, avec cette réécriture de `project-state.md`) : commit `docs` du 2026-09-14 sur cette branche |
 | 2026-09-14 | **Audit de reprise du lot 1 de T1 par un second agent** : lot 1 (`D1`→`D8`) et `V1` **repris tels quels**, aucun défaut bloquant. Cinq points ouverts remontés au commanditaire (§ « Ce qui bloque », lignes 15 à 19) |
+| 2026-09-14 | **Premier bug constaté à l'écran, corrigé le jour même** : carte vide et bandeau rouge au lancement, `T-04` invalidé par appel réel — le code de station ONDE est une **chaîne libre**, pas huit caractères (`T-14`, [`sources/onde.md`](sources/onde.md)). Codes conservés verbatim, **ligne illisible ignorée et comptée** au dépôt. Trois fixtures ajoutées. Ce que ça dit du cadrage : un fait vérifié **sur un échantillon** (la Loire) a été écrit comme s'il valait partout |
 
 > ⚠️ **Le tag `archive/pre-flutter-2026-09-09` n'est pas présent dans ce clone** : `git tag` ne
 > liste que `v0.1.0` (constaté le 2026-09-13, reconstaté le 2026-09-14). L'arbitrage du 2026-09-12
@@ -46,7 +47,7 @@ le **lot 4 de T1** (`W1`→`W5`), et rien n'est livrable avant eux.
 
 | Sujet | État |
 |---|---|
-| Analyse des APIs | ✅ Vérifiée par appels HTTP réels les 2026-07-30 et 07-31, **recapturée le 2026-09-13** (14 faits `V-01` à `V-14` du plan T0, puis `T-01` à `T-13` du plan T1) |
+| Analyse des APIs | ✅ Vérifiée par appels HTTP réels les 2026-07-30 et 07-31, **recapturée le 2026-09-13** (14 faits `V-01` à `V-14` du plan T0, puis `T-01` à `T-14` du plan T1) |
 | Question centrale du « débit suffisant » | ✅ Tranchée (`ADR-002`) et documentée avec ses limites |
 | Sources retenues et écartées | ✅ 7 APIs évaluées, motifs documentés |
 | Règles métier | ✅ **14 règles**, chacune avec son test |
@@ -254,6 +255,8 @@ Le plan est une esquisse antérieure ; **le code a raison**. Les écarts qui por
 | 22 | **Un dossier `android/` non versionné traîne sur le poste** — 989 fichiers, **2 580 830 523 octets**, caches Gradle datés du 2026-08-24, hérités de l'outillage précédent | **À supprimer, jamais à commiter.** C'est lui qui rend `ios_bundle_identifier_test` rouge. Le dépôt, lui, n'a pas de dossier `android/` : c'est l'arbitrage ⏸ du 2026-09-12 |
 | 23 | **Six PNG hérités d'Expo** restent versionnés sous `assets/` sans qu'aucun code ne les référence : `android-icon-background`, `android-icon-foreground`, `android-icon-monochrome`, `favicon`, `icon`, `splash-icon` | À retirer, ou à réaffecter le jour où les icônes Flutter sont posées. Décision du commanditaire |
 | 24 | **La PR de `feat/t1-mvvm-fiche-station` n'est pas ouverte** ; la branche n'est pas fusionnée sur `dev` | À ouvrir **par le commanditaire** — `gh` est absent du bac à sable (ligne 12) |
+| 25 | **Bug ONDE des codes à espaces** — au lancement, la carte affichait un bandeau rouge et **zéro station** : 507 lignes sur 10 234 portent un code hors `^[A-Z0-9]{8}$` (`A721 3011`, `S224`, `" O968 5312 "`), et l'exception d'une ligne faisait tomber toute la page | **Corrigé le 2026-09-14** (`T-14`, [`sources/onde.md`](sources/onde.md)) : code conservé **verbatim**, ligne illisible **ignorée et comptée** (`skippedRowCount`). ⚠️ **Non élucidé** : les codes à espaces de bord ne sont retrouvables **sous aucune forme** en requête (`%20O968%205312%20` → 0, `O968%205312` → 0), alors qu'ils apparaissent en réponse par emprise. Ouvert aussi : `A721 3011` et `A7213011` sont-ils deux points, un doublon, ou un recodage ? Aucune fusion tant que ce n'est pas établi |
+| 26 | **`Q-05` amendé** — `code_ecoulement` à `null` n'est pas un cas synthétique : **700 lignes sur 10 234** à l'échelle nationale (6,8 %), sur 29 campagnes, 20 dates et 17 départements | Constaté le 2026-09-14 (`T-14 e`). Le mapper les rend déjà en `Inconnu(null)` (`BR-011`) — sans incidence sur le code, mais l'écran verra ce cas souvent, ce que le cadrage ne supposait pas |
 
 ## Constats d'API du 2026-07-31
 
@@ -266,18 +269,19 @@ Relevés avant la bascule de stack, et **indépendants d'elle** :
 | Volume | **4 140 stations** en service, **6,57 Mo** en GeoJSON brut, 0 géométrie manquante. ⚠️ **Re-mesuré le 2026-08-15 : 4 150 stations, 6 604 249 octets** — le référentiel bouge |
 | Codes station | 4 150 codes distincts, **tous à 10 caractères** — cohérent avec `C-05` |
 
-### Écoulement ONDE — constaté le 2026-09-13, par appel réel (lot 1 de T1)
+### Écoulement ONDE — constaté les 2026-09-13 et 2026-09-14, par appel réel (lot 1 de T1, puis correctif `T-14`)
 
 | Constat | Détail |
 |---|---|
 | `T-01` / `T-03` | `/v1/ecoulement/observations` **accepte `bbox`** (HTTP 206, `count` 1 448 sur l'emprise Loire) **et `date_observation_min`** (`count` 30 au lieu de 1 448). La carte n'a **pas** besoin de passer par le département |
-| `T-04` | `?code_station=K4520001&sort=desc` → 206, `count` **96** : le code à **8 caractères** est la clé de l'historique d'un point |
+| `T-04` | `?code_station=K4520001&sort=desc` → 206, `count` **96** : le code de station est la clé de l'historique d'un point. ⚠️ ~~à **8 caractères**~~ — **invalidé le 2026-09-14, voir `T-14`** |
 | `T-05` / `T-06` | `/campagnes?code_departement=41` → 206, `count` 96, `api_version` `1.2.0` ; `libelle_type_campagne` en **minuscules** (`"usuelle"`) — `C-10` reproduit |
 | `T-07` | 🚨 **`code_campagne` change de type selon l'endpoint** : **entier** `109905` dans `/campagnes`, **chaîne** `"109905"` dans `/observations`. Un modèle qui le type en `int` casse sur l'un des deux. Fait **nouveau**, absent du cadrage |
 | `T-08` | `date_observation` est **une date sans heure** (`"2026-08-25"`) : `BR-010` se calcule en **jours** |
 | `T-09` | Une observation ONDE porte ses coordonnées **deux fois** — `latitude`/`longitude` à plat **et** `geometry` GeoJSON. C'est ce qui rend `D8` possible sans appel supplémentaire |
-| `Q-05` | **Répondu : zéro** `code_ecoulement` à `null` sur la fixture d'emprise. Zéro est une réponse |
+| `Q-05` | **Répondu : zéro** `code_ecoulement` à `null` sur la fixture d'emprise. Zéro est une réponse. ⚠️ **Amendé le 2026-09-14** : vrai de la Loire seulement — **700 sur 10 234** à l'échelle nationale (`T-14 e`) |
 | `T-10` | 🚨 `/v2/hydrometrie/observations_tr` **indisponible ce jour-là** — voir la ligne 14 de « Ce qui bloque » |
+| `T-14` | 🚨 **Le code de station ONDE est une chaîne libre** (2026-09-14) : sur 10 234 lignes nationales, **507** hors `^[A-Z0-9]{8}$`, **147 codes distincts** — `A721 3011` (espace), `S224` (4 caractères), `" O968 5312 "` (espaces de bord). **L'espace est significatif** : `A721%203011` → count 40, `A7213011` → count 63. Détail : [`sources/onde.md`](sources/onde.md) § `T-14`, ligne 25 de « Ce qui bloque » |
 
 ### Carte — ce qui reste vrai quelle que soit la stack
 

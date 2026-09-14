@@ -46,7 +46,7 @@ Ce plan est écrit **sur l'architecture cible**. Les tâches `R1` → `R6` de la
 | `T-01` | `/v1/ecoulement/observations` **accepte `bbox`** — `bbox=1.0,47.3,1.8,47.8` → HTTP **206**, `count` **1 448**. La carte n'a donc **pas** besoin de passer par le département | `…/v1/ecoulement/observations?bbox=1.0,47.3,1.8,47.8&size=3` |
 | `T-02` | Le même endpoint accepte **`sort=desc`** et **`fields`** (`C-17`) : 206 sans erreur | `…&sort=desc&fields=code_station,date_observation,code_ecoulement,libelle_ecoulement,latitude,longitude` |
 | `T-03` | Il accepte **`date_observation_min`** — `2026-07-15` sur la même emprise → `count` **30** contre 1 448. C'est le filtre qui rend le chargement de carte tenable | `…&bbox=…&date_observation_min=2026-07-15&size=1` |
-| `T-04` | `?code_station=K4520001&sort=desc` → 206, `count` **96**, trois dernières campagnes `2026-08-25` code `"3"`, `2026-07-24` code `"3"`, `2026-06-26` code `"2"`. **Le code à 8 caractères est la clé de l'historique d'un point** | idem |
+| `T-04` | `?code_station=K4520001&sort=desc` → 206, `count` **96**, trois dernières campagnes `2026-08-25` code `"3"`, `2026-07-24` code `"3"`, `2026-06-26` code `"2"`. ~~**Le code à 8 caractères est la clé de l'historique d'un point**~~ ⚠️ **amendé le 2026-09-14 : la forme à 8 caractères est fausse en général, voir `T-14`** — le code de station reste la clé de l'historique, mais c'est une chaîne libre | idem |
 | `T-05` | `/v1/ecoulement/campagnes?code_departement=41` → **206**, `count` **96**, `api_version` `1.2.0`. Champs : `code_campagne`, `date_campagne`, `nombre_modalite_ecoulement`, `code_type_campagne`, `libelle_type_campagne`, `code_reseau`, `code_departement` | idem |
 | `T-06` | **`libelle_type_campagne` est en minuscules** : `"usuelle"` relevé ce jour — `C-10` reproduit, comparaison en minuscules | `T-05` |
 | `T-07` | 🚨 **`code_campagne` change de type selon l'endpoint** : **entier** `109905` dans `/campagnes`, **chaîne** `"109905"` dans `/observations`. Un modèle qui le type en `int` casse sur l'un des deux. Fait **nouveau**, absent du cadrage | `T-04` et `T-05` |
@@ -56,6 +56,16 @@ Ce plan est écrit **sur l'architecture cible**. Les tâches `R1` → `R6` de la
 | `T-11` | `shared_preferences` **2.5.5**, publiée le **2026-03-25**, **BSD-3-Clause**, plateformes **Android, iOS, Linux, macOS, Web, Windows**. Contrainte `sdk ^3.9.0`, `flutter >=3.35.0` — satisfaite par le poste (Dart 3.13.3, Flutter 3.47.4) | `https://pub.dev/api/packages/shared_preferences` + page pub.dev |
 | `T-12` | La forme filaire à virgules encodées (`%2C`) est acceptée : `fields` honoré, les lignes de `data` ne portent que les champs demandés. Détail : `docs/sources/onde.md` § T-12 | `…/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=code_station%2Cdate_observation%2Ccode_ecoulement` |
 | `T-13` | La forme filaire exacte émise par l'app (dix champs, bbox à quinze décimales) est acceptée, ainsi que la notation exponentielle que `double.toString()` produit sous `1e-6`. Détail : `docs/sources/onde.md` § T-13 | `…/v1/ecoulement/observations?bbox=1.000000000000001%2C47.300000000000004%2C1.7811667496231998%2C47.799999999999997&date_observation_min=2026-07-15&sort=desc&fields=…&size=2` + `bbox=3e-7%2C47.3%2C1.8%2C47.8&size=1` |
+
+### Constaté le 2026-09-14, par appel HTTP réel — correctif d'un bug vu à l'écran
+
+> ⚠️ Le numéro `T-11` était **déjà pris** par le relevé `shared_preferences` ci-dessus : ce fait
+> porte donc `T-14`, premier libre. Un numéro ne se réutilise pas.
+
+| # | Fait | Appel |
+|---|---|---|
+| `T-14` | 🚨 **`T-04` est invalidé sur sa partie « huit caractères »** : le code de station ONDE est une **chaîne libre**. Page nationale → HTTP **200**, `count` **10 234**, **3 302** codes distincts, dont **147** hors `^[A-Z0-9]{8}$` (129 de forme `A721 3011`, 10 à espaces de bord, `S224` à 4 caractères…) — **507 lignes** sur 10 234. **L'espace est significatif** : `code_station=A721%203011` → count **40**, `A7213011` → count **63**, deux historiques et deux libellés distincts. Le code est conservé **verbatim** : ni `trim`, ni suppression d'espace. Conséquence vue à l'écran : la validation de forme faisait remonter l'exception jusqu'à `MapViewModel`, bandeau rouge et **zéro station**. Détail, contre-exemples et formes filaires (`+` contre `%20`) : `docs/sources/onde.md` § `T-14` | `…/v1/ecoulement/observations?bbox=-5.5,41,10,51.5&date_observation_min=2026-07-15&size=20000&sort=desc&fields=…` puis `?code_station=A721%203011`, `?code_station=A7213011`, `?code_station=X123%20472`, `?code_station=S224` |
+| `T-14 e` | **`code_ecoulement` à `null` est fréquent hors Loire** : **700 lignes sur 10 234** (6,8 %), `libelle_ecoulement` `null` sur les mêmes ; réparties sur **29 campagnes**, **20 dates** et **17 départements** — pas sur une seule campagne en cours. **`Q-05` est amendé** : `Inconnu(null)` n'est plus un cas synthétique. Le mapper les rendait déjà correctement, elles n'étaient pas en cause dans le bug | idem, plus `?code_station=P9130001` |
 
 ### Ouvert — à établir par appel réel en `D1`, avant `D5`
 
@@ -195,11 +205,17 @@ git add test/fixtures docs/sources && git commit -m "docs(ecoulement): capturer 
 
 ### Task D2 : Le domaine de l'écoulement, et l'état d'une station sur la carte
 
+> ⚠️ **Correctif du 2026-09-14 (bug vu à l'écran)** : `T-04` invalidé — codes ONDE **verbatim**,
+> ligne illisible ignorée et comptée (`T-14`, `docs/sources/onde.md`). `OndeStationCode`
+> n'impose plus `^[A-Z0-9]{8}$` : il accepte toute chaîne non blanche et la conserve telle
+> quelle, espaces compris. Ce qui sépare ONDE d'hydrométrie est désormais le **type**, pas la
+> forme.
+
 **Files:** créés `lib/domain/onde/{onde_station_code,onde_point,onde_observation,campaign_age}.dart`, `lib/domain/observation/station_map_state.dart` · modifié `lib/domain/repositories/repositories.dart` · tests miroirs
 
 **Signatures publiques**
 
-- `final class OndeStationCode { factory OndeStationCode(String raw); final String value; }` — `^[A-Z0-9]{8}$`, avec `==`/`hashCode`/`toString`
+- `final class OndeStationCode { factory OndeStationCode(String raw); final String value; }` — ~~`^[A-Z0-9]{8}$`~~ **toute chaîne non blanche, verbatim** (correctif du 2026-09-14, `T-14`) ; `ArgumentError` sur `''` et `'   '` seulement ; avec `==`/`hashCode`/`toString`
 - `final class OndePoint { OndeStationCode code; String label; double latitude; double longitude; String? waterCourseLabel; DepartementCode? departement; }`
 - `final class OndeCampaign { String code; DateTime date; String rawTypeLabel; int? modalityCount; }`
 - `final class OndeObservation { OndeStationCode station; OndePoint point; DateTime observedAt; FlowCategory category; String? rawFlowCode; String? officialLabel; String? campaignCode; }` — `point` (D8)
@@ -357,6 +373,13 @@ git add lib/data/observations test/data/observations && git commit -m "feat(hydr
 
 ### Task D7 : Le dépôt d'écoulement, et son cache saisonnier
 
+> ⚠️ **Correctif du 2026-09-14 (bug vu à l'écran)** : `T-04` invalidé — codes ONDE **verbatim**,
+> ligne illisible **ignorée et comptée** (`T-14`). `HttpOndeObservationRepository` expose
+> `int get skippedRowCount`, cumulé par instance. Une `FormatException` ou une `ArgumentError`
+> levée par le mapper **sur une ligne** n'est plus fatale ; `data` absent, d'un type inattendu,
+> ou une ligne qui n'est pas un objet le restent (`UC-001 A4`). 507 lignes sur 10 234 faisaient
+> tomber la carte entière.
+
 **Files:** créés `lib/data/onde/http_onde_observation_repository.dart`, `lib/data/onde/cached_onde_observation_repository.dart` · tests miroirs
 
 **Signatures publiques** — `final class HttpOndeObservationRepository implements OndeObservationRepository { HttpOndeObservationRepository(HubEauClient client); }` (`OndeClient` retiré en D4 : aucun second client, `HubEauClient` sert déjà les deux endpoints) · `final class CachedOndeObservationRepository implements OndeObservationRepository { CachedOndeObservationRepository({required OndeObservationRepository inner, DateTime Function()? now, bool Function()? networkAvailable}); }` · `Duration ondeTtlFor(DateTime date)`
@@ -487,13 +510,23 @@ git add lib/features/map test/features/map && git commit -m "feat(map): un etat 
 - Aucune campagne pour le point → `Prete` avec `NonObserve` et un texte d'absence ; le point n'est **jamais** retiré de la carte (`UC-004 A4`).
 - Balayage : aucun libellé exposé ne contient de verbe d'instruction sur un usage de l'eau (`BR-014`).
 
-- [ ] **Étape 1** — écrire le test sur la fixture réelle de `D1`. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/onde_sheet` → échec.
-- [ ] **Étape 3** — implémenter.
-- [ ] **Étape 4** — `flutter test test/features test/architecture` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — écrire le test sur la fixture réelle de `D1`. Rouge.
+- [x] **Étape 2** — `flutter test test/features/onde_sheet` → échec (`'OndeSheetViewModel' isn't a type`, `'OndeSheetState' isn't a type`, les quatre états introuvables).
+- [x] **Étape 3** — implémenter.
+- [x] **Étape 4** — `flutter test test/features test/architecture` → **112 verts**, `layers_test.dart` compris. `flutter test` complet → **452 tests, 451 verts** (437 avant `V3`, plus les 15 de cette tâche) ; seul rouge : `test/project/ios_bundle_identifier_test.dart`, artefact de poste connu (dossier `android/` non versionné), sans rapport avec `V3`. `flutter analyze` → `No issues found!` · `dart format --set-exit-if-changed lib test` → `0 changed`.
+
+**Écart constaté** — trois points, tranchés à l'exécution (2026-09-14) et documentés dans le code :
+
+1. **Nommage des états.** Le plan nommait les quatre états `Fermee`, `EnCours`, `Prete`, `EnEchec` — **exactement** les noms de `StationSheetState` (`V1`), et `EnEchec` existe en outre dans `lib/domain/observation/station_map_state.dart` (point 17 de `docs/project-state.md`). Un troisième jeu homonyme rendrait tout fichier important deux tranches inutilisable sans `hide`. Les états sont donc `OndeSheetFermee`, `OndeSheetEnCours`, `OndeSheetPrete`, `OndeSheetEnEchec`. Ceux de `StationSheetState` ne sont **pas** renommés ici : hors périmètre, à traiter quand `U1` les rendra visibles.
+2. **`latest` est nullable.** Le plan déclarait `OndeObservation latest` non nullable, tandis que `D8` exige l'état « aucune campagne » sans retirer le point de la carte (`UC-004 A4`). Fabriquer une observation `NonObserve` qu'aucune campagne n'a produite serait une valeur inventée, ce que `BR-007` interdit. `OndeSheetData.latest` est donc `OndeObservation?`, et `age`/`ageInDays` sont nullables **dans ce seul cas** ; `seasonNotice` reste présent et `officialModalityText` porte un texte d'absence explicite, jamais une chaîne vide.
+3. **`now` est ramené en UTC** dans le ViewModel (`_now().toUtc()`) : `campaignAgeOf` compare des dates **calendaires** et exige que ses deux instants soient dans le même fuseau, `observedAt` étant rendu en UTC par le mapper (`T-08`). Sans cela, l'horloge par défaut (`DateTime.now`, locale) ferait varier l'âge d'un jour selon l'heure de la journée.
+
+Deux cas de la liste ci-dessus ne sont **pas** couverts par un test de `V3` : `code_ecoulement` `'4'` et un code inconnu. La fixture réelle de `K4520001` ne porte ni l'un ni l'autre (`Q-05` a compté **zéro** `code_ecoulement` nul le 2026-09-13), et `flowCategoryLabel(NonObserve())` / `flowCategoryLabel(Inconnu(...))` sont déjà verrouillés dans `test/domain/nomenclature/flow_category_test.dart`. Ce que `V3` ajoute de propre à la fiche — le repli de `officialModalityText` quand ni code ni libellé n'est transmis — est testé sur un cas **synthétique assumé**, signalé comme tel dans le test. Le texte d'absence de `UC-004 A2` (« Ce point n'a pas pu être observé… ») appartient à la vue : reporté en `U4`.
+
+**Relecture du 2026-09-14** : balayage `BR-014` ajouté (aucun verbe d'instruction ni mot de garantie dans `officialModalityText`, `seasonNotice`, `flowCategoryLabel` — « officiel » exclu explicitement, il nomme la nomenclature de la source, `UC-004 § 3`) ; les deux branches manquantes de `_officialModalityText` sont testées (code présent/libellé absent, et l'inverse), toujours en cas synthétique assumé ; `historyFor` est appelé avec `limit: 5` explicite. Total `test/features/onde_sheet` : **18 tests**, tous verts.
 
 ```bash
-git add lib/features/onde_sheet test/features/onde_sheet && git commit -m "feat(ecoulement): OndeSheetViewModel, avec l age de campagne et la modalite officielle" -m "L age de la campagne figure dans tous les cas, sans exception : un point affiche eau qui coule en fevrier porte une observation de septembre (BR-010). La modalite officielle reste lisible a cote de la categorie : le regroupement en quatre categories est notre interpretation, pas une classification de l OFB (ADR-006). L ecran dit A sec ; Assec reste le libelle de la source."
+git add lib/features/onde_sheet test/features/onde_sheet docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md && git commit -m "feat(ecoulement): OndeSheetViewModel, avec l age de campagne et la modalite officielle" -m "L age de la campagne figure dans tous les cas, sans exception : un point affiche eau qui coule en fevrier porte une observation de septembre (BR-010). La modalite officielle reste lisible a cote de la categorie : le regroupement en quatre categories est notre interpretation, pas une classification de l OFB (ADR-006). L ecran dit A sec ; Assec reste le libelle de la source."
 ```
 
 ### Task V4 : `WarningsViewModel`
@@ -684,6 +717,8 @@ git add test/features/goldens docs/plan-de-tests.md && git commit -m "test(map):
 ```
 
 ### Task U6 : Les états vides et les pannes, nommés par source
+
+> ⚠️ **Ajout du 2026-09-14 (correctif `T-14`)** : `HttpOndeObservationRepository.skippedRowCount` compte les lignes ONDE illisibles ignorées, mais **personne ne le lit** en production (le décorateur de cache ne l'expose pas, `main.dart` ne le câble pas). `BR-007` n'est donc pas encore honoré pour ces lignes : `U6` doit remonter un compte **rattaché à l'appel** (retour de `latestWithinBounds`, pas un champ mutable) jusqu'à un texte d'absence — « N points non lisibles sur cette emprise ».
 
 **Files:** créé `lib/features/map/view/map_empty_states.dart` · test miroir · modifié `lib/features/map/view/map_screen.dart`
 
@@ -1080,6 +1115,25 @@ git add CHANGELOG.md pubspec.yaml docs CLAUDE.md test && git commit -m "docs: ou
 
 ---
 
+### Task X5 : Purger toute trace de l'ancienne architecture React Native (demande du commanditaire, 2026-09-14)
+
+**Files:** modifiés `docs/project-state.md` (historique replié), `docs/README.md` (table « Organisation »), `docs/01-analyse.md`, `docs/03-conception.md`, `docs/04-ui.md`, `docs/guide-installation.md`, `docs/nfr.md` si des constats `NV-1`…`NV-6` MapLibre y subsistent · supprimés `docs/guide-release.md` et `docs/guide-test-appareil.md` (APK, Android réel : à réécrire pour Flutter le jour où Android revient, pas à conserver tels quels), les six PNG hérités d'Expo sous `assets/` (`android-icon-*.png`, `favicon.png`, `icon.png`, `splash-icon.png`, aucun n'est référencé par `pubspec.yaml`) · vérifié `spike/porte_flutter/COMPTE-RENDU.md` (Flutter : conservé)
+
+**Demande :** « à la fin de T1, je veux que l'on supprime tout de l'ancienne architecture React Native, aussi dans la doc » (2026-09-14). Les traces induisent en erreur : le brief d'une session et plusieurs agents s'y sont trompés le 2026-09-13.
+
+**Invariant à concilier — question fermée au commanditaire avant d'exécuter :** `docs/README.md` § Règles d'écriture et `CLAUDE.md` disent qu'un ADR obsolète **n'est jamais supprimé**, il passe à « Remplacé par … ». `ADR-005` (MAUI), `ADR-008`, `ADR-009`, `ADR-010` (React Native) et `ADR-012` (`createPack`) sont dans ce cas. Recommandation : **les garder** avec leur statut (ce sont les seules traces de *pourquoi* deux stacks ont été abandonnées), purger tout le reste. Alternative : les déplacer sous `docs/adr/archive/` avec un index — même contenu, moins visible.
+
+**Critère de fin :** `grep -rniE "react native|expo|maplibre|createpack|jest|tsc|typescript" docs CLAUDE.md README.md --include=*.md` ne rend que les ADR conservés et `ADR-013` (qui raconte la bascule) ; `git ls-files assets` ne liste que `assets/referentiel/stations.json` ; `docs/README.md` ne référence plus de guide APK ; `flutter test test/project/` vert (les tests de docs lisent `nfr.md`, `domain-model.md`, `CHANGELOG.md`).
+
+- [ ] **Étape 1** — poser la question fermée sur les ADR ; attendre la réponse.
+- [ ] **Étape 2** — purger `docs/project-state.md` (retirer le `<details>` historique, garder une ligne « historique des stacks : voir ADR-005, 010, 013 »), `docs/README.md`, les documents de cadrage, `guide-installation.md`.
+- [ ] **Étape 3** — `git rm` des deux guides et des six PNG ; vérifier qu'aucun test ne les lit.
+- [ ] **Étape 4** — critère de fin, `flutter analyze`, `flutter test`, commit.
+
+```bash
+git add docs assets CLAUDE.md && git commit -m "docs: purger les traces de l architecture React Native, sauf les ADR remplaces" -m "Demande du commanditaire du 2026-09-14. Les guides APK et les PNG Expo sont supprimes, l historique de project-state.md retire ; les ADR remplaces restent, avec leur statut : ce sont les seules traces de pourquoi deux stacks ont ete abandonnees."
+```
+
 ## Lot 7 — La porte de T1
 
 ### Task P1 : L'exécutable Windows de `0.2.0`, lancé hors Flutter
@@ -1195,11 +1249,11 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | **3 — Vues** | `U1` → `U6` (6) | feuille au tap, marqueur de station, points ONDE, fiche ONDE, goldens, états vides |
 | **4 — Avertissements** | `W1` → `W5` (5) | stockage et `ADR-011`, **les quatre emplacements**, balayage de vocabulaire |
 | **5 — Clavier/souris** | `K1` → `K3` (3) | boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
-| **6 — Documentation** | `X1` → `X4` (4) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0` |
+| **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge React Native (`X5`, demande du 2026-09-14) |
 | **7 — Porte** | `P1`, `P2` (2) | exécutable Windows, **cinq constats**, `0.2.0` datée et taguée |
 | **⏸ Android** | `A⏸1` → `A⏸5` (5) | **différées le 2026-09-12** — listées, jamais comptées faites |
 
-**31 tâches actives, 5 différées.**
+**33 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5`), **5 différées.**
 
 ## Ordre d'exécution
 
@@ -1211,7 +1265,7 @@ graph LR
     V --> U["Lot 3 — Vues<br/>U1 a U6"]
     U --> W["Lot 4 — Avertissements<br/>W1 a W5"]
     W --> K["Lot 5 — Clavier / souris<br/>K1 a K3"]
-    U --> X["Lot 6 — Documentation<br/>X1 a X4"]
+    U --> X["Lot 6 — Documentation<br/>X1 a X5"]
     W --> X
     K --> P["Lot 7 — Porte<br/>P1, P2"]
     X --> P
