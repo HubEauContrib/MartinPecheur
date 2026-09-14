@@ -45,6 +45,13 @@
 // c'est ce qui évite de réinterroger une absence déjà constatée avant le
 // TTL.
 //
+// C'est l'`OndeSweep` ENTIER qui est mis en cache depuis `U6`, son compte de
+// lignes illisibles compris : ce compte est une propriété de la PAGE lue, il
+// vieillit avec elle. Un écran servi par le cache doit pouvoir dire « N
+// points d'observation non lisibles sur cette emprise » aussi bien qu'un
+// écran servi par le réseau — sans quoi l'explication de l'absence
+// disparaîtrait au premier TTL (BR-007, `T-14`).
+//
 // Une seule résolution d'horloge dans ce fichier : `CachedOndeObservationRepository`
 // calcule `now ?? DateTime.now` une fois, dans son constructeur, et
 // transmet cette fonction déjà résolue aux deux `_TtlCache` (leur champ
@@ -58,7 +65,7 @@ import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart'
-    show OndeObservationRepository;
+    show OndeObservationRepository, OndeSweep;
 
 /// TTL des observations ONDE en saison (mai à septembre inclus),
 /// `docs/03-conception.md § 4.1`.
@@ -149,7 +156,7 @@ final class CachedOndeObservationRepository
     DateTime Function()? now,
     bool Function()? networkAvailable,
   }) : _clock = now ?? DateTime.now {
-    _boundsCache = _TtlCache<_BoundsKey, List<OndeObservation>>(
+    _boundsCache = _TtlCache<_BoundsKey, OndeSweep>(
       clock: _clock,
       networkAvailable: networkAvailable,
     );
@@ -162,11 +169,11 @@ final class CachedOndeObservationRepository
   final OndeObservationRepository _inner;
   final DateTime Function() _clock;
 
-  late final _TtlCache<_BoundsKey, List<OndeObservation>> _boundsCache;
+  late final _TtlCache<_BoundsKey, OndeSweep> _boundsCache;
   late final _TtlCache<_StationKey, List<OndeObservation>> _stationCache;
 
   @override
-  Future<List<OndeObservation>> latestWithinBounds(
+  Future<OndeSweep> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
   }) async {
@@ -175,12 +182,17 @@ final class CachedOndeObservationRepository
     // chaîne UTC envoyée à l'API, deux appelants dont la clé coïncide
     // demandent forcément la même chose — capturer l'un ou l'autre `since`
     // interroge la même URI.
-    final List<OndeObservation> value = await _boundsCache.read(
+    final OndeSweep value = await _boundsCache.read(
       (bounds, formatDateUtc(since)),
       ttl: ondeTtlFor(_clock()),
       load: () => _inner.latestWithinBounds(bounds, since: since),
     );
-    return List<OndeObservation>.unmodifiable(value);
+    // Un balayage neuf, dont seule la liste est rendue non modifiable : le
+    // compte le suit tel quel, il n'y a rien à protéger sur un `int`.
+    return OndeSweep(
+      observations: List<OndeObservation>.unmodifiable(value.observations),
+      unreadableRows: value.unreadableRows,
+    );
   }
 
   @override

@@ -14,6 +14,14 @@
 // ligne qui n'est pas un objet) reste fatal. Le groupe « Tolérance par
 // ligne » ci-dessous verrouille les deux côtés de cette frontière : un test
 // qui ne prouverait que le saut laisserait passer un dépôt qui avale tout.
+//
+// ⚠️ Depuis `U6`, ce compte est **rattaché à l'appel** : `latestWithinBounds`
+// rend un `OndeSweep` (observations + `unreadableRows`), et le champ mutable
+// `skippedRowCount` a disparu. C'est ce qui permet d'écrire à l'écran « N
+// points d'observation non lisibles sur cette emprise » (BR-007) : un
+// compteur cumulé sur la durée de vie du dépôt aurait décrit la session, pas
+// l'emprise regardée. Le cas « deux appels identiques comptent 1, pas 1 puis
+// 2 » est le verrou de cette bascule.
 import 'dart:convert';
 import 'dart:io';
 
@@ -25,6 +33,8 @@ import 'package:martinpecheur/data/onde/http_onde_observation_repository.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
+import 'package:martinpecheur/domain/repositories/repositories.dart'
+    show OndeSweep;
 
 String _readFixture(String path) =>
     File('test/fixtures/onde/$path').readAsStringSync();
@@ -47,8 +57,11 @@ void main() {
       final HttpOndeObservationRepository repository =
           HttpOndeObservationRepository(HubEauClient(httpClient: mock));
 
-      final List<OndeObservation> observations = await repository
-          .latestWithinBounds(bounds, since: since);
+      final OndeSweep sweep = await repository.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      final List<OndeObservation> observations = sweep.observations;
 
       // La fixture porte trente lignes pour quinze codes de station
       // distincts (deux campagnes chacun) — constaté par
@@ -105,8 +118,11 @@ void main() {
       final HttpOndeObservationRepository repository =
           HttpOndeObservationRepository(HubEauClient(httpClient: mock));
 
-      final List<OndeObservation> observations = await repository
-          .latestWithinBounds(bounds, since: since);
+      final OndeSweep sweep = await repository.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      final List<OndeObservation> observations = sweep.observations;
 
       expect(observations, hasLength(1));
       expect(observations.single.observedAt, DateTime.utc(2026, 6, 1));
@@ -125,8 +141,11 @@ void main() {
       final HttpOndeObservationRepository repository =
           HttpOndeObservationRepository(HubEauClient(httpClient: mock));
 
-      final List<OndeObservation> observations = await repository
-          .latestWithinBounds(bounds, since: since);
+      final OndeSweep sweep = await repository.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      final List<OndeObservation> observations = sweep.observations;
 
       expect(observations, isEmpty);
     });
@@ -247,11 +266,14 @@ void main() {
             ),
           );
 
-      final List<OndeObservation> observations = await repository
-          .latestWithinBounds(bounds, since: since);
+      final OndeSweep sweep = await repository.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      final List<OndeObservation> observations = sweep.observations;
 
       expect(observations, hasLength(2));
-      expect(repository.skippedRowCount, 1);
+      expect(sweep.unreadableRows, 1);
     });
 
     test("une ligne dont le code_station est blanc (l'ArgumentError du "
@@ -270,12 +292,15 @@ void main() {
             ),
           );
 
-      final List<OndeObservation> observations = await repository
-          .latestWithinBounds(bounds, since: since);
+      final OndeSweep sweep = await repository.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      final List<OndeObservation> observations = sweep.observations;
 
       expect(observations, hasLength(1));
       expect(observations.single.station, OndeStationCode('A1234567'));
-      expect(repository.skippedRowCount, 1);
+      expect(sweep.unreadableRows, 1);
     });
 
     test(
@@ -296,16 +321,20 @@ void main() {
               ),
             );
 
-        final List<OndeObservation> observations = await repository
-            .latestWithinBounds(bounds, since: since);
+        final OndeSweep sweep = await repository.latestWithinBounds(
+          bounds,
+          since: since,
+        );
+        final List<OndeObservation> observations = sweep.observations;
 
         expect(observations, isEmpty);
-        expect(repository.skippedRowCount, 2);
+        expect(sweep.unreadableRows, 2);
       },
     );
 
-    test('le compte est cumulé par instance, jamais remis à zéro entre deux '
-        'appels', () async {
+    test("le compte est RATTACHÉ À L'APPEL, jamais cumulé sur la durée de "
+        'vie du dépôt : deux appels identiques comptent 1, pas 1 puis '
+        '2', () async {
       final HttpOndeObservationRepository repository =
           HttpOndeObservationRepository(
             HubEauClient(
@@ -319,24 +348,51 @@ void main() {
             ),
           );
 
-      await repository.latestWithinBounds(bounds, since: since);
-      expect(repository.skippedRowCount, 1);
+      final OndeSweep premier = await repository.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      expect(premier.unreadableRows, 1);
 
-      await repository.latestWithinBounds(bounds, since: since);
-      expect(repository.skippedRowCount, 2);
+      final OndeSweep second = await repository.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      expect(
+        second.unreadableRows,
+        1,
+        reason:
+            "un compte cumulé afficherait 2 pour une emprise qui n'a "
+            "qu'une seule ligne illisible — le chiffre montré à l'écran "
+            "décrit CETTE emprise (T-14, BR-007)",
+      );
     });
 
-    test('un dépôt neuf compte zéro ligne ignorée', () {
+    test('une page vide rend zéro observation ET zéro ligne ignorée : une '
+        "absence constatée n'est pas une page illisible (BR-007)", () async {
       final HttpOndeObservationRepository repository =
           HttpOndeObservationRepository(
-            HubEauClient(httpClient: mockRendant(<String, Object?>{})),
+            HubEauClient(
+              httpClient: mockRendant(<String, Object?>{
+                'count': 0,
+                'data': <Object?>[],
+              }),
+            ),
           );
 
-      expect(repository.skippedRowCount, 0);
+      final OndeSweep sweep = await repository.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+
+      expect(sweep.observations, isEmpty);
+      expect(sweep.unreadableRows, 0);
     });
 
     test('historyFor applique la même tolérance : la ligne illisible est '
-        'ignorée et comptée, les autres sont rendues', () async {
+        'ignorée, les autres sont rendues. Aucun compte ne remonte ici — '
+        "une fiche n'a pas d'emprise, et personne n'afficherait ce "
+        'chiffre', () async {
       final HttpOndeObservationRepository repository =
           HttpOndeObservationRepository(
             HubEauClient(
@@ -363,7 +419,6 @@ void main() {
 
       expect(observations, hasLength(2));
       expect(observations.first.observedAt, DateTime.utc(2026, 6, 1));
-      expect(repository.skippedRowCount, 1);
     });
 
     test("une ligne qui n'est pas un objet reste une panne de source : "
@@ -383,7 +438,6 @@ void main() {
         repository.latestWithinBounds(bounds, since: since),
         throwsA(isA<FormatException>()),
       );
-      expect(repository.skippedRowCount, 0);
     });
   });
 

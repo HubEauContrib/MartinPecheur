@@ -60,14 +60,19 @@ final class InMemoryOndeObservationRepository
   final List<OndeObservation> _observations;
 
   @override
-  Future<List<OndeObservation>> latestWithinBounds(
+  Future<OndeSweep> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
-  }) async => _observations
-      // since est INCLUSIF, comme date_observation_min cote API : une
-      // observation datee exactement a since est retenue.
-      .where((OndeObservation o) => !o.observedAt.isBefore(since))
-      .toList();
+  }) async => OndeSweep(
+    observations: _observations
+        // since est INCLUSIF, comme date_observation_min cote API : une
+        // observation datee exactement a since est retenue.
+        .where((OndeObservation o) => !o.observedAt.isBefore(since))
+        .toList(),
+    // Un double en memoire ne lit aucune ligne d'API : il n'en refuse
+    // aucune. Zero n'est pas un defaut commode, c'est le fait (BR-007).
+    unreadableRows: 0,
+  );
 
   @override
   Future<List<OndeObservation>> historyFor(
@@ -201,23 +206,28 @@ void main() {
       test('le contrat s\'implemente sans infrastructure : le double filtre '
           'since — exclut ce qui precede, inclut ce qui est date exactement '
           'a since', () async {
-        final List<OndeObservation> observations = await repository
-            .latestWithinBounds(
-              Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
-              since: DateTime.utc(2026, 8, 1),
-            );
+        final OndeSweep sweep = await repository.latestWithinBounds(
+          Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
+          since: DateTime.utc(2026, 8, 1),
+        );
 
-        expect(observations, hasLength(1));
-        expect(observations.single.observedAt, recente.observedAt);
+        expect(sweep.observations, hasLength(1));
+        expect(sweep.observations.single.observedAt, recente.observedAt);
+        expect(
+          sweep.unreadableRows,
+          0,
+          reason:
+              "le compte accompagne la lecture : un double qui ne lit "
+              "aucune ligne n'en refuse aucune",
+        );
 
-        final List<OndeObservation> observationsSinceExact = await repository
-            .latestWithinBounds(
-              Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
-              since: recente.observedAt,
-            );
+        final OndeSweep sweepSinceExact = await repository.latestWithinBounds(
+          Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
+          since: recente.observedAt,
+        );
 
         expect(
-          observationsSinceExact,
+          sweepSinceExact.observations,
           hasLength(1),
           reason:
               'since est INCLUSIF, comme date_observation_min cote API : '

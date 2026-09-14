@@ -29,6 +29,7 @@
 
 import 'dart:async' show unawaited;
 import 'dart:collection' show UnmodifiableListView, UnmodifiableMapView;
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -58,6 +59,31 @@ const Duration preloadInterval = Duration(milliseconds: 200);
 
 /// Attente réelle, utilisée quand aucun [delay] n'est injecté.
 Future<void> _wait(Duration duration) => Future<void>.delayed(duration);
+
+/// La source dont la lecture a échoué, quand [MapViewModel.error] n'est pas
+/// nul. C'est le **ViewModel** qui la dit : la vue ne doit ni inspecter le
+/// type d'une exception, ni lire un message pour deviner qui est tombé —
+/// `HubEauFailure` vit sous `lib/data/`, et aucun fichier de `lib/features/`
+/// n'a le droit de l'importer (`layers_test.dart`, règle
+/// `features-vers-data`). Sans cette énumération, « le service Hub'Eau
+/// écoulement ONDE n'a pas répondu » ne serait pas écrivable sans casser une
+/// frontière de couches.
+///
+/// ⚠️ **Deux valeurs, pas trois.** L'hydrométrie n'y figure pas, et c'est
+/// délibéré : une panne de débit ne passe jamais par [MapViewModel.error],
+/// elle devient un [EnEchec] **par station** ([MapViewModel.stateOf],
+/// `UC-001 A4`) — les autres stations gardent leur état. Une valeur
+/// `hydrometrie` que rien ne poserait serait une branche morte, et un
+/// `switch` exhaustif obligerait la vue à inventer un texte pour un cas
+/// impossible (YAGNI).
+enum MapErrorSource {
+  /// Le référentiel embarqué des stations (`AssetStationPointRepository`) :
+  /// l'asset n'a pas pu être lu.
+  referentiel,
+
+  /// Les observations d'écoulement ONDE (Hub'Eau écoulement).
+  ecoulement,
+}
 
 /// L'état de l'écran carte et le seul chemin par lequel il est chargé.
 final class MapViewModel extends ChangeNotifier {
@@ -109,6 +135,14 @@ final class MapViewModel extends ChangeNotifier {
 
   Object? _error;
 
+  MapErrorSource? _errorSource;
+
+  /// Quelle source a échoué, quand [error] n'est pas nul ; `null` sinon.
+  /// Toujours posée **en même temps** que [error], et effacée avec elle :
+  /// une erreur sans source serait un message qui ne nomme personne, ce que
+  /// `BR-007` refuse (« message par source »).
+  MapErrorSource? get errorSource => _errorSource;
+
   /// La dernière erreur survenue en interrogeant un dépôt, ou `null`. La vue
   /// l'affiche plutôt que de présenter une carte muette (BR-007) : ni les
   /// dépôts ni ce ViewModel n'avalent une panne en silence. Une panne ONDE y
@@ -143,6 +177,20 @@ final class MapViewModel extends ChangeNotifier {
   /// elle seule, qui dit à la vue quelle échelle dessiner.
   Map<OndeStationCode, OndeObservation> get ondeObservations =>
       _ondeObservations;
+
+  int _ondeUnreadableRows = 0;
+
+  /// Nombre de lignes ONDE que la source a rendues sans qu'on sache les
+  /// lire, **pour l'emprise courante** (`OndeSweep.unreadableRows`, `T-14`).
+  /// Zéro tant qu'aucun balayage n'a abouti, et zéro dès qu'une emprise
+  /// propre répond : ce chiffre décrit ce que l'usager regarde, jamais le
+  /// cumul de la session — c'est ce qui le rend affichable (« N points
+  /// d'observation non lisibles sur cette emprise », BR-007).
+  ///
+  /// Alimenté seulement sur l'échelle [MapScaleKind.ecoulement], comme
+  /// [ondeObservations] : sur [MapScaleKind.debit], aucun appel ONDE n'est
+  /// émis (BR-008), et il n'y a donc rien à expliquer.
+  int get ondeUnreadableRows => _ondeUnreadableRows;
 
   /// Levé par [dispose] : une réponse d'un dépôt qui arrive après coup ne
   /// doit plus toucher l'état ni appeler `notifyListeners` — un
@@ -218,6 +266,7 @@ final class MapViewModel extends ChangeNotifier {
       }
       _stations = UnmodifiableListView<StationPoint>(response);
       _error = null;
+      _errorSource = null;
     } on Object catch (error) {
       if (_disposed || generation != _generation) {
         return;
@@ -228,6 +277,7 @@ final class MapViewModel extends ChangeNotifier {
       // déplace la carte.
       _lastRequestedBounds = null;
       _error = error;
+      _errorSource = MapErrorSource.referentiel;
       notifyListeners();
       return;
     }
@@ -241,6 +291,45 @@ final class MapViewModel extends ChangeNotifier {
       }
       notifyListeners();
     }
+  }
+
+  /// Élargit la recherche : recharge une emprise **deux fois plus haute et
+  /// deux fois plus large** que la dernière emprise demandée, centrée au
+  /// même endroit (`UC-001 A2` — l'action « Élargir la recherche »
+  /// accompagne le message d'absence de `BR-007`).
+  ///
+  /// Le calcul vit ici et non dans la vue : un widget branche et affiche, il
+  /// ne décide pas d'une géométrie. La vue n'a qu'un rappel à poser sur son
+  /// bouton.
+  ///
+  /// ⚠️ **La caméra ne bouge pas.** Ce ViewModel ne pilote pas `flutter_map`
+  /// — il n'en connaît pas le vocabulaire (ADR-014) : l'emprise chargée
+  /// s'élargit, les marqueurs hors écran restent hors écran jusqu'au prochain
+  /// geste de l'usager. Le déplacement de caméra est reporté à `K1`, avec les
+  /// contrôles de zoom.
+  ///
+  /// Ne demande **rien** tant qu'aucune emprise n'a abouti : il n'y a alors
+  /// rien à élargir. Les bords sont bornés au domaine des coordonnées
+  /// (±90° en latitude, ±180° en longitude) — une emprise déjà mondiale est
+  /// son propre élargissement, et [loadFor] la refuse comme inchangée.
+  Future<void> widenSearch() {
+    final Bounds? bounds = _lastRequestedBounds;
+    if (bounds == null) {
+      return Future<void>.value();
+    }
+
+    // Une demi-hauteur de chaque côté double la hauteur ; idem en largeur.
+    final double halfHeight = (bounds.north - bounds.south) / 2;
+    final double halfWidth = (bounds.east - bounds.west) / 2;
+
+    return loadFor(
+      Bounds(
+        west: math.max(-180, bounds.west - halfWidth),
+        south: math.max(-90, bounds.south - halfHeight),
+        east: math.min(180, bounds.east + halfWidth),
+        north: math.min(90, bounds.north + halfHeight),
+      ),
+    );
   }
 
   /// Rend [kind] active. Ne fait **rien** — pas même une notification — si
@@ -442,12 +531,23 @@ final class MapViewModel extends ChangeNotifier {
     return deltaLatitude * deltaLatitude + deltaLongitude * deltaLongitude;
   }
 
-  /// Charge les observations ONDE de [bounds] dans [_ondeObservations].
+  /// Charge les observations ONDE de [bounds] dans [_ondeObservations], et
+  /// le nombre de lignes illisibles du balayage dans [ondeUnreadableRows].
   /// Ne notifie pas : l'appelant décide du moment. Une panne est posée dans
-  /// [error] (BR-007) et laisse les points de station intacts.
+  /// [error] avec sa source ([MapErrorSource.ecoulement], BR-007) et laisse
+  /// les points de station intacts.
+  ///
+  /// Un balayage qui aboutit **efface l'erreur d'écoulement** qu'un balayage
+  /// précédent avait posée — et elle seule : voir la garde ci-dessous.
+  ///
+  /// Une panne ne touche ni [ondeObservations] ni [ondeUnreadableRows] : les
+  /// deux décrivent le dernier balayage ABOUTI, et le compte doit rester
+  /// d'accord avec les observations qu'il explique. Les dissocier ferait
+  /// afficher « N points non lisibles » à côté de marqueurs venus d'un autre
+  /// balayage.
   Future<void> _loadOnde(Bounds bounds, int generation) async {
     try {
-      final List<OndeObservation> response = await _onde.latestWithinBounds(
+      final OndeSweep response = await _onde.latestWithinBounds(
         bounds,
         since: _now().subtract(campagneAncienneApres),
       );
@@ -456,15 +556,35 @@ final class MapViewModel extends ChangeNotifier {
       }
       _ondeObservations = UnmodifiableMapView<OndeStationCode, OndeObservation>(
         <OndeStationCode, OndeObservation>{
-          for (final OndeObservation observation in response)
+          for (final OndeObservation observation in response.observations)
             observation.station: observation,
         },
       );
+      _ondeUnreadableRows = response.unreadableRows;
+      // Un balayage qui aboutit DÉMENT la panne qu'il remplace : sans cette
+      // remise à zéro, l'avis « Hub'Eau écoulement ONDE n'a pas répondu »
+      // resterait affiché par-dessus des marqueurs revenus — et comme « une
+      // panne parle seule » (`mapNoticesFor`), il masquerait à lui seul tout
+      // autre avis d'absence (`BR-007`).
+      //
+      // ⚠️ **Seule une erreur d'écoulement est effacée.** Une panne du
+      // référentiel n'est pas démentie par une lecture ONDE réussie : les
+      // deux sources sont indépendantes, et l'effacer ici rendrait la carte
+      // muette sur un asset illisible. En pratique l'état « erreur
+      // référentiel + balayage ONDE » n'est pas atteignable — un `loadFor`
+      // en échec oublie son emprise, et `selectScale` n'a alors plus
+      // d'emprise à recharger —, mais la garde dit ce que cette méthode a
+      // le droit d'effacer, plutôt que de dépendre de cette coïncidence.
+      if (_errorSource == MapErrorSource.ecoulement) {
+        _error = null;
+        _errorSource = null;
+      }
     } on Object catch (error) {
       if (_disposed || generation != _generation) {
         return;
       }
       _error = error;
+      _errorSource = MapErrorSource.ecoulement;
     }
   }
 

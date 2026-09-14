@@ -171,19 +171,27 @@ final class _OndeObservationRepositoryDouble
   DateTime? receivedSince;
   Future<List<OndeObservation>> Function(int call)? answer;
 
+  /// Nombre de lignes illisibles rendu AVEC chaque balayage (`U6`, T-14) :
+  /// reglable entre deux appels, comme le ferait une emprise propre apres
+  /// une emprise sale.
+  int unreadableRows = 0;
+
   @override
-  Future<List<OndeObservation>> latestWithinBounds(
+  Future<OndeSweep> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
-  }) {
+  }) async {
     boundsCalls++;
     receivedBounds = bounds;
     receivedSince = since;
     final Future<List<OndeObservation>> Function(int call)? configured = answer;
-    if (configured == null) {
-      return Future<List<OndeObservation>>.value(<OndeObservation>[]);
-    }
-    return configured(boundsCalls);
+    final List<OndeObservation> observations = configured == null
+        ? <OndeObservation>[]
+        : await configured(boundsCalls);
+    return OndeSweep(
+      observations: observations,
+      unreadableRows: unreadableRows,
+    );
   }
 
   @override
@@ -949,6 +957,221 @@ void main() {
         ),
         throwsUnsupportedError,
       );
+    });
+  });
+
+  group('ondeUnreadableRows — le compte rattache a l emprise (U6, T-14)', () {
+    test('zero par defaut, avant tout chargement', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      expect(viewModel.ondeUnreadableRows, 0);
+    });
+
+    test(
+      'reflete le compte rendu par le depot pour l emprise courante',
+      () async {
+        repository.answer = (int _) async => <StationPoint>[_blois()];
+        onde.answer = (int _) async => <OndeObservation>[
+          _onde('K4520001', DateTime.utc(2026, 8, 25)),
+        ];
+        onde.unreadableRows = 3;
+        final MapViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+
+        await viewModel.loadFor(_loireBounds());
+
+        expect(viewModel.ondeUnreadableRows, 3);
+      },
+    );
+
+    test('repasse a zero sur une emprise propre : le compte decrit CETTE '
+        "emprise, jamais la session", () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      onde.answer = (int _) async => <OndeObservation>[
+        _onde('K4520001', DateTime.utc(2026, 8, 25)),
+      ];
+      onde.unreadableRows = 3;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(_loireBounds());
+      expect(viewModel.ondeUnreadableRows, 3);
+
+      onde.unreadableRows = 0;
+      await viewModel.loadFor(Bounds(west: 4, south: 43, east: 6, north: 45));
+
+      expect(viewModel.ondeUnreadableRows, 0);
+    });
+
+    test("sur l'echelle debit, aucun appel ONDE n'est emis : le compte reste "
+        'a zero (BR-008)', () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      onde.unreadableRows = 7;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      await viewModel.loadFor(_loireBounds());
+
+      expect(onde.boundsCalls, 0);
+      expect(viewModel.ondeUnreadableRows, 0);
+    });
+  });
+
+  group('errorSource — nommer la source qui a echoue (U6, BR-007)', () {
+    test('aucune erreur : errorSource est nul', () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.loadFor(_loireBounds());
+
+      expect(viewModel.error, isNull);
+      expect(viewModel.errorSource, isNull);
+    });
+
+    test('le referentiel en echec : errorSource vaut referentiel', () async {
+      repository.answer = (int _) async => throw StateError('asset illisible');
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.loadFor(_loireBounds());
+
+      expect(viewModel.error, isA<StateError>());
+      expect(viewModel.errorSource, MapErrorSource.referentiel);
+    });
+
+    test("l'ONDE en echec : errorSource vaut ecoulement — la vue nomme la "
+        "source SANS inspecter le message d'erreur", () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      onde.answer = (int _) async => throw StateError('ONDE indisponible');
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.loadFor(_loireBounds());
+
+      expect(viewModel.errorSource, MapErrorSource.ecoulement);
+      expect(
+        viewModel.stations,
+        hasLength(1),
+        reason:
+            'une panne ONDE nomme sa source et laisse les stations '
+            'affichees (UC-001 A4)',
+      );
+    });
+
+    test('un chargement qui reussit apres un echec efface la source avec '
+        "l'erreur", () async {
+      repository.answer = (int call) async => call == 1
+          ? throw StateError('asset illisible')
+          : <StationPoint>[_blois()];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(_loireBounds());
+      expect(viewModel.errorSource, MapErrorSource.referentiel);
+
+      await viewModel.loadFor(_loireBounds());
+
+      expect(viewModel.error, isNull);
+      expect(viewModel.errorSource, isNull);
+    });
+
+    test("un balayage ONDE qui aboutit efface l'erreur qu'une panne ONDE "
+        'avait posee : sans cela, l avis « ONDE n a pas repondu » resterait '
+        'affiche PAR-DESSUS les marqueurs revenus (BR-007, U6)', () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      onde.answer = (int call) async => call == 1
+          ? throw StateError('ONDE indisponible')
+          : <OndeObservation>[_onde('K4520001', DateTime.utc(2026, 8, 25))];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(_loireBounds());
+      expect(
+        viewModel.errorSource,
+        MapErrorSource.ecoulement,
+        reason: 'le cas ne prouve rien si la panne n a pas eu lieu',
+      );
+
+      // Aller-retour d'echelle : c'est le seul geste qui relance l'ONDE sur
+      // l'emprise courante, sans toucher au referentiel (BR-008, UC-001 A6).
+      viewModel.selectScale(MapScaleKind.debit);
+      viewModel.selectScale(MapScaleKind.ecoulement);
+      await pumpEventQueue();
+
+      expect(viewModel.error, isNull);
+      expect(viewModel.errorSource, isNull);
+      expect(
+        viewModel.ondeObservations,
+        hasLength(1),
+        reason:
+            'les observations sont revenues : une erreur perimee ne doit '
+            'plus masquer ce que la carte dessine',
+      );
+    });
+  });
+
+  group('widenSearch — elargir la recherche (U6, UC-001 A2)', () {
+    test('double la hauteur ET la largeur autour du centre de la derniere '
+        'emprise demandee, puis recharge', () async {
+      repository.answer = (int _) async => <StationPoint>[];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      // Centre (1, 47), largeur 4, hauteur 2.
+      await viewModel.loadFor(Bounds(west: -1, south: 46, east: 3, north: 48));
+      expect(repository.calls, 1);
+
+      await viewModel.widenSearch();
+
+      expect(repository.calls, 2);
+      final Bounds? elargie = repository.receivedBounds;
+      expect(elargie?.west, -3);
+      expect(elargie?.east, 5);
+      expect(elargie?.south, 45);
+      expect(elargie?.north, 49);
+    });
+
+    test('deux elargissements successifs doublent deux fois : la carte ne '
+        'reste pas bloquee sur une emprise deja elargie', () async {
+      repository.answer = (int _) async => <StationPoint>[];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(Bounds(west: -1, south: 46, east: 3, north: 48));
+
+      await viewModel.widenSearch();
+      await viewModel.widenSearch();
+
+      expect(repository.calls, 3);
+      expect(repository.receivedBounds?.west, -7);
+      expect(repository.receivedBounds?.east, 9);
+      expect(repository.receivedBounds?.south, 43);
+      expect(repository.receivedBounds?.north, 51);
+    });
+
+    test('les bords restent dans le domaine des coordonnees : la latitude ne '
+        'depasse jamais 90 degres, la longitude 180', () async {
+      repository.answer = (int _) async => <StationPoint>[];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(
+        Bounds(west: -170, south: -80, east: 170, north: 80),
+      );
+
+      await viewModel.widenSearch();
+
+      expect(repository.receivedBounds?.west, -180);
+      expect(repository.receivedBounds?.east, 180);
+      expect(repository.receivedBounds?.south, -90);
+      expect(repository.receivedBounds?.north, 90);
+    });
+
+    test('aucune emprise chargee : elargir ne demande rien — il n y a rien a '
+        'elargir', () async {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.widenSearch();
+
+      expect(repository.calls, 0);
     });
   });
 }

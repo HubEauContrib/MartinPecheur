@@ -59,7 +59,16 @@
 //   déplacement entre-temps.
 //
 // Une erreur de lecture n'est pas avalée : [MapViewModel.error] la porte, et
-// la vue affiche [MapErrorBanner] au lieu d'une carte muette (`BR-007`).
+// la vue affiche un avis au lieu d'une carte muette (`BR-007`).
+//
+// ⚠️ Depuis `U6`, cet avis **nomme sa source** : `MapErrorBanner` — un
+// bandeau rouge portant `error.toString()` — est retiré, car `BR-007`
+// exige un « message par source », et un `toString()` n'en nomme aucune.
+// Ce qu'il faut dire et quand le dire vit dans `map_empty_states.dart`
+// ([mapNoticesFor], une fonction pure) ; [buildMapOverlays] se contente
+// d'appeler cette décision et de rendre ce qu'elle rend. La source, elle,
+// vient du ViewModel ([MapViewModel.errorSource]) : la vue ne peut pas
+// inspecter une `HubEauFailure`, qui vit sous `lib/data/`.
 //
 // ⚠️ La fiche station est **injectée**, pas importée (T1-U1). La règle
 // `feature-vers-feature` de `test/architecture/layers_test.dart` interdit à
@@ -91,6 +100,7 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
@@ -425,10 +435,11 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 /// 2. les **puces de bascule d'échelle** ([MapScaleChips]), toujours, en
 ///    haut à gauche — y compris en erreur : une carte en panne reste une
 ///    carte dont on change l'échelle (`BR-007`, `UC-001 A6`) ;
-/// 3. le **bandeau d'erreur**, seulement si [error] n'est pas nul
-///    (`BR-007` : jamais une carte muette). Posé **sous** les puces, dans la
-///    même colonne : la largeur de cette colonne est bornée, elle réserve
-///    toute la place de la légende et n'empiète jamais dessus ;
+/// 3. les **avis** — absence, hors couverture, panne, lignes illisibles —,
+///    décidés par [mapNoticesFor] (`BR-007` : jamais une carte muette, jamais
+///    un état par défaut). Posés **sous** les puces, dans la même colonne :
+///    la largeur de cette colonne est bornée, elle réserve toute la place de
+///    la légende et n'empiète jamais dessus ;
 /// 4. les **panneaux de fiche** — station ([stationSheet]) et point ONDE
 ///    ([ondeSheet]) —, chacun s'il est fourni, en bas à gauche et dans cet
 ///    ordre. Les deux dépendent d'échelles différentes et ne sont jamais
@@ -438,18 +449,43 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    d'usage de la Licence Ouverte, jamais une finition (`04-ui.md` § 3).
 ///
 /// [onSelect] est appelé avec l'échelle demandée par un tap de puce — en
-/// production, `MapViewModel.selectScale`. **Requis** : des puces sans
-/// rappel seraient un contrôle mort à l'écran.
+/// production, `MapViewModel.selectScale`. [onWiden] l'est par l'action
+/// « Élargir la recherche » de l'avis d'absence — en production,
+/// `MapViewModel.widenSearch`. Les deux sont **requis** : un contrôle sans
+/// rappel serait mort à l'écran.
+///
+/// [stations], [ondeObservations] et [ondeUnreadableRows] ne servent QU'À
+/// décider des avis : cette fonction ne dessine aucun marqueur, c'est
+/// [buildMapLayers] qui s'en charge. Elle n'en lit d'ailleurs que le vide ou
+/// le non-vide — la décision elle-même est [mapNoticesFor], pure et testable
+/// sans widget.
+///
+/// Les trois sont **requis**, sans valeur par défaut : un appelant qui en
+/// oublie un ferait dire à l'écran « il n'y a rien ici » alors que la carte
+/// dessine des marqueurs. Un oubli doit être une erreur de compilation, pas
+/// une affirmation fausse à l'usager (`BR-007`).
 List<Widget> buildMapOverlays({
   required MapScaleKind scale,
   required void Function(MapScaleKind kind) onSelect,
+  required VoidCallback onWiden,
   required Object? error,
+  required List<StationPoint> stations,
+  required Map<OndeStationCode, OndeObservation> ondeObservations,
+  required int ondeUnreadableRows,
+  MapErrorSource? errorSource,
   Widget? stationSheet,
   Widget? ondeSheet,
 }) {
-  final Object? bannerError = error;
   final Widget? sheet = stationSheet;
   final Widget? onde = ondeSheet;
+  final List<MapNotice> notices = mapNoticesFor(
+    scale: scale,
+    hasStations: stations.isNotEmpty,
+    hasOndeObservations: ondeObservations.isNotEmpty,
+    error: error,
+    errorSource: errorSource,
+    ondeUnreadableRows: ondeUnreadableRows,
+  );
 
   return <Widget>[
     Align(
@@ -479,10 +515,10 @@ List<Widget> buildMapOverlays({
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             MapScaleChips(scale: scale, onSelect: onSelect),
-            if (bannerError != null)
+            for (final MapNotice notice in notices)
               Padding(
                 padding: const EdgeInsets.only(top: _overlayPadding),
-                child: MapErrorBanner(error: bannerError),
+                child: buildMapNotice(notice, onWiden: onWiden),
               ),
           ],
         ),
@@ -683,33 +719,12 @@ const double _chipVerticalPadding = 8;
 /// Taille de texte d'une puce, en pixels logiques.
 const double _chipFontSize = 12;
 
-/// Bandeau d'erreur minimal (`BR-007`) : affiché à la place d'une carte
-/// muette quand le dépôt n'a pas pu répondre — panne de lecture de l'asset
-/// aujourd'hui, panne réseau en T1. Widget séparé, testable sans monter de
-/// `FlutterMap` (même contrainte que [IgnAttributionBadge]).
-class MapErrorBanner extends StatelessWidget {
-  const MapErrorBanner({required this.error, super.key});
-
-  /// L'erreur à afficher. Son `toString()` est montré tel quel : ce n'est
-  /// pas un message pensé pour l'utilisateur final, mais T0 n'a rien de
-  /// mieux tant que les avertissements (`BR-012`, `BR-013`) ne sont pas
-  /// arrivés.
-  final Object error;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.red),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Text(
-          "Les stations n'ont pas pu être chargées : $error",
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    );
-  }
-}
+// `MapErrorBanner` vivait ici jusqu'à `U6`. Retiré : son texte —
+// « Les stations n'ont pas pu être chargées : $error » — ne nommait aucune
+// source et exposait un `toString()` à l'usager, là où `BR-007` demande un
+// « message par source ». `SourceUnavailableNotice`
+// (`map_empty_states.dart`) le remplace, et la cause technique y est en
+// retrait plutôt qu'en titre.
 
 /// Bandeau d'attribution IGN Géoplateforme, exigé par la Licence Ouverte.
 /// Porte son propre fond opaque : un texte posé directement sur un fond de
@@ -917,6 +932,22 @@ class _MapViewState extends State<MapView> {
     unawaited(widget.viewModel.preloadVisibleStations());
   }
 
+  /// « Élargir la recherche » : le ViewModel recharge une emprise deux fois
+  /// plus haute et deux fois plus large, autour du même centre. La vue ne
+  /// calcule aucune géométrie — elle branche.
+  ///
+  /// ⚠️ **La caméra ne bouge pas** : `flutter_map` reste où l'usager l'a
+  /// laissé, seule l'emprise INTERROGÉE s'élargit. Les marqueurs qui entrent
+  /// dans la réponse mais pas dans l'écran restent hors champ jusqu'au
+  /// prochain geste. Écart assumé pour `U6` et acté au plan : le
+  /// déplacement de caméra arrive en `K1`, avec les contrôles de zoom.
+  ///
+  /// `unawaited` : le résultat du chargement passe par le ViewModel, jamais
+  /// par ce futur — comme les autres appels en tir-et-oublie de cette vue.
+  void _handleWiden() {
+    unawaited(widget.viewModel.widenSearch());
+  }
+
   @override
   Widget build(BuildContext context) {
     // Tout est DANS le `ListenableBuilder` : la légende doit basculer avec
@@ -947,7 +978,12 @@ class _MapViewState extends State<MapView> {
               ...buildMapOverlays(
                 scale: widget.viewModel.scale,
                 onSelect: _handleScaleSelected,
+                onWiden: _handleWiden,
                 error: widget.viewModel.error,
+                errorSource: widget.viewModel.errorSource,
+                stations: widget.viewModel.stations,
+                ondeObservations: widget.viewModel.ondeObservations,
+                ondeUnreadableRows: widget.viewModel.ondeUnreadableRows,
                 stationSheet: widget.stationSheet,
                 ondeSheet: widget.ondeSheet,
               ),

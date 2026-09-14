@@ -31,8 +31,9 @@
 // écart assumé : `04-ui.md` § 2 ne donne qu'un seul motif « rien à
 // montrer » pour l'échelle 2, et en inventer un second serait inventer de la
 // spécification. Ce qui distingue une panne d'une absence constatée reste
-// donc le libellé **plus** le bandeau d'erreur par source
-// (`MapErrorBanner`), que `BR-007` exige déjà au niveau de l'écran.
+// donc le libellé **plus** l'avis de panne par source
+// (`SourceUnavailableNotice`, `map_empty_states.dart`), que `BR-007` exige au
+// niveau de l'écran.
 //
 // ⚠️ **Le « ? » de la forme ◇ + « ? » de `04-ui.md` § 2 n'est pas dessiné
 // ici**, et c'est délibéré. Deux raisons, dans cet ordre :

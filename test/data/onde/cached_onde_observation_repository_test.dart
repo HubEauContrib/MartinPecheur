@@ -13,7 +13,7 @@ import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart'
-    show OndeObservationRepository;
+    show OndeObservationRepository, OndeSweep;
 
 /// Point synthétique : seul le code compte pour ces tests de cache, les
 /// autres champs sont des valeurs de convenance clairement fictives.
@@ -45,6 +45,12 @@ final class _DepotOndeBouchon implements OndeObservationRepository {
       <(Bounds, DateTime), int>{};
   final Map<(Bounds, DateTime), List<OndeObservation>> valeursBounds =
       <(Bounds, DateTime), List<OndeObservation>>{};
+
+  /// Nombre de lignes illisibles rendu par clé d'emprise — zéro par défaut.
+  /// Réglable pour prouver que le compte traverse le décorateur de cache et
+  /// survit à une relecture servie sans appel (`U6`, T-14).
+  final Map<(Bounds, DateTime), int> lignesIllisiblesBounds =
+      <(Bounds, DateTime), int>{};
   final Map<(OndeStationCode, int), int> appelsStationParCle =
       <(OndeStationCode, int), int>{};
   final Map<(OndeStationCode, int), List<OndeObservation>> valeursStation =
@@ -58,7 +64,7 @@ final class _DepotOndeBouchon implements OndeObservationRepository {
       appelsStationParCle.values.fold(0, (int total, int n) => total + n);
 
   @override
-  Future<List<OndeObservation>> latestWithinBounds(
+  Future<OndeSweep> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
   }) async {
@@ -70,7 +76,10 @@ final class _DepotOndeBouchon implements OndeObservationRepository {
     if (leve) {
       throw const FormatException('dépôt en échec');
     }
-    return valeursBounds[cle] ?? <OndeObservation>[];
+    return OndeSweep(
+      observations: valeursBounds[cle] ?? <OndeObservation>[],
+      unreadableRows: lignesIllisiblesBounds[cle] ?? 0,
+    );
   }
 
   @override
@@ -141,18 +150,18 @@ void main() {
             now: () => maintenant,
           );
 
-      final List<OndeObservation> premier = await depot.latestWithinBounds(
+      final OndeSweep premier = await depot.latestWithinBounds(
         bounds,
         since: since,
       );
-      expect(premier, hasLength(1));
+      expect(premier.observations, hasLength(1));
       expect(bouchon.appelsBounds, 1);
 
-      final List<OndeObservation> second = await depot.latestWithinBounds(
+      final OndeSweep second = await depot.latestWithinBounds(
         bounds,
         since: since,
       );
-      expect(second, hasLength(1));
+      expect(second.observations, hasLength(1));
       expect(bouchon.appelsBounds, 1);
     });
 
@@ -169,21 +178,60 @@ void main() {
               now: () => maintenant,
             );
 
-        final List<OndeObservation> premier = await depot.latestWithinBounds(
+        final OndeSweep premier = await depot.latestWithinBounds(
           bounds,
           since: since,
         );
-        expect(premier, isEmpty);
+        expect(premier.observations, isEmpty);
         expect(bouchon.appelsBounds, 1);
 
-        final List<OndeObservation> second = await depot.latestWithinBounds(
+        final OndeSweep second = await depot.latestWithinBounds(
           bounds,
           since: since,
         );
-        expect(second, isEmpty);
+        expect(second.observations, isEmpty);
         expect(bouchon.appelsBounds, 1);
       },
     );
+
+    test('le compte de lignes illisibles traverse le cache : la relecture '
+        'servie SANS appel rend le même chiffre que la première lecture '
+        '(U6, T-14)', () async {
+      final _DepotOndeBouchon bouchon = _DepotOndeBouchon();
+      final DateTime since = DateTime.utc(2026, 7, 15);
+      bouchon.valeursBounds[(bounds, since)] = <OndeObservation>[
+        _observation('K4640001', DateTime.utc(2026, 8, 25)),
+      ];
+      bouchon.lignesIllisiblesBounds[(bounds, since)] = 3;
+      final DateTime maintenant = DateTime.utc(2026, 7, 20);
+
+      final CachedOndeObservationRepository depot =
+          CachedOndeObservationRepository(
+            inner: bouchon,
+            now: () => maintenant,
+          );
+
+      final OndeSweep premier = await depot.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      expect(premier.unreadableRows, 3);
+      expect(bouchon.appelsBounds, 1);
+
+      final OndeSweep second = await depot.latestWithinBounds(
+        bounds,
+        since: since,
+      );
+      expect(
+        second.unreadableRows,
+        3,
+        reason:
+            'le compte est une propriété de la PAGE lue : il se met en '
+            "cache avec elle, sinon un écran servi par le cache perdrait "
+            "l'explication de son absence (BR-007)",
+      );
+      expect(bouchon.appelsBounds, 1);
+    });
 
     test('bounds différent ou since différent : entrées distinctes', () async {
       final _DepotOndeBouchon bouchon = _DepotOndeBouchon();
@@ -276,21 +324,24 @@ void main() {
       final CachedOndeObservationRepository depot =
           CachedOndeObservationRepository(inner: bouchon, now: () => horloge);
 
-      final List<OndeObservation> premier = await depot.latestWithinBounds(
+      final OndeSweep premier = await depot.latestWithinBounds(
         bounds,
         since: since,
       );
-      expect(premier.single.observedAt, ancienne.single.observedAt);
+      expect(
+        premier.observations.single.observedAt,
+        ancienne.single.observedAt,
+      );
       expect(bouchon.appelsBounds, 1);
 
       horloge = horloge.add(const Duration(days: 31));
       bouchon.valeursBounds[(bounds, since)] = nouvelle;
 
-      final List<OndeObservation> second = await depot.latestWithinBounds(
+      final OndeSweep second = await depot.latestWithinBounds(
         bounds,
         since: since,
       );
-      expect(second.single.observedAt, ancienne.single.observedAt);
+      expect(second.observations.single.observedAt, ancienne.single.observedAt);
       // `load` s'exécute de façon synchrone dans `refresh()`
       // (`Future.sync`, `cache_policy.dart`) : le compteur du bouchon vaut
       // déjà 2 avant tout `await` supplémentaire.
@@ -298,11 +349,14 @@ void main() {
 
       await Future<void>.delayed(Duration.zero);
 
-      final List<OndeObservation> troisieme = await depot.latestWithinBounds(
+      final OndeSweep troisieme = await depot.latestWithinBounds(
         bounds,
         since: since,
       );
-      expect(troisieme.single.observedAt, nouvelle.single.observedAt);
+      expect(
+        troisieme.observations.single.observedAt,
+        nouvelle.single.observedAt,
+      );
       expect(bouchon.appelsBounds, 2);
     });
 
@@ -323,7 +377,7 @@ void main() {
       expect(bouchon.appelsBounds, 1);
 
       horloge = horloge.add(const Duration(days: 31));
-      await Future.wait<List<OndeObservation>>(<Future<List<OndeObservation>>>[
+      await Future.wait<OndeSweep>(<Future<OndeSweep>>[
         depot.latestWithinBounds(bounds, since: since),
         depot.latestWithinBounds(bounds, since: since),
         depot.latestWithinBounds(bounds, since: since),
@@ -357,12 +411,12 @@ void main() {
       // changés), mais l'entrée de cache est partagée : l'âge (5 j) reste
       // sous les 90 j, aucun appel.
       horloge = horloge.add(const Duration(days: 5));
-      final List<OndeObservation> second = await depot.latestWithinBounds(
+      final OndeSweep second = await depot.latestWithinBounds(
         bounds,
         since: since,
       );
 
-      expect(second, hasLength(1));
+      expect(second.observations, hasLength(1));
       expect(bouchon.appelsBounds, 1);
     });
 
@@ -385,11 +439,11 @@ void main() {
       horloge = horloge.add(const Duration(days: 31));
       bouchon.leve = true;
 
-      final List<OndeObservation> second = await depot.latestWithinBounds(
+      final OndeSweep second = await depot.latestWithinBounds(
         bounds,
         since: since,
       );
-      expect(second.single.observedAt, ancienne.single.observedAt);
+      expect(second.observations.single.observedAt, ancienne.single.observedAt);
 
       await Future<void>.delayed(Duration.zero);
       expect(bouchon.appelsBounds, 2);

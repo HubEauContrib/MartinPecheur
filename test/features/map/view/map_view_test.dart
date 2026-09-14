@@ -29,6 +29,7 @@ import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
@@ -74,10 +75,11 @@ final class _EmptyHydroObservationRepository
 final class _EmptyOndeObservationRepository
     implements OndeObservationRepository {
   @override
-  Future<List<OndeObservation>> latestWithinBounds(
+  Future<OndeSweep> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
-  }) async => const <OndeObservation>[];
+  }) async =>
+      const OndeSweep(observations: <OndeObservation>[], unreadableRows: 0);
 
   @override
   Future<List<OndeObservation>> historyFor(
@@ -136,6 +138,17 @@ OndeObservation _observation(
   officialLabel: 'Assec',
   campaignCode: '1',
 );
+
+/// Une observation ONDE quelconque : elle distingue « rien a dessiner »
+/// de « quelque chose a dessiner » dans les cas d avis de `U6`.
+Map<OndeStationCode, OndeObservation> _uneObservation() =>
+    _byStation(<OndeObservation>[
+      _observation(
+        _leTrey(),
+        category: const Assec(),
+        observedAt: DateTime.utc(2026, 8, 25),
+      ),
+    ]);
 
 Map<OndeStationCode, OndeObservation> _byStation(
   List<OndeObservation> observations,
@@ -632,7 +645,13 @@ void main() {
       WidgetTester tester, {
       MapScaleKind scale = MapScaleKind.ecoulement,
       void Function(MapScaleKind kind)? onSelect,
+      VoidCallback? onWiden,
       Object? error,
+      MapErrorSource? errorSource,
+      List<StationPoint> stations = const <StationPoint>[],
+      Map<OndeStationCode, OndeObservation> ondeObservations =
+          const <OndeStationCode, OndeObservation>{},
+      int ondeUnreadableRows = 0,
       Widget? stationSheet,
       Widget? ondeSheet,
     }) {
@@ -643,7 +662,12 @@ void main() {
               children: buildMapOverlays(
                 scale: scale,
                 onSelect: onSelect ?? (MapScaleKind kind) {},
+                onWiden: onWiden ?? () {},
                 error: error,
+                errorSource: errorSource,
+                stations: stations,
+                ondeObservations: ondeObservations,
+                ondeUnreadableRows: ondeUnreadableRows,
                 stationSheet: stationSheet,
                 ondeSheet: ondeSheet,
               ),
@@ -672,14 +696,33 @@ void main() {
       }
     });
 
-    testWidgets("le bandeau d'erreur n'est présent que si error != null "
-        '(BR-007)', (WidgetTester tester) async {
-      await pumpOverlays(tester);
-      expect(find.byType(MapErrorBanner), findsNothing);
+    testWidgets("l'avis de panne n'est présent que si error != null, et il "
+        'NOMME sa source (BR-007, U6)', (WidgetTester tester) async {
+      await pumpOverlays(tester, ondeObservations: _uneObservation());
+      expect(find.byType(SourceUnavailableNotice), findsNothing);
 
-      await pumpOverlays(tester, error: StateError('Aucun asset'));
-      expect(find.byType(MapErrorBanner), findsOneWidget);
-      expect(find.textContaining('Aucun asset'), findsOneWidget);
+      await pumpOverlays(
+        tester,
+        error: StateError('Aucun asset'),
+        errorSource: MapErrorSource.referentiel,
+      );
+      expect(find.byType(SourceUnavailableNotice), findsOneWidget);
+      expect(
+        tester
+            .widget<SourceUnavailableNotice>(
+              find.byType(SourceUnavailableNotice),
+            )
+            .sourceName,
+        mapSourceName(MapErrorSource.referentiel),
+      );
+      expect(
+        find.textContaining('Aucun asset'),
+        findsNothing,
+        reason:
+            "la cause technique ne traverse pas l'avis : donnée de "
+            "diagnostic, pas texte d'interface — même convention que les "
+            'deux fiches',
+      );
     });
 
     testWidgets("le panneau de fiche n'est présent que s'il est fourni", (
@@ -743,38 +786,27 @@ void main() {
       }
     });
 
-    testWidgets("le bandeau d'erreur ne recouvre jamais la légende : sans "
-        "elle l'usager ne sait plus quelle échelle il lit (BR-008)", (
+    testWidgets("l'avis de panne ne recouvre jamais la légende : sans elle "
+        "l'usager ne sait plus quelle échelle il lit (BR-008)", (
       WidgetTester tester,
     ) async {
-      await pumpOverlays(tester, error: StateError('panne de lecture'));
+      await pumpOverlays(
+        tester,
+        error: StateError('panne de lecture'),
+        errorSource: MapErrorSource.referentiel,
+      );
 
       expect(
-        tester.getTopRight(find.byType(MapErrorBanner)).dx,
+        tester.getTopRight(find.byType(SourceUnavailableNotice)).dx,
         lessThanOrEqualTo(tester.getTopLeft(find.byType(MapLegend)).dx),
       );
     });
   });
 
-  group('MapErrorBanner — jamais une carte muette (BR-007)', () {
-    testWidgets('affiche le message français et error.toString()', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: MapErrorBanner(error: StateError('Aucun gestionnaire')),
-          ),
-        ),
-      );
-
-      expect(
-        find.textContaining("Les stations n'ont pas pu être chargées"),
-        findsOneWidget,
-      );
-      expect(find.textContaining('Aucun gestionnaire'), findsOneWidget);
-    });
-  });
+  // `MapErrorBanner` est retiré depuis `U6` : un bandeau rouge portant
+  // `error.toString()` ne nommait aucune source, et `BR-007` exige un
+  // « message par source ». `SourceUnavailableNotice` le remplace, et ses
+  // cas vivent dans `map_empty_states_test.dart`.
 
   group(
     'shouldRefreshOn — décide si un événement déclenche une requête d\'emprise',
@@ -1242,7 +1274,167 @@ void main() {
     });
   });
 
+  group('buildMapOverlays — les avis d absence et de panne (T1-U6)', () {
+    /// Rend les surcouches SEULES : aucun `FlutterMap`, comme partout
+    /// ailleurs dans ce fichier.
+    Future<void> pumpNotices(
+      WidgetTester tester, {
+      MapScaleKind scale = MapScaleKind.ecoulement,
+      VoidCallback? onWiden,
+      Object? error,
+      MapErrorSource? errorSource,
+      List<StationPoint> stations = const <StationPoint>[],
+      Map<OndeStationCode, OndeObservation> ondeObservations =
+          const <OndeStationCode, OndeObservation>{},
+      int ondeUnreadableRows = 0,
+    }) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: buildMapOverlays(
+                scale: scale,
+                onSelect: (MapScaleKind kind) {},
+                onWiden: onWiden ?? () {},
+                error: error,
+                errorSource: errorSource,
+                stations: stations,
+                ondeObservations: ondeObservations,
+                ondeUnreadableRows: ondeUnreadableRows,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets("échelle débit et aucune station : la phrase de repli de "
+        "BR-007, avec son action — « ni station ni point » affirmerait une "
+        "lecture ONDE qui n'a pas eu lieu (BR-008)", (
+      WidgetTester tester,
+    ) async {
+      await pumpNotices(tester, scale: MapScaleKind.debit);
+
+      expect(find.byType(NoDataFallbackNotice), findsOneWidget);
+      expect(find.byType(NoDataInAreaNotice), findsNothing);
+      expect(find.byKey(widenSearchKey), findsOneWidget);
+    });
+
+    testWidgets("« Élargir la recherche » appelle le rappel reçu : la vue ne "
+        'calcule aucune emprise (UC-001 A2)', (WidgetTester tester) async {
+      int elargissements = 0;
+      await pumpNotices(
+        tester,
+        scale: MapScaleKind.debit,
+        onWiden: () => elargissements++,
+      );
+
+      await tester.tap(find.byKey(widenSearchKey));
+      await tester.pump();
+
+      expect(elargissements, 1);
+    });
+
+    testWidgets('échelle écoulement, des stations mais aucune observation : '
+        'le périmètre du réseau ONDE est nommé (UC-001 A5)', (
+      WidgetTester tester,
+    ) async {
+      await pumpNotices(tester, stations: <StationPoint>[_blois()]);
+
+      expect(find.byType(OutsideOndeCoverageNotice), findsOneWidget);
+      expect(find.byType(NoDataInAreaNotice), findsNothing);
+    });
+
+    testWidgets('des lignes ONDE illisibles : leur compte est dit (T-14)', (
+      WidgetTester tester,
+    ) async {
+      await pumpNotices(
+        tester,
+        ondeObservations: _uneObservation(),
+        ondeUnreadableRows: 3,
+      );
+
+      expect(
+        tester
+            .widget<UnreadableRowsNotice>(find.byType(UnreadableRowsNotice))
+            .count,
+        3,
+      );
+    });
+
+    testWidgets('aucun avis quand la carte a de quoi parler d elle même', (
+      WidgetTester tester,
+    ) async {
+      await pumpNotices(tester, ondeObservations: _uneObservation());
+
+      expect(find.byType(NoDataInAreaNotice), findsNothing);
+      expect(find.byType(NoDataFallbackNotice), findsNothing);
+      expect(find.byType(OutsideOndeCoverageNotice), findsNothing);
+      expect(find.byType(SourceUnavailableNotice), findsNothing);
+      expect(find.byType(UnreadableRowsNotice), findsNothing);
+    });
+
+    testWidgets("une panne ONDE n'efface pas les stations : les marqueurs de "
+        "l'échelle débit sont toujours construits, et l'avis se pose "
+        'par-dessus (UC-001 A4)', (WidgetTester tester) async {
+      final List<StationPoint> stations = <StationPoint>[_blois()];
+      final Object panne = StateError('ONDE indisponible');
+
+      // Les marqueurs : `buildMapLayers` ne reçoit PAS l'erreur — c'est
+      // structurellement ce qui garantit qu'une panne ne vide pas la carte.
+      final List<Widget> couches = buildMapLayers(
+        scale: MapScaleKind.debit,
+        stations: stations,
+      );
+      final MarkerLayer marqueurs = couches.whereType<MarkerLayer>().single;
+      expect(marqueurs.markers, hasLength(1));
+
+      // L'avis : rendu par-dessus, et il nomme l'écoulement.
+      await pumpNotices(
+        tester,
+        scale: MapScaleKind.debit,
+        stations: stations,
+        error: panne,
+        errorSource: MapErrorSource.ecoulement,
+      );
+
+      expect(
+        tester
+            .widget<SourceUnavailableNotice>(
+              find.byType(SourceUnavailableNotice),
+            )
+            .sourceName,
+        mapSourceName(MapErrorSource.ecoulement),
+      );
+      expect(
+        find.byType(NoDataInAreaNotice),
+        findsNothing,
+        reason:
+            'une panne explique l absence : « personne ne mesure ici » '
+            'serait un constat que personne n a fait (BR-007)',
+      );
+      expect(
+        find.byType(NoDataFallbackNotice),
+        findsNothing,
+        reason: 'une panne parle seule, le repli non plus ne l accompagne pas',
+      );
+    });
+
+    testWidgets('la légende et les puces restent rendues sous un avis : une '
+        'carte sans marqueur reste une carte (BR-008)', (
+      WidgetTester tester,
+    ) async {
+      await pumpNotices(tester, scale: MapScaleKind.debit);
+
+      expect(find.byType(MapLegend), findsOneWidget);
+      expect(find.byType(MapScaleChips), findsOneWidget);
+      expect(find.byType(IgnAttributionBadge), findsOneWidget);
+    });
+  });
+
   group('buildMapOverlays — les puces de bascule (T1-U3)', () {
+    /// Une station est fournie : sans elle, l'écran rendrait en plus un avis
+    /// d'absence, parasite pour un groupe qui ne parle que des puces.
     Future<void> pumpScaleOverlays(
       WidgetTester tester, {
       MapScaleKind scale = MapScaleKind.ecoulement,
@@ -1256,7 +1448,12 @@ void main() {
               children: buildMapOverlays(
                 scale: scale,
                 onSelect: onSelect ?? (MapScaleKind kind) {},
+                onWiden: () {},
                 error: error,
+                errorSource: error == null ? null : MapErrorSource.referentiel,
+                stations: <StationPoint>[_blois()],
+                ondeObservations: _uneObservation(),
+                ondeUnreadableRows: 0,
               ),
             ),
           ),
@@ -1312,13 +1509,15 @@ void main() {
       );
     });
 
-    testWidgets("le bandeau d'erreur ne recouvre pas les puces : il se pose "
+    testWidgets("l'avis de panne ne recouvre pas les puces : il se pose "
         'dessous', (WidgetTester tester) async {
       await pumpScaleOverlays(tester, error: StateError('panne'));
 
       expect(
         tester.getBottomLeft(find.byType(MapScaleChips)).dy,
-        lessThanOrEqualTo(tester.getTopLeft(find.byType(MapErrorBanner)).dy),
+        lessThanOrEqualTo(
+          tester.getTopLeft(find.byType(SourceUnavailableNotice)).dy,
+        ),
       );
     });
   });

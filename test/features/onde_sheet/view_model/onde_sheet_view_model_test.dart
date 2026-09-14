@@ -95,7 +95,7 @@ final class _OndeObservationRepositoryDouble
   /// (`MapViewModel`, V2). Une levée ici rendrait rouge tout test où le
   /// ViewModel s'y tromperait.
   @override
-  Future<List<OndeObservation>> latestWithinBounds(
+  Future<OndeSweep> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
   }) => throw UnsupportedError(

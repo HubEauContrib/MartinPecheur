@@ -32,9 +32,17 @@
 // station à espaces, `T-14`) : 9 727 lignes lisibles ont disparu pour 507
 // illisibles. Désormais, une `FormatException` ou une `ArgumentError` levée
 // **par le mapper sur une ligne** est ignorée et **comptée**
-// (`skippedRowCount`) : l'absence s'explique (BR-007), elle ne se propage
-// pas. La frontière est nette — ce qui décrit la **forme de la réponse**
-// reste fatal, ce qui décrit **une ligne** ne l'est pas.
+// (`OndeSweep.unreadableRows`) : l'absence s'explique (BR-007), elle ne se
+// propage pas. La frontière est nette — ce qui décrit la **forme de la
+// réponse** reste fatal, ce qui décrit **une ligne** ne l'est pas.
+//
+// ⚠️ Depuis `U6`, ce compte est **rattaché à l'appel** et non plus à
+// l'instance : `latestWithinBounds` rend un `OndeSweep`, et le champ mutable
+// `skippedRowCount` a disparu — il n'avait aucun lecteur en production, et un
+// cumul de session ne peut pas s'écrire à l'écran (« N points non lisibles
+// sur cette emprise » parle de CETTE emprise). `historyFor`, lui, garde sa
+// liste nue : une fiche n'a pas d'emprise, et personne n'y afficherait ce
+// chiffre (YAGNI).
 
 import 'package:martinpecheur/data/http/hub_eau_client.dart';
 import 'package:martinpecheur/data/http/onde_uris.dart';
@@ -43,7 +51,7 @@ import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart'
-    show OndeObservationRepository;
+    show OndeObservationRepository, OndeSweep;
 
 /// Dépôt des observations d'écoulement ONDE, adossé au client Hub'Eau
 /// commun (`HubEauClient` — aucun `OndeClient` distinct, retiré en D4).
@@ -52,44 +60,35 @@ final class HttpOndeObservationRepository implements OndeObservationRepository {
 
   final HubEauClient _client;
 
-  int _skippedRowCount = 0;
-
-  /// Nombre de lignes ignorées parce qu'illisibles, **cumulé sur la durée de
-  /// vie de cette instance** et jamais remis à zéro. Cumulé plutôt que par
-  /// appel : le dépôt est enveloppé par `CachedOndeObservationRepository`, si
-  /// bien qu'un appel peut être servi par le cache sans relire aucune ligne
-  /// — un compteur « du dernier appel » serait alors périmé sans que rien ne
-  /// le dise. Un compteur monotone n'a pas ce piège : il se lit comme « voilà
-  /// ce que cette session a laissé de côté », jamais comme un chiffre d'écran.
-  ///
-  /// C'est un compteur de **diagnostic** : il explique une absence (BR-007),
-  /// il ne se destine pas tel quel à un libellé « N stations ignorées » sur
-  /// un écran — ce chiffre-là devrait accompagner les lignes d'un appel
-  /// donné, pas vivre dans un champ mutable.
-  int get skippedRowCount => _skippedRowCount;
-
   @override
-  Future<List<OndeObservation>> latestWithinBounds(
+  Future<OndeSweep> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
   }) async {
     final Map<String, dynamic> body = await _client.getJson(
       ondeObservationsWithinBoundsUri(bounds: bounds, since: since),
     );
-    final List<OndeObservation> rows = _rows(body);
+    final _ReadRows read = _rows(body);
 
     // Une observation par station, la plus récente : comparée par date,
     // jamais par position dans la réponse (T-04).
     final Map<OndeStationCode, OndeObservation> latestByStation =
         <OndeStationCode, OndeObservation>{};
-    for (final OndeObservation observation in rows) {
+    for (final OndeObservation observation in read.observations) {
       final OndeObservation? current = latestByStation[observation.station];
       if (current == null ||
           observation.observedAt.isAfter(current.observedAt)) {
         latestByStation[observation.station] = observation;
       }
     }
-    return latestByStation.values.toList();
+    // Le compte porte sur les LIGNES refusées par le mapper, jamais sur les
+    // stations : deux campagnes illisibles du même point comptent deux, et
+    // c'est ce que dit « N points d'observation non lisibles » — un point
+    // dont aucune ligne n'est lisible n'a pas de station à regrouper.
+    return OndeSweep(
+      observations: latestByStation.values.toList(),
+      unreadableRows: read.unreadableRows,
+    );
   }
 
   @override
@@ -100,7 +99,7 @@ final class HttpOndeObservationRepository implements OndeObservationRepository {
     final Map<String, dynamic> body = await _client.getJson(
       ondeObservationsForStationUri(station, size: limit),
     );
-    final List<OndeObservation> rows = _rows(body)
+    final List<OndeObservation> rows = _rows(body).observations
       ..sort(
         (OndeObservation a, OndeObservation b) =>
             b.observedAt.compareTo(a.observedAt),
@@ -118,7 +117,7 @@ final class HttpOndeObservationRepository implements OndeObservationRepository {
   ///
   /// En revanche, une ligne que [mapOndeObservation] ne sait pas lire —
   /// [FormatException] sur un champ, [ArgumentError] sur le code de station
-  /// — est **ignorée et comptée** dans [skippedRowCount] : une ligne
+  /// — est **ignorée et comptée** dans [_ReadRows.unreadableRows] : une ligne
   /// illisible ne fait pas disparaître les autres (`T-14`, BR-007). Seules
   /// ces deux exceptions sont rattrapées ; toute autre remonte, un bug du
   /// mapper ne devant pas se déguiser en donnée manquante. ⚠️ [RangeError]
@@ -127,13 +126,14 @@ final class HttpOndeObservationRepository implements OndeObservationRepository {
   /// ou un index fautif du mapper serait compté comme une ligne illisible.
   /// Ce bord n'est pas couvert par un test : le mapper n'est pas injectable
   /// ici et aucune ligne réelle ne le déclenche.
-  List<OndeObservation> _rows(Map<String, dynamic> body) {
+  _ReadRows _rows(Map<String, dynamic> body) {
     final Object? rawRows = body['data'];
     if (rawRows is! List<dynamic>) {
       throw FormatException('data absent ou mal formé : $rawRows');
     }
 
     final List<OndeObservation> observations = <OndeObservation>[];
+    int unreadableRows = 0;
     for (final Object? row in rawRows) {
       if (row is! Map<String, dynamic>) {
         throw FormatException(
@@ -143,14 +143,21 @@ final class HttpOndeObservationRepository implements OndeObservationRepository {
       try {
         observations.add(mapOndeObservation(row));
       } on FormatException {
-        _skippedRowCount++;
+        unreadableRows++;
       } on RangeError {
         // Dérive d'ArgumentError : un index fautif est un bug, pas une ligne.
         rethrow;
       } on ArgumentError {
-        _skippedRowCount++;
+        unreadableRows++;
       }
     }
-    return observations;
+    return (observations: observations, unreadableRows: unreadableRows);
   }
 }
+
+/// Ce que [HttpOndeObservationRepository._rows] rend : les lignes lues, et
+/// celles qu'il a fallu laisser de côté. Un `record` nommé et non un
+/// [OndeSweep] : `historyFor` passe par la même lecture sans avoir de compte
+/// à publier, et le type du domaine décrit ce qui SORT du dépôt, pas son
+/// mécanisme interne.
+typedef _ReadRows = ({List<OndeObservation> observations, int unreadableRows});

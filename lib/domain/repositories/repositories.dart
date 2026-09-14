@@ -65,6 +65,41 @@ abstract interface class HydroObservationRepository {
   Future<HydroObservation?> findLatest(StationCode station, Grandeur grandeur);
 }
 
+/// Le résultat d'UN balayage d'emprise ONDE : les observations lisibles, et
+/// le nombre de lignes que la source a rendues sans qu'on sache les lire.
+///
+/// Le compte est **rattaché à l'appel**, jamais à une instance de dépôt
+/// (`U6`, correctif `T-14`). C'est ce qui le rend affichable : « N points
+/// d'observation non lisibles sur cette emprise » décrit l'emprise que
+/// l'usager regarde. Un compteur cumulé sur la durée de vie du dépôt aurait
+/// décrit la session — un chiffre exact que personne ne peut situer, donc
+/// inutilisable pour expliquer une absence (BR-007).
+///
+/// Pourquoi un type et non un simple couple : ces deux valeurs voyagent
+/// ensemble du dépôt HTTP jusqu'à l'écran, en traversant le décorateur de
+/// cache, qui les met en cache **ensemble** — le compte est une propriété de
+/// la page lue, pas de la lecture. Deux champs nommés se lisent mieux qu'un
+/// `record` anonyme à chaque `await`.
+///
+/// [unreadableRows] vaut zéro quand rien n'a été refusé. Zéro n'est jamais
+/// un défaut de commodité : c'est le fait constaté sur cette emprise — une
+/// page vide qui n'a rien refusé le dit avec `observations` vide ET
+/// `unreadableRows` nul, et l'écran ne dira pas la même chose dans les deux
+/// cas.
+final class OndeSweep {
+  const OndeSweep({required this.observations, required this.unreadableRows});
+
+  /// Les observations lisibles de l'emprise, une par station. Jamais
+  /// `null` : une absence est une liste vide (BR-007). Ne doit pas être
+  /// modifiée en place — copier avant de trier, comme pour les deux
+  /// méthodes du dépôt.
+  final List<OndeObservation> observations;
+
+  /// Nombre de lignes que la source a rendues et que le mapper n'a pas su
+  /// lire, **sur cet appel**. Positif, zéro compris.
+  final int unreadableRows;
+}
+
 /// Depot des observations d'ecoulement ONDE. Lit, ne decide de rien : le
 /// TTL saisonnier reste au seul decorateur de cache (`lib/data/onde/
 /// cached_onde_observation_repository.dart`), jamais ici. Le regroupement
@@ -79,9 +114,13 @@ abstract interface class OndeObservationRepository {
   /// filtrees sur `date_observation_min` = [since] (BR-010 : la carte ne
   /// remonte jamais plus loin qu'une campagne recente). [since] est
   /// INCLUSIF : une observation datee exactement a [since] est retenue,
-  /// comme le fait l'API sur `date_observation_min`. Une liste vide est
-  /// une absence, jamais une erreur (BR-007).
-  Future<List<OndeObservation>> latestWithinBounds(
+  /// comme le fait l'API sur `date_observation_min`. Un balayage sans
+  /// observation est une absence, jamais une erreur (BR-007).
+  ///
+  /// Rend un [OndeSweep] et non une liste : le nombre de lignes illisibles
+  /// voyage AVEC les observations qu'il explique (`U6`, `T-14`). C'est
+  /// l'emprise qui a un compte, pas le depot.
+  Future<OndeSweep> latestWithinBounds(
     Bounds bounds, {
     required DateTime since,
   });
