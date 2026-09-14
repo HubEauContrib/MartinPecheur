@@ -70,7 +70,8 @@ lib/
                                   asset du référentiel, stockage local, décorateur CachePolicy
   features/map/view/            ← widgets : FlutterMap, TileLayer IGN, marqueurs, attribution
   features/map/view_model/      ← ChangeNotifier : état de l'écran et ses actions, aucun widget
-  features/{station_sheet,onde_sheet,warnings}/  ← view_model/ des fiches et de l'avertissement (T1) ; leurs view/ arrivent aux lots 3 et 4
+  features/{station_sheet,onde_sheet}/{view,view_model}/ ← fiches (T1, lot 3) ; features/warnings/view_model/ (sa view/ arrive en W2)
+  features/map/view/            ← + station_marker, onde_marker, map_legend, map_empty_states (lot 3)
   main.dart                     ← câble dépôts et ViewModels ; SEUL fichier autorisé à importer data/
 test/
   architecture/                 ← LE PREMIER TEST À ÉCRIRE — frontières de couches
@@ -106,7 +107,7 @@ docs/
 | Stockage local | `ADR-011` **réservé** — `drift` candidat par défaut ; `sqflite` seul **ne couvre pas Windows** | 💭 à trancher au moment où ça bloque |
 | Gestion d'état | **`ChangeNotifier` + `ListenableBuilder`**, zéro dépendance | ✅ `MapViewModel`, `StationSheetViewModel`, `OndeSheetViewModel` (`ADR-014`) |
 | Graphes | courbe de débit (`US-11`) | 💭 à trancher |
-| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **493 tests, 492 verts sur ce poste** (`+492 -1` le 2026-09-14, lot 2 de T1 clos ; seul rouge `ios_bundle_identifier_test`, dossier `android/` hors dépôt) — 248 à la clôture de T0, 244 après le réusinage MVVM, 411 à la clôture du lot 1 de T1 |
+| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **764 tests, 763 verts sur ce poste** (`+763 -1` le 2026-09-14, lot 3 de T1 clos, 20 goldens compris ; seul rouge `ios_bundle_identifier_test`, dossier `android/` hors dépôt) — 248 à la clôture de T0, 244 après le réusinage MVVM, 411 à la clôture du lot 1 de T1 |
 | Percentiles | **script Dart** produisant `assets/percentiles/` (`ADR-003`) | 🔄 |
 
 > Toute bibliothèque retenue est vérifiée sur `pub.dev` avant d'être ajoutée : **version, licence compatible GPL-3.0, plateformes — Windows incluse —, date de dernière publication.** On lit la signature dans le paquet installé, on ne l'écrit pas de mémoire.
