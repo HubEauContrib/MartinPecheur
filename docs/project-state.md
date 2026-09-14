@@ -1,6 +1,6 @@
 # État du projet
 
-**Mis à jour :** 2026-09-14 — reprise de `feat/t1-mvvm-fiche-station` (audit du **lot 1 de T1**).
+**Mis à jour :** 2026-09-14 — après `V3` (`OndeSheetViewModel`) et le correctif du bug ONDE des codes à espaces (`T-14`).
 
 > Ce document est l'**état vivant** du projet. En cas de contradiction avec le code, **le code a
 > raison** — et ce document se corrige dans le même commit.
@@ -19,6 +19,7 @@
 | 2026-09-14 | **Branche de travail : `feat/t1-mvvm-fiche-station`.** La branche `refactor/feature-first-mvvm` (7 commits, **doublon du même réusinage**) est **abandonnée, non fusionnée** : elle reste dans le clone, rien n'en sera repris. [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md) y a été **reporté** (seul apport non redondant, avec cette réécriture de `project-state.md`) : commit `docs` du 2026-09-14 sur cette branche |
 | 2026-09-14 | **Audit de reprise du lot 1 de T1 par un second agent** : lot 1 (`D1`→`D8`) et `V1` **repris tels quels**, aucun défaut bloquant. Cinq points ouverts remontés au commanditaire (§ « Ce qui bloque », lignes 15 à 19) |
 | 2026-09-14 | **Premier bug constaté à l'écran, corrigé le jour même** : carte vide et bandeau rouge au lancement, `T-04` invalidé par appel réel — le code de station ONDE est une **chaîne libre**, pas huit caractères (`T-14`, [`sources/onde.md`](sources/onde.md)). Codes conservés verbatim, **ligne illisible ignorée et comptée** au dépôt. Trois fixtures ajoutées. Ce que ça dit du cadrage : un fait vérifié **sur un échantillon** (la Loire) a été écrit comme s'il valait partout |
+| 2026-09-14 | **Purger toute trace de React Native à la fin de T1, docs comprises** (demande du commanditaire) → tâche `X5` du lot 6 du plan T1, avec une question fermée sur les ADR remplacés (recommandation : les garder avec leur statut). Même jour : l'ONDE appelée à chaque geste sans consommateur avant `U3` est **gardée telle quelle** (« ok ») ; `V2` puis `V3` livrées et relues |
 
 > ⚠️ **Le tag `archive/pre-flutter-2026-09-09` n'est pas présent dans ce clone** : `git tag` ne
 > liste que `v0.1.0` (constaté le 2026-09-13, reconstaté le 2026-09-14). L'arbitrage du 2026-09-12
@@ -32,7 +33,7 @@
 | **Porte de spike** | Fond IGN affiché (`F1`), exécutable Windows autonome (`F3`) | ✅ franchie sur Windows (exécution 2026-09-09, arbitrage 2026-09-12). `F2` (4 150 marqueurs clusterisés) **non tranchée** |
 | **T0 — socle Flutter** | Carte `flutter_map`, socle domaine et données, test d'architecture, exécutable Windows | ✅ **livrée le 2026-09-13** — **31 tâches sur 31**, PR #11 fusionnée sur `dev` (`015a245`), version **`0.1.0`** (tag `v0.1.0` posé **localement, non poussé**), **248 tests** (247 du plan + `changelog_test`) constatés par `flutter test`, exécutable Windows **lancé hors outil** par le commanditaire, **31 Mo** ([`CHANGELOG.md`](../CHANGELOG.md)) |
 | **Réusinage `R1`-`R6`** | `lib/application/` retiré, `MapViewModel`, `layers_test.dart` à cinq règles, docs alignées | ✅ **exécuté et relu le 2026-09-13 sur cette branche** — **244 tests** à la clôture (`fe1b92e`). **Non fusionné sur `dev`** : PR et fusion sont pour le commanditaire (`gh` absent du bac à sable) |
-| **T1 — fiche station, écoulement ONDE, avertissements** | Carte interactive (tap, fiche), fiches station et ONDE, **les quatre avertissements** | 🔄 **en cours.** **Lot 1 (`D1`→`D8`) clos**, **`V1` et `V2` faites** (`V2` le 2026-09-14 : échelle, état par station, préchargement borné) ; restent `V3`, `V4` puis les **lots 3 à 7** (vues, avertissements, clavier/souris, documentation, porte `0.2.0`) |
+| **T1 — fiche station, écoulement ONDE, avertissements** | Carte interactive (tap, fiche), fiches station et ONDE, **les quatre avertissements** | 🔄 **en cours.** **Lot 1 (`D1`→`D8`) clos**, **`V1`, `V2` et `V3` faites** (`V2` et `V3` le 2026-09-14) ; reste `V4` puis les **lots 3 à 7** (vues, avertissements, clavier/souris, documentation, porte `0.2.0`) |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Favoris, filtres, fraîcheur | 🔄 |
 
@@ -57,12 +58,14 @@ le **lot 4 de T1** (`W1`→`W5`), et rien n'est livrable avant eux.
 | Architecture | ✅ **feature-first + MVVM** ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md), arbitrage du 2026-09-13) — vue → ViewModel → dépôt → domaine, sans bus ni médiateur, verrouillée par cinq règles de couches |
 | Socle de domaine | ✅ Unités en `extension type` (`BR-002`), conversion l/s → m³/s et mm → m **à un seul endroit**, fraîcheur aux bornes de `BR-005`, nomenclature close à branche `Inconnu` (`BR-011`), `StationCode` à dix caractères qui refuse un code site (`C-05`) |
 | Socle de données hydrométrie | ✅ Client Hub'Eau **v2** (200 **et** 206 en succès, retry 429/5xx jamais 4xx, recul à gigue injectée), mapper unique, référentiel lu depuis l'asset embarqué, `RestrictionSource` **interface seule** |
-| Domaine de l'écoulement ONDE (`D2`) | ✅ `OndeStationCode` (8 car.), `OndePoint`, `OndeObservation`, âge de campagne en **jours calendaires** (`BR-010`, `T-08`), `StationMapState` — `Chargee`/`SansDonnee`/`NonChargee`/`EnEchec` |
+| Domaine de l'écoulement ONDE (`D2`) | ✅ `OndeStationCode` (**chaîne libre conservée verbatim** depuis `T-14`, plus « 8 caractères »), `OndePoint`, `OndeObservation`, âge de campagne en **jours calendaires** (`BR-010`, `T-08`), `StationMapState` — `Chargee`/`SansDonnee`/`NonChargee`/`EnEchec` |
 | Mapper ONDE (`D3`) | ✅ `mapOndeObservation` / `mapOndePoint`, testés sur la **fixture réelle du 2026-09-13** ; `code_ecoulement` lu en texte, jamais par un cast nu ; `flowCategoryFromCode` réutilisé, pas recopié |
 | URI ONDE (`D4`) | ✅ `ondeObservationsBboxUri`, `ondeObservationsStationUri` posées **sur le `HubEauClient` existant** — aucun second client (`OndeClient` retiré). `fields` à dix champs, dates formatées en **UTC** |
 | Dépôt d'observations hydrométriques (`D5`, `D6`) | ✅ `HttpHydroObservationRepository` dans sa **forme garantie** (un appel par station), décoré par `CachedHydroObservationRepository` — `withCachePolicy`, TTL **20 min**, chiffre unique dans `lib/` |
-| Dépôt d'écoulement (`D7`, `D8`) | ✅ `HttpOndeObservationRepository` (emprise et point) + `CachedOndeObservationRepository` — TTL **30 j** de mai à septembre, **90 j** hors saison ; une observation ONDE **porte son point**, lu sur la même ligne d'API |
+| Dépôt d'écoulement (`D7`, `D8`) | ✅ `HttpOndeObservationRepository` (emprise et point) + `CachedOndeObservationRepository` — TTL **30 j** de mai à septembre, **90 j** hors saison ; une observation ONDE **porte son point**, lu sur la même ligne d'API ; depuis `T-14`, une ligne illisible est **ignorée et comptée** (`skippedRowCount`) au lieu de faire tomber la page |
 | ViewModel de fiche station (`V1`) | ✅ `StationSheetViewModel` — `Fermee`/`EnCours`/`Prete`/`EnEchec`, horloge injectée, **aucun widget importé** ; libellés balayés en **mots entiers** contre le vocabulaire interdit (`BR-003`) |
+| ViewModel de la carte (`V2`) | ✅ `MapViewModel` — `MapScaleKind` (une seule échelle active, `BR-008`), `stateOf` par station (`NonChargee` tant que rien n'est chargé, `BR-007`), préchargement **borné à 20** et annulable (`NFR-07`), ONDE de l'emprise sur 60 jours ; notifie dès les points locaux, avant l'ONDE (`UC-001 § 4`) |
+| ViewModel de fiche ONDE (`V3`) | ✅ `OndeSheetViewModel` — états préfixés `OndeSheet…`, dernière observation et cinq campagnes, âge en jours calendaires (`BR-010`), modalité officielle en second niveau (`ADR-006`), « À sec » à l'écran jamais « Assec » ; historique vide → absence honnête, jamais une observation inventée |
 | Carte | ✅ Fond IGN Géoplateforme en tuiles raster, attribution affichée, **4 150 stations** en marqueurs du viewport plus une marge, requête au relâcher du geste — constaté à l'écran sur T0 (`dev`) ; les correctifs `ce4f719`/`43a18cd` (**la dernière emprise demandée gagne**, une emprise en erreur reste rechargeable) ne sont couverts que par les tests, `flutter run -d windows` n'ayant pas été relancé sur cette branche |
 | Politique de cache | ✅ `withCachePolicy` (stale-while-revalidate, déduplication en vol), **décorateur de dépôt** sous `lib/data/cache/` — désormais **utilisé** par les deux dépôts du lot 1 |
 | Hors-ligne cartographique | ⚠️ **Partiel.** Le cache de tuiles intégré à `flutter_map` sert les zones **déjà parcourues** (constaté hors réseau le 2026-09-13, `NV-W2`). **Aucun téléchargement de zone** : le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **non livré** |
@@ -83,7 +86,7 @@ lib/
                    onde/{http,cached}_onde_observation_repository.dart
                    referentiel/{asset_station_repository,asset_station_point_repository,…}.dart
                    restrictions/restriction_source.dart
-  features/        map/{view,view_model}/ · station_sheet/view_model/
+  features/        map/{view,view_model}/ (dont view_model/map_scale.dart) · station_sheet/view_model/ · onde_sheet/view_model/
   main.dart        racine de composition — à la racine de lib/, seul fichier exempt de la règle « features/ n'importe pas data/ »
 ```
 
@@ -192,20 +195,21 @@ relecture. Tous sont **résolvables** sur cette branche.
 | `D7` | `HttpOndeObservationRepository` + `CachedOndeObservationRepository` — TTL **30 j** en saison, **90 j** hors saison | ✅ `d640f56` + `e24b24d`, `5d5cdd0`, `53626cb` |
 | `D8` | `OndeObservation` porte son `OndePoint`, lu sur la même ligne d'API (**amendement du 2026-09-13**) | ✅ `0285f58` + `9067933` |
 | `V1` | `StationSheetViewModel` — l'état de la fiche station **sans aucun widget** | ✅ `bade919` + `c8d36eb` |
-| `V2` | `MapViewModel` — `MapScaleKind`, une seule échelle active (BR-008), `stateOf` par station (BR-007), préchargement borné à 20 et annulable (NFR-07), ONDE de l'emprise sur 60 jours (BR-010) ; relu, `loadFor` notifie dès les points avant l'ONDE (UC-001 § 4) | ✅ 2026-09-14 — commit `V2` (celui qui porte cette ligne) |
-| `V3`-`V4` | `OndeSheetViewModel`, `WarningsViewModel` | 🔄 à faire |
-| Lots 3 à 7 | Vues (`U1`-`U6`), avertissements (`W1`-`W5`), clavier/souris (`K1`-`K3`), documentation (`X1`-`X4`), porte `0.2.0` (`P1`, `P2`) | 🔄 à faire |
+| `V2` | `MapViewModel` — `MapScaleKind`, une seule échelle active (BR-008), `stateOf` par station (BR-007), préchargement borné à 20 et annulable (NFR-07), ONDE de l'emprise sur 60 jours (BR-010) ; relu, `loadFor` notifie dès les points avant l'ONDE (UC-001 § 4) | ✅ `e00b34f` (2026-09-14) |
+| `V3` | `OndeSheetViewModel` — fiche d'un point ONDE sans widget, valeurs de la fixture réelle de `K4520001`, balayages `BR-003` et `BR-014` | ✅ `0255df5` (2026-09-14) |
+| — | **Correctif `T-14`** (bug vu à l'écran) : codes ONDE verbatim, ligne illisible ignorée et comptée, trois fixtures, `Q-05` amendé | ✅ `69f51b5` (2026-09-14) |
+| `V4` | `WarningsViewModel` | 🔄 à faire |
+| Lots 3 à 7 | Vues (`U1`-`U6`), avertissements (`W1`-`W5`), clavier/souris (`K1`-`K3`), documentation (`X1`-`X5`, dont la **purge React Native** `X5`), porte `0.2.0` (`P1`, `P2`) | 🔄 à faire |
 
 Documentation du lot : `68151f6` (plan), `6caac28` (préalable levé), `e21b08e` (lot 1 clos),
-`9cfcb6c` (`V1` fait).
+`9cfcb6c` (`V1` fait), `0ce4ac3` (ADR-013 reporté, état réécrit), `9ab0005` (YAGNI `/campagnes`), `61df8a2` (`V3` cochée, `T-14`, `X5`).
 
-> ⚠️ **Le récapitulatif du plan T1 annonce 31 tâches actives et compte le lot 1 comme `D1`→`D7`
-> (7).** Le corps du plan porte un **`D8`**, ajouté par amendement le 2026-09-13 : le décompte réel
-> est de **32 tâches actives**. Écart non corrigé dans le plan.
+> Décompte du plan T1 **corrigé le 2026-09-14** : **33 tâches actives** (le récapitulatif initial disait
+> 31 — il oubliait `D8` — et `X5` a été ajoutée), 5 différées.
 
 ### Tests — l'état exact sur ce poste
 
-**437 tests, 436 verts sur ce poste** (`flutter test`, 2026-09-14 après `V2`, sortie `+436 -1` ; 427 avant `V2`, 19 tests `/campagnes` retirés puis 29 ajoutés). Le seul rouge
+**478 tests, 477 verts sur ce poste** (`flutter test`, 2026-09-14 après le correctif `T-14`, sortie `+477 -1`). Jalons du jour : 427 à la reprise, 408 après le retrait YAGNI (−19), 437 après `V2` (+29), 452 après `V3` (+15), 478 après le correctif (+26). Le seul rouge
 est `test/project/ios_bundle_identifier_test.dart` : « le dossier android n'existe pas ». Il est
 rouge **tant qu'un dossier `android/` traîne hors dépôt** — ce dossier n'est pas versionné, le test
 dit vrai sur le dépôt et faux sur le poste. Pour mémoire : 248 à la fin de T0, **244** à la clôture
@@ -247,7 +251,7 @@ Le plan est une esquisse antérieure ; **le code a raison**. Les écarts qui por
 | 14 | 🚨 **`Q-01` à `Q-04` restent ouverts** — `/v2/hydrometrie/observations_tr` a répondu **503 sur 19 tentatives** le matin du 2026-09-13 (plus un 502 après 67 s et un timeout sec), puis **500 sur sept appels** l'après-midi (13:34:49 → 13:35:26 UTC), `T-10`. Appel groupé, `bbox`, `fields` et latence médiane sont donc **non mesurés** | `D5` est implémenté dans sa **forme garantie** — un appel par station — et l'interface du dépôt ne changera pas si la réponse arrive. `C-15` n'est pas rédactionnel : c'est le régime observé |
 | 15 | **YAGNI du lot 1** — `ondeCampagnesUri`, `mapOndeCampaign` et `OndeCampaign` (`/campagnes`) n'avaient **aucun appelant hors tests**, et aucune tâche `V*`/`U*` du plan ne les consommait | **Fait le 2026-09-14** : retirés (`lib/domain/onde/onde_observation.dart`, `lib/data/mappers/onde_observation_mapper.dart`, `lib/data/http/onde_uris.dart`, tests miroirs). La fixture `/campagnes` et `T-07` restent — l'écart de type `code_campagne` reste un fait constaté, `_campaignCode` reste tolérant aux deux formes |
 | 16 | **Trois amendements décidés en cours d'exécution, jamais soumis** : retrait d'`OndeClient` (plan l. 270), retrait de `findLatestForAll` (l. 301), `OndeObservation.point` (`D8`, l. 378) | À entériner ou à revoir. Le plan les porte déjà comme faits ; le commanditaire ne les a pas validés |
-| 17 | **Collision de nom public `EnEchec`** entre `lib/domain/observation/station_map_state.dart` et `lib/features/station_sheet/view_model/station_sheet_view_model.dart` | Sans conséquence aujourd'hui — à préfixer **au premier fichier qui importe les deux**, ce qui arrivera en `U1` ou `V2` |
+| 17 | **Collision de nom public `EnEchec`** entre `lib/domain/observation/station_map_state.dart` et `lib/features/station_sheet/view_model/station_sheet_view_model.dart` | `V3` a **préfixé** ses états (`OndeSheetFermee`…) pour ne pas ajouter un troisième homonyme. Reste `StationSheetState` (`Fermee`/`EnCours`/`Prete`/`EnEchec`) contre `station_map_state.dart` : à préfixer au premier fichier qui importe les deux (`U1`) |
 | 18 | **`open()` de `StationSheetViewModel` fait deux requêtes** (débit **et** hauteur), en parallèle | Conforme **si `U1` affiche la hauteur**. À confirmer en `U1` : sinon c'est un appel réseau pour rien, sur une API sans quota documenté (`C-12`, `NFR-07`) |
 | 19 | **Le fuseau affiché est « UTC »** dans `stalenessNotice` (`JJ/MM/AAAA à HH:MM UTC`) | À trancher en `U1` : UTC est exact et vérifiable, l'heure locale est lisible par l'usager. Les deux se défendent ; le choix n'a pas été porté au commanditaire |
 | 20 | **Les dix décisions du plan T1** — **engagées par le code** : 2 (état = fraîcheur, sans teinte inventée), 4 (au tap, forme garantie ; préchargement borné à 20 écrit en `V2`, non encore appelé par une vue avant `U2`), 5 (forme garantie), 10 (ordre des lots). **Réversibles sans toucher au code** : 1 (percentiles hors T1), 3 (`shared_preferences`), 6 (aucun framework BDD), 7 (traçabilité à la main), 8 (fenêtre 800 × 600), 9 (version d'avertissement datée) | À valider. Les quatre premières coûtent un réusinage si elles sont revues |
@@ -255,7 +259,7 @@ Le plan est une esquisse antérieure ; **le code a raison**. Les écarts qui por
 | 22 | **Un dossier `android/` non versionné traîne sur le poste** — 989 fichiers, **2 580 830 523 octets**, caches Gradle datés du 2026-08-24, hérités de l'outillage précédent | **À supprimer, jamais à commiter.** C'est lui qui rend `ios_bundle_identifier_test` rouge. Le dépôt, lui, n'a pas de dossier `android/` : c'est l'arbitrage ⏸ du 2026-09-12 |
 | 23 | **Six PNG hérités d'Expo** restent versionnés sous `assets/` sans qu'aucun code ne les référence : `android-icon-background`, `android-icon-foreground`, `android-icon-monochrome`, `favicon`, `icon`, `splash-icon` | À retirer, ou à réaffecter le jour où les icônes Flutter sont posées. Décision du commanditaire |
 | 24 | **La PR de `feat/t1-mvvm-fiche-station` n'est pas ouverte** ; la branche n'est pas fusionnée sur `dev` | À ouvrir **par le commanditaire** — `gh` est absent du bac à sable (ligne 12) |
-| 25 | **Bug ONDE des codes à espaces** — au lancement, la carte affichait un bandeau rouge et **zéro station** : 507 lignes sur 10 234 portent un code hors `^[A-Z0-9]{8}$` (`A721 3011`, `S224`, `" O968 5312 "`), et l'exception d'une ligne faisait tomber toute la page | **Corrigé le 2026-09-14** (`T-14`, [`sources/onde.md`](sources/onde.md)) : code conservé **verbatim**, ligne illisible **ignorée et comptée** (`skippedRowCount`). ⚠️ **Non élucidé** : les codes à espaces de bord ne sont retrouvables **sous aucune forme** en requête (`%20O968%205312%20` → 0, `O968%205312` → 0), alors qu'ils apparaissent en réponse par emprise. Ouvert aussi : `A721 3011` et `A7213011` sont-ils deux points, un doublon, ou un recodage ? Aucune fusion tant que ce n'est pas établi |
+| 25 | **Bug ONDE des codes à espaces** — au lancement, la carte affichait un bandeau rouge et **zéro station** : 507 lignes sur 10 234 portent un code hors `^[A-Z0-9]{8}$` (`A721 3011`, `S224`, `" O968 5312 "`), et l'exception d'une ligne faisait tomber toute la page | **Corrigé le 2026-09-14** (`T-14`, [`sources/onde.md`](sources/onde.md)) : code conservé **verbatim**, ligne illisible **ignorée et comptée** (`skippedRowCount` — **lu par personne** en production, à remonter en `U6`), `RangeError`/`IndexError` relancés ; commit `69f51b5`, relu. ⚠️ **Non élucidé** : les codes à espaces de bord ne sont retrouvables **sous aucune forme** en requête (`%20O968%205312%20` → 0, `O968%205312` → 0), alors qu'ils apparaissent en réponse par emprise. Ouvert aussi : `A721 3011` et `A7213011` sont-ils deux points, un doublon, ou un recodage ? Aucune fusion tant que ce n'est pas établi |
 | 26 | **`Q-05` amendé** — `code_ecoulement` à `null` n'est pas un cas synthétique : **700 lignes sur 10 234** à l'échelle nationale (6,8 %), sur 29 campagnes, 20 dates et 17 départements | Constaté le 2026-09-14 (`T-14 e`). Le mapper les rend déjà en `Inconnu(null)` (`BR-011`) — sans incidence sur le code, mais l'écran verra ce cas souvent, ce que le cadrage ne supposait pas |
 
 ## Constats d'API du 2026-07-31
@@ -323,10 +327,10 @@ Une case vide est une case vide, pas un « probablement ».
 
 ## Prochaine étape
 
-**`V3` — `OndeSheetViewModel`** (plan T1 l.457), puis `V4` (`WarningsViewModel`), avant les vues du
-lot 3. ⚠️ Depuis `V2`, `loadFor` appelle l'ONDE à chaque geste sur l'échelle par défaut alors
-qu'aucune vue ne lit encore `ondeObservations` (`U3`) : du trafic pour une donnée non dessinée, sur une
-API sans quota documenté (`C-15`) — à brancher ou à différer au moment où `U3` la consomme.
+**`V4` — `WarningsViewModel`** (plan T1 § `V4`), dernier ViewModel avant les vues du lot 3. Feu vert du
+commanditaire le 2026-09-14. Depuis `V2`, `loadFor` appelle l'ONDE à chaque geste alors qu'aucune vue
+ne lit encore `ondeObservations` : **gardé tel quel** jusqu'à `U3` (arbitrage du 2026-09-14). En fin
+de T1 : `X5`, la purge React Native, après la question fermée sur les ADR remplacés.
 
 ⚠️ **À faire d'abord : trancher les points 15 à 20 de « Ce qui bloque ».** Les décisions 2, 4, 5
 et 10 sont déjà engagées par le code du lot 1 ; les revoir après `V2` coûte désormais un réusinage. Les

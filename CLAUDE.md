@@ -13,7 +13,7 @@
 |---|---|---|
 | **Porte de spike** | Fond IGN affiché (`F1`), exécutable Windows autonome (`F3`) | ✅ **franchie sur Windows, arbitrage du 2026-09-12** (exécution 2026-09-09) — `spike/porte_flutter/COMPTE-RENDU.md`. `F2` (4 150 marqueurs clusterisés) **non tranchée** |
 | **T0** | Socle Flutter + carte `flutter_map` + socle domaine + test d'architecture, sur **Windows** | ✅ **clos le 2026-09-13** — `v0.1.0`, **248 tests verts**, porte franchie sur Windows. Plan `docs/superpowers/plans/2026-09-13-t0-socle-flutter.md` : 31 tâches sur 31, 5 Android ⏸ |
-| **T1** | Carte, fiches, les 4 avertissements | 🔄 en cours — réusinage MVVM clos et relu ; lot 1 (données : fixtures ONDE, domaine, mapper, URI, dépôts hydro et ONDE, caches) clos ; lot 2 ouvert, `V1` et `V2` faites (2026-09-14) ; `V3`, `V4` puis lots 3 à 7 |
+| **T1** | Carte, fiches, les 4 avertissements | 🔄 en cours — réusinage MVVM clos et relu ; lot 1 (données : fixtures ONDE, domaine, mapper, URI, dépôts hydro et ONDE, caches) clos ; lot 2 ouvert, `V1`, `V2` et `V3` faites (2026-09-14) ; reste `V4`, puis lots 3 à 7 (dont `X5`, purge React Native en fin de T1) |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Favoris, filtres, fraîcheur | 🔄 |
 
@@ -70,6 +70,7 @@ lib/
                                   asset du référentiel, stockage local, décorateur CachePolicy
   features/map/view/            ← widgets : FlutterMap, TileLayer IGN, marqueurs, attribution
   features/map/view_model/      ← ChangeNotifier : état de l'écran et ses actions, aucun widget
+  features/station_sheet/, features/onde_sheet/  ← view_model/ des fiches (T1) ; leurs view/ arrivent au lot 3
   main.dart                     ← câble dépôts et ViewModels ; SEUL fichier autorisé à importer data/
 test/
   architecture/                 ← LE PREMIER TEST À ÉCRIRE — frontières de couches
@@ -99,13 +100,13 @@ docs/
 | Cibles | **Windows en premier**, Android, iOS | Windows ✅ **construite et lancée hors Flutter** (`F3`, 33 Mo, 14 fichiers) · Android ⏸ différé · iOS 🔄 configuré, jamais compilé |
 | Carte | **`flutter_map` 8.3.2** · fond **IGN Géoplateforme** (WMTS KVP) · attribution « © IGN Géoplateforme — Licence Ouverte » **affichée** | ✅ **`F1` : le plan IGN s'affiche sur Windows** (2026-09-09). Signatures relevées dans le paquet installé : `TileLayer(urlTemplate:, tileDimension:, maxNativeZoom:, userAgentPackageName:)`, `Marker(point:, width:, height:, child:)`, `MapOptions(initialCenter:, initialZoom:, minZoom:, maxZoom:)`. ⚠️ `tileSize` est `@Deprecated` |
 | Marqueurs | `flutter_map_marker_cluster` 8.2.2 lié, `latlong2` 0.9.1 (par contrainte transitive) | ⏸ **`F2` non tranchée** : la mesure du 2026-09-09 donne `raster p90` 16,2 ms (budget ≤ 16,7 ms ✅) mais **jank 8,9 %** pour un seuil < 5 % ❌. **Approche par défaut : marqueurs du viewport plus une marge, sans clustering** (`F2c`), tant qu'aucune mesure ne réhabilite le regroupement |
-| Cache de tuiles | **intégré à `flutter_map` depuis 8.2** (`BuiltInMapCachingProvider`, 1 Go), actif par défaut hors web | 🔄 **comportement hors réseau jamais exécuté** — constaté dans la doc seulement. C'est ce que `UC-001 A3` doit décrire |
+| Cache de tuiles | **intégré à `flutter_map` depuis 8.2** (`BuiltInMapCachingProvider`, 1 Go), actif par défaut hors web | ✅ **hors réseau constaté à l'écran le 2026-09-13** sur les zones déjà parcourues (`NV-W2`, `docs/nfr.md`). ⚠️ Une zone jamais chargée n'a pas été constatée ; aucun téléchargement de zone (`UC-005` non livré) |
 | Architecture | **feature-first + MVVM**, `ChangeNotifier` par écran (`ADR-014`, arbitrage 2026-09-13) · `CachePolicy` en décorateur de dépôt · **zéro bibliothèque d'état** | ✅ **réusinage fait** (`R1`–`R6`, 2026-09-13) et relu : le CQRS léger de T0 est retiré (`grep 'Bus\|Query<\|Command<' lib/` vide), `MapViewModel` appelle son dépôt par un appel typé, `test/architecture/layers_test.dart` verrouille cinq règles de couches |
-| HTTP | `package:http` **ou** `dart:io` `HttpClient` | 💭 **à trancher.** Quel que soit le choix : **200 et 206 sont des succès** (`C-06`), retry sur 429/5xx et **jamais** sur 4xx, backoff doublé à chaque essai, à **gigue injectée** (donc testable) |
+| HTTP | **`package:http`** `^1.6.0` (`pubspec.yaml`) | ✅ **retenu** — client Hub'Eau livré en T0 (`N4`), partagé par hydrométrie v2 et ONDE v1 : **200 et 206 sont des succès** (`C-06`), retry sur 429/5xx et **jamais** sur 4xx, backoff doublé à chaque essai, à **gigue injectée** (donc testable) |
 | Stockage local | `ADR-011` **réservé** — `drift` candidat par défaut ; `sqflite` seul **ne couvre pas Windows** | 💭 à trancher au moment où ça bloque |
-| Gestion d'état | `ValueNotifier` + `ListenableBuilder`, zéro dépendance sauf preuve contraire | 💭 |
+| Gestion d'état | **`ChangeNotifier` + `ListenableBuilder`**, zéro dépendance | ✅ `MapViewModel`, `StationSheetViewModel`, `OndeSheetViewModel` (`ADR-014`) |
 | Graphes | courbe de débit (`US-11`) | 💭 à trancher |
-| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **437 tests, 436 verts sur ce poste** (`+436 -1` le 2026-09-14, après `V2` ; seul rouge `ios_bundle_identifier_test`, dossier `android/` hors dépôt), après le réusinage MVVM et sa relecture (248 à la clôture de T0 : les cas du bus disparaissent avec leur sujet, ceux du ViewModel et des couches s'ajoutent) — lot 1 de T1 (données) clos le 2026-09-13 : D1 à D8 ; lot 2 ouvert, V1 fait |
+| Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ **478 tests, 477 verts sur ce poste** (`+477 -1` le 2026-09-14, après `V3` et le correctif `T-14` ; seul rouge `ios_bundle_identifier_test`, dossier `android/` hors dépôt) — 248 à la clôture de T0, 244 après le réusinage MVVM, 411 à la clôture du lot 1 de T1 |
 | Percentiles | **script Dart** produisant `assets/percentiles/` (`ADR-003`) | 🔄 |
 
 > Toute bibliothèque retenue est vérifiée sur `pub.dev` avant d'être ajoutée : **version, licence compatible GPL-3.0, plateformes — Windows incluse —, date de dernière publication.** On lit la signature dans le paquet installé, on ne l'écrit pas de mémoire.
