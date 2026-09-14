@@ -89,6 +89,23 @@ final class InMemoryOndeObservationRepository
   }
 }
 
+/// Double en memoire de [AcknowledgementRepository] : rend telle quelle la
+/// valeur stockee — le depot reste bete, il ne decide pas qu'une chaine vide
+/// ne vaut pas acquittement (c'est `WarningsViewModel` qui en decide).
+/// Verifie que le contrat est implementable sans infrastructure.
+final class InMemoryAcknowledgementRepository
+    implements AcknowledgementRepository {
+  String? _storedVersion;
+
+  @override
+  Future<String?> readAcknowledgedVersion() async => _storedVersion;
+
+  @override
+  Future<void> writeAcknowledgedVersion(String version) async {
+    _storedVersion = version;
+  }
+}
+
 void main() {
   group('StationRepository — contrat implementable sans infrastructure', () {
     final Station blois = Station(
@@ -218,6 +235,33 @@ void main() {
         expect(observations.first, same(recente));
         expect(observations.last, same(ancienne));
       });
+    },
+  );
+
+  group(
+    'AcknowledgementRepository — contrat implementable sans infrastructure',
+    () {
+      test('stockage vide : readAcknowledgedVersion rend null', () async {
+        final InMemoryAcknowledgementRepository repository =
+            InMemoryAcknowledgementRepository();
+
+        expect(await repository.readAcknowledgedVersion(), isNull);
+      });
+
+      test(
+        'apres writeAcknowledgedVersion, la version ecrite est relue telle '
+        'quelle — y compris une chaine vide, que le depot ne juge pas',
+        () async {
+          final InMemoryAcknowledgementRepository repository =
+              InMemoryAcknowledgementRepository();
+
+          await repository.writeAcknowledgedVersion('2026-09-13.1');
+          expect(await repository.readAcknowledgedVersion(), '2026-09-13.1');
+
+          await repository.writeAcknowledgedVersion('');
+          expect(await repository.readAcknowledgedVersion(), '');
+        },
+      );
     },
   );
 }

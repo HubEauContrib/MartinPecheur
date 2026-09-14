@@ -97,3 +97,31 @@ abstract interface class OndeObservationRepository {
     int limit = 5,
   });
 }
+
+/// Depot de l'acquittement de l'avertissement initial (BR-012). Lit et
+/// ecrit une **version** — une chaine de texte, jamais un booleen : c'est ce
+/// qui permet de faire relire l'avertissement quand son texte change
+/// (`UC-006 A3`), la ou un booleen ne distinguerait jamais « acquitte une
+/// fois » de « acquitte CETTE version ».
+///
+/// Le depot reste bete (meme principe que les autres depots de ce fichier) :
+/// une valeur stockee inattendue — par exemple une chaine vide — est rendue
+/// **telle quelle**. C'est `WarningsViewModel` qui decide ce qu'elle signifie
+/// (`feat V4`), jamais ce depot.
+///
+/// L'implementation arrive en `W1`, sous `lib/data/` : `shared_preferences`
+/// est le candidat retenu par `ADR-011` pour cette preference simple. Cette
+/// interface, elle, vit dans le domaine des `V4` — pas apres — car
+/// `WarningsViewModel` en depend directement (inversion des dependances,
+/// `test/architecture/layers_test.dart`, regle `features-vers-data`).
+abstract interface class AcknowledgementRepository {
+  /// La version du texte d'avertissement acquittee, ou `null` si aucune
+  /// n'a jamais ete ecrite (premier lancement). Une chaine vide, si elle est
+  /// stockee, est rendue telle quelle — ce n'est pas au depot de decider
+  /// qu'elle ne vaut pas acquittement.
+  Future<String?> readAcknowledgedVersion();
+
+  /// Persiste [version] comme version acquittee. Ecrase toute valeur
+  /// precedente : un seul acquittement est retenu a la fois.
+  Future<void> writeAcknowledgedVersion(String version);
+}

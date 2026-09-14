@@ -547,14 +547,18 @@ git add lib/features/onde_sheet test/features/onde_sheet docs/superpowers/plans/
 - Échec de **lecture** du stockage → `requiresAcknowledgement` **vrai**. ⚠️ On rebloque, on n'ouvre pas : en cas de doute, l'usager relit les limites.
 - Échec d'**écriture** → l'état reste « à acquitter » et l'échec est exposé, jamais avalé.
 
-- [ ] **Étape 1** — écrire le test avec un `AcknowledgementRepository` bouchon, ses deux modes d'échec compris. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/warnings` → échec.
-- [ ] **Étape 3** — implémenter. Le dépôt lui-même est en `W1`.
-- [ ] **Étape 4** — `flutter test test/features test/architecture` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — écrire le test avec un `AcknowledgementRepository` bouchon, ses deux modes d'échec compris. Rouge.
+- [x] **Étape 2** — `flutter test test/features/warnings` → échec (erreur de compilation : ni `AcknowledgementRepository` ni `WarningsViewModel` n'existent encore).
+- [x] **Étape 3** — implémenter. Le dépôt lui-même est en `W1`.
+- [x] **Étape 4** — `flutter test test/features test/architecture` → vert (128 tests), puis critère de fin. `flutter test` complet → **492 tests, 491 verts** (477 avant `V4`, plus les 15 de cette tâche : 13 dans `warnings_view_model_test.dart`, 2 dans `repositories_test.dart`) ; seul rouge : `test/project/ios_bundle_identifier_test.dart`, artefact de poste connu (dossier `android/` non versionné), sans rapport avec `V4`. `flutter analyze` → `No issues found!` · `dart format --set-exit-if-changed lib test` → `0 changed`. **Pas de commit** : livré à relire par l'orchestrateur.
 
 ```bash
 git add lib/features/warnings test/features/warnings && git commit -m "feat(avertissement): WarningsViewModel, acquittement par version et non par booleen" -m "C est la version du texte qui est persistee : un booleen ne permettrait jamais de faire relire un avertissement modifie (BR-012, UC-006 A3). Un echec de lecture du stockage rebloque au lieu d ouvrir — en cas de doute, l usager relit les limites. Le ViewModel refuse aussi l acquittement sans case cochee, pas seulement la vue."
 ```
+
+**Écart constaté :**
+- La signature publique porte aussi **`Object? get error`**, absent de l'en-tête `V4` mais exigé par le corps de la tâche (« l'échec est exposé, jamais avalé ») : nommé comme `MapViewModel.error`, posé uniquement par un échec d'**écriture** (`acknowledge()`) — un échec de **lecture** (`load()`), lui, ne pose pas `error` : il se traduit uniquement par `requiresAcknowledgement` à vrai, comme la spec le dit explicitement pour ce cas.
+- L'interface `AcknowledgementRepository` est déclarée ici, dans `lib/domain/repositories/repositories.dart`, plutôt qu'en `W1` comme l'en-tête de fichiers de `W1` le laissait entendre — parce que `WarningsViewModel` en dépend directement (inversion des dépendances, `test/architecture/layers_test.dart`, règle `features-vers-data`) et ne peut pas compiler sans elle. `W1` garde l'implémentation concrète (`SharedPreferencesAcknowledgementRepository`), `ADR-011` et l'ajout du paquet `shared_preferences` — rien de cela n'a été anticipé ici.
 
 ---
 
@@ -781,7 +785,7 @@ flutter pub add shared_preferences:^2.5.5 && flutter pub get
 Attendu : la dépendance apparaît dans `pubspec.yaml` et `flutter pub get` réussit. **Recopier la version réellement résolue** — elle peut différer de celle demandée.
 
 - [ ] **Étape 4** — `flutter test test/data/preferences` → échec.
-- [ ] **Étape 5** — implémenter l'interface de domaine et l'implémentation de données.
+- [ ] **Étape 5** — implémenter l'implémentation de données. ⚠️ **L'interface `AcknowledgementRepository` est déjà déclarée dans `lib/domain/repositories/repositories.dart` depuis `V4` (2026-09-14)** : ne pas la redéclarer, seulement la réaliser sous `lib/data/preferences/`.
 - [ ] **Étape 6** — `flutter test test/architecture` → **vert** : `shared_preferences` n'est **pas** entré dans `lib/domain/`. C'est le point où ce test gagne sa place.
 - [ ] **Étape 7** — critère de fin, puis commit.
 
