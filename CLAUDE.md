@@ -13,7 +13,7 @@
 |---|---|---|
 | **Porte de spike** | Fond IGN affiché (`F1`), exécutable Windows autonome (`F3`) | ✅ **franchie sur Windows, arbitrage du 2026-09-12** (exécution 2026-09-09) — `spike/porte_flutter/COMPTE-RENDU.md`. `F2` (4 150 marqueurs clusterisés) **non tranchée** |
 | **T0** | Socle Flutter + carte `flutter_map` + socle domaine + test d'architecture, sur **Windows** | ✅ **clos le 2026-09-13** — `v0.1.0`, **248 tests verts**, porte franchie sur Windows. Plan `docs/superpowers/plans/2026-09-13-t0-socle-flutter.md` : 31 tâches sur 31, 5 Android ⏸ |
-| **T1** | Carte, fiches, les 4 avertissements | 🔄 en cours — réusinage MVVM clos et relu ; lot 1 (données : fixtures ONDE, domaine, mapper, URI, dépôts hydro et ONDE, caches) clos ; lot 2 (`V1`→`V4`) clos le 2026-09-14 ; restent les lots 3 à 7 (dont `X5`, purge React Native en fin de T1) |
+| **T1** | Carte, fiches, les 4 avertissements | 🔄 en cours — réusinage MVVM clos et relu ; lot 1 (données : fixtures ONDE, domaine, mapper, URI, dépôts hydro et ONDE, caches) clos ; lots 2 (`V1`→`V4`) et 3 (`U1`→`U6`, les vues) clos le 2026-09-14 ; restent les lots 4 à 7 (dont `X5`, purge React Native en fin de T1) — **rien du lot 3 n'a encore été vu à l'écran** |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Favoris, filtres, fraîcheur | 🔄 |
 
