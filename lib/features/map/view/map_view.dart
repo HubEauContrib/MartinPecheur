@@ -5,6 +5,14 @@
 // [buildMapLayers], une fonction PURE : rendre un `FlutterMap` dans un test
 // déclenche des chargements de tuiles que l'environnement de test refuse.
 //
+// Les **surcouches** — légende, bandeau d'erreur, panneau de fiche,
+// attribution — sont produites de la même façon, par [buildMapOverlays]
+// (relecture du 2026-09-14). Leur câblage n'était couvert par aucun test tant
+// qu'il vivait dans `build` : ce qui garantit qu'une légende est TOUJOURS
+// rendue, même en erreur (`BR-008`), tenait au fait que personne n'avait
+// touché à ce `Stack`. Les deux fonctions pures rendent l'écran entier
+// vérifiable sans monter de carte.
+//
 // ⚠️ Au zoom national, les 4 150 zones de tap de 44 pt se chevauchent, et le
 // marqueur qui reçoit le tap est le plus tardif dans l'ordre de l'asset, pas
 // le plus proche du doigt — écart assumé pour T1, acté sous `U1` dans le plan
@@ -13,9 +21,17 @@
 // ⚠️ Au zoom national, la France entière est visible : les 4 150 stations
 // sont TOUTES dessinées — c'est le prix réel de l'approche par défaut
 // (`F2c`, aucun clustering tant qu'aucune mesure ne le réhabilite), pas un
-// défaut caché. La pastille ([StationMarkerDot]) est une forme décorée
-// (`DecoratedBox` cercle), jamais un glyphe de police : un glyphe coûterait
-// une passe de texte par marqueur, inutile pour 4 150 occurrences.
+// défaut caché. La pastille ([StationMarkerDot], `station_marker.dart`) est
+// une forme DESSINÉE, jamais un glyphe de police : un glyphe coûterait une
+// passe de texte par marqueur, inutile pour 4 150 occurrences.
+//
+// La pastille porte désormais l'état de sa station (T1-U2) : la couleur ne
+// distingue rien — en T1 tout est « Indéterminé » (`BR-004`, aucun
+// percentile avant `ADR-003`) — ce sont le motif et le libellé annoncé qui
+// séparent une mesure fraîche d'une absence constatée (`04-ui.md` § 3).
+// [MapLegend] nomme l'échelle active en permanence, jamais repliée
+// (`BR-008`) : sans elle, une teinte réutilisée d'une échelle à l'autre
+// rendrait la carte ambiguë.
 //
 // La vue ne fait que **brancher** : elle observe [MapViewModel], traduit les
 // événements de `flutter_map` en emprises de domaine, et n'appelle aucun
@@ -67,9 +83,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
+import 'package:martinpecheur/domain/observation/station_map_state.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/station_marker.dart';
+import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 
 /// Centre initial de la carte : France métropolitaine.
@@ -88,25 +108,12 @@ const double minimumMapZoom = 4;
 /// ([ignMaxNativeZoom]) : au-delà, le serveur n'a rien à offrir de plus fin.
 const double maximumMapZoom = ignMaxNativeZoom * 1.0;
 
-/// Taille d'une pastille de station, en pixels logiques. Volontairement
-/// petite : ce n'est **pas** la cible tactile — celle-ci vaut
-/// [stationMarkerTapTarget], et la pastille est centrée dedans. Quatre mille
-/// cent cinquante pastilles de 44 px couvriraient la France d'un aplat ;
-/// c'est la zone de tap, invisible, qui porte l'exigence d'accessibilité.
-const double stationMarkerSize = 12;
-
-/// Côté de la zone de tap d'un marqueur, en pixels logiques : 44 × 44 pt,
-/// recopié de `04-ui.md` § 3 (cibles tactiles ≥ 44 × 44 pt iOS).
-///
-/// ⚠️ La fiche station porte la même exigence, avec sa PROPRE constante
-/// (`minimumTapTarget`,
-/// `lib/features/station_sheet/view/station_summary_sheet.dart`) : une
-/// tranche n'importe pas une autre tranche
-/// (`test/architecture/layers_test.dart`, règle `feature-vers-feature`). Les
-/// deux constantes recopient la même ligne de `04-ui.md`, jamais l'une
-/// l'autre — le jour où une troisième tranche en a besoin, c'est le signe
-/// qu'il faut un endroit commun, et cela se tranche avec le commanditaire.
-const double stationMarkerTapTarget = 44;
+/// État par défaut de [buildMapLayers.stateOf] : aucune requête n'a abouti
+/// pour cette station. Une fonction de premier niveau, et non une fermeture
+/// `(_) => const NonChargee()` — seul un tear-off de fonction de premier
+/// niveau est une expression constante, donc utilisable comme valeur par
+/// défaut d'un paramètre.
+StationMapState _alwaysUnloaded(StationCode code) => const NonChargee();
 
 /// Décide si [event] doit déclencher un nouveau chargement d'emprise.
 /// Fonction pure, testable sans widget ni `FlutterMap` — construite avec les
@@ -157,9 +164,18 @@ bool shouldRefreshOn(MapEvent event) =>
 /// fournir. Sans rappel, le marqueur reste inerte : `GestureDetector` sans
 /// `onTap` ne participe pas au test de toucher, même en
 /// [HitTestBehavior.opaque].
+///
+/// [stateOf] rend l'état d'affichage d'une station — en production,
+/// `MapViewModel.stateOf`. Il a une **valeur par défaut**
+/// ([_alwaysUnloaded], donc [NonChargee] partout) plutôt que d'être requis :
+/// une carte qui ne sait rien de ses stations est exactement ce que décrit
+/// [NonChargee] (`BR-007`), et les appelants qui n'affichent pas d'état —
+/// les tests de tuiles, de tap et de taille — n'ont pas à fabriquer une
+/// fonction pour le dire.
 List<Widget> buildMapLayers({
   required List<StationPoint> stations,
   void Function(StationCode code)? onStationTap,
+  StationMapState Function(StationCode code) stateOf = _alwaysUnloaded,
 }) {
   // Copié dans un local `final` : la promotion de type survit ainsi dans la
   // fermeture construite pour chaque marqueur.
@@ -196,11 +212,25 @@ List<Widget> buildMapLayers({
                   onTap: handleTap == null
                       ? null
                       : () => handleTap(station.code),
-                  child: const Center(
-                    child: SizedBox(
-                      width: stationMarkerSize,
-                      height: stationMarkerSize,
-                      child: StationMarkerDot(),
+                  child: Semantics(
+                    button: true,
+                    label: _markerSemanticLabel(station, stateOf(station.code)),
+                    // ⚠️ `excludeSemantics` : [StationMarkerDot] porte son
+                    // PROPRE `Semantics` — c'est ce qui rend la pastille
+                    // annonçable telle quelle en légende, où elle n'a pas de
+                    // station à nommer. Sur la carte, le marqueur reprend
+                    // l'annonce pour y joindre le nom de la station, et
+                    // masque celle de la pastille : un marqueur, un seul
+                    // nœud sémantique. Sans cela chaque station en porterait
+                    // deux, et le lecteur d'écran annoncerait l'état deux
+                    // fois.
+                    excludeSemantics: true,
+                    child: Center(
+                      child: SizedBox(
+                        width: stationMarkerSize,
+                        height: stationMarkerSize,
+                        child: StationMarkerDot(state: stateOf(station.code)),
+                      ),
                     ),
                   ),
                 ),
@@ -214,35 +244,114 @@ List<Widget> buildMapLayers({
   return layers;
 }
 
-/// Pastille de station, volontairement pauvre : une forme décorée
-/// (`DecoratedBox` cercle), jamais un glyphe de police — un glyphe coûterait
-/// une passe de texte par marqueur, inutile pour 4 150 occurrences.
+/// L'annonce d'un marqueur au lecteur d'écran : le **nom de la station**,
+/// puis son libellé d'état quand il y en a un.
 ///
-/// Une seule couleur, invariable : en T0 la couleur ne porte **aucun état**
-/// (`BR-007`, `BR-008`) — les trois échelles d'état (écoulement, débit,
-/// sécheresse) arrivent en T1, chacune avec sa propre palette (`04-ui.md`
-/// § 2). Le contour de 2 px est exigé par `04-ui.md` § 3 (halo de marqueur),
-/// pour rester visible quel que soit le fond de carte.
-class StationMarkerDot extends StatelessWidget {
-  const StationMarkerDot({super.key});
+/// « La Loire à Blois » pour une mesure fraîche ou une station pas encore
+/// chargée — ni l'une ni l'autre n'ont d'état à annoncer (`BR-005`,
+/// `BR-007`) — et « La Loire à Blois, Aucune donnée disponible ici. » quand
+/// l'état parle. `04-ui.md` § 3 donne l'annonce attendue : elle **nomme la
+/// station**, un marqueur muet ne dit pas où l'on est.
+///
+/// Le libellé d'état vient du domaine (`stationMapStateLabel`), jamais d'une
+/// recopie locale.
+///
+/// ⚠️ **Dette assumée** : `BR-008` demande que l'annonce préfixe l'échelle
+/// active (« écoulement : à sec »). Elle ne le fait pas encore — l'échelle
+/// n'est pas connue de [buildMapLayers], et `U3` pose la bascule d'échelle
+/// avec les marqueurs ONDE. À trancher là.
+String _markerSemanticLabel(StationPoint station, StationMapState state) {
+  final String stateLabel = stationMapStateLabel(state);
+  return stateLabel.isEmpty ? station.label : '${station.label}, $stateLabel';
+}
 
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.indigo,
-        // Halo blanc fixe : `04-ui.md` § 3 distingue blanc sur fond sombre
-        // et noir sur fond clair — cette adaptation au fond de carte arrive
-        // avec les états en T1. En T0, une seule couleur de contour, comme
-        // une seule couleur de remplissage.
-        border: Border.fromBorderSide(
-          BorderSide(color: Colors.white, width: 2),
+/// Construit les surcouches de la carte, dans l'ordre où elles doivent être
+/// empilées PAR-DESSUS le `FlutterMap`. Fonction pure, testable sans rendre
+/// de carte — même esprit que [buildMapLayers], et pour la même raison :
+/// l'environnement de test refuse le chargement de tuiles.
+///
+/// Dans l'ordre :
+/// 1. **la légende, toujours** (`MapLegend`, en haut à droite) — `BR-008` en
+///    fait une pièce obligatoire : les trois échelles du produit réutilisent
+///    les mêmes teintes, et c'est elle qui nomme celle qui est active. Elle
+///    est rendue quel que soit [error] : une carte en panne reste une carte
+///    qu'on lit ;
+/// 2. le **bandeau d'erreur**, seulement si [error] n'est pas nul
+///    (`BR-007` : jamais une carte muette). Posé en haut à **gauche**, la
+///    largeur bornée par [legendMaxWidth] réservée à la légende : il
+///    n'empiète jamais dessus ;
+/// 3. le **panneau de fiche**, s'il est fourni, en bas à gauche ;
+/// 4. l'**attribution IGN**, toujours, en bas à droite — une condition
+///    d'usage de la Licence Ouverte, jamais une finition (`04-ui.md` § 3).
+List<Widget> buildMapOverlays({
+  required MapScaleKind scale,
+  required Object? error,
+  Widget? stationSheet,
+}) {
+  final Object? bannerError = error;
+  final Widget? sheet = stationSheet;
+
+  return <Widget>[
+    Align(
+      alignment: Alignment.topRight,
+      child: Padding(
+        padding: const EdgeInsets.all(_overlayPadding),
+        child: MapLegend(scale: scale),
+      ),
+    ),
+    if (bannerError != null)
+      Align(
+        alignment: Alignment.topLeft,
+        child: Padding(
+          // La marge de droite réserve toute la place de la légende, plus
+          // les deux marges qui l'encadrent : le bandeau peut envelopper
+          // son texte, il ne peut pas passer dessous.
+          padding: const EdgeInsets.fromLTRB(
+            _overlayPadding,
+            _overlayPadding,
+            legendMaxWidth + 2 * _overlayPadding,
+            _overlayPadding,
+          ),
+          child: MapErrorBanner(error: bannerError),
         ),
       ),
-    );
-  }
+    if (sheet != null)
+      Align(
+        alignment: Alignment.bottomLeft,
+        child: Padding(
+          // Marge basse plus épaisse : elle dégage le bandeau d'attribution
+          // IGN, qui reste lisible en toutes circonstances (Licence
+          // Ouverte, `04-ui.md` § 3).
+          padding: const EdgeInsets.fromLTRB(
+            _overlayPadding,
+            _overlayPadding,
+            _overlayPadding,
+            _sheetBottomPadding,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _sheetMaxWidth),
+            child: sheet,
+          ),
+        ),
+      ),
+    const Align(
+      alignment: Alignment.bottomRight,
+      child: Padding(
+        padding: EdgeInsets.all(_overlayPadding),
+        child: IgnAttributionBadge(),
+      ),
+    ),
+  ];
 }
+
+/// Marge d'une surcouche au bord de la carte, en pixels logiques.
+const double _overlayPadding = 8;
+
+/// Marge basse du panneau de fiche : elle dégage l'attribution IGN.
+const double _sheetBottomPadding = 32;
+
+/// Largeur maximale du panneau de fiche, en pixels logiques.
+const double _sheetMaxWidth = 420;
 
 /// Bandeau d'erreur minimal (`BR-007`) : affiché à la place d'une carte
 /// muette quand le dépôt n'a pas pu répondre — panne de lecture de l'asset
@@ -360,7 +469,7 @@ class _MapViewState extends State<MapView> {
   @override
   void initState() {
     super.initState();
-    unawaited(widget.viewModel.loadInitial());
+    unawaited(_loadThenPreload(widget.viewModel.loadInitial()));
   }
 
   /// Câblé à `MapOptions.onMapEvent` : ne déclenche un chargement que pour
@@ -373,68 +482,75 @@ class _MapViewState extends State<MapView> {
 
     final LatLngBounds visible = event.camera.visibleBounds;
     unawaited(
-      widget.viewModel.loadFor(
-        Bounds(
-          west: visible.west,
-          south: visible.south,
-          east: visible.east,
-          north: visible.north,
+      _loadThenPreload(
+        widget.viewModel.loadFor(
+          Bounds(
+            west: visible.west,
+            south: visible.south,
+            east: visible.east,
+            north: visible.north,
+          ),
         ),
       ),
     );
   }
 
+  /// Enchaîne un chargement de points et le préchargement du débit des
+  /// stations visibles.
+  ///
+  /// C'est bien la **vue** qui déclenche le préchargement : `loadFor` annule
+  /// celui qui tourne (une emprise quittée n'a plus de valeur, `NFR-07`,
+  /// `C-15`) mais n'en relance aucun de lui-même, pour qu'un écran qui n'en
+  /// veut pas n'ait pas à l'annuler (V2). Le branchement était explicitement
+  /// laissé à `U2`.
+  ///
+  /// L'attente est nécessaire : `preloadVisibleStations` choisit les vingt
+  /// stations les plus proches du centre de l'emprise **déjà chargée**. La
+  /// lancer avant que les points soient là ne précharge rien.
+  ///
+  /// La relancer à chaque fin de geste ne coûte rien quand rien n'a changé :
+  /// le ViewModel **saute les stations dont l'état est déjà connu** et ne
+  /// notifie qu'à un changement effectif. Un relâchement de geste sur la
+  /// même emprise ne fait donc ni requête ni reconstruction des 4 150
+  /// marqueurs (`NFR-01`) ; et la borne de vingt portant sur les requêtes et
+  /// non sur les stations regardées, un second geste sur la même emprise
+  /// précharge les **vingt suivantes**, de proche en proche.
+  Future<void> _loadThenPreload(Future<void> load) async {
+    await load;
+    await widget.viewModel.preloadVisibleStations();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final Widget? stationSheet = widget.stationSheet;
-
+    // Tout est DANS le `ListenableBuilder` : la légende doit basculer avec
+    // l'échelle à l'instant du geste (`BR-008`, `UC-001 A6`), et le bandeau
+    // d'erreur apparaître dès que le ViewModel le pose. Le panneau de fiche,
+    // lui, est une instance de widget CONSTANTE d'une reconstruction à
+    // l'autre (`widget.stationSheet`) : `Element.updateChild` court-circuite
+    // sur un widget identique, le replacer ici ne le reconstruit donc pas —
+    // il porte son propre `ListenableBuilder` sur le ViewModel de la fiche.
     return Scaffold(
-      body: Stack(
-        children: <Widget>[
-          ListenableBuilder(
-            listenable: widget.viewModel,
-            builder: (BuildContext context, Widget? child) {
-              final Object? error = widget.viewModel.error;
-              return Stack(
-                children: <Widget>[
-                  FlutterMap(
-                    options: _mapOptions,
-                    children: buildMapLayers(
-                      stations: widget.viewModel.stations,
-                      onStationTap: widget.onStationTap,
-                    ),
-                  ),
-                  if (error != null)
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: MapErrorBanner(error: error),
-                    ),
-                ],
-              );
-            },
-          ),
-          if (stationSheet != null)
-            Align(
-              alignment: Alignment.bottomLeft,
-              child: Padding(
-                // Marge basse plus épaisse : elle dégage le bandeau
-                // d'attribution IGN, qui reste lisible en toutes
-                // circonstances (Licence Ouverte, `04-ui.md` § 3).
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 32),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: stationSheet,
+      body: ListenableBuilder(
+        listenable: widget.viewModel,
+        builder: (BuildContext context, Widget? child) {
+          return Stack(
+            children: <Widget>[
+              FlutterMap(
+                options: _mapOptions,
+                children: buildMapLayers(
+                  stations: widget.viewModel.stations,
+                  onStationTap: widget.onStationTap,
+                  stateOf: widget.viewModel.stateOf,
                 ),
               ),
-            ),
-          const Align(
-            alignment: Alignment.bottomRight,
-            child: Padding(
-              padding: EdgeInsets.all(8),
-              child: IgnAttributionBadge(),
-            ),
-          ),
-        ],
+              ...buildMapOverlays(
+                scale: widget.viewModel.scale,
+                error: widget.viewModel.error,
+                stationSheet: widget.stationSheet,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

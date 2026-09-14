@@ -283,6 +283,20 @@ final class MapViewModel extends ChangeNotifier {
   /// propre requête (décision 4 du plan T1). Un [limit] nul ou négatif ne
   /// précharge rien.
   ///
+  /// **Les états déjà connus sont sautés** ([_needsPreload]) : une station
+  /// [Chargee] ou [SansDonnee] ne vaut pas une seconde requête, une station
+  /// [EnEchec] est **retentée** — une panne passe, un fait constaté non — et
+  /// une station [NonChargee] est chargée. Sans ce filtre, la vue relançant
+  /// le préchargement après un geste dont l'emprise n'a pas changé
+  /// réécrivait vingt états identiques et notifiait vingt fois, donc vingt
+  /// reconstructions des 4 150 marqueurs (`NFR-01`) ; et deux gestes
+  /// rapprochés affamaient les dernières stations, toujours recommencées par
+  /// les mêmes vingt premières.
+  ///
+  /// ⚠️ [limit] borne donc les **requêtes**, pas les stations regardées : un
+  /// second appel sur la même emprise repart des vingt plus proches **parmi
+  /// les non chargées**, et la carte se remplit de proche en proche.
+  ///
   /// **Ordre de sélection**, déterministe et testable : distance euclidienne
   /// en **degrés** au centre de l'emprise (`(south+north)/2`,
   /// `(west+east)/2`), puis code station croissant en cas d'égalité — jamais
@@ -293,10 +307,12 @@ final class MapViewModel extends ChangeNotifier {
   /// mesurer une distance géodésique.
   ///
   /// **Granularité des notifications** (le plan la laissait libre) : **une
-  /// notification par état de station reçu**, et non une seule à la fin. La
-  /// carte se remplit alors au fil des réponses plutôt qu'en un bloc après
-  /// quatre secondes ; la vue reconstruit ses marqueurs, ce que `NFR-01`
-  /// budgète déjà pour un geste de caméra.
+  /// notification par changement d'état effectif**, et non une seule à la
+  /// fin. La carte se remplit alors au fil des réponses plutôt qu'en un bloc
+  /// après quatre secondes ; la vue reconstruit ses marqueurs, ce que
+  /// `NFR-01` budgète déjà pour un geste de caméra. Un état reçu **égal** à
+  /// celui déjà porté — un [EnEchec] retenté qui échoue de la même façon —
+  /// ne notifie pas : rien n'a changé à l'écran.
   ///
   /// Ne lève jamais : une panne sur une station devient [EnEchec] pour
   /// **cette** station, et les autres gardent leur état (`UC-001 A4`).
@@ -327,10 +343,27 @@ final class MapViewModel extends ChangeNotifier {
       if (_disposed || generation != _preloadGeneration) {
         return;
       }
+      final StationMapState previous = stateOf(target.code);
       _states[target.code] = next;
-      notifyListeners();
+      if (next != previous) {
+        notifyListeners();
+      }
     }
   }
+
+  /// Une station mérite-t-elle une requête de préchargement ?
+  ///
+  /// `switch` exhaustif sur la `sealed class` du domaine (`BR-011`) : un état
+  /// ajouté à [StationMapState] sans branche ici est une erreur de
+  /// compilation, jamais une station silencieusement jamais rechargée.
+  ///
+  /// [EnEchec] est le seul état déjà connu qui redonne droit à une requête :
+  /// une panne de source est transitoire (`UC-001 A4`), là où [SansDonnee]
+  /// est un **fait constaté** (`BR-007`) et [Chargee] une valeur en main.
+  bool _needsPreload(StationCode code) => switch (stateOf(code)) {
+    NonChargee() || EnEchec() => true,
+    Chargee() || SansDonnee() => false,
+  };
 
   /// L'état d'une station, lu au dépôt. Ne lève jamais : une panne devient
   /// [EnEchec] pour cette station seule (`UC-001 A4`), une absence devient
@@ -363,7 +396,8 @@ final class MapViewModel extends ChangeNotifier {
   }
 
   /// Les [limit] stations visibles les plus proches du centre de l'emprise
-  /// courante. Liste vide si aucune emprise n'a encore été chargée.
+  /// courante, **parmi celles qui valent encore une requête**
+  /// ([_needsPreload]). Liste vide si aucune emprise n'a encore été chargée.
   List<StationPoint> _closestToCentre(int limit) {
     final Bounds? bounds = _lastRequestedBounds;
     if (bounds == null || _stations.isEmpty) {
@@ -375,8 +409,12 @@ final class MapViewModel extends ChangeNotifier {
 
     // Copie avant tri : `_stations` est une vue non modifiable, et la vue
     // affiche les marqueurs dans l'ordre du référentiel — le préchargement
-    // ne réordonne pas ce que l'écran dessine.
-    final List<StationPoint> sorted = List<StationPoint>.of(_stations);
+    // ne réordonne pas ce que l'écran dessine. Le filtre est posé AVANT le
+    // tri : trier 4 150 points pour en écarter ensuite les vingt premiers
+    // ferait payer deux fois la même comparaison.
+    final List<StationPoint> sorted = _stations
+        .where((StationPoint point) => _needsPreload(point.code))
+        .toList();
     sorted.sort((StationPoint a, StationPoint b) {
       final int byDistance = _squaredDegreesTo(
         a,

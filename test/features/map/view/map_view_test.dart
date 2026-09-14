@@ -17,14 +17,19 @@ import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
+import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
+import 'package:martinpecheur/domain/observation/station_map_state.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view/station_marker.dart';
+import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 
 StationPoint _blois() => StationPoint(
@@ -213,12 +218,6 @@ void main() {
       expect(marker.child, isNot(isA<Text>()));
     });
 
-    test('la zone de tap vaut 44 pt (04-ui.md § 3) et reste plus grande que '
-        'la pastille', () {
-      expect(stationMarkerTapTarget, 44.0);
-      expect(stationMarkerSize, lessThan(stationMarkerTapTarget));
-    });
-
     test("buildMapLayers ne refiltre plus : les stations passées sont toutes "
         'dessinées, marge comprise — le filtre fait foi côté dépôt '
         '(StationPointRepository)', () {
@@ -380,27 +379,271 @@ void main() {
     });
   });
 
-  group('StationMarkerDot', () {
-    testWidgets(
-      'un cercle avec un contour de 2 px — la couleur ne porte aucun état '
-      '(BR-008)',
-      (WidgetTester tester) async {
+  group('buildMapLayers — l état de chaque station (T1-U2)', () {
+    testWidgets('la pastille rend l état que stateOf donne pour SA station', (
+      WidgetTester tester,
+    ) async {
+      final List<Widget> layers = buildMapLayers(
+        stations: <StationPoint>[_blois()],
+        stateOf: (StationCode code) => const SansDonnee(),
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: stationMarkerTapTarget,
+              height: stationMarkerTapTarget,
+              child: markerLayer.markers.single.child,
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<StationMarkerDot>(find.byType(StationMarkerDot)).state,
+        const SansDonnee(),
+      );
+    });
+
+    testWidgets('stateOf est interrogé station par station : deux stations, '
+        'deux états', (WidgetTester tester) async {
+      final List<Widget> layers = buildMapLayers(
+        stations: <StationPoint>[_blois(), _guadeloupe()],
+        stateOf: (StationCode code) => code == StationCode('K447001001')
+            ? const Chargee(Freshness.perimee)
+            : const SansDonnee(),
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      for (final (int index, StationMapState expected) in <StationMapState>[
+        const Chargee(Freshness.perimee),
+        const SansDonnee(),
+      ].indexed) {
         await tester.pumpWidget(
-          const MaterialApp(home: Scaffold(body: StationMarkerDot())),
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: stationMarkerTapTarget,
+                height: stationMarkerTapTarget,
+                child: markerLayer.markers[index].child,
+              ),
+            ),
+          ),
         );
 
-        final DecoratedBox decoratedBox = tester.widget<DecoratedBox>(
-          find.byType(DecoratedBox),
+        expect(
+          tester.widget<StationMarkerDot>(find.byType(StationMarkerDot)).state,
+          expected,
         );
-        final BoxDecoration decoration =
-            decoratedBox.decoration as BoxDecoration;
+      }
+    });
 
-        expect(decoration.shape, BoxShape.circle);
-        expect(decoration.border, isNotNull);
-        final Border border = decoration.border! as Border;
-        expect(border.top.width, 2);
-      },
-    );
+    testWidgets("l'annonce du marqueur NOMME la station, puis son état — "
+        '« La Loire à Blois, Aucune donnée disponible ici. » ; un seul '
+        'nœud sémantique par marqueur (04-ui.md § 3)', (
+      WidgetTester tester,
+    ) async {
+      final List<Widget> layers = buildMapLayers(
+        stations: <StationPoint>[_blois()],
+        stateOf: (StationCode code) => const SansDonnee(),
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: stationMarkerTapTarget,
+              height: stationMarkerTapTarget,
+              child: markerLayer.markers.single.child,
+            ),
+          ),
+        ),
+      );
+
+      final Semantics semantics = tester.widget<Semantics>(
+        find
+            .ancestor(
+              of: find.byType(StationMarkerDot),
+              matching: find.byType(Semantics),
+            )
+            .first,
+      );
+      expect(semantics.properties.label, contains('La Loire à Blois'));
+      expect(
+        semantics.properties.label,
+        contains(stationMapStateLabel(const SansDonnee())),
+      );
+      expect(semantics.properties.button, isTrue);
+      expect(
+        semantics.excludeSemantics,
+        isTrue,
+        reason:
+            'la pastille garde son propre Semantics pour la légende ; sur '
+            'la carte le marqueur le masque, sinon chaque station porterait '
+            'deux nœuds',
+      );
+    });
+
+    testWidgets("une station fraîche n'annonce QUE son nom : une mesure "
+        "récente n'a pas de libellé d'état (BR-005, BR-007)", (
+      WidgetTester tester,
+    ) async {
+      final List<Widget> layers = buildMapLayers(
+        stations: <StationPoint>[_blois()],
+        stateOf: (StationCode code) => const Chargee(Freshness.fraiche),
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: stationMarkerTapTarget,
+              height: stationMarkerTapTarget,
+              child: markerLayer.markers.single.child,
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester
+            .widget<Semantics>(
+              find
+                  .ancestor(
+                    of: find.byType(StationMarkerDot),
+                    matching: find.byType(Semantics),
+                  )
+                  .first,
+            )
+            .properties
+            .label,
+        'La Loire à Blois',
+      );
+    });
+
+    testWidgets('sans stateOf, toute station est NonChargee — jamais un état '
+        'par défaut qui ressemblerait à une absence constatée (BR-007)', (
+      WidgetTester tester,
+    ) async {
+      final List<Widget> layers = buildMapLayers(
+        stations: <StationPoint>[_blois()],
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: stationMarkerTapTarget,
+              height: stationMarkerTapTarget,
+              child: markerLayer.markers.single.child,
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<StationMarkerDot>(find.byType(StationMarkerDot)).state,
+        const NonChargee(),
+      );
+    });
+  });
+
+  group('buildMapOverlays — les surcouches, sans FlutterMap (T1-U2)', () {
+    /// Rend les surcouches SEULES, dans un `Stack` : aucun `FlutterMap`
+    /// n'est monté — l'environnement de test refuse le chargement de
+    /// tuiles, et le câblage des surcouches n'a rien à voir avec lui.
+    Future<void> pumpOverlays(
+      WidgetTester tester, {
+      MapScaleKind scale = MapScaleKind.ecoulement,
+      Object? error,
+      Widget? stationSheet,
+    }) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: buildMapOverlays(
+                scale: scale,
+                error: error,
+                stationSheet: stationSheet,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('la légende est présente QUEL QUE SOIT error — toujours '
+        'visible, jamais repliée (BR-008)', (WidgetTester tester) async {
+      for (final Object? error in <Object?>[null, StateError('panne')]) {
+        await pumpOverlays(tester, error: error);
+
+        expect(find.byType(MapLegend), findsOneWidget);
+      }
+    });
+
+    testWidgets("l'échelle passée est celle que la légende rend", (
+      WidgetTester tester,
+    ) async {
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        await pumpOverlays(tester, scale: scale);
+
+        expect(tester.widget<MapLegend>(find.byType(MapLegend)).scale, scale);
+      }
+    });
+
+    testWidgets("le bandeau d'erreur n'est présent que si error != null "
+        '(BR-007)', (WidgetTester tester) async {
+      await pumpOverlays(tester);
+      expect(find.byType(MapErrorBanner), findsNothing);
+
+      await pumpOverlays(tester, error: StateError('Aucun asset'));
+      expect(find.byType(MapErrorBanner), findsOneWidget);
+      expect(find.textContaining('Aucun asset'), findsOneWidget);
+    });
+
+    testWidgets("le panneau de fiche n'est présent que s'il est fourni", (
+      WidgetTester tester,
+    ) async {
+      const Key sheet = Key('fiche');
+
+      await pumpOverlays(tester);
+      expect(find.byKey(sheet), findsNothing);
+
+      await pumpOverlays(
+        tester,
+        stationSheet: const SizedBox.shrink(key: sheet),
+      );
+      expect(find.byKey(sheet), findsOneWidget);
+    });
+
+    testWidgets("l'attribution IGN est TOUJOURS présente — une condition "
+        "d'usage de la Licence Ouverte, jamais une finition", (
+      WidgetTester tester,
+    ) async {
+      for (final Object? error in <Object?>[null, StateError('panne')]) {
+        await pumpOverlays(tester, error: error);
+
+        expect(find.byType(IgnAttributionBadge), findsOneWidget);
+      }
+    });
+
+    testWidgets("le bandeau d'erreur ne recouvre jamais la légende : sans "
+        "elle l'usager ne sait plus quelle échelle il lit (BR-008)", (
+      WidgetTester tester,
+    ) async {
+      await pumpOverlays(tester, error: StateError('panne de lecture'));
+
+      expect(
+        tester.getTopRight(find.byType(MapErrorBanner)).dx,
+        lessThanOrEqualTo(tester.getTopLeft(find.byType(MapLegend)).dx),
+      );
+    });
   });
 
   group('MapErrorBanner — jamais une carte muette (BR-007)', () {

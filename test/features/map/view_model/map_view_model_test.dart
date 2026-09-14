@@ -728,6 +728,81 @@ void main() {
       expect(delays.toSet(), <Duration>{const Duration(milliseconds: 200)});
     });
 
+    test('un second prechargement sur la MEME emprise ne refait aucun appel '
+        'et ne notifie pas : les etats deja connus sont sautes — sinon la '
+        'vue reecrit 20 etats connus et reconstruit 20 fois les 4 150 '
+        'marqueurs (NFR-01)', () async {
+      repository.answer = (int _) async => _grid(5);
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(_wideBounds());
+      await viewModel.preloadVisibleStations(limit: 20);
+      expect(observations.requests, hasLength(5));
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      await viewModel.preloadVisibleStations(limit: 20);
+
+      expect(observations.requests, hasLength(5));
+      expect(notifications, 0);
+      expect(delays, hasLength(4), reason: 'aucune attente supplementaire');
+    });
+
+    test('une station EnEchec est RETENTEE au prechargement suivant, une '
+        'station Chargee ou SansDonnee ne l est pas (UC-001 A4)', () async {
+      repository.answer = (int _) async => <StationPoint>[
+        _point('000A', lat: 46, lon: 0),
+        _point('000B', lat: 46, lon: 1),
+      ];
+      observations.answer = (StationCode station, int _) async {
+        if (station.value == 'K44700000B') {
+          throw StateError('Hub Eau indisponible');
+        }
+        return _discharge(station, DateTime.utc(2026, 9, 13, 9));
+      };
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.loadFor(_wideBounds());
+      await viewModel.preloadVisibleStations(limit: 20);
+      expect(observations.requestedCodes, <String>['K44700000A', 'K44700000B']);
+
+      observations.answer = (StationCode station, int _) async =>
+          _discharge(station, DateTime.utc(2026, 9, 13, 9));
+      await viewModel.preloadVisibleStations(limit: 20);
+
+      expect(
+        observations.requestedCodes.sublist(2),
+        <String>['K44700000B'],
+        reason:
+            'A est Chargee et ne vaut pas une seconde requete ; B a echoue '
+            'et merite un nouvel essai',
+      );
+      expect(
+        viewModel.stateOf(StationCode('K44700000B')),
+        const Chargee(Freshness.fraiche),
+      );
+    });
+
+    test('la borne porte sur les REQUETES, pas sur les stations regardees : '
+        'le prechargement suivant retient les 20 plus proches PARMI LES '
+        'NON CHARGEES', () async {
+      repository.answer = (int _) async => _grid(50);
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(_wideBounds());
+
+      await viewModel.preloadVisibleStations(limit: 20);
+      expect(observations.requestedCodes.first, 'K447000000');
+      expect(observations.requestedCodes.last, 'K447000019');
+
+      await viewModel.preloadVisibleStations(limit: 20);
+
+      expect(observations.requests, hasLength(40));
+      expect(observations.requestedCodes.sublist(20).first, 'K447000020');
+      expect(observations.requestedCodes.sublist(20).last, 'K447000039');
+    });
+
     test('un dispose() pendant le prechargement ne notifie plus et ne leve '
         'aucune assertion', () async {
       repository.answer = (int _) async => _grid(5);
