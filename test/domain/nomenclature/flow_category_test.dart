@@ -2,6 +2,13 @@
 // stockage. sealed class et non enumeration : Inconnu doit porter la valeur
 // brute recue (BR-011). NonObserve (fait de terrain) et Inconnu (notre
 // ignorance) restent distincts (BR-007, ADR-006).
+//
+// Les six libelles de `flowCategoryLabel` sont RETAPES ici : ce sont ceux de
+// la colonne « Libelle carte » d'ADR-006 et de `04-ui.md` § 2, les SEULS du
+// projet depuis la relecture du 2026-09-14 (carte et fiche disent le meme
+// mot — `glossary.md`, un concept un mot). « Non renseigne » pour Inconnu
+// est une deviation d'ADR-006, retenue pour BR-007 et a acter par le
+// commanditaire.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 
@@ -70,14 +77,32 @@ void main() {
     });
   });
 
-  group('flowCategoryLabel — libelles exacts, aucun mot banni', () {
-    test('chaque categorie a son libelle exact', () {
-      expect(flowCategoryLabel(const Ecoulement()), 'Écoulement visible');
+  group('flowCategoryLabel — les libelles de la colonne « Libelle carte »', () {
+    test('chaque categorie a son libelle exact — la colonne « Libelle '
+        'carte » d ADR-006 et de 04-ui.md § 2, retapee ici', () {
+      expect(flowCategoryLabel(const Ecoulement()), 'Eau qui coule');
       expect(flowCategoryLabel(const EcoulementFaible()), 'Écoulement faible');
       expect(flowCategoryLabel(const EcoulementNonVisible()), 'Eau stagnante');
       expect(flowCategoryLabel(const Assec()), 'À sec');
-      expect(flowCategoryLabel(const NonObserve()), 'Observation impossible');
+      expect(flowCategoryLabel(const NonObserve()), 'Non observé');
       expect(flowCategoryLabel(const Inconnu('5z')), 'Non renseigné');
+    });
+
+    test('Assec dit « À sec » — jamais « Assec » ni « asséché » : un '
+        'concept, un mot (glossary.md)', () {
+      final String label = flowCategoryLabel(const Assec()).toLowerCase();
+
+      expect(label, isNot(contains('assec')));
+      expect(label, isNot(contains('asséch')));
+      expect(label, isNot(contains('tari')));
+    });
+
+    test('NonObserve et Inconnu ne portent JAMAIS le meme mot — un fait de '
+        'terrain constate n est pas notre ignorance (BR-007)', () {
+      expect(
+        flowCategoryLabel(const NonObserve()),
+        isNot(flowCategoryLabel(const Inconnu(null))),
+      );
     });
 
     test('aucun libelle ne contient un mot banni', () {

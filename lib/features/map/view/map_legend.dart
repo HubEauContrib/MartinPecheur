@@ -31,24 +31,40 @@
 // portera ce niveau, et la légende est le seul endroit de la carte où
 // l'explication tient.
 //
-// ## Ce que la légende « écoulement » montre en T1
+// ## Ce que la légende « écoulement » montre (T1-U3)
 //
-// Les cinq libellés carte de l'échelle 1 (`04-ui.md` § 2), avec la forme que
-// la spécification leur donne, écrite en toutes lettres. ⚠️ **Sans teinte** :
-// les couleurs de l'échelle 1 et leurs marqueurs arrivent avec
-// `onde_marker.dart` (`U3`, `ADR-006`). Les recopier ici en aurait fait deux
-// exemplaires dans deux fichiers, et le deuxième aurait vieilli seul. `U3`
-// remplacera ces formes écrites par les vrais marqueurs ONDE.
+// Les **six** libellés carte de l'échelle 1 — les cinq de `04-ui.md` § 2,
+// plus « Non renseigné », sixième ligne du tableau `U3` du plan T1 portée
+// par le domaine (`flowCategoryLabel`) et **déviation d'`ADR-006`** — chacun
+// avec le marqueur QUE LA CARTE DESSINE ([OndeMarkerShape],
+// `onde_marker.dart`), pas une imitation : c'est ce qui garantit que la
+// légende ne puisse pas diverger des marqueurs. Les formes écrites de `U2`
+// (« ● ◐ ▲ ■ ◌ », sans teinte, faute de marqueur ONDE) ont disparu avec leur
+// raison d'être.
 //
-// Les formes sont écrites — « ● », « ◇ » — parce qu'une légende est rendue
-// **une fois par écran**, quand les marqueurs le sont 4 150 fois : l'argument
-// qui interdit un glyphe sur une pastille (`station_marker.dart`) ne vaut
-// pas ici. C'est aussi le seul endroit où la forme « ◇ + ? » de
-// `04-ui.md` § 2 est montrée en entier.
+// « Non renseigné » y figure alors que ce n'est pas un état du terrain :
+// quasiment aucun marqueur ne le portera en usage courant, mais un code
+// d'écoulement non reconnu (`BR-011`) donne exactement ce rendu, et une
+// légende qui ne le nommerait pas laisserait l'usager lire « non observé » —
+// un fait de terrain — là où il n'y a que notre ignorance (`BR-007`).
+//
+// Les marqueurs de légende sont rendus à l'âge [CampaignAge.recente] : une
+// légende montre la teinte de la catégorie, pas le gris de `BR-010`, qui
+// dépend de la date de CHAQUE observation et n'a pas de sens hors d'un
+// point. C'est aussi pourquoi ils n'ont **aucune** date à porter : la
+// légende est le seul appelant qui passe `observedAt: null`, et elle
+// l'écrit explicitement.
+//
+// La forme « ◇ + ? » de l'échelle 2, elle, reste **écrite** : elle est
+// montrée en entier ici et nulle part ailleurs — voir `station_marker.dart`,
+// qui explique pourquoi le « ? » n'est pas peint sur les 4 150 pastilles.
 
 import 'package:flutter/material.dart';
+import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
+import 'package:martinpecheur/domain/onde/campaign_age.dart';
+import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 
@@ -124,14 +140,20 @@ List<(StationMapState, String)> _availabilityEntries() {
   ];
 }
 
-/// Les catégories de l'échelle 1, forme et libellé carte recopiés de
-/// `04-ui.md` § 2 — ligne à ligne, jamais reformulés.
-const List<(String, String)> _flowEntries = <(String, String)>[
-  ('●', 'Eau qui coule'),
-  ('◐', 'Écoulement faible'),
-  ('▲', 'Eau stagnante'),
-  ('■', 'À sec'),
-  ('◌', 'Non observé'),
+/// Les catégories de l'échelle 1, dans l'ordre de lecture de
+/// `04-ui.md` § 2 — de l'eau qui coule au lit sec, puis les deux aveux
+/// d'absence. Forme, teinte et libellé viennent de `onde_marker.dart`,
+/// jamais d'une recopie locale.
+///
+/// [Inconnu] y porte un code brut nul : la légende parle de la catégorie,
+/// pas d'une observation particulière.
+const List<FlowCategory> _flowCategories = <FlowCategory>[
+  Ecoulement(),
+  EcoulementFaible(),
+  EcoulementNonVisible(),
+  Assec(),
+  NonObserve(),
+  Inconnu(null),
 ];
 
 /// La légende de l'échelle active. Toujours visible, jamais repliée
@@ -209,13 +231,14 @@ class MapLegend extends StatelessWidget {
   ];
 
   List<Widget> _flowRows() => <Widget>[
-    for (final (String shape, String label) in _flowEntries)
-      _ShapeRow(shape: shape, label: label),
+    for (final FlowCategory category in _flowCategories)
+      _OndeRow(category: category),
   ];
 }
 
-/// Une ligne de légende dont le symbole est **écrit** : les formes de
-/// `04-ui.md` § 2 en toutes lettres, faute de marqueur ONDE avant `U3`.
+/// Une ligne de légende dont le symbole est **écrit**. Il n'en reste qu'une :
+/// « ◇ + ? », la forme d'« Indéterminé » de l'échelle 2, montrée en entier
+/// ici et nulle part ailleurs (voir `station_marker.dart`).
 class _ShapeRow extends StatelessWidget {
   const _ShapeRow({required this.shape, required this.label});
 
@@ -240,6 +263,53 @@ class _ShapeRow extends StatelessWidget {
           Flexible(
             child: Text(
               label,
+              style: const TextStyle(fontSize: _entryFontSize),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Une ligne de légende de l'échelle 1 : le marqueur ONDE **que la carte
+/// dessine**, et son libellé carte. Ni l'un ni l'autre n'est recopié ici —
+/// c'est ce qui empêche la légende de diverger des marqueurs.
+class _OndeRow extends StatelessWidget {
+  const _OndeRow({required this.category});
+
+  final FlowCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          SizedBox(
+            width: stationMarkerTapTarget / 2,
+            child: Center(
+              child: SizedBox(
+                width: stationMarkerSize,
+                height: stationMarkerSize,
+                // Âge `recente` et `observedAt` nul : une légende montre la
+                // teinte de la catégorie, jamais le gris de `BR-010` — qui
+                // dépend de la date d'une observation, et n'a pas de sens
+                // hors d'un point. Aucune date n'est donc annoncée ici, et
+                // aucune n'est inventée (`BR-007`).
+                child: OndeMarkerShape(
+                  category: category,
+                  age: CampaignAge.recente,
+                  observedAt: null,
+                ),
+              ),
+            ),
+          ),
+          Flexible(
+            child: Text(
+              ondeCategoryMapLabel(category),
               style: const TextStyle(fontSize: _entryFontSize),
             ),
           ),

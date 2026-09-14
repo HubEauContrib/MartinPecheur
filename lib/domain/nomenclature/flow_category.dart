@@ -117,14 +117,31 @@ FlowCategory flowCategoryFromCode(String? code) {
   }
 }
 
-/// Libelle affichable d'une [FlowCategory]. `switch` exhaustif : une
-/// sous-classe ajoutee sans branche ici est une erreur de compilation
-/// (BR-011), pas un oubli silencieux a l'ecran.
+/// Libelle affichable d'une [FlowCategory] — le SEUL du projet. Ce sont les
+/// libelles de la colonne « Libelle carte » d'ADR-006 et de `04-ui.md` § 2,
+/// et la carte comme la fiche les emploient tels quels : un point annonce
+/// « Eau qui coule » sur la carte ne peut pas ouvrir une fiche qui dit
+/// « Ecoulement visible ». `docs/glossary.md` l'interdit — un concept, un
+/// mot. `ondeCategoryMapLabel` (`features/map/view/onde_marker.dart`)
+/// delegue ici et ne tient aucune seconde liste (relecture du 2026-09-14).
+///
+/// ⚠️ `Inconnu` → « Non renseigne » est une DEVIATION d'ADR-006, qui range
+/// un code inconnu sous « Non observe ». Elle est retenue pour BR-007 — un
+/// fait de terrain constate n'est pas notre ignorance d'un code — et reste
+/// A ACTER par le commanditaire (`docs/project-state.md`, § « Ce qui
+/// bloque »).
+///
+/// La modalite officielle brute — « code 3 — Assec » — n'est pas concernee :
+/// la fiche la porte a part (`OndeSheetData.officialModalityText`), ou
+/// « Assec » est cite comme SOURCE et non comme libelle d'interface.
+///
+/// `switch` exhaustif : une sous-classe ajoutee sans branche ici est une
+/// erreur de compilation (BR-011), pas un oubli silencieux a l'ecran.
 String flowCategoryLabel(FlowCategory category) => switch (category) {
-  Ecoulement() => 'Écoulement visible',
+  Ecoulement() => 'Eau qui coule',
   EcoulementFaible() => 'Écoulement faible',
   EcoulementNonVisible() => 'Eau stagnante',
   Assec() => 'À sec',
-  NonObserve() => 'Observation impossible',
+  NonObserve() => 'Non observé',
   Inconnu() => 'Non renseigné',
 };

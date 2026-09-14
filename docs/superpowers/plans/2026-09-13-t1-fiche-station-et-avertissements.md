@@ -665,9 +665,9 @@ git add lib/features/map test/features/map && git commit -m "feat(map): colorer 
 
 ### Task U3 : Les points ONDE sur la carte, et la bascule d'échelle
 
-**Files:** créé `lib/features/map/view/onde_marker.dart` · test miroir · modifiés `lib/features/map/view/map_screen.dart`, `lib/features/map/view/map_legend.dart`
+**Files:** créé `lib/features/map/view/onde_marker.dart` · test miroir · modifiés `lib/features/map/view/map_view.dart` (⚠️ le plan écrivait `map_screen.dart` — le fichier s'appelle `map_view.dart` depuis le réusinage MVVM), `lib/features/map/view/map_legend.dart` et leurs tests. `lib/main.dart` **inchangé** : `onOndeTap` n'est pas câblé avant `U4`.
 
-**Signatures publiques** — `class OndeMarkerShape extends StatelessWidget { const OndeMarkerShape({required this.category, required this.age, super.key}); }` · `Color ondeCategoryColor(FlowCategory category)` · `String ondeCategoryMapLabel(FlowCategory category)` · `class MapScaleChips extends StatelessWidget { … }`
+**Signatures publiques** — `class OndeMarkerShape extends StatelessWidget { const OndeMarkerShape({required this.category, required this.age, required this.observedAt, super.key}); }` (⚠️ `observedAt` **requis** depuis la relecture du 2026-09-14 — `BR-010` : tout point ONDE annonce la date de sa campagne) · `Color ondeCategoryColor(FlowCategory category)` · `String ondeCategoryMapLabel(FlowCategory category)` · `class MapScaleChips extends StatelessWidget { … }`
 
 **Invariants :** couleurs et formes viennent de **`ADR-006` et `04-ui.md § 2`**, recopiées, jamais choisies ici ; au-delà de **60 jours** l'état passe en gris avec la mention de la date (`BR-010`) ; changer d'échelle change **marqueurs et légende ensemble** (`BR-008`).
 
@@ -683,19 +683,35 @@ git add lib/features/map test/features/map && git commit -m "feat(map): colorer 
 **Cas de test**
 
 - `ondeCategoryColor` rend les six teintes du tableau, valeur par valeur — le test **est** la recopie vérifiée de `04-ui.md § 2`.
-- `ondeCategoryMapLabel(Assec())` → **« À sec »**, jamais « Assec » ni « asséché » : un concept, un mot (`glossary.md`).
+- `ondeCategoryMapLabel(Assec())` → **« À sec »**, jamais « Assec » ni « asséché » : un concept, un mot (`glossary.md`). ⚠️ Depuis la relecture du 2026-09-14, `ondeCategoryMapLabel` **délègue à `flowCategoryLabel`** : le test vérifie que les six libellés carte sont, catégorie par catégorie, ceux du domaine.
 - `NonObserve` et `Inconnu` partagent teinte et forme mais **pas** le libellé — le fait de terrain et notre ignorance restent distincts (`BR-007`).
 - `age: ancienne` → rendu **gris** quelle que soit la catégorie, date mentionnée (`BR-010`, `UC-004 A1`) ; `age: recente` → teinte de la catégorie conservée.
 - Les six catégories restent distinguables **en niveaux de gris** : le test compare formes et motifs, pas seulement les couleurs (`04-ui.md § 3`).
-- `MapScaleChips` : un tap sur « Débit » appelle `selectScale(MapScaleKind.debit)` **une** fois.
+- `MapScaleChips` : un tap sur « Débit » appelle `selectScale(MapScaleKind.debit)` **une** fois. `shouldPreloadOn(debit)` est vrai, `shouldPreloadOn(ecoulement)` faux — et `debit` est la **seule** valeur de l'énumération à précharger.
 - Échelle `debit` → **aucun** marqueur ONDE rendu ; échelle `ecoulement` → **aucun** marqueur de station. Jamais les deux familles ensemble (`BR-008`).
 - Zone hors couverture ONDE → le message **nomme le périmètre réel** du réseau (`UC-001 A5`, `BR-007`). La zone de tap d'un marqueur ONDE mesure ≥ 44 pt.
 
-- [ ] **Étape 1** — écrire les tests. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view` → échec.
-- [ ] **Étape 3** — implémenter, en recopiant les six lignes du tableau depuis `04-ui.md § 2`.
-- [ ] **Étape 4** — brancher : marqueurs ONDE sous l'échelle `ecoulement`, chips de bascule, légende accordée.
-- [ ] **Étape 5** — `flutter test` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — écrire les tests. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view` → échec.
+- [x] **Étape 3** — implémenter, en recopiant les six lignes du tableau depuis `04-ui.md § 2`.
+- [x] **Étape 4** — brancher : marqueurs ONDE sous l'échelle `ecoulement`, chips de bascule, légende accordée.
+- [x] **Étape 5** — `flutter test` → **645 verts, 1 rouge** (`ios_bundle_identifier_test`, artefact de poste : le dossier `android/` résiduel n'est pas versionné). `flutter analyze` → `No issues found!`. `dart format --set-exit-if-changed lib test` → `0 changed`. **Commit laissé au commanditaire.**
+
+**Écarts et choix de `U3`, à relire** — *relecture du 2026-09-14 : vocabulaire aligné sur la colonne « Libellé carte », préchargement limité à l'échelle débit, date annoncée pour tout point.*
+
+- **`MapScaleChips` vit dans `map_view.dart`**, pas dans un fichier à part : c'est une surcouche de la carte, au même titre que `MapErrorBanner` et `IgnAttributionBadge` qui y sont déjà, et le plan ne prévoyait aucun fichier créé pour elle. Elle est rendue en `Wrap` et non en `Row` — « Débit relatif à l'historique » est long, et deux puces de 44 pt côte à côte débordent dès que la place de la légende est réservée.
+- **`buildMapLayers` prend `scale` en paramètre REQUIS**, ce qui a modifié les seize appels des tests de `U1`/`U2` (tous passés à `MapScaleKind.debit`, l'échelle des marqueurs de station). Aucune valeur d'échelle n'est neutre : la choisir est une décision de l'écran, pas un défaut de la fonction (`BR-008`).
+- **Le préfixe d'échelle de l'annonce est réglé pour les DEUX familles** : « Écoulement : À sec — Le Trey à Vilcey-sur-Trey » et « Débit relatif à l'historique : La Loire à Blois ». C'est la dette actée sous `U2` dans `map_view.dart`, elle est levée.
+- **`now` est un `DateTime Function()` injecté**, sur `buildMapLayers` comme sur `MapView` (défaut `DateTime.now`, un tear-off de constructeur, donc constant). Appelé **une seule fois** par construction de couches et ramené en UTC : deux marqueurs de la même carte doivent dater du même instant, et `campaignAgeOf` exige le fuseau du mapper.
+- **`OndeMarkerShape` prend `observedAt` (`DateTime?`)**, choisi plutôt qu'un `semanticsSuffix` : le widget assemble alors lui-même la mention de `BR-010`, et la légende — qui n'a aucune date à montrer — laisse le paramètre nul. Un `assert` refuse un marqueur `ancienne` sans date.
+- **`NonObserve` et `Inconnu` ont le MÊME couple (forme, motif)**, donc **cinq** rendus visuels distincts et non six. C'est la recopie fidèle de `04-ui.md § 2` et d'`ADR-006` ; le test vérifie que les cinq sont deux à deux distincts en niveaux de gris, et que les deux libellés, eux, diffèrent (`BR-007`).
+- **Un seul vocabulaire d'écoulement, dans le domaine** (corrigé le 2026-09-14). `flowCategoryLabel` rendait « Écoulement visible » / « Observation impossible » là où la carte disait « Eau qui coule » / « Non observé » : un point annoncé d'une façon aurait ouvert une fiche qui en dit une autre, ce que [`glossary.md`](../../glossary.md) interdit (un concept, un mot). Le domaine porte désormais la colonne **« Libellé carte »** d'`ADR-006` et de `04-ui.md § 2`, une seule fois ; `ondeCategoryMapLabel` **délègue** — la fonction reste publique, sans seconde liste. La **modalité officielle** (« code 3 — Assec ») n'est pas concernée : la fiche la porte à part (`V3`).
+- 🚨 **`Inconnu` → « Non renseigné » dévie d'`ADR-006`**, qui range un code inconnu sous « Non observé » (sixième ligne de la légende, et du tableau ci-dessus). La déviation est retenue pour `BR-007` — un fait de terrain constaté n'est pas notre ignorance d'un code — et **reste à acter par le commanditaire** ([`project-state.md`](../../project-state.md), § « Ce qui bloque », point 28). Le **rendu visuel**, lui, suit l'ADR : même teinte, même forme, même motif que « Non observé ».
+- **La date de campagne est annoncée pour TOUT point ONDE** (corrigé le 2026-09-14). `BR-010` s'ouvre sur « tout point ONDE affiche la date de sa dernière campagne », et `04-ui.md § 3` donne l'annonce attendue : « Point ONDE, Ruisseau des Fées, à sec, campagne du 25 juillet 2026, **observation visuelle ponctuelle**. » `ondeMarkerLabel` porte donc la date des deux côtés du seuil — « campagne du 25/08/2026 » pour une campagne récente, « dernière observation le 26/09/2025 » passé 60 jours — suivie de la qualification « observation visuelle ponctuelle », recopiée de `04-ui.md § 3`. Corollaire : `observedAt` est **requis** (et nullable) sur `OndeMarkerShape`, l'`assert` conditionnel a disparu — la légende, seul appelant sans observation, passe `null` explicitement.
+- **Le préchargement du débit ne part que sur l'échelle « débit »** (corrigé le 2026-09-14). `_loadThenPreload` et la bascule de puce passent par `shouldPreloadOn(MapScaleKind)`, une **fonction pure** testée (`debit` → vrai, `ecoulement` → faux) parce que `_loadThenPreload` n'est pas atteignable sans monter un `FlutterMap`. Sur l'échelle « écoulement », active au démarrage, `buildMapLayers` ne dessine aucun marqueur de station : jusqu'à vingt requêtes Hub'Eau hydrométrie partaient par relâchement de geste pour des marqueurs invisibles (`C-15` — aucun SLA, aucun quota chiffré ; `NFR-07`). Quand l'usager choisit « Débit », la vue enchaîne `selectScale(debit)` puis `preloadVisibleStations()` : c'est à cet instant que les stations deviennent visibles, et attendre le geste suivant laisserait la carte muette.
+- **La mention de `BR-010` porte l'année** — « dernière observation le 26/09/2025 » — là où la règle écrit « le JJ/MM ». Un point gris a par construction plus de 60 jours : d'octobre à avril il appartient couramment à l'année précédente.
+- **Hors couverture ONDE reporté en `U6`** : `U3` garantit seulement qu'une emprise sans observation ne dessine rien et ne plante pas (une seule couche produite). Le message nommant le périmètre réel du réseau (`UC-001 A5`) est `OutsideOndeCoverageNotice`.
+- **`onOndeTap` n'est pas câblé** : `MapView` l'accepte, optionnel et **sans assert de couplage** (contrairement à `onStationTap`/`stationSheet`) — le panneau ONDE n'existe pas avant `U4`.
 
 ```bash
 git add lib/features/map test/features/map && git commit -m "feat(ecoulement): points ONDE sur la carte, quatre categories et un etat d absence" -m "Les six teintes et formes sont recopiees d ADR-006 et 04-ui section 2, et le test EST cette recopie verifiee : aucune couleur n est choisie dans le code. Au dela de 60 jours l etat passe en gris avec sa date, parce qu un point affiche eau qui coule en fevrier porte une observation de septembre (BR-010). Non observe et Non renseigne partagent la forme mais pas le libelle : un fait de terrain n est pas notre ignorance (BR-007). Les deux echelles ne coexistent jamais (BR-008)."

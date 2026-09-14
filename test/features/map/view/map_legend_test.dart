@@ -12,7 +12,9 @@
 //   marqueur, donc l'endroit ou « normal » se glisserait.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 
@@ -26,13 +28,17 @@ const List<String> bannedWords = <String>[
 ];
 
 /// Les libelles carte de l'echelle 1 — recopies de `04-ui.md` § 2, ligne a
-/// ligne. Le test EST la recopie verifiee.
+/// ligne, plus « Non renseigne » : sixieme ligne du tableau `U3` du plan T1,
+/// portee par le domaine (`flowCategoryLabel`) et DEVIATION d'`ADR-006`, qui
+/// range un code inconnu sous « Non observe ». Le test EST la recopie
+/// verifiee.
 const List<String> libellesEcoulement = <String>[
   'Eau qui coule',
   'Écoulement faible',
   'Eau stagnante',
   'À sec',
   'Non observé',
+  'Non renseigné',
 ];
 
 /// Les libelles propres a la legende « debit » en T1 : le niveau
@@ -155,7 +161,7 @@ void main() {
       expect(find.text(mapScaleLabel(MapScaleKind.ecoulement)), findsOneWidget);
     });
 
-    testWidgets('liste les cinq libelles carte de l echelle 1, mot pour mot', (
+    testWidgets('liste les six libelles carte de l echelle 1, mot pour mot', (
       WidgetTester tester,
     ) async {
       await _pumpLegend(tester, MapScaleKind.ecoulement);
@@ -167,6 +173,40 @@ void main() {
           reason: '« $label » manque a la legende',
         );
       }
+    });
+
+    testWidgets('chaque ligne montre le marqueur QUE LA CARTE DESSINE, pas '
+        'une forme ecrite — six lignes, six marqueurs (T1-U3)', (
+      WidgetTester tester,
+    ) async {
+      await _pumpLegend(tester, MapScaleKind.ecoulement);
+
+      expect(find.byType(OndeMarkerShape), findsNWidgets(6));
+    });
+
+    testWidgets('les marqueurs de legende sont rendus a l age « recente » : '
+        'une legende montre la teinte de la categorie, jamais le gris de '
+        'BR-010 qui depend de la date d une observation', (
+      WidgetTester tester,
+    ) async {
+      await _pumpLegend(tester, MapScaleKind.ecoulement);
+
+      for (final OndeMarkerShape shape in tester.widgetList<OndeMarkerShape>(
+        find.byType(OndeMarkerShape),
+      )) {
+        expect(shape.age, CampaignAge.recente);
+        expect(shape.observedAt, isNull);
+      }
+    });
+
+    testWidgets('« Non observé » et « Non renseigné » sont DEUX lignes — un '
+        'fait de terrain constate n est pas notre ignorance (BR-007)', (
+      WidgetTester tester,
+    ) async {
+      await _pumpLegend(tester, MapScaleKind.ecoulement);
+
+      expect(find.text('Non observé'), findsOneWidget);
+      expect(find.text('Non renseigné'), findsOneWidget);
     });
   });
 
@@ -202,6 +242,14 @@ void main() {
       await _pumpLegend(tester, MapScaleKind.ecoulement);
 
       expect(find.byType(StationMarkerDot), findsNothing);
+    });
+
+    testWidgets('la legende « debit » ne dessine aucun marqueur ONDE', (
+      WidgetTester tester,
+    ) async {
+      await _pumpLegend(tester, MapScaleKind.debit);
+
+      expect(find.byType(OndeMarkerShape), findsNothing);
     });
   });
 
