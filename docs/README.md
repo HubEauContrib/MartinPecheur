@@ -3,7 +3,7 @@
 Spec vivante du projet. Tout vit dans **ce dépôt** : code et spec évoluent dans le même commit.
 
 MartinPêcheur informe les usagers d'une rivière française sur son état — écoulement, débit,
-sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application **Flutter — Windows en première cible**, iOS configuré (jamais compilé), Android ⏸ différé (`ADR-013`) —
+sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application **Flutter — Windows en première cible**, iOS configuré (jamais compilé), Android **réactivé le 2026-09-18** (différé levé, amendement d'`ADR-013`) — gabarit généré et émulateur démarré, **jamais construit ni lancé** —
 **sans backend, sans compte utilisateur**.
 
 > 📍 **Où commencer** — [`project-state.md`](project-state.md) est la **source de vérité des
@@ -44,8 +44,8 @@ Les quatre livrables de cadrage, en tête de dossier :
 
 | Plan | Tranche | Statut |
 |---|---|---|
-| [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md) | **T0** — socle Flutter, domaine, données, carte, porte Windows · § « Suite immédiate » : réusinage MVVM `R1`–`R6` | ✅ clos le 2026-09-13, **31 tâches sur 31** (5 Android ⏸), `v0.1.0`, 248 tests verts |
-| [`2026-09-13-t1-fiche-station-et-avertissements.md`](superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md) | **T1** — fiche station, écoulement ONDE, les quatre avertissements, clavier/souris, porte `0.2.0` | 🔄 en cours sur `feat/t1-mvvm-fiche-station` — **lot 1 clos, `V1` fait** (2026-09-13), `V2`→`V4` puis lots 3 à 7 ; 10 décisions listées dans le plan, à valider |
+| [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md) | **T0** — socle Flutter, domaine, données, carte, porte Windows · § « Suite immédiate » : réusinage MVVM `R1`–`R6` | ✅ clos le 2026-09-13, **31 tâches sur 31**, `v0.1.0`, 248 tests verts · les 5 tâches Android (hors décompte) ne sont plus toutes ⏸ depuis la levée du 2026-09-18 : `A⏸1` ✅, `A⏸2` 🔄, `A⏸3`→`A⏸5` ⏸ |
+| [`2026-09-13-t1-fiche-station-et-avertissements.md`](superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md) | **T1** — fiche station, écoulement ONDE, les quatre avertissements, clavier/souris, porte `0.2.0` | 🔄 en cours sur `feat/t1-mvvm-fiche-station` — **lots 1 à 3 clos** (2026-09-14, 18 tâches sur 33), lot 4 débloqué par les arbitrages du 2026-09-18 ; statuts à jour dans [`project-state.md`](project-state.md) |
 | [`2026-08-24-porte-spike-flutter.md`](superpowers/plans/2026-08-24-porte-spike-flutter.md) | Porte de spike `F1`–`F3` | ✅ franchie le 2026-09-12 sur Windows — `spike/porte_flutter/COMPTE-RENDU.md` |
 
 ## Index des décisions

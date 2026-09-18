@@ -79,9 +79,9 @@ mise en production.
 | **Cadrage produit** — analyse, spécifications, 14 règles métier, 6 cas d'usage, 17 contraintes d'API vérifiées par appel réel | ✅ terminé, indépendant de la stack |
 | **Référentiel des stations** — 4 150 stations Hub'Eau figées dans [`assets/referentiel/stations.json`](assets/referentiel/stations.json) | ✅ |
 | **Stack** — **Flutter**, trois cibles | ✅ décidée le 2026-08-24, porte franchie le 2026-09-12 · 🔄 `ADR-013` à écrire |
-| **Porte de spike `F1`–`F3`** — fond IGN, exécutable Windows, clustering | ✅ franchie le 2026-09-12 sur Windows (`F1`, `F3`) · `F2` non tranchée · Android ⏸ — [compte rendu](spike/porte_flutter/COMPTE-RENDU.md) |
+| **Porte de spike `F1`–`F3`** — fond IGN, exécutable Windows, clustering | ✅ franchie le 2026-09-12 sur Windows (`F1`, `F3`) · `F2` non tranchée · Android non éprouvé à la porte (différé le 2026-09-12, levé le 2026-09-18) — [compte rendu](spike/porte_flutter/COMPTE-RENDU.md) |
 | **Socle applicatif Dart** (`lib/`) | 🔄 T0 à venir, Windows d'abord |
-| **Cibles** | Windows construite · Android ⏸ différé (2026-09-12) · iOS configuré, non compilé |
+| **Cibles** | Windows construite · Android 🔄 **réactivé le 2026-09-18** : plateforme générée et testée, émulateur démarré, **jamais encore construite ni lancée** · iOS configuré, non compilé |
 
 ## Démarrage rapide
 
@@ -98,7 +98,7 @@ flutter doctor -v
 > **chemin sans espace ni parenthèse** ; `winget` n'installe pas les `cmdline-tools` Android ;
 > cocher MSVC seul dans Visual Studio ne suffit pas, il faut le **workload** entier, sinon CMake et
 > le SDK Windows manquent. Android Studio et les `cmdline-tools` ne sont nécessaires que pour la
-> cible Android, différée.
+> cible Android (réactivée le 2026-09-18).
 
 ## Commandes
 
@@ -107,7 +107,7 @@ flutter doctor -v
 | `flutter analyze` · `flutter test` | Analyse statique Dart et tests du socle, test d'architecture en premier | 🔄 avec `lib/` |
 | `flutter run -d windows` | Lancer l'application | 🔄 |
 | `flutter build windows --release` | Livrable Windows | ✅ éprouvé par le spike (`F3`) |
-| `flutter build apk` | Livrable Android | ⏸ Android différé |
+| `flutter build apk` | Livrable Android | 🔄 cible réactivée le 2026-09-18, **jamais encore construite** ; signature de publication toujours ⏸ (`A⏸3`) |
 
 Aucune tâche n'est considérée terminée si la chaîne de vérification ne passe pas.
 
@@ -149,7 +149,7 @@ Détail : [`docs/03-conception.md`](docs/03-conception.md) ·
 | Composant | Choix | État |
 |---|---|---|
 | Langage, runtime | **Dart 3.13** · **Flutter 3.47** stable | ✅ installés, `flutter doctor` vert sur Windows |
-| Cibles | **Android**, **iOS**, **Windows** | Windows ✅ construite · Android ⏸ différé (2026-09-12) · iOS 🔄 configuré, non compilé |
+| Cibles | **Android**, **iOS**, **Windows** | Windows ✅ construite · Android 🔄 **réactivé le 2026-09-18** : plateforme générée et testée, émulateur démarré, **jamais encore construite ni lancée** · iOS 🔄 configuré, non compilé |
 | Carte | **`flutter_map`** 8.x, rendu Dart natif, fond **IGN Géoplateforme** (WMTS `PLANIGNV2`) | ✅ `F1` franchie sur Windows |
 | Clustering | `flutter_map_marker_cluster` 8.2.x | ⏸ `F2` non tranchée — par défaut, marqueurs du viewport sans clustering |
 | Stockage local | `drift` candidat — `sqflite` seul ne couvre pas Windows | 💭 `ADR-011` réservé |

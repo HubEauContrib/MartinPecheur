@@ -1,7 +1,9 @@
 # ADR-013 — Bascule vers Flutter, et Windows en première cible construite
 
-- **Statut :** **Accepté — arbitrage du commanditaire du 2026-09-12** (porte de spike franchie sur `F1` et `F3`), **Android différé le même jour**
-- **Date :** 2026-09-13
+- **Statut :** **Accepté — arbitrage du commanditaire du 2026-09-12** (porte de spike franchie sur `F1` et `F3`), Android différé le même jour, **différé levé le 2026-09-18** (voir
+  « [Amendement du 2026-09-18 — Android réactivé](#amendement-du-2026-09-18--android-réactivé) »).
+  Le **reste** de cet ADR est inchangé : Windows demeure la première cible construite.
+- **Date :** 2026-09-13 · **amendé le 2026-09-18**
 - **Remplace :** [`ADR-010`](ADR-010-react-native.md) (React Native, abandon de MAUI et de Windows)
 - **Rétablit l'intention de :** [`ADR-009`](ADR-009-cible-windows.md) — **sans le réactiver.** `ADR-009` reste « Remplacé par `ADR-010` » : il décrivait une cible Windows **MAUI `SingleProject`**, avec `TargetFrameworks`, `WindowsPackageType` et `Platforms/Windows`. Rien de cela ne survit. Ce qui revient, c'est **le besoin** qu'`ADR-009` documentait — voir son propre Contexte — pas sa mise en œuvre
 
@@ -42,7 +44,8 @@
 Le verdict de `F2` est **rouge, pas nul** : le budget de rastérisation tient, c'est le taux de trames
 en retard qui dépasse. Les deux variantes de remesure (`F2b` sans animations, `F2c` sans
 regroupement) sont codées au commit `207edec` et **n'ont jamais été mesurées** — elles attendaient
-Android, qui a été différé le 2026-09-12.
+Android, qui a été différé le 2026-09-12. La levée du différé, le 2026-09-18, **ne rouvre pas `F2`** :
+elle rend la remesure possible, elle ne la programme pas (voir l'amendement en fin de document).
 
 ### Versions réellement liées
 
@@ -83,7 +86,54 @@ construite.**
 |---|---|
 | **Windows** | ✅ **la seule construite.** `flutter build windows --release` produit un exécutable **lancé hors outil de développement** par le commanditaire le 2026-09-13 |
 | **iOS** | 🔄 **configuré, jamais compilé** — aucun hôte macOS. Le `bundleIdentifier` est aligné et verrouillé par un test (`test/project/ios_bundle_identifier_test.dart`) ; rien de plus n'est affiché comme acquis |
-| **Android** | ⏸ **différé jusqu'à nouvel ordre** (arbitrage du 2026-09-12). Dans un plan, une tâche Android est marquée ⏸ : ni supprimée, ni comptée faite |
+| **Android** | ~~⏸ **différé jusqu'à nouvel ordre** (arbitrage du 2026-09-12)~~ → **différé levé le 2026-09-18**, voir l'amendement ci-dessous. Reste ⏸ ce qui y est explicitement listé : signature de publication, appareil réel, préversion |
+
+### Amendement du 2026-09-18 — Android réactivé
+
+**Arbitrage du commanditaire du 2026-09-18** (« active android et lancer l'émulateur ») : **le différé
+Android du 2026-09-12 est levé.** Android redevient une **cible active**.
+
+**Ce qui est constaté ce jour-là, par exécution :**
+
+| Fait | Relevé |
+|---|---|
+| Chaîne d'outils Android | `flutter doctor` rend « [√] Android toolchain - develop for Android devices (Android SDK version 36.0.0) », sous Flutter 3.47.4. Le SDK est celui du poste, sur un **chemin sans espace ni parenthèse** — la leçon de 2026-08-15 tient |
+| NDK | Flutter 3.47.4 exige **`28.2.13676358`**, lu dans `packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt` du SDK Flutter installé. Ce NDK **est présent sur le poste** (dossier daté du 2026-09-09), à côté du `27.1.12297006`. **L'épingle `27.1` du spike n'a donc plus lieu d'être** : `ndkVersion = flutter.ndkVersion` est conservé |
+| Plateforme | `flutter create --project-name martinpecheur --org fr.martinpecheur --platforms android .` — le **gabarit Android est généré** |
+| Émulateur | `Pixel_7` (seul listé par `flutter emulators`) lancé par `flutter emulators --launch Pixel_7` ; `adb devices` le voit **`emulator-5554 device`**, puis **`sys.boot_completed=1`** |
+
+**Ce qui n'est PAS constaté :**
+
+- 🚨 **Rien n'a été construit ni lancé sur Android.** Le bac à sable ne compile pas de natif (socket
+  AF_UNIX fermée, Gradle ne démarre pas) : `flutter run -d emulator-5554` est à lancer **par le
+  commanditaire**. **Aucun écran de l'application n'a été vu sur Android sous Flutter.**
+- Le NDK est donc **présent, pas éprouvé**. La tâche `A⏸2` du plan T0 exige de le *« constater par
+  une construction réussie, pas par un raisonnement »* : elle passe de ⏸ à **🔄**, pas à ✅.
+- `adb` **ne voit toujours pas** le Galaxy A54 réel ; `NV-5` (tenue sur Android d'entrée de gamme
+  réel) reste **ouvert**. Toutes les mesures de fluidité existantes viennent d'un émulateur.
+
+**Conséquence sur le dépôt :** **`android/` redevient versionné** — le **gabarit** Flutter de
+plateforme seulement. Les caches de construction restent hors dépôt ; un résidu de 2,5 Go hérité de
+l'outillage précédent (2026-08-24) subsiste sur le poste, à supprimer **par le commanditaire** —
+Flutter construit dans `build/` à la racine, pas dans `android/app/build`, ces caches sont donc
+**inertes pour Flutter**. L'écart constaté le 2026-09-13 plus bas (« aucune plateforme Android
+Flutter n'est générée ni versionnée ») **est levé** : le commentaire de `.gitignore` cesse
+d'anticiper, il décrit l'état du dépôt.
+
+**Ce que cet amendement ne change PAS :**
+
+- **Windows reste la première cible construite** — et la seule dont un exécutable ait été lancé hors
+  outil de développement.
+- **L'architecture est intacte** : feature-first + MVVM ([`ADR-014`](ADR-014-feature-first-mvvm.md)),
+  `lib/domain/` pur, les sept règles de couches. Une cible de plus n'est pas une décision
+  d'architecture.
+- **iOS reste configuré et jamais compilé** (aucun hôte macOS, `NV-W4`).
+- **Le hors-ligne de zone reste non tranché** :
+  [`ADR-012`](ADR-012-hors-ligne-cartographique-bloque.md) et ses options A, B, C sont toujours
+  ouvertes — le `Must` d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md) n'est pas
+  livré. Réactiver Android ne le rapproche d'aucune résolution.
+- **`F2` n'est pas rouverte** : `F2c` (viewport plus marge, sans regroupement) reste l'approche par
+  défaut tant qu'aucune mesure ne réhabilite le regroupement.
 
 ### L'approche par défaut de la carte
 
@@ -102,11 +152,14 @@ stations sont toutes dessinées**. Ce n'est pas un défaut caché, c'est le coû
 - **`windows/` et `ios/` sont versionnés** — ils se modifient à la main. C'est ce que `.gitignore`
   annonce depuis sa troisième ligne : *« `android/`, `ios/` et `windows/` sont VERSIONNÉS : ils se
   modifient à la main et portent la signature de release (ADR-013). »*
-  ⚠️ **Écart constaté le 2026-09-13** : `git ls-files` ne suit que `ios/` et `windows/`. **Aucune
+  ⚠️ ~~**Écart constaté le 2026-09-13** : `git ls-files` ne suit que `ios/` et `windows/`. **Aucune
   plateforme Android Flutter n'est générée ni versionnée** ; un résidu non suivi de l'ancienne stack
   (dossier `android/` daté du 2026-08-24) peut subsister sur un poste — à supprimer, jamais à
   commiter (`CHANGELOG.md` § Différé) — le commentaire de `.gitignore` anticipe la levée de
-  l'arbitrage ⏸, il ne décrit pas l'état du dépôt.
+  l'arbitrage ⏸, il ne décrit pas l'état du dépôt.~~
+  ✅ **Écart levé le 2026-09-18** (voir l'amendement) : la plateforme Android est générée et le
+  **gabarit** est versionné. Seuls les **caches résiduels** du poste restent à supprimer, par le
+  commanditaire, et ne se committent jamais.
 - **Dart strict non négociable** : `flutter_lints`, `language: strict-casts, strict-inference,
   strict-raw-types`, `avoid_dynamic_calls`, `always_declare_return_types`, `prefer_final_locals`.
   `dynamic` implicite interdit.
@@ -118,7 +171,7 @@ flowchart TD
     F["Flutter stable · Dart strict<br/>la racine EST le projet"]
     F --> WIN["windows/ — ✅ construite<br/>exécutable lancé hors outil"]
     F --> IOS["ios/ — 🔄 configurée<br/>jamais compilée, aucun hôte macOS"]
-    F --> AND["android/ — ⏸ différée<br/>arbitrage 2026-09-12"]
+    F --> AND["android/ — 🔄 réactivée 2026-09-18<br/>gabarit généré, émulateur démarré<br/>jamais construite ni lancée"]
     WIN --> MAP["flutter_map · TileLayer raster<br/>WMTS IGN Géoplateforme (KVP)"]
     MAP --> MK["MarkerLayer — viewport + marge<br/>F2c, sans regroupement"]
     MAP --> ATT["Attribution Licence Ouverte<br/>affichée à l'écran"]
@@ -174,9 +227,12 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
   (rastérisation `p90` ≤ 16,7 ms, trames en retard < 5 %) est **non mesuré** sur la seule cible
   construite — `NV-W3` dans `docs/nfr.md`, ouvert sans date. Le binaire de T0 a été jugé à l'œil, pas
   au chiffre.
-- **iOS n'a jamais été compilé, et Android est différé.** Deux des trois cibles déclarées ne sont
-  adossées à aucune exécution. Les dettes Android du spike restent dues : NDK 28.2 absent (épingle
-  `27.1.12297006`), `adb` ne voyant pas le Galaxy A54, `NV-5` (tenue sur Android réel) ouvert.
+- **iOS n'a jamais été compilé, et Android n'a jamais été construit.** Deux des trois cibles
+  déclarées ne sont adossées à aucune exécution. ⚠️ **Amendé le 2026-09-18** : Android n'est plus
+  différé, mais il n'est pas pour autant éprouvé. Des dettes du spike, une seule tombe — le **NDK
+  `28.2.13676358` est présent sur le poste**, l'épingle `27.1.12297006` est abandonnée et
+  `ndkVersion = flutter.ndkVersion` conservé, **sans qu'une construction l'ait encore confirmé**.
+  Restent dues : `adb` ne voyant pas le Galaxy A54, et `NV-5` (tenue sur Android réel) ouvert.
 - **La spec d'UI est écrite pour le mobile.** [`04-ui.md`](../04-ui.md) suppose un écran étroit et le
   tactile ; le lot clavier/souris et responsive qu'`ADR-009` signalait comme à chiffrer reste dû. Premier élément
   de ce lot déjà instruit : la molette. Elle **ne zoomait pas** au spike (2026-09-09) ; elle **zoome**

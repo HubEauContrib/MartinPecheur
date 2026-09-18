@@ -1683,17 +1683,33 @@ git tag -a v0.1.0 -m "T0 — socle Flutter, cible Windows. La carte IGN avec les
 
 ---
 
-## Tâches Android — ⏸ différées (arbitrage 2026-09-12)
+## Tâches Android — **différé levé le 2026-09-18** (l'arbitrage ⏸ du 2026-09-12 est révoqué)
 
-Elles sont **listées, pas omises**. Aucune n'est comptée faite. Le jour où Android revient, elles se reprennent dans cet ordre.
+Le commanditaire a demandé le **2026-09-18** d'activer Android et de lancer l'émulateur : le différé « jusqu'à nouvel ordre » du 2026-09-12 **est levé** (amendement d'[`ADR-013`](../../adr/ADR-013-bascule-flutter-cible-windows.md)). Ces cinq tâches ne sont plus toutes ⏸ : `A⏸1` est **faite**, `A⏸2` est **🔄 en cours**, `A⏸3` à `A⏸5` restent **⏸**. Elles restent **hors du décompte « 31 tâches actives »** du récapitulatif — ce nombre ne change pas.
 
-### Task A⏸1 : Générer la plateforme `android/` — ⏸ différée
+### Task A⏸1 : Générer la plateforme `android/` — ✅ **faite le 2026-09-18**
 
-- [ ] `flutter create --platforms android .` sur le projet existant. Vérifier ensuite que le manifeste principal porte la **permission d'accès au réseau** : sans elle, aucune tuile n'arrive et rien ne le dit. Le test `ios_bundle_identifier_test.dart` affirme aujourd'hui que `android/` **n'existe pas** — cette affirmation devra être retirée dans le même commit, et non contournée.
+- [x] **Commande exacte exécutée le 2026-09-18 :** `flutter create --project-name martinpecheur --org fr.martinpecheur --platforms android .` — le gabarit Android est généré.
 
-### Task A⏸2 : Trancher la version d'outillage natif — ⏸ différée
+  ⚠️ **Piège constaté, et qui resservira : `flutter create` touche à des fichiers qui ne sont pas les siens.** Trois effets de bord, tous constatés puis **annulés à la main** par l'orchestrateur le jour même :
 
-- [ ] Le poste n'a pas la version exigée par Flutter ; le spike l'avait épinglée à celle présente, faute de quoi l'installation automatique échoue. **Dette connue :** cette épingle suffisait à un projet sans code natif — avec un moteur de stockage natif (`ADR-011`), ce n'est plus acquis. Deux voies : installer la version exigée, ou reconduire l'épingle — et le **constater par une construction réussie**, pas par un raisonnement.
+  | Fichier | Effet de bord | Correction |
+  |---|---|---|
+  | `.metadata` | `ios` et `windows` **retirés** de la liste des plateformes | restaurés, `android` ajouté à la main |
+  | `pubspec.lock` | `archive` relevé **4.2.0 → 4.3.0** | restauré |
+  | `test/widget_test.dart` | **recréé** (gabarit par défaut) | retiré |
+
+  **Relire le diff de `flutter create` avant de committer** : la commande ne se contente pas d'ajouter un dossier.
+
+  **Alignement en TDD, fait le même jour** (rouge constaté sur quatre affirmations, puis `flutter test` : 778 verts) : identifiant `fr.martinpecheur.app` (même convention qu'iOS), **permission `android.permission.INTERNET` dans le manifeste principal** — sans elle aucune tuile n'arrive et rien ne le dit —, libellé « MartinPêcheur », `MainActivity.kt` sous `fr/martinpecheur/app`, nouveau test `test/project/android_configuration_test.dart`, et **retrait** de `ios_bundle_identifier_test.dart` de l'affirmation « le dossier `android/` n'existe pas » — retirée, jamais contournée, comme cette tâche l'exigeait.
+
+### Task A⏸2 : Trancher la version d'outillage natif — 🔄 **décidée le 2026-09-18, pas encore constatée**
+
+- [ ] 🔄 **Tranché le 2026-09-18 : on reconduit la version exigée par Flutter, sans épingle.** Flutter 3.47.4 exige le NDK **`28.2.13676358`** — lu dans `packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt` du SDK Flutter installé, pas de mémoire. Ce NDK **est présent sur le poste** (dossier daté du 2026-09-09), à côté du `27.1.12297006`. **L'épingle `27.1` du spike n'a donc plus lieu d'être** : `android/app/build.gradle.kts` garde `ndkVersion = flutter.ndkVersion`.
+
+  🚨 **La case reste décochée, et c'est voulu.** Cette tâche exige de le *« constater par une construction réussie, pas par un raisonnement »* — et **aucune construction Android n'a eu lieu** : le bac à sable ne compile pas de natif (socket AF_UNIX fermée, Gradle ne démarre pas). **`flutter run -d emulator-5554` est à lancer par le commanditaire** ; l'émulateur `Pixel_7` a démarré le 2026-09-18 (`adb devices` → `emulator-5554 device`, `sys.boot_completed=1`), mais **aucun écran de l'app n'a été vu sur Android sous Flutter**. `A⏸2` passe de ⏸ à 🔄, **pas à ✅**.
+
+  **Dette connue, toujours valable :** cette décision suffit à un projet sans code natif — avec un moteur de stockage natif (`ADR-011`, moteur structuré non tranché), ce n'est plus acquis.
 
 ### Task A⏸3 : Signature de publication — ⏸ différée
 
@@ -1737,9 +1753,9 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | **3 — Application** | `A1` → `A3` (3) | messages typés, registre, politique de cache |
 | **4 — Carte** | `M1` → `M6` (6) | gabarit IGN, filtre de viewport, écran, marqueurs, molette, exigences non fonctionnelles |
 | **5 — Porte** | `P1`, `P2` (2) | exécutable Windows lancé hors outil, version `0.1.0` datée et taguée |
-| **⏸ Android** | `A⏸1` → `A⏸5` (5) | **différées le 2026-09-12** — listées, jamais comptées faites |
+| **Android** | `A⏸1` → `A⏸5` (5) | ~~différées le 2026-09-12~~ — **différé levé le 2026-09-18** : `A⏸1` ✅, `A⏸2` 🔄, `A⏸3`→`A⏸5` ⏸. Hors du décompte ci-dessous, comme avant |
 
-**31 tâches actives, 5 différées.**
+**31 tâches actives, 5 hors décompte** (les cinq tâches Android n'ont jamais été comptées dans les 31 ; depuis le 2026-09-18, 3 seulement restent ⏸).
 
 ## Ordre d'exécution
 

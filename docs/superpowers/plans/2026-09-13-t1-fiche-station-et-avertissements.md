@@ -6,7 +6,7 @@
 
 **Architecture:** feature-first + MVVM (`ADR-014`) — `lib/features/<feature>/{view,view_model}`, un `ChangeNotifier` par écran, appels **typés** aux dépôts de `lib/data/`, `lib/domain/` en Dart pur et transverse. `CachePolicy` est un **décorateur de dépôt** (`lib/data/cache/cache_policy.dart`), unique. Aucun bus, aucun message, aucune bibliothèque d'état.
 
-**Tech Stack:** Flutter 3.47.4 stable / Dart 3.13.3 · `flutter_map` 8.3.2 · `latlong2` · `package:http` · `shared_preferences` (décision 3) · `flutter_test` · cible **Windows** construite, **iOS** configuré et jamais compilé, **Android ⏸ différé**.
+**Tech Stack:** Flutter 3.47.4 stable / Dart 3.13.3 · `flutter_map` 8.3.2 · `latlong2` · `package:http` · `shared_preferences` (décision 3) · `flutter_test` · cible **Windows** construite, **iOS** configuré et jamais compilé, **Android** différé le 2026-09-12 puis **réactivé le 2026-09-18** (plateforme générée, jamais encore construite — voir [`ADR-013`](../../adr/ADR-013-bascule-flutter-cible-windows.md), amendement du 2026-09-18).
 
 ---
 
@@ -24,7 +24,7 @@ Ce plan est écrit **sur l'architecture cible**. Les tâches `R1` → `R6` de la
 |---|---|
 | **Windows** | **La seule construite.** La porte de T1 se franchit sur Windows |
 | **iOS** | Déclaré, `bundleIdentifier` aligné. **Jamais compilé** — aucun hôte macOS |
-| **Android** | ⏸ **différé (arbitrage 2026-09-12).** Les tâches sont listées en fin de plan, ni supprimées ni comptées faites |
+| **Android** | ~~⏸ différé (arbitrage 2026-09-12)~~ → 🔄 **réactivé le 2026-09-18** par le commanditaire. Les tâches restent listées en fin de plan, **hors décompte** : `A⏸1` faite, `A⏸2` à constater par une construction, les autres toujours ⏸ |
 
 **Ce que T1 fait :** (a) fiche station au tap · (b) carte colorée par état, deux échelles · (c) écoulement ONDE de bout en bout · (d) **les quatre avertissements** · (e) lot clavier/souris · (f) Gherkin, traçabilité, `NFR-01`.
 
@@ -1195,7 +1195,7 @@ git add lib docs test && git commit -m "feat(diagnostics): mesurer la fluidite d
 **Cas de test**
 
 - `CHANGELOG.md` contient une section `## [0.2.0]`, et **une seule** ; `pubspec.yaml` porte `version: 0.2.0+2`, et le `CHANGELOG` dit la **même** version — un tag et un journal qui divergent laissent personne savoir ce que contient le binaire installé.
-- La section `0.2.0` contient une sous-section **`### Non vérifié`** non vide, nommant au minimum les `Q-` restés ouverts, iOS jamais compilé et Android ⏸.
+- La section `0.2.0` contient une sous-section **`### Non vérifié`** non vide, nommant au minimum les `Q-` restés ouverts, iOS jamais compilé et **l'état réel d'Android au jour de la version** (réactivé le 2026-09-18 ; dire ce qui a été construit et vu, et ce qui ne l'a pas été).
 - `docs/plan-de-tests.md` : ligne `test/features/goldens/` ✅, ligne `integration_test/` toujours 🔄 (T3), § Portée citant ce plan.
 - `CLAUDE.md` : la table « Où on en est » met T1 à jour, la ligne CQRS est **retirée** au profit de MVVM (`ADR-014`), et `ADR-011` n'est plus marqué « réservé ».
 - `docs/project-state.md` cite `v0.2.0` et les constats de la porte.
@@ -1290,7 +1290,7 @@ git add docs && git commit -m "docs: consigner les constats de la porte T1 sur W
 - [ ] **Étape 1** — `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
 - [ ] **Étape 2** — dater la version et ajouter deux sections :
   - `### Constaté à l'exécution` — les **cinq** constats de `P1` étape 4, un par un · poids et nombre de fichiers du dossier de publication · comportement hors réseau, **sans interprétation** · les trois rapports de fluidité.
-  - `### Non vérifié` — `Q-01` à `Q-05` restés ouverts · aucun percentile, donc aucune qualification statistique du débit (`ADR-003` hors T1) · aucun appel VigiEau (T2) · aucun `integration_test/` · cibles de 48 dp non vérifiées (Android ⏸) · iOS jamais compilé.
+  - `### Non vérifié` — `Q-01` à `Q-05` restés ouverts · aucun percentile, donc aucune qualification statistique du débit (`ADR-003` hors T1) · aucun appel VigiEau (T2) · aucun `integration_test/` · cibles de 48 dp non vérifiées (Android réactivé le 2026-09-18 : recopier ce qui a été réellement constaté sur l'émulateur) · iOS jamais compilé.
 - [ ] **Étape 3** — `flutter test` → **tous verts**.
 - [ ] **Étape 4 — commit et tag.**
 
@@ -1306,11 +1306,11 @@ git tag -a v0.2.0 -m "T1 — fiche station, ecoulement ONDE et les quatre averti
 
 ---
 
-## Tâches Android — ⏸ différées (arbitrage 2026-09-12)
+## Tâches Android — différé du 2026-09-12 **levé le 2026-09-18**
 
-Elles sont **listées, pas omises**. Aucune n'est comptée faite.
+Elles sont **listées, pas omises**, et restent **hors décompte**. ⚠️ **Amendement du 2026-09-18** : le commanditaire a réactivé Android. `A⏸1` est **faite** (détail et pièges dans le [plan T0](2026-09-13-t0-socle-flutter.md), même section) ; `A⏸2` est tranchée — NDK `28.2.13676358` exigé par Flutter et présent sur le poste, sans épingle — mais **reste à constater par une construction**, lancée par le commanditaire ; `A⏸3` à `A⏸5` restent ⏸.
 
-- [ ] **`A⏸1` Générer la plateforme `android/`** — `flutter create --platforms android .`, puis vérifier la **permission d'accès au réseau** au manifeste : sans elle aucune tuile n'arrive et rien ne le dit. `ios_bundle_identifier_test.dart` affirme aujourd'hui qu'`android/` **n'existe pas** — cette affirmation se retire dans le même commit, jamais ne se contourne.
+- [x] **`A⏸1` Générer la plateforme `android/`** (fait le 2026-09-18) — `flutter create --platforms android .`, puis vérifier la **permission d'accès au réseau** au manifeste : sans elle aucune tuile n'arrive et rien ne le dit. `ios_bundle_identifier_test.dart` affirme aujourd'hui qu'`android/` **n'existe pas** — cette affirmation se retire dans le même commit, jamais ne se contourne.
 - [ ] **`A⏸2` Trancher la version d'outillage natif** — installer la version exigée par Flutter, ou reconduire l'épingle du spike, et le **constater par une construction réussie**. ⚠️ L'épingle suffisait à un projet sans code natif ; `shared_preferences` en apporte (`W1`), ce n'est plus acquis.
 - [ ] **`A⏸3` Signature de publication** — la clé reste **à générer** et ne se versionne jamais. Un test doit refuser une publication dont la signature porte encore l'identité de débogage.
 - [ ] **`A⏸4` Épreuve sur appareil réel** — jamais faite. Toutes les mesures antérieures viennent d'un émulateur : **ce n'est pas la même chose**, et `NFR-01` reste sans mesure sur matériel Android.
@@ -1349,7 +1349,7 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | **5 — Clavier/souris** | `K1` → `K3` (3) | boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
 | **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge React Native (`X5`, demande du 2026-09-14) |
 | **7 — Porte** | `P1`, `P2` (2) | exécutable Windows, **cinq constats**, `0.2.0` datée et taguée |
-| **⏸ Android** | `A⏸1` → `A⏸5` (5) | **différées le 2026-09-12** — listées, jamais comptées faites |
+| **Android** (hors décompte) | `A⏸1` → `A⏸5` (5) | différées le 2026-09-12, **différé levé le 2026-09-18** : `A⏸1` ✅, `A⏸2` 🔄 à constater par une construction, `A⏸3`→`A⏸5` ⏸ |
 
 **33 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5`), **5 différées.**
 
