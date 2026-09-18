@@ -1308,14 +1308,14 @@ void main() {
       );
     }
 
-    testWidgets("échelle débit et aucune station : la phrase de repli de "
-        "BR-007, avec son action — « ni station ni point » affirmerait une "
-        "lecture ONDE qui n'a pas eu lieu (BR-008)", (
+    testWidgets("échelle débit et aucune station : la phrase dédiée de "
+        "l'arbitrage du 2026-09-18, avec son action — « ni station ni "
+        "point » affirmerait une lecture ONDE qui n'a pas eu lieu (BR-008)", (
       WidgetTester tester,
     ) async {
       await pumpNotices(tester, scale: MapScaleKind.debit);
 
-      expect(find.byType(NoDataFallbackNotice), findsOneWidget);
+      expect(find.byType(NoStationInAreaNotice), findsOneWidget);
       expect(find.byType(NoDataInAreaNotice), findsNothing);
       expect(find.byKey(widenSearchKey), findsOneWidget);
     });
@@ -1368,7 +1368,7 @@ void main() {
       await pumpNotices(tester, ondeObservations: _uneObservation());
 
       expect(find.byType(NoDataInAreaNotice), findsNothing);
-      expect(find.byType(NoDataFallbackNotice), findsNothing);
+      expect(find.byType(NoStationInAreaNotice), findsNothing);
       expect(find.byType(OutsideOndeCoverageNotice), findsNothing);
       expect(find.byType(SourceUnavailableNotice), findsNothing);
       expect(find.byType(UnreadableRowsNotice), findsNothing);
@@ -1414,9 +1414,11 @@ void main() {
             'serait un constat que personne n a fait (BR-007)',
       );
       expect(
-        find.byType(NoDataFallbackNotice),
+        find.byType(NoStationInAreaNotice),
         findsNothing,
-        reason: 'une panne parle seule, le repli non plus ne l accompagne pas',
+        reason:
+            'une panne parle seule, la phrase dédiée débit non plus ne l '
+            'accompagne pas',
       );
     });
 

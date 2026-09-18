@@ -65,6 +65,19 @@ const String outsideOndeCoverageText =
 /// doit être **nommée** en plus d'être expliquée.
 const String noDataFallbackText = 'Aucune donnée disponible ici.';
 
+/// Zone sans station, sur l'échelle [MapScaleKind.debit] — recopié de
+/// `02-specifications.md § 4` et de `BR-007` § « Invariants & cas limites »,
+/// arbitrage du commanditaire du 2026-09-18.
+///
+/// Avant cet arbitrage, ce cas rendait [noDataFallbackText] : la seule
+/// phrase de spec disait « ni station ni point d'observation », or l'ONDE
+/// n'est pas interrogée sur cette échelle (`BR-008`). Cette phrase-ci
+/// n'affirme qu'une seule absence, celle qui a été lue.
+const String noStationInAreaText =
+    "Il n'y a aucune station de mesure dans le secteur affiché. Cela ne dit "
+    "rien de l'état des cours d'eau : le débit n'est simplement pas mesuré "
+    'ici.';
+
 /// Ce qu'une panne de source ne dit PAS : elle ne dit rien de l'eau. Sans
 /// cette ligne, un message d'erreur seul se lirait comme un constat de
 /// terrain (`BR-007`).
@@ -120,23 +133,22 @@ sealed class MapNotice {
 ///
 /// ⚠️ Cette phrase **affirme deux absences** : elle n'est employable que là
 /// où les deux ensembles ont été lus, c'est-à-dire sur l'échelle
-/// [MapScaleKind.ecoulement]. Ailleurs, c'est [NoDataFallback].
+/// [MapScaleKind.ecoulement]. Ailleurs, c'est [NoStationInArea].
 final class NoDataInArea extends MapNotice {
   const NoDataInArea();
 }
 
-/// Une absence **qu'on n'a pas instruite** : rien à dessiner ici, et pas de
-/// quoi dire pourquoi.
+/// Zone sans station, sur l'échelle [MapScaleKind.debit] (`BR-008`,
+/// `BR-007`, arbitrage du commanditaire du 2026-09-18).
 ///
-/// Le cas est celui de l'échelle [MapScaleKind.debit] sans station : l'ONDE
-/// n'y est pas interrogée (`BR-008`), et « ni station ni point
-/// d'observation » adosserait la moitié de la phrase à une lecture qui n'a
-/// pas eu lieu — l'app pourrait même porter en mémoire des observations du
-/// dernier passage sur l'autre échelle. L'avis dit donc la **formulation de
-/// repli** de `BR-007` : on n'affirme que ce qu'on a lu, et l'absence reste
-/// nommée plutôt que muette.
-final class NoDataFallback extends MapNotice {
-  const NoDataFallback();
+/// L'ONDE n'est pas interrogée sur cette échelle (`BR-008`), et « ni station
+/// ni point d'observation » adosserait la moitié de la phrase à une lecture
+/// qui n'a pas eu lieu — l'app pourrait même porter en mémoire des
+/// observations du dernier passage sur l'autre échelle. L'avis dit donc
+/// [noStationInAreaText] : on n'affirme que ce qu'on a lu, et l'absence
+/// reste nommée plutôt que muette.
+final class NoStationInArea extends MapNotice {
+  const NoStationInArea();
 }
 
 /// Des stations existent dans le secteur, mais aucun point ONDE : c'est le
@@ -191,9 +203,10 @@ final class UnreadableRows extends MapNotice {
 ///    cherchés : c'est la lettre de `BR-007`. Sur l'échelle écoulement, des
 ///    stations sans observation ONDE donnent l'avis du périmètre du réseau
 ///    ([OutsideOndeCoverage], `UC-001 A5`) ; sur l'échelle débit, où l'ONDE
-///    n'est pas interrogée (`BR-008`), une emprise sans station donne la
-///    **formulation de repli** de `BR-007` ([NoDataFallback]) — l'absence
-///    est nommée, sans prétendre dire ce qui manque.
+///    n'est pas interrogée (`BR-008`), une emprise sans station donne
+///    [NoStationInArea] — une formulation propre à ce cas, arbitrage du
+///    commanditaire du 2026-09-18 : l'absence est nommée, sans prétendre
+///    dire ce qui manque côté ONDE.
 ///
 /// Sur l'échelle [MapScaleKind.debit], les observations et les lignes ONDE
 /// ne disent rien : aucune n'est dessinée (`BR-008`), il n'y a donc rien à
@@ -220,7 +233,7 @@ List<MapNotice> mapNoticesFor({
   // sans branche ne compile pas — jamais un écran silencieusement muet.
   return switch (scale) {
     MapScaleKind.debit =>
-      hasStations ? const <MapNotice>[] : const <MapNotice>[NoDataFallback()],
+      hasStations ? const <MapNotice>[] : const <MapNotice>[NoStationInArea()],
     MapScaleKind.ecoulement => <MapNotice>[
       if (ondeUnreadableRows > 0) UnreadableRows(ondeUnreadableRows),
       if (!hasOndeObservations && ondeUnreadableRows == 0)
@@ -235,7 +248,7 @@ List<MapNotice> mapNoticesFor({
 Widget buildMapNotice(MapNotice notice, {required VoidCallback onWiden}) =>
     switch (notice) {
       NoDataInArea() => NoDataInAreaNotice(onWiden: onWiden),
-      NoDataFallback() => NoDataFallbackNotice(onWiden: onWiden),
+      NoStationInArea() => NoStationInAreaNotice(onWiden: onWiden),
       OutsideOndeCoverage() => const OutsideOndeCoverageNotice(),
       SourceUnavailable(:final String sourceName) => SourceUnavailableNotice(
         sourceName: sourceName,
@@ -257,13 +270,14 @@ class NoDataInAreaNotice extends StatelessWidget {
       _AbsenceNotice(text: noDataInAreaText, onWiden: onWiden);
 }
 
-/// L'absence **sans explication**, dite par la formulation de repli de
-/// `BR-007` : employée là où l'écran n'a pas cherché tout ce qu'il faudrait
-/// pour en dire plus (échelle débit, `BR-008`). Un type distinct de
-/// [NoDataInAreaNotice], et non un paramètre : c'est ce qui permet à un test
-/// d'écran d'exiger l'un **et de refuser l'autre**.
-class NoDataFallbackNotice extends StatelessWidget {
-  const NoDataFallbackNotice({required this.onWiden, super.key});
+/// Zone sans station, sur l'échelle débit — [noStationInAreaText], arbitrage
+/// du commanditaire du 2026-09-18 : employée là où l'écran n'a pas cherché
+/// tout ce qu'il faudrait pour en dire plus (l'ONDE n'est pas interrogée sur
+/// cette échelle, `BR-008`). Un type distinct de [NoDataInAreaNotice], et non
+/// un paramètre : c'est ce qui permet à un test d'écran d'exiger l'un **et
+/// de refuser l'autre**.
+class NoStationInAreaNotice extends StatelessWidget {
+  const NoStationInAreaNotice({required this.onWiden, super.key});
 
   /// Appelé au tap sur « Élargir la recherche », comme pour
   /// [NoDataInAreaNotice] : une absence sans issue serait un cul-de-sac.
@@ -271,7 +285,7 @@ class NoDataFallbackNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      _AbsenceNotice(text: noDataFallbackText, onWiden: onWiden);
+      _AbsenceNotice(text: noStationInAreaText, onWiden: onWiden);
 }
 
 /// L'habillage commun des deux avis d'absence : le texte, puis l'action

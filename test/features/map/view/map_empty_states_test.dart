@@ -53,6 +53,7 @@ List<String> _allTexts() => <String>[
   widenSearchLabel,
   outsideOndeCoverageText,
   noDataFallbackText,
+  noStationInAreaText,
   sourceUnavailableHint,
   unreadableRowsHint,
   for (final MapErrorSource source in MapErrorSource.values)
@@ -72,6 +73,7 @@ const List<String> _sweptConstants = <String>[
   'widenSearchLabel',
   'outsideOndeCoverageText',
   'noDataFallbackText',
+  'noStationInAreaText',
   'sourceUnavailableHint',
   'unreadableRowsHint',
 ];
@@ -292,19 +294,40 @@ void main() {
     });
   });
 
-  group("NoDataFallbackNotice — l'absence qu'on n'a pas instruite (U6)", () {
-    testWidgets('dit la phrase de repli de BR-007, et RIEN de plus : sur '
+  group('NoStationInAreaNotice — zone sans station, échelle débit '
+      '(U6, arbitrage du commanditaire 2026-09-18)', () {
+    testWidgets('dit EXACTEMENT la phrase retenue par le commanditaire, et '
+        'ne porte plus la formulation de repli générique de BR-007 : sur '
         "l'échelle débit l'ONDE n'est pas interrogée (BR-008), « ni station "
         "ni point » affirmerait une lecture qui n'a pas eu lieu", (
       WidgetTester tester,
     ) async {
-      await _pump(tester, NoDataFallbackNotice(onWiden: () {}));
+      await _pump(tester, NoStationInAreaNotice(onWiden: () {}));
 
-      expect(find.text('Aucune donnée disponible ici.'), findsOneWidget);
+      expect(
+        find.text(
+          "Il n'y a aucune station de mesure dans le secteur affiché. Cela "
+          "ne dit rien de l'état des cours d'eau : le débit n'est "
+          'simplement pas mesuré ici.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(noDataFallbackText),
+        findsNothing,
+        reason:
+            'la formulation de repli générique est remplacée par la phrase '
+            'dédiée depuis le 2026-09-18',
+      );
       expect(
         find.textContaining("point d'observation"),
         findsNothing,
         reason: "on n'affirme que ce qu'on a lu",
+      );
+      expect(
+        find.textContaining('ONDE'),
+        findsNothing,
+        reason: "l'ONDE n'est pas interrogée sur l'échelle débit (BR-008)",
       );
       expect(find.textContaining('personne ne mesure ici'), findsNothing);
     });
@@ -316,8 +339,10 @@ void main() {
       int elargissements = 0;
       await _pump(
         tester,
-        NoDataFallbackNotice(onWiden: () => elargissements++),
+        NoStationInAreaNotice(onWiden: () => elargissements++),
       );
+
+      expect(find.text(widenSearchLabel), findsOneWidget);
 
       await tester.tap(find.byKey(widenSearchKey));
       await tester.pump();
@@ -364,26 +389,27 @@ void main() {
       ondeUnreadableRows: ondeUnreadableRows,
     );
 
-    test("échelle débit, aucune station, aucune erreur : la phrase de repli "
-        "de BR-007, jamais « ni station ni point » — l'ONDE n'est pas "
-        "interrogée sur cette échelle (BR-008), la moitié de la phrase ne "
-        "serait adossée à aucune lecture", () {
+    test("échelle débit, aucune station, aucune erreur : la phrase dédiée "
+        "de l'arbitrage du 2026-09-18, jamais « ni station ni point » — "
+        "l'ONDE n'est pas interrogée sur cette échelle (BR-008), la moitié "
+        "de la phrase ne serait adossée à aucune lecture", () {
       expect(
         notices(
           scale: MapScaleKind.debit,
           hasStations: false,
           hasOndeObservations: false,
         ),
-        <MapNotice>[const NoDataFallback()],
+        <MapNotice>[const NoStationInArea()],
       );
     });
 
     test("échelle débit, aucune station mais des observations ONDE en "
-        'mémoire : toujours le repli — ce résidu vient du dernier passage '
-        "sur l'échelle écoulement, il ne dit rien de cette emprise-ci", () {
+        'mémoire : toujours la phrase dédiée — ce résidu vient du dernier '
+        "passage sur l'échelle écoulement, il ne dit rien de cette "
+        'emprise-ci', () {
       expect(
         notices(scale: MapScaleKind.debit, hasStations: false),
-        <MapNotice>[const NoDataFallback()],
+        <MapNotice>[const NoStationInArea()],
       );
       expect(
         notices(
@@ -391,7 +417,7 @@ void main() {
           hasStations: false,
           ondeUnreadableRows: 4,
         ),
-        <MapNotice>[const NoDataFallback()],
+        <MapNotice>[const NoStationInArea()],
       );
     });
 
@@ -493,7 +519,7 @@ void main() {
 
                 expect(
                   rendus.whereType<NoDataInArea>().length +
-                      rendus.whereType<NoDataFallback>().length +
+                      rendus.whereType<NoStationInArea>().length +
                       rendus.whereType<OutsideOndeCoverage>().length,
                   lessThanOrEqualTo(1),
                   reason:
