@@ -127,9 +127,9 @@ FlowCategory flowCategoryFromCode(String? code) {
 ///
 /// ⚠️ `Inconnu` → « Non renseigne » est une DEVIATION d'ADR-006, qui range
 /// un code inconnu sous « Non observe ». Elle est retenue pour BR-007 — un
-/// fait de terrain constate n'est pas notre ignorance d'un code — et reste
-/// A ACTER par le commanditaire (`docs/project-state.md`, § « Ce qui
-/// bloque »).
+/// fait de terrain constate n'est pas notre ignorance d'un code — et a ete
+/// ARBITREE par le commanditaire le 2026-09-18 (amendement d'ADR-006) : le
+/// rendu visuel reste celui de « Non observe », seul le mot differe.
 ///
 /// La modalite officielle brute — « code 3 — Assec » — n'est pas concernee :
 /// la fiche la porte a part (`OndeSheetData.officialModalityText`), ou

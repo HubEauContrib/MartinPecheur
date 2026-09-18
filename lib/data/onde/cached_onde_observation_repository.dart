@@ -15,8 +15,9 @@
 // (un seul chiffre, D6), le TTL d'ONDE dépend de `now()` et se recalcule à
 // chaque lecture — un seul chiffre par saison, jamais un troisième.
 //
-// Stockage en mémoire, sans purge : aucun stockage local n'existe encore
-// (ADR-011 réservé). La clé `(OndeStationCode, int)` de `historyFor` reste
+// Stockage en mémoire, sans purge : aucun stockage local structuré n'existe
+// encore (ADR-011 ne tranche que la préférence simple). La clé
+// `(OndeStationCode, int)` de `historyFor` reste
 // bornée par le référentiel, comme `CachedHydroObservationRepository`
 // (D6) ; la clé `(Bounds, String)` de `latestWithinBounds`, elle, ne l'EST
 // PAS — la vue construit une emprise neuve à chaque relâchement de geste, et

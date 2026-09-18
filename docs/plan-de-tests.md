@@ -71,7 +71,7 @@ est resté dans la vue.
 - **La couverture chiffrée.** Un pourcentage ne dit pas si `BR-002` est couvert. La question de
   revue est « quel test tombe si cette règle est cassée ? », pas « combien de lignes sont
   exécutées ? ».
-- **Le hors-ligne, en T0.** Aucun stockage local n'existe encore (`ADR-011` réservé) ; `NFR-03`
+- **Le hors-ligne, en T0.** Aucun stockage local n'existe encore (`ADR-011` ne tranche que la **préférence simple**, pas encore codée — `W1`) ; `NFR-03`
   chiffre cette exigence pour T1.
 
 ## 4. Fixtures

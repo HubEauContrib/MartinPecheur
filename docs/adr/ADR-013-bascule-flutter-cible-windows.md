@@ -243,8 +243,10 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
   [`ADR-002`](ADR-002-qualification-du-debit.md), [`ADR-003`](ADR-003-reference-percentiles-en-asset.md),
   [`ADR-004`](ADR-004-integration-vigieau.md), [`ADR-006`](ADR-006-onde-quatre-categories.md),
   [`ADR-007`](ADR-007-ecarter-qualite-eau.md)
-- **Réservé :** `ADR-011` — stockage local, `drift` candidat par défaut ; `sqflite` seul **ne couvre
-  pas Windows**. À trancher quand un écran en aura besoin
+- **Stockage local :** [`ADR-011`](ADR-011-stockage-local.md) — réservé au 2026-09-13, **tranché le
+  2026-09-18 pour la préférence simple** (`shared_preferences`). Le **moteur structuré** reste à
+  trancher quand un écran en aura besoin : `drift` candidat par défaut ; `sqflite` seul **ne couvre
+  pas Windows**
 - **Preuves :** [`spike/porte_flutter/COMPTE-RENDU.md`](../../spike/porte_flutter/COMPTE-RENDU.md)
   (2026-09-09) · [plan T0](../superpowers/plans/2026-09-13-t0-socle-flutter.md) ·
   [`docs/nfr.md`](../nfr.md) (`NFR-01`, `NV-W1`, `NV-W2`, `NV-W3`) ·

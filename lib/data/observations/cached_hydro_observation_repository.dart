@@ -8,7 +8,8 @@
 // une divergence future.
 //
 // Stockage en mémoire seulement, dans deux `Map` sans purge : aucun
-// stockage local n'existe encore (ADR-011 réservé). Chacune ne porte
+// stockage local structuré n'existe encore (ADR-011 ne tranche que la
+// préférence simple). Chacune ne porte
 // qu'une entrée par couple (station, grandeur) effectivement lu — borné en
 // pratique par le référentiel (4 150 stations × 2 grandeurs), jamais par
 // davantage. Une éviction viendra avec ADR-011, pas avant.
