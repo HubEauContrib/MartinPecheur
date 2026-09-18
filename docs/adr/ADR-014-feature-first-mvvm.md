@@ -4,6 +4,9 @@
 - **Date :** 2026-09-13
 - **Remplace, sur le seul volet architecture applicative :** [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md) (CQRS léger et cache en pipeline) et le § « L'architecture en couches est conservée » d'[`ADR-010`](ADR-010-react-native.md). Les deux ADR restent en place, statut annoté en tête — on ne supprime pas un artefact.
 - **N'affecte pas :** `lib/domain/`, `lib/data/`, ni aucune règle métier. [`ADR-001`](ADR-001-api-hydrometrie-v2.md), [`ADR-002`](ADR-002-qualification-du-debit.md), [`ADR-003`](ADR-003-reference-percentiles-en-asset.md), [`ADR-004`](ADR-004-integration-vigieau.md), [`ADR-006`](ADR-006-onde-quatre-categories.md), [`ADR-007`](ADR-007-ecarter-qualite-eau.md) sont intacts.
+- **Amendement du 2026-09-18 — arbitrage du commanditaire :** un widget **partagé par plusieurs
+  tranches** vit dans **`lib/features/shared/`**. Voir § « [La règle des imports, et son verrou](#la-règle-des-imports-et-son-verrou) »,
+  sixième règle `shared-sans-tranche`. Le reste de cet ADR est inchangé.
 
 ## Contexte
 
@@ -128,6 +131,38 @@ Un test d'architecture, `test/architecture/layers_test.dart`, refuse :
 
 Dart n'offre aucun lint de restriction d'import par dossier : ce test est le **seul** verrou
 mécanique, et il tourne à chaque `flutter test`.
+
+#### Amendement du 2026-09-18 — le dossier partagé `lib/features/shared/`
+
+**Arbitrage du commanditaire du 2026-09-18.** Un widget partagé par plusieurs tranches vit dans
+**`lib/features/shared/`**.
+
+La règle correspondante, **sixième** de `test/architecture/layers_test.dart`, se nomme
+**`shared-sans-tranche`** :
+
+| Règle | Énoncé |
+|---|---|
+| `shared-sans-tranche` | `lib/features/shared/` est **importable par toute tranche** et **n'importe aucune tranche** |
+| `features-sans-fichier-a-plat` | aucun fichier `.dart` **directement** sous `lib/features/` : il vit dans une tranche ou dans `shared/`. Septième règle, ajoutée le même jour à la relecture — un fichier à plat échappait sinon à `feature-vers-feature` comme à `shared-sans-tranche` |
+
+Les règles existantes s'y appliquent **comme à toute tranche** : pas d'import de `lib/data/`, et un
+ViewModel qui y vivrait n'importerait aucun widget.
+
+**Première occupation prévue :** l'encart d'avertissement de la tâche `W4`, commun à la fiche
+station et à la fiche ONDE — deux tranches distinctes, un seul texte.
+
+🔄 **Le dossier `lib/features/shared/` n'existe pas encore** au 2026-09-18 : la règle est décidée,
+pas encore occupée.
+
+**Alternatives écartées :**
+
+- **`lib/ui/core/`** — c'est le nom du guide Flutter pour les widgets partagés. Écarté : il est
+  **hors de `lib/features/`**, donc une couche de plus dans l'arborescence et de **nouvelles règles
+  de dépendance à écrire** pour elle, là où `features/shared/` hérite telles quelles de celles des
+  tranches.
+- **Recopier le widget dans chaque tranche.** Écarté : un **texte d'avertissement en double** à
+  tenir aligné entre deux fichiers — exactement ce que `BR-012` et `BR-013` ne peuvent pas se
+  permettre.
 
 ## Conséquences
 

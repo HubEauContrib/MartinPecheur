@@ -2,7 +2,7 @@
 // l'arbitrage du 2026-09-13 (ADR-014, feature-first + MVVM), les frontieres a
 // tenir ne sont plus seulement « aucune infrastructure sous lib/domain/ »
 // — c'est ce que verrouille `domain_isolation_test.dart`, qui reste le
-// premier test du projet. Ce fichier le **complete** avec les cinq regles de
+// premier test du projet. Ce fichier le **complete** avec les sept regles de
 // couches que la nouvelle disposition introduit, et qu'aucun lint de la chaine
 // Dart ne sait exprimer :
 //
@@ -39,6 +39,29 @@
 //    asset ni reseau. `main.dart` en est exempt, et lui seul — c'est la
 //    racine de composition, son travail est precisement de choisir les
 //    implementations concretes et de les injecter.
+// 6. `shared-sans-tranche` — `features/shared/` est la seule tranche que
+//    toutes les autres ont le droit d'importer (arbitrage du commanditaire
+//    du 2026-09-18 : un widget partage par plusieurs tranches, l'encart
+//    d'avertissement de la tache W4 en premier occupant). L'inverse n'est
+//    pas permis : `features/shared/` n'importe aucune tranche — un fichier
+//    de `shared/` qui importe `features/map/…` par exemple. Un import entre
+//    deux fichiers de `shared/` reste permis. Cette regle remplace
+//    `feature-vers-feature` pour ce seul sens de lecture, afin que le
+//    message d'echec nomme la vraie raison plutot que de parler d'une
+//    tranche qui en importerait une autre.
+// 7. `features-sans-fichier-a-plat` — aucun fichier `.dart` ne vit
+//    directement sous `features/` : il vit dans une tranche
+//    (`features/<tranche>/…`) ou dans `features/shared/`. Sans cette regle,
+//    un fichier pose a plat — `features/warning_banner.dart` par exemple —
+//    echappe aux regles 4 et 6 : [_featureOf] exige au moins trois segments
+//    et lui rend `null`, donc il peut importer n'importe quelle tranche et
+//    n'importe quelle tranche peut l'importer sans qu'aucune regle ne le
+//    voie. Cette regle releve le fichier a plat comme importateur, et
+//    releve aussi tout import qui **cible** un tel fichier a plat — meme
+//    quand ce fichier n'existe pas dans l'arbre analyse — pour que le
+//    message pointe la vraie cause plutot que de nommer une tranche qui
+//    n'existe pas. Elle remplace alors `feature-vers-feature` pour cet
+//    import, meme raison que la regle 6.
 //
 // On lit le **texte** des directives, pas un arbre syntaxique : plus
 // grossier, mais sans dependance d'analyse et sans panne silencieuse — un
@@ -58,6 +81,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Prefixe des imports internes au projet.
 const String selfPackagePrefix = 'package:martinpecheur/';
+
+/// Le nom de la seule tranche que toute autre tranche a le droit d'importer :
+/// `features/shared/` (arbitrage du 2026-09-18).
+const String sharedFeatureName = 'shared';
 
 /// Les bibliotheques de widgets : interdites a un ViewModel.
 const List<String> widgetLibraries = <String>[
@@ -191,7 +218,7 @@ String _canonicalUri(String importerPath, String uri) {
   return '$selfPackagePrefix${segments.join('/')}';
 }
 
-/// Applique les cinq regles de couches aux fichiers sous [root], traite
+/// Applique les sept regles de couches aux fichiers sous [root], traite
 /// comme s'il etait `lib/` : les chemins releves sont relatifs a [root]
 /// (`domain/…`, `data/…`, `features/<tranche>/…`).
 List<LayerViolation> layerViolationsUnder(Directory root) {
@@ -237,15 +264,29 @@ List<LayerViolation> layerViolationsUnder(Directory root) {
       record('view-model-sans-widget');
     }
 
-    // 4 — une tranche n'en importe pas une autre.
+    // 4 — une tranche n'en importe pas une autre, sauf `features/shared/`
+    // qui se lit dans les deux sens differemment : toute tranche peut
+    // l'importer (regle 6 ci-dessous porte l'autre sens). Une cible a plat
+    // sous `features/` (aucun `/` apres `features/`) n'est ni l'une ni
+    // l'autre tranche : regle 7, qui nomme la vraie cause a sa place.
     final String? feature = _featureOf(path);
     if (feature != null && uri.startsWith('${selfPackagePrefix}features/')) {
-      final String importedFeature = uri
-          .substring('${selfPackagePrefix}features/'.length)
-          .split('/')
-          .first;
-      if (importedFeature != feature) {
-        record('feature-vers-feature');
+      final String afterFeatures = uri.substring(
+        '${selfPackagePrefix}features/'.length,
+      );
+      if (!afterFeatures.contains('/')) {
+        // 7 — la cible est un fichier a plat, pas une tranche.
+        record('features-sans-fichier-a-plat');
+      } else {
+        final String importedFeature = afterFeatures.split('/').first;
+        if (importedFeature != feature) {
+          if (feature == sharedFeatureName) {
+            // 6 — `features/shared/` n'importe aucune tranche.
+            record('shared-sans-tranche');
+          } else if (importedFeature != sharedFeatureName) {
+            record('feature-vers-feature');
+          }
+        }
       }
     }
 
@@ -254,6 +295,14 @@ List<LayerViolation> layerViolationsUnder(Directory root) {
     if (path.startsWith('features/') &&
         uri.startsWith('${selfPackagePrefix}data/')) {
       record('features-vers-data');
+    }
+
+    // 7 — aucun fichier ne vit a plat sous `features/` : il est dans une
+    // tranche ou dans `features/shared/`. Sans cette regle, [_featureOf]
+    // rend `null` pour un tel fichier importateur et il echappe aux
+    // regles 4 et 6 (voir la branche ci-dessus pour le sens « cible »).
+    if (path.startsWith('features/') && feature == null) {
+      record('features-sans-fichier-a-plat');
     }
   }
 
@@ -280,7 +329,7 @@ Directory _tempRoot(String prefix) {
 
 void main() {
   group('Couches MVVM (ADR-014)', () {
-    test('lib/ respecte les cinq regles de couches', () {
+    test('lib/ respecte les sept regles de couches', () {
       final List<LayerViolation> violations = layerViolationsUnder(
         Directory('lib'),
       );
@@ -289,7 +338,7 @@ void main() {
         violations,
         isEmpty,
         reason:
-            'Une frontiere de couche est franchie. Les cinq regles sont '
+            'Une frontiere de couche est franchie. Les sept regles sont '
             "enoncees en tete de ce fichier, avec la raison d'etre de "
             'chacune. Manquements : '
             '${violations.map((LayerViolation v) => v.toString()).join(' · ')}',
@@ -482,6 +531,149 @@ void main() {
       expect(violations, hasLength(1));
       expect(violations.single.rule, 'feature-vers-feature');
       expect(violations.single.importUri, contains('features/station/'));
+    });
+
+    test('feature-vers-feature ne releve pas un import de '
+        "features/shared/ : cette tranche est importable par toute autre", () {
+      final Directory root = _tempRoot('layers_shared_lecture_');
+      _writeTemp(
+        root,
+        'features/station_sheet/view/fiche.dart',
+        "import 'package:martinpecheur/features/shared/"
+            "warning_banner.dart';\n",
+      );
+
+      expect(layerViolationsUnder(root), isEmpty);
+    });
+
+    test('shared-sans-tranche : features/shared/ qui importe une tranche est '
+        "relevee sous cette regle, pas sous feature-vers-feature", () {
+      final Directory root = _tempRoot('layers_shared_ecriture_');
+      _writeTemp(
+        root,
+        'features/shared/warning_banner.dart',
+        "import 'package:martinpecheur/features/map/view/map_view.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(1));
+      expect(violations.single.rule, 'shared-sans-tranche');
+      expect(violations.single.path, 'features/shared/warning_banner.dart');
+    });
+
+    test('shared-sans-tranche : un import entre deux fichiers de '
+        'features/shared/ est permis', () {
+      final Directory root = _tempRoot('layers_shared_interne_');
+      _writeTemp(
+        root,
+        'features/shared/warning_banner.dart',
+        "import 'package:martinpecheur/features/shared/warning_icon.dart';\n",
+      );
+
+      expect(layerViolationsUnder(root), isEmpty);
+    });
+
+    test('features-vers-data s\'applique aussi a features/shared/ : un '
+        "import de data/ y est releve comme ailleurs", () {
+      final Directory root = _tempRoot('layers_shared_data_');
+      _writeTemp(
+        root,
+        'features/shared/warning_banner.dart',
+        "import 'package:martinpecheur/data/cache/cache_policy.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(1));
+      expect(violations.single.rule, 'features-vers-data');
+    });
+
+    test('data-vers-features : un fichier de data/ qui importe '
+        'features/shared/ est releve, la regle ne change pas', () {
+      final Directory root = _tempRoot('layers_data_vers_shared_');
+      _writeTemp(
+        root,
+        'data/referentiel/offender.dart',
+        "import 'package:martinpecheur/features/shared/"
+            "warning_banner.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(1));
+      expect(violations.single.rule, 'data-vers-features');
+    });
+
+    test('shared-sans-tranche : les imports relatifs sont resolus comme '
+        "pour feature-vers-feature — permis d'une tranche vers shared/, "
+        'releves de shared/ vers une tranche', () {
+      final Directory root = _tempRoot('layers_shared_relatifs_');
+      _writeTemp(
+        root,
+        'features/station_sheet/view/fiche.dart',
+        "import '../../shared/warning_banner.dart';\n",
+      );
+      _writeTemp(
+        root,
+        'features/shared/warning_banner.dart',
+        "import '../map/view/map_view.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(1));
+      expect(violations.single.rule, 'shared-sans-tranche');
+      expect(violations.single.path, 'features/shared/warning_banner.dart');
+    });
+
+    test('features-sans-fichier-a-plat : un fichier a plat directement '
+        "sous features/ est releve", () {
+      final Directory root = _tempRoot('layers_plat_importateur_');
+      _writeTemp(
+        root,
+        'features/warning_banner.dart',
+        "import 'package:martinpecheur/features/map/view/map_view.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(1));
+      expect(violations.single.rule, 'features-sans-fichier-a-plat');
+      expect(violations.single.path, 'features/warning_banner.dart');
+    });
+
+    test('features-sans-fichier-a-plat : une tranche qui importe un '
+        "fichier a plat sous features/ est relevee, meme si ce fichier "
+        "n'existe pas dans l'arbre analyse", () {
+      final Directory root = _tempRoot('layers_plat_cible_');
+      _writeTemp(
+        root,
+        'features/station_sheet/view/fiche.dart',
+        "import 'package:martinpecheur/features/warning_banner.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(1));
+      expect(violations.single.rule, 'features-sans-fichier-a-plat');
+      expect(violations.single.path, 'features/station_sheet/view/fiche.dart');
+    });
+
+    test('view-model-sans-widget : features/shared/banner_view_model.dart '
+        "confirme qu'ADR-014 autorise un ViewModel partage sous shared/, "
+        "une seule violation, pas features-sans-fichier-a-plat", () {
+      final Directory root = _tempRoot('layers_shared_view_model_');
+      _writeTemp(
+        root,
+        'features/shared/banner_view_model.dart',
+        "import 'package:flutter/material.dart';\n",
+      );
+
+      final List<LayerViolation> violations = layerViolationsUnder(root);
+
+      expect(violations, hasLength(1));
+      expect(violations.single.rule, 'view-model-sans-widget');
     });
   });
 }
