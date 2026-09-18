@@ -154,27 +154,92 @@ Au même moment (13:35:03 UTC), `/v2/hydrometrie/referentiel/stations?code_stati
 répondait normalement (`count` 1, `api_version` 2.0.1) : c'est l'endpoint d'observations qui
 est en panne, pas l'API entière.
 
+## Constaté le 2026-09-18
+
+`T-15` reprise de `Q-01` à `Q-04` (`T-10`) : l'endpoint répond de nouveau. Tous les appels
+ci-dessous sont datés en UTC, `api_version` **2.0.1** à chaque réponse.
+
+- **Forme garantie**, seule station :
+  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=1`
+  → **206**, **09:00:35 UTC**, `count` **128**. Champs présents dans `data[0]` :
+  `code_site`, `code_station`, `grandeur_hydro`, `date_debut_serie`, `date_fin_serie`,
+  `code_systeme_alti_serie`, `date_obs`, `resultat_obs`, `code_methode_obs`,
+  `libelle_methode_obs`, `code_qualification_obs`, `libelle_qualification_obs`, `longitude`,
+  `latitude`, `code_statut`, `libelle_statut`, `code_continuite`, `libelle_continuite`.
+
+- **`Q-01` codes multiples** — le code documenté `K4620020` n'est pas une station valide :
+  interrogé seul (`…observations_tr?code_entite=K4620020&grandeur_hydro=Q&size=4`, **09:01:04
+  UTC**) → **200**, `count` **0**, `data` vide. Combiné à `K447001001`
+  (`…code_entite=K447001001,K4620020&grandeur_hydro=Q&size=4`, **09:00:48 UTC**) → **206**,
+  `count` **128** (identique à la station seule), les 4 lignes renvoyées sont toutes
+  `K447001001`, triées par `date_obs` décroissant.
+  Essai refait avec **deux vrais codes station à 10 caractères** — `K447001001` (Blois) et
+  `K479301001` (station proche, `assets/referentiel/stations.json`, ~5 km) :
+  `…observations_tr?code_entite=K447001001,K479301001&grandeur_hydro=Q&size=4` → **206**,
+  **09:01:14 UTC**, `count` **8761**. Les 4 lignes sont **toutes** `K479301001` (dernière
+  observation **2026-09-18T08:45:00Z**, `code_methode_obs` **8** « Calculée », non documenté
+  — cf. `docs/01-analyse.md`) ; **aucune** ligne `K447001001` (dernière observation connue
+  **2026-08-27T08:00:00Z**, dix-sept jours plus tôt). Rejoué avec `size=20`
+  (**09:01:31 UTC**) : les **20** lignes restent toutes `K479301001` —
+  `K447001001` n'apparaît à aucun moment. **Constat : le tri est global sur le pool combiné
+  des codes demandés, par `date_obs` décroissant, sans garantie d'au moins une mesure par
+  station.** Une station moins fraîche que les autres codes du lot peut n'apparaître dans
+  aucune page tant que `size` ne couvre pas tout son retard.
+
+- **`Q-02` par emprise (`bbox`)** :
+  `…observations_tr?bbox=1.0,47.3,1.8,47.8&grandeur_hydro=Q&size=3` → **206**, **09:01:41
+  UTC**, `count` **119726**. Rejoué avec `size=20` (**09:01:52 UTC**) : seulement **2** codes
+  station distincts non nuls (`K479301001`, `K480001002`) sur les 20 lignes, plus **10**
+  lignes à `code_station: null` (même `code_site`, mêmes `date_obs`/`resultat_obs` qu'une
+  ligne station — motif de doublon déjà observé pour un code site, `C-05`, mais ici produit
+  par le filtre `bbox` sans qu'aucun code site n'ait été demandé explicitement). Même
+  constat que `Q-01` : tri global par `date_obs` décroissant sur toutes les stations de
+  l'emprise, pas de garantie d'une mesure par station.
+  Paramètre `sort` : **accepté**. `…&size=3&sort=desc` (**09:02:03 UTC**, **206**) donne le
+  même ordre que sans `sort` (le plus récent d'abord, `2026-09-18T08:45:00Z`) ;
+  `…&size=3&sort=asc` (**09:02:03 UTC** dans le même lot, **206**) inverse l'ordre — plus
+  ancien d'abord dans le pool retourné (`2026-08-19T09:05:00Z` en tête). `sort=desc` est donc
+  le comportement par défaut de l'endpoint.
+
+- **`Q-03` `fields` + `size=1`** :
+  sans `fields` (`…code_entite=K447001001&grandeur_hydro=Q&size=1`, **09:02:18 UTC**) → **206**,
+  `size_download` **901** octets. Avec `fields=code_station,date_obs,resultat_obs` : premier
+  essai (**09:02:18–09:04:21 UTC**, dans le même lot) → **503** HTML (« Service Unavailable »,
+  page Apache générique, différente du corps JSON `{"code":"Internal server error"...}` de la
+  panne du 13), après plus de 2 min sans réponse — rejoué immédiatement
+  (**09:04:34 UTC**) → **206**, `size_download` **558** octets, `data[0]` réduit exactement
+  aux trois champs demandés : `{"code_station":"K447001001","date_obs":"2026-08-27T08:00:00Z","resultat_obs":47800.0}`.
+  `fields` fonctionne bien quand l'endpoint répond, mais un 503 isolé est survenu au milieu
+  d'un lot par ailleurs sain — panne courte, pas rejouée sur plusieurs tentatives.
+
+- **`Q-04` latence** — 10 appels sur la forme garantie, espacés de 3 s, **09:04:43 →
+  09:05:33 UTC**, `curl -s -o /dev/null -w '%{http_code} %{time_total}'` : tous **206**.
+  Valeurs brutes de `time_total` (s), dans l'ordre : `1.264`, `0.230`, `0.546`, `0.250`,
+  `1.388`, `1.607`, `3.681`, `3.257`, `2.143`, `4.069`. Triées : `0.230`, `0.250`, `0.546`,
+  `1.264`, `1.388`, `1.607`, `2.143`, `3.257`, `3.681`, `4.069` → **min 0,230 s**,
+  **max 4,069 s**, **médiane 1,498 s** (moyenne des 5ᵉ et 6ᵉ valeurs). Échantillon de dix
+  appels sur une fenêtre de 50 s un seul jour : ne pas figer un seuil de préchargement dessus
+  sans remesure.
+
+- **En-têtes** — `curl -sI` sur la forme garantie, **09:05:44 UTC** → **206 Partial
+  Content**. Présents : `Date`, `Vary`, `Content-Type`, `Link` (pagination `first`/`prev`/
+  `next`), `Content-Security-Policy`, `Strict-Transport-Security`, `Referrer-Policy`,
+  `Permissions-Policy`, `Access-Control-Allow-Origin: *`, `Connection: close`,
+  `Transfer-Encoding: chunked`. **Aucun** en-tête `X-RateLimit-*` ni en-tête de cache
+  (`Cache-Control`, `ETag`, `Expires` absents) — confirme `C-15`, throttle client à l'aveugle.
+
+Réponses brutes (petites) archivées hors dépôt :
+`q01_original.json`, `q01_k4620020_seul.json`, `q01_deux_stations.json`,
+`q01_deux_stations_size20.json`, `q02_bbox_size3.json`, `q02_bbox_size20.json`,
+`q02_bbox_sort_desc.json`, `q02_bbox_sort_asc.json`, `q03_sans_fields.json`,
+`q03_avec_fields.json`, `q04_latence.txt`, `entetes.txt` — dossier scratchpad de la session,
+pas dans le dépôt.
+
 ## Non vérifié
 
-- `Q-01` codes multiples en une requête :
-  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001,K4620020&grandeur_hydro=Q&size=4`
-  → 500 aux deux tentatives du 2026-09-13, **13:34:49 UTC** puis rejouée à **13:35:03 UTC**.
-  Enjeu : 1 requête au lieu de 50 pour peupler la carte d'un coup.
-- `Q-02` par emprise (`bbox`) :
-  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?bbox=1.0,47.3,1.8,47.8&grandeur_hydro=Q&size=3`
-  → 500 aux deux tentatives du 2026-09-13, **13:34:49 UTC** puis rejouée à **13:35:26 UTC**.
-  Enjeu : 1 appel par emprise plutôt qu'un appel par station visible.
-- `Q-03` `fields` + `size=1` :
-  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=1&fields=code_station,date_obs,resultat_obs`
-  → 500 à l'unique tentative du 2026-09-13, **13:34:49 UTC**. Enjeu : coût réseau, ne
-  récupérer que les champs utilisés par la fiche station.
-- `Q-04` latence médiane de l'endpoint. Protocole prévu : `curl -w` sur
-  `https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=K447001001&grandeur_hydro=Q&size=1`,
-  médiane de `time_total` sur 10 appels espacés. Non mesurable le 2026-09-13 — les
-  dix-neuf tentatives du matin (503), le 502 après 67 s, le timeout sans réponse, et les sept
-  appels de l'après-midi (500, 13:34:49 à 13:35:26 UTC) ont tous échoué. Enjeu : sans latence
-  mesurée, l'intervalle du préchargement serait un chiffre inventé.
-- Le quota réel : `curl -sI` sur `/observations_tr` le 2026-09-13 ne renvoie aucun en-tête
-  `X-RateLimit-*` ; les CGU ne chiffrent rien (`C-12`) — throttle client à l'aveugle.
 - Le comportement sous charge concurrente.
 - La stabilité du curseur de pagination entre deux appels espacés dans le temps.
+- Le doublon `code_station: null` sous `bbox` (vu le 2026-09-18 sur 10 lignes/20) : sa
+  fréquence et sa cause exacte ne sont pas creusées au-delà du constat ci-dessus.
+- `Q-01` à `Q-03` : mesurés une seule fois chacun, le 2026-09-18, sur un jeu de codes/emprise
+  particulier — pas de campagne répétée à des heures différentes.
