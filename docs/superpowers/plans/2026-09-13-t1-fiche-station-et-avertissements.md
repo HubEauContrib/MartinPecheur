@@ -1028,11 +1028,11 @@ git add lib/features lib/domain test/features && git commit -m "feat(avertisseme
 - **`U1` réaligné** : les cinq attentes `'… à 08:00 UTC'` de `station_summary_sheet_test.dart` deviennent `'… à 10:00'` sous `+2 h` injecté ; le test « un instant local est ramené en UTC » devient « l'instant est converti par le décalage injecté, quel que soit le fuseau du `DateTime` reçu ».
 - `U4` et `U3` : la fiche et l'annonce du marqueur ONDE rendent toujours `'25/08/2026'` — aucun changement visible, une copie en moins.
 
-- [ ] **Étape 1** — écrire `display_date_test.dart` et réaligner les tests de `V1` et `U1`. Rouge.
-- [ ] **Étape 2** — `flutter test test/domain/formatting test/features/station_sheet` → échec.
-- [ ] **Étape 3** — implémenter `display_date.dart`, puis remplacer les quatre copies ; `main.dart` ne passe rien (défaut `systemUtcOffsetOf`).
-- [ ] **Étape 4** — `grep -rn "padLeft(2" lib/features` → **vide** ; `grep -rn " UTC'" lib/features` → **vide** ; `flutter test test/architecture` → vert.
-- [ ] **Étape 5** — `flutter test` → vert, critère de fin, puis commit. Mettre à jour le point 19 de `docs/project-state.md` : **clos**.
+- [x] **Étape 1** (2026-09-23) — écrire `display_date_test.dart` et réaligner les tests de `V1` et `U1`. Rouge.
+- [x] **Étape 2** (2026-09-23) — `flutter test test/domain/formatting test/features/station_sheet` → échec.
+- [x] **Étape 3** (2026-09-23) — implémenter `display_date.dart`, puis remplacer les quatre copies ; `main.dart` ne passe rien (défaut `systemUtcOffsetOf`).
+- [x] **Étape 4** (2026-09-23) — `grep -rn "padLeft(2" lib/features` → **vide** ; `grep -rn " UTC'" lib/features` → **vide** ; `flutter test test/architecture` → vert.
+- [x] **Étape 5** (2026-09-23) — `flutter test` → vert, critère de fin, puis commit. Mettre à jour le point 19 de `docs/project-state.md` : **clos**.
 
 ```bash
 git add lib/domain/formatting lib/features lib/main.dart test/domain/formatting test/features docs/project-state.md && git commit -m "feat(ui): un seul formateur de date, en heure locale sans suffixe" -m "Arbitrage du 2026-09-22 : l heure affichee est l heure locale, sans suffixe — 27/08/2026 a 10:00 pour une mesure de 08:00 UTC en ete. Le decalage est demande pour l instant affiche, pas pour aujourd hui, et il est injecte : sans cela le resultat dependrait de la machine qui lance les tests. Une date de campagne ONDE n a pas d heure et ne se convertit jamais. Quatre copies du formatage disparaissent ; le format filaire de l API, dans data, n est pas un affichage et reste a sa place. Clot le point 19."

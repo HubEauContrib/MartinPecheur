@@ -177,28 +177,12 @@ Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
 );
 
 void main() {
-  group('formatCampaignDate — la date seule, aucune heure (T-08)', () {
-    test('2026-08-25 → 25/08/2026', () {
-      expect(formatCampaignDate(DateTime.utc(2026, 8, 25)), '25/08/2026');
-    });
-
-    test('2025-09-26 → 26/09/2025 : la campagne hors saison de la fixture', () {
-      expect(formatCampaignDate(DateTime.utc(2025, 9, 26)), '26/09/2025');
-    });
-
-    test("aucune heure n'est rendue — l'API n'en donne pas (T-08)", () {
-      expect(
-        formatCampaignDate(DateTime.utc(2026, 8, 25)),
-        isNot(contains(':')),
-      );
-    });
-
-    test("un instant local est ramené en UTC avant d'être rendu", () {
-      final DateTime local = DateTime.utc(2026, 8, 25).toLocal();
-
-      expect(formatCampaignDate(local), '25/08/2026');
-    });
-  });
+  // `formatCampaignDate` a disparu de cette tranche (Task H1) : c'est
+  // désormais `formatCalendarDate` de `lib/domain/formatting/display_date.dart`
+  // qui formate la date de campagne, verrouillé par
+  // `test/domain/formatting/display_date_test.dart` — une copie en moins,
+  // aucun changement visible sur cette fiche (elle appelle la même fonction
+  // domaine que `onde_marker.dart` et `station_summary_sheet.dart`).
 
   group("formatCampaignAge — l'âge en jours calendaires (BR-010)", () {
     test('19 jours : contient le nombre et le mot « jour »', () {

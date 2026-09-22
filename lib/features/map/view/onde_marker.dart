@@ -85,6 +85,7 @@ import 'dart:math' as math;
 import 'dart:ui' show PathMetric;
 
 import 'package:flutter/material.dart';
+import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
@@ -285,7 +286,7 @@ String ondeMarkerLabel({
     buffer
       ..write(', ')
       ..write(mention)
-      ..write(_formatObservationDate(observed))
+      ..write(formatCalendarDate(observed))
       ..write(', ')
       ..write(_observationVisuellePonctuelle);
   }
@@ -301,27 +302,6 @@ String ondeMarkerLabel({
 const String _observationVisuellePonctuelle =
     'observation visuelle '
     'ponctuelle';
-
-/// `26/09/2025` — jour et mois zéro-remplis, et **aucune heure** : l'API
-/// ONDE n'en donne pas (`T-08`), en inventer une laisserait croire à une
-/// précision qui n'existe pas.
-///
-/// ⚠️ `BR-010` écrit la mention « dernière observation le JJ/MM ». L'année
-/// est ajoutée ici parce qu'un point gris porte, par construction, une
-/// observation de plus de 60 jours : d'octobre à avril elle appartient
-/// couramment à l'année précédente, et « le 26/09 » seul serait ambigu.
-///
-/// ⚠️ `U4` posera `formatCampaignDate` dans la tranche `onde_sheet/`, pour
-/// la fiche. Les deux formateront la même date au même format sans
-/// s'appeler : une tranche n'importe pas une autre tranche
-/// (`test/architecture/layers_test.dart`, règle `feature-vers-feature`). Le
-/// jour où une troisième en a besoin, c'est le signe qu'il faut un endroit
-/// commun — et cela se tranche avec le commanditaire.
-String _formatObservationDate(DateTime observedAt) {
-  final String day = observedAt.day.toString().padLeft(2, '0');
-  final String month = observedAt.month.toString().padLeft(2, '0');
-  return '$day/$month/${observedAt.year}';
-}
 
 /// Le halo des six catégories : même couleur, même épaisseur, même style. Un
 /// unique objet de niveau bibliothèque, construit au premier marqueur peint

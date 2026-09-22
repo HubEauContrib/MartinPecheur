@@ -4,10 +4,11 @@
 // `BR-002`, le bug le plus coûteux du projet : un `double` nu passe en l/s
 // là où on attend des m³/s, et rien ne le voit.
 //
-// Aucun paquet de formatage (`intl`) n'est ajouté pour trois formateurs :
-// virgule décimale, signe moins typographique et date UTC tiennent en vingt
+// Aucun paquet de formatage (`intl`) n'est ajouté pour deux formateurs :
+// virgule décimale et signe moins typographique tiennent en vingt
 // lignes vérifiables, là où `intl` apporterait un catalogue de locales, une
 // initialisation asynchrone et une dépendance de plus à surveiller (YAGNI).
+// La date, elle, vit dans `lib/domain/formatting/display_date.dart` (`H1`).
 //
 // Trois règles d'écriture tenues ici, et testées :
 // - une valeur ne s'affiche JAMAIS sans sa date (`BR-001`) : la valeur et sa
@@ -29,6 +30,7 @@
 // La vue le rend tel quel, ou ne rend rien.
 
 import 'package:flutter/material.dart';
+import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
@@ -71,20 +73,6 @@ String formatDischarge(CubicMetresPerSecond value) =>
 /// n'est pas une anomalie à masquer.
 String formatLevel(Metres value) => '${_decimal(value.value)} m';
 
-/// L'instant [utc] en `JJ/MM/AAAA à HH:MM UTC`, même convention que
-/// [StationSheetData.stalenessNotice].
-///
-/// Le fuseau affiché reste **UTC explicite** : c'est ce que l'API renvoie,
-/// et le dire évite de laisser croire à une heure locale qui n'a pas été
-/// convertie. Basculer sur l'heure locale de l'usager est un point ouvert du
-/// projet (`docs/project-state.md`), pas une décision de cette tâche.
-String formatMeasuredAt(DateTime utc) {
-  final DateTime instant = utc.toUtc();
-  return '${_twoDigits(instant.day)}/${_twoDigits(instant.month)}/'
-      '${instant.year} à ${_twoDigits(instant.hour)}:'
-      '${_twoDigits(instant.minute)} UTC';
-}
-
 /// Rend [value] avec une virgule décimale, arrondi à trois décimales puis
 /// zéros de fin retirés (`47.0` → `'47'`, `0.05` → `'0,05'`), et le signe
 /// moins TYPOGRAPHIQUE `−` (U+2212) — pas le trait d'union `-`, qui se
@@ -124,8 +112,6 @@ String _decimal(double value) {
   return text;
 }
 
-String _twoDigits(int value) => value.toString().padLeft(2, '0');
-
 /// La feuille de résumé d'une station hydrométrique, dans l'ordre de
 /// `04-ui.md` § « Fiche station hydrométrique » : identité (libellé, cours
 /// d'eau, département), puis les deux grandeurs avec leur date, puis statut
@@ -135,10 +121,18 @@ String _twoDigits(int value) => value.toString().padLeft(2, '0');
 /// [StationSheetData] déjà prêt et l'affiche. C'est ce qui la rend testable
 /// sans réseau, sans asset et sans carte.
 class StationSummarySheet extends StatelessWidget {
-  const StationSummarySheet({required this.data, super.key});
+  const StationSummarySheet({
+    required this.data,
+    this.utcOffsetOf = systemUtcOffsetOf,
+    super.key,
+  });
 
   /// Les données à afficher, produites par [StationSheetViewModel].
   final StationSheetData data;
+
+  /// Le décalage UTC → heure locale, demandé pour l'instant affiché (`H1`) —
+  /// par défaut celui de la machine, injectable par un test.
+  final UtcOffsetOf utcOffsetOf;
 
   @override
   Widget build(BuildContext context) {
@@ -161,11 +155,13 @@ class StationSummarySheet extends StatelessWidget {
           // le participe s'accorde avec la grandeur, pas avec la mesure.
           measuredWord: 'mesuré',
           measurement: _dischargeMeasurement(data),
+          utcOffsetOf: utcOffsetOf,
         ),
         _MeasurementLine(
           label: 'Hauteur',
           measuredWord: 'mesurée',
           measurement: _levelMeasurement(data),
+          utcOffsetOf: utcOffsetOf,
         ),
         const SizedBox(height: 8),
         Text('Statut : ${data.statusLabel}'),
@@ -223,6 +219,7 @@ class _MeasurementLine extends StatelessWidget {
     required this.label,
     required this.measuredWord,
     required this.measurement,
+    required this.utcOffsetOf,
   });
 
   /// Nom de la grandeur : « Débit », « Hauteur ».
@@ -236,6 +233,10 @@ class _MeasurementLine extends StatelessWidget {
   /// d'état « une valeur sans date » à représenter (`BR-001`).
   final _Measurement? measurement;
 
+  /// Le décalage UTC → heure locale, demandé pour l'instant de [measurement]
+  /// (`H1`).
+  final UtcOffsetOf utcOffsetOf;
+
   @override
   Widget build(BuildContext context) {
     final _Measurement? measurement = this.measurement;
@@ -245,7 +246,7 @@ class _MeasurementLine extends StatelessWidget {
     }
     return Text(
       '$label : ${measurement.value} — $measuredWord le '
-      '${formatMeasuredAt(measurement.measuredAt)}',
+      '${formatLocalDateTime(measurement.measuredAt, offsetOf: utcOffsetOf)}',
     );
   }
 }

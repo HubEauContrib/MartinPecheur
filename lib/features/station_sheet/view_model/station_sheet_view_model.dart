@@ -18,6 +18,7 @@
 // l'âge RÉEL de la mesure là où la carte se contente de la borne franchie.
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
@@ -145,11 +146,14 @@ final class StationSheetViewModel extends ChangeNotifier {
     required this._observations,
     required this._stations,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+    UtcOffsetOf? utcOffsetOf,
+  }) : _now = now ?? DateTime.now,
+       _utcOffsetOf = utcOffsetOf ?? systemUtcOffsetOf;
 
   final HydroObservationRepository _observations;
   final StationRepository _stations;
   final DateTime Function() _now;
+  final UtcOffsetOf _utcOffsetOf;
 
   StationSheetState _state = const Fermee();
 
@@ -233,6 +237,7 @@ final class StationSheetViewModel extends ChangeNotifier {
               freshness: freshness,
               measuredAt: discharge?.measuredAt,
               now: now,
+              offsetOf: _utcOffsetOf,
             ),
           ),
         ),
@@ -285,6 +290,7 @@ String? _stalenessNotice({
   required Freshness? freshness,
   required DateTime? measuredAt,
   required DateTime now,
+  required UtcOffsetOf offsetOf,
 }) {
   if (freshness == null || measuredAt == null) {
     return null;
@@ -293,20 +299,8 @@ String? _stalenessNotice({
     Freshness.fraiche => null,
     Freshness.ancienne =>
       'Dernière mesure il y a ${now.difference(measuredAt).inHours} h',
-    Freshness.perimee => 'Dernière mesure le ${_utcDateAndTime(measuredAt)}',
+    Freshness.perimee =>
+      'Dernière mesure le '
+          '${formatLocalDateTime(measuredAt, offsetOf: offsetOf)}',
   };
 }
-
-/// Formate [instant] en `JJ/MM/AAAA à HH:MM UTC` — la seule mise en forme
-/// admise dans ce ViewModel : une date, jamais un nombre (BR-002 reste
-/// tenu : aucune unité physique n'est convertie ici).
-String _utcDateAndTime(DateTime instant) {
-  final DateTime utc = instant.toUtc();
-  final String day = _twoDigits(utc.day);
-  final String month = _twoDigits(utc.month);
-  final String hour = _twoDigits(utc.hour);
-  final String minute = _twoDigits(utc.minute);
-  return '$day/$month/${utc.year} à $hour:$minute UTC';
-}
-
-String _twoDigits(int value) => value.toString().padLeft(2, '0');

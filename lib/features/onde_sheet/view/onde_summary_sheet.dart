@@ -27,10 +27,12 @@
 //
 // ⚠️ Cette tranche n'importe AUCUNE autre tranche (`layers_test.dart`, règle
 // `feature-vers-feature`) : ni `features/map/`, ni `features/station_sheet/`.
-// Deux choses y sont donc recopiées de leur spécification, jamais de l'autre
-// tranche — la cible tactile de 44 pt (`04-ui.md § 3`) et le format de date
-// `JJ/MM/AAAA`. La duplication est assumée : elle est la conséquence directe
-// de la règle de couches, et chaque copie cite sa source.
+// La cible tactile de 44 pt (`04-ui.md § 3`) y est donc recopiée de sa
+// spécification, jamais de l'autre tranche — duplication assumée,
+// conséquence directe de la règle de couches. Le format de date, lui, n'est
+// plus recopié depuis `H1` (2026-09-22) : `formatCalendarDate` vit dans
+// `lib/domain/formatting/display_date.dart`, lu par les trois tranches sans
+// que l'une importe l'autre (le domaine leur est ouvert à toutes).
 //
 // ## Contraste du libellé d'état (relecture du 2026-09-14)
 //
@@ -43,6 +45,7 @@
 // signaux indépendants de toute couleur de texte.
 
 import 'package:flutter/material.dart';
+import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
@@ -114,19 +117,6 @@ const String _campagneRecenteMention = 'Campagne du ';
 /// en cours.
 const String _campagneAncienneMention = 'dernière observation le ';
 
-/// La date de campagne [date] en `JJ/MM/AAAA` — **aucune heure** : l'API ONDE
-/// n'en donne pas (`T-08`), et en afficher une laisserait croire à une
-/// précision qui n'existe pas.
-///
-/// [date] est ramenée en UTC avant d'être rendue, pour la même raison que
-/// `campaignAgeInDays` l'exige de ses deux instants : le mapper rend
-/// `observedAt` en UTC, et un `DateTime` local le décalerait d'un jour selon
-/// l'heure.
-String formatCampaignDate(DateTime date) {
-  final DateTime day = date.toUtc();
-  return '${_twoDigits(day.day)}/${_twoDigits(day.month)}/${day.year}';
-}
-
 /// L'âge [days] d'une campagne, en jours calendaires (`BR-010`) : « il y a
 /// 19 jours », « il y a 1 jour » au singulier, « aujourd'hui » à zéro.
 ///
@@ -143,8 +133,6 @@ String formatCampaignAge(int days) {
   }
   return 'il y a $days jours';
 }
-
-String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
 /// La feuille de résumé d'un point ONDE, dans l'ordre de `04-ui.md`
 /// § « Fiche point ONDE » : identité (libellé, cours d'eau, département),
@@ -215,7 +203,7 @@ class OndeSummarySheet extends StatelessWidget {
           // (`UC-004 § 4`).
           for (final OndeObservation observation in data.history)
             Text(
-              '${formatCampaignDate(observation.observedAt)} — '
+              '${formatCalendarDate(observation.observedAt)} — '
               '${flowCategoryLabel(observation.category)}',
             ),
         ],
@@ -244,7 +232,7 @@ String _campagneLine(DateTime observedAt, CampaignAge? age, int? ageInDays) {
     CampaignAge.ancienne => _campagneAncienneMention,
     CampaignAge.recente || null => _campagneRecenteMention,
   };
-  final String date = '$mention${formatCampaignDate(observedAt)}';
+  final String date = '$mention${formatCalendarDate(observedAt)}';
 
   if (ageInDays == null) {
     return date;

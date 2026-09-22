@@ -239,29 +239,27 @@ void main() {
     }
   });
 
-  test(
-    'une observation du 2026-08-27T08:00Z vue le 2026-09-13T10:00Z est '
-    'perimee, avec un avis qui cite la date (BR-005, le cas des 17 jours)',
-    () async {
-      observations.answer = (StationCode code, Grandeur grandeur) async =>
-          grandeur == Grandeur.debit
-          ? _dischargeObservation(measuredAt: DateTime.utc(2026, 8, 27, 8))
-          : null;
-      final StationSheetViewModel viewModel = StationSheetViewModel(
-        observations: observations,
-        stations: stations,
-        now: () => DateTime.utc(2026, 9, 13, 10),
-      );
-      addTearDown(viewModel.dispose);
+  test('une observation du 2026-08-27T08:00Z vue le 2026-09-13T10:00Z est '
+      'perimee, avec un avis qui cite la date en heure locale, decalage '
+      'injecte +2h (BR-005, H1, le cas des 17 jours)', () async {
+    observations.answer = (StationCode code, Grandeur grandeur) async =>
+        grandeur == Grandeur.debit
+        ? _dischargeObservation(measuredAt: DateTime.utc(2026, 8, 27, 8))
+        : null;
+    final StationSheetViewModel viewModel = StationSheetViewModel(
+      observations: observations,
+      stations: stations,
+      now: () => DateTime.utc(2026, 9, 13, 10),
+      utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+    );
+    addTearDown(viewModel.dispose);
 
-      await viewModel.open(_codeBlois());
+    await viewModel.open(_codeBlois());
 
-      final StationSheetData data = (viewModel.state as Prete).data;
-      expect(data.freshness, Freshness.perimee);
-      expect(data.stalenessNotice, isNotNull);
-      expect(data.stalenessNotice, contains('27/08/2026'));
-    },
-  );
+    final StationSheetData data = (viewModel.state as Prete).data;
+    expect(data.freshness, Freshness.perimee);
+    expect(data.stalenessNotice, 'Dernière mesure le 27/08/2026 à 10:00');
+  });
 
   test('vue 1 h apres la mesure : fraiche et aucun avis ; vue 3 h apres : '
       'ancienne et « il y a 3 h » (BR-005)', () async {

@@ -191,20 +191,44 @@ void main() {
     });
   });
 
-  group("formatMeasuredAt — date ET heure, jamais l'une sans l'autre "
-      '(BR-001)', () {
-    test('2026-08-27T08:00Z → 27/08/2026 à 08:00 UTC', () {
-      expect(
-        formatMeasuredAt(DateTime.utc(2026, 8, 27, 8)),
-        '27/08/2026 à 08:00 UTC',
-      );
-    });
+  group(
+    'StationSummarySheet — date en heure locale, décalage injecté (H1)',
+    () {
+      testWidgets('2026-08-27T08:00Z, +2 h injecté → 27/08/2026 à 10:00, sans '
+          'suffixe de fuseau', (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSummarySheet(
+            data: _data(discharge: _discharge(), level: _level()),
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        );
 
-    test("un instant local est ramené en UTC avant d'être rendu", () {
-      final DateTime local = DateTime.utc(2026, 8, 27, 8).toLocal();
-      expect(formatMeasuredAt(local), '27/08/2026 à 08:00 UTC');
-    });
-  });
+        expect(
+          find.text('Débit : 47,8 m³/s — mesuré le 27/08/2026 à 10:00'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets(
+        "l'instant est converti par un décalage négatif injecté (−3 h)",
+        (WidgetTester tester) async {
+          await _pump(
+            tester,
+            StationSummarySheet(
+              data: _data(discharge: _discharge(), level: _level()),
+              utcOffsetOf: (DateTime _) => const Duration(hours: -3),
+            ),
+          );
+
+          expect(
+            find.text('Débit : 47,8 m³/s — mesuré le 27/08/2026 à 05:00'),
+            findsOneWidget,
+          );
+        },
+      );
+    },
+  );
 
   group('minimumTapTarget', () {
     test('vaut 44 pt (04-ui.md § 3, cibles tactiles)', () {
@@ -228,34 +252,34 @@ void main() {
       expect(find.textContaining('41'), findsWidgets);
     });
 
-    testWidgets('rend le débit en m³/s AVEC sa date (BR-001, BR-002)', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('rend le débit en m³/s AVEC sa date, en heure locale (BR-001, '
+        'BR-002, H1)', (WidgetTester tester) async {
       await _pump(
         tester,
         StationSummarySheet(
           data: _data(discharge: _discharge(), level: _level()),
+          utcOffsetOf: (DateTime _) => const Duration(hours: 2),
         ),
       );
 
       expect(
-        find.text('Débit : 47,8 m³/s — mesuré le 27/08/2026 à 08:00 UTC'),
+        find.text('Débit : 47,8 m³/s — mesuré le 27/08/2026 à 10:00'),
         findsOneWidget,
       );
     });
 
-    testWidgets('rend la hauteur en m AVEC sa date, signe conservé', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('rend la hauteur en m AVEC sa date, signe conservé, en heure '
+        'locale (H1)', (WidgetTester tester) async {
       await _pump(
         tester,
         StationSummarySheet(
           data: _data(discharge: _discharge(), level: _level()),
+          utcOffsetOf: (DateTime _) => const Duration(hours: 2),
         ),
       );
 
       expect(
-        find.text('Hauteur : −1,232 m — mesurée le 27/08/2026 à 08:00 UTC'),
+        find.text('Hauteur : −1,232 m — mesurée le 27/08/2026 à 10:00'),
         findsOneWidget,
       );
     });
@@ -285,13 +309,13 @@ void main() {
               discharge: _discharge(),
               level: _level(),
               freshness: Freshness.perimee,
-              stalenessNotice: 'Dernière mesure le 27/08/2026 à 08:00 UTC',
+              stalenessNotice: 'Dernière mesure le 27/08/2026 à 10:00',
             ),
           ),
         );
 
         expect(
-          find.text('Dernière mesure le 27/08/2026 à 08:00 UTC'),
+          find.text('Dernière mesure le 27/08/2026 à 10:00'),
           findsOneWidget,
         );
       },
