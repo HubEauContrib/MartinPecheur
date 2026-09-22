@@ -5,18 +5,19 @@
 // ⚠️ Un ViewModel ne connait aucun widget : ce fichier n'importe que
 // `foundation.dart`, pour [ChangeNotifier]. Il ne connait pas non plus
 // `lib/data/` : sa seule dependance est l'INTERFACE [AcknowledgementRepository],
-// declaree dans le domaine — l'implementation concrete arrive en `W1`, et
-// `main.dart` seul l'injectera. Le verrou est
+// declaree dans le domaine — l'implementation concrete, posee en `W1`
+// (`SharedPreferencesAcknowledgementRepository`), est injectee par
+// `main.dart` seul. Le verrou est
 // `test/architecture/layers_test.dart` (regles `view-model-sans-widget` et
 // `features-vers-data`).
 //
 // Ce fichier ne produit AUCUNE chaine destinee a l'ecran : ni libelle de
 // bouton, ni corps de texte, ni message d'erreur mis en forme (le seul
 // litteral est le message d'ArgumentError du constructeur, adresse au
-// developpeur, jamais affiche). Le texte de
-// l'avertissement (`BR-012`, `BR-014`) vit dans la vue, tache `W2` du plan —
-// un balayage des mots bannis (`BR-003`) ou des verbes d'instruction
-// (`BR-014`) n'aurait donc rien a balayer ici.
+// developpeur, jamais affiche). Le texte de l'avertissement (`BR-012`,
+// `BR-014`) vit dans `lib/domain/warnings/warning_texts.dart` (tache `W2`
+// du plan) — un balayage des mots bannis (`BR-003`) ou des verbes
+// d'instruction (`BR-014`) n'aurait donc rien a balayer ici.
 //
 // C'est la VERSION du texte qui est persistee, jamais un booleen (`BR-012`) :
 // un booleen ne distinguerait jamais « acquitte une fois » de « acquitte

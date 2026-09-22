@@ -913,7 +913,7 @@ git add pubspec.yaml pubspec.lock lib docs test && git commit -m "feat(avertisse
 
 **Files:** créés `lib/domain/warnings/warning_texts.dart`, `lib/features/warnings/view/initial_warning_view.dart`, `test/project/warning_texts_version_test.dart` · tests miroirs · modifié `lib/main.dart` et son test de racine
 
-**Signatures publiques** — `const String warningTextVersion = '2026-09-13.1';` · `const String initialWarningBody` · `const String initialWarningCheckboxLabel` · `const String initialWarningButtonLabel = "J'ai compris ces limites";` · `class InitialWarningView extends StatelessWidget { const InitialWarningView({required this.viewModel, required this.onAcknowledged, super.key}); }`
+**Signatures publiques** — `const String warningTextVersion = '2026-09-13.1';` · `const String initialWarningTitle` · `const String initialWarningBody` · `const String initialWarningCheckboxLabel` · `const String initialWarningButtonLabel = "J'ai compris ces limites";` · `class InitialWarningView extends StatelessWidget { const InitialWarningView({required this.viewModel, super.key}); }`
 
 **Invariants :** **aucune fonctionnalité** n'est atteignable avant acquittement (`BR-012`) ; le bouton est **inactif** tant que la case est décochée, sans pré-cochage ; son libellé **engage** — jamais « OK », « Continuer » ni « Fermer » ; **tous** les textes d'avertissement du produit vivent dans `warning_texts.dart` — ceux de `W3`, `W4` et `W5` y seront ajoutés, jamais écrits dans un widget.
 
@@ -928,7 +928,7 @@ git add pubspec.yaml pubspec.lock lib docs test && git commit -m "feat(avertisse
 - À l'ouverture : case **décochée**, bouton **désactivé** (`onPressed` nul). Un tap sur la case l'active ; un second tap le désactive.
 - Tap sur le bouton actif → `onAcknowledged` appelé **une** fois ; sur le bouton inactif → **zéro** fois.
 - Le libellé est exactement **« J'ai compris ces limites »** ; le test **refuse** « OK », « Continuer », « Fermer » (`BR-012`).
-- Le corps contient : *indicatives*, *partielles*, *anciennes*, *non validées*, *lâchers de barrage*, *arrêté préfectoral* (`UC-006 § 2`) ; un lien **« Relire le détail des sources »** est rendu et atteignable, cible ≥ 44 pt.
+- Le corps contient : *indicatives*, *partielles*, *anciennes*, *non validées*, *lâchers de barrage*, *arrêté préfectoral* (`UC-006 § 2`). ~~Lien « Relire le détail des sources »~~ : **retiré en T1** (arbitrage du commanditaire du 2026-09-22) — l'écran « D'où vient cette donnée ? » n'est construit par aucune tâche ; le lien arrive avec lui.
 - `main.dart` : `requiresAcknowledgement` vrai → la carte **n'est pas** construite ; faux → elle l'est. Test sur la racine, **sans** rendre `FlutterMap`.
 - **Usager déjà acquitté** (dépôt bouchon rendant `warningTextVersion`) → la racine rend **directement** la carte : `InitialWarningView` n'est **jamais** rendu, **pas même une image** — assertion dès le premier `pump`, pas après `pumpAndSettle`.
 - `warning_texts_version_test.dart` : chaque constante **du modal** est égale, caractère pour caractère, au texte figé, **et** `warningTextVersion` à la version figée. Contre-épreuve : modifier une lettre du corps sans toucher la version → **rouge**. Rétablir.
@@ -937,11 +937,13 @@ git add pubspec.yaml pubspec.lock lib docs test && git commit -m "feat(avertisse
 - Aucun texte ne contient de verbe d'instruction sur un usage de l'eau (`BR-014`) ; vouvoiement systématique.
 - ~~`warningTextVersion` est cité par `test/project/changelog_test.dart`~~ → **`test/project/warning_texts_version_test.dart`** (révision du 2026-09-22) : changer le texte **sans** changer la version rend la suite rouge. C'est le verrou de `UC-006 A3`.
 
-- [ ] **Étape 1** — écrire les tests, le cas à 200 %, le cas « déjà acquitté, jamais une image » et le verrou de version compris. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/warnings test/domain/warnings test/project/warning_texts_version_test.dart` → échec.
-- [ ] **Étape 3** — écrire les textes dans `lib/domain/warnings/warning_texts.dart` — **Dart pur**, aucun widget : c'est ce qui permet de les balayer sans rendu.
-- [ ] **Étape 4** — implémenter la vue, puis brancher la garde dans `main.dart` : `await warningsViewModel.load()` **avant** `runApp`.
-- [ ] **Étape 5** — contre-épreuve du verrou de version, puis `flutter test` → vert, critère de fin et commit.
+- [x] **Étape 1** (2026-09-22) — écrire les tests, le cas à 200 %, le cas « déjà acquitté, jamais une image » et le verrou de version compris. Rouge.
+- [x] **Étape 2** (2026-09-22) — `flutter test test/features/warnings test/domain/warnings test/project/warning_texts_version_test.dart` → échec.
+- [x] **Étape 3** (2026-09-22) — écrire les textes dans `lib/domain/warnings/warning_texts.dart` — **Dart pur**, aucun widget : c'est ce qui permet de les balayer sans rendu.
+- [x] **Étape 4** (2026-09-22) — implémenter la vue, puis brancher la garde dans `main.dart` : `await warningsViewModel.load()` **avant** `runApp`.
+- [x] **Étape 5** (2026-09-22) — contre-épreuve du verrou de version, puis `flutter test` → vert, critère de fin et commit.
+
+> **Exécution du 2026-09-22.** `onAcknowledged` retiré de la signature (YAGNI : la bascule passe par le `ListenableBuilder` de la racine sur `requiresAcknowledgement`). Le titre du modal, « Des informations, pas une autorisation » (`04-ui.md` § 1), vit aussi dans `warning_texts.dart` et entre dans le verrou de version, sans changer la version. Racine testée : bascule modal → carte sans redémarrage, échec de lecture → modal maintenu. ⚠️ **Ouvert :** un échec d'écriture de l'acquittement n'est pas montré à l'écran (point 37 de `project-state.md`). 814 tests verts.
 
 ```bash
 git add lib test && git commit -m "feat(avertissement): modal bloquant du premier lancement, texte verrouille par version" -m "Le bouton reste inactif tant que la case est decochee, sans pre-cochage, et son libelle engage : J ai compris ces limites, jamais OK ni Continuer (BR-012). Aucune fonctionnalite n est atteignable avant acquittement, y compris la carte — verifie sur la racine, sans rendre FlutterMap. main.dart attend l acquittement avant runApp : un usager deja acquitte ne voit jamais le modal, pas meme une image. Les textes vivent dans domain en Dart pur ; un test fige le texte integral et sa version, et changer l un sans l autre rend la suite rouge (UC-006 A3)."
