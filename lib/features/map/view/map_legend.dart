@@ -103,8 +103,12 @@ const String _mesureRecenteLabel = 'Mesure récente';
 
 /// Libellé de légende d'une station dont aucune requête n'a encore abouti.
 /// Même raison que [_mesureRecenteLabel] : le marqueur reste muet
-/// (`BR-007`), la légende explique.
-const String _chargementEnCoursLabel = 'Chargement en cours';
+/// (`BR-007`), la légende explique. Le libellé dit ce que l'usager peut
+/// faire, pas un chargement que rien ne mène : hors des 20 stations
+/// préchargées (`NFR-07`), la mesure ne vient qu'à la sélection. Verbe
+/// neutre vis-à-vis de la plateforme — souris, clavier, toucher — arbitré
+/// par le commanditaire le 2026-09-22 (constat d'écran du lot 3).
+const String _selectionnezPourChargerLabel = 'Sélectionnez pour charger';
 
 /// Largeur maximale de la légende, en pixels logiques : au-delà, elle
 /// mangerait la carte sur un écran étroit.
@@ -136,7 +140,7 @@ List<(StationMapState, String)> _availabilityEntries() {
     (ancienne, stationMapStateLabel(ancienne)),
     (perimee, stationMapStateLabel(perimee)),
     (sansDonnee, stationMapStateLabel(sansDonnee)),
-    (const NonChargee(), _chargementEnCoursLabel),
+    (const NonChargee(), _selectionnezPourChargerLabel),
   ];
 }
 

@@ -52,7 +52,7 @@ const List<String> libellesDebit = <String>[
   'Dernière mesure il y a plus de 2 h',
   'Dernière mesure il y a plus de 24 h',
   'Aucune donnée disponible ici.',
-  'Chargement en cours',
+  'Sélectionnez pour charger',
 ];
 
 Future<void> _pumpLegend(WidgetTester tester, MapScaleKind scale) {
