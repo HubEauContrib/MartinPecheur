@@ -4,6 +4,8 @@
 
 > **Révision du 2026-09-22 — arbitrages du commanditaire.** Le plan est amendé **en place** (approche A) après un bilan de conception vérifié sur le code : `BR-013` (encart renforcé) est **reporté en T2**, avec l'écran des restrictions VigiEau qui sera le premier écran de ressource (décision 11) ; l'heure affichée est l'**heure locale sans suffixe**, fuseau injecté (décision 12, clôt le point 19 de `project-state.md`). Deux tâches sont insérées juste avant celles qui en ont besoin — **`H1`** (formateur de date unique, avant `W4`) et **`H2`** (décisions de la carte rapatriées dans `MapViewModel`, avant `K1`) — et les tâches `W2`→`W5`, `K1`, `K2`, `X1`→`X5`, `P1`, `P2` sont corrigées. **35 tâches actives.** Contexte, défauts constatés et alternatives écartées : [`2026-09-22-revision-plan-t1-design.md`](../specs/2026-09-22-revision-plan-t1-design.md).
 
+> **Révision du 2026-09-22 (bis) — regroupement par zone administrative, arbitrage du commanditaire.** Au zoom national, `F2c` dessine 4 150 marqueurs illisibles, et le tap tombe au hasard entre marqueurs superposés (point 30). [`ADR-015`](../../adr/ADR-015-regroupement-par-zone-administrative.md) : sous le zoom 7 une pastille par région, de 7 à 9 une par département, au-delà `F2c` inchangée (décision 13). Un **lot 4 bis** (`Z1` → `Z4`) est inséré entre `H2` et `K1` ; `K1` gagne un cas (les boutons franchissent les seuils), `X3` mesure avec le regroupement en place. `Z1` (ADR et amendement de `04-ui.md § 4`) est rédigée le jour même, commit à suivre. **39 tâches actives.**
+
 **Goal:** au tap d'une station, une feuille de résumé donne le débit en m³/s avec sa date, sa fraîcheur et sa qualification ; les points ONDE sont sur la carte avec leurs quatre catégories et l'âge de leur campagne ; **les trois avertissements qui ont un écran en T1 sont en place** (modal, bandeau, encart daté — l'encart renforcé de `BR-013` part en T2 avec son écran, décision 11) et l'acquittement survit au redémarrage ; la carte se pilote au clavier et à la souris ; version `0.2.0` construite et lancée hors outil sur Windows.
 
 **Architecture:** feature-first + MVVM (`ADR-014`) — `lib/features/<feature>/{view,view_model}`, un `ChangeNotifier` par écran, appels **typés** aux dépôts de `lib/data/`, `lib/domain/` en Dart pur et transverse. `CachePolicy` est un **décorateur de dépôt** (`lib/data/cache/cache_policy.dart`), unique. Aucun bus, aucun message, aucune bibliothèque d'état.
@@ -136,6 +138,8 @@ lib/domain/                             Dart pur — ajouts de T1
                                         modal (W2) — bandeau W3, encart date W4, encart renforce W5
   sources/source_names.dart             noms de source affiches, Hub'Eau hydrometrie et ONDE (W4)
   formatting/display_date.dart          formateur de date unique, heure locale, fuseau injecte (H1)
+  geo/administrative_area.dart  geo/area_cluster.dart   zone administrative, clusterByArea (Z2, ADR-015)
+  nomenclature/flow_severity.dart       mostSevere, ordre de BR-009 (Z2)
 lib/data/
   cache/cache_policy.dart               withCachePolicy, unique (pose par R4)
   http/onde_uris.dart  http/hub_eau_paging.dart                  (D4)
@@ -148,6 +152,7 @@ lib/features/
   map/view_model/map_view_model.dart  map/view_model/map_scale.dart          (V2)
   map/view/station_marker.dart  map/view/onde_marker.dart  map/view/map_legend.dart  (U2, U3)
   map/view/map_empty_states.dart  map/view/map_controls.dart                 (U6, K1)
+  map/view/area_cluster_marker.dart     pastille de region / departement (Z4, ADR-015)
   map/view/map_warning_banner.dart                                           (W3 — seul consommateur : la carte)
   map/view/{map_scale_chips,ign_attribution_badge}.dart   sortis de map_view.dart (K1)
   station_sheet/{view_model/station_sheet_view_model.dart,view/station_summary_sheet.dart}  (V1, U1)
@@ -1078,7 +1083,7 @@ git add lib/domain test && git commit -m "feat(avertissement): balayage mecaniqu
 
 ## Lot 5 — Clavier et souris
 
-> **Révisé le 2026-09-22.** Ordre : **`H2`** → `K1` → `K2` → `K3`. `K1` et `K2` modifient `map_view.dart` (996 lignes au 2026-09-22), qui **décide** aujourd'hui à la place de son ViewModel ; `H2` rend ces décisions au ViewModel avant qu'on y ajoute des contrôles et des raccourcis.
+> **Révisé le 2026-09-22.** Ordre : **`H2`** → *(lot 4 bis, `Z1` → `Z4`, `ADR-015`)* → `K1` → `K2` → `K3`. `K1` et `K2` modifient `map_view.dart` (996 lignes au 2026-09-22), qui **décide** aujourd'hui à la place de son ViewModel ; `H2` rend ces décisions au ViewModel avant qu'on y ajoute des contrôles et des raccourcis.
 
 ### Task H2 : Rendre au `MapViewModel` les décisions que la vue carte a prises (ajoutée le 2026-09-22, avant `K1`)
 
@@ -1119,6 +1124,160 @@ git add lib/domain test && git commit -m "feat(avertissement): balayage mecaniqu
 git add lib/features/map test/features/map && git commit -m "refactor(map): rendre au ViewModel les decisions de prechargement et l age de campagne" -m "La vue carte decidait : quand precharger, dans quel ordre charger puis precharger, et l age de chaque campagne ONDE. L enchainement n etait atteignable qu en montant un FlutterMap, donc teste par rien. Il vit desormais dans MapViewModel, teste sans rendu ; la vue signale un geste termine et son emprise. Comportement inchange : 20 stations au plus, 200 ms entre deux appels, annulable (NFR-07), echelle debit seule. Pas d anti-rebond de molette : NV-W6 n est pas mesure, il s instruit en X3."
 ```
 
+## Lot 4 bis — Regroupement par zone administrative (ajouté le 2026-09-22, entre `H2` et `K1`)
+
+> **Arbitrage du commanditaire du 2026-09-22 — [`ADR-015`](../../adr/ADR-015-regroupement-par-zone-administrative.md).** Au zoom national, `F2c` dessine 4 150 marqueurs : les marqueurs se recouvrent en une **nappe illisible** (constat du commanditaire à l'écran, 2026-09-22, point 36 de `project-state.md`, « Vu aussi ») et le tap tombe au hasard entre marqueurs superposés (point 30). Sous le zoom **9**, la carte regroupe donc par **zone administrative** : une pastille par **région** sous le zoom **7**, une par **département** de 7 à moins de 9 ; à partir de 9, `F2c` inchangée. Ordre : `Z1` → `Z2` → `Z3` → `Z4`. **Après `H2`** : `Z3` étend `onGestureEnded`, que `H2` pose, et inhibe un préchargement que `H2` a rapatrié dans le ViewModel. **Avant `K1`** : les boutons de zoom franchissent les seuils de `Z3`.
+
+**Faits vérifiés le 2026-09-22, avant d'écrire ce lot** (lecture du code et de l'asset, aucun appel réseau) :
+
+| Fait | Constat |
+|---|---|
+| Asset `assets/referentiel/stations.json` | 4 150 entités ; `code_region`, `libelle_region`, `code_departement`, `libelle_departement` présents sur **4 113**, absents **ensemble** sur **37**. **18 régions** (13 hexagonales Corse comprise, 5 d'outre-mer : `01`, `02`, `03`, `04`, `06`), **101 départements**, aucun département rattaché à deux régions. Libellés en capitales sans accent (`OCCITANIE`, `LOIR-ET-CHER`). Occitanie `76` : **753** stations, barycentre `43,0786 ; 2,8731`. La Réunion `04` : **51** stations, barycentre `−21,0700 ; 55,5233`. Loir-et-Cher `41` : **28** stations |
+| Les 37 sans rattachement | `en_service` est un booléen sur les 4 150 : ces 37 sont exactement les `stationsSkipped` de `parseStations`. ⚠️ **Elles restent des `StationPoint`** et sont dessinées sur la carte (`main.dart` l'alimente avec `stationsRead.points`) — ex. `A021005050` « Le Rhin en Suisse [Bâle (Rheinhalle)] ». Le regroupement doit donc les laisser **individuelles**, à tous les zooms |
+| Fixture `test/fixtures/onde/observations_bbox_loire_2026-09-13.json` | **30 lignes sur 30** portent `code_region` `24` / `libelle_region` « Centre-Val de Loire » et `libelle_departement` (casse mixte) ; **15** stations distinctes. Une observation par station, la plus récente : département `41` **13** points (7 « 3 », 5 « 1f », 1 « 2 »), barycentre `47,507709 ; 1,346744` ; département `45` **2** points (2 « 3 »), barycentre `47,770521 ; 1,754937` ; les 15 ensemble `47,542750 ; 1,401170` |
+| `fields` de `lib/data/http/onde_uris.dart` | Les dix champs demandés **n'incluent ni `code_region`, ni `libelle_region`, ni `libelle_departement`** : en production, la réponse ne les porte pas aujourd'hui. Les trois fixtures capturées avec `fields` (`observations_station_*_2026-09-14.json`) n'en ont aucun |
+| `Bounds` (`lib/domain/geo/bounds.dart`) | **Refuse une emprise plate** (`west >= east` ou `south >= north`). L'emprise d'une zone à un seul membre — ou à membres alignés — n'est donc **pas** une `Bounds` |
+
+### Task Z1 : `ADR-015` et l'amendement de `04-ui.md § 4` (rédigée le 2026-09-22, commit à suivre)
+
+**Files:** créé `docs/adr/ADR-015-regroupement-par-zone-administrative.md` · modifiés `docs/04-ui.md` (§ 4, amendement daté), `docs/README.md` (index des décisions), `docs/project-state.md` (arbitrage, points 30 et `F2`, décompte), `CLAUDE.md` (ligne « Marqueurs », ligne T1, § Documentation), ce plan (lot 4 bis, décompte, récapitulatif, ordre, décision 13)
+
+**Invariant :** l'ADR consigne un **arbitrage du commanditaire** et les faits datés qui l'ont produit ; il n'invente ni centroïde, ni seuil hydrologique, ni teinte. Les seuils 7 et 9 y sont dits **issus d'un constat d'écran**, révisables sur constat.
+
+**Cas de test** — aucun test de code : tâche documentaire. Vérifié par relecture — chaque chiffre de l'ADR se retrouve dans l'asset ou la fixture (tableau ci-dessus), et `flutter test test/project/` reste vert (les tests de `test/project/` lisent `docs/`).
+
+- [x] **Étape 1** — relever les faits sur l'asset et la fixture (tableau ci-dessus).
+- [x] **Étape 2** — écrire `ADR-015` au format du modèle : contexte, décision, conséquences, alternatives écartées (B proximité par bibliothèque, C seuil et message, D attendre `X3`), « Si la décision est revue ».
+- [x] **Étape 3** — amender `04-ui.md § 4` (bloc daté ; les lignes « Rivière » et « Local » sont remplacées par l'affichage individuel dès le zoom 9) ; indexer l'ADR dans `docs/README.md` ; aligner `project-state.md`, `CLAUDE.md` et ce plan.
+- [ ] **Étape 4** — `flutter test test/project/` → vert, puis commit (coordinateur).
+
+```bash
+git add -- docs/adr/ADR-015-regroupement-par-zone-administrative.md docs/04-ui.md docs/README.md docs/project-state.md docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md CLAUDE.md && git commit -m "docs: ADR-015, regrouper les marqueurs par zone administrative sous le zoom 9" -m "Arbitrage du commanditaire du 2026-09-22. Au zoom national F2c dessine 4 150 marqueurs : illisible, et le tap tombe au hasard entre marqueurs superposes (point 30). Sous le zoom 7 une pastille par region, de 7 a 9 une par departement, au-dela F2c inchangee. Barycentre calcule, symbole existant de l etat le plus severe (BR-009), compte seul sur l echelle debit. Le regroupement par proximite (flutter_map_marker_cluster) est ecarte : dependance, et c est l approche mesuree au rouge au spike. Lot 4 bis du plan T1, Z1 a Z4 ; 39 taches actives."
+```
+
+### Task Z2 : Le rattachement administratif dans le domaine, puis dans les données
+
+**Files:** créés `lib/domain/geo/administrative_area.dart`, `lib/domain/geo/area_cluster.dart`, `lib/domain/nomenclature/flow_severity.dart` · modifiés `lib/domain/station/station_point.dart`, `lib/domain/onde/onde_point.dart`, `lib/domain/repositories/repositories.dart`, `lib/features/onde_sheet/view/onde_summary_sheet.dart` (lecture du code de département, seulement), `lib/data/referentiel/stations_asset.dart`, `lib/data/referentiel/asset_station_point_repository.dart`, `lib/data/mappers/onde_observation_mapper.dart`, `lib/data/http/onde_uris.dart`, `docs/sources/onde.md`, **`docs/domain-model.md`** (`StationPoint` gagne `region`/`departement`, `StationPointRepository` gagne `+all()`, `OndePoint` gagne `region` et change le type de `departement` — mis à jour **dans le même commit** que le code : `test/project/domain_model_doc_test.dart` le lit) · tests `test/domain/geo/{administrative_area,area_cluster}_test.dart`, `test/domain/nomenclature/flow_severity_test.dart` (créés), `test/data/referentiel/stations_asset_test.dart`, `test/data/mappers/onde_observation_mapper_test.dart`, `test/data/http/onde_uris_test.dart`, `test/domain/onde/onde_point_test.dart`, `test/data/referentiel/asset_station_point_repository_test.dart` (ajouts) ; les deux doubles de `StationPointRepository` (`test/features/map/view/map_view_test.dart`, `test/features/map/view_model/map_view_model_test.dart`) gagnent la méthode ; les constructions d'`OndePoint` passent `departement: AdministrativeArea(…)` au lieu de `DepartementCode(…)` dans `onde_observation_mapper_test.dart`, `cached_onde_observation_repository_test.dart`, `onde_observation_test.dart`, `onde_point_test.dart`, `repositories_test.dart`, `map_view_test.dart`, `map_view_model_test.dart`, `onde_summary_sheet_test.dart`, `onde_sheet_view_model_test.dart` — **même valeur**, aucune assertion changée de sens
+
+**Signatures publiques**
+
+- `final class AdministrativeArea { const AdministrativeArea({required this.code, required this.label}); final String code; final String label; }` — `==`/`hashCode` sur les deux champs
+- `enum AreaLevel { region, departement }`
+- `final class AreaCluster<T> { final AreaLevel level; final AdministrativeArea area; final double latitude; final double longitude; final List<T> members; final Bounds? bounds; int get count; }` — `bounds` est l'emprise exacte des membres, **`null` quand elle est plate** (un seul membre, ou membres de même latitude ou de même longitude : `Bounds` la refuse) ; jamais élargie d'une marge inventée
+- `final class AreaClustering<T> { final List<AreaCluster<T>> clusters; final List<T> unassigned; }`
+- `AreaClustering<T> clusterByArea<T>(Iterable<T> items, {required AreaLevel level, required AdministrativeArea? Function(T item) areaOf, required ({double latitude, double longitude}) Function(T item) positionOf})`
+- `FlowCategory mostSevere(Iterable<FlowCategory> categories)` — dans `flow_severity.dart`
+- `StationPoint` gagne `final AdministrativeArea? region;` et `final AdministrativeArea? departement;` — paramètres nommés **facultatifs**, `null` par défaut : les constructions existantes compilent sans changement
+- `OndePoint` gagne `final AdministrativeArea? region;`, et son `departement` passe de `DepartementCode?` à **`AdministrativeArea?`** — **un seul type de zone** (code + libellé), le même pour la région et le département, sur `StationPoint` comme sur `OndePoint`. Le code de département reste **validé** par `DepartementCode` à la lecture (mapper et analyse de l'asset), puis rangé comme `code` ; `onde_summary_sheet.dart` lit `departement?.code` et affiche **exactement** ce qu'il affichait. Le libellé est nécessaire : une pastille départementale doit se nommer (`Semantics`), et la réponse ONDE le porte (fixture, 30 sur 30)
+- `_observationFields` (`onde_uris.dart`) gagne `code_region`, `libelle_region`, `libelle_departement` — **treize** champs
+- `StationPointRepository` (`lib/domain/repositories/repositories.dart`) gagne `Future<List<StationPoint>> all();` — **tous** les points du référentiel, dans l'ordre du fichier ; `AssetStationPointRepository` rend sa liste déjà en mémoire, **sans copie** (vue non modifiable). Arbitrage du coordinateur du 2026-09-22 : le regroupement des **stations** porte sur l'asset **entier**, pour que le compte et le barycentre d'une pastille ne dépendent pas du bord de l'écran
+
+**Invariants :** `lib/domain/` reste **Dart pur** (`domain_isolation_test.dart`). `clusterByArea` est une **partition** : chaque élément est dans **un** agrégat ou dans `unassigned`, jamais deux fois, jamais perdu (`BR-007`). Un élément sans zone au niveau demandé va dans `unassigned`, **dans l'ordre d'entrée** — jamais rattaché à une zone voisine. Le regroupement se fait par `area.code` ; le libellé est celui du **premier** membre rencontré. Les agrégats sont rendus par **code croissant**, quel que soit l'ordre d'entrée. Le barycentre est la **moyenne arithmétique** des latitudes et des longitudes en degrés — aucun centroïde administratif, aucune pondération. `mostSevere` suit `BR-009` : `Assec` > `EcoulementNonVisible` > `EcoulementFaible` > `Ecoulement` ; `NonObserve` et `Inconnu` **ne participent pas** au classement et ne l'emportent que faute de membre observé, `NonObserve` avant `Inconnu` (un fait de terrain avant notre ignorance d'un code, `BR-007`) ; `switch` exhaustif sur la `sealed class` (`BR-011`). À l'analyse, un code de zone absent, vide ou non textuel rend une zone `null` — **jamais** une erreur, **jamais** un point écarté : `points` reste à 4 150 et `skipped` à 0 ; un libellé absent se replie sur le code, comme `libelle_station` (jamais inventé). Le libellé est gardé **tel que reçu** : aucune correspondance de casse entre asset et ONDE. `all()` ne filtre rien et n'appelle aucun réseau : l'asset est lu une fois au démarrage (`ADR-003`) ; tout décorateur futur de `StationPointRepository` (le compteur de `X3`) délègue `all()` comme `withinBounds`.
+
+**Cas de test** (chiffres de l'asset et de la fixture, relevés le 2026-09-22)
+
+- `mostSevere` : 19 × `Ecoulement` + 1 × `Assec` → `Assec` (cas de `BR-009`, mot pour mot) ; `NonObserve` + 1 × `Ecoulement` → `Ecoulement` ; `[EcoulementFaible, EcoulementNonVisible]` → `EcoulementNonVisible` ; `[Ecoulement, EcoulementFaible]` → `EcoulementFaible` ; `[NonObserve, Inconnu('9z')]` → `NonObserve` ; `[Inconnu(null)]` → `Inconnu(null)` ; la même liste **inversée** rend la même catégorie ; liste vide → `ArgumentError`.
+- `clusterByArea`, niveau `departement`, sur les 15 observations de la fixture Loire (une par station, la plus récente, lues par `mapOndeObservation`) → **2** agrégats, `41` puis `45` ; `41` : **13** membres, barycentre `47,507709 ; 1,346744` (à 1e-6), `mostSevere` des catégories → `Assec` ; `45` : **2** membres, barycentre `47,770521 ; 1,754937`. Niveau `region` → **1** agrégat `24` « Centre-Val de Loire », **15** membres, barycentre `47,542750 ; 1,401170`.
+- `clusterByArea` sur l'asset réel, niveau `region` → **18** agrégats et **37** `unassigned` ; `76` « OCCITANIE » : **753** membres, barycentre `43,0786 ; 2,8731` (à 1e-4) ; `04` : **51** membres, barycentre de latitude **négative** — l'outre-mer tombe sur son territoire. Niveau `departement` → **101** agrégats, **37** `unassigned`. Somme des `count` + `unassigned.length` = **4 150**.
+- Un point sans zone (`A021005050`) est dans `unassigned`, à la même position relative qu'en entrée ; deux membres de même code et de libellés différents → **un** agrégat, libellé du premier.
+- `AreaCluster.bounds` : un membre unique → `null` ; deux membres de même latitude → `null` ; deux membres distincts → une `Bounds` égale aux min/max exacts, sans marge.
+- `parseStations` sur l'asset réel : **4 113** `StationPoint` avec `region` et `departement` non nuls, **37** avec les deux nuls ; `points` **4 150**, `skipped` **0**, `stations` **4 113**, `stationsSkipped` **37** — inchangés. Sur `stations_extrait_2026-09-13.json` : `K447001001` → `region` `null` (champ absent), `departement` code `41` et libellé replié `41` (libellé absent de l'extrait).
+- `mapOndePoint` sur la première ligne de la fixture Loire → `region` `AdministrativeArea(code: '24', label: 'Centre-Val de Loire')`, `departement` `AdministrativeArea(code: '41', label: 'Loir-et-Cher')` ; sur une ligne de `observations_station_P9130001_code_ecoulement_null_2026-09-14.json` (capturée **sans** ces champs) → `region` `null`, `departement` de code lu et de libellé **replié sur le code** (`libelle_departement` absent), **aucune** exception ; un `code_departement` mal formé lève comme aujourd'hui (`DepartementCode`) ; `code_region` numérique → `FormatException` par `_text` (même règle que les autres champs texte, ligne ignorée et comptée par le dépôt, `T-14`).
+- `onde_uris_test.dart` : la liste attendue passe à **treize** champs, dans l'ordre de `_observationFields`.
+- `AssetStationPointRepository.all()` sur l'asset réel → **4 150** points, le premier et le dernier identiques à ceux de `parseStations(…).points` ; sur l'extrait `stations_extrait_2026-09-13.json` → **2** points ; une tentative d'écriture dans la liste rendue lève `UnsupportedError` ; deux appels rendent des listes de même contenu.
+
+- [ ] **Étape 1** — écrire `flow_severity_test.dart`, `administrative_area_test.dart`, `area_cluster_test.dart` et les ajouts à `onde_point_test.dart`. Rouge.
+- [ ] **Étape 2** — `flutter test test/domain` → échec, types absents.
+- [ ] **Étape 3** — implémenter le domaine ; `flutter test test/domain test/architecture` → vert.
+- [ ] **Étape 4** — **vérifier par appel réel** la forme filaire à treize champs, avant d'y toucher (`CLAUDE.md`, anti-hallucination) : `curl` de `…/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=<les treize champs>` → attendu HTTP **200** ou **206**, chaque ligne porte `code_region`, `libelle_region`, `libelle_departement`. **Recopier** le code HTTP et la date ; consigner le fait dans `docs/sources/onde.md` sous le **premier numéro `T-` libre** (`T-15` est pris par l'hydrométrie, vérifier avant d'écrire). Si l'API refuse un champ, **arrêt et question** : le mapper n'est pas modifié sur une hypothèse.
+- [ ] **Étape 5** — écrire les ajouts aux tests de `stations_asset`, du mapper, des URI et d'`AssetStationPointRepository.all()`. Rouge.
+- [ ] **Étape 6** — implémenter l'analyse de l'asset, le mapper, la liste de champs et `all()` (contrat, dépôt d'asset, deux doubles de test) ; `flutter test test/data test/domain test/architecture` → vert.
+- [ ] **Étape 7** — `flutter test` → vert, **nombre de tests recopié** ; critère de fin, puis commit.
+
+```bash
+git add -- lib/domain lib/data lib/features/onde_sheet test/domain test/data test/features docs/sources/onde.md docs/domain-model.md && git commit -m "feat(domain): rattacher stations et points ONDE a leur region et a leur departement" -m "Le referentiel embarque porte region et departement sur 4 113 entites sur 4 150 ; la reponse ONDE les porte des que fields les demande (verifie par appel reel, voir docs/sources/onde.md). Le champ est facultatif : les 37 points sans rattachement restent sur la carte, sans zone inventee (BR-007). clusterByArea est une partition, au barycentre calcule, sans centroide recopie ; mostSevere suit l ordre de BR-009, Non observe et Non renseigne hors classement. ADR-015."
+```
+
+### Task Z3 : `MapViewModel` — le niveau de zoom décide du regroupement
+
+**Files:** modifiés `lib/features/map/view_model/map_view_model.dart`, `lib/features/map/view/map_view.dart` (seulement pour transmettre le zoom) · tests `test/features/map/view_model/map_view_model_test.dart` (ajouts)
+
+**Signatures publiques**
+
+- `const double regionClustersBelowZoom = 7;` · `const double individualMarkersFromZoom = 9;` — constantes **nommées**, citant `ADR-015`, ajustables après constat d'écran
+- `AreaLevel? MapViewModel.levelFor(double zoom)` — `region` sous 7, `departement` de 7 à moins de 9, `null` (niveau individuel) à partir de 9 ; fonction pure
+- `Future<void> start({required double zoom})` et `Future<void> onGestureEnded(Bounds bounds, {required double zoom})` — **étendent** les signatures posées par `H2`
+- `AreaLevel? get level`
+- `final class MapAreaCluster { final MapScaleKind scale; final AreaLevel level; final AdministrativeArea area; final double latitude; final double longitude; final int count; final Bounds? bounds; final FlowCategory? severest; final CampaignAge? severestAge; }` — `severest` et `severestAge` **nuls** sur l'échelle débit
+- `List<MapAreaCluster> get clusters` — **vide** au niveau individuel ; sur `debit`, calculés sur `StationPointRepository.all()` (l'asset **entier**), lu **une fois** au premier chargement puis gardé en mémoire ; sur `ecoulement`, sur les observations ONDE **chargées** pour l'emprise
+- `List<StationPoint> get individualStations` · `List<OndeObservation> get individualOndeObservations` — au niveau individuel, **tous** les points de l'emprise ; sous le zoom 9, **seulement** ceux sans zone au niveau courant
+- `sealed class ClusterZoomTarget` : `CoverBounds(Bounds bounds)` | `CentreOn({required double latitude, required double longitude, required double zoom})` · `ClusterZoomTarget MapViewModel.zoomTargetFor(MapAreaCluster cluster)`
+
+**Invariants :** le ViewModel n'importe **aucun** widget ni `flutter_map` (`view-model-sans-widget`) — le zoom lui arrive en `double`, comme l'emprise en `Bounds`. **Le préchargement n'a lieu qu'au niveau individuel** : `shouldPreloadOn(scale) && levelFor(zoom) == null`, relu **après** le chargement comme dans `H2` — une pastille ne montre aucun état de station, précharger sous 9 serait du travail réseau sans destinataire (`NFR-07`). **Stations : les agrégats portent sur l'asset entier** (`all()`) — le compte et le barycentre d'une pastille sont vrais quel que soit le bord de l'écran ; un échec de `all()` est posé dans `error` avec la source `referentiel`, comme un échec de `withinBounds`. **ONDE : les agrégats portent sur les points chargés pour l'emprise** — la donnée vient du réseau par emprise, le compte ne prétend rien au-delà (conséquence ➖ d'`ADR-015`). Les **marqueurs individuels** restent ceux de l'emprise, dans les deux échelles. Une seule échelle à la fois (`BR-008`) : sur `ecoulement`, les agrégats portent les observations ONDE ; sur `debit`, les `StationPoint`. `severestAge` est l'âge (`ondeAgeOf`, `H2`) du membre **le plus récent** parmi ceux de la catégorie la plus sévère. `zoomTargetFor` rend `CoverBounds` quand `bounds` n'est pas nul, sinon `CentreOn` le barycentre au zoom `individualMarkersFromZoom` — la sélection montre toujours ses membres, jamais une caméra immobile. Un changement de niveau **notifie** même si l'emprise est inchangée.
+
+**Cas de test** (sans rendu, dépôts bouchons, `now` et `delay` injectés — comme `H2`)
+
+- `levelFor` aux bornes : **4** → `region` ; **6,9** → `region` ; **7** → `departement` ; **8,9** → `departement` ; **9** → `null` ; **18** → `null`. La borne appartient au niveau le plus fin.
+- `onGestureEnded(bounds, zoom: 5)` sur `debit`, 50 stations dont 48 avec région et 2 sans → `clusters` non vide, `individualStations` = les **2** sans région, **zéro** appel `findLatest`, aucun `delay` enregistré. **Préchargement inhibé sous 9.**
+- Même emprise, `zoom: 8,9` → **zéro** appel `findLatest` ; `zoom: 9` → **20** appels exactement (`defaultPreloadLimit`), `clusters` vide, `individualStations` = les 50.
+- `selectScale(debit)` à `zoom: 6` → **aucun** préchargement ; puis `onGestureEnded(…, zoom: 9)` → préchargement lancé.
+- Échelle `debit`, zoom 5 : chaque `MapAreaCluster` a `severest` **nul** et `count` égal au nombre de ses membres — le **compte seul** (`ADR-015`, `BR-004`).
+- **Compte vrai hors écran** : dépôt de points bouchon dont `all()` rend une région `R` de **10** stations et `withinBounds` n'en rend que **4** (emprise coupant la région) → l'agrégat `R` a `count` **10** et le barycentre des **10** ; `all()` appelé **une seule fois** sur trois `onGestureEnded` successifs. `all()` qui lève → `error` posée, `errorSource` `referentiel`, `clusters` vide.
+- Échelle `ecoulement`, dépôt ONDE bouchon rendant les **15** observations de la fixture Loire : `zoom: 5` → **1** agrégat `24`, `count` **15**, `severest` `Assec` ; `zoom: 8` → **2** agrégats, `41` (`count` 13, `Assec`, barycentre `47,507709 ; 1,346744`) puis `45` (`count` 2, `Assec`) ; `zoom: 9` → `clusters` vide, `individualOndeObservations` = les 15. Le bouchon ONDE ne rend-il que 5 de ces observations (emprise plus étroite) → `count` **5** : sur l'écoulement, le compte est celui des points **chargés**.
+- Une observation dont `point.region` est `null` (copie synthétique d'une ligne de la fixture, **signalée comme telle** dans le test) → dans `individualOndeObservations` à `zoom: 5`, dans **aucun** agrégat, et le `count` de `24` ne la compte pas.
+- `severestAge` : `now` au `2026-09-13`, catégorie la plus sévère portée par deux membres observés le `2026-07-15` et le `2026-08-25` → `recente` (le plus récent, 19 j) ; seul membre au `2026-07-15` (60 j) → `ancienne` (`BR-010`).
+- `zoomTargetFor` : agrégat de deux membres distincts → `CoverBounds` égale aux min/max des membres ; agrégat d'un membre → `CentreOn` à `individualMarkersFromZoom`.
+- `onGestureEnded` avec la **même** emprise et un zoom qui change de niveau (`8,9` → `9`) → une notification, `level` passe à `null`.
+- Après `Z3` : `grep -n "levelFor\|individualMarkersFromZoom" lib/features/map/view/map_view.dart` ne montre que des **lectures**, aucune comparaison de zoom écrite dans la vue.
+
+- [ ] **Étape 1** — écrire les cas ci-dessus. Rouge.
+- [ ] **Étape 2** — `flutter test test/features/map/view_model` → échec.
+- [ ] **Étape 3** — implémenter dans le ViewModel ; la vue ne fait que **transmettre** `camera.zoom` avec l'emprise (`start`, `onGestureEnded`).
+- [ ] **Étape 4** — `flutter test test/features/map test/architecture` → vert ; `flutter test` → vert, **nombre de tests recopié**.
+- [ ] **Étape 5** — critère de fin, puis commit.
+
+```bash
+git add -- lib/features/map test/features/map && git commit -m "feat(map): le ViewModel regroupe par region puis par departement sous le zoom 9" -m "Sous le zoom 7 une pastille par region, de 7 a 9 une par departement, a partir de 9 les marqueurs individuels (ADR-015). Seuils en constantes nommees, testes aux bornes 6,9 / 7 / 8,9 / 9. Le prechargement des debits n a lieu qu au niveau individuel : une pastille ne montre aucun etat de station, NFR-07 interdit le travail reseau sans destinataire. Sur l echelle debit, compte seul avant les percentiles. Un point sans region reste individuel."
+```
+
+### Task Z4 : La pastille de zone à l'écran, ses goldens, et le constat du commanditaire
+
+**Files:** créés `lib/features/map/view/area_cluster_marker.dart`, `test/features/map/view/area_cluster_marker_test.dart`, `test/features/goldens/area_cluster_marker_golden_test.dart` et ses images · modifiés `lib/features/map/view/map_view.dart` (`buildMapLayers` dessine `clusters` puis `individualStations` / `individualOndeObservations` ; la sélection d'une pastille pilote la caméra), `test/features/map/view/map_view_test.dart`
+
+**Signatures publiques** — `class AreaClusterMarker extends StatelessWidget { const AreaClusterMarker({required this.cluster, super.key}); final MapAreaCluster cluster; }` · `String areaClusterLabel(MapAreaCluster cluster)` · `const double areaClusterMarkerSize` (≥ la cible tactile de 44 pt, `04-ui.md § 3`)
+
+**Invariants :** **aucune teinte, aucune forme nouvelle** — sur `ecoulement`, le symbole est **`OndeMarkerShape`/`OndeMarkerPainter` existant** pour `severest` et `severestAge` ; sur `debit`, la forme ◇ **existante** de `StationMarkerPainter` en rendu neutre (`fillOpacity: 0`, contour continu, `#767676`) ; le badge de compte est du texte, noir sur blanc (≥ 7:1, `04-ui.md § 3`). Un seul nœud `Semantics` par pastille, **préfixé par l'échelle** (`BR-008`, comme `_stationSemanticLabel`), le symbole enfant exclu (`excludeSemantics`). La sélection ne fait **qu'appliquer** `zoomTargetFor` du ViewModel (`Z3`) : aucune géométrie calculée dans la vue ; l'API de caméra de `flutter_map` 8.3.2 (`MapController`, ajustement à une emprise) est **lue dans le paquet installé** avant d'être écrite, jamais de mémoire. Aucune fiche ne s'ouvre (`BR-009`).
+
+**Cas de test**
+
+- `areaClusterLabel` sur l'échelle `ecoulement`, agrégat `24` de la fixture Loire → **« Écoulement : Centre-Val de Loire, 15 points d'observation sur cette vue, état le plus sévère : À sec »** — « sur cette vue » parce que le compte ONDE ne porte que sur les points chargés ; agrégat dont le plus sévère est `NonObserve` → « …, état le plus sévère : Non observé » (`BR-009` : un agrégat de points non observés affiche « Non observé ») ; un seul membre → « 1 point d'observation sur cette vue » (singulier).
+- `areaClusterLabel` sur l'échelle `debit`, agrégat `76` de l'asset → **« Débit relatif à l'historique : OCCITANIE, 753 stations »** — compte de l'asset entier, sans « sur cette vue », compte seul, **aucun** état, **aucun** mot banni (`BR-003`), aucun verbe d'instruction (`BR-014`).
+- Le libellé est affiché **tel que reçu** : `OCCITANIE` reste en capitales, `Centre-Val de Loire` en casse mixte.
+- La pastille mesure **≥ 44 × 44** ; un tap appelle le rappel de sélection **une** fois avec la pastille, et **n'ouvre pas** de fiche (aucun appel à `onStationTap` / `onOndeTap`).
+- `buildMapLayers` au niveau `region`, échelle `debit` : autant de pastilles que d'agrégats, **plus** un marqueur individuel par point sans région ; au niveau individuel : **aucune** pastille (famille unique, `BR-008`).
+- **Goldens**, regardés avant versionnement et contre-épreuve rouge constatée (même harnais que `U5`, `golden_harness.dart`) : (1) pastille **régionale**, échelle écoulement, `Assec` récent, compte **15** ; (2) pastille **départementale**, échelle débit, ◇ neutre, compte **28** (Loir-et-Cher) ; (3) compte à trois chiffres, **753**, pour vérifier que le badge ne déborde pas.
+
+- [ ] **Étape 1** — écrire `area_cluster_marker_test.dart` et les ajouts à `map_view_test.dart`. Rouge.
+- [ ] **Étape 2** — `flutter test test/features/map/view` → échec.
+- [ ] **Étape 3** — **lire** dans `flutter_map` 8.3.2 installé l'API d'ajustement de caméra à une emprise et de déplacement ; noter fichier et ligne dans l'en-tête de `area_cluster_marker.dart` ou de `map_view.dart`.
+- [ ] **Étape 4** — implémenter la pastille et brancher `buildMapLayers` ; `flutter test test/features/map` → vert.
+- [ ] **Étape 5** — écrire les goldens, `--update-goldens`, **regarder** les trois images, contre-épreuve (une teinte changée → rouge), rétablir.
+- [ ] **Étape 6** — `flutter test` → vert, **nombre de tests recopié**.
+- [ ] **Étape 7 — constat à l'écran : commanditaire.**
+
+```bash
+flutter run -d windows
+```
+Attendu, à constater **à l'écran**, un point par ligne : (1) au démarrage (zoom 5, échelle écoulement), **une pastille par région** hexagonale visible, chacune avec son compte et le symbole de son état le plus sévère — plus de nappe de marqueurs ; (2) échelle débit au même zoom : pastilles ◇ avec **compte seul** — une région à moitié hors écran garde son compte entier (Occitanie : **753**) —, et les stations transfrontalières (Rhin à Bâle, Semois en Belgique) **dessinées seules** ; (3) molette jusqu'au zoom 7 → **une pastille par département** ; jusqu'au zoom 9 → **marqueurs individuels**, et sur l'échelle débit les losanges commencent à se remplir (préchargement) ; (4) **sélection d'une pastille** → la carte zoome sur ses membres, **aucune fiche** ne s'ouvre ; (5) facultatif : le Narrateur annonce « Écoulement : …, N points d'observation sur cette vue, état le plus sévère : … ». **Recopier ce qui a été vu, y compris ce qui n'a pas marché**, et dire si les seuils 7 et 9 conviennent — ce sont eux que le constat révise.
+
+- [ ] **Étape 8** — critère de fin, puis commit, avec le constat recopié ; mettre à jour le point 30 de `docs/project-state.md` (résolu sous le zoom 9) dans le même commit.
+
+```bash
+git add -- lib/features/map test/features docs/project-state.md && git commit -m "feat(map): pastilles de region et de departement, selection qui zoome sur la zone" -m "Symboles existants seulement : le symbole ONDE de l etat le plus severe sur l echelle ecoulement (BR-009), le losange neutre et le compte seul sur l echelle debit. Une annonce par pastille, prefixee par l echelle (BR-008). La selection applique la cible calculee par le ViewModel, n ouvre aucune fiche. Trois goldens regardes, contre-epreuve rouge constatee. Constate a l ecran sur Windows : <recopier>. Point 30 resolu sous le zoom 9 (ADR-015)."
+```
+
+## Lot 5 — Clavier et souris (suite : `K1` → `K3`)
+
 ### Task K1 : Les contrôles de zoom, aux bonnes dimensions
 
 **Files:** créés `lib/features/map/view/map_controls.dart`, `lib/features/shared/tap_target.dart`, `lib/features/map/view/map_scale_chips.dart`, `lib/features/map/view/ign_attribution_badge.dart` · tests miroirs · modifiés `lib/features/map/view/map_view.dart` (le plan écrivait `map_screen.dart`), `lib/features/map/view/station_marker.dart`, `lib/features/station_sheet/view/station_summary_sheet.dart`, `lib/features/onde_sheet/view/onde_summary_sheet.dart`
@@ -1137,6 +1296,7 @@ git add lib/features/map test/features/map && git commit -m "refactor(map): rend
 - Les contrôles ne recouvrent **ni** le bandeau d'avertissement **ni** l'attribution IGN : assertion sur la position déclarée.
 - ⚠️ La **molette zoome** sur Windows — constaté le 2026-09-13 à l'exécution de T0, `NV-W1` clos. Cette tâche ne la touche pas : elle **ajoute** les boutons pour qui n'a pas de molette.
 - Un zoom par bouton déclenche la même séquence qu'un geste : `onGestureEnded` du ViewModel (`H2`), jamais un enchaînement recopié dans la vue.
+- **Les boutons franchissent les seuils d'`ADR-015`** (ajout du 2026-09-22) : avec `zoomStep` 1,0, `+` depuis le zoom **6** → `onGestureEnded(…, zoom: 7)`, `level` passe de `region` à `departement` ; `+` depuis **8** → `zoom: 9`, `clusters` vide et, sur l'échelle débit, préchargement lancé ; `−` depuis **9** → `zoom: 8`, pastilles départementales revenues et **aucun** nouvel appel `findLatest`. Vérifié sur le ViewModel (`Z3`), pas sur le rendu. Le recentrage ramène au zoom de démarrage (5) : niveau `region`.
 - `grep -rn "= 44" lib/` → **une** occurrence, dans `lib/features/shared/tap_target.dart` ; les tests de taille de `U1`, `U2`, `U4` passent inchangés en valeur.
 - `MapScaleChips` et `IgnAttributionBadge` : leurs tests existants passent **sans modification d'assertion** après le déplacement (seuls les imports changent).
 
@@ -1287,7 +1447,9 @@ git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tes
 | `G2` | six zooms molette successifs, du national au local — **et le nombre d'appels au dépôt de points pendant le geste** (révision du 2026-09-22 : c'est ce qui instruit `NV-W6`) | 10 s |
 
 > **Révision du 2026-09-22 — `NV-W6` instruit ici.** Chaque cran de molette déclenche un rechargement (`MapEventScrollWheelZoom` n'a pas de variante `…End` dans `flutter_map` 8.3.2). `G2` compte donc aussi les appels à `StationPointRepository.withinBounds` pendant le geste, par un **décorateur de comptage** (`lib/diagnostics/counting_station_point_repository.dart`) câblé par `main.dart` derrière le même drapeau, inerte sans lui. **Seul `main.dart` l'importe** : c'est une convention, aucune règle de `layers_test.dart` ne couvre `lib/diagnostics/` — la relecture de `X3` la vérifie par `grep -rn diagnostics lib/`. **Conclusion attendue, écrite dans `docs/nfr.md` :** si le coût de ces rechargements est visible dans les trames de `G2` (p90 ou trames en retard au-delà des seuils de `NFR-01` **et** plus d'un appel par cran), une tâche d'**anti-rebond** est ouverte, chiffrée, soumise au commanditaire ; sinon `NV-W6` est **clos** avec les chiffres. Dans les deux cas, pas d'anti-rebond écrit dans `X3`.
-| `G3` | glisser continu à zoom **national**, où les 4 150 pastilles sont toutes dessinées | 10 s |
+| `G3` | glisser continu à zoom **national**, ~~où les 4 150 pastilles sont toutes dessinées~~ — **depuis `ADR-015`** (lot 4 bis) : pastilles régionales plus les points sans région | 10 s |
+
+> **Révision du 2026-09-22 (bis) — mesurer avec le regroupement en place (`ADR-015`).** `X3` suit `Z4` : la mesure porte sur la carte telle qu'elle sera livrée. Le **geste `G2`** (du national au local) **franchit les deux seuils** — région → département au zoom 7, département → marqueurs individuels au zoom 9 — : c'est lui qui dit ce que coûte le passage d'un niveau à l'autre ; noter dans le rapport les crans où le niveau change. Le **geste `G3`** ne dessine plus 4 150 marqueurs mais quelques pastilles : il ne se compare pas au repère du spike, et ne le prétend pas.
 
 **Cas de test** (sur le calcul, pas sur le rendu)
 
@@ -1470,6 +1632,7 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | 10 | **Ordre des lots** | Données → ViewModels → Vues → Avertissements → Clavier → Documentation → Porte | Les avertissements en premier : ils sont la condition de mise en production, mais l'encart de fiche n'a pas de fiche où se poser avant le lot 3 |
 | 11 | **`BR-013` (encart renforcé) — ✅ arbitrage du commanditaire du 2026-09-22** | **Reporté en T2**, posé sur l'écran des restrictions VigiEau. En T1 la fiche station donne une mesure, pas une disponibilité de la ressource : aucun écran de T1 n'entre dans le champ de `BR-013`. T1 écrit et verrouille le **texte** (`W5`), pas le widget | (a) Poser l'encart sur la fiche station : étendrait `BR-013` à un écran qu'il ne vise pas, et doublerait l'encart daté de `W4` en tête de la même fiche. (b) Écrire le widget en T1 sans l'afficher : un widget sans appelant (YAGNI), dont l'emplacement ne serait prouvé par aucun test |
 | 12 | **Heure affichée — ✅ arbitrage du commanditaire du 2026-09-22, clôt le point 19** | **Heure locale, sans suffixe** : « 27/08/2026 à 10:00 ». Fuseau **injecté** pour des tests déterministes ; décalage demandé pour l'instant affiché. Un seul formateur (`H1`) | (a) UTC explicite (« … à 08:00 UTC », choix de `U1`) : exact mais demande à l'usager une conversion de tête. (b) Heure locale **avec** suffixe (« 10:00 heure de Paris » ou « UTC+2 ») : plus long, et le libellé du fuseau dépendrait de la machine. (c) Heure locale lue sans injection : tests dépendants du fuseau du poste |
+| 13 | **Regroupement des marqueurs — ✅ arbitrage du commanditaire du 2026-09-22, [`ADR-015`](../../adr/ADR-015-regroupement-par-zone-administrative.md)** | **Par zone administrative** sous le zoom 9 : une pastille par **région** sous 7, par **département** de 7 à 9, marqueurs individuels (`F2c`) à partir de 9. Barycentre calculé, compte, symbole existant de l'état le plus sévère (`BR-009`) ; compte seul sur l'échelle débit ; sélection → zoom sur l'emprise des membres ; préchargement au seul niveau individuel. **Précisions acceptées par le coordinateur le 2026-09-22 :** stations regroupées sur l'asset **entier** (`all()`), ONDE sur les points **chargés** (« sur cette vue ») ; « Non observé » l'emporte sur « Non renseigné » faute de membre observé ; l'âge du symbole est celui du membre **le plus récent** de la catégorie la plus sévère ; libellés de zone **tels que reçus**. Lot 4 bis, `Z1` → `Z4` | (a) **Garder `F2c` partout** : illisible au zoom national (constat du 2026-09-22), point 30 entier. (b) **Proximité via `flutter_map_marker_cluster`** : ajout de dépendance, et approche mesurée au rouge au spike (jank 8,9 %, `p99` 143 ms). (c) **Seuil de zoom + message** : masque les assecs, carte vide lue comme « rien à signaler » (`BR-007`, `BR-009`). (d) **Attendre `X3`** : `X3` mesure la fluidité, pas la lisibilité ni l'ambiguïté du tap |
 
 ---
 
@@ -1482,12 +1645,13 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | **2 — ViewModels** | `V1` → `V4` (4) | fiche station, carte enrichie, fiche ONDE, avertissements — **aucun widget importé** |
 | **3 — Vues** | `U1` → `U6` (6) | feuille au tap, marqueur de station, points ONDE, fiche ONDE, goldens, états vides |
 | **4 — Avertissements** | `W1` → `W3`, **`H1`**, `W4`, `W5` (6) | stockage et `ADR-011`, modal, bandeau, **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
+| **4 bis — Regroupement par zone** | `Z1` → `Z4` (4) | **`ADR-015`** (2026-09-22) : ADR et amendement de `04-ui.md § 4` (`Z1`, rédigée le 2026-09-22, commit à suivre), rattachement région/département dans le domaine et les données, `mostSevere` (`Z2`), niveau de zoom dans `MapViewModel`, préchargement inhibé sous 9 (`Z3`), pastille, goldens et constat d'écran (`Z4`) — exécuté entre `H2` et `K1` |
 | **5 — Clavier/souris** | **`H2`**, `K1` → `K3` (4) | **décisions de la carte rendues au ViewModel** (`H2`, 2026-09-22), boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
 | **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge React Native (`X5`, demande du 2026-09-14) |
 | **7 — Porte** | `P1`, `P2` (2) | exécutable Windows, **cinq constats**, `0.2.0` datée et taguée |
 | **Android** (hors décompte) | `A⏸1` → `A⏸5` (5) | différées le 2026-09-12, **différé levé le 2026-09-18** : `A⏸1` ✅, `A⏸2` 🔄 à constater par une construction, `A⏸3`→`A⏸5` ⏸ |
 
-**35 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22) : 8 + 4 + 6 + 6 + 4 + 5 + 2. **5 différées.**
+**39 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22, soit 35 ; **+`Z1` → `Z4`** le même jour, `ADR-015`) : 8 + 4 + 6 + 6 + 4 + 4 + 5 + 2. **5 différées.** L'ordre des lignes suit la numérotation des lots ; l'ordre d'**exécution** place le lot 4 bis entre `H2` et `K1` (graphe ci-dessous).
 
 ## Ordre d'exécution
 
@@ -1501,14 +1665,16 @@ graph LR
     W13 --> H1["H1<br/>formateur de date, heure locale"]
     H1 --> W45["W4, W5<br/>encart date, vocabulaire"]
     W45 --> H2["H2<br/>decisions carte vers le ViewModel"]
-    H2 --> K["Lot 5 — Clavier / souris<br/>K1 a K3"]
+    H2 --> Z["Lot 4 bis — zones administratives<br/>Z1 a Z4 (ADR-015)"]
+    Z --> K["Lot 5 — Clavier / souris<br/>K1 a K3"]
     U --> X["Lot 6 — Documentation<br/>X1 a X5"]
     W45 --> X
+    Z -->|"X3 mesure avec le regroupement"| X
     K --> P["Lot 7 — Porte<br/>P1, P2"]
     X --> P
 ```
 
-`D1` est **seule en tête** : `T-07` et `Q-01`/`Q-02` décident de la forme de `D3` et de `D5`. `W1` précède `W2` : un acquittement sans persistance réapparaît à chaque lancement, ce que `BR-012` interdit. **`H1` précède `W4`** : l'encart écrit une date, et il n'y a qu'un formateur. **`H2` précède `K1`** : les boutons et raccourcis déclenchent la séquence que `H2` rend au ViewModel. `X1` et `X2` partent dès que les vues existent — ils **documentent** ce que les lots 3 et 4 prouvent.
+`D1` est **seule en tête** : `T-07` et `Q-01`/`Q-02` décident de la forme de `D3` et de `D5`. `W1` précède `W2` : un acquittement sans persistance réapparaît à chaque lancement, ce que `BR-012` interdit. **`H1` précède `W4`** : l'encart écrit une date, et il n'y a qu'un formateur. **`H2` précède `K1`** : les boutons et raccourcis déclenchent la séquence que `H2` rend au ViewModel. **Le lot 4 bis s'intercale entre `H2` et `K1`** : `Z3` étend `onGestureEnded` posé par `H2`, et les boutons de `K1` franchissent les seuils de `Z3`. **`X3` attend `Z4`** : la fluidité se mesure sur la carte regroupée, telle qu'elle sera livrée. `X1` et `X2` partent dès que les vues existent — ils **documentent** ce que les lots 3 et 4 prouvent.
 
 ## Les quatre choses à ne jamais faire dans ce plan
 

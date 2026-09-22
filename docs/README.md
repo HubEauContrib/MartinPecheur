@@ -62,10 +62,11 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | ~~CQRS léger, cache par décorateur de gestionnaire~~ | **Remplacé par ADR-014** — *seul survivant : le cache en un point unique* |
 | [ADR-009](adr/ADR-009-cible-windows.md) | ~~Ajouter **Windows** aux cibles de la v1~~ | **Remplacé par ADR-010** — intention rétablie par ADR-013, sans réactivation |
 | [ADR-010](adr/ADR-010-react-native.md) | ~~**React Native**, abandon de MAUI et de Windows~~ | **Remplacé par ADR-013** (stack, 2026-09-12) · volet architecture remplacé par ADR-014 |
-| [ADR-011](adr/ADR-011-stockage-local.md) | **Stockage local : `shared_preferences`** pour la préférence simple | Accepté — arbitrage du commanditaire du 2026-09-18, **portée limitée** · 🔄 pas encore codé |
+| [ADR-011](adr/ADR-011-stockage-local.md) | **Stockage local : `shared_preferences`** pour la préférence simple | Accepté — arbitrage du commanditaire du 2026-09-18, **portée limitée** · ✅ réalisé par `W1` (`6b9e9ed`, 2026-09-22) — `shared_preferences` 2.5.5 dans `pubspec.yaml`, `SharedPreferencesAcknowledgementRepository` ; moteur structuré toujours ouvert |
 | [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — le téléchargement de packs plante en natif | **D exécutée** (le plantage se reproduit sur `arm64` réel), **E épuisée** ; question déplacée, non tranchée (`ADR-013`) ; le `Must` hors-ligne de `UC-005` reste non livré |
 | [ADR-013](adr/ADR-013-bascule-flutter-cible-windows.md) | **Bascule Flutter, Windows première cible** construite | Accepté — arbitrage du 2026-09-12, écrit a posteriori le 2026-09-13 |
 | [ADR-014](adr/ADR-014-feature-first-mvvm.md) | **Feature-first + MVVM** (`ChangeNotifier`), à la place du CQRS léger | Accepté — arbitrage du commanditaire du 2026-09-13 |
+| [ADR-015](adr/ADR-015-regroupement-par-zone-administrative.md) | **Regroupement par zone administrative** sous le zoom 9 (région, puis département), `F2c` au-delà | Accepté — arbitrage du commanditaire du 2026-09-22 · 🔄 pas encore codé (lot 4 bis de T1, `Z2`→`Z4`) |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».
@@ -75,8 +76,8 @@ section « Si la décision est revue ».
 > une chaîne, la version d'avertissement acquittée. Le **moteur de donnée structurée** (favoris,
 > dernière vue, cache d'observations persistant) **reste à trancher quand un écran en aura
 > besoin** — `drift` candidat par défaut, `sqflite` seul **ne couvrant pas Windows**.
-> 🔄 La dépendance n'est **pas encore dans `pubspec.yaml`** et aucun code ne l'utilise : c'est la
-> tâche `W1` de T1. Son numéro sort dans le désordre : `ADR-012` a été écrit avant lui, le
+> ✅ La dépendance est dans `pubspec.yaml` et utilisée par `SharedPreferencesAcknowledgementRepository`
+> depuis la tâche `W1` de T1 (`6b9e9ed`, 2026-09-22) ; son câblage dans `main.dart` vient avec `W2`. Son numéro sort dans le désordre : `ADR-012` a été écrit avant lui, le
 > 2026-08-15, parce que l'exécution de `M4` l'a imposé.
 
 ## Index des règles métier
