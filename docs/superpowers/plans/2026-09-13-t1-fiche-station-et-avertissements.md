@@ -978,6 +978,24 @@ git add lib test && git commit -m "feat(avertissement): modal bloquant du premie
 git add lib/features lib/domain test/features && git commit -m "feat(avertissement): 2 sur 4 — bandeau permanent sur la carte, a tous les zooms" -m "Le widget n expose aucun parametre de repli ni de fermeture, et le test verifie cette surface publique : un bandeau qu on peut fermer n est pas permanent, et l invariant de 04-ui section 4 serait contourne sans qu aucun test ne le voie. Contraste du texte au moins 7 pour 1, region d alerte pour le lecteur d ecran."
 ```
 
+### Task W2b : Dire à l'écran que l'acquittement n'a pas été enregistré (ajoutée le 2026-09-22, point 37)
+
+**Files:** modifiés `docs/use-cases/UC-006-acquitter-l-avertissement-initial.md` (flux alternatif), `lib/domain/warnings/warning_texts.dart`, `lib/features/warnings/view/initial_warning_view.dart` · tests miroirs
+
+**Signature publique** — `const String initialWarningWriteFailedText = "Votre choix n'a pas pu être enregistré. Vous pouvez réessayer.";` (arbitrage du commanditaire du 2026-09-22).
+
+**Invariant :** le blocage reste (`BR-012` : en cas de doute, on bloque) ; la phrase **n'entre pas** dans le verrou de version — ce n'est pas le texte acquitté.
+
+**Cas de test**
+
+- Écriture qui lève → la phrase s'affiche sous le bouton, le modal reste, la carte n'est pas construite.
+- Nouvel essai réussi → la phrase disparaît et la carte s'affiche.
+- Aucune phrase au premier affichage ni après une écriture réussie.
+- La phrase est annoncée au lecteur d'écran (région d'alerte) ; elle passe le balayage des mots bannis et des verbes d'instruction (`BR-014`).
+
+- [ ] **Étape 1** — ajouter le flux alternatif à `UC-006` avec la phrase exacte.
+- [ ] **Étape 2** — tests rouges, puis implémentation, puis critère de fin et commit.
+
 ### Task H1 : Un seul formateur de date, en heure locale (ajoutée le 2026-09-22, avant `W4`)
 
 > **Pourquoi maintenant.** `W4` écrit une date dans l'encart ; la décision 12 fixe l'**heure locale sans suffixe** (« 27/08/2026 à 10:00 »). Or le formatage de date est recopié aujourd'hui dans **quatre** fichiers d'affichage — `_utcDateAndTime` (`station_sheet_view_model.dart`), `formatMeasuredAt` (`station_summary_sheet.dart`), `formatCampaignDate` (`onde_summary_sheet.dart`), `_formatObservationDate` (`onde_marker.dart`) —, les trois premiers en UTC explicite. Poser `W4` sans `H1` ferait une cinquième copie, dans un troisième fuseau. `lib/data/http/hub_eau_paging.dart` formate aussi une date avec `padLeft(2`, mais c'est le **format filaire** `AAAA-MM-JJ` de l'API : il n'est **pas** concerné.
@@ -1646,14 +1664,14 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | **1 — Données** | `D1` → `D8` (8) | **faits d'API et fixtures d'abord**, domaine ONDE, mapper, client, dépôt hydro, cache 20 min, dépôt ONDE, point porté par l'observation (`D8`) |
 | **2 — ViewModels** | `V1` → `V4` (4) | fiche station, carte enrichie, fiche ONDE, avertissements — **aucun widget importé** |
 | **3 — Vues** | `U1` → `U6` (6) | feuille au tap, marqueur de station, points ONDE, fiche ONDE, goldens, états vides |
-| **4 — Avertissements** | `W1` → `W3`, **`H1`**, `W4`, `W5` (6) | stockage et `ADR-011`, modal, bandeau, **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
+| **4 — Avertissements** | `W1` → `W3`, **`W2b`**, **`H1`**, `W4`, `W5` (7) | stockage et `ADR-011`, modal, bandeau, **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
 | **4 bis — Regroupement par zone** | `Z1` → `Z4` (4) | **`ADR-015`** (2026-09-22) : ADR et amendement de `04-ui.md § 4` (`Z1`, rédigée le 2026-09-22, commit à suivre), rattachement région/département dans le domaine et les données, `mostSevere` (`Z2`), niveau de zoom dans `MapViewModel`, préchargement inhibé sous 9 (`Z3`), pastille, goldens et constat d'écran (`Z4`) — exécuté entre `H2` et `K1` |
 | **5 — Clavier/souris** | **`H2`**, `K1` → `K3` (4) | **décisions de la carte rendues au ViewModel** (`H2`, 2026-09-22), boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
 | **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge React Native (`X5`, demande du 2026-09-14) |
 | **7 — Porte** | `P1`, `P2` (2) | exécutable Windows, **cinq constats**, `0.2.0` datée et taguée |
 | **Android** (hors décompte) | `A⏸1` → `A⏸5` (5) | différées le 2026-09-12, **différé levé le 2026-09-18** : `A⏸1` ✅, `A⏸2` 🔄 à constater par une construction, `A⏸3`→`A⏸5` ⏸ |
 
-**39 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22, soit 35 ; **+`Z1` → `Z4`** le même jour, `ADR-015`) : 8 + 4 + 6 + 6 + 4 + 4 + 5 + 2. **5 différées.** L'ordre des lignes suit la numérotation des lots ; l'ordre d'**exécution** place le lot 4 bis entre `H2` et `K1` (graphe ci-dessous).
+**40 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22, soit 35 ; **+`Z1` → `Z4`** le même jour, `ADR-015` ; **+`W2b`** le même jour, point 37) : 8 + 4 + 6 + 7 + 4 + 4 + 5 + 2. **5 différées.** L'ordre des lignes suit la numérotation des lots ; l'ordre d'**exécution** place le lot 4 bis entre `H2` et `K1` (graphe ci-dessous).
 
 ## Ordre d'exécution
 
