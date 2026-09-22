@@ -44,6 +44,10 @@ const Key initialWarningCheckboxKey = Key('initial-warning-checkbox');
 /// Clé du bouton d'acquittement (`UC-006 § 2`, étapes 3 et 5).
 const Key initialWarningButtonKey = Key('initial-warning-button');
 
+/// Clé de la phrase d'échec d'enregistrement, affichée sous le bouton
+/// (`UC-006 A6`, arbitrage du commanditaire du 2026-09-22).
+const Key initialWarningWriteFailedKey = Key('initial-warning-write-failed');
+
 /// L'écran bloquant du premier lancement (`UC-006`, `BR-012`) : aucune
 /// fonctionnalité de l'application n'est atteignable tant qu'il est monté —
 /// c'est la racine de composition (`main.dart`) qui garantit cela, en ne
@@ -125,6 +129,15 @@ final class InitialWarningView extends StatelessWidget {
                         child: const Text(initialWarningButtonLabel),
                       ),
                     ),
+                    if (viewModel.error != null) ...<Widget>[
+                      const SizedBox(height: 16),
+                      Semantics(
+                        key: initialWarningWriteFailedKey,
+                        container: true,
+                        liveRegion: true,
+                        child: const Text(initialWarningWriteFailedText),
+                      ),
+                    ],
                     // Le lien « Relire le détail des sources » (`04-ui.md
                     // § 1`) est RETIRÉ ici : arbitrage du commanditaire du
                     // 2026-09-22, `BR-012` reste satisfait sans lui — il

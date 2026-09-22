@@ -167,6 +167,93 @@ void main() {
     );
   });
 
+  group('echec d\'enregistrement de l\'acquittement (UC-006 A6, arbitrage '
+      'du 2026-09-22)', () {
+    testWidgets('aucune phrase au premier affichage', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(_harness(_viewModelFor(_repository())));
+
+      expect(find.text(initialWarningWriteFailedText), findsNothing);
+    });
+
+    testWidgets(
+      'echec d\'ecriture : la phrase s\'affiche sous le bouton, le modal '
+      'reste, la carte n\'est pas construite',
+      (WidgetTester tester) async {
+        final _AcknowledgementRepositoryDouble repository = _repository(
+          writeError: const FormatException('ecriture ko'),
+        );
+        final WarningsViewModel viewModel = _viewModelFor(repository);
+        await tester.pumpWidget(_harness(viewModel));
+
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
+        await tester.tap(find.byKey(initialWarningButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(find.text(initialWarningWriteFailedText), findsOneWidget);
+        expect(viewModel.requiresAcknowledgement, isTrue);
+        expect(find.byType(InitialWarningView), findsOneWidget);
+
+        final Finder phrase = find.text(initialWarningWriteFailedText);
+        final Finder button = find.byKey(initialWarningButtonKey);
+        expect(
+          tester.getTopLeft(phrase).dy,
+          greaterThan(tester.getBottomLeft(button).dy - 1),
+        );
+      },
+    );
+
+    testWidgets(
+      'nouvel essai reussi : la phrase disparait et l\'acquittement est ecrit',
+      (WidgetTester tester) async {
+        final _AcknowledgementRepositoryDouble repository = _repository(
+          writeError: const FormatException('ecriture ko'),
+        );
+        final WarningsViewModel viewModel = _viewModelFor(repository);
+        await tester.pumpWidget(_harness(viewModel));
+
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
+        await tester.tap(find.byKey(initialWarningButtonKey));
+        await tester.pumpAndSettle();
+        expect(find.text(initialWarningWriteFailedText), findsOneWidget);
+
+        repository.writeError = null;
+        await tester.tap(find.byKey(initialWarningButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(find.text(initialWarningWriteFailedText), findsNothing);
+        expect(repository.written, <String>[_currentVersion]);
+      },
+    );
+
+    testWidgets(
+      'la phrase est annoncee au lecteur d\'ecran (region d\'alerte)',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        final _AcknowledgementRepositoryDouble repository = _repository(
+          writeError: const FormatException('ecriture ko'),
+        );
+        final WarningsViewModel viewModel = _viewModelFor(repository);
+        await tester.pumpWidget(_harness(viewModel));
+
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
+        await tester.tap(find.byKey(initialWarningButtonKey));
+        await tester.pumpAndSettle();
+
+        final SemanticsNode phrase = tester.getSemantics(
+          find.byKey(initialWarningWriteFailedKey),
+        );
+        expect(phrase.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+
+        handle.dispose();
+      },
+    );
+  });
+
   group('libelle du bouton (BR-012)', () {
     testWidgets('est exactement "J\'ai compris ces limites"', (
       WidgetTester tester,

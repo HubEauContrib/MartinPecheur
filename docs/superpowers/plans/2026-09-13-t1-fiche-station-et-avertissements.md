@@ -973,6 +973,7 @@ git add lib test && git commit -m "feat(avertissement): modal bloquant du premie
 - [x] **Étape 2** (2026-09-22) — `flutter test test/features/map/view/map_warning_banner_test.dart` → échec.
 - [x] **Étape 3** (2026-09-22) — ajouter `mapBannerText` à `warning_texts.dart` (sans toucher `warningTextVersion`), implémenter et brancher **au-dessus** de la carte, jamais en surimpression sur un marqueur.
 - [x] **Étape 4** (2026-09-22) — `flutter test` → vert, puis critère de fin et commit.
+
 > **Exécution du 2026-09-22.** Arbitrage du commanditaire : l'action « Ce que ça dit » ouvre une feuille `WarningReviewSheet` (même fichier que le bandeau, seul consommateur : la carte) qui réaffiche en lecture seule `initialWarningTitle` et `initialWarningBody`, sans case ni bouton d'acquittement, fermée par « Fermer ». Le bandeau est posé hors du `Stack` par `buildMapScreen` (`Column` + `Expanded`) : il reste visible fiches ouvertes. Surface publique verrouillée en liste blanche. 827 tests verts, relu par un second agent.
 
 ```bash
@@ -994,8 +995,8 @@ git add lib/features lib/domain test/features && git commit -m "feat(avertisseme
 - Aucune phrase au premier affichage ni après une écriture réussie.
 - La phrase est annoncée au lecteur d'écran (région d'alerte) ; elle passe le balayage des mots bannis et des verbes d'instruction (`BR-014`).
 
-- [ ] **Étape 1** — ajouter le flux alternatif à `UC-006` avec la phrase exacte.
-- [ ] **Étape 2** — tests rouges, puis implémentation, puis critère de fin et commit.
+- [x] **Étape 1** (2026-09-22) — ajouter le flux alternatif à `UC-006` avec la phrase exacte.
+- [x] **Étape 2** (2026-09-22) — tests rouges, puis implémentation, puis critère de fin et commit.
 
 ### Task H1 : Un seul formateur de date, en heure locale (ajoutée le 2026-09-22, avant `W4`)
 

@@ -44,6 +44,7 @@ stateDiagram-v2
 - **A3 — Texte modifié après une release :** la version stockée ne correspond plus, l'écran est réaffiché. Un simple booléen ne suffit pas.
 - **A4 — Taille de police à 200 % :** le texte défile, il n'est jamais tronqué. La case et le bouton restent atteignables.
 - **A5 — Lecteur d'écran :** le texte est lu intégralement, l'état inactif du bouton est annoncé, ainsi que son activation.
+- **A6 — Échec d'enregistrement de l'acquittement (arbitrage du commanditaire du 2026-09-22, point 37) :** l'écriture locale de la version acquittée échoue. La phrase **« Votre choix n'a pas pu être enregistré. Vous pouvez réessayer. »** s'affiche sous le bouton. L'écran reste bloqué (`BR-012`) : aucun accès à la carte. Un nouvel essai reste possible — presser à nouveau le bouton relance l'écriture ; un essai réussi fait disparaître la phrase et enregistre l'acquittement normalement.
 
 ## Postconditions
 

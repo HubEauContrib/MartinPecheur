@@ -64,6 +64,14 @@ const String initialWarningCheckboxLabel =
 /// ni « Fermer » (`BR-012`, `UC-006 § 2`).
 const String initialWarningButtonLabel = "J'ai compris ces limites";
 
+/// Phrase affichée sous le bouton du modal quand l'écriture locale de
+/// l'acquittement échoue (`UC-006 A6`, arbitrage du commanditaire du
+/// 2026-09-22, point 37). Le blocage reste (`BR-012`) ; cette phrase
+/// n'entre PAS dans [warningTextVersion] — ce n'est pas le texte acquitté,
+/// elle a son propre verrou (`test/domain/warnings/warning_texts_test.dart`).
+const String initialWarningWriteFailedText =
+    "Votre choix n'a pas pu être enregistré. Vous pouvez réessayer.";
+
 // ---------------------------------------------------------------------------
 // Tâche `W3` — bandeau permanent de la carte (emplacement 2 de
 // `04-ui.md § 5`). ⚠️ HORS VERROU DE VERSION : `warningTextVersion` ne

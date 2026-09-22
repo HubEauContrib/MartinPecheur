@@ -80,13 +80,21 @@ final class _EmptyStationRepository implements StationRepository {
 /// style que `test/features/warnings/view_model/warnings_view_model_test.dart`.
 final class _AcknowledgementRepositoryDouble
     implements AcknowledgementRepository {
-  _AcknowledgementRepositoryDouble({this.storedVersion, this.readError});
+  _AcknowledgementRepositoryDouble({
+    this.storedVersion,
+    this.readError,
+    this.writeError,
+  });
 
   final String? storedVersion;
 
   /// Levée par [readAcknowledgedVersion] si non nulle — simule un stockage
   /// illisible (`WarningsViewModel.load()` rebloque sans planter).
   final Object? readError;
+
+  /// Levée par [writeAcknowledgedVersion] si non nulle — simule un echec
+  /// d'ecriture (`UC-006 A6`, arbitrage du 2026-09-22).
+  final Object? writeError;
 
   @override
   Future<String?> readAcknowledgedVersion() async {
@@ -98,7 +106,12 @@ final class _AcknowledgementRepositoryDouble
   }
 
   @override
-  Future<void> writeAcknowledgedVersion(String version) async {}
+  Future<void> writeAcknowledgedVersion(String version) async {
+    final Object? error = writeError;
+    if (error != null) {
+      throw error;
+    }
+  }
 }
 
 MartinPecheurApp _app(WarningsViewModel warningsViewModel) => MartinPecheurApp(
@@ -213,6 +226,30 @@ void main() {
       await tester.pumpWidget(_app(warningsViewModel));
 
       expect(tester.takeException(), isNull);
+      expect(find.byType(InitialWarningView), findsOneWidget);
+      expect(find.byType(MapView), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'echec d\'ecriture de l\'acquittement (UC-006 A6) : le modal reste '
+    'affiche, MapView n\'est jamais construit',
+    (WidgetTester tester) async {
+      final WarningsViewModel warningsViewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          writeError: const FormatException('ecriture ko'),
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await warningsViewModel.load();
+
+      await tester.pumpWidget(_app(warningsViewModel));
+
+      await tester.tap(find.byKey(initialWarningCheckboxKey));
+      await tester.pump();
+      await tester.tap(find.byKey(initialWarningButtonKey));
+      await tester.pumpAndSettle();
+
       expect(find.byType(InitialWarningView), findsOneWidget);
       expect(find.byType(MapView), findsNothing);
     },

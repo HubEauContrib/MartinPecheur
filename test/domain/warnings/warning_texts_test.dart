@@ -101,4 +101,29 @@ void main() {
       expect(initialWarningButtonLabel, isNot('Fermer'));
     });
   });
+
+  group(
+    'initialWarningWriteFailedText (UC-006 A6, arbitrage du 2026-09-22)',
+    () {
+      test('vaut exactement "Votre choix n\'a pas pu être enregistré. Vous '
+          'pouvez réessayer."', () {
+        expect(
+          initialWarningWriteFailedText,
+          "Votre choix n'a pas pu être enregistré. Vous pouvez réessayer.",
+        );
+      });
+
+      test('ne contient aucun mot banni (BR-003)', () {
+        expect(_bannedWords.hasMatch(initialWarningWriteFailedText), isFalse);
+      });
+
+      test('ne contient aucun verbe d\'instruction sur un usage de l\'eau '
+          '(BR-014)', () {
+        expect(
+          _instructionVerbs.hasMatch(initialWarningWriteFailedText),
+          isFalse,
+        );
+      });
+    },
+  );
 }
