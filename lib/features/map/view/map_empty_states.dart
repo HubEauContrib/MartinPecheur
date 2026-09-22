@@ -331,6 +331,10 @@ class _WidenSearchAction extends StatelessWidget {
       // Le libellé est déjà annoncé ici ; sans cette exclusion le `Text`
       // intérieur en ferait un second nœud.
       excludeSemantics: true,
+      // Sans ce rappel, `excludeSemantics` masque l'action de tap que le
+      // geste porterait sinon lui-même : un double-tap au lecteur d'écran
+      // n'activerait plus rien (relecture du 2026-09-23).
+      onTap: onWiden,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onWiden,

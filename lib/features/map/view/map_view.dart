@@ -327,7 +327,10 @@ List<Marker> _stationMarkers({
               // l'échelle et le nom de la station, et masque celle de la
               // pastille : un marqueur, un seul nœud sémantique. Sans cela
               // chaque station en porterait deux, et le lecteur d'écran
-              // annoncerait l'état deux fois.
+              // annoncerait l'état deux fois. L'action de tap, elle, reste :
+              // le `GestureDetector` est ici l'ANCÊTRE de ce `Semantics`, pas
+              // son descendant, et `excludeSemantics` ne masque que les
+              // descendants (relecture du 2026-09-23).
               excludeSemantics: true,
               child: Center(
                 child: SizedBox(
@@ -751,6 +754,10 @@ class _MapScaleChip extends StatelessWidget {
       // Le libellé est déjà annoncé ici ; sans cette exclusion le `Text`
       // intérieur en ferait un second nœud.
       excludeSemantics: true,
+      // Sans ce rappel, `excludeSemantics` masque l'action de tap que le
+      // geste porterait sinon lui-même : un double-tap au lecteur d'écran
+      // n'activerait plus rien (relecture du 2026-09-23).
+      onTap: () => onSelect(kind),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => onSelect(kind),

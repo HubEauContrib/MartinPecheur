@@ -87,6 +87,28 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(44));
     });
 
+    testWidgets(
+      "l'action « Ce que ça dit » porte une action tap pour le lecteur "
+      "d'écran — `excludeSemantics` masque celle du geste (relecture du "
+      '2026-09-23)',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        await tester.pumpWidget(_harness(const MapWarningBanner()));
+
+        final SemanticsNode node = tester.getSemantics(
+          find.byKey(mapWarningBannerExplainKey),
+        );
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+        // L'action sémantique ouvre la feuille, comme le toucher.
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pumpAndSettle();
+        expect(find.text(initialWarningTitle), findsOneWidget);
+
+        handle.dispose();
+      },
+    );
+
     test('mapBannerText ne contient aucun mot de garantie (BR-014)', () {
       expect(_guaranteeWords.hasMatch(mapBannerText), isFalse);
     });
@@ -269,6 +291,27 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(initialWarningTitle), findsNothing);
+    });
+
+    testWidgets("la fermeture porte une action tap pour le lecteur d'écran "
+        '(relecture du 2026-09-23)', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await tester.pumpWidget(_harness(const MapWarningBanner()));
+
+      await tester.tap(find.byKey(mapWarningBannerExplainKey));
+      await tester.pumpAndSettle();
+
+      final SemanticsNode node = tester.getSemantics(
+        find.byKey(warningReviewSheetCloseButtonKey),
+      );
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+      // L'action sémantique referme la feuille, comme le toucher.
+      node.owner!.performAction(node.id, SemanticsAction.tap);
+      await tester.pumpAndSettle();
+      expect(find.text(initialWarningTitle), findsNothing);
+
+      handle.dispose();
     });
   });
 }

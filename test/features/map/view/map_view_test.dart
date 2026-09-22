@@ -11,6 +11,7 @@
 // (`test/features/map/view_model/map_view_model_test.dart`), qui le teste
 // sans monter aucun widget (R3, arbitrage 2026-09-13).
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -348,6 +349,49 @@ void main() {
 
       expect(tapped, hasLength(1));
       expect(tapped.single, StationCode('1011000101'));
+    });
+
+    testWidgets("le marqueur garde son action tap pour le lecteur d'écran — "
+        'le geste est l ANCÊTRE du `Semantics`, que `excludeSemantics` ne '
+        'masque donc pas (non-régression, relecture du 2026-09-23)', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      final List<StationCode> tapped = <StationCode>[];
+      final List<Widget> layers = buildMapLayers(
+        scale: MapScaleKind.debit,
+        stations: <StationPoint>[_blois()],
+        onStationTap: tapped.add,
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: stationMarkerTapTarget,
+                height: stationMarkerTapTarget,
+                child: markerLayer.markers.single.child,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final SemanticsNode node = tester.getSemantics(
+        find.byType(StationMarkerDot),
+      );
+      // Le nœud atteint est bien celui du marqueur, pas un ancêtre fusionné.
+      expect(node.label, contains('La Loire à Blois'));
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+      node.owner!.performAction(node.id, SemanticsAction.tap);
+      await tester.pump();
+      expect(tapped, <StationCode>[StationCode('K447001001')]);
+
+      handle.dispose();
     });
 
     testWidgets('sans rappel, le marqueur reste inerte — aucune exception au '
@@ -1337,6 +1381,36 @@ void main() {
       expect(selected, <MapScaleKind>[MapScaleKind.debit]);
     });
 
+    testWidgets("chaque puce porte une action tap pour le lecteur d'écran — "
+        '`excludeSemantics` masque celle du geste (relecture du '
+        '2026-09-23)', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      final List<MapScaleKind> selected = <MapScaleKind>[];
+      await pumpChips(
+        tester,
+        scale: MapScaleKind.ecoulement,
+        onSelect: selected.add,
+      );
+
+      for (final MapScaleKind kind in MapScaleKind.values) {
+        final SemanticsNode node = tester.getSemantics(
+          find.byKey(ValueKey<MapScaleKind>(kind)),
+        );
+        expect(
+          node.getSemanticsData().hasAction(SemanticsAction.tap),
+          isTrue,
+          reason: kind.name,
+        );
+
+        selected.clear();
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pump();
+        expect(selected, <MapScaleKind>[kind]);
+      }
+
+      handle.dispose();
+    });
+
     testWidgets('un tap sur la puce déjà active la redemande telle quelle — '
         "c'est le ViewModel qui décide que cela ne change rien", (
       WidgetTester tester,
@@ -1488,6 +1562,31 @@ void main() {
       expect(tapped, hasLength(1));
       expect(tapped.single.code, OndeStationCode('04170002'));
       expect(tapped.single.label, 'La Seille à Nomeny');
+    });
+
+    testWidgets("le marqueur ONDE garde son action tap pour le lecteur "
+        "d'écran — le geste est l ANCÊTRE du `Semantics` (non-régression, "
+        'relecture du 2026-09-23)', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      final List<OndePoint> tapped = <OndePoint>[];
+      final MarkerLayer markerLayer =
+          layersFor(MapScaleKind.ecoulement, onOndeTap: tapped.add)[1]
+              as MarkerLayer;
+
+      await pumpMarkerChild(tester, markerLayer.markers[1]);
+
+      final SemanticsNode node = tester.getSemantics(
+        find.byType(OndeMarkerShape),
+      );
+      // Le nœud atteint est bien celui du marqueur, pas un ancêtre fusionné.
+      expect(node.label, contains('La Seille à Nomeny'));
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+      node.owner!.performAction(node.id, SemanticsAction.tap);
+      await tester.pump();
+      expect(tapped.single.code, OndeStationCode('04170002'));
+
+      handle.dispose();
     });
 
     testWidgets('sans rappel, le marqueur ONDE reste inerte — aucune '

@@ -34,6 +34,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
@@ -203,6 +204,25 @@ void main() {
       await tester.pump();
 
       expect(elargissements, 1);
+    });
+
+    testWidgets("« Élargir la recherche » porte une action tap pour le "
+        "lecteur d'écran — `excludeSemantics` masque celle du geste "
+        '(relecture du 2026-09-23)', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      int elargissements = 0;
+      await _pump(tester, NoDataInAreaNotice(onWiden: () => elargissements++));
+
+      final SemanticsNode node = tester.getSemantics(
+        find.byKey(widenSearchKey),
+      );
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+      node.owner!.performAction(node.id, SemanticsAction.tap);
+      await tester.pump();
+      expect(elargissements, 1);
+
+      handle.dispose();
     });
   });
 

@@ -187,6 +187,10 @@ class _ExplainAction extends StatelessWidget {
       // intérieur en ferait un second nœud — même choix que
       // `_MapScaleChip` (`map_view.dart`).
       excludeSemantics: true,
+      // Sans ce rappel, `excludeSemantics` masque l'action de tap que le
+      // geste porterait sinon lui-même : un double-tap au lecteur d'écran
+      // n'activerait plus rien (relecture du 2026-09-23).
+      onTap: onTap,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
@@ -323,6 +327,10 @@ class _CloseAction extends StatelessWidget {
       button: true,
       label: warningReviewCloseLabel,
       excludeSemantics: true,
+      // Sans ce rappel, `excludeSemantics` masque l'action de tap que le
+      // geste porterait sinon lui-même : un double-tap au lecteur d'écran
+      // n'activerait plus rien (relecture du 2026-09-23).
+      onTap: onTap,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
