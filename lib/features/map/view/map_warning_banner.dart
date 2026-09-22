@@ -1,12 +1,21 @@
-// Le bandeau permanent d'avertissement (`W3`, emplacement 2 de
-// `04-ui.md § 5`, `BR-014`) : visible à tous les niveaux de zoom et sur tous
-// les écrans de détail, JAMAIS repliable ni masquable — `04-ui.md § 4` en
-// fait un invariant de la hiérarchie de carte. C'est pourquoi ce widget
-// n'expose AUCUN paramètre de repli, de fermeture ni de masquage :
-// `map_warning_banner_test.dart` verrouille cette surface publique en lisant
-// le code source, pas seulement le comportement — un paramètre ajouté
-// demain romprait l'invariant sans qu'aucun test de comportement ne le
-// remarque forcément.
+// Le bandeau d'avertissement de la carte (`W3`, emplacement 2 de
+// `04-ui.md § 5`, `BR-014`) : affiché à CHAQUE lancement, à tous les niveaux
+// de zoom et sur tous les écrans de détail. `map_warning_banner_test.dart`
+// verrouille sa surface publique en liste blanche en lisant le code
+// source — `onExplain` et `onDismiss`, rien d'autre — pas seulement le
+// comportement : un paramètre ajouté demain sans mise à jour de ce verrou
+// romprait l'intention sans qu'aucun test de comportement ne le remarque
+// forcément.
+//
+// ⚠️ Arbitrage du commanditaire du 2026-09-23 (`W3b`) : le bandeau n'est
+// plus permanent ni non repliable — il porte désormais un bouton « Fermer »
+// ([onDismiss]) qui le referme pour la SEULE session en cours, sans rien
+// persister ; au lancement suivant il revient. C'est `MapViewModel`
+// (`bannerVisible`, `dismissBanner`, `showBanner`) qui porte cet état :
+// [MapWarningBanner] lui-même ne décide toujours rien, il se contente
+// d'appeler [onDismiss] au tap. `buildMapScreen` (`map_view.dart`) ne le
+// rend que si `bannerVisible` est vrai. Un menu de la carte
+// ([map_menu.dart], entrée « Avertissement ») le réaffiche.
 //
 // ⚠️ Choix d'emplacement (révision du plan T1 du 2026-09-22, confirmé le
 // même jour pour la feuille de relecture) : `features/map/` est le SEUL
@@ -40,6 +49,9 @@ const Key mapWarningBannerRegionKey = Key('map-warning-banner-region');
 /// Clé de l'action « Ce que ça dit ».
 const Key mapWarningBannerExplainKey = Key('map-warning-banner-explain');
 
+/// Clé du bouton de fermeture du bandeau (W3b, session seulement).
+const Key mapWarningBannerDismissKey = Key('map-warning-banner-dismiss');
+
 /// Clé de la région d'alerte que forme la feuille de relecture.
 const Key warningReviewSheetRegionKey = Key('warning-review-sheet-region');
 
@@ -55,20 +67,28 @@ const Color mapWarningBannerBackground = Colors.white;
 /// au-dessus du seuil de 7:1 (`04-ui.md § 3`).
 const Color mapWarningBannerForeground = Colors.black;
 
-/// Le bandeau permanent (`BR-014`, emplacement 2 de `04-ui.md § 5`) : AUCUN
-/// paramètre de repli, de fermeture ni de masquage. [onExplain] est
-/// l'action « Ce que ça dit », jamais un moyen de faire disparaître le
-/// bandeau lui-même — sans lui, l'action ouvre elle-même
-/// [WarningReviewSheet] via `showModalBottomSheet`, si bien que la carte n'a
-/// RIEN à câbler pour que `04-ui.md § 1` soit respecté.
+/// Le bandeau d'avertissement (`BR-014`, emplacement 2 de `04-ui.md § 5`) :
+/// affiché à chaque lancement, refermable pour la session par [onDismiss]
+/// (arbitrage du 2026-09-23, `W3b`). [onExplain] est l'action « Ce que ça
+/// dit », jamais un moyen de faire disparaître le bandeau — sans lui,
+/// l'action ouvre elle-même [WarningReviewSheet] via
+/// `showModalBottomSheet`, si bien que la carte n'a RIEN à câbler pour que
+/// `04-ui.md § 1` soit respecté.
 class MapWarningBanner extends StatelessWidget {
-  const MapWarningBanner({this.onExplain, super.key});
+  const MapWarningBanner({this.onExplain, this.onDismiss, super.key});
 
   /// Appelé au tap sur « Ce que ça dit ». `null` par défaut : le bandeau
   /// ouvre alors lui-même [WarningReviewSheet]. Un test peut fournir cette
   /// valeur pour vérifier que le tap déclenche bien une action, sans monter
   /// la feuille.
   final VoidCallback? onExplain;
+
+  /// Appelé au tap sur « Fermer » (W3b). Ce widget ne décide rien : c'est
+  /// l'appelant — en production, `MapViewModel.dismissBanner` — qui porte
+  /// l'état « bandeau visible » pour la session. `null` par défaut : le tap
+  /// n'a alors aucun effet, plutôt que de faire disparaître un widget qui ne
+  /// possède pas son propre état d'affichage.
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -115,11 +135,20 @@ class MapWarningBanner extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: _ExplainAction(
-                          onTap: onExplain ?? () => _openReviewSheet(context),
-                        ),
+                      // `Wrap`, comme `MapScaleChips` (`map_view.dart`) :
+                      // deux actions ne tiennent pas toujours côte à côte à
+                      // 200 % de police (`04-ui.md § 3`) sur un écran
+                      // étroit.
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: <Widget>[
+                          _ExplainAction(
+                            onTap: onExplain ?? () => _openReviewSheet(context),
+                          ),
+                          _DismissAction(onTap: onDismiss ?? () {}),
+                        ],
                       ),
                     ],
                   ),
@@ -174,6 +203,61 @@ class _ExplainAction extends StatelessWidget {
                 color: mapWarningBannerForeground,
                 decoration: TextDecoration.underline,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Le bouton de fermeture du bandeau pour la session (W3b), cible tactile de
+/// [stationMarkerTapTarget]. Réutilise [warningReviewCloseLabel] — même
+/// action de lecture qu'une fermeture de feuille, pas un acquittement
+/// (`BR-012` ne s'applique qu'au bouton du modal initial).
+///
+/// [InkWell] plutôt que le `GestureDetector` nu employé par [_ExplainAction] :
+/// un `GestureDetector` ne répond à aucun événement clavier, et « Fermer »
+/// doit être atteignable au Tab et activable à Entrée/Espace (`04-ui.md § 3`,
+/// relecture du 2026-09-23). `Material(type: transparency)` l'entoure sans
+/// changer le fond du bandeau : `InkWell` exige un ancêtre `Material`, et ce
+/// type n'en peint aucun — seule l'éclaboussure au tap, déjà attendue d'un
+/// contrôle interactif, s'ajoute au rendu.
+class _DismissAction extends StatelessWidget {
+  const _DismissAction({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      key: mapWarningBannerDismissKey,
+      button: true,
+      label: warningReviewCloseLabel,
+      excludeSemantics: true,
+      // Sans ce rappel, `excludeSemantics` masque l'action de tap que
+      // `InkWell` porterait sinon lui-même : un double-tap au lecteur
+      // d'écran n'activerait plus rien (relecture du 2026-09-23).
+      onTap: onTap,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: stationMarkerTapTarget,
+              minHeight: stationMarkerTapTarget,
+            ),
+            child: Center(
+              child: Text(
+                warningReviewCloseLabel,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: mapWarningBannerForeground,
+                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

@@ -224,7 +224,7 @@ relecture. Tous sont **résolvables** sur cette branche.
 Documentation du lot : `68151f6` (plan), `6caac28` (préalable levé), `e21b08e` (lot 1 clos),
 `9cfcb6c` (`V1` fait), `0ce4ac3` (ADR-013 reporté, état réécrit), `9ab0005` (YAGNI `/campagnes`), `61df8a2` (`V3` cochée, `T-14`, `X5`).
 
-> Décompte du plan T1 : **40 tâches actives** depuis la révision du 2026-09-22 — `H1` et `H2` ajoutées
+> Décompte du plan T1 : **41 tâches actives** depuis la révision du 2026-09-22 — `H1` et `H2` ajoutées, puis `W2b` (2026-09-22) et `W3b` (2026-09-23)
 > (35), puis le lot 4 bis `Z1` → `Z4` le même jour (`ADR-015`) —, 5 différées. Corrigé une première fois le 2026-09-14 à 33 (le récapitulatif initial disait 31 — il
 > oubliait `D8` — et `X5` a été ajoutée).
 
@@ -296,6 +296,7 @@ Le plan est une esquisse antérieure ; **le code a raison**. Les écarts qui por
 | 37 | **Échec d'écriture de l'acquittement muet à l'écran** — si `writeAcknowledgedVersion` échoue, `WarningsViewModel` garde le blocage et expose `error`, mais `InitialWarningView` n'affiche rien : l'usager peut réappuyer, sans savoir pourquoi rien ne s'est passé | ✅ **Arbitré le 2026-09-22 par le commanditaire** : une phrase sous le bouton, « Votre choix n'a pas pu être enregistré. Vous pouvez réessayer. », ajoutée à `UC-006` (flux alternatif) et à `warning_texts.dart`, **hors** du verrou de version. ✅ **Réalisé par `W2b`** (`UC-006 A6`, 2026-09-22) ; un double appui pendant l'écriture réécrit la même version, sans effet |
 | 38 | **Lien « Relire le détail des sources » du modal (`BR-012`) retiré en T1** — sa cible, l'écran « D'où vient cette donnée ? » (`02-specifications.md`), n'est construite par aucune tâche | ✅ **Arbitré le 2026-09-22 par le commanditaire** : retiré en T1, le lien arrive avec l'écran (T2). Écart à `BR-012` à citer dans « Non vérifié » (`X4`, `P2`) |
 | 39 | **Fiche sans aucune mesure (station) ou sans campagne (ONDE) : pas d'encart daté** — l'encart de `04-ui.md § 5` porte « la date de la mesure ou de la campagne » ; sans date, il n'y a rien à dater | ✅ **Arbitré le 2026-09-23 par le commanditaire** : aucun encart, la phrase d'absence le dit déjà (`UC-003 A3`, `UC-004`) et le bandeau de la carte reste visible ; verrouillé par test (`W4`) |
+| 40 | **Bandeau de la carte : permanent ou fermable ?** — `W3` le posait permanent, sans aucun moyen de le fermer (`04-ui.md § 4`). Constat du commanditaire le 2026-09-23 : il veut le voir au départ, puis le retrouver par un menu | ✅ **Arbitré le 2026-09-23 par le commanditaire** : affiché à **chaque lancement**, fermable **pour la session** (rien n'est enregistré), rappelable par « Menu » › « Avertissement ». Écartés : premier lancement seulement, icône permanente réduite. `04-ui.md § 4-5` amendés, tâche `W3b`. Le constat « le bandeau disparaît après Ce que ça dit » n'a pas été reproduit en test (six variantes, tuiles réellement peintes) : cause non établie, sans objet depuis `W3b` |
 
 ## Constats d'API du 2026-07-31
 

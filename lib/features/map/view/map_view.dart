@@ -13,13 +13,20 @@
 // touché à ce `Stack`. Les deux fonctions pures rendent l'écran entier
 // vérifiable sans monter de carte.
 //
-// [buildMapScreen] (`W3`) assemble l'écran ENTIER : le bandeau permanent
+// [buildMapScreen] (`W3`, `W3b`) assemble l'écran ENTIER : le bandeau
 // d'avertissement ([MapWarningBanner], `map_warning_banner.dart`) AU-DESSUS
-// de tout, dans une `Column`, puis la carte et ses surcouches dans l'espace
-// restant. Une `Column` et non un `Stack` : le bandeau et la carte ne
-// peuvent alors PAS se chevaucher, par construction — c'est ce qui garantit
-// `04-ui.md § 4` (le bandeau reste visible à tous les niveaux de zoom, sans
-// jamais recouvrir puces, légende ni attribution).
+// de tout, dans une `Column`, tant qu'il n'a pas été refermé pour la
+// session, puis la carte et ses surcouches dans l'espace restant. Une
+// `Column` et non un `Stack` : le bandeau et la carte ne peuvent alors PAS
+// se chevaucher, par construction — c'est ce qui garantit `04-ui.md § 4`
+// (le bandeau, visible à tous les niveaux de zoom, ne recouvre jamais
+// puces, légende ni attribution).
+//
+// ⚠️ Arbitrage du commanditaire du 2026-09-23 (`W3b`) : le bandeau n'est
+// plus un invariant non repliable — il est affiché à chaque lancement, un
+// bouton « Fermer » le referme pour la SESSION SEULE (`MapViewModel`,
+// `bannerVisible`/`dismissBanner`/`showBanner`), et le menu de la carte
+// ([map_menu.dart], `MapMenuButton`) le réaffiche.
 //
 // ⚠️ Au zoom national, les 4 150 zones de tap de 44 pt se chevauchent, et le
 // marqueur qui reçoit le tap est le plus tardif dans l'ordre de l'asset, pas
@@ -110,6 +117,7 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_menu.dart';
 import 'package:martinpecheur/features/map/view/map_warning_banner.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
@@ -436,7 +444,12 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 /// l'environnement de test refuse le chargement de tuiles.
 ///
 /// Dans l'ordre :
-/// 1. **la légende, toujours** (`MapLegend`, en haut à droite) — `BR-008` en
+/// 1. **le bouton de menu, toujours** ([MapMenuButton], en haut à droite,
+///    au-dessus de la légende, `W3b`) — son unique entrée en T1,
+///    « Avertissement », réaffiche le bandeau fermé pour la session
+///    ([onShowBanner], en production `MapViewModel.showBanner`) ;
+/// 1bis. **la légende, toujours** (`MapLegend`, sous le bouton de menu, dans
+///    la même colonne — jamais recouverte, par construction) — `BR-008` en
 ///    fait une pièce obligatoire : les trois échelles du produit réutilisent
 ///    les mêmes teintes, et c'est elle qui nomme celle qui est active. Elle
 ///    est rendue quel que soit [error] : une carte en panne reste une carte
@@ -460,7 +473,9 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 /// [onSelect] est appelé avec l'échelle demandée par un tap de puce — en
 /// production, `MapViewModel.selectScale`. [onWiden] l'est par l'action
 /// « Élargir la recherche » de l'avis d'absence — en production,
-/// `MapViewModel.widenSearch`. Les deux sont **requis** : un contrôle sans
+/// `MapViewModel.widenSearch`. [onShowBanner] l'est par l'entrée
+/// « Avertissement » du menu ([MapMenuButton]) — en production,
+/// `MapViewModel.showBanner`. Les trois sont **requis** : un contrôle sans
 /// rappel serait mort à l'écran.
 ///
 /// [stations], [ondeObservations] et [ondeUnreadableRows] ne servent QU'À
@@ -477,6 +492,7 @@ List<Widget> buildMapOverlays({
   required MapScaleKind scale,
   required void Function(MapScaleKind kind) onSelect,
   required VoidCallback onWiden,
+  required VoidCallback onShowBanner,
   required Object? error,
   required List<StationPoint> stations,
   required Map<OndeStationCode, OndeObservation> ondeObservations,
@@ -501,7 +517,25 @@ List<Widget> buildMapOverlays({
       alignment: Alignment.topRight,
       child: Padding(
         padding: const EdgeInsets.all(_overlayPadding),
-        child: MapLegend(scale: scale),
+        // Une colonne, comme celle des puces à gauche : le bouton de menu
+        // et la légende ne peuvent alors PAS se chevaucher, par
+        // construction (`W3b`). `SingleChildScrollView` plutôt qu'un
+        // `Column` nu : sur une hauteur d'écran courte (paysage, écran
+        // divisé), le bouton de menu ET la légende « écoulement » (six
+        // niveaux) peuvent dépasser l'espace vertical restant sous le
+        // bandeau — un défilement local vaut mieux qu'un `RenderFlex`
+        // débordant hors écran, jamais constaté par l'usager.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              MapMenuButton(onShowBanner: onShowBanner),
+              const SizedBox(height: _overlayPadding),
+              MapLegend(scale: scale),
+            ],
+          ),
+        ),
       ),
     ),
     Align(
@@ -582,19 +616,27 @@ List<Widget> buildMapOverlays({
   ];
 }
 
-/// Assemble l'écran carte entier : le bandeau permanent (`MapWarningBanner`,
-/// `W3`) AU-DESSUS de tout — jamais en surimpression sur un marqueur, jamais
-/// sous les puces d'échelle, la légende ni l'attribution IGN
-/// (`04-ui.md § 4`) — puis [mapAndOverlays] (le `FlutterMap` empilé avec ses
-/// surcouches, produites par [buildMapLayers] et [buildMapOverlays]) dans
-/// l'espace restant.
+/// Assemble l'écran carte entier : le bandeau ([MapWarningBanner], `W3`,
+/// `W3b`) AU-DESSUS de tout quand [bannerVisible] est vrai — jamais en
+/// surimpression sur un marqueur, jamais sous les puces d'échelle, la
+/// légende ni l'attribution IGN (`04-ui.md § 4`) — puis [mapAndOverlays] (le
+/// `FlutterMap` empilé avec ses surcouches, produites par [buildMapLayers]
+/// et [buildMapOverlays]) dans l'espace restant.
 ///
 /// Fonction PURE, comme [buildMapLayers] et [buildMapOverlays], et pour la
 /// même raison : [mapAndOverlays] est un simple `Widget` ici — un test lui
 /// passe un espace réservé plutôt qu'un `FlutterMap`, ce qui rend visible et
-/// testable, SANS monter aucune tuile, que le bandeau reste posé quels que
-/// soient l'échelle et l'état de chargement (rien dans cette fonction n'en
-/// dépend : c'est précisément ce qui garantit l'invariant).
+/// testable, SANS monter aucune tuile, que le bandeau, tant qu'il est
+/// visible, reste posé quels que soient l'échelle et l'état de chargement
+/// (rien dans cette fonction n'en dépend).
+///
+/// ⚠️ Arbitrage du commanditaire du 2026-09-23 (`W3b`) : le bandeau n'est
+/// plus un invariant non repliable. [bannerVisible] — en production,
+/// `MapViewModel.bannerVisible` — décide s'il est rendu ; [onDismissBanner]
+/// est câblé sur `MapViewModel.dismissBanner`. Fermer ne vaut que pour la
+/// SESSION en cours : rien n'est persisté, et le bandeau revient au
+/// lancement suivant. Le menu de la carte ([MapMenuButton],
+/// `MapViewModel.showBanner`) le réaffiche entre-temps.
 ///
 /// Une `Column` plutôt qu'un `Stack` : le bandeau et la carte ne peuvent
 /// alors PAS se chevaucher, par construction — aucun calcul de marge ne
@@ -602,11 +644,17 @@ List<Widget> buildMapOverlays({
 /// un invariant, pas comme un réglage.
 Widget buildMapScreen({
   required Widget mapAndOverlays,
+  bool bannerVisible = true,
   void Function()? onExplainBanner,
+  void Function()? onDismissBanner,
 }) {
   return Column(
     children: <Widget>[
-      MapWarningBanner(onExplain: onExplainBanner),
+      if (bannerVisible)
+        MapWarningBanner(
+          onExplain: onExplainBanner,
+          onDismiss: onDismissBanner,
+        ),
       Expanded(child: mapAndOverlays),
     ],
   );
@@ -1001,6 +1049,8 @@ class _MapViewState extends State<MapView> {
         listenable: widget.viewModel,
         builder: (BuildContext context, Widget? child) {
           return buildMapScreen(
+            bannerVisible: widget.viewModel.bannerVisible,
+            onDismissBanner: widget.viewModel.dismissBanner,
             mapAndOverlays: Stack(
               children: <Widget>[
                 FlutterMap(
@@ -1019,6 +1069,7 @@ class _MapViewState extends State<MapView> {
                   scale: widget.viewModel.scale,
                   onSelect: _handleScaleSelected,
                   onWiden: _handleWiden,
+                  onShowBanner: widget.viewModel.showBanner,
                   error: widget.viewModel.error,
                   errorSource: widget.viewModel.errorSource,
                   stations: widget.viewModel.stations,

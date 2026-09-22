@@ -49,7 +49,7 @@ stateDiagram-v2
 ## Postconditions
 
 - La version acquittée est persistée localement.
-- Les trois autres emplacements d'avertissement restent actifs pour toute la durée de vie de l'application : bandeau de carte, encart de fiche, encart renforcé (`BR-013`). **L'acquittement n'en dispense d'aucun.**
+- Les trois autres emplacements d'avertissement restent actifs pour toute la durée de vie de l'application : bandeau de carte (affiché à chaque lancement, fermable pour la session, rappelable par le menu — amendement du 2026-09-23, `W3b`), encart de fiche, encart renforcé (`BR-013`). **L'acquittement n'en dispense d'aucun.**
 
 ## Règles métier référencées
 

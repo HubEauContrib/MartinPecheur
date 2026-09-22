@@ -959,7 +959,7 @@ git add lib test && git commit -m "feat(avertissement): modal bloquant du premie
 
 **Signatures publiques** — `class MapWarningBanner extends StatelessWidget { const MapWarningBanner({this.onExplain, super.key}); }` · `const String mapBannerText = 'Données indicatives. Ni autorisation, ni garantie.';` — **déclarée dans `lib/domain/warnings/warning_texts.dart`**
 
-**Invariant :** le bandeau reste visible **à tous les niveaux de zoom et sur tous les écrans de détail** (`04-ui.md § 4`) ; il n'est **ni repliable, ni masquable, ni escamotable au défilement**.
+**Invariant :** le bandeau reste visible **à tous les niveaux de zoom et sur tous les écrans de détail** (`04-ui.md § 4`) ; il n'est **ni repliable, ni masquable, ni escamotable au défilement**. ⚠️ **Remplacé le 2026-09-23 par `W3b`** : fermable pour la session, rappelable par le menu.
 
 **Cas de test**
 
@@ -979,6 +979,17 @@ git add lib test && git commit -m "feat(avertissement): modal bloquant du premie
 ```bash
 git add lib/features lib/domain test/features && git commit -m "feat(avertissement): 2 sur 4 — bandeau permanent sur la carte, a tous les zooms" -m "Le widget n expose aucun parametre de repli ni de fermeture, et le test verifie cette surface publique : un bandeau qu on peut fermer n est pas permanent, et l invariant de 04-ui section 4 serait contourne sans qu aucun test ne le voie. Contraste du texte au moins 7 pour 1, region d alerte pour le lecteur d ecran."
 ```
+
+### Task W3b : Le bandeau se ferme pour la session, un menu le rappelle (ajoutée le 2026-09-23, point 40)
+
+> **Arbitrage du commanditaire du 2026-09-23**, après constat d'écran : l'invariant « bandeau permanent, non repliable » de `W3` est **remplacé**. Le bandeau s'affiche à **chaque lancement** ; un bouton « Fermer » le masque **pour la session**, sans rien enregistrer ; un bouton « Menu » (en haut à droite, au-dessus de la légende) porte une entrée « Avertissement » qui le réaffiche. Alternatives écartées par le commanditaire : premier lancement seulement (plus aucun rappel sur la carte ensuite), icône permanente réduite. `04-ui.md § 4` et `§ 5` amendés.
+
+**Files:** créé `lib/features/map/view/map_menu.dart` · test miroir · modifiés `lib/features/map/view_model/map_view_model.dart`, `lib/features/map/view/map_warning_banner.dart`, `lib/features/map/view/map_view.dart`, `lib/domain/warnings/warning_texts.dart` (hors verrou de version) et leurs tests · `docs/04-ui.md`
+
+**Signatures publiques** — `MapViewModel` : `bool get bannerVisible` (vrai au démarrage), `void dismissBanner()`, `void showBanner()` · `MapWarningBanner({this.onExplain, this.onDismiss, super.key})` (surface verrouillée en liste blanche) · `MapMenuButton` (`MenuAnchor`, aucune bibliothèque) · `mapMenuLabel = 'Menu'`, `mapMenuWarningItemLabel = 'Avertissement'`
+
+- [x] **Étape 1** (2026-09-23) — tests rouges : ViewModel sans rendu (état initial, fermeture, rappel, appels redondants muets) ; vue (fermer, rappeler par le menu, visible quelle que soit l'échelle et fiche ouverte tant qu'il n'est pas fermé, cibles ≥ 44 pt, menu au clavier, aucun recouvrement de la légende ni de l'attribution).
+- [x] **Étape 2** (2026-09-23) — implémentation, critère de fin (883 tests verts), relecture, commit.
 
 ### Task W2b : Dire à l'écran que l'acquittement n'a pas été enregistré (ajoutée le 2026-09-22, point 37)
 
@@ -1100,7 +1111,7 @@ git add lib/features lib/domain test/features test/domain docs/project-state.md 
 - [ ] **Étape 5** — `flutter test` → vert, recopier le total de tests. Puis critère de fin et commit.
 
 ```bash
-git add lib/domain test && git commit -m "feat(avertissement): balayage mecanique du vocabulaire proscrit, texte de l encart renforce" -m "Les trois emplacements qui ont un ecran en T1 sont tenus : modal acquitte, bandeau permanent, encart date par fiche. Le quatrieme, l encart renforce de BR-013, n a pas d ecran en T1 : son texte est ecrit et fige par son test, son widget part en T2 avec l ecran des restrictions (arbitrage du 2026-09-22). Le balayage parcourt les litteraux de lib/domain et lib/features, commentaires retires, en mot entier et sans casse ; ses listes vivent sous test, sinon il se trouverait lui-meme. Chaque exception nomme un fichier et un litteral, dont STYLE=normal de l URL IGN. Contre-epreuve faite : <recopier le rouge>. L exception des libelles cites de VigiEau est declaree et vide en T1."
+git add lib/domain test && git commit -m "feat(avertissement): balayage mecanique du vocabulaire proscrit, texte de l encart renforce" -m "Les trois emplacements qui ont un ecran en T1 sont tenus : modal acquitte, bandeau de carte, encart date par fiche. Le quatrieme, l encart renforce de BR-013, n a pas d ecran en T1 : son texte est ecrit et fige par son test, son widget part en T2 avec l ecran des restrictions (arbitrage du 2026-09-22). Le balayage parcourt les litteraux de lib/domain et lib/features, commentaires retires, en mot entier et sans casse ; ses listes vivent sous test, sinon il se trouverait lui-meme. Chaque exception nomme un fichier et un litteral, dont STYLE=normal de l URL IGN. Contre-epreuve faite : <recopier le rouge>. L exception des libelles cites de VigiEau est declaree et vide en T1."
 ```
 
 ---
@@ -1615,7 +1626,7 @@ git add docs && git commit -m "docs: consigner les constats de la porte T1 sur W
 - [ ] **Étape 4 — commit et tag.**
 
 ```bash
-git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.2.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "C est la premiere version ou chaque ecran porte l avertissement que BR-012 lui impose : modal acquitte, bandeau permanent, encart date par fiche. L encart renforce de BR-013 n a pas d ecran en T1 et part en T2 avec les restrictions (arbitrage du 2026-09-22). Ce n est pas pour autant un produit complet, et la section Non verifie le dit : aucun percentile, aucun appel VigiEau, BR-013 en T2, aucun parcours integre, iOS jamais compile, Android tel que constate."
+git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.2.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "C est la premiere version ou chaque ecran porte l avertissement que BR-012 lui impose : modal acquitte, bandeau de carte, encart date par fiche. L encart renforce de BR-013 n a pas d ecran en T1 et part en T2 avec les restrictions (arbitrage du 2026-09-22). Ce n est pas pour autant un produit complet, et la section Non verifie le dit : aucun percentile, aucun appel VigiEau, BR-013 en T2, aucun parcours integre, iOS jamais compile, Android tel que constate."
 ```
 
 ```bash
@@ -1668,14 +1679,14 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | **1 — Données** | `D1` → `D8` (8) | **faits d'API et fixtures d'abord**, domaine ONDE, mapper, client, dépôt hydro, cache 20 min, dépôt ONDE, point porté par l'observation (`D8`) |
 | **2 — ViewModels** | `V1` → `V4` (4) | fiche station, carte enrichie, fiche ONDE, avertissements — **aucun widget importé** |
 | **3 — Vues** | `U1` → `U6` (6) | feuille au tap, marqueur de station, points ONDE, fiche ONDE, goldens, états vides |
-| **4 — Avertissements** | `W1` → `W3`, **`W2b`**, **`H1`**, `W4`, `W5` (7) | stockage et `ADR-011`, modal, bandeau, **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
+| **4 — Avertissements** | `W1` → `W3`, **`W3b`**, **`W2b`**, **`H1`**, `W4`, `W5` (8) | stockage et `ADR-011`, modal, bandeau, **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
 | **4 bis — Regroupement par zone** | `Z1` → `Z4` (4) | **`ADR-015`** (2026-09-22) : ADR et amendement de `04-ui.md § 4` (`Z1`, rédigée le 2026-09-22, commit à suivre), rattachement région/département dans le domaine et les données, `mostSevere` (`Z2`), niveau de zoom dans `MapViewModel`, préchargement inhibé sous 9 (`Z3`), pastille, goldens et constat d'écran (`Z4`) — exécuté entre `H2` et `K1` |
 | **5 — Clavier/souris** | **`H2`**, `K1` → `K3` (4) | **décisions de la carte rendues au ViewModel** (`H2`, 2026-09-22), boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
 | **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge React Native (`X5`, demande du 2026-09-14) |
 | **7 — Porte** | `P1`, `P2` (2) | exécutable Windows, **cinq constats**, `0.2.0` datée et taguée |
 | **Android** (hors décompte) | `A⏸1` → `A⏸5` (5) | différées le 2026-09-12, **différé levé le 2026-09-18** : `A⏸1` ✅, `A⏸2` 🔄 à constater par une construction, `A⏸3`→`A⏸5` ⏸ |
 
-**40 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22, soit 35 ; **+`Z1` → `Z4`** le même jour, `ADR-015` ; **+`W2b`** le même jour, point 37) : 8 + 4 + 6 + 7 + 4 + 4 + 5 + 2. **5 différées.** L'ordre des lignes suit la numérotation des lots ; l'ordre d'**exécution** place le lot 4 bis entre `H2` et `K1` (graphe ci-dessous).
+**41 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22, soit 35 ; **+`Z1` → `Z4`** le même jour, `ADR-015` ; **+`W2b`** le même jour, point 37 ; **+`W3b`** le 2026-09-23, point 40) : 8 + 4 + 6 + 8 + 4 + 4 + 5 + 2. **5 différées.** L'ordre des lignes suit la numérotation des lots ; l'ordre d'**exécution** place le lot 4 bis entre `H2` et `K1` (graphe ci-dessous).
 
 ## Ordre d'exécution
 

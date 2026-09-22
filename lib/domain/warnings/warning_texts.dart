@@ -75,14 +75,15 @@ const String initialWarningWriteFailedText =
     "Votre choix n'a pas pu être enregistré. Vous pouvez réessayer.";
 
 // ---------------------------------------------------------------------------
-// Tâche `W3` — bandeau permanent de la carte (emplacement 2 de
-// `04-ui.md § 5`). ⚠️ HORS VERROU DE VERSION : `warningTextVersion` ne
-// couvre QUE le texte du modal (arbitrage du coordinateur, 2026-09-22) — ce
-// texte-ci est figé par son propre test,
-// `test/features/map/view/map_warning_banner_test.dart`.
+// Tâche `W3` — bandeau d'avertissement de la carte (emplacement 2 de
+// `04-ui.md § 5`) : affiché à chaque lancement, fermable pour la SESSION
+// SEULE depuis l'arbitrage du commanditaire du 2026-09-23 (`W3b`, voir plus
+// bas). ⚠️ HORS VERROU DE VERSION : `warningTextVersion` ne couvre QUE le
+// texte du modal (arbitrage du coordinateur, 2026-09-22) — ce texte-ci est
+// figé par son propre test, `test/features/map/view/map_warning_banner_test.dart`.
 // ---------------------------------------------------------------------------
 
-/// Texte du bandeau permanent de la carte, recopié du wireframe
+/// Texte du bandeau d'avertissement de la carte, recopié du wireframe
 /// (`docs/04-ui.md § 1`, l. ~15-16 : « ⚠ Données indicatives. Ni
 /// autorisation, ni garantie. »).
 const String mapBannerText =
@@ -98,6 +99,24 @@ const String mapExplainActionLabel = 'Ce que ça dit';
 /// d'acquittement du modal initial (`BR-012`, `initialWarningButtonLabel`),
 /// jamais pour une fermeture de lecture seule comme celle-ci.
 const String warningReviewCloseLabel = 'Fermer';
+
+// ---------------------------------------------------------------------------
+// Tâche `W3b` — menu de la carte (arbitrage du commanditaire du 2026-09-23,
+// qui remplace l'invariant « bandeau permanent, non repliable » de `W3` par
+// un bandeau fermable pour la session, réaffichable depuis ce menu). ⚠️ HORS
+// VERROU DE VERSION, comme les textes de `W3` : `warningTextVersion` ne
+// couvre QUE le texte du modal initial. Ces deux libellés sont figés par
+// leur propre test, `test/features/map/view/map_menu_test.dart`.
+// ---------------------------------------------------------------------------
+
+/// Libellé d'accessibilité du bouton de menu de la carte (arbitrage du
+/// commanditaire du 2026-09-23).
+const String mapMenuLabel = 'Menu';
+
+/// Libellé de l'entrée « Avertissement » du menu de la carte, qui réaffiche
+/// le bandeau fermé pour la session (arbitrage du commanditaire du
+/// 2026-09-23).
+const String mapMenuWarningItemLabel = 'Avertissement';
 
 // ---------------------------------------------------------------------------
 // Tâche `W4` — encart daté de chaque fiche (emplacement 3 de

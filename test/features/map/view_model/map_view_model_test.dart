@@ -1174,4 +1174,65 @@ void main() {
       expect(repository.calls, 0);
     });
   });
+
+  group('bandeau d\'avertissement — fermeture pour la session (arbitrage du '
+      'commanditaire du 2026-09-23, W3b)', () {
+    test('bannerVisible est vrai au demarrage', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      expect(viewModel.bannerVisible, isTrue);
+    });
+
+    test('dismissBanner passe bannerVisible a faux et notifie', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      viewModel.dismissBanner();
+
+      expect(viewModel.bannerVisible, isFalse);
+      expect(notifications, 1);
+    });
+
+    test('dismissBanner deja ferme ne notifie pas une seconde fois', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.dismissBanner();
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      viewModel.dismissBanner();
+
+      expect(notifications, 0);
+    });
+
+    test(
+      'showBanner rend bannerVisible vrai et notifie apres une fermeture',
+      () {
+        final MapViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+        viewModel.dismissBanner();
+        int notifications = 0;
+        viewModel.addListener(() => notifications++);
+
+        viewModel.showBanner();
+
+        expect(viewModel.bannerVisible, isTrue);
+        expect(notifications, 1);
+      },
+    );
+
+    test('showBanner deja visible ne notifie pas', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      viewModel.showBanner();
+
+      expect(notifications, 0);
+    });
+  });
 }

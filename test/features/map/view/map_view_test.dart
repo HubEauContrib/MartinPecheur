@@ -11,6 +11,7 @@
 // (`test/features/map/view_model/map_view_model_test.dart`), qui le teste
 // sans monter aucun widget (R3, arbitrage 2026-09-13).
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -28,9 +29,12 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/domain/warnings/warning_texts.dart'
+    show mapMenuWarningItemLabel;
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_menu.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/map_warning_banner.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
@@ -647,6 +651,7 @@ void main() {
       MapScaleKind scale = MapScaleKind.ecoulement,
       void Function(MapScaleKind kind)? onSelect,
       VoidCallback? onWiden,
+      VoidCallback? onShowBanner,
       Object? error,
       MapErrorSource? errorSource,
       List<StationPoint> stations = const <StationPoint>[],
@@ -664,6 +669,7 @@ void main() {
                 scale: scale,
                 onSelect: onSelect ?? (MapScaleKind kind) {},
                 onWiden: onWiden ?? () {},
+                onShowBanner: onShowBanner ?? () {},
                 error: error,
                 errorSource: errorSource,
                 stations: stations,
@@ -802,6 +808,42 @@ void main() {
         lessThanOrEqualTo(tester.getTopLeft(find.byType(MapLegend)).dx),
       );
     });
+
+    testWidgets('le bouton de menu est TOUJOURS présent, au-dessus de la '
+        'légende (W3b)', (WidgetTester tester) async {
+      await pumpOverlays(tester);
+
+      expect(find.byType(MapMenuButton), findsOneWidget);
+      expect(
+        tester.getBottomLeft(find.byType(MapMenuButton)).dy,
+        lessThanOrEqualTo(tester.getTopLeft(find.byType(MapLegend)).dy),
+      );
+    });
+
+    testWidgets('le bouton de menu ne recouvre ni les puces ni '
+        "l'attribution IGN (W3b)", (WidgetTester tester) async {
+      await pumpOverlays(tester);
+
+      final Rect menu = tester.getRect(find.byType(MapMenuButton));
+      final Rect chips = tester.getRect(find.byType(MapScaleChips));
+      final Rect attribution = tester.getRect(find.byType(IgnAttributionBadge));
+
+      expect(menu.overlaps(chips), isFalse);
+      expect(menu.overlaps(attribution), isFalse);
+    });
+
+    testWidgets("l'entrée « Avertissement » du menu appelle onShowBanner "
+        '(W3b)', (WidgetTester tester) async {
+      int calls = 0;
+      await pumpOverlays(tester, onShowBanner: () => calls++);
+
+      await tester.tap(find.byType(MapMenuButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(mapMenuWarningItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(calls, 1);
+    });
   });
 
   // `MapErrorBanner` est retiré depuis `U6` : un bandeau rouge portant
@@ -927,7 +969,8 @@ void main() {
     },
   );
 
-  group('buildMapScreen — le bandeau permanent au-dessus de la carte (W3)', () {
+  group('buildMapScreen — le bandeau au-dessus de la carte, tant '
+      "qu'il est visible (W3)", () {
     /// Rend l'écran SEUL, sans `FlutterMap` : [mapAndOverlays] reçoit un
     /// simple espace réservé, comme `pumpOverlays` au-dessus rend les
     /// surcouches sans monter de tuile.
@@ -961,6 +1004,7 @@ void main() {
                 scale: scale,
                 onSelect: (MapScaleKind kind) {},
                 onWiden: () {},
+                onShowBanner: () {},
                 error: null,
                 stations: const <StationPoint>[],
                 ondeObservations: const <OndeStationCode, OndeObservation>{},
@@ -986,6 +1030,7 @@ void main() {
                 scale: MapScaleKind.debit,
                 onSelect: (MapScaleKind kind) {},
                 onWiden: () {},
+                onShowBanner: () {},
                 error: error,
                 stations: const <StationPoint>[],
                 ondeObservations: const <OndeStationCode, OndeObservation>{},
@@ -1009,6 +1054,7 @@ void main() {
             scale: MapScaleKind.debit,
             onSelect: (MapScaleKind kind) {},
             onWiden: () {},
+            onShowBanner: () {},
             error: StateError('panne'),
             errorSource: MapErrorSource.referentiel,
             stations: const <StationPoint>[],
@@ -1049,6 +1095,152 @@ void main() {
 
       expect(calls, 1);
     });
+  });
+
+  group('buildMapScreen — fermeture du bandeau pour la session (W3b, '
+      'arbitrage du commanditaire du 2026-09-23)', () {
+    Future<void> pumpScreen(
+      WidgetTester tester, {
+      bool bannerVisible = true,
+      void Function()? onDismissBanner,
+    }) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: buildMapScreen(
+              mapAndOverlays: const SizedBox.shrink(),
+              bannerVisible: bannerVisible,
+              onDismissBanner: onDismissBanner,
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('bannerVisible vrai (par défaut) : le bandeau est rendu', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(tester);
+
+      expect(find.byType(MapWarningBanner), findsOneWidget);
+    });
+
+    testWidgets('bannerVisible faux : le bandeau est absent', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(tester, bannerVisible: false);
+
+      expect(find.byType(MapWarningBanner), findsNothing);
+    });
+
+    testWidgets(
+      'le tap sur « Fermer » du bandeau appelle onDismissBanner, câblé par '
+      'la vue',
+      (WidgetTester tester) async {
+        int calls = 0;
+        await pumpScreen(tester, onDismissBanner: () => calls++);
+
+        await tester.tap(find.byKey(mapWarningBannerDismissKey));
+        await tester.pump();
+
+        expect(calls, 1);
+      },
+    );
+
+    testWidgets(
+      'le bouton « Fermer » est atteignable au Tab et activable à Entrée : '
+      'le bandeau disparaît, sans exception ensuite (relecture du '
+      '2026-09-23)',
+      (WidgetTester tester) async {
+        bool bannerVisible = true;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (BuildContext context, StateSetter setState) {
+                  return buildMapScreen(
+                    mapAndOverlays: const SizedBox.shrink(),
+                    bannerVisible: bannerVisible,
+                    onDismissBanner: () =>
+                        setState(() => bannerVisible = false),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+
+        // Seul « Fermer » est focalisable dans le bandeau : « Ce que ça dit »
+        // reste un `GestureDetector` nu, hors périmètre de cette relecture
+        // (remonté à part par le commanditaire). Un seul Tab l'atteint donc.
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MapWarningBanner), findsNothing);
+        expect(
+          tester.takeException(),
+          isNull,
+          reason:
+              'le focus porté par « Fermer » disparaît avec le bandeau : '
+              'aucune exception ne doit en résulter',
+        );
+      },
+    );
+  });
+
+  group('Écran carte — bout en bout, fermeture puis réouverture du bandeau '
+      'via le menu (W3b, relecture du 2026-09-23)', () {
+    testWidgets(
+      '« Fermer » masque le bandeau ; « Menu » puis « Avertissement » le '
+      'réaffiche',
+      (WidgetTester tester) async {
+        bool bannerVisible = true;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (BuildContext context, StateSetter setState) {
+                  return buildMapScreen(
+                    bannerVisible: bannerVisible,
+                    onDismissBanner: () =>
+                        setState(() => bannerVisible = false),
+                    mapAndOverlays: Stack(
+                      children: buildMapOverlays(
+                        scale: MapScaleKind.debit,
+                        onSelect: (MapScaleKind kind) {},
+                        onWiden: () {},
+                        onShowBanner: () =>
+                            setState(() => bannerVisible = true),
+                        error: null,
+                        stations: const <StationPoint>[],
+                        ondeObservations:
+                            const <OndeStationCode, OndeObservation>{},
+                        ondeUnreadableRows: 0,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+
+        expect(find.byType(MapWarningBanner), findsOneWidget);
+
+        await tester.tap(find.byKey(mapWarningBannerDismissKey));
+        await tester.pump();
+        expect(find.byType(MapWarningBanner), findsNothing);
+
+        await tester.tap(find.byType(MapMenuButton));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(mapMenuWarningItemLabel));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MapWarningBanner), findsOneWidget);
+      },
+    );
   });
 
   group('shouldPreloadOn — le débit ne se précharge que sur son échelle '
@@ -1421,6 +1613,7 @@ void main() {
                 scale: scale,
                 onSelect: (MapScaleKind kind) {},
                 onWiden: onWiden ?? () {},
+                onShowBanner: () {},
                 error: error,
                 errorSource: errorSource,
                 stations: stations,
@@ -1576,6 +1769,7 @@ void main() {
                 scale: scale,
                 onSelect: onSelect ?? (MapScaleKind kind) {},
                 onWiden: () {},
+                onShowBanner: () {},
                 error: error,
                 errorSource: error == null ? null : MapErrorSource.referentiel,
                 stations: <StationPoint>[_blois()],

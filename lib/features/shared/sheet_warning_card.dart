@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 
-/// Fond de l'encart — même convention que le bandeau permanent de la carte
+/// Fond de l'encart — même convention que le bandeau d'avertissement de la carte
 /// (`map_warning_banner.dart`) et les avis de `map_empty_states.dart`.
 const Color sheetWarningCardBackground = Colors.white;
 
