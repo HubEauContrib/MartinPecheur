@@ -1,8 +1,10 @@
-# T1 — Fiche station, écoulement ONDE et les quatre avertissements : plan d'implémentation
+# T1 — Fiche station, écoulement ONDE et les avertissements : plan d'implémentation
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** au tap d'une station, une feuille de résumé donne le débit en m³/s avec sa date, sa fraîcheur et sa qualification ; les points ONDE sont sur la carte avec leurs quatre catégories et l'âge de leur campagne ; **les quatre avertissements sont en place** et l'acquittement survit au redémarrage ; la carte se pilote au clavier et à la souris ; version `0.2.0` construite et lancée hors outil sur Windows.
+> **Révision du 2026-09-22 — arbitrages du commanditaire.** Le plan est amendé **en place** (approche A) après un bilan de conception vérifié sur le code : `BR-013` (encart renforcé) est **reporté en T2**, avec l'écran des restrictions VigiEau qui sera le premier écran de ressource (décision 11) ; l'heure affichée est l'**heure locale sans suffixe**, fuseau injecté (décision 12, clôt le point 19 de `project-state.md`). Deux tâches sont insérées juste avant celles qui en ont besoin — **`H1`** (formateur de date unique, avant `W4`) et **`H2`** (décisions de la carte rapatriées dans `MapViewModel`, avant `K1`) — et les tâches `W2`→`W5`, `K1`, `K2`, `X1`→`X5`, `P1`, `P2` sont corrigées. **35 tâches actives.** Contexte, défauts constatés et alternatives écartées : [`2026-09-22-revision-plan-t1-design.md`](../specs/2026-09-22-revision-plan-t1-design.md).
+
+**Goal:** au tap d'une station, une feuille de résumé donne le débit en m³/s avec sa date, sa fraîcheur et sa qualification ; les points ONDE sont sur la carte avec leurs quatre catégories et l'âge de leur campagne ; **les trois avertissements qui ont un écran en T1 sont en place** (modal, bandeau, encart daté — l'encart renforcé de `BR-013` part en T2 avec son écran, décision 11) et l'acquittement survit au redémarrage ; la carte se pilote au clavier et à la souris ; version `0.2.0` construite et lancée hors outil sur Windows.
 
 **Architecture:** feature-first + MVVM (`ADR-014`) — `lib/features/<feature>/{view,view_model}`, un `ChangeNotifier` par écran, appels **typés** aux dépôts de `lib/data/`, `lib/domain/` en Dart pur et transverse. `CachePolicy` est un **décorateur de dépôt** (`lib/data/cache/cache_policy.dart`), unique. Aucun bus, aucun message, aucune bibliothèque d'état.
 
@@ -26,12 +28,12 @@ Ce plan est écrit **sur l'architecture cible**. Les tâches `R1` → `R6` de la
 | **iOS** | Déclaré, `bundleIdentifier` aligné. **Jamais compilé** — aucun hôte macOS |
 | **Android** | ~~⏸ différé (arbitrage 2026-09-12)~~ → 🔄 **réactivé le 2026-09-18** par le commanditaire. Les tâches restent listées en fin de plan, **hors décompte** : `A⏸1` faite, `A⏸2` à constater par une construction, les autres toujours ⏸ |
 
-**Ce que T1 fait :** (a) fiche station au tap · (b) carte colorée par état, deux échelles · (c) écoulement ONDE de bout en bout · (d) **les quatre avertissements** · (e) lot clavier/souris · (f) Gherkin, traçabilité, `NFR-01`.
+**Ce que T1 fait :** (a) fiche station au tap · (b) carte colorée par état, deux échelles · (c) écoulement ONDE de bout en bout · (d) **trois des quatre avertissements** — modal, bandeau, encart daté ; le texte de l'encart renforcé est écrit, son widget part en T2 (décision 11) · (e) lot clavier/souris · (f) Gherkin, traçabilité, `NFR-01`.
 
 **Ce que T1 ne fait pas :**
 
 - **Aucun percentile.** `ADR-003` et son script Dart sont **hors T1** — décision 1. La conséquence est assumée et visible : sur l'échelle « débit », **toute** station est `Indéterminé` au sens de `BR-004`.
-- **Aucun appel VigiEau.** `RestrictionSource` reste une interface ; l'échelle 3 et `UC-002` sont en **T2**. `BR-013` est néanmoins posé sur les écrans de ressource qui existent.
+- **Aucun appel VigiEau.** `RestrictionSource` reste une interface ; l'échelle 3 et `UC-002` sont en **T2**. ~~`BR-013` est néanmoins posé sur les écrans de ressource qui existent.~~ **Amendé le 2026-09-22 (décision 11)** : aucun écran de T1 n'est un écran de ressource au sens de `BR-013` — la fiche station donne une mesure, pas une disponibilité de la ressource. L'encart renforcé est **reporté en T2**, posé sur l'écran des restrictions VigiEau ; T1 n'en écrit que le **texte**, dans `warning_texts.dart` (`W5`). ⚠️ Prérequis T2 hors de ce plan : `RestrictionSource` vit aujourd'hui sous `lib/data/restrictions/restriction_source.dart`, qu'un ViewModel ne peut pas importer (règle `features-vers-data`) — l'interface devra passer sous `lib/domain/`.
 - **Aucune courbe** (`US-11`), aucun favori (`US-14`), aucun filtre (`US-13`), aucune recherche (`US-16`) : **T3**.
 - **Aucune géolocalisation** — `NFR-05` reste tenu par construction. **Aucune base structurée** : la seule persistance est l'acquittement (`W1`). **Aucun `integration_test/`** : T3.
 
@@ -130,7 +132,10 @@ lib/domain/                             Dart pur — ajouts de T1
   onde/onde_station_code.dart           OndeStationCode, 8 caracteres (D2)
   onde/onde_point.dart  onde/onde_observation.dart  onde/campaign_age.dart   (D2)
   repositories/repositories.dart        + OndeObservationRepository, AcknowledgementRepository (D2, W1)
-  warnings/warning_texts.dart           les quatre textes + leur version (W2)
+  warnings/warning_texts.dart           TOUS les textes d'avertissement ; la version ne couvre que le
+                                        modal (W2) — bandeau W3, encart date W4, encart renforce W5
+  sources/source_names.dart             noms de source affiches, Hub'Eau hydrometrie et ONDE (W4)
+  formatting/display_date.dart          formateur de date unique, heure locale, fuseau injecte (H1)
 lib/data/
   cache/cache_policy.dart               withCachePolicy, unique (pose par R4)
   http/onde_uris.dart  http/hub_eau_paging.dart                  (D4)
@@ -143,17 +148,25 @@ lib/features/
   map/view_model/map_view_model.dart  map/view_model/map_scale.dart          (V2)
   map/view/station_marker.dart  map/view/onde_marker.dart  map/view/map_legend.dart  (U2, U3)
   map/view/map_empty_states.dart  map/view/map_controls.dart                 (U6, K1)
+  map/view/map_warning_banner.dart                                           (W3 — seul consommateur : la carte)
+  map/view/{map_scale_chips,ign_attribution_badge}.dart   sortis de map_view.dart (K1)
   station_sheet/{view_model/station_sheet_view_model.dart,view/station_summary_sheet.dart}  (V1, U1)
   onde_sheet/{view_model/onde_sheet_view_model.dart,view/onde_summary_sheet.dart}          (V3, U4)
   warnings/view_model/warnings_view_model.dart                               (V4)
-  warnings/view/{initial_warning_view,map_warning_banner,sheet_warning_card,reinforced_warning_card}.dart (W2-W5)
+  warnings/view/initial_warning_view.dart                                    (W2)
+  shared/sheet_warning_card.dart        encart date des deux fiches, premier occupant de shared/ (W4)
+  shared/tap_target.dart                cible tactile 44 pt, constante unique (K1)
+  (reinforced_warning_card.dart : T2, avec l'ecran des restrictions — decision 11)
 lib/diagnostics/frame_timing_probe.dart percentiles de trame, NFR-01 (X3)
+lib/diagnostics/counting_station_point_repository.dart  compteur d'appels, NV-W6 (X3) — importe par main.dart seul
 lib/main.dart                           cable depots et ViewModels
 
 test/  un test par fichier de code, plus :
   features/goldens/                      rendu de marqueur (U5)
   project/acceptance_features_test.dart  chaque scenario cite un BR existant (X1)
   project/tracabilite_test.dart  project/vocabulary_test.dart  project/windows_min_size_test.dart
+  project/vocabulary_lists.dart          listes proscrites et exceptions nominatives (W5)
+  project/warning_texts_version_test.dart  texte integral du MODAL + version figes (W2)
   fixtures/onde/                         captures datees de D1
 
 docs/  acceptance/*.feature (X1) · tracabilite.md (X2) · adr/ADR-011-stockage-local.md (W1)
@@ -568,7 +581,7 @@ git add lib/features/warnings test/features/warnings && git commit -m "feat(aver
 
 **Files:** créé `lib/features/station_sheet/view/station_summary_sheet.dart` · test miroir · modifiés `lib/features/map/view/map_view.dart` (+ son test), `lib/main.dart`
 
-> **Écarts constatés à l'exécution (2026-09-14).** Le fichier de la vue carte s'appelle `map_view.dart` depuis le réusinage MVVM, pas `map_screen.dart`. La règle `feature-vers-feature` de `test/architecture/layers_test.dart` interdit à `features/map/` d'importer `features/station_sheet/` : le panneau de fiche est donc **injecté** dans `MapView` (`Widget? stationSheet`) avec le rappel de tap (`void Function(StationCode)? onStationTap`), et c'est `main.dart` — racine de composition, seule exemptée — qui compose `StationSheetPanel` avec son ViewModel. Pour la même raison, `minimumTapTarget` (fiche) et `stationMarkerTapTarget` (carte) sont **deux constantes**, recopiées de `04-ui.md § 3`, jamais l'une de l'autre. `formatMeasuredAt` rend un **UTC explicite** (`JJ/MM/AAAA à HH:MM UTC`), même convention que `stalenessNotice` de `V1` ; le fuseau affiché reste le point ouvert n° 19. Arrondi à **trois décimales** puis zéros de fin retirés, virgule décimale, signe moins typographique `−` (U+2212), sans séparateur de milliers. La phrase d'absence est celle de `UC-003 A3` **en entier** (« … Cela arrive lors des pannes, de la maintenance ou du gel. »), dont la phrase du plan est le début. `AssetStationRepository` est désormais câblé dans `main.dart` : son premier appelant est arrivé.
+> **Écarts constatés à l'exécution (2026-09-14).** Le fichier de la vue carte s'appelle `map_view.dart` depuis le réusinage MVVM, pas `map_screen.dart`. La règle `feature-vers-feature` de `test/architecture/layers_test.dart` interdit à `features/map/` d'importer `features/station_sheet/` : le panneau de fiche est donc **injecté** dans `MapView` (`Widget? stationSheet`) avec le rappel de tap (`void Function(StationCode)? onStationTap`), et c'est `main.dart` — racine de composition, seule exemptée — qui compose `StationSheetPanel` avec son ViewModel. Pour la même raison, `minimumTapTarget` (fiche) et `stationMarkerTapTarget` (carte) sont **deux constantes**, recopiées de `04-ui.md § 3`, jamais l'une de l'autre. `formatMeasuredAt` rend un **UTC explicite** (`JJ/MM/AAAA à HH:MM UTC`), même convention que `stalenessNotice` de `V1` ; le fuseau affiché reste le point ouvert n° 19 (→ **arbitré le 2026-09-22** : heure locale sans suffixe, réalignement en `H1`). Arrondi à **trois décimales** puis zéros de fin retirés, virgule décimale, signe moins typographique `−` (U+2212), sans séparateur de milliers. La phrase d'absence est celle de `UC-003 A3` **en entier** (« … Cela arrive lors des pannes, de la maintenance ou du gel. »), dont la phrase du plan est le début. `AssetStationRepository` est désormais câblé dans `main.dart` : son premier appelant est arrivé.
 
 > **Écart assumé — le tap entre marqueurs superposés (2026-09-14).** Au zoom national, 4 150 zones de tap de 44 pt se chevauchent ; `flutter_map` 8.3.2 empile les marqueurs dans l'ordre de la liste (`lib/src/layer/marker_layer/marker_layer.dart` l. 101-177 du paquet installé, lu le 2026-09-14) et le hit-test d'un `Stack` va du dernier au premier : le marqueur qui reçoit le tap est le plus tardif dans l'ordre de l'asset, pas le plus proche du doigt. `04-ui.md § 3` demande un regroupement automatique des zones qui se chevauchent — `F2` non tranchée, `F2c` sans regroupement retenue par défaut : **écart assumé pour T1**, à acter par le commanditaire. Une ligne d'en-tête de `lib/features/map/view/map_view.dart` le dit sur place.
 
@@ -719,7 +732,7 @@ git add lib/features/map test/features/map && git commit -m "feat(ecoulement): p
 
 ### Task U4 : La fiche ONDE
 
-**Files:** créé `lib/features/onde_sheet/view/onde_summary_sheet.dart` · test miroir · modifié `lib/features/map/view/map_screen.dart`
+**Files:** créé `lib/features/onde_sheet/view/onde_summary_sheet.dart` · test miroir · modifié `lib/features/map/view/map_view.dart` (le plan écrivait `map_screen.dart`, corrigé le 2026-09-22 : le fichier s'appelle `map_view.dart` depuis le réusinage MVVM)
 
 **Signatures publiques** — `class OndeSummarySheet extends StatelessWidget { const OndeSummarySheet({required this.data, super.key}); }` · `String formatCampaignDate(DateTime date)` · `String formatCampaignAge(int days)`
 
@@ -755,7 +768,7 @@ git add lib/features/map test/features/map && git commit -m "feat(ecoulement): p
 
 **Relecture du 2026-09-14 : exclusivité des fiches garantie par `main.dart`, catégorie sans gris (7:1), réserve « officiel » au glossaire.** Trois corrections tranchées à la relecture : (1) l'exclusivité des deux fiches n'est pas un effet de bord des échelles — `main.dart` la rend vraie explicitement, chaque rappel de tap fermant l'autre fiche avant d'ouvrir la sienne ; (2) `flowCategoryLabel(latest.category)` est un libellé d'état, tenu à 7:1 par `04-ui.md` § 3, que `#767676` (4,54:1) ne tient pas — la catégorie garde sa couleur par défaut, `BR-010` restant porté par le marqueur (`U3`) et par la mention datée ; (3) `docs/glossary.md` gagne la réserve sur « officiel » quand le mot attribue une nomenclature à sa source, comme dans « Modalité officielle ONDE : ».
 
-⚠️ **Pour `W4` :** un encart partagé par les deux feuilles ne peut pas être importé par les deux tranches (règle `feature-vers-feature`) — à trancher avant `W4` : emplacement hors `features/` (arbitrage) ou recopie.
+⚠️ **Pour `W4` :** un encart partagé par les deux feuilles ne peut pas être importé par les deux tranches (règle `feature-vers-feature`) — à trancher avant `W4` : emplacement hors `features/` (arbitrage) ou recopie. → **Arbitré le 2026-09-18** (`lib/features/shared/`), appliqué par la révision du 2026-09-22 : voir `W4`.
 
 ```bash
 git add lib/features/onde_sheet test/features/onde_sheet && git commit -m "feat(ecoulement): fiche d un point ONDE, avec l age de campagne et l historique" -m "La date de campagne se formate sans heure parce que l API n en donne pas : en inventer une laisserait croire a une precision qui n existe pas. Le rappel du rythme reel est rendu dans tous les cas, pas seulement hors saison : c est ce qui empeche de lire une observation de trois semaines comme un etat courant (BR-010)."
@@ -844,7 +857,9 @@ git add lib/features/map test/features/map && git commit -m "feat(ui): nommer ch
 
 ---
 
-## Lot 4 — Les quatre avertissements et leur persistance
+## Lot 4 — Les avertissements et leur persistance
+
+> **Révisé le 2026-09-22.** Ordre : `W1` → `W2` → `W3` → **`H1`** → `W4` → `W5`. Tous les textes d'avertissement vivent dans **un seul fichier**, `lib/domain/warnings/warning_texts.dart` (Dart pur, balayable sans rendu). Seul le texte du **modal** est lié à `warningTextVersion` (`W2`) ; les autres sont figés par leurs propres tests. `BR-013` n'a pas d'écran en T1 (décision 11) : `W5` n'en écrit que le texte.
 
 ### Task W1 : Le stockage de l'acquittement, et `ADR-011`
 
@@ -889,11 +904,19 @@ git add pubspec.yaml pubspec.lock lib docs test && git commit -m "feat(avertisse
 
 ### Task W2 : Avertissement 1 sur 4 — le modal bloquant du premier lancement
 
-**Files:** créés `lib/domain/warnings/warning_texts.dart`, `lib/features/warnings/view/initial_warning_view.dart` · tests miroirs · modifié `lib/main.dart`
+> Numérotation « n sur 4 » : `04-ui.md § 5` décrit quatre emplacements ; trois sont posés en T1 (`W2`, `W3`, `W4`), le quatrième, l'encart renforcé de `BR-013`, en T2 (décision 11).
+
+**Files:** créés `lib/domain/warnings/warning_texts.dart`, `lib/features/warnings/view/initial_warning_view.dart`, `test/project/warning_texts_version_test.dart` · tests miroirs · modifié `lib/main.dart` et son test de racine
 
 **Signatures publiques** — `const String warningTextVersion = '2026-09-13.1';` · `const String initialWarningBody` · `const String initialWarningCheckboxLabel` · `const String initialWarningButtonLabel = "J'ai compris ces limites";` · `class InitialWarningView extends StatelessWidget { const InitialWarningView({required this.viewModel, required this.onAcknowledged, super.key}); }`
 
-**Invariants :** **aucune fonctionnalité** n'est atteignable avant acquittement (`BR-012`) ; le bouton est **inactif** tant que la case est décochée, sans pré-cochage ; son libellé **engage** — jamais « OK », « Continuer » ni « Fermer ».
+**Invariants :** **aucune fonctionnalité** n'est atteignable avant acquittement (`BR-012`) ; le bouton est **inactif** tant que la case est décochée, sans pré-cochage ; son libellé **engage** — jamais « OK », « Continuer » ni « Fermer » ; **tous** les textes d'avertissement du produit vivent dans `warning_texts.dart` — ceux de `W3`, `W4` et `W5` y seront ajoutés, jamais écrits dans un widget.
+
+> **Révision du 2026-09-22 — le modal ne clignote pas.** `WarningsViewModel` vaut `requiresAcknowledgement == true` **avant** `load()` (`lib/features/warnings/view_model/warnings_view_model.dart`, l. 59 — c'est voulu : en cas de doute, on bloque). Si `runApp` précède `load()`, un usager déjà acquitté voit le modal une image puis la carte. **`main.dart` attend donc `warningsViewModel.load()` avant `runApp`**, comme il attend déjà le référentiel. Le ViewModel n'est pas modifié.
+>
+> **Verrou de version, défini.** Un test sous `test/project/` fige le **texte intégral du modal** — `initialWarningBody`, `initialWarningCheckboxLabel`, `initialWarningButtonLabel` — **et** `warningTextVersion`, dans une seule table attendue. Un texte du modal changé sans version changée rend la suite rouge ; changer les deux oblige à réécrire la table — c'est l'acte délibéré que `UC-006 A3` demande. Le plan citait `changelog_test.dart` : ce test porte sur le `CHANGELOG`, pas sur les textes.
+>
+> **Portée du verrou — arbitrage du coordinateur du 2026-09-22.** `warningTextVersion` ne couvre **que** le texte du modal : c'est lui que l'usager acquitte, et c'est lui que `UC-006 A3` fait relire. Changer le texte du bandeau (`W3`), de l'encart daté (`W4`) ou de l'encart renforcé (`W5`) **ne réaffiche pas** le modal et ne change pas la version ; ces textes sont figés par **leurs propres tests** (`map_warning_banner_test.dart`, `sheet_warning_card_test.dart`, `test/domain/warnings/warning_texts_test.dart`).
 
 **Cas de test**
 
@@ -902,26 +925,32 @@ git add pubspec.yaml pubspec.lock lib docs test && git commit -m "feat(avertisse
 - Le libellé est exactement **« J'ai compris ces limites »** ; le test **refuse** « OK », « Continuer », « Fermer » (`BR-012`).
 - Le corps contient : *indicatives*, *partielles*, *anciennes*, *non validées*, *lâchers de barrage*, *arrêté préfectoral* (`UC-006 § 2`) ; un lien **« Relire le détail des sources »** est rendu et atteignable, cible ≥ 44 pt.
 - `main.dart` : `requiresAcknowledgement` vrai → la carte **n'est pas** construite ; faux → elle l'est. Test sur la racine, **sans** rendre `FlutterMap`.
+- **Usager déjà acquitté** (dépôt bouchon rendant `warningTextVersion`) → la racine rend **directement** la carte : `InitialWarningView` n'est **jamais** rendu, **pas même une image** — assertion dès le premier `pump`, pas après `pumpAndSettle`.
+- `warning_texts_version_test.dart` : chaque constante **du modal** est égale, caractère pour caractère, au texte figé, **et** `warningTextVersion` à la version figée. Contre-épreuve : modifier une lettre du corps sans toucher la version → **rouge**. Rétablir.
 - À **200 %** de taille de police, le texte **défile** et n'est pas tronqué ; case et bouton restent atteignables (`UC-006 A4`, `04-ui.md § 3`).
 - L'écran est une **région d'alerte** et l'état inactif du bouton est annoncé (`UC-006 A5`).
 - Aucun texte ne contient de verbe d'instruction sur un usage de l'eau (`BR-014`) ; vouvoiement systématique.
-- `warningTextVersion` est cité par `test/project/changelog_test.dart` : changer le texte **sans** changer la version rend la suite rouge. C'est le verrou de `UC-006 A3`.
+- ~~`warningTextVersion` est cité par `test/project/changelog_test.dart`~~ → **`test/project/warning_texts_version_test.dart`** (révision du 2026-09-22) : changer le texte **sans** changer la version rend la suite rouge. C'est le verrou de `UC-006 A3`.
 
-- [ ] **Étape 1** — écrire les tests, le cas à 200 % et le verrou de version compris. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/warnings test/domain/warnings` → échec.
+- [ ] **Étape 1** — écrire les tests, le cas à 200 %, le cas « déjà acquitté, jamais une image » et le verrou de version compris. Rouge.
+- [ ] **Étape 2** — `flutter test test/features/warnings test/domain/warnings test/project/warning_texts_version_test.dart` → échec.
 - [ ] **Étape 3** — écrire les textes dans `lib/domain/warnings/warning_texts.dart` — **Dart pur**, aucun widget : c'est ce qui permet de les balayer sans rendu.
-- [ ] **Étape 4** — implémenter la vue, puis brancher la garde dans `main.dart`.
-- [ ] **Étape 5** — `flutter test` → vert, puis critère de fin et commit.
+- [ ] **Étape 4** — implémenter la vue, puis brancher la garde dans `main.dart` : `await warningsViewModel.load()` **avant** `runApp`.
+- [ ] **Étape 5** — contre-épreuve du verrou de version, puis `flutter test` → vert, critère de fin et commit.
 
 ```bash
-git add lib test && git commit -m "feat(avertissement): 1 sur 4 — le modal bloquant du premier lancement" -m "Le bouton reste inactif tant que la case est decochee, sans pre-cochage, et son libelle engage : J ai compris ces limites, jamais OK ni Continuer (BR-012). Aucune fonctionnalite n est atteignable avant acquittement, y compris la carte — verifie sur la racine, sans rendre FlutterMap. Les textes vivent dans domain en Dart pur : c est ce qui permet de les balayer sans rendu. Changer un texte sans changer sa version rend la suite rouge."
+git add lib test && git commit -m "feat(avertissement): modal bloquant du premier lancement, texte verrouille par version" -m "Le bouton reste inactif tant que la case est decochee, sans pre-cochage, et son libelle engage : J ai compris ces limites, jamais OK ni Continuer (BR-012). Aucune fonctionnalite n est atteignable avant acquittement, y compris la carte — verifie sur la racine, sans rendre FlutterMap. main.dart attend l acquittement avant runApp : un usager deja acquitte ne voit jamais le modal, pas meme une image. Les textes vivent dans domain en Dart pur ; un test fige le texte integral et sa version, et changer l un sans l autre rend la suite rouge (UC-006 A3)."
 ```
 
 ### Task W3 : Avertissement 2 sur 4 — le bandeau permanent de la carte
 
-**Files:** créé `lib/features/warnings/view/map_warning_banner.dart` · test miroir · modifié `lib/features/map/view/map_screen.dart`
+> Numérotation « n sur 4 » : `04-ui.md § 5` décrit quatre emplacements ; trois sont posés en T1 (`W2`, `W3`, `W4`), le quatrième, l'encart renforcé de `BR-013`, en T2 (décision 11).
 
-**Signatures publiques** — `class MapWarningBanner extends StatelessWidget { const MapWarningBanner({this.onExplain, super.key}); }` · `const String mapBannerText = 'Données indicatives. Ni autorisation, ni garantie.';`
+**Files:** créé `lib/features/map/view/map_warning_banner.dart` · test miroir · modifiés `lib/features/map/view/map_view.dart`, `lib/domain/warnings/warning_texts.dart` (hors verrou de version : le texte est figé par le test du bandeau)
+
+> **Révision du 2026-09-22.** Le plan plaçait le bandeau sous `features/warnings/view/` puis le faisait importer par la carte : `test/architecture/layers_test.dart` le refuse (règle `feature-vers-feature`). Son **seul consommateur est la carte** : il vit dans la tranche `map`. Pas sous `features/shared/` non plus — un seul consommateur ne justifie pas un emplacement partagé (YAGNI). Le texte, lui, est **importé** de `warning_texts.dart`, jamais écrit dans le widget. Le fichier cible est `map_view.dart`, pas `map_screen.dart`.
+
+**Signatures publiques** — `class MapWarningBanner extends StatelessWidget { const MapWarningBanner({this.onExplain, super.key}); }` · `const String mapBannerText = 'Données indicatives. Ni autorisation, ni garantie.';` — **déclarée dans `lib/domain/warnings/warning_texts.dart`**
 
 **Invariant :** le bandeau reste visible **à tous les niveaux de zoom et sur tous les écrans de détail** (`04-ui.md § 4`) ; il n'est **ni repliable, ni masquable, ni escamotable au défilement**.
 
@@ -929,83 +958,176 @@ git add lib test && git commit -m "feat(avertissement): 1 sur 4 — le modal blo
 
 - Le bandeau est rendu avec `mapBannerText` exactement, et l'action **« Ce que ça dit »** est atteignable, cible ≥ 44 pt (`04-ui.md § 1`).
 - Le widget n'expose **aucun** paramètre de repli, de fermeture ni de masquage : le test vérifie la **surface publique** — un bandeau qu'on peut fermer n'est pas permanent.
-- `map_screen.dart` le rend quel que soit `MapScaleKind` et quel que soit l'état de chargement.
+- `map_view.dart` le rend quel que soit `MapScaleKind` et quel que soit l'état de chargement.
 - Le bandeau est une **région d'alerte** pour le lecteur d'écran, et le contraste de son texte est **≥ 7:1** : l'assertion porte sur le couple de teintes déclaré (`04-ui.md § 3`), pas sur une impression.
 - Le texte ne contient aucun mot de garantie — ni *fiable*, ni *officiel*, ni *en direct* (`BR-014`).
 
 - [ ] **Étape 1** — écrire le test, dont l'assertion sur la surface publique. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/warnings/view/map_warning_banner_test.dart` → échec.
-- [ ] **Étape 3** — implémenter et brancher **au-dessus** de la carte, jamais en surimpression sur un marqueur.
+- [ ] **Étape 2** — `flutter test test/features/map/view/map_warning_banner_test.dart` → échec.
+- [ ] **Étape 3** — ajouter `mapBannerText` à `warning_texts.dart` (sans toucher `warningTextVersion`), implémenter et brancher **au-dessus** de la carte, jamais en surimpression sur un marqueur.
 - [ ] **Étape 4** — `flutter test` → vert, puis critère de fin et commit.
 
 ```bash
-git add lib/features test/features && git commit -m "feat(avertissement): 2 sur 4 — bandeau permanent sur la carte, a tous les zooms" -m "Le widget n expose aucun parametre de repli ni de fermeture, et le test verifie cette surface publique : un bandeau qu on peut fermer n est pas permanent, et l invariant de 04-ui section 4 serait contourne sans qu aucun test ne le voie. Contraste du texte au moins 7 pour 1, region d alerte pour le lecteur d ecran."
+git add lib/features lib/domain test/features && git commit -m "feat(avertissement): 2 sur 4 — bandeau permanent sur la carte, a tous les zooms" -m "Le widget n expose aucun parametre de repli ni de fermeture, et le test verifie cette surface publique : un bandeau qu on peut fermer n est pas permanent, et l invariant de 04-ui section 4 serait contourne sans qu aucun test ne le voie. Contraste du texte au moins 7 pour 1, region d alerte pour le lecteur d ecran."
+```
+
+### Task H1 : Un seul formateur de date, en heure locale (ajoutée le 2026-09-22, avant `W4`)
+
+> **Pourquoi maintenant.** `W4` écrit une date dans l'encart ; la décision 12 fixe l'**heure locale sans suffixe** (« 27/08/2026 à 10:00 »). Or le formatage de date est recopié aujourd'hui dans **quatre** fichiers d'affichage — `_utcDateAndTime` (`station_sheet_view_model.dart`), `formatMeasuredAt` (`station_summary_sheet.dart`), `formatCampaignDate` (`onde_summary_sheet.dart`), `_formatObservationDate` (`onde_marker.dart`) —, les trois premiers en UTC explicite. Poser `W4` sans `H1` ferait une cinquième copie, dans un troisième fuseau. `lib/data/http/hub_eau_paging.dart` formate aussi une date avec `padLeft(2`, mais c'est le **format filaire** `AAAA-MM-JJ` de l'API : il n'est **pas** concerné.
+
+**Emplacement : `lib/domain/formatting/display_date.dart`.** Le formateur est lu par un ViewModel (`StationSheetViewModel`) et par des vues de trois tranches (`station_sheet`, `onde_sheet`, `map`) : une tranche ne peut pas l'héberger (`feature-vers-feature`), `lib/features/shared/` est réservé aux widgets par l'amendement d'`ADR-014`, et le domaine porte déjà des textes affichés en Dart pur (`flowCategoryLabel`, `stationMapStateLabel`, bientôt `warning_texts.dart`). Aucun import hors `dart:core` : `domain_isolation_test.dart` reste vert.
+
+**Files:** créé `lib/domain/formatting/display_date.dart` · test miroir `test/domain/formatting/display_date_test.dart` · modifiés `lib/features/station_sheet/view_model/station_sheet_view_model.dart`, `lib/features/station_sheet/view/station_summary_sheet.dart`, `lib/features/onde_sheet/view/onde_summary_sheet.dart`, `lib/features/map/view/onde_marker.dart` et leurs tests, `lib/main.dart`
+
+**Signatures publiques**
+
+- `typedef UtcOffsetOf = Duration Function(DateTime utcInstant);`
+- `Duration systemUtcOffsetOf(DateTime utcInstant)` — `utcInstant.toLocal().timeZoneOffset` ; la seule lecture du fuseau de la machine, utilisée par défaut en production
+- `String formatLocalDateTime(DateTime instant, {UtcOffsetOf offsetOf = systemUtcOffsetOf})` → `'JJ/MM/AAAA à HH:MM'`, **sans suffixe de fuseau**
+- `String formatCalendarDate(DateTime date)` → `'JJ/MM/AAAA'`, **sans conversion de fuseau**
+- `StationSheetViewModel` gagne `UtcOffsetOf? utcOffsetOf` à côté de `now` ; `StationSummarySheet` gagne `UtcOffsetOf utcOffsetOf = systemUtcOffsetOf` ; `OndeSummarySheet` et `onde_marker.dart` n'affichent que des dates calendaires et n'en ont pas besoin. `formatMeasuredAt` et `formatCampaignDate` **disparaissent** (remplacés, pas enveloppés) ; `_twoDigits` disparaît des trois fichiers qui le portent.
+
+**Invariants :** un **instant** (mesure hydrométrique, `2026-08-27T08:00:00Z`) s'affiche en heure locale, le décalage étant demandé **pour cet instant** — l'heure d'été dépend de la date, pas du jour où l'on regarde ; une **date calendaire** (campagne ONDE, sans heure, `T-08`) ne se convertit **jamais** : la lire dans un fuseau à l'ouest de Greenwich la reculerait d'un jour ; le fuseau est **injecté** partout où un test l'observe, sinon le résultat dépend de la machine qui lance `flutter test`.
+
+**Cas de test**
+
+- `formatLocalDateTime(DateTime.utc(2026, 8, 27, 8), offsetOf: (_) => const Duration(hours: 2))` → **`'27/08/2026 à 10:00'`** exactement — l'exemple de `D5`, heure de Paris en été (UTC+2).
+- Même fonction sur `DateTime.utc(2026, 1, 15, 8)` avec `+1 h` → `'15/01/2026 à 09:00'` (hiver).
+- Passage de minuit : `DateTime.utc(2026, 8, 27, 23, 30)` avec `+2 h` → `'28/08/2026 à 01:30'` ; décalage négatif `−5 h` sur `DateTime.utc(2026, 8, 27, 3)` → `'26/08/2026 à 22:00'`.
+- `offsetOf` reçoit l'instant **en UTC**, même si l'appelant passe un `DateTime` local : assertion sur l'argument reçu.
+- Aucun résultat ne contient `'UTC'`, ni `'h'` comme séparateur d'heure : un seul format, celui de la décision 12.
+- `formatCalendarDate(DateTime.utc(2026, 8, 25))` → `'25/08/2026'` ; la même date passée en local reste `'25/08/2026'` (lecture des composantes UTC, `T-08`).
+- **`V1` réaligné** : `stalenessNotice` de l'observation du `2026-08-27T08:00Z`, décalage `+2 h` injecté → **`'Dernière mesure le 27/08/2026 à 10:00'`** exactement (le test actuel ne vérifie que `contains('27/08/2026')`).
+- **`U1` réaligné** : les cinq attentes `'… à 08:00 UTC'` de `station_summary_sheet_test.dart` deviennent `'… à 10:00'` sous `+2 h` injecté ; le test « un instant local est ramené en UTC » devient « l'instant est converti par le décalage injecté, quel que soit le fuseau du `DateTime` reçu ».
+- `U4` et `U3` : la fiche et l'annonce du marqueur ONDE rendent toujours `'25/08/2026'` — aucun changement visible, une copie en moins.
+
+- [ ] **Étape 1** — écrire `display_date_test.dart` et réaligner les tests de `V1` et `U1`. Rouge.
+- [ ] **Étape 2** — `flutter test test/domain/formatting test/features/station_sheet` → échec.
+- [ ] **Étape 3** — implémenter `display_date.dart`, puis remplacer les quatre copies ; `main.dart` ne passe rien (défaut `systemUtcOffsetOf`).
+- [ ] **Étape 4** — `grep -rn "padLeft(2" lib/features` → **vide** ; `grep -rn " UTC'" lib/features` → **vide** ; `flutter test test/architecture` → vert.
+- [ ] **Étape 5** — `flutter test` → vert, critère de fin, puis commit. Mettre à jour le point 19 de `docs/project-state.md` : **clos**.
+
+```bash
+git add lib/domain/formatting lib/features lib/main.dart test/domain/formatting test/features docs/project-state.md && git commit -m "feat(ui): un seul formateur de date, en heure locale sans suffixe" -m "Arbitrage du 2026-09-22 : l heure affichee est l heure locale, sans suffixe — 27/08/2026 a 10:00 pour une mesure de 08:00 UTC en ete. Le decalage est demande pour l instant affiche, pas pour aujourd hui, et il est injecte : sans cela le resultat dependrait de la machine qui lance les tests. Une date de campagne ONDE n a pas d heure et ne se convertit jamais. Quatre copies du formatage disparaissent ; le format filaire de l API, dans data, n est pas un affichage et reste a sa place. Clot le point 19."
 ```
 
 ### Task W4 : Avertissement 3 sur 4 — l'encart daté, sur chaque fiche
 
-**Files:** créé `lib/features/warnings/view/sheet_warning_card.dart` · test miroir · modifiés les deux feuilles de résumé
+> Numérotation « n sur 4 » : `04-ui.md § 5` décrit quatre emplacements ; trois sont posés en T1 (`W2`, `W3`, `W4`), le quatrième, l'encart renforcé de `BR-013`, en T2 (décision 11).
 
-**Signatures publiques** — `class SheetWarningCard extends StatelessWidget { const SheetWarningCard({required this.kind, required this.dataDate, super.key}); }` · `enum SheetWarningKind { station, onde }` · `String sheetWarningText(SheetWarningKind kind, DateTime date)`
+> **Révision du 2026-09-22.** (1) Emplacement : **`lib/features/shared/`**, arbitrage du 2026-09-18 (point 34) — l'encart en est le **premier occupant** ; le plan le plaçait sous `features/warnings/view/`, qu'aucune des deux fiches ne peut importer. (2) **Dépend de `H1`** : la date s'écrit en heure locale sans suffixe ; l'attente `'08h00'` de la version précédente contredisait la fiche, qui affichait `HH:MM UTC`. (3) **La source est nommée** à côté de la valeur, ce que `BR-001` exige (« … et sa source, visibles au même endroit ») — ferme le point 32. (4) Les textes vivent dans `warning_texts.dart`. (5) L'encart reçoit un genre et une date, **jamais un état de fiche** : il n'importe ni `StationSheetState` ni `StationMapState`, le point 17 (`EnEchec` homonyme) reste ouvert.
 
-**Invariant :** l'encart porte **la date de la mesure ou de la campagne** (`04-ui.md § 5`, emplacement 3) ; un encart sans date manque à `BR-001`, et le test l'interdit.
+**Files:** créé `lib/features/shared/sheet_warning_card.dart` · test miroir `test/features/shared/sheet_warning_card_test.dart` · créé `lib/domain/sources/source_names.dart` (+ test miroir) · modifiés `lib/domain/warnings/warning_texts.dart` (hors verrou de version), `lib/features/station_sheet/view/station_summary_sheet.dart`, `lib/features/onde_sheet/view/onde_summary_sheet.dart`, `lib/features/map/view/map_empty_states.dart` (nom de source réutilisé) et leurs tests
+
+**Signatures publiques** — `class SheetWarningCard extends StatelessWidget { const SheetWarningCard({required this.kind, required this.dataDate, this.utcOffsetOf = systemUtcOffsetOf, super.key}); }` · dans `warning_texts.dart` : `enum SheetWarningKind { station, onde }` · `String sheetWarningText(SheetWarningKind kind, DateTime date, {UtcOffsetOf offsetOf = systemUtcOffsetOf})` · dans **`lib/domain/sources/source_names.dart`** (Dart pur, hors de `warning_texts.dart` : un nom de source n'est pas un texte d'avertissement) : `const String hydrometrieSourceName = "Hub'Eau hydrométrie";` · `const String ondeSourceName = "Hub'Eau écoulement ONDE";` (la seconde est la chaîne que `mapSourceName` rend déjà ; `mapSourceName` la **réutilise** au lieu de la recopier)
+
+**Invariants :** l'encart porte **la date de la mesure ou de la campagne** (`04-ui.md § 5`, emplacement 3) ; un encart sans date manque à `BR-001`, et le test l'interdit ; **la valeur, sa date et sa source** sont dans le même `Text` de la fiche station (`BR-001`, prolongement de `U1` qui y réunissait déjà valeur et date) ; la catégorie ONDE et sa date de campagne nomment `ondeSourceName` sur la fiche ONDE.
 
 **Cas de test**
 
-- `sheetWarningText(station, 2026-08-27T08:00Z)` → contient `'27/08'`, `'08h00'`, *« brute »*, *« non validée »*, *« lâchers de barrage »* (`UC-003 § 1`).
-- `sheetWarningText(onde, 2026-08-25)` → contient `'25/08/2026'`, *« campagne ponctuelle »*, *« Ce n'est pas une mesure de débit »*, *« la situation a pu changer depuis »* (`UC-004 § 1`).
+- `sheetWarningText(station, DateTime.utc(2026, 8, 27, 8), offsetOf: (_) => const Duration(hours: 2))` → contient **`'27/08/2026 à 10:00'`**, *« brute »*, *« non validée »*, *« lâchers de barrage »* (`UC-003 § 1`) ; ne contient **ni** `'UTC'` **ni** `'08h00'`.
+- `sheetWarningText(onde, DateTime.utc(2026, 8, 25))` → contient `'25/08/2026'` (date calendaire, sans heure — `H1`), *« campagne ponctuelle »*, *« Ce n'est pas une mesure de débit »*, *« la situation a pu changer depuis »* (`UC-004 § 1`).
 - La version ONDE est **plus insistante** : le test compare les deux et vérifie que « observation visuelle ponctuelle » n'apparaît **que** côté ONDE (`04-ui.md § 1`).
 - L'encart est rendu **en tête** des deux feuilles, **avant** la valeur ou la catégorie : assertion sur l'**ordre** dans l'arbre, pas sur la présence seule.
 - Les deux feuilles rendues **sans** encart → test rouge : c'est ce qui empêche de livrer une fiche sans avertissement.
+- Fiche station : le `Text` du débit contient la valeur, `'27/08/2026 à 10:00'` **et** `"Hub'Eau hydrométrie"` ; idem pour la hauteur. Fiche ONDE : `"Hub'Eau écoulement ONDE"` est rendu avec la date de campagne (`BR-001`, point 32).
+- `mapSourceName(MapErrorSource.ecoulement)` est **identique** à `ondeSourceName` : un concept, un mot (`glossary.md`).
+- `test/architecture/layers_test.dart` vert : `features/shared/` n'importe aucune tranche (`shared-sans-tranche`), et les deux fiches l'importent.
 - Aucun texte ne contient de verbe d'instruction (`BR-014`) ni les cinq mots bannis (`BR-003`).
 
-- [ ] **Étape 1** — écrire le test, dont l'assertion d'**ordre**. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/warnings/view/sheet_warning_card_test.dart` → échec.
-- [ ] **Étape 3** — implémenter et brancher dans les deux feuilles.
-- [ ] **Étape 4** — `flutter test` → vert, puis critère de fin et commit.
+- [ ] **Étape 1** — écrire le test, dont l'assertion d'**ordre** et celle de la source. Rouge.
+- [ ] **Étape 2** — `flutter test test/features/shared/sheet_warning_card_test.dart test/features/station_sheet test/features/onde_sheet` → échec.
+- [ ] **Étape 3** — ajouter les textes de l'encart à `warning_texts.dart` (sans toucher `warningTextVersion`) et les deux noms de source à `lib/domain/sources/source_names.dart` ; implémenter l'encart dans `lib/features/shared/` ; brancher dans les deux feuilles ; faire réutiliser `ondeSourceName` par `mapSourceName`. Retirer le commentaire de réservation posé par `U4` en tête de `OndeSummarySheet`.
+- [ ] **Étape 4** — `flutter test` → vert, puis critère de fin et commit. Mettre à jour le point 32 de `docs/project-state.md` : **clos par `W4`**.
 
 ```bash
-git add lib/features test/features && git commit -m "feat(avertissement): 3 sur 4 — encart date en tete de chaque fiche" -m "L assertion porte sur l ORDRE dans l arbre, pas sur la presence : un encart rendu apres la valeur de debit ne remplit pas son role, et un test de presence seule ne le verrait pas. La version ONDE est plus insistante que la version station, et le test compare les deux. Un encart sans date manque a BR-001 : le test l interdit."
+git add lib/features lib/domain test/features test/domain docs/project-state.md && git commit -m "feat(avertissement): 3 sur 4 — encart date en tete de chaque fiche, source nommee" -m "L encart est le premier occupant de features/shared, seul endroit que les deux fiches peuvent importer (arbitrage du 2026-09-18). L assertion porte sur l ORDRE dans l arbre, pas sur la presence : un encart rendu apres la valeur de debit ne remplit pas son role. La date est en heure locale sans suffixe (H1). La valeur, sa date et sa source Hub Eau sont au meme endroit, ce que BR-001 exige et qu aucune fiche ne faisait : point 32 clos. La version ONDE est plus insistante que la version station, et le test compare les deux."
 ```
 
-### Task W5 : Avertissement 4 sur 4 — l'encart renforcé, et le balayage de vocabulaire
+### Task W5 : Le balayage de vocabulaire, et le texte de l'encart renforcé (réduite le 2026-09-22)
 
-**Files:** créés `lib/features/warnings/view/reinforced_warning_card.dart`, `test/project/vocabulary_test.dart` · test miroir de la vue
+> **Révision du 2026-09-22.** (1) Le **widget** de l'encart renforcé part en **T2** avec l'écran des restrictions VigiEau, premier écran de ressource au sens de `BR-013` (décision 11) : le poser en T1 sur aucun écran serait un widget sans appelant (YAGNI). Seul son **texte** est écrit ici, dans `warning_texts.dart`, pour être balayé et figé par son test dès maintenant — hors verrou de version, qui ne couvre que le modal (`W2`). (2) Les **listes de vocabulaire proscrit** étaient déclarées dans `lib/` : le balayage s'y serait trouvé lui-même. Elles vivent **sous `test/`**. (3) Le balayage porte sur les **littéraux de chaîne**, pas sur les commentaires, de `lib/domain/` et `lib/features/` — pas de `lib/data/`, qui ne produit aucun texte affiché mais cite des URL et des champs d'API. (4) Faux positif certain : l'URL IGN porte `STYLE=normal` (`lib/features/map/view/ign_tile_template.dart`, l. 18) — il est levé par une **exception nominative** (fichier + littéral), jamais par un assouplissement du mot.
 
-**Signatures publiques** — `class ReinforcedWarningCard extends StatelessWidget { const ReinforcedWarningCard({required this.onOpenDecrees, super.key}); }` · `const String reinforcedWarningHeadline = 'NE FONDEZ AUCUNE DÉCISION SUR CET ÉCRAN';` · `const List<String> forbiddenFlowWords` · `const List<String> forbiddenNeutralityPhrases` · `const List<String> forbiddenGuaranteeWords`
+**Files:** créés `test/project/vocabulary_test.dart`, `test/project/vocabulary_lists.dart` (les trois listes et la table d'exceptions) · créé `test/domain/warnings/warning_texts_test.dart` (s'il n'existe pas depuis `W2`) · modifié `lib/domain/warnings/warning_texts.dart`
 
-**Invariants :** l'encart renforcé est **non repliable**, **en tête d'écran**, **avant** tout niveau de gravité (`BR-013`) ; `vocabulary_test.dart` balaie **tous** les textes de `lib/` et échoue à l'ajout d'un libellé interdit — c'est le verrou de `BR-003`, `BR-007` et `BR-014`.
+**Signatures publiques** — dans `warning_texts.dart` : `const String reinforcedWarningHeadline = 'NE FONDEZ AUCUNE DÉCISION SUR CET ÉCRAN';` · `const String reinforcedWarningBody` · `const String reinforcedWarningActionLabel = 'Consulter les arrêtés en vigueur';` · sous `test/` : `const List<String> forbiddenFlowWords` · `const List<String> forbiddenNeutralityPhrases` · `const List<String> forbiddenGuaranteeWords` · `const Map<String, List<String>> vocabularyExceptions` (chemin de fichier → littéraux admis)
+
+**Invariants :** `vocabulary_test.dart` balaie **tous** les littéraux de chaîne de `lib/domain/` et `lib/features/` et échoue à l'ajout d'un libellé interdit — c'est le verrou de `BR-003`, `BR-007` et `BR-014` ; la correspondance se fait en **mot entier**, **insensible à la casse** (`Normal`, `NORMAL` et `normal` tombent, `anormal` non), par la forme `(?<!\p{L})mot(?!\p{L})` compilée avec `caseSensitive: false, unicode: true` — **pas `\b`**, qui en Dart ne connaît que l'ASCII et couperait « sûr » ou « vérifié » sur leur lettre accentuée ; toute exception est **nominative** — un fichier **et** un littéral exact —, déclarée sous `test/` et justifiée ; le texte de l'encart renforcé est écrit **maintenant**, son widget **en T2**.
 
 **Cas de test**
 
-- L'encart contient `reinforcedWarningHeadline`, la mention des **arrêtés préfectoraux**, celle d'une **évaluation de sécurité**, et une action **« Consulter les arrêtés en vigueur »** (`04-ui.md § 1`, `BR-013`).
-- Le widget n'expose **aucun** paramètre de repli : non repliable au sens de `BR-013`, vérifié sur la surface publique. Il est rendu **avant** tout autre contenu de l'écran : assertion d'ordre. C'est une **région d'alerte**, annoncée en priorité.
-- `vocabulary_test.dart` : aucune chaîne littérale de `lib/` ne contient *suffisant*, *insuffisant*, *normal*, *bon niveau*, *sûr* rattaché à un débit (`BR-003`) ; ni *rien à signaler*, *tout va bien*, *aucun problème* (`BR-007`) ; ni *fiable*, *vérifié*, *officiel*, *en direct*, *temps réel*, *garantie* dans un libellé affiché (`BR-014`).
-- ⚠️ **Exception déclarée et testée :** les libellés **cités de VigiEau** sont les mots du préfet ; aucune source VigiEau n'existe en T1, donc l'exception est **vide**, et le test le vérifie.
+- Les textes de l'encart renforcé contiennent `reinforcedWarningHeadline`, la mention des **arrêtés préfectoraux**, celle d'une **évaluation de sécurité**, et l'action **« Consulter les arrêtés en vigueur »** (`04-ui.md § 1`, `BR-013`) — assertion sur les constantes, sans rendu.
+- `vocabulary_test.dart` : aucun littéral de chaîne de `lib/domain/` ni de `lib/features/` ne contient *suffisant*, *insuffisant*, *normal*, *bon niveau*, *sûr* (`BR-003`) ; ni *rien à signaler*, *tout va bien*, *aucun problème* (`BR-007`) ; ni *fiable*, *vérifié*, *officiel*, *en direct*, *temps réel*, *garantie* (`BR-014`).
+- Les commentaires sont **retirés** avant balayage : un commentaire qui cite `BR-003` (« jamais *normal* ») ne rend pas la suite rouge.
+- **Exceptions nominatives, chacune testée** : `ign_tile_template.dart` + le littéral portant `STYLE=normal` (paramètre WMTS de l'IGN) ; la phrase exacte de `BR-007` qui contient « tout va bien » dans une négation (déjà tolérée par `U6`) ; ~~« Modalité officielle ONDE : »~~ — **inutile** avec la correspondance en mot entier : « officielle » n'est pas « officiel » suivi d'une non-lettre (si la liste recopiée du glossaire contient « officielle », l'exception revient, nominative) ; `mapBannerText` du bandeau (`W3`), qui porte *garantie* dans une négation (« Ni autorisation, ni garantie »). Une exception dont le littéral **n'existe plus** dans le fichier → rouge : une exception périmée est une porte ouverte.
+- ⚠️ **Exception VigiEau déclarée et vide :** les libellés **cités de VigiEau** sont les mots du préfet ; aucune source VigiEau n'existe en T1, l'exception est **vide**, et le test le vérifie.
 - `assec` en minuscules hors d'un nom de type → rouge : un concept, un mot, et l'écran dit **« à sec »** (`glossary.md`).
-- Contre-épreuve : ajouter `'débit normal'` dans un fichier temporaire de `lib/` rend le test **rouge**. Retirer. Un balayage qui ne tombe jamais ne prouve rien.
+- Contre-épreuve : ajouter `'débit normal'` dans un fichier temporaire de `lib/features/` rend le test **rouge** ; ajouter `// débit normal` en commentaire ne le rend **pas** rouge. Retirer. Un balayage qui ne tombe jamais ne prouve rien.
 
-- [ ] **Étape 1** — écrire les deux tests. Rouge.
-- [ ] **Étape 2** — `flutter test test/project/vocabulary_test.dart test/features/warnings` → échec.
-- [ ] **Étape 3** — implémenter l'encart et les trois listes, **recopiées** de `glossary.md § Vocabulaire proscrit`, `BR-003` et `BR-014`.
-- [ ] **Étape 4** — faire la contre-épreuve et **recopier le rouge obtenu** dans le message de commit.
-- [ ] **Étape 5** — `flutter test` → vert. **Les quatre avertissements sont alors en place** : recopier le total de tests. Puis critère de fin et commit.
+- [ ] **Étape 1** — écrire `vocabulary_test.dart`, ses listes sous `test/`, et le test des textes de l'encart renforcé. Rouge.
+- [ ] **Étape 2** — `flutter test test/project/vocabulary_test.dart test/domain/warnings` → échec.
+- [ ] **Étape 3** — écrire les trois textes de l'encart renforcé dans `warning_texts.dart` (sans toucher `warningTextVersion`) et les figer dans `warning_texts_test.dart` ; recopier les trois listes de `glossary.md § Vocabulaire proscrit`, `BR-003` et `BR-014` ; déclarer les exceptions nominatives constatées au premier passage, **une par une, avec leur motif**.
+- [ ] **Étape 4** — faire les deux contre-épreuves et **recopier le rouge obtenu** dans le message de commit.
+- [ ] **Étape 5** — `flutter test` → vert, recopier le total de tests. Puis critère de fin et commit.
 
 ```bash
-git add lib/features test && git commit -m "feat(avertissement): 4 sur 4 — encart renforce, et balayage mecanique du vocabulaire proscrit" -m "Les quatre emplacements de 04-ui section 5 sont desormais tenus : modal acquitte, bandeau permanent, encart date par fiche, encart renforce. CLAUDE.md interdit toute mise en production avant, et c est la premiere fois que la condition est remplie. Le balayage refuse les cinq mots bannis pour un debit, les trois formules de neutralite et les mots de garantie. Contre-epreuve faite : <recopier le rouge>. L exception des libelles cites de VigiEau est declaree et vide en T1, ce que le test verifie."
+git add lib/domain test && git commit -m "feat(avertissement): balayage mecanique du vocabulaire proscrit, texte de l encart renforce" -m "Les trois emplacements qui ont un ecran en T1 sont tenus : modal acquitte, bandeau permanent, encart date par fiche. Le quatrieme, l encart renforce de BR-013, n a pas d ecran en T1 : son texte est ecrit et fige par son test, son widget part en T2 avec l ecran des restrictions (arbitrage du 2026-09-22). Le balayage parcourt les litteraux de lib/domain et lib/features, commentaires retires, en mot entier et sans casse ; ses listes vivent sous test, sinon il se trouverait lui-meme. Chaque exception nomme un fichier et un litteral, dont STYLE=normal de l URL IGN. Contre-epreuve faite : <recopier le rouge>. L exception des libelles cites de VigiEau est declaree et vide en T1."
 ```
 
 ---
 
 ## Lot 5 — Clavier et souris
 
+> **Révisé le 2026-09-22.** Ordre : **`H2`** → `K1` → `K2` → `K3`. `K1` et `K2` modifient `map_view.dart` (996 lignes au 2026-09-22), qui **décide** aujourd'hui à la place de son ViewModel ; `H2` rend ces décisions au ViewModel avant qu'on y ajoute des contrôles et des raccourcis.
+
+### Task H2 : Rendre au `MapViewModel` les décisions que la vue carte a prises (ajoutée le 2026-09-22, avant `K1`)
+
+> **Pourquoi maintenant.** `CLAUDE.md` : « Un widget branche et affiche ; il ne décide pas. » Trois décisions vivent dans `lib/features/map/view/map_view.dart` : la **décision de préchargement** `shouldPreloadOn` (l. 178), l'**enchaînement charger-puis-précharger** `_loadThenPreload` et `_handleScaleSelected` (l. 906-932), et le **calcul de l'âge de campagne** `campaignAgeOf` dans `_ondeMarkers` (l. 341). Conséquence déjà écrite dans le code : `_loadThenPreload` « n'est pas atteignable sans monter un `FlutterMap` », donc l'enchaînement n'est couvert par **aucun** test. `K1` (zoom) et `K2` (raccourcis) ajoutent des gestes qui devront déclencher la même séquence : sans `H2`, ils la recopieraient dans la vue.
+
+**Files:** modifiés `lib/features/map/view_model/map_view_model.dart`, `lib/features/map/view_model/map_scale.dart`, `lib/features/map/view/map_view.dart` · tests `test/features/map/view_model/map_view_model_test.dart` (ajouts), `test/features/map/view/map_view_test.dart` (retraits)
+
+**Signatures publiques**
+
+- `bool shouldPreloadOn(MapScaleKind scale)` — **déplacée** de `map_view.dart` vers `map_scale.dart`, à côté de l'énumération qu'elle ferme ; même corps, même `switch` exhaustif (`BR-011`)
+- `Future<void> MapViewModel.start()` — `loadInitial()` puis, si `shouldPreloadOn(scale)` **relu après le chargement**, `preloadVisibleStations()`
+- `Future<void> MapViewModel.onGestureEnded(Bounds bounds)` — `loadFor(bounds)` puis la même décision : la vue ne signale que « geste terminé + emprise »
+- `selectScale(MapScaleKind kind)` — lance lui-même le préchargement quand la nouvelle échelle le justifie (ce que faisait `_handleScaleSelected`)
+- `CampaignAge MapViewModel.ondeAgeOf(OndeObservation observation)` — sur l'horloge **déjà injectée** du ViewModel, ramenée en UTC comme le faisait la vue
+- `buildMapLayers` reçoit `ageOf` (`CampaignAge Function(OndeObservation)`) au lieu de `now` ; `MapView` perd son paramètre `now`. `_loadThenPreload` et `_handleScaleSelected` **disparaissent**.
+
+**Invariants :** comportement **inchangé** — `NFR-07` : **20** stations au plus par préchargement (`defaultPreloadLimit`), **200 ms** entre deux appels (`preloadInterval`), **annulable** par le geste suivant ; seule l'échelle « débit » précharge ; le préchargement attend que les points de l'emprise soient chargés ; `loadFor` reste **brut** (il annule, il ne relance pas — écart n° 1 de `V2`), c'est `start`/`onGestureEnded` qui orchestrent. **Pas d'anti-rebond de molette** : `NV-W6` n'est pas mesuré, en ajouter un serait optimiser à l'aveugle ; il s'instruit en `X3`.
+
+**Cas de test** (tous dans `test/features/map/view_model/`, **sans rendu**, dépôts bouchons, `now` et `delay` injectés)
+
+- `start()` sur l'échelle `ecoulement` (défaut) → **zéro** appel `findLatest` ; puis `selectScale(debit)` → préchargement lancé, **≤ 20** appels.
+- `onGestureEnded(bounds)` sur `debit`, 50 stations dans l'emprise → **20** appels exactement, dans l'ordre de proximité au centre, chacun sauf le premier précédé d'un `delay(200 ms)` enregistré — le test **ne dort pas**.
+- `onGestureEnded` sur `ecoulement` → **zéro** appel hydrométrie (`C-15`, `NFR-07`).
+- Aucun `findLatest` tant que `loadFor` n'est pas terminé : dépôt de points bouchon à complétion manuelle.
+- Échelle passée à `ecoulement` **pendant** le chargement → aucun préchargement : l'échelle est relue après, jamais avant.
+- Second `onGestureEnded` pendant un préchargement → plus **aucun** appel de la première série une fois la seconde partie.
+- `ondeAgeOf` : `now` injecté au `2026-09-13`, observation du `2026-08-25` → `recente` ; bornes 59 j → `recente`, 60 j → `ancienne` (`BR-010`) — mêmes valeurs que `D2`.
+- `shouldPreloadOn(debit)` vrai, `shouldPreloadOn(ecoulement)` faux — **migré** depuis `map_view_test.dart`, qui ne le teste plus.
+- Après `H2` : `grep -n "shouldPreloadOn\|preloadVisibleStations\|campaignAgeOf" lib/features/map/view/map_view.dart` → **vide**.
+
+- [ ] **Étape 1** — écrire les cas ci-dessus dans le test du ViewModel. Rouge (`start`, `onGestureEnded`, `ondeAgeOf` absents).
+- [ ] **Étape 2** — `flutter test test/features/map/view_model` → échec.
+- [ ] **Étape 3** — implémenter dans le ViewModel, **déplacer** `shouldPreloadOn`, puis réduire la vue à des appels (`start`, `onGestureEnded`, `selectScale`, `ondeAgeOf`). Retirer les tests de `map_view_test.dart` qui portaient sur la décision.
+- [ ] **Étape 4** — `grep` ci-dessus vide ; `flutter test test/features/map test/architecture` → vert, goldens compris ; `flutter test` → vert, **nombre de tests recopié** (il peut baisser d'autant qu'il y a de tests migrés, jamais au-delà).
+- [ ] **Étape 5** — critère de fin, puis commit.
+
+```bash
+git add lib/features/map test/features/map && git commit -m "refactor(map): rendre au ViewModel les decisions de prechargement et l age de campagne" -m "La vue carte decidait : quand precharger, dans quel ordre charger puis precharger, et l age de chaque campagne ONDE. L enchainement n etait atteignable qu en montant un FlutterMap, donc teste par rien. Il vit desormais dans MapViewModel, teste sans rendu ; la vue signale un geste termine et son emprise. Comportement inchange : 20 stations au plus, 200 ms entre deux appels, annulable (NFR-07), echelle debit seule. Pas d anti-rebond de molette : NV-W6 n est pas mesure, il s instruit en X3."
+```
+
 ### Task K1 : Les contrôles de zoom, aux bonnes dimensions
 
-**Files:** créé `lib/features/map/view/map_controls.dart` · test miroir · modifié `lib/features/map/view/map_screen.dart`
+**Files:** créés `lib/features/map/view/map_controls.dart`, `lib/features/shared/tap_target.dart`, `lib/features/map/view/map_scale_chips.dart`, `lib/features/map/view/ign_attribution_badge.dart` · tests miroirs · modifiés `lib/features/map/view/map_view.dart` (le plan écrivait `map_screen.dart`), `lib/features/map/view/station_marker.dart`, `lib/features/station_sheet/view/station_summary_sheet.dart`, `lib/features/onde_sheet/view/onde_summary_sheet.dart`
 
-**Signatures publiques** — `class MapControls extends StatelessWidget { const MapControls({required this.onZoomIn, required this.onZoomOut, required this.onRecenter, super.key}); }` · `const double zoomStep = 1.0;`
+> **Révision du 2026-09-22 — la dette que `K1` touche.** (1) La cible tactile de 44 pt est définie **trois fois** : `stationMarkerTapTarget` (`station_marker.dart`, l. 126), `ondeSheetTapTarget` (`onde_summary_sheet.dart`, l. 61), `minimumTapTarget` (`station_summary_sheet.dart`, l. 46) — la règle `feature-vers-feature` interdisait de faire mieux avant `lib/features/shared/`. `K1` en ajoute trois boutons : une **constante unique** `minimumTapTarget` dans `lib/features/shared/tap_target.dart` remplace les trois copies. (2) `MapScaleChips` et `IgnAttributionBadge` vivent dans `map_view.dart` (écart assumé de `U3`) ; `K1` y ajoute une surcouche de plus — elles **sortent** chacune dans leur fichier, au même titre que `map_controls.dart`, sans changement de comportement.
 
-**Invariant :** chaque bouton mesure **≥ 44 × 44 pt** avec un espacement **≥ 8 dp** (`04-ui.md § 3`) ; les bornes de zoom restent celles de `MapOptions`, jamais redéfinies ici.
+**Signatures publiques** — `class MapControls extends StatelessWidget { const MapControls({required this.onZoomIn, required this.onZoomOut, required this.onRecenter, super.key}); }` · `const double zoomStep = 1.0;` · `const double minimumTapTarget = 44.0;` (dans `lib/features/shared/tap_target.dart`, cite `04-ui.md § 3`)
+
+**Invariant :** chaque bouton mesure **≥ 44 × 44 pt** avec un espacement **≥ 8 dp** (`04-ui.md § 3`) ; les bornes de zoom restent celles de `MapOptions`, jamais redéfinies ici ; la cible de 44 pt est déclarée **une seule fois** dans `lib/`.
 
 **Cas de test**
 
@@ -1014,19 +1136,22 @@ git add lib/features test && git commit -m "feat(avertissement): 4 sur 4 — enc
 - Au zoom **maximal** `+` est **désactivé** ; au zoom **minimal**, `−` l'est. Le test passe par le ViewModel, pas par le rendu de la carte.
 - Les contrôles ne recouvrent **ni** le bandeau d'avertissement **ni** l'attribution IGN : assertion sur la position déclarée.
 - ⚠️ La **molette zoome** sur Windows — constaté le 2026-09-13 à l'exécution de T0, `NV-W1` clos. Cette tâche ne la touche pas : elle **ajoute** les boutons pour qui n'a pas de molette.
+- Un zoom par bouton déclenche la même séquence qu'un geste : `onGestureEnded` du ViewModel (`H2`), jamais un enchaînement recopié dans la vue.
+- `grep -rn "= 44" lib/` → **une** occurrence, dans `lib/features/shared/tap_target.dart` ; les tests de taille de `U1`, `U2`, `U4` passent inchangés en valeur.
+- `MapScaleChips` et `IgnAttributionBadge` : leurs tests existants passent **sans modification d'assertion** après le déplacement (seuls les imports changent).
 
 - [ ] **Étape 1** — écrire le test. Rouge.
 - [ ] **Étape 2** — `flutter test test/features/map/view/map_controls_test.dart` → échec.
-- [ ] **Étape 3** — implémenter et brancher.
-- [ ] **Étape 4** — `flutter test` → vert, puis critère de fin et commit.
+- [ ] **Étape 3** — poser `lib/features/shared/tap_target.dart` et y rattacher les trois copies ; sortir `MapScaleChips` et `IgnAttributionBadge` ; implémenter `MapControls` et brancher.
+- [ ] **Étape 4** — `flutter test` → vert (`layers_test.dart` compris : trois tranches importent `features/shared/`, qui n'en importe aucune), puis critère de fin et commit.
 
 ```bash
-git add lib/features/map test/features/map && git commit -m "feat(map): boutons plus, moins et recentrage, cibles de 44 pt" -m "La molette zoome sur Windows depuis le constat du 2026-09-13 ; ces boutons ne la remplacent pas, ils servent qui n en a pas. Les bornes de zoom restent celles de MapOptions : les redefinir ici en ferait deux sources de verite. Les controles ne recouvrent ni le bandeau d avertissement ni l attribution IGN."
+git add lib/features test/features && git commit -m "feat(map): boutons plus, moins et recentrage, cibles de 44 pt" -m "La molette zoome sur Windows depuis le constat du 2026-09-13 ; ces boutons ne la remplacent pas, ils servent qui n en a pas. Les bornes de zoom restent celles de MapOptions : les redefinir ici en ferait deux sources de verite. La cible de 44 pt, definie trois fois faute d endroit commun, l est une seule fois dans features/shared. Les puces d echelle et l attribution IGN sortent de map_view.dart. Les controles ne recouvrent ni le bandeau d avertissement ni l attribution IGN."
 ```
 
 ### Task K2 : Le clavier — raccourcis, focus, ordre de tabulation
 
-**Files:** modifiés `lib/features/map/view/map_screen.dart`, `lib/features/map/view_model/map_view_model.dart` · test `test/features/map/view/map_keyboard_test.dart`
+**Files:** modifiés `lib/features/map/view/map_view.dart` (le plan écrivait `map_screen.dart`), `lib/features/map/view_model/map_view_model.dart` · test `test/features/map/view/map_keyboard_test.dart`
 
 **Signatures publiques** — `Map<ShortcutActivator, Intent> mapShortcuts()` · `class ZoomIntent extends Intent { const ZoomIntent(this.delta); }` · `class PanIntent extends Intent { const PanIntent(this.direction); }`
 
@@ -1038,7 +1163,7 @@ git add lib/features/map test/features/map && git commit -m "feat(map): boutons 
 - `Tab` parcourt, **dans cet ordre** : chips d'échelle → contrôles de zoom → carte → lien du bandeau. L'ordre est **déclaré et testé**, pas laissé au hasard de l'arbre.
 - Le focus est **visible** sur chaque élément focusable : assertion sur la décoration de focus, non sur une capture.
 - `Échap` ferme la feuille de résumé ouverte et **rien d'autre** ; `Entrée` sur un marqueur focalisé ouvre sa feuille — un marqueur atteignable à la souris est atteignable au clavier.
-- Un raccourci **ne se déclenche pas** quand le focus est dans un champ de saisie : vérifié sur le modal d'acquittement.
+- Un raccourci **ne se déclenche pas** quand le focus est dans un champ de saisie : vérifié avec un **`TextField` posé dans le harnais de test** à côté de la surcouche de carte — focus dans le champ, `+` tapé → le caractère entre dans le champ, **aucune** `ZoomIntent` ne parvient au ViewModel. ~~Vérifié sur le modal d'acquittement~~ (révision du 2026-09-22 : le modal n'a qu'une case à cocher et précède la carte, il ne peut pas prouver ce cas).
 - `mapShortcuts()` n'a **aucune clé en double** : aucune collision de raccourci.
 
 - [ ] **Étape 1** — écrire le test avec `sendKeyEvent`, sans rendre `FlutterMap` : les intentions sont vérifiées sur le ViewModel. Rouge.
@@ -1102,10 +1227,10 @@ git add windows test && git commit -m "feat(ui): taille de fenetre minimale sur 
 
 - Chaque `.feature` commence par `Fonctionnalité:` et contient au moins un `Scénario:` ; chaque `Scénario:` contient au moins un `Étant donné`, un `Quand` et un `Alors`.
 - Chaque `Scénario:` cite au moins un `BR-\d{3}`, et **ce fichier existe** : `docs/br/BR-<NNN>-*.md` présent sur le disque. Un `BR-099` inventé rend la suite rouge.
-- Les quatre fichiers couvrent au minimum `BR-005`, `BR-006`, `BR-007`, `BR-010`, `BR-012`, `BR-013` — la liste est **dans le test**, pas seulement dans une intention.
+- Les quatre fichiers couvrent au minimum `BR-005`, `BR-006`, `BR-007`, `BR-010`, `BR-012` — la liste est **dans le test**, pas seulement dans une intention. ~~`BR-013`~~ **retiré le 2026-09-22** (décision 11) : l'encart renforcé n'a pas d'écran en T1, un scénario qui le décrirait décrirait un comportement que le binaire n'a pas.
 - Aucun `.feature` ne contient les cinq mots bannis (`BR-003`) ni de verbe d'instruction (`BR-014`).
 - Un scénario **par borne** de `BR-005` — **1 h 59, 2 h 00, 23 h 59, 24 h 00** — et **par borne** de `BR-010` — **59 j, 60 j** — valeurs écrites dans le Gherkin avec l'affichage attendu.
-- `avertissements.feature` porte un scénario par emplacement de `04-ui.md § 5` : bouton inactif au premier lancement (`BR-012`) · texte modifié, écran réaffiché (`UC-006 A3`) · bandeau visible à tous les zooms · encart daté sur la fiche station (`BR-001`) · encart renforcé non repliable (`BR-013`).
+- `avertissements.feature` porte un scénario par emplacement de `04-ui.md § 5` : bouton inactif au premier lancement (`BR-012`) · texte modifié, écran réaffiché (`UC-006 A3`) · bandeau visible à tous les zooms · encart daté sur la fiche station, source nommée (`BR-001`). ~~Encart renforcé non repliable (`BR-013`)~~ : 🔄 **T2**, avec l'écran des restrictions (révision du 2026-09-22).
 
 - [ ] **Étape 1** — écrire `acceptance_features_test.dart` **avant** les `.feature` : rouge, le dossier n'existe pas.
 - [ ] **Étape 2** — `flutter test test/project/acceptance_features_test.dart` → échec.
@@ -1133,6 +1258,7 @@ git add docs test && git commit -m "docs(acceptance): criteres Gherkin en franca
 - Chaque `US-01` → `US-10` (les **Must**) apparaît avec son état — ✅ T1, 🔄 T2 ou 🔄 T3 — et **jamais** de ligne vide.
 - Chaque fichier de test cité **existe** sur le disque, et chaque `BR` cité pointe vers un `docs/br/BR-<NNN>-*.md` existant : c'est le seul moyen qu'une matrice maintenue à la main ne pourrisse pas.
 - La matrice **ne prétend pas** que `US-07`, `US-08`, `US-09` (sécheresse) sont couverts : leur état est 🔄 **T2**, et le test accepte cet état sans exiger de fichier de test.
+- **`BR-013` porte l'état 🔄 T2** (révision du 2026-09-22, décision 11) : il apparaît dans la matrice, ce qui satisfait « chaque `BR` apparaît », et le test l'**accepte sans fichier de test**, au même titre que les user stories de sécheresse. Son texte est verrouillé par `warning_texts_version_test.dart`, mais aucun test ne prouve encore son **emplacement** : la matrice ne le prétend pas.
 - Contre-épreuve : retirer la ligne `BR-010` → **rouge**.
 
 - [ ] **Étape 1** — écrire `tracabilite_test.dart` d'abord. Rouge.
@@ -1147,7 +1273,7 @@ git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tes
 
 ### Task X3 : `NFR-01` — la première mesure de fluidité sur Windows
 
-**Files:** créés `lib/diagnostics/frame_timing_probe.dart`, `test/diagnostics/frame_timing_probe_test.dart` · modifiés `lib/main.dart`, `docs/nfr.md`
+**Files:** créés `lib/diagnostics/frame_timing_probe.dart`, `lib/diagnostics/counting_station_point_repository.dart` (ajout du 2026-09-22), `test/diagnostics/frame_timing_probe_test.dart`, `test/diagnostics/counting_station_point_repository_test.dart` · modifiés `lib/main.dart`, `docs/nfr.md`
 
 **Signatures publiques** — `final class FrameTimingProbe { void start(); void stop(); FrameTimingReport report(); }` · `final class FrameTimingReport { int frameCount; Duration rasterP50; Duration rasterP90; double lateFramePercent; }` · `Duration percentile(List<Duration> samples, double fraction)`
 
@@ -1158,7 +1284,9 @@ git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tes
 | Geste | Contenu | Durée |
 |---|---|---|
 | `G1` | glisser continu à zoom **départemental**, échelle écoulement active | 10 s |
-| `G2` | six zooms molette successifs, du national au local | 10 s |
+| `G2` | six zooms molette successifs, du national au local — **et le nombre d'appels au dépôt de points pendant le geste** (révision du 2026-09-22 : c'est ce qui instruit `NV-W6`) | 10 s |
+
+> **Révision du 2026-09-22 — `NV-W6` instruit ici.** Chaque cran de molette déclenche un rechargement (`MapEventScrollWheelZoom` n'a pas de variante `…End` dans `flutter_map` 8.3.2). `G2` compte donc aussi les appels à `StationPointRepository.withinBounds` pendant le geste, par un **décorateur de comptage** (`lib/diagnostics/counting_station_point_repository.dart`) câblé par `main.dart` derrière le même drapeau, inerte sans lui. **Seul `main.dart` l'importe** : c'est une convention, aucune règle de `layers_test.dart` ne couvre `lib/diagnostics/` — la relecture de `X3` la vérifie par `grep -rn diagnostics lib/`. **Conclusion attendue, écrite dans `docs/nfr.md` :** si le coût de ces rechargements est visible dans les trames de `G2` (p90 ou trames en retard au-delà des seuils de `NFR-01` **et** plus d'un appel par cran), une tâche d'**anti-rebond** est ouverte, chiffrée, soumise au commanditaire ; sinon `NV-W6` est **clos** avec les chiffres. Dans les deux cas, pas d'anti-rebond écrit dans `X3`.
 | `G3` | glisser continu à zoom **national**, où les 4 150 pastilles sont toutes dessinées | 10 s |
 
 **Cas de test** (sur le calcul, pas sur le rendu)
@@ -1167,6 +1295,7 @@ git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tes
 - `lateFramePercent` sur 100 trames dont 9 dépassent 16,7 ms → **9,0** ; dont 0 → **0,0**.
 - `report()` avant tout `start()` → `frameCount` **0**, jamais une division par zéro ; la sonde n'enregistre **rien** entre `stop()` et le `start()` suivant.
 - Sans `--dart-define`, `main.dart` ne l'instancie pas : assertion sur l'absence d'enregistrement de rappel.
+- Le décorateur de comptage délègue **chaque** appel au dépôt décoré et compte exactement le nombre d'appels ; sans drapeau, `main.dart` ne l'intercale pas.
 
 - [ ] **Étape 1** — écrire le test du calcul. Rouge.
 - [ ] **Étape 2** — `flutter test test/diagnostics` → échec.
@@ -1177,38 +1306,39 @@ git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tes
 ```bash
 flutter run -d windows --dart-define=FLUIDITY_PROBE=true
 ```
-Attendu : exécuter `G1`, `G2`, `G3` dans l'ordre et **recopier les trois rapports** — `frameCount`, `rasterP50`, `rasterP90`, `lateFramePercent`. ⚠️ **Le résultat n'est pas connu d'avance.** Le repère du spike — p90 **16,2 ms** pour **8,9 %** de trames en retard — vient d'une autre plateforme et de l'approche par regroupement : **il ne se transpose pas**. Si `NFR-01` n'est pas tenu, c'est un **résultat** : il se consigne, le seuil ne bouge pas, le travail se planifie.
+Attendu : exécuter `G1`, `G2`, `G3` dans l'ordre et **recopier les trois rapports** — `frameCount`, `rasterP50`, `rasterP90`, `lateFramePercent` —, plus, pour `G2`, le **nombre d'appels au dépôt de points** et le nombre de crans de molette donnés. ⚠️ **Le résultat n'est pas connu d'avance.** Le repère du spike — p90 **16,2 ms** pour **8,9 %** de trames en retard — vient d'une autre plateforme et de l'approche par regroupement : **il ne se transpose pas**. Si `NFR-01` n'est pas tenu, c'est un **résultat** : il se consigne, le seuil ne bouge pas, le travail se planifie.
 
-- [ ] **Étape 6** — mettre `docs/nfr.md` à jour : `NFR-01` colonnes « Constaté par » et « État », les trois gestes nommés, les chiffres recopiés ; `NV-W3` levé ou maintenu.
+- [ ] **Étape 6** — mettre `docs/nfr.md` à jour : `NFR-01` colonnes « Constaté par » et « État », les trois gestes nommés, les chiffres recopiés ; `NV-W3` levé ou maintenu ; **`NV-W6` instruit** — clos avec les chiffres, ou maintenu avec la tâche d'anti-rebond ouverte et soumise au commanditaire (point 21 de `docs/project-state.md` mis à jour dans le même commit).
 - [ ] **Étape 7** — critère de fin, puis commit.
 
 ```bash
-git add lib docs test && git commit -m "feat(diagnostics): mesurer la fluidite de la carte sur Windows, sur trois gestes definis d avance" -m "Les trois gestes sont ecrits AVANT la mesure : choisir le geste apres avoir vu les chiffres est la facon la plus simple de tenir un seuil sans rien tenir. Les seuils de NFR-01 — p90 16,7 ms et moins de 5 pour cent de trames en retard — ne bougent pas. Mesure du <date> sur Windows : G1 <..>, G2 <..>, G3 <..>. NV-W3 <leve / maintenu>. La sonde est inerte sans son drapeau."
+git add lib docs test && git commit -m "feat(diagnostics): mesurer la fluidite de la carte sur Windows, sur trois gestes definis d avance" -m "Les trois gestes sont ecrits AVANT la mesure : choisir le geste apres avoir vu les chiffres est la facon la plus simple de tenir un seuil sans rien tenir. Les seuils de NFR-01 — p90 16,7 ms et moins de 5 pour cent de trames en retard — ne bougent pas. Mesure du <date> sur Windows : G1 <..>, G2 <..> et <N> appels au depot pour <M> crans, G3 <..>. NV-W3 <leve / maintenu>. NV-W6 <clos / tache d anti-rebond ouverte>. La sonde et le compteur sont inertes sans leur drapeau."
 ```
 
 ### Task X4 : `CHANGELOG` `0.2.0` et remise à jour des documents transverses
 
-**Files:** modifiés `CHANGELOG.md`, `pubspec.yaml`, `docs/plan-de-tests.md`, `docs/project-state.md`, `docs/nfr.md`, `docs/sources/onde.md`, `docs/sources/hubeau-hydrometrie.md`, `CLAUDE.md` · test `test/project/changelog_test.dart` (ajout)
+**Files:** modifiés `CHANGELOG.md`, `pubspec.yaml`, `docs/plan-de-tests.md`, `docs/project-state.md`, `docs/nfr.md`, `docs/sources/onde.md`, `docs/sources/hubeau-hydrometrie.md`, `docs/03-conception.md`, `CLAUDE.md` · test `test/project/changelog_test.dart` (ajout)
 
 **Invariant :** un document qui contredit le code est corrigé **dans le même commit** — `CLAUDE.md` inclus.
 
 **Cas de test**
 
 - `CHANGELOG.md` contient une section `## [0.2.0]`, et **une seule** ; `pubspec.yaml` porte `version: 0.2.0+2`, et le `CHANGELOG` dit la **même** version — un tag et un journal qui divergent laissent personne savoir ce que contient le binaire installé.
-- La section `0.2.0` contient une sous-section **`### Non vérifié`** non vide, nommant au minimum les `Q-` restés ouverts, iOS jamais compilé et **l'état réel d'Android au jour de la version** (réactivé le 2026-09-18 ; dire ce qui a été construit et vu, et ce qui ne l'a pas été).
+- La section `0.2.0` contient une sous-section **`### Non vérifié`** non vide, nommant au minimum les `Q-` restés ouverts, iOS jamais compilé, **l'état réel d'Android au jour de la version** (réactivé le 2026-09-18 ; dire ce qui a été construit et vu, et ce qui ne l'a pas été) et **`BR-013` reporté en T2** — l'encart renforcé n'est posé sur aucun écran, faute d'écran de ressource en T1 (arbitrage du 2026-09-22).
+- `docs/03-conception.md` (l. 48) nomme les tranches prévues `station_detail`, `onde`, `restrictions` ; le code a `station_sheet` et `onde_sheet`, plus `warnings` et `shared/`. La ligne est **réalignée sur le code** ; `restrictions`, `favorites`, `settings` y restent comme tranches **prévues** (T2, T3), marquées 🔄.
 - `docs/plan-de-tests.md` : ligne `test/features/goldens/` ✅, ligne `integration_test/` toujours 🔄 (T3), § Portée citant ce plan.
 - `CLAUDE.md` : la table « Où on en est » met T1 à jour, la ligne CQRS est **retirée** au profit de MVVM (`ADR-014`), et `ADR-011` n'est plus marqué « réservé ».
 - `docs/project-state.md` cite `v0.2.0` et les constats de la porte.
 
 - [ ] **Étape 1** — étendre `changelog_test.dart` : rouge sur `0.2.0`.
 - [ ] **Étape 2** — `flutter test test/project/changelog_test.dart` → échec.
-- [ ] **Étape 3** — écrire la section `0.2.0` : `### Ajouté` (fiche station, ONDE, les quatre avertissements, clavier/souris, Gherkin, traçabilité) · `### Modifié` (MVVM, `CachePolicy` en décorateur de dépôt) · `### Retiré` (`lib/application/`) · **`### Non vérifié`**.
+- [ ] **Étape 3** — écrire la section `0.2.0` : `### Ajouté` (fiche station, ONDE, **trois des quatre avertissements** — modal, bandeau, encart daté —, clavier/souris, Gherkin, traçabilité) · `### Modifié` (MVVM, `CachePolicy` en décorateur de dépôt, heure affichée en heure locale — `H1`) · `### Retiré` (`lib/application/`) · **`### Non vérifié`**.
 - [ ] **Étape 4** — porter `version: 0.2.0+2` dans `pubspec.yaml`.
-- [ ] **Étape 5** — reprendre `plan-de-tests.md`, `project-state.md`, `nfr.md`, les deux fiches de sources et `CLAUDE.md`.
+- [ ] **Étape 5** — reprendre `plan-de-tests.md`, `project-state.md`, `nfr.md`, les deux fiches de sources, `03-conception.md` (l. 48) et `CLAUDE.md`.
 - [ ] **Étape 6** — `flutter test` → vert, puis critère de fin et commit.
 
 ```bash
-git add CHANGELOG.md pubspec.yaml docs CLAUDE.md test && git commit -m "docs: ouvrir la version 0.2.0, et reprendre les documents que le code a fait mentir" -m "CLAUDE.md decrivait un CQRS leger que ADR-014 a remplace, et un ADR-011 reserve que W1 a tranche : un fichier qui contredit le code se corrige dans le meme commit. La section Non verifie nomme les questions d API restees ouvertes, iOS jamais compile et Android differe — un CHANGELOG qui les taisait ferait croire a un produit fini."
+git add CHANGELOG.md pubspec.yaml docs CLAUDE.md test && git commit -m "docs: ouvrir la version 0.2.0, et reprendre les documents que le code a fait mentir" -m "CLAUDE.md decrivait un CQRS leger que ADR-014 a remplace, et un ADR-011 reserve que W1 a tranche : un fichier qui contredit le code se corrige dans le meme commit. La section Non verifie nomme les questions d API restees ouvertes, iOS jamais compile, l etat reel d Android et BR-013 reporte en T2 — un CHANGELOG qui les taisait ferait croire a un produit fini."
 ```
 
 ---
@@ -1219,13 +1349,15 @@ git add CHANGELOG.md pubspec.yaml docs CLAUDE.md test && git commit -m "docs: ou
 
 **Demande :** « à la fin de T1, je veux que l'on supprime tout de l'ancienne architecture React Native, aussi dans la doc » (2026-09-14). Les traces induisent en erreur : le brief d'une session et plusieurs agents s'y sont trompés le 2026-09-13.
 
-**Invariant à concilier — question fermée au commanditaire avant d'exécuter :** `docs/README.md` § Règles d'écriture et `CLAUDE.md` disent qu'un ADR obsolète **n'est jamais supprimé**, il passe à « Remplacé par … ». `ADR-005` (MAUI), `ADR-008`, `ADR-009`, `ADR-010` (React Native) et `ADR-012` (`createPack`) sont dans ce cas. Recommandation : **les garder** avec leur statut (ce sont les seules traces de *pourquoi* deux stacks ont été abandonnées), purger tout le reste. Alternative : les déplacer sous `docs/adr/archive/` avec un index — même contenu, moins visible.
+**Invariant concilié — ✅ arbitré le 2026-09-18 :** `docs/README.md` § Règles d'écriture et `CLAUDE.md` disent qu'un ADR obsolète **n'est jamais supprimé**, il passe à « Remplacé par … ». `ADR-005` (MAUI), `ADR-008`, `ADR-009`, `ADR-010` (React Native) et `ADR-012` (`createPack`) sont dans ce cas : ils sont **gardés** avec leur statut (ce sont les seules traces de *pourquoi* deux stacks ont été abandonnées), tout le reste est purgé. L'alternative `docs/adr/archive/` est écartée. L'ancienne étape 1 (question fermée) est **supprimée** (révision du 2026-09-22).
+
+⚠️ **`node_modules/`** (430 entrées au 2026-09-22, héritées de l'outillage Node) subsiste sur le poste, non versionné : il n'entre dans aucun commit et **est à supprimer par le commanditaire**. La règle qui l'exclut n'est ni dans `.gitignore` ni dans `.git/info/exclude` — à vérifier par `git status --ignored` avant `X5`, pour qu'un `git add docs assets` ne le ramasse pas ailleurs. Même traitement que les caches résiduels sous `android/` (point 22 de `docs/project-state.md`). Aucune commande de suppression hors dépôt n'est lancée par Claude.
 
 **Critère de fin :** `grep -rniE "react native|expo|maplibre|createpack|jest|tsc|typescript" docs CLAUDE.md README.md --include=*.md` ne rend que les ADR conservés et `ADR-013` (qui raconte la bascule) ; `git ls-files assets` ne liste que `assets/referentiel/stations.json` ; `docs/README.md` ne référence plus de guide APK ; `flutter test test/project/` vert (les tests de docs lisent `nfr.md`, `domain-model.md`, `CHANGELOG.md`).
 
-- [ ] **Étape 1** — poser la question fermée sur les ADR ; attendre la réponse.
+- [ ] ~~**Étape 1** — poser la question fermée sur les ADR ; attendre la réponse.~~ **Supprimée le 2026-09-22** : arbitrée le 2026-09-18, ADR remplacés gardés.
 - [ ] **Étape 2** — purger `docs/project-state.md` (retirer le `<details>` historique, garder une ligne « historique des stacks : voir ADR-005, 010, 013 »), `docs/README.md`, les documents de cadrage, `guide-installation.md`.
-- [ ] **Étape 3** — `git rm` des deux guides et des six PNG ; vérifier qu'aucun test ne les lit.
+- [ ] **Étape 3** — `git rm` des deux guides et des six PNG ; vérifier qu'aucun test ne les lit. Signaler au commanditaire que `node_modules/` reste à supprimer par lui.
 - [ ] **Étape 4** — critère de fin, `flutter analyze`, `flutter test`, commit.
 
 ```bash
@@ -1266,13 +1398,15 @@ Attendu : un poids **≤ 60 Mo** (repère de `0.1.0` : **31 Mo**, 14 fichiers). 
 ```
 Attendu, à constater **à l'écran** — **les cinq points, ou la porte n'est pas franchie** :
 
-1. **Au premier lancement**, le modal s'affiche, le bouton est **inactif**, il s'active au cochage, le libellé est **« J'ai compris ces limites »**. **Relancer** ensuite : le modal **ne réapparaît pas** (`BR-012`, `W1`).
+1. **Au premier lancement**, le modal s'affiche, le bouton est **inactif**, il s'active au cochage, le libellé est **« J'ai compris ces limites »**. **Relancer** ensuite : le modal **n'apparaît pas, pas même une image** — la carte vient directement (`BR-012`, `W1`, `W2`).
 2. Le **bandeau d'avertissement** est lisible sur la carte, à **tous** les zooms, et ne se ferme pas.
-3. **Un tap sur une station** ouvre la feuille : libellé, cours d'eau, département, **débit en m³/s avec sa date**, hauteur en m, statut et qualification. Si la source est indisponible (`T-10`), la feuille **nomme la source** au lieu de rester vide — c'est aussi un constat valide.
+3. **Un tap sur une station** ouvre la feuille : encart daté en tête, libellé, cours d'eau, département, **débit en m³/s avec sa date en heure locale** (« 27/08/2026 à 10:00 », **sans** « UTC » — `H1`) **et la source Hub'Eau nommée à côté** (`BR-001`, `W4`), hauteur en m, statut et qualification. Si la source est indisponible (`T-10`), la feuille **nomme la source** au lieu de rester vide — c'est aussi un constat valide.
 4. **L'échelle « écoulement » affiche les points ONDE** avec leurs formes et couleurs, et un tap ouvre la fiche avec sa **date de campagne**. La bascule vers « débit » change **marqueurs et légende ensemble**.
 5. Le **clavier** pilote la carte : `Tab` montre un focus visible, les flèches déplacent, `+`/`−` zooment ; la fenêtre **refuse** d'être réduite sous 800 × 600 et l'avertissement n'est pas tronqué.
 
 Un point manquant se note comme manquant : ce n'est pas une porte qu'on arrondit.
+
+⚠️ **L'encart renforcé est absent de `0.2.0`, et c'est attendu** : `BR-013` est reporté en T2 (décision 11), faute d'écran de ressource en T1. Son absence n'est **pas** un point manquant de la porte ; elle est écrite dans la section « Non vérifié » de `P2`.
 
 - [ ] **Étape 5 — épreuve hors réseau : commanditaire.** Désactiver la carte réseau, relancer l'exécutable. Attendu, **non connu d'avance** : les pastilles s'affichent (asset embarqué), les tuiles viennent du cache de la bibliothèque sur les zones déjà parcourues, et la feuille d'une station **nomme la source injoignable** au lieu d'afficher un état neutre (`BR-007`). **Constater, ne pas supposer.**
 - [ ] **Étape 6 — consigner** dans `docs/nfr.md` (`NFR-01`, `NFR-03`, `NFR-04`, `NFR-06`) et `docs/project-state.md`, puis commit.
@@ -1290,16 +1424,16 @@ git add docs && git commit -m "docs: consigner les constats de la porte T1 sur W
 - [ ] **Étape 1** — `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
 - [ ] **Étape 2** — dater la version et ajouter deux sections :
   - `### Constaté à l'exécution` — les **cinq** constats de `P1` étape 4, un par un · poids et nombre de fichiers du dossier de publication · comportement hors réseau, **sans interprétation** · les trois rapports de fluidité.
-  - `### Non vérifié` — `Q-01` à `Q-05` restés ouverts · aucun percentile, donc aucune qualification statistique du débit (`ADR-003` hors T1) · aucun appel VigiEau (T2) · aucun `integration_test/` · cibles de 48 dp non vérifiées (Android réactivé le 2026-09-18 : recopier ce qui a été réellement constaté sur l'émulateur) · iOS jamais compilé.
+  - `### Non vérifié` — `Q-01` à `Q-05` restés ouverts · aucun percentile, donc aucune qualification statistique du débit (`ADR-003` hors T1) · aucun appel VigiEau (T2) · **`BR-013` reporté en T2** : encart renforcé écrit mais posé sur aucun écran (arbitrage du 2026-09-22) · aucun `integration_test/` · cibles de 48 dp non vérifiées (Android réactivé le 2026-09-18 : recopier ce qui a été réellement constaté sur l'émulateur) · iOS jamais compilé.
 - [ ] **Étape 3** — `flutter test` → **tous verts**.
 - [ ] **Étape 4 — commit et tag.**
 
 ```bash
-git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.2.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "C est la premiere version ou les quatre avertissements de BR-012 et BR-013 sont en place : CLAUDE.md interdisait toute mise en production avant. Ce n est pas pour autant un produit complet, et la section Non verifie le dit : aucun percentile, aucun appel VigiEau, aucun parcours integre, iOS jamais compile, Android differe."
+git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.2.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "C est la premiere version ou chaque ecran porte l avertissement que BR-012 lui impose : modal acquitte, bandeau permanent, encart date par fiche. L encart renforce de BR-013 n a pas d ecran en T1 et part en T2 avec les restrictions (arbitrage du 2026-09-22). Ce n est pas pour autant un produit complet, et la section Non verifie le dit : aucun percentile, aucun appel VigiEau, BR-013 en T2, aucun parcours integre, iOS jamais compile, Android tel que constate."
 ```
 
 ```bash
-git tag -a v0.2.0 -m "T1 — fiche station, ecoulement ONDE et les quatre avertissements, cible Windows. Le debit en m3 par seconde avec sa date, sa fraicheur et sa qualification ; les points ONDE en quatre categories avec l age de leur campagne ; les quatre emplacements d avertissement, dont un acquittement qui survit au redemarrage ; la carte au clavier et a la souris ; des criteres Gherkin et une matrice de tracabilite verifies par test. Aucun percentile (ADR-003 hors T1) : sur l echelle debit, toute station est Indeterminee au sens de BR-004."
+git tag -a v0.2.0 -m "T1 — fiche station, ecoulement ONDE et avertissements, cible Windows. Le debit en m3 par seconde avec sa date en heure locale, sa source, sa fraicheur et sa qualification ; les points ONDE en quatre categories avec l age de leur campagne ; trois des quatre emplacements d avertissement, dont un acquittement qui survit au redemarrage — le quatrieme, BR-013, en T2 avec son ecran ; la carte au clavier et a la souris ; des criteres Gherkin et une matrice de tracabilite verifies par test. Aucun percentile (ADR-003 hors T1) : sur l echelle debit, toute station est Indeterminee au sens de BR-004."
 ```
 
 ⚠️ **Ne pas pousser le tag sans demande explicite.**
@@ -1334,6 +1468,8 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | 8 | **Taille de fenêtre minimale** | **800 × 600**, chiffre **proposé par ce plan** : la largeur en dessous de laquelle le bandeau se tronque à 200 % de police | Ne pas contraindre : mais un avertissement tronqué est une violation de `BR-012`, pas un défaut cosmétique |
 | 9 | **Version du texte d'avertissement** | Une **chaîne datée** (`'2026-09-13.1'`), persistée et comparée à la version compilée | Un booléen : un texte modifié ne serait jamais relu, ce qu'`UC-006 A3` exige |
 | 10 | **Ordre des lots** | Données → ViewModels → Vues → Avertissements → Clavier → Documentation → Porte | Les avertissements en premier : ils sont la condition de mise en production, mais l'encart de fiche n'a pas de fiche où se poser avant le lot 3 |
+| 11 | **`BR-013` (encart renforcé) — ✅ arbitrage du commanditaire du 2026-09-22** | **Reporté en T2**, posé sur l'écran des restrictions VigiEau. En T1 la fiche station donne une mesure, pas une disponibilité de la ressource : aucun écran de T1 n'entre dans le champ de `BR-013`. T1 écrit et verrouille le **texte** (`W5`), pas le widget | (a) Poser l'encart sur la fiche station : étendrait `BR-013` à un écran qu'il ne vise pas, et doublerait l'encart daté de `W4` en tête de la même fiche. (b) Écrire le widget en T1 sans l'afficher : un widget sans appelant (YAGNI), dont l'emplacement ne serait prouvé par aucun test |
+| 12 | **Heure affichée — ✅ arbitrage du commanditaire du 2026-09-22, clôt le point 19** | **Heure locale, sans suffixe** : « 27/08/2026 à 10:00 ». Fuseau **injecté** pour des tests déterministes ; décalage demandé pour l'instant affiché. Un seul formateur (`H1`) | (a) UTC explicite (« … à 08:00 UTC », choix de `U1`) : exact mais demande à l'usager une conversion de tête. (b) Heure locale **avec** suffixe (« 10:00 heure de Paris » ou « UTC+2 ») : plus long, et le libellé du fuseau dépendrait de la machine. (c) Heure locale lue sans injection : tests dépendants du fuseau du poste |
 
 ---
 
@@ -1342,34 +1478,37 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | Lot | Tâches | Contenu |
 |---|---|---|
 | **Préalable** | `R3` → `R6` | **hors T1** — le réusinage MVVM de T0 doit être clos, `layers_test.dart` vert |
-| **1 — Données** | `D1` → `D7` (7) | **faits d'API et fixtures d'abord**, domaine ONDE, mapper, client, dépôt hydro, cache 20 min, dépôt ONDE |
+| **1 — Données** | `D1` → `D8` (8) | **faits d'API et fixtures d'abord**, domaine ONDE, mapper, client, dépôt hydro, cache 20 min, dépôt ONDE, point porté par l'observation (`D8`) |
 | **2 — ViewModels** | `V1` → `V4` (4) | fiche station, carte enrichie, fiche ONDE, avertissements — **aucun widget importé** |
 | **3 — Vues** | `U1` → `U6` (6) | feuille au tap, marqueur de station, points ONDE, fiche ONDE, goldens, états vides |
-| **4 — Avertissements** | `W1` → `W5` (5) | stockage et `ADR-011`, **les quatre emplacements**, balayage de vocabulaire |
-| **5 — Clavier/souris** | `K1` → `K3` (3) | boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
+| **4 — Avertissements** | `W1` → `W3`, **`H1`**, `W4`, `W5` (6) | stockage et `ADR-011`, modal, bandeau, **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
+| **5 — Clavier/souris** | **`H2`**, `K1` → `K3` (4) | **décisions de la carte rendues au ViewModel** (`H2`, 2026-09-22), boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
 | **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge React Native (`X5`, demande du 2026-09-14) |
 | **7 — Porte** | `P1`, `P2` (2) | exécutable Windows, **cinq constats**, `0.2.0` datée et taguée |
 | **Android** (hors décompte) | `A⏸1` → `A⏸5` (5) | différées le 2026-09-12, **différé levé le 2026-09-18** : `A⏸1` ✅, `A⏸2` 🔄 à constater par une construction, `A⏸3`→`A⏸5` ⏸ |
 
-**33 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5`), **5 différées.**
+**35 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22) : 8 + 4 + 6 + 6 + 4 + 5 + 2. **5 différées.**
 
 ## Ordre d'exécution
 
 ```mermaid
 graph LR
     R["Prealable<br/>R3 a R6 — MVVM clos"] --> D1["D1<br/>faits d API + fixtures"]
-    D1 --> D["Lot 1 — Donnees<br/>D2 a D7"]
+    D1 --> D["Lot 1 — Donnees<br/>D2 a D8"]
     D --> V["Lot 2 — ViewModels<br/>V1 a V4"]
     V --> U["Lot 3 — Vues<br/>U1 a U6"]
-    U --> W["Lot 4 — Avertissements<br/>W1 a W5"]
-    W --> K["Lot 5 — Clavier / souris<br/>K1 a K3"]
+    U --> W13["W1 a W3<br/>stockage, modal, bandeau"]
+    W13 --> H1["H1<br/>formateur de date, heure locale"]
+    H1 --> W45["W4, W5<br/>encart date, vocabulaire"]
+    W45 --> H2["H2<br/>decisions carte vers le ViewModel"]
+    H2 --> K["Lot 5 — Clavier / souris<br/>K1 a K3"]
     U --> X["Lot 6 — Documentation<br/>X1 a X5"]
-    W --> X
+    W45 --> X
     K --> P["Lot 7 — Porte<br/>P1, P2"]
     X --> P
 ```
 
-`D1` est **seule en tête** : `T-07` et `Q-01`/`Q-02` décident de la forme de `D3` et de `D5`. `W1` précède `W2` : un acquittement sans persistance réapparaît à chaque lancement, ce que `BR-012` interdit. `X1` et `X2` partent dès que les vues existent — ils **documentent** ce que les lots 3 et 4 prouvent.
+`D1` est **seule en tête** : `T-07` et `Q-01`/`Q-02` décident de la forme de `D3` et de `D5`. `W1` précède `W2` : un acquittement sans persistance réapparaît à chaque lancement, ce que `BR-012` interdit. **`H1` précède `W4`** : l'encart écrit une date, et il n'y a qu'un formateur. **`H2` précède `K1`** : les boutons et raccourcis déclenchent la séquence que `H2` rend au ViewModel. `X1` et `X2` partent dès que les vues existent — ils **documentent** ce que les lots 3 et 4 prouvent.
 
 ## Les quatre choses à ne jamais faire dans ce plan
 
