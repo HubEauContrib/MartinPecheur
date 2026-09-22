@@ -886,17 +886,17 @@ curl -s "https://pub.dev/api/packages/shared_preferences" | head -c 400
 Attendu : `"version":"2.5.5"` ou plus récent. **Recopier la version, la licence et les plateformes réellement lues.** Si elles diffèrent de `T-11`, c'est le relevé du jour qui fait foi.
 
 - [x] **Étape 2 — écrire `ADR-011`** (écrit le 2026-09-18, après arbitrage du commanditaire par question fermée) : décision (`shared_preferences` pour la préférence simple ; moteur structuré **à trancher** quand un écran en aura besoin), alternatives écartées (`drift` surdimensionné pour une clé ; `sqflite` **ne couvre pas Windows** ; un fichier écrit à la main imposerait de gérer le chemin par plateforme), § « Si la décision est revue ». Index dans `docs/README.md`.
-- [ ] **Étape 3** — écrire le test rouge, puis ajouter la dépendance :
+- [x] **Étape 3** (2026-09-22) — écrire le test rouge, puis ajouter la dépendance :
 
 ```bash
 flutter pub add shared_preferences:^2.5.5 && flutter pub get
 ```
 Attendu : la dépendance apparaît dans `pubspec.yaml` et `flutter pub get` réussit. **Recopier la version réellement résolue** — elle peut différer de celle demandée.
 
-- [ ] **Étape 4** — `flutter test test/data/preferences` → échec.
-- [ ] **Étape 5** — implémenter l'implémentation de données. ⚠️ **L'interface `AcknowledgementRepository` est déjà déclarée dans `lib/domain/repositories/repositories.dart` depuis `V4` (2026-09-14)** : ne pas la redéclarer, seulement la réaliser sous `lib/data/preferences/`.
-- [ ] **Étape 6** — `flutter test test/architecture` → **vert** : `shared_preferences` n'est **pas** entré dans `lib/domain/`. C'est le point où ce test gagne sa place.
-- [ ] **Étape 7** — critère de fin, puis commit.
+- [x] **Étape 4** (2026-09-22) — `flutter test test/data/preferences` → échec.
+- [x] **Étape 5** (2026-09-22) — implémenter l'implémentation de données. ⚠️ **L'interface `AcknowledgementRepository` est déjà déclarée dans `lib/domain/repositories/repositories.dart` depuis `V4` (2026-09-14)** : ne pas la redéclarer, seulement la réaliser sous `lib/data/preferences/`.
+- [x] **Étape 6** (2026-09-22) — `flutter test test/architecture` → **vert** : `shared_preferences` n'est **pas** entré dans `lib/domain/`. C'est le point où ce test gagne sa place.
+- [x] **Étape 7** (2026-09-22) — critère de fin, puis commit.
 
 ```bash
 git add pubspec.yaml pubspec.lock lib docs test && git commit -m "feat(avertissement): persister la version acquittee, et trancher ADR-011 pour la preference simple" -m "shared_preferences 2.5.5, publiee le 2026-03-25, BSD-3-Clause, Windows prise en charge, contrainte flutter 3.35 satisfaite par le poste — releve sur pub.dev AVANT ajout. Une chaine de version est persistee, pas un booleen : c est ce qui permet de faire relire un avertissement modifie. L interface vit dans domain, l implementation dans data, et le test d architecture confirme que le paquet n est pas entre dans le domaine. Le moteur structure reste a trancher : aucun ecran de T1 n en a besoin."
