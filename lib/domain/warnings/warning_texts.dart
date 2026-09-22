@@ -63,3 +63,28 @@ const String initialWarningCheckboxLabel =
 /// Libellé du bouton d'acquittement — engage, jamais « OK », « Continuer »
 /// ni « Fermer » (`BR-012`, `UC-006 § 2`).
 const String initialWarningButtonLabel = "J'ai compris ces limites";
+
+// ---------------------------------------------------------------------------
+// Tâche `W3` — bandeau permanent de la carte (emplacement 2 de
+// `04-ui.md § 5`). ⚠️ HORS VERROU DE VERSION : `warningTextVersion` ne
+// couvre QUE le texte du modal (arbitrage du coordinateur, 2026-09-22) — ce
+// texte-ci est figé par son propre test,
+// `test/features/map/view/map_warning_banner_test.dart`.
+// ---------------------------------------------------------------------------
+
+/// Texte du bandeau permanent de la carte, recopié du wireframe
+/// (`docs/04-ui.md § 1`, l. ~15-16 : « ⚠ Données indicatives. Ni
+/// autorisation, ni garantie. »).
+const String mapBannerText =
+    'Données indicatives. Ni autorisation, ni garantie.';
+
+/// Libellé de l'action du bandeau qui ouvre la feuille de relecture des
+/// textes du modal initial (`docs/04-ui.md § 1`, l. 16 : « Ce que ça dit> »).
+const String mapExplainActionLabel = 'Ce que ça dit';
+
+/// Libellé du bouton de fermeture de la feuille de relecture — choix du
+/// coordinateur, 2026-09-22 : ce n'est pas une fiche, donc pas
+/// `'Fermer la fiche'` ; « Fermer » seul n'est interdit que pour le bouton
+/// d'acquittement du modal initial (`BR-012`, `initialWarningButtonLabel`),
+/// jamais pour une fermeture de lecture seule comme celle-ci.
+const String warningReviewCloseLabel = 'Fermer';

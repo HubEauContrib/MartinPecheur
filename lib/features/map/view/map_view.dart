@@ -13,6 +13,14 @@
 // touché à ce `Stack`. Les deux fonctions pures rendent l'écran entier
 // vérifiable sans monter de carte.
 //
+// [buildMapScreen] (`W3`) assemble l'écran ENTIER : le bandeau permanent
+// d'avertissement ([MapWarningBanner], `map_warning_banner.dart`) AU-DESSUS
+// de tout, dans une `Column`, puis la carte et ses surcouches dans l'espace
+// restant. Une `Column` et non un `Stack` : le bandeau et la carte ne
+// peuvent alors PAS se chevaucher, par construction — c'est ce qui garantit
+// `04-ui.md § 4` (le bandeau reste visible à tous les niveaux de zoom, sans
+// jamais recouvrir puces, légende ni attribution).
+//
 // ⚠️ Au zoom national, les 4 150 zones de tap de 44 pt se chevauchent, et le
 // marqueur qui reçoit le tap est le plus tardif dans l'ordre de l'asset, pas
 // le plus proche du doigt — écart assumé pour T1, acté sous `U1` dans le plan
@@ -102,6 +110,7 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_warning_banner.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -573,6 +582,36 @@ List<Widget> buildMapOverlays({
   ];
 }
 
+/// Assemble l'écran carte entier : le bandeau permanent (`MapWarningBanner`,
+/// `W3`) AU-DESSUS de tout — jamais en surimpression sur un marqueur, jamais
+/// sous les puces d'échelle, la légende ni l'attribution IGN
+/// (`04-ui.md § 4`) — puis [mapAndOverlays] (le `FlutterMap` empilé avec ses
+/// surcouches, produites par [buildMapLayers] et [buildMapOverlays]) dans
+/// l'espace restant.
+///
+/// Fonction PURE, comme [buildMapLayers] et [buildMapOverlays], et pour la
+/// même raison : [mapAndOverlays] est un simple `Widget` ici — un test lui
+/// passe un espace réservé plutôt qu'un `FlutterMap`, ce qui rend visible et
+/// testable, SANS monter aucune tuile, que le bandeau reste posé quels que
+/// soient l'échelle et l'état de chargement (rien dans cette fonction n'en
+/// dépend : c'est précisément ce qui garantit l'invariant).
+///
+/// Une `Column` plutôt qu'un `Stack` : le bandeau et la carte ne peuvent
+/// alors PAS se chevaucher, par construction — aucun calcul de marge ne
+/// pourrait garantir cela aussi simplement, et `04-ui.md § 4` l'exige comme
+/// un invariant, pas comme un réglage.
+Widget buildMapScreen({
+  required Widget mapAndOverlays,
+  void Function()? onExplainBanner,
+}) {
+  return Column(
+    children: <Widget>[
+      MapWarningBanner(onExplain: onExplainBanner),
+      Expanded(child: mapAndOverlays),
+    ],
+  );
+}
+
 /// Marge d'une surcouche au bord de la carte, en pixels logiques.
 const double _overlayPadding = 8;
 
@@ -961,33 +1000,35 @@ class _MapViewState extends State<MapView> {
       body: ListenableBuilder(
         listenable: widget.viewModel,
         builder: (BuildContext context, Widget? child) {
-          return Stack(
-            children: <Widget>[
-              FlutterMap(
-                options: _mapOptions,
-                children: buildMapLayers(
+          return buildMapScreen(
+            mapAndOverlays: Stack(
+              children: <Widget>[
+                FlutterMap(
+                  options: _mapOptions,
+                  children: buildMapLayers(
+                    scale: widget.viewModel.scale,
+                    stations: widget.viewModel.stations,
+                    ondeObservations: widget.viewModel.ondeObservations,
+                    now: widget.now,
+                    onStationTap: widget.onStationTap,
+                    onOndeTap: widget.onOndeTap,
+                    stateOf: widget.viewModel.stateOf,
+                  ),
+                ),
+                ...buildMapOverlays(
                   scale: widget.viewModel.scale,
+                  onSelect: _handleScaleSelected,
+                  onWiden: _handleWiden,
+                  error: widget.viewModel.error,
+                  errorSource: widget.viewModel.errorSource,
                   stations: widget.viewModel.stations,
                   ondeObservations: widget.viewModel.ondeObservations,
-                  now: widget.now,
-                  onStationTap: widget.onStationTap,
-                  onOndeTap: widget.onOndeTap,
-                  stateOf: widget.viewModel.stateOf,
+                  ondeUnreadableRows: widget.viewModel.ondeUnreadableRows,
+                  stationSheet: widget.stationSheet,
+                  ondeSheet: widget.ondeSheet,
                 ),
-              ),
-              ...buildMapOverlays(
-                scale: widget.viewModel.scale,
-                onSelect: _handleScaleSelected,
-                onWiden: _handleWiden,
-                error: widget.viewModel.error,
-                errorSource: widget.viewModel.errorSource,
-                stations: widget.viewModel.stations,
-                ondeObservations: widget.viewModel.ondeObservations,
-                ondeUnreadableRows: widget.viewModel.ondeUnreadableRows,
-                stationSheet: widget.stationSheet,
-                ondeSheet: widget.ondeSheet,
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

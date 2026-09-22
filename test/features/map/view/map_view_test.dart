@@ -32,6 +32,7 @@ import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view/map_warning_banner.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -925,6 +926,130 @@ void main() {
       });
     },
   );
+
+  group('buildMapScreen — le bandeau permanent au-dessus de la carte (W3)', () {
+    /// Rend l'écran SEUL, sans `FlutterMap` : [mapAndOverlays] reçoit un
+    /// simple espace réservé, comme `pumpOverlays` au-dessus rend les
+    /// surcouches sans monter de tuile.
+    Future<void> pumpScreen(
+      WidgetTester tester, {
+      Widget mapAndOverlays = const SizedBox.shrink(),
+      void Function()? onExplainBanner,
+    }) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: buildMapScreen(
+              mapAndOverlays: mapAndOverlays,
+              onExplainBanner: onExplainBanner,
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets(
+      'le bandeau est présent quel que soit MapScaleKind — buildMapScreen '
+      "ne prend même pas l'échelle en paramètre : rien ne peut le rendre "
+      'conditionnel',
+      (WidgetTester tester) async {
+        for (final MapScaleKind scale in MapScaleKind.values) {
+          await pumpScreen(
+            tester,
+            mapAndOverlays: Stack(
+              children: buildMapOverlays(
+                scale: scale,
+                onSelect: (MapScaleKind kind) {},
+                onWiden: () {},
+                error: null,
+                stations: const <StationPoint>[],
+                ondeObservations: const <OndeStationCode, OndeObservation>{},
+                ondeUnreadableRows: 0,
+              ),
+            ),
+          );
+
+          expect(find.byType(MapWarningBanner), findsOneWidget);
+        }
+      },
+    );
+
+    testWidgets(
+      "le bandeau est présent qu'il y ait une erreur ou non — l'état de "
+      "chargement ne le conditionne pas non plus",
+      (WidgetTester tester) async {
+        for (final Object? error in <Object?>[null, StateError('panne')]) {
+          await pumpScreen(
+            tester,
+            mapAndOverlays: Stack(
+              children: buildMapOverlays(
+                scale: MapScaleKind.debit,
+                onSelect: (MapScaleKind kind) {},
+                onWiden: () {},
+                error: error,
+                stations: const <StationPoint>[],
+                ondeObservations: const <OndeStationCode, OndeObservation>{},
+                ondeUnreadableRows: 0,
+              ),
+            ),
+          );
+
+          expect(find.byType(MapWarningBanner), findsOneWidget);
+        }
+      },
+    );
+
+    testWidgets('le bandeau ne recouvre jamais les puces, la légende ni '
+        "l'attribution — une Column, pas un Stack : la carte commence "
+        'STRICTEMENT sous le bandeau', (WidgetTester tester) async {
+      await pumpScreen(
+        tester,
+        mapAndOverlays: Stack(
+          children: buildMapOverlays(
+            scale: MapScaleKind.debit,
+            onSelect: (MapScaleKind kind) {},
+            onWiden: () {},
+            error: StateError('panne'),
+            errorSource: MapErrorSource.referentiel,
+            stations: const <StationPoint>[],
+            ondeObservations: const <OndeStationCode, OndeObservation>{},
+            ondeUnreadableRows: 0,
+          ),
+        ),
+      );
+
+      final double bannerBottom = tester
+          .getBottomLeft(find.byType(MapWarningBanner))
+          .dy;
+
+      for (final Type overlayType in <Type>[
+        MapScaleChips,
+        MapLegend,
+        IgnAttributionBadge,
+      ]) {
+        final double overlayTop = tester
+            .getTopLeft(find.byType(overlayType))
+            .dy;
+        expect(
+          overlayTop,
+          greaterThanOrEqualTo(bannerBottom),
+          reason: '$overlayType commence au-dessus du bas du bandeau',
+        );
+      }
+    });
+
+    testWidgets("l'action du bandeau appelle onExplainBanner s'il est fourni", (
+      WidgetTester tester,
+    ) async {
+      int calls = 0;
+      await pumpScreen(tester, onExplainBanner: () => calls++);
+
+      await tester.tap(find.byKey(mapWarningBannerExplainKey));
+      await tester.pump();
+
+      expect(calls, 1);
+    });
+  });
 
   group('shouldPreloadOn — le débit ne se précharge que sur son échelle '
       '(C-15, NFR-07, relecture du 2026-09-14)', () {

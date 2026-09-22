@@ -969,10 +969,11 @@ git add lib test && git commit -m "feat(avertissement): modal bloquant du premie
 - Le bandeau est une **région d'alerte** pour le lecteur d'écran, et le contraste de son texte est **≥ 7:1** : l'assertion porte sur le couple de teintes déclaré (`04-ui.md § 3`), pas sur une impression.
 - Le texte ne contient aucun mot de garantie — ni *fiable*, ni *officiel*, ni *en direct* (`BR-014`).
 
-- [ ] **Étape 1** — écrire le test, dont l'assertion sur la surface publique. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view/map_warning_banner_test.dart` → échec.
-- [ ] **Étape 3** — ajouter `mapBannerText` à `warning_texts.dart` (sans toucher `warningTextVersion`), implémenter et brancher **au-dessus** de la carte, jamais en surimpression sur un marqueur.
-- [ ] **Étape 4** — `flutter test` → vert, puis critère de fin et commit.
+- [x] **Étape 1** (2026-09-22) — écrire le test, dont l'assertion sur la surface publique. Rouge.
+- [x] **Étape 2** (2026-09-22) — `flutter test test/features/map/view/map_warning_banner_test.dart` → échec.
+- [x] **Étape 3** (2026-09-22) — ajouter `mapBannerText` à `warning_texts.dart` (sans toucher `warningTextVersion`), implémenter et brancher **au-dessus** de la carte, jamais en surimpression sur un marqueur.
+- [x] **Étape 4** (2026-09-22) — `flutter test` → vert, puis critère de fin et commit.
+> **Exécution du 2026-09-22.** Arbitrage du commanditaire : l'action « Ce que ça dit » ouvre une feuille `WarningReviewSheet` (même fichier que le bandeau, seul consommateur : la carte) qui réaffiche en lecture seule `initialWarningTitle` et `initialWarningBody`, sans case ni bouton d'acquittement, fermée par « Fermer ». Le bandeau est posé hors du `Stack` par `buildMapScreen` (`Column` + `Expanded`) : il reste visible fiches ouvertes. Surface publique verrouillée en liste blanche. 827 tests verts, relu par un second agent.
 
 ```bash
 git add lib/features lib/domain test/features && git commit -m "feat(avertissement): 2 sur 4 — bandeau permanent sur la carte, a tous les zooms" -m "Le widget n expose aucun parametre de repli ni de fermeture, et le test verifie cette surface publique : un bandeau qu on peut fermer n est pas permanent, et l invariant de 04-ui section 4 serait contourne sans qu aucun test ne le voie. Contraste du texte au moins 7 pour 1, region d alerte pour le lecteur d ecran."
