@@ -1062,10 +1062,12 @@ git add lib/domain/formatting lib/features lib/main.dart test/domain/formatting 
 - `test/architecture/layers_test.dart` vert : `features/shared/` n'importe aucune tranche (`shared-sans-tranche`), et les deux fiches l'importent.
 - Aucun texte ne contient de verbe d'instruction (`BR-014`) ni les cinq mots bannis (`BR-003`).
 
-- [ ] **Étape 1** — écrire le test, dont l'assertion d'**ordre** et celle de la source. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/shared/sheet_warning_card_test.dart test/features/station_sheet test/features/onde_sheet` → échec.
-- [ ] **Étape 3** — ajouter les textes de l'encart à `warning_texts.dart` (sans toucher `warningTextVersion`) et les deux noms de source à `lib/domain/sources/source_names.dart` ; implémenter l'encart dans `lib/features/shared/` ; brancher dans les deux feuilles ; faire réutiliser `ondeSourceName` par `mapSourceName`. Retirer le commentaire de réservation posé par `U4` en tête de `OndeSummarySheet`.
-- [ ] **Étape 4** — `flutter test` → vert, puis critère de fin et commit. Mettre à jour le point 32 de `docs/project-state.md` : **clos par `W4`**.
+- [x] **Étape 1** (2026-09-23) — écrire le test, dont l'assertion d'**ordre** et celle de la source. Rouge.
+- [x] **Étape 2** (2026-09-23) — `flutter test test/features/shared/sheet_warning_card_test.dart test/features/station_sheet test/features/onde_sheet` → échec.
+- [x] **Étape 3** (2026-09-23) — ajouter les textes de l'encart à `warning_texts.dart` (sans toucher `warningTextVersion`) et les deux noms de source à `lib/domain/sources/source_names.dart` ; implémenter l'encart dans `lib/features/shared/` ; brancher dans les deux feuilles ; faire réutiliser `ondeSourceName` par `mapSourceName`. Retirer le commentaire de réservation posé par `U4` en tête de `OndeSummarySheet`.
+- [x] **Étape 4** (2026-09-23) — `flutter test` → vert, puis critère de fin et commit. Mettre à jour le point 32 de `docs/project-state.md` : **clos par `W4`**.
+
+> **Exécution du 2026-09-23.** Arbitrage du commanditaire : **sans date, aucun encart** (station sans aucune mesure, ONDE sans campagne ; point 39), verrouillé par test. L'encart de la fiche station porte la date du débit, à défaut celle de la hauteur (choix de la tâche). Textes recopiés de `UC-003:23`, `UC-004:23`, `04-ui.md:83`, égalité sur la phrase entière. 862 tests verts, relu par un second agent.
 
 ```bash
 git add lib/features lib/domain test/features test/domain docs/project-state.md && git commit -m "feat(avertissement): 3 sur 4 — encart date en tete de chaque fiche, source nommee" -m "L encart est le premier occupant de features/shared, seul endroit que les deux fiches peuvent importer (arbitrage du 2026-09-18). L assertion porte sur l ORDRE dans l arbre, pas sur la presence : un encart rendu apres la valeur de debit ne remplit pas son role. La date est en heure locale sans suffixe (H1). La valeur, sa date et sa source Hub Eau sont au meme endroit, ce que BR-001 exige et qu aucune fiche ne faisait : point 32 clos. La version ONDE est plus insistante que la version station, et le test compare les deux."

@@ -121,8 +121,8 @@ Future<void> main() async {
 // vrai, c'est [InitialWarningView] qui occupe `home`, et [MapView] n'est
 // JAMAIS construit — ce n'est pas un `Visibility` ni une superposition, la
 // carte et ses dépôts ne sont tout simplement pas atteints. Le bandeau
-// (`W3`) et l'encart daté (`W4`) restent à poser en T1 ; l'encart renforcé
-// (`BR-013`) arrive en T2, `W5` n'en écrit que le texte.
+// (`W3`) et l'encart daté (`W4`) sont posés ; l'encart renforcé (`BR-013`)
+// arrive en T2, `W5` n'en écrit que le texte.
 class MartinPecheurApp extends StatelessWidget {
   const MartinPecheurApp({
     required this.warningsViewModel,

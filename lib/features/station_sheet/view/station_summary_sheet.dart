@@ -32,8 +32,12 @@
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
+import 'package:martinpecheur/domain/warnings/warning_texts.dart'
+    show SheetWarningKind;
+import 'package:martinpecheur/features/shared/sheet_warning_card.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
 /// Côté minimal d'une cible tactile, en pixels logiques : 44 × 44 pt (iOS)
@@ -137,11 +141,27 @@ class StationSummarySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String? stalenessNotice = data.stalenessNotice;
+    // L'encart daté de tête (`W4`, `04-ui.md § 5`, emplacement 3) porte la
+    // date de la mesure la plus significative : le débit d'abord, la
+    // hauteur seule sinon — un ORDRE choisi par cette tâche (`W4`), pas
+    // prescrit par `UC-003 § 1`, qui ne connaît qu'« la mesure ». Sans
+    // aucune des deux, aucune mesure n'existe : l'encart n'est pas rendu
+    // (arbitrage du commanditaire du 2026-09-23).
+    final DateTime? warningDate =
+        data.discharge?.measuredAt ?? data.level?.measuredAt;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
+        if (warningDate != null) ...<Widget>[
+          SheetWarningCard(
+            kind: SheetWarningKind.station,
+            dataDate: warningDate,
+            utcOffsetOf: utcOffsetOf,
+          ),
+          const SizedBox(height: 8),
+        ],
         Text(
           data.station.label,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -246,7 +266,11 @@ class _MeasurementLine extends StatelessWidget {
     }
     return Text(
       '$label : ${measurement.value} — $measuredWord le '
-      '${formatLocalDateTime(measurement.measuredAt, offsetOf: utcOffsetOf)}',
+      '${formatLocalDateTime(measurement.measuredAt, offsetOf: utcOffsetOf)} '
+      // La valeur, sa date et sa source sont dans le MÊME `Text` (`BR-001`,
+      // point 32) : une valeur affichée sans sa source manquerait à la
+      // règle autant qu'une valeur sans date.
+      '— $hydrometrieSourceName',
     );
   }
 }
@@ -264,6 +288,7 @@ class StationSheetPanel extends StatelessWidget {
   const StationSheetPanel({
     required this.state,
     required this.onClose,
+    this.utcOffsetOf = systemUtcOffsetOf,
     super.key,
   });
 
@@ -274,6 +299,11 @@ class StationSheetPanel extends StatelessWidget {
   /// `StationSheetViewModel.close`.
   final VoidCallback onClose;
 
+  /// Le décalage UTC → heure locale, transmis tel quel à
+  /// [StationSummarySheet] (`H1`) — par défaut celui de la machine,
+  /// injectable par un test.
+  final UtcOffsetOf utcOffsetOf;
+
   @override
   Widget build(BuildContext context) {
     return switch (state) {
@@ -282,7 +312,7 @@ class StationSheetPanel extends StatelessWidget {
         Text('Chargement de la station ${code.value}…'),
       ),
       Prete(:final StationSheetData data) => _frame(
-        StationSummarySheet(data: data),
+        StationSummarySheet(data: data, utcOffsetOf: utcOffsetOf),
       ),
       // La cause technique (`EnEchec.cause`) n'est PAS affichée : c'est une
       // donnée de diagnostic, pas un texte pour l'usager. Le message nomme

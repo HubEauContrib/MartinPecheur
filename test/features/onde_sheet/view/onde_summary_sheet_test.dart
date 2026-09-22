@@ -21,9 +21,11 @@ import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
+import 'package:martinpecheur/features/shared/sheet_warning_card.dart';
 
 OndeStationCode _code() => OndeStationCode('K4520001');
 
@@ -317,6 +319,23 @@ void main() {
       expect(modality, lessThan(date));
     });
 
+    // L'invariant de `W4` : l'encart daté est en TÊTE, avant la catégorie —
+    // assertion sur l'ORDRE dans l'arbre, pas sur la seule présence.
+    testWidgets(
+      "l'encart daté est rendu EN TÊTE, avant la catégorie (W4, 04-ui.md "
+      '§ 5, emplacement 3)',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
+
+        final double encart = tester
+            .getTopLeft(find.textContaining('OBSERVATION VISUELLE'))
+            .dy;
+        final double category = tester.getTopLeft(find.text('À sec')).dy;
+
+        expect(encart, lessThan(category));
+      },
+    );
+
     testWidgets('rend les CINQ campagnes de la fixture, chacune avec sa date '
         'et sa catégorie, la plus récente en tête (UC-004 § 4)', (
       WidgetTester tester,
@@ -346,6 +365,58 @@ void main() {
       await _pump(tester, OndeSummarySheet(data: _data()));
 
       expect(find.text(ondeSeasonNotice), findsOneWidget);
+    });
+
+    testWidgets(
+      "$ondeSourceName est rendu avec la date de campagne (BR-001, point 32)",
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
+
+        expect(
+          find.textContaining(ondeSourceName),
+          findsOneWidget,
+          reason:
+              'la valeur, sa date et sa source sont visibles au même '
+              'endroit (BR-001)',
+        );
+      },
+    );
+  });
+
+  group("OndeSummarySheet — l'encart daté de tête (W4, 04-ui.md § 5, "
+      'emplacement 3)', () {
+    testWidgets(
+      "l'encart est rendu, avec la date de la campagne, plus insistant "
+      'que la version station (UC-004 § 1)',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
+
+        expect(find.byType(SheetWarningCard), findsOneWidget);
+        expect(
+          find.textContaining('Observation du 25/08/2026'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('campagne ponctuelle'), findsOneWidget);
+        expect(
+          find.textContaining("Ce n'est pas une mesure de débit"),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('sans campagne, AUCUN encart — arbitrage du commanditaire du '
+        '2026-09-23 : sans date, aucun encart', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        OndeSummarySheet(
+          data: _data(
+            history: <OndeObservation>[],
+            officialModalityText: 'Aucune campagne connue pour ce point.',
+          ),
+        ),
+      );
+
+      expect(find.byType(SheetWarningCard), findsNothing);
     });
   });
 

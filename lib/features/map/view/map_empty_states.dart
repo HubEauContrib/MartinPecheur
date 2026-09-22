@@ -33,6 +33,7 @@
 // qu'il possède au moment où il pose l'erreur, jamais une lecture de message.
 
 import 'package:flutter/material.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart'
     show stationMarkerTapTarget;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -109,7 +110,10 @@ String unreadableRowsText(int count) => count > 1
 /// `BR-007` refuse.
 String mapSourceName(MapErrorSource? source) => switch (source) {
   MapErrorSource.referentiel => 'Le référentiel embarqué des stations',
-  MapErrorSource.ecoulement => "Hub'Eau écoulement ONDE",
+  // Réutilise [ondeSourceName] (`lib/domain/sources/source_names.dart`,
+  // `W4`) : la même chaîne nomme cette source sur la carte et dans
+  // l'encart daté de la fiche ONDE — un concept, un mot (`glossary.md`).
+  MapErrorSource.ecoulement => ondeSourceName,
   null => 'Une source de données',
 };
 

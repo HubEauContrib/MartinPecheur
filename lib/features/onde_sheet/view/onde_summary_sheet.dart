@@ -16,14 +16,15 @@
 // - sans la date, une observation de septembre se lirait en février comme un
 //   fait du jour (`BR-010`, la justification même de la règle).
 //
-// ## Ce qui n'est pas ici
+// ## L'encart d'avertissement de tête (Task W4)
 //
-// ⚠️ L'**encart d'avertissement de tête** (`04-ui.md § 5`, emplacement 3 —
-// « Observation du {date}, lors d'une campagne ponctuelle… ») est posé par la
-// tâche `W4` du lot 4, avec les trois autres emplacements. Sa place est
-// réservée en tête de [OndeSummarySheet] par un COMMENTAIRE et non par un
-// widget vide : un conteneur muet ressemblerait à un avertissement déjà posé,
-// ce que `BR-012` et `BR-013` interdisent de laisser croire.
+// L'encart de tête (`04-ui.md § 5`, emplacement 3 — « Observation du
+// {date}, lors d'une campagne ponctuelle… ») est [SheetWarningCard]
+// (`lib/features/shared/sheet_warning_card.dart`), rendu en tête de
+// [OndeSummarySheet] quand une campagne existe ([OndeSheetData.latest] non
+// nul). Sans campagne, aucune date n'existe : l'encart n'est pas rendu
+// (arbitrage du commanditaire du 2026-09-23) — c'est le message d'absence
+// de `UC-004 A4` qui porte alors l'avertissement.
 //
 // ⚠️ Cette tranche n'importe AUCUNE autre tranche (`layers_test.dart`, règle
 // `feature-vers-feature`) : ni `features/map/`, ni `features/station_sheet/`.
@@ -50,8 +51,12 @@ import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
+import 'package:martinpecheur/domain/warnings/warning_texts.dart'
+    show SheetWarningKind;
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
+import 'package:martinpecheur/features/shared/sheet_warning_card.dart';
 
 /// Côté minimal d'une cible tactile, en pixels logiques : 44 × 44 pt (iOS)
 /// selon `04-ui.md` § 3. Recopié de la spécification, jamais choisi ici.
@@ -157,12 +162,16 @@ class OndeSummarySheet extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        // ── Place réservée à l'encart d'avertissement de tête (`04-ui.md`
-        // § 5, emplacement 3 : « Observation du {date}, lors d'une campagne
-        // ponctuelle. Ce n'est pas une mesure de débit, et la situation a pu
-        // changer depuis. »). Il est posé par `W4`, avec les trois autres
-        // emplacements. Un commentaire et non un widget vide : un conteneur
-        // muet ressemblerait à un avertissement déjà posé.
+        // L'encart daté de tête (`W4`, `04-ui.md § 5`, emplacement 3) : la
+        // version ONDE, plus insistante que la version station. Sans
+        // campagne, aucune date n'existe à dater (`BR-001`).
+        if (latest != null) ...<Widget>[
+          SheetWarningCard(
+            kind: SheetWarningKind.onde,
+            dataDate: latest.observedAt,
+          ),
+          const SizedBox(height: 8),
+        ],
         Text(
           point.label,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -227,6 +236,10 @@ class OndeSummarySheet extends StatelessWidget {
 /// [age] et [ageInDays] sont `null` dans le seul cas où la campagne l'est
 /// aussi ; cette fonction n'est alors pas appelée. Le repli est néanmoins
 /// explicite : la date reste rendue, jamais escamotée.
+///
+/// Porte aussi [ondeSourceName] (`BR-001`, point 32) : la valeur (catégorie
+/// et modalité, sur les lignes précédentes), sa date et sa source sont
+/// visibles au même endroit.
 String _campagneLine(DateTime observedAt, CampaignAge? age, int? ageInDays) {
   final String mention = switch (age) {
     CampaignAge.ancienne => _campagneAncienneMention,
@@ -234,10 +247,10 @@ String _campagneLine(DateTime observedAt, CampaignAge? age, int? ageInDays) {
   };
   final String date = '$mention${formatCalendarDate(observedAt)}';
 
-  if (ageInDays == null) {
-    return date;
-  }
-  return '$date — ${formatCampaignAge(ageInDays)}';
+  final String dated = ageInDays == null
+      ? date
+      : '$date — ${formatCampaignAge(ageInDays)}';
+  return '$dated — $ondeSourceName';
 }
 
 /// Le panneau de la fiche ONDE : rend l'état porté par

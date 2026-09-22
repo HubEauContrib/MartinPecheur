@@ -34,6 +34,8 @@
 // « D'où vient cette donnée ? » portera son propre lien plus tard. Aucune
 // constante ne le représente plus ici.
 
+import 'package:martinpecheur/domain/formatting/display_date.dart';
+
 /// Version actuellement en vigueur du texte du modal d'acquittement initial
 /// (`UC-006`, `BR-012`). C'est cette chaîne — jamais un booléen — qui est
 /// comparée à la version stockée par [WarningsViewModel] : changer le texte
@@ -96,3 +98,46 @@ const String mapExplainActionLabel = 'Ce que ça dit';
 /// d'acquittement du modal initial (`BR-012`, `initialWarningButtonLabel`),
 /// jamais pour une fermeture de lecture seule comme celle-ci.
 const String warningReviewCloseLabel = 'Fermer';
+
+// ---------------------------------------------------------------------------
+// Tâche `W4` — encart daté de chaque fiche (emplacement 3 de
+// `04-ui.md § 5`). ⚠️ HORS VERROU DE VERSION : `warningTextVersion` ne
+// couvre QUE le texte du modal (arbitrage du coordinateur, 2026-09-22) — ce
+// texte-ci est figé par son propre test,
+// `test/features/shared/sheet_warning_card_test.dart`.
+//
+// Provenance, recopiée mot pour mot (aucune phrase inventée) :
+// - version station : `docs/use-cases/UC-003-consulter-une-station-hydrometrique.md`
+//   § Flux nominal, étape 1 — « Mesure brute du {date} à {heure}, non
+//   validée. La station ne voit pas les lâchers de barrage. »
+// - version ONDE : `docs/use-cases/UC-004-consulter-un-point-onde.md`
+//   § Flux nominal, étape 1 — « Observation du {date}, lors d'une campagne
+//   ponctuelle. Ce n'est pas une mesure de débit, et la situation a pu
+//   changer depuis. » Le titre « OBSERVATION VISUELLE PONCTUELLE », plus
+//   insistant, vient de `docs/04-ui.md § 1`, wireframe « Fiche point ONDE ».
+// ---------------------------------------------------------------------------
+
+/// Les deux fiches qui portent l'encart daté de tête (`04-ui.md § 5`,
+/// emplacement 3) : station hydrométrique et point ONDE. La version ONDE
+/// est PLUS INSISTANTE (`04-ui.md § 1`) que la version station.
+enum SheetWarningKind { station, onde }
+
+/// Le texte de l'encart daté pour [kind], [date] insérée à l'endroit prévu
+/// par le texte source. [offsetOf] est le décalage UTC → heure locale,
+/// demandé pour [date] (`H1`) — utilisé pour la version station, un
+/// INSTANT ; sans effet pour la version ONDE, une DATE CALENDAIRE qui ne se
+/// convertit jamais (`T-08`).
+String sheetWarningText(
+  SheetWarningKind kind,
+  DateTime date, {
+  UtcOffsetOf offsetOf = systemUtcOffsetOf,
+}) => switch (kind) {
+  SheetWarningKind.station =>
+    'Mesure brute du ${formatLocalDateTime(date, offsetOf: offsetOf)}, non '
+        'validée. La station ne voit pas les lâchers de barrage.',
+  SheetWarningKind.onde =>
+    'OBSERVATION VISUELLE PONCTUELLE\n'
+        "Observation du ${formatCalendarDate(date)}, lors d'une campagne "
+        "ponctuelle. Ce n'est pas une mesure de débit, et la situation a pu "
+        'changer depuis.',
+};

@@ -15,8 +15,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
+import 'package:martinpecheur/features/shared/sheet_warning_card.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
@@ -205,7 +207,10 @@ void main() {
         );
 
         expect(
-          find.text('Débit : 47,8 m³/s — mesuré le 27/08/2026 à 10:00'),
+          find.text(
+            'Débit : 47,8 m³/s — mesuré le 27/08/2026 à 10:00 — '
+            "$hydrometrieSourceName",
+          ),
           findsOneWidget,
         );
       });
@@ -222,7 +227,10 @@ void main() {
           );
 
           expect(
-            find.text('Débit : 47,8 m³/s — mesuré le 27/08/2026 à 05:00'),
+            find.text(
+              'Débit : 47,8 m³/s — mesuré le 27/08/2026 à 05:00 — '
+              "$hydrometrieSourceName",
+            ),
             findsOneWidget,
           );
         },
@@ -252,37 +260,49 @@ void main() {
       expect(find.textContaining('41'), findsWidgets);
     });
 
-    testWidgets('rend le débit en m³/s AVEC sa date, en heure locale (BR-001, '
-        'BR-002, H1)', (WidgetTester tester) async {
-      await _pump(
-        tester,
-        StationSummarySheet(
-          data: _data(discharge: _discharge(), level: _level()),
-          utcOffsetOf: (DateTime _) => const Duration(hours: 2),
-        ),
-      );
+    testWidgets(
+      'rend le débit en m³/s AVEC sa date, en heure locale, ET sa source, '
+      "dans le MÊME Text (BR-001, BR-002, H1, point 32)",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSummarySheet(
+            data: _data(discharge: _discharge(), level: _level()),
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        );
 
-      expect(
-        find.text('Débit : 47,8 m³/s — mesuré le 27/08/2026 à 10:00'),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.text(
+            'Débit : 47,8 m³/s — mesuré le 27/08/2026 à 10:00 — '
+            "$hydrometrieSourceName",
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('rend la hauteur en m AVEC sa date, signe conservé, en heure '
-        'locale (H1)', (WidgetTester tester) async {
-      await _pump(
-        tester,
-        StationSummarySheet(
-          data: _data(discharge: _discharge(), level: _level()),
-          utcOffsetOf: (DateTime _) => const Duration(hours: 2),
-        ),
-      );
+    testWidgets(
+      'rend la hauteur en m AVEC sa date, signe conservé, en heure locale, '
+      'ET sa source, dans le MÊME Text (H1, point 32)',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSummarySheet(
+            data: _data(discharge: _discharge(), level: _level()),
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        );
 
-      expect(
-        find.text('Hauteur : −1,232 m — mesurée le 27/08/2026 à 10:00'),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.text(
+            'Hauteur : −1,232 m — mesurée le 27/08/2026 à 10:00 — '
+            "$hydrometrieSourceName",
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('rend statut et qualification, verbatim (BR-006)', (
       WidgetTester tester,
@@ -389,6 +409,62 @@ void main() {
         );
 
         expect(find.text("Cours d'eau non renseigné"), findsOneWidget);
+      },
+    );
+  });
+
+  group('StationSummarySheet — l\'encart daté de tête (W4, 04-ui.md § 5, '
+      'emplacement 3)', () {
+    testWidgets(
+      "l'encart est rendu, avec la date de la mesure de débit (UC-003 § 1)",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSummarySheet(
+            data: _data(discharge: _discharge(), level: _level()),
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        );
+
+        expect(find.byType(SheetWarningCard), findsOneWidget);
+        expect(
+          find.textContaining('Mesure brute du 27/08/2026 à 10:00'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('lâchers de barrage'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      "l'encart est rendu EN TÊTE, avant la valeur du débit — assertion "
+      "sur l'ORDRE dans l'arbre, pas sur la seule présence",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSummarySheet(
+            data: _data(discharge: _discharge(), level: _level()),
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        );
+
+        final double encartTop = tester
+            .getTopLeft(find.textContaining('Mesure brute du'))
+            .dy;
+        final double debitTop = tester
+            .getTopLeft(find.textContaining('47,8 m³/s'))
+            .dy;
+
+        expect(encartTop, lessThan(debitTop));
+      },
+    );
+
+    testWidgets(
+      'sans débit ni hauteur, AUCUN encart — arbitrage du commanditaire du '
+      '2026-09-23 : sans date, aucun encart',
+      (WidgetTester tester) async {
+        await _pump(tester, StationSummarySheet(data: _data()));
+
+        expect(find.byType(SheetWarningCard), findsNothing);
       },
     );
   });
@@ -581,6 +657,23 @@ void main() {
       expect(find.byType(StationSummarySheet), findsOneWidget);
       expect(find.text('La Loire à Blois'), findsOneWidget);
     });
+
+    testWidgets(
+      'Prete transmet utcOffsetOf à StationSummarySheet : +2 h injecté '
+      'rend « 10:00 » (H1, le panneau transmet le décalage)',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSheetPanel(
+            state: Prete(_data(discharge: _discharge(), level: _level())),
+            onClose: () {},
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        );
+
+        expect(find.textContaining('à 10:00'), findsWidgets);
+      },
+    );
 
     testWidgets(
       'le bouton de fermeture mesure au moins 44 × 44 pt (04-ui.md § 3)',

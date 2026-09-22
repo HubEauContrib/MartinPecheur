@@ -35,6 +35,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart'
     show stationMarkerTapTarget;
@@ -568,6 +569,12 @@ void main() {
     test("une source inconnue a tout de même un nom : une nomenclature "
         "tolère toujours l'inconnu (BR-011)", () {
       expect(mapSourceName(null), isNotEmpty);
+    });
+
+    test('mapSourceName(ecoulement) est IDENTIQUE à ondeSourceName : un '
+        'concept, un mot (glossary.md, W4) — la chaîne est réutilisée, pas '
+        'recopiée', () {
+      expect(mapSourceName(MapErrorSource.ecoulement), ondeSourceName);
     });
   });
 
