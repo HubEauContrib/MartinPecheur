@@ -12,6 +12,10 @@ import 'package:martinpecheur/data/referentiel/asset_station_point_repository.da
 import 'package:martinpecheur/data/referentiel/asset_station_repository.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset_loader.dart';
+import 'package:martinpecheur/diagnostics/counting_station_point_repository.dart';
+import 'package:martinpecheur/diagnostics/fluidity_probe_panel.dart';
+import 'package:martinpecheur/diagnostics/fluidity_wiring.dart';
+import 'package:martinpecheur/diagnostics/frame_timing_probe.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
@@ -77,9 +81,22 @@ Future<void> main() async {
   await warningsViewModel.load();
 
   final StationsReadResult stationsRead = await loadStationsFromAsset();
-  final StationPointRepository stationPoints = AssetStationPointRepository(
-    stationsRead.points,
+  final StationPointRepository referentielStationPoints =
+      AssetStationPointRepository(stationsRead.points);
+
+  // `NFR-01` (Task X3), relecture du 2026-09-23 (🟠 4) : le câblage est
+  // extrait dans `wireFluidityProbe`, une fonction PURE testée avec le
+  // booléen en paramètre — sans elle, l'inertie sans drapeau n'était
+  // vérifiée qu'indirectement, jamais sur ce câblage lui-même. Sans
+  // `--dart-define=FLUIDITY_PROBE=true`, `fluidityProbeEnabled` vaut
+  // `false` et RIEN ne s'instancie — ni sonde, ni décorateur, ni rappel
+  // enregistré auprès de `SchedulerBinding` (« la sonde est inerte sans
+  // son drapeau », `CLAUDE.md`).
+  final FluidityWiring fluidityWiring = wireFluidityProbe(
+    enabled: fluidityProbeEnabled,
+    stationPoints: referentielStationPoints,
   );
+  final StationPointRepository stationPoints = fluidityWiring.stationPoints;
 
   final HubEauClient hubEau = HubEauClient(httpClient: http.Client());
   final HydroObservationRepository observations =
@@ -106,6 +123,8 @@ Future<void> main() async {
       // cache est une politique unique, partagée, jamais recopiée par
       // tranche (CLAUDE.md, invariants).
       ondeSheetViewModel: OndeSheetViewModel(onde: onde),
+      fluidityProbe: fluidityWiring.probe,
+      fluidityStationPoints: fluidityWiring.countingStationPoints,
     ),
   );
 }
@@ -130,6 +149,8 @@ class MartinPecheurApp extends StatelessWidget {
     required this.mapViewModel,
     required this.stationSheetViewModel,
     required this.ondeSheetViewModel,
+    this.fluidityProbe,
+    this.fluidityStationPoints,
     super.key,
   });
 
@@ -151,6 +172,17 @@ class MartinPecheurApp extends StatelessWidget {
   /// par cette racine, au même titre que les deux autres.
   final OndeSheetViewModel ondeSheetViewModel;
 
+  /// `NFR-01` (Task X3) : `null` sans `--dart-define=FLUIDITY_PROBE=true`
+  /// (« la sonde est inerte sans son drapeau », `CLAUDE.md`) — dans ce cas
+  /// [FluidityProbePanel] n'est pas construit du tout, l'écran carte est
+  /// rendu à l'identique de la production.
+  final FrameTimingProbe? fluidityProbe;
+
+  /// Le décorateur de comptage câblé par [main] derrière le même drapeau
+  /// que [fluidityProbe] — `null` si et seulement si [fluidityProbe] l'est
+  /// aussi (les deux sont posés ou retirés ensemble par [main]).
+  final CountingStationPointRepository? fluidityStationPoints;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -171,7 +203,7 @@ class MartinPecheurApp extends StatelessWidget {
             // (YAGNI, CLAUDE.md).
             return InitialWarningView(viewModel: warningsViewModel);
           }
-          return MapView(
+          final Widget mapScreen = MapView(
             viewModel: mapViewModel,
             // `open` rend un `Future` que personne n'attend : l'état de la
             // fiche passe par le ViewModel, pas par ce futur. `unawaited`
@@ -226,6 +258,26 @@ class MartinPecheurApp extends StatelessWidget {
               stationSheetViewModel.close();
               ondeSheetViewModel.close();
             },
+          );
+
+          // `NFR-01` (Task X3) : le panneau ne se pose que si [main] a
+          // câblé les deux, ce qu'il ne fait QUE derrière
+          // `--dart-define=FLUIDITY_PROBE=true` — sans le drapeau, l'écran
+          // carte reste `mapScreen` seul, identique à la production.
+          final FrameTimingProbe? probe = fluidityProbe;
+          final CountingStationPointRepository? probeStationPoints =
+              fluidityStationPoints;
+          if (probe == null || probeStationPoints == null) {
+            return mapScreen;
+          }
+          return Stack(
+            children: <Widget>[
+              mapScreen,
+              fluidityProbeOverlay(
+                probe: probe,
+                stationPoints: probeStationPoints,
+              ),
+            ],
           );
         },
       ),

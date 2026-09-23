@@ -1452,11 +1452,11 @@ git add windows test && git commit -m "feat(ui): taille de fenetre minimale sur 
 - Un scénario **par borne** de `BR-005` — **1 h 59, 2 h 00, 23 h 59, 24 h 00** — et **par borne** de `BR-010` — **59 j, 60 j** — valeurs écrites dans le Gherkin avec l'affichage attendu.
 - `avertissements.feature` porte un scénario par emplacement de `04-ui.md § 5` : bouton inactif au premier lancement (`BR-012`) · texte modifié, écran réaffiché (`UC-006 A3`) · ~~bandeau visible à tous les zooms~~ → **contrôle « ⚠ Avertissement » présent sur la carte à tous les zooms**, sa fenêtre reprend le texte du modal initial (`W3c`, 2026-09-23) · ~~encart daté sur la fiche station~~ → **contrôle « ⚠ Avertissement » en tête de la fiche station, sa fenêtre porte la phrase datée sous le texte général**, et la valeur porte sa date et sa source nommée (`BR-001`, `W3c`). ~~Encart renforcé non repliable (`BR-013`)~~ : 🔄 **T2**, avec l'écran des restrictions (révision du 2026-09-22).
 
-- [ ] **Étape 1** — écrire `acceptance_features_test.dart` **avant** les `.feature` : rouge, le dossier n'existe pas.
-- [ ] **Étape 2** — `flutter test test/project/acceptance_features_test.dart` → échec.
-- [ ] **Étape 3** — écrire les quatre `.feature`, avec les valeurs concrètes des bornes.
-- [ ] **Étape 4** — contre-épreuve : remplacer un `BR-005` par `BR-099` → **rouge**. Rétablir.
-- [ ] **Étape 5** — indexer `docs/acceptance/` dans `docs/README.md`, puis critère de fin et commit.
+- [x] **Étape 1** — écrire `acceptance_features_test.dart` **avant** les `.feature` : rouge, le dossier n'existe pas.
+- [x] **Étape 2** — `flutter test test/project/acceptance_features_test.dart` → échec.
+- [x] **Étape 3** — écrire les quatre `.feature`, avec les valeurs concrètes des bornes.
+- [x] **Étape 4** — contre-épreuve : remplacer un `BR-005` par `BR-099` → **rouge**. Rétablir.
+- [x] **Étape 5** (2026-09-23, `e062b13`) — indexer `docs/acceptance/` dans `docs/README.md`, puis critère de fin et commit.
 
 ```bash
 git add docs test && git commit -m "docs(acceptance): criteres Gherkin en francais, rattaches a une regle existante" -m "Aucun framework BDD en T1 : ces scenarios sont de la specification lisible, et un test verifie qu ils sont bien formes et qu ils citent un BR qui EXISTE sur le disque. Contre-epreuve faite : un BR-099 invente rend la suite rouge. Un scenario par borne de BR-005 et de BR-010, avec les valeurs ecrites — 1 h 59, 2 h 00, 59 jours, 60 jours."
@@ -1481,11 +1481,11 @@ git add docs test && git commit -m "docs(acceptance): criteres Gherkin en franca
 - **`BR-013` porte l'état 🔄 T2** (révision du 2026-09-22, décision 11) : il apparaît dans la matrice, ce qui satisfait « chaque `BR` apparaît », et le test l'**accepte sans fichier de test**, au même titre que les user stories de sécheresse. Son texte est verrouillé par `warning_texts_version_test.dart`, mais aucun test ne prouve encore son **emplacement** : la matrice ne le prétend pas.
 - Contre-épreuve : retirer la ligne `BR-010` → **rouge**.
 
-- [ ] **Étape 1** — écrire `tracabilite_test.dart` d'abord. Rouge.
-- [ ] **Étape 2** — `flutter test test/project/tracabilite_test.dart` → échec.
-- [ ] **Étape 3** — écrire `docs/tracabilite.md` en lisant les fichiers de test **réellement présents** : aucun chemin écrit de mémoire.
-- [ ] **Étape 4** — contre-épreuve ci-dessus, puis rétablir.
-- [ ] **Étape 5** — indexer dans `docs/README.md`, puis critère de fin et commit.
+- [x] **Étape 1** — écrire `tracabilite_test.dart` d'abord. Rouge.
+- [x] **Étape 2** — `flutter test test/project/tracabilite_test.dart` → échec.
+- [x] **Étape 3** — écrire `docs/tracabilite.md` en lisant les fichiers de test **réellement présents** : aucun chemin écrit de mémoire.
+- [x] **Étape 4** — contre-épreuve ci-dessus, puis rétablir.
+- [x] **Étape 5** (2026-09-23, `4640cc2`) — indexer dans `docs/README.md`, puis critère de fin et commit.
 
 ```bash
 git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tests, maintenue a la main et verifiee par test" -m "Generer la matrice supposerait de deviner une intention a partir d un nom de test : on obtiendrait une matrice complete et fausse. Le test refuse les trous — chaque BR, chaque UC, chaque US Must apparait, et chaque fichier de test cite existe reellement sur le disque. C est ce qui empeche une matrice ecrite a la main de pourrir. Les user stories de secheresse portent l etat T2, sans pretendre etre couvertes."
@@ -1519,14 +1519,18 @@ git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tes
 - Sans `--dart-define`, `main.dart` ne l'instancie pas : assertion sur l'absence d'enregistrement de rappel.
 - Le décorateur de comptage délègue **chaque** appel au dépôt décoré et compte exactement le nombre d'appels ; sans drapeau, `main.dart` ne l'intercale pas.
 
-- [ ] **Étape 1** — écrire le test du calcul. Rouge.
-- [ ] **Étape 2** — `flutter test test/diagnostics` → échec.
-- [ ] **Étape 3** — implémenter la sonde et la brancher derrière le drapeau.
-- [ ] **Étape 4** — `flutter test` → vert.
+- [x] **Étape 1** — écrire le test du calcul. Rouge.
+- [x] **Étape 2** — `flutter test test/diagnostics` → échec.
+- [x] **Étape 3** — implémenter la sonde et la brancher derrière le drapeau.
+- [x] **Étape 4** (2026-09-23 — **1 185 tests** ; relu deux fois avec essais de mutation : panneau à largeur fixe en bas à gauche, boutons sans animation et premier lot de trames ignoré après `start()` (sinon ~50-60 trames rapides diluaient la mesure d'environ 9 %), `buildP90` et retard sur `totalSpan` ajoutés à titre informatif, seuils `NFR-01` inchangés) — `flutter test` → vert.
 - [ ] **Étape 5 — mesurer : commanditaire.**
 
 ```bash
-flutter run -d windows --dart-define=FLUIDITY_PROBE=true
+~~flutter run -d windows --dart-define=FLUIDITY_PROBE=true~~
+```
+**Amendement du 2026-09-23 (relecture, 🔴 1/🟠 2/🟠 5)** — le mode debug fausse la mesure (`CLAUDE.md`) ; la commande ci-dessus n'est pas corrigée mais barrée, remplacée par celle-ci :
+```bash
+flutter run -d windows --profile --dart-define=FLUIDITY_PROBE=true
 ```
 Attendu : exécuter `G1`, `G2`, `G3` dans l'ordre et **recopier les trois rapports** — `frameCount`, `rasterP50`, `rasterP90`, `lateFramePercent` —, plus, pour `G2`, le **nombre d'appels au dépôt de points** et le nombre de crans de molette donnés. ⚠️ **Le résultat n'est pas connu d'avance.** Le repère du spike — p90 **16,2 ms** pour **8,9 %** de trames en retard — vient d'une autre plateforme et de l'approche par regroupement : **il ne se transpose pas**. Si `NFR-01` n'est pas tenu, c'est un **résultat** : il se consigne, le seuil ne bouge pas, le travail se planifie.
 
