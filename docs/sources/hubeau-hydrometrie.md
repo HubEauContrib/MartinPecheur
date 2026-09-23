@@ -39,7 +39,7 @@ un client déjà fermé (`ClientException` « already closed ») ne l'est pas. L
 
 ```mermaid
 sequenceDiagram
-    participant Écran as Écran / handler
+    participant Écran as Dépôt appelant
     participant Client as HubEauClient
     participant Retry as retry.dart
     participant API as Hub'Eau v2
@@ -242,6 +242,11 @@ ci-dessous sont datés en UTC, `api_version` **2.0.1** à chaque réponse.
   **max 4,069 s**, **médiane 1,498 s** (moyenne des 5ᵉ et 6ᵉ valeurs). Échantillon de dix
   appels sur une fenêtre de 50 s un seul jour : ne pas figer un seuil de préchargement dessus
   sans remesure.
+
+**Conséquence retenue au 2026-09-23 (version `0.2.0`)** : `HttpHydroObservationRepository`
+(`D5`) reste dans sa **forme garantie** — un appel `code_entite=<station>` par station, jamais
+l'appel groupé ni l'emprise, faute de garantie d'une mesure par station (`Q-01`, `Q-02`) ; une
+bascule serait une décision du commanditaire (`docs/project-state.md`, point 14).
 
 - **En-têtes** — `curl -sI` sur la forme garantie, **09:05:44 UTC** → **206 Partial
   Content**. Présents : `Date`, `Vary`, `Content-Type`, `Link` (pagination `first`/`prev`/

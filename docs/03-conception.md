@@ -48,7 +48,7 @@ aux deux.
 
 **Zéro bibliothèque de gestion d'état** : `ChangeNotifier` et `ListenableBuilder` sont dans Flutter. **Aucune couche de cas d'usage** non plus — le guide l'annonce optionnelle, et aucun des six cas d'usage n'orchestre encore deux dépôts ; elle se réintroduirait **entre** ViewModel et dépôt, sans rien défaire.
 
-Tranches prévues : `features/{map,station_detail,onde,restrictions,favorites,settings}`, plus `data/` et `domain/` partagés.
+Tranches **présentes dans le code** (✅, 2026-09-23) : `features/{map,station_sheet,onde_sheet,warnings}`, plus `features/shared/` — widgets communs à plusieurs tranches, n'important aucune tranche (règle `shared-sans-tranche`, amendement d'[`ADR-014`](adr/ADR-014-feature-first-mvvm.md) du 2026-09-18). Tranches **prévues** : 🔄 `features/restrictions` (T2), 🔄 `features/{favorites,settings}` (T3). `data/` et `domain/` restent partagés.
 
 ```mermaid
 flowchart LR

@@ -4,6 +4,11 @@ Base URL : `https://hubeau.eaufrance.fr/api/v1/ecoulement` · `api_version` **1.
 le 2026-09-13) · aucune authentification · Licence Ouverte Etalab. Rôle : observations
 visuelles de terrain. Décision liée : `ADR-006` — quatre catégories d'affichage.
 
+**Consommée par l'app depuis la version `0.2.0`** (T1) : `HttpOndeObservationRepository`
+(`lib/data/onde/`), décoré par `CachedOndeObservationRepository` — par emprise pour la carte, par
+code de station pour la fiche, sur le `HubEauClient` partagé avec l'hydrométrie. Forme filaire à
+treize champs depuis `ADR-015` (`T-16`).
+
 ⚠️ **Ce n'est pas une mesure, c'est un regard** : des agents se déplacent quelques fois par
 an, de mai à septembre. Entre deux campagnes, personne ne regarde — `BR-010` impose
 d'afficher l'âge de la campagne pour cette raison.
@@ -106,7 +111,8 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
 
 > ⚠️ **Numérotation** : le commanditaire a demandé ce fait sous le numéro `T-11`. `T-11` est
 > **déjà pris** par le relevé `shared_preferences` du plan T1
-> (`docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md`, l. 56, 757 et 771).
+> (`docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md`, tableau des faits
+> à vérifier, l. 60 au 2026-09-23 ; repris à la tâche `W1`).
 > Un numéro ne se réutilise pas : ce fait est donc `T-14`, premier libre.
 
 - `T-14` 🚨 **Le code de station ONDE est une chaîne libre, pas un code à huit caractères.**

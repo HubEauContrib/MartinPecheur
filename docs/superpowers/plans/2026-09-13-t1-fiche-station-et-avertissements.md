@@ -1556,12 +1556,12 @@ git add lib docs test && git commit -m "feat(diagnostics): mesurer la fluidite d
 - `CLAUDE.md` : la table « Où on en est » met T1 à jour, la ligne CQRS est **retirée** au profit de MVVM (`ADR-014`), et `ADR-011` n'est plus marqué « réservé ».
 - `docs/project-state.md` cite `v0.2.0` et les constats de la porte.
 
-- [ ] **Étape 1** — étendre `changelog_test.dart` : rouge sur `0.2.0`.
-- [ ] **Étape 2** — `flutter test test/project/changelog_test.dart` → échec.
-- [ ] **Étape 3** — écrire la section `0.2.0` : `### Ajouté` (fiche station, ONDE, **trois des quatre avertissements** — modal, bandeau, encart daté ; depuis `W3c` (2026-09-23) : modal, et un contrôle « ⚠ Avertissement » sur la carte et chaque fiche —, clavier/souris, Gherkin, traçabilité) · `### Modifié` (MVVM, `CachePolicy` en décorateur de dépôt, heure affichée en heure locale — `H1`) · `### Retiré` (`lib/application/`) · **`### Non vérifié`**.
-- [ ] **Étape 4** — porter `version: 0.2.0+2` dans `pubspec.yaml`.
-- [ ] **Étape 5** — reprendre `plan-de-tests.md`, `project-state.md`, `nfr.md`, les deux fiches de sources, `03-conception.md` (l. 48) et `CLAUDE.md`.
-- [ ] **Étape 6** — `flutter test` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — étendre `changelog_test.dart` : rouge sur `0.2.0`.
+- [x] **Étape 2** — `flutter test test/project/changelog_test.dart` → échec.
+- [x] **Étape 3** — écrire la section `0.2.0` : `### Ajouté` (fiche station, ONDE, **trois des quatre avertissements** — modal, bandeau, encart daté ; depuis `W3c` (2026-09-23) : modal, et un contrôle « ⚠ Avertissement » sur la carte et chaque fiche —, clavier/souris, Gherkin, traçabilité) · `### Modifié` (MVVM, `CachePolicy` en décorateur de dépôt, heure affichée en heure locale — `H1`) · `### Retiré` (`lib/application/`) · **`### Non vérifié`**.
+- [x] **Étape 4** — porter `version: 0.2.0+2` dans `pubspec.yaml`.
+- [x] **Étape 5** — reprendre `plan-de-tests.md`, `project-state.md`, `nfr.md`, les deux fiches de sources, `03-conception.md` (l. 48) et `CLAUDE.md`.
+- [x] **Étape 6** (2026-09-23 — **1 188 tests** ; `NFR-01` écrit « sonde livrée, mesure due » dans `### Non vérifié`, aucun chiffre) — `flutter test` → vert, puis critère de fin et commit.
 
 ```bash
 git add CHANGELOG.md pubspec.yaml docs CLAUDE.md test && git commit -m "docs: ouvrir la version 0.2.0, et reprendre les documents que le code a fait mentir" -m "CLAUDE.md decrivait un CQRS leger que ADR-014 a remplace, et un ADR-011 reserve que W1 a tranche : un fichier qui contredit le code se corrige dans le meme commit. La section Non verifie nomme les questions d API restees ouvertes, iOS jamais compile, l etat reel d Android et BR-013 reporte en T2 — un CHANGELOG qui les taisait ferait croire a un produit fini."

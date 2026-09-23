@@ -1,7 +1,11 @@
 # Plan de tests
 
-**Statut :** Accepté · **Date :** 2026-09-13 · **Portée :** T0 — critères Gherkin et matrice
-de traçabilité viennent en T1 (`docs/superpowers/plans/2026-09-13-t0-socle-flutter.md`).
+**Statut :** Accepté · **Date :** 2026-09-13, repris le 2026-09-23 · **Portée :** T0
+(`docs/superpowers/plans/2026-09-13-t0-socle-flutter.md`) et T1
+(`docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md`). En T1 s'ajoutent
+les critères d'acceptation en Gherkin (`docs/acceptance/`, `X1`) et la matrice de traçabilité
+(`docs/tracabilite.md`, `X2`), vérifiés par `test/project/acceptance_features_test.dart` et
+`test/project/tracabilite_test.dart` ; aucun framework BDD (décision 6 du plan T1).
 
 Ce document ne liste pas les tests qui existent : il dit **à quel étage** une règle se vérifie,
 et pourquoi pas à un autre. Le détail des cas figure dans chaque `BR-NNN` et dans le plan
@@ -13,10 +17,10 @@ d'implémentation en cours.
 |---|---|---|---|
 | `test/architecture/` | Les frontières de couches tiennent : aucune infrastructure sous `lib/domain/`, `data/` n'importe jamais `features/`, aucun `view_model` n'importe un widget, aucun appel au volet sécheresse hors de son module | quelques ms | ✅ T0 (`domain_isolation_test.dart`), complété en T1 (`layers_test.dart`) |
 | `test/domain/`, `test/data/` | Règles métier et conversions ; tout `BR-xxx` se vérifie ici **ou nulle part** | ms | ✅ T0 |
-| `test/features/<feature>/view_model/` | La logique d'écran **sans rendu** : un `ChangeNotifier` est instancié avec un faux dépôt, une action est appelée, on observe l'état et les notifications. Aucun widget monté | ms | 🔄 T1 (`ADR-014`) |
-| `test/features/` | Un écran affiche ce que la règle impose : attribution présente, marqueurs filtrés, absence jamais neutre | dizaines de ms | ✅ T0 minimal |
-| `test/features/goldens/` | Rendu d'un marqueur : contraste, halo, atténuation d'une donnée périmée | secondes | ✅ T1 (`U5`, 2026-09-14) — **20 images** : 5 états de pastille, 12 marqueurs ONDE (6 catégories × 2 âges), 2 planches en niveaux de gris, 1 comparaison périmée / fraîche. ⚠️ **plateforme-dépendantes**, produites sur Windows |
-| `integration_test/` | Parcours complet, sur fenêtre ou appareil réel | minutes | 🔄 T1 |
+| `test/features/<feature>/view_model/` | La logique d'écran **sans rendu** : un `ChangeNotifier` est instancié avec un faux dépôt, une action est appelée, on observe l'état et les notifications. Aucun widget monté | ms | ✅ T1 (`ADR-014`) — `map`, `station_sheet`, `onde_sheet`, `warnings` |
+| `test/features/` | Un écran affiche ce que la règle impose : attribution présente, marqueurs filtrés, absence jamais neutre | dizaines de ms | ✅ T0 minimal, étendu en T1 (fiches, avertissements, clavier, taille minimale) |
+| `test/features/goldens/` | Rendu d'un marqueur : contraste, halo, atténuation d'une donnée périmée | secondes | ✅ T1 — **23 images versionnées** (`git ls-files`, 2026-09-23) : 20 en `U5` (2026-09-14) — 5 états de pastille, 12 marqueurs ONDE (6 catégories × 2 âges), 2 planches en niveaux de gris, 1 comparaison périmée / fraîche —, plus 3 pastilles de zone en `Z4` (`75cb36b`). ⚠️ **plateforme-dépendantes**, produites sur Windows |
+| `integration_test/` | Parcours complet, sur fenêtre ou appareil réel | minutes | 🔄 T3 — le dossier n'existe pas ; aucun parcours intégré en T1 |
 
 ```mermaid
 graph BT
@@ -71,8 +75,9 @@ est resté dans la vue.
 - **La couverture chiffrée.** Un pourcentage ne dit pas si `BR-002` est couvert. La question de
   revue est « quel test tombe si cette règle est cassée ? », pas « combien de lignes sont
   exécutées ? ».
-- **Le hors-ligne, en T0.** Aucun stockage local n'existe encore (`ADR-011` ne tranche que la **préférence simple**, pas encore codée — `W1`) ; `NFR-03`
-  chiffre cette exigence pour T1.
+- **Le hors-ligne, en T0 et T1.** Le seul stockage local est la **préférence simple** d'`ADR-011`
+  (l'acquittement de l'avertissement, `W1`), testée derrière son interface ; aucune donnée métier
+  n'est persistée. `NFR-03` se constate à l'exécution, carte réseau désactivée, pas en test.
 
 ## 4. Fixtures
 
