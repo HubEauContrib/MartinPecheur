@@ -2229,4 +2229,124 @@ void main() {
       );
     });
   });
+
+  group('MapViewModel — ordre déterministe du groupe carte (K2, arbitrage '
+      'du 2026-09-23) : Tab parcourt marqueurs et pastilles distance '
+      'croissante au centre, code croissant en cas d égalité — même règle '
+      'que _closestToCentre (préchargement)', () {
+    test('orderedIndividualStations : niveau individuel, même règle que le '
+        'préchargement', () async {
+      repository.answer = (int _) async => <StationPoint>[
+        _point('000D', lat: 46, lon: 4), // le plus loin
+        _point('000C', lat: 46, lon: 1), // à égalité avec B
+        _point('000B', lat: 47, lon: 0), // à égalité avec C
+        _point('000A', lat: 46, lon: 0), // le plus proche
+      ];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      await viewModel.onGestureEnded(
+        _wideBounds(),
+        zoom: individualMarkersFromZoom,
+      );
+
+      expect(
+        viewModel.orderedIndividualStations.map(
+          (StationPoint s) => s.code.value,
+        ),
+        <String>['K44700000A', 'K44700000B', 'K44700000C', 'K44700000D'],
+      );
+    });
+
+    test(
+      'orderedIndividualOndeObservations : même règle, sur les '
+      'coordonnées du POINT observé — un test qui porte vraiment sur '
+      "l'ordre (relecture du commanditaire du 2026-09-23, 🟢 7 : le "
+      'groupe « carte » n avait, avant ce test, qu une vérification '
+      "d'intégration ponctuelle, jamais un test dédié à l'ordre ONDE)",
+      () async {
+        // Centre de `_wideBounds` : (46, 0). Mêmes distances que le test
+        // « orderedIndividualStations » ci-dessus, pour la même lisibilité.
+        onde.answer = (int _) async => <OndeObservation>[
+          _assecAt(
+            '0417000D',
+            DateTime.utc(2026, 9, 1), // le plus loin
+            latitude: 46,
+            longitude: 4,
+          ),
+          _assecAt(
+            '0417000C',
+            DateTime.utc(2026, 9, 1), // à égalité avec B
+            latitude: 46,
+            longitude: 1,
+          ),
+          _assecAt(
+            '0417000B',
+            DateTime.utc(2026, 9, 1), // à égalité avec C
+            latitude: 47,
+            longitude: 0,
+          ),
+          _assecAt(
+            '0417000A',
+            DateTime.utc(2026, 9, 1), // le plus proche
+            latitude: 46,
+            longitude: 0,
+          ),
+        ];
+        final MapViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+
+        await viewModel.onGestureEnded(
+          _wideBounds(),
+          zoom: individualMarkersFromZoom,
+        );
+
+        expect(
+          viewModel.orderedIndividualOndeObservations.map(
+            (OndeObservation o) => o.point.code.value,
+          ),
+          <String>['0417000A', '0417000B', '0417000C', '0417000D'],
+        );
+      },
+    );
+
+    test('orderedClusters : niveau région, barycentre le plus proche du '
+        'centre en tête', () async {
+      // Centre de `_wideBounds` : (46, 0).
+      const AdministrativeArea proche = AdministrativeArea(
+        code: '24',
+        label: 'Centre-Val de Loire',
+      );
+      const AdministrativeArea lointaine = AdministrativeArea(
+        code: '45',
+        label: 'Loiret',
+      );
+      // Barycentre '24' : (41, 1) — carré de distance 26.
+      final List<StationPoint> stationsProches = _stationsInRegion(proche, 3);
+      // Barycentre '45' : (51, 11) — carré de distance 146.
+      final List<StationPoint> stationsLointaines = _stationsInRegion(
+        lointaine,
+        3,
+        startIndex: 10,
+      );
+      repository.allAnswer = () async => <StationPoint>[
+        ...stationsLointaines,
+        ...stationsProches,
+      ];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      await viewModel.onGestureEnded(_wideBounds(), zoom: 5);
+
+      expect(
+        viewModel.orderedClusters.map((MapAreaCluster c) => c.area.code),
+        <String>['24', '45'],
+        reason:
+            "'24' (carré 26) est plus proche du centre que '45' "
+            '(carré 146)',
+      );
+    });
+  });
 }

@@ -1062,6 +1062,87 @@ final class MapViewModel extends ChangeNotifier {
     _preloadGeneration++;
   }
 
+  /// Les pastilles de zone administrative ([clusters]), triées par distance
+  /// croissante de leur barycentre au centre de l'emprise courante, code de
+  /// zone croissant en cas d'égalité — la même règle que [_closestToCentre]
+  /// (préchargement), réutilisée ici pour l'ordre de tabulation du groupe
+  /// « carte » (`K2`, arbitrage du commanditaire du 2026-09-23) : Tab doit
+  /// parcourir les pastilles dans un ordre déterministe, jamais celui,
+  /// arbitraire, du partitionnement de l'asset. La vue ne recalcule aucune
+  /// géométrie — elle affiche cet ordre tel quel.
+  List<MapAreaCluster> get orderedClusters => _byDistanceThenCode(
+    clusters,
+    latitudeOf: (MapAreaCluster c) => c.latitude,
+    longitudeOf: (MapAreaCluster c) => c.longitude,
+    codeOf: (MapAreaCluster c) => c.area.code,
+  );
+
+  /// [individualStations], triées par la même règle que [orderedClusters] —
+  /// distance croissante au centre de l'emprise, code de station croissant
+  /// en cas d'égalité.
+  List<StationPoint> get orderedIndividualStations => _byDistanceThenCode(
+    individualStations,
+    latitudeOf: (StationPoint s) => s.latitude,
+    longitudeOf: (StationPoint s) => s.longitude,
+    codeOf: (StationPoint s) => s.code.value,
+  );
+
+  /// [individualOndeObservations], triées par la même règle — sur les
+  /// coordonnées du POINT observé, pas sur celles de l'observation
+  /// elle-même (qui n'en a pas).
+  List<OndeObservation> get orderedIndividualOndeObservations =>
+      _byDistanceThenCode(
+        individualOndeObservations,
+        latitudeOf: (OndeObservation o) => o.point.latitude,
+        longitudeOf: (OndeObservation o) => o.point.longitude,
+        codeOf: (OndeObservation o) => o.point.code.value,
+      );
+
+  /// Trie [items] par distance croissante au centre de l'emprise courante
+  /// ([_lastRequestedBounds]), puis par [codeOf] croissant en cas d'égalité.
+  /// Rend [items] TEL QUEL si aucune emprise n'a encore été chargée — un
+  /// ordre arbitraire plutôt qu'une exception, cohérent avec le reste du
+  /// ViewModel avant le premier geste.
+  ///
+  /// Générique plutôt que dupliquée trois fois ([orderedClusters],
+  /// [orderedIndividualStations], [orderedIndividualOndeObservations]) —
+  /// SOLID, YAGNI (`CLAUDE.md`) : une seule règle de tri, un seul endroit où
+  /// la corriger. **Non fusionnée** avec [_closestToCentre] : celle-ci filtre
+  /// aussi sur [_needsPreload] et travaille sur `StationPoint` uniquement —
+  /// les deux partagent la RÈGLE, pas le code, et les fusionner coupleRAIT
+  /// le préchargement à un type générique sans bénéfice réel (aucune tâche
+  /// ne le demande).
+  List<T> _byDistanceThenCode<T>(
+    List<T> items, {
+    required double Function(T item) latitudeOf,
+    required double Function(T item) longitudeOf,
+    required String Function(T item) codeOf,
+  }) {
+    final Bounds? bounds = _lastRequestedBounds;
+    if (bounds == null || items.length < 2) {
+      return items;
+    }
+
+    final double centreLatitude = (bounds.south + bounds.north) / 2;
+    final double centreLongitude = (bounds.west + bounds.east) / 2;
+
+    double squaredDegreesTo(T item) {
+      final double deltaLatitude = latitudeOf(item) - centreLatitude;
+      final double deltaLongitude = longitudeOf(item) - centreLongitude;
+      return deltaLatitude * deltaLatitude + deltaLongitude * deltaLongitude;
+    }
+
+    final List<T> sorted = items.toList();
+    sorted.sort((T a, T b) {
+      final int byDistance = squaredDegreesTo(a).compareTo(squaredDegreesTo(b));
+      if (byDistance != 0) {
+        return byDistance;
+      }
+      return codeOf(a).compareTo(codeOf(b));
+    });
+    return sorted;
+  }
+
   /// Les [limit] stations visibles les plus proches du centre de l'emprise
   /// courante, **parmi celles qui valent encore une requête**
   /// ([_needsPreload]). Liste vide si aucune emprise n'a encore été chargée.

@@ -14,6 +14,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Les puces de bascule d'échelle, en haut à gauche de la carte : une par
@@ -79,9 +80,15 @@ class _MapScaleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // `KeyboardFocusRing` (`K2`) : la puce n'était, avant cette tâche,
+    // atteignable qu'à la souris — un `GestureDetector` nu ne participe à
+    // aucun ordre de tabulation. « Tout ce qui se fait à la souris se fait
+    // au clavier » (`04-ui.md § 3`) : Entrée/Espace appellent [onSelect],
+    // exactement comme le tap. Posé SOUS `Semantics`, comme `WarningLink` :
+    // la clé reste la racine du sous-arbre où le focus se trouve.
     return Semantics(
-      // La clé est posée sur le nœud sémantique, donc sur la boîte entière :
-      // c'est elle que les tests tapent et mesurent.
+      // La clé est posée sur le nœud sémantique, donc sur la boîte
+      // entière : c'est elle que les tests tapent et mesurent.
       key: ValueKey<MapScaleKind>(kind),
       button: true,
       selected: selected,
@@ -93,41 +100,44 @@ class _MapScaleChip extends StatelessWidget {
       // geste porterait sinon lui-même : un double-tap au lecteur d'écran
       // n'activerait plus rien (relecture du 2026-09-23).
       onTap: () => onSelect(kind),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onSelect(kind),
-        child: ConstrainedBox(
-          // 44 × 44 pt au minimum (`04-ui.md` § 3). La puce s'élargit avec
-          // son texte, elle ne rétrécit jamais en deçà.
-          constraints: const BoxConstraints(
-            minWidth: minimumTapTarget,
-            minHeight: minimumTapTarget,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: selected ? Colors.black : Colors.white,
-              border: Border.all(color: Colors.black),
-              borderRadius: const BorderRadius.all(
-                Radius.circular(minimumTapTarget / 2),
-              ),
+      child: KeyboardFocusRing(
+        onActivate: () => onSelect(kind),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onSelect(kind),
+          child: ConstrainedBox(
+            // 44 × 44 pt au minimum (`04-ui.md` § 3). La puce s'élargit avec
+            // son texte, elle ne rétrécit jamais en deçà.
+            constraints: const BoxConstraints(
+              minWidth: minimumTapTarget,
+              minHeight: minimumTapTarget,
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _chipHorizontalPadding,
-                vertical: _chipVerticalPadding,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: selected ? Colors.black : Colors.white,
+                border: Border.all(color: Colors.black),
+                borderRadius: const BorderRadius.all(
+                  Radius.circular(minimumTapTarget / 2),
+                ),
               ),
-              // `Align` à facteurs 1 : la boîte se dimensionne sur son
-              // texte, et c'est le `ConstrainedBox` au-dessus qui impose le
-              // plancher de 44 pt.
-              child: Align(
-                widthFactor: 1,
-                heightFactor: 1,
-                child: Text(
-                  mapScaleLabel(kind),
-                  style: TextStyle(
-                    fontSize: _chipFontSize,
-                    color: selected ? Colors.white : Colors.black,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _chipHorizontalPadding,
+                  vertical: _chipVerticalPadding,
+                ),
+                // `Align` à facteurs 1 : la boîte se dimensionne sur son
+                // texte, et c'est le `ConstrainedBox` au-dessus qui impose le
+                // plancher de 44 pt.
+                child: Align(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Text(
+                    mapScaleLabel(kind),
+                    style: TextStyle(
+                      fontSize: _chipFontSize,
+                      color: selected ? Colors.white : Colors.black,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
                   ),
                 ),
               ),

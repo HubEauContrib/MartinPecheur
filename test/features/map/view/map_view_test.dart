@@ -46,6 +46,7 @@ import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
@@ -532,7 +533,17 @@ void main() {
       expect(markerLayer.markers, hasLength(2));
       final GestureDetector premier =
           markerLayer.markers.first.child as GestureDetector;
-      expect(premier.child, isA<AreaClusterMarker>());
+      // `FocusTraversalOrder(KeyboardFocusRing(...))` (`K2`, 2026-09-23)
+      // s'intercale désormais entre le `GestureDetector` et
+      // `AreaClusterMarker` (focus clavier + ordre de tabulation du groupe
+      // « carte ») — voir aussi le groupe « MapView — la sélection d une
+      // pastille » plus bas dans ce fichier.
+      final FocusTraversalOrder ordre = premier.child! as FocusTraversalOrder;
+      expect(ordre.child, isA<KeyboardFocusRing>());
+      expect(
+        (ordre.child as KeyboardFocusRing).child,
+        isA<AreaClusterMarker>(),
+      );
     });
 
     test('niveau individuel (clusters vide) : aucune pastille', () {
@@ -544,8 +555,14 @@ void main() {
 
       final MarkerLayer markerLayer = layers[1] as MarkerLayer;
       expect(markerLayer.markers, hasLength(1));
+      // Un marqueur de station porte `FocusTraversalOrder(GestureDetector(...))`
+      // depuis `K2` (2026-09-23, arbitrage du commanditaire — ordre de
+      // tabulation du groupe « carte ») : `Marker.child` n'est donc plus
+      // directement un `GestureDetector`.
+      final FocusTraversalOrder ordre =
+          markerLayer.markers.single.child as FocusTraversalOrder;
       expect(
-        (markerLayer.markers.single.child as GestureDetector).child,
+        (ordre.child as GestureDetector).child,
         isNot(isA<AreaClusterMarker>()),
       );
     });
@@ -1934,8 +1951,21 @@ void main() {
         // avec le câblage vérifié ici.
         final GestureDetector detecteur = tester.widget<GestureDetector>(
           find.byWidgetPredicate(
+            // `widget.child is AreaClusterMarker` ne suffit plus depuis `K2`
+            // (2026-09-23, arbitrage du commanditaire) : `_areaClusterMarkers`
+            // pose désormais un `KeyboardFocusRing` entre le `GestureDetector`
+            // et `AreaClusterMarker` (focus clavier de la pastille, groupe
+            // « carte »). On cherche donc le `GestureDetector` qui a un
+            // `AreaClusterMarker` comme DESCENDANT, pas comme enfant direct.
             (Widget widget) =>
-                widget is GestureDetector && widget.child is AreaClusterMarker,
+                widget is GestureDetector &&
+                widget.child is FocusTraversalOrder &&
+                (widget.child! as FocusTraversalOrder).child
+                    is KeyboardFocusRing &&
+                ((widget.child! as FocusTraversalOrder).child
+                            as KeyboardFocusRing)
+                        .child
+                    is AreaClusterMarker,
           ),
         );
         detecteur.onTap!();
@@ -1978,8 +2008,18 @@ void main() {
 
       final GestureDetector detecteur = tester.widget<GestureDetector>(
         find.byWidgetPredicate(
+          // Voir le commentaire du groupe précédent : `KeyboardFocusRing`
+          // s'intercale désormais entre le `GestureDetector` et
+          // `AreaClusterMarker` (`K2`, 2026-09-23).
           (Widget widget) =>
-              widget is GestureDetector && widget.child is AreaClusterMarker,
+              widget is GestureDetector &&
+              widget.child is FocusTraversalOrder &&
+              (widget.child! as FocusTraversalOrder).child
+                  is KeyboardFocusRing &&
+              ((widget.child! as FocusTraversalOrder).child
+                          as KeyboardFocusRing)
+                      .child
+                  is AreaClusterMarker,
         ),
       );
       detecteur.onTap!();

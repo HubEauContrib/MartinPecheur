@@ -22,6 +22,7 @@
 // qu'aucune spécification ne demande.
 
 import 'package:flutter/material.dart';
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Le nombre de crans de zoom qu'un tap sur `+` ou `−` applique. `1,0` :
@@ -124,6 +125,12 @@ class _MapControlButton extends StatelessWidget {
     final VoidCallback? handleTap = onTap;
     final bool enabled = handleTap != null;
 
+    // `KeyboardFocusRing` (`K2`) : Entrée/Espace font ce que le tap fait
+    // déjà, et le contour de focus est visible dès l'arrivée dessus.
+    // `canRequestFocus: enabled` retire un bouton désactivé — zoom déjà à sa
+    // borne — de l'ordre de tabulation : rien à activer, rien à atteindre.
+    // Posé SOUS `Semantics`, comme `WarningLink` : la clé reste la racine du
+    // sous-arbre où le focus se trouve.
     return Semantics(
       key: semanticsKey,
       button: true,
@@ -131,40 +138,47 @@ class _MapControlButton extends StatelessWidget {
       label: label,
       // Le libellé est déjà annoncé ici ; sans cette exclusion l'`Icon`
       // intérieur ne porterait rien de plus, mais `InkWell` ferait tout de
-      // même remonter sa propre action de tap en double (même relecture que
-      // `WarningLink` et `_MapScaleChip`).
+      // même remonter sa propre action de tap en double (même relecture
+      // que `WarningLink` et `_MapScaleChip`).
       excludeSemantics: true,
       onTap: handleTap,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: handleTap,
-          customBorder: const CircleBorder(),
-          // `SizedBox` de taille EXACTE, et non `ConstrainedBox(minWidth:)` +
-          // `Center` : `Center` (un `Align` sans `widthFactor`/`heightFactor`)
-          // REMPLIT les contraintes bornées qu'on lui donne plutôt que de se
-          // réduire à son enfant — dans la colonne de [MapControls]
-          // (`crossAxisAlignment.end`, contraintes lâches 0..largeur
-          // disponible), cela grossissait le bouton jusqu'à la largeur de
-          // tout l'écran (relecture du coordinateur du 2026-09-23, constaté
-          // par un test à 400 × 800). Une taille EXACTE ferme la question :
-          // ni trop petit (44 pt, `04-ui.md` § 3), ni plus grand que
-          // nécessaire.
-          child: SizedBox(
-            width: minimumTapTarget,
-            height: minimumTapTarget,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(
-                  color: enabled ? Colors.black : const Color(0xFFBDBDBD),
+      child: KeyboardFocusRing(
+        onActivate: handleTap,
+        canRequestFocus: enabled,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: handleTap,
+            // `KeyboardFocusRing` porte déjà le focus : un second `FocusNode`
+            // ferait de ce bouton deux arrêts de tabulation.
+            canRequestFocus: false,
+            customBorder: const CircleBorder(),
+            // `SizedBox` de taille EXACTE, et non `ConstrainedBox(minWidth:)` +
+            // `Center` : `Center` (un `Align` sans `widthFactor`/`heightFactor`)
+            // REMPLIT les contraintes bornées qu'on lui donne plutôt que de se
+            // réduire à son enfant — dans la colonne de [MapControls]
+            // (`crossAxisAlignment.end`, contraintes lâches 0..largeur
+            // disponible), cela grossissait le bouton jusqu'à la largeur de
+            // tout l'écran (relecture du coordinateur du 2026-09-23, constaté
+            // par un test à 400 × 800). Une taille EXACTE ferme la question :
+            // ni trop petit (44 pt, `04-ui.md` § 3), ni plus grand que
+            // nécessaire.
+            child: SizedBox(
+              width: minimumTapTarget,
+              height: minimumTapTarget,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(
+                    color: enabled ? Colors.black : const Color(0xFFBDBDBD),
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  color: enabled ? Colors.black : const Color(0xFFBDBDBD),
+                child: Center(
+                  child: Icon(
+                    icon,
+                    color: enabled ? Colors.black : const Color(0xFFBDBDBD),
+                  ),
                 ),
               ),
             ),

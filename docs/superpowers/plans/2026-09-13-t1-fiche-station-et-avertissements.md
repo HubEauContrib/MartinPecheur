@@ -1384,10 +1384,10 @@ git add lib/features test/features && git commit -m "feat(map): boutons plus, mo
 - Un raccourci **ne se déclenche pas** quand le focus est dans un champ de saisie : vérifié avec un **`TextField` posé dans le harnais de test** à côté de la surcouche de carte — focus dans le champ, `+` tapé → le caractère entre dans le champ, **aucune** `ZoomIntent` ne parvient au ViewModel. ~~Vérifié sur le modal d'acquittement~~ (révision du 2026-09-22 : le modal n'a qu'une case à cocher et précède la carte, il ne peut pas prouver ce cas).
 - `mapShortcuts()` n'a **aucune clé en double** : aucune collision de raccourci.
 
-- [ ] **Étape 1** — écrire le test avec `sendKeyEvent`, sans rendre `FlutterMap` : les intentions sont vérifiées sur le ViewModel. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view/map_keyboard_test.dart` → échec.
-- [ ] **Étape 3** — implémenter avec `Shortcuts` / `Actions` / `FocusTraversalOrder` — **rien d'autre**, aucune dépendance ajoutée.
-- [ ] **Étape 4** — `flutter test` → vert.
+- [x] **Étape 1** — écrire le test avec `sendKeyEvent`, sans rendre `FlutterMap` : les intentions sont vérifiées sur le ViewModel. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view/map_keyboard_test.dart` → échec.
+- [x] **Étape 3** — implémenter avec `Shortcuts` / `Actions` / `FocusTraversalOrder` — **rien d'autre**, aucune dépendance ajoutée.
+- [x] **Étape 4** (2026-09-23) — `flutter test` → vert, **1 057 tests** en 12,7 s. Arbitrage du commanditaire : la carte est un groupe de tabulation — Tab parcourt pastilles ou marqueurs dessinés du plus proche au plus lointain du centre, Entrée/Espace = tap. Relu deux fois avec essais de mutation : ordre au-delà de 500 marqueurs, anneau de focus peint sous le contrôle, focus qui changeait de station, touche « + » inopérante — corrigés.
 - [ ] **Étape 5 — constat à l'écran : commanditaire.**
 
 ```bash

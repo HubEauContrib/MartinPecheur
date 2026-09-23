@@ -26,6 +26,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 // L'alias local que ce fichier portait (`K1`) est retiré (YAGNI, relecture
@@ -62,43 +63,58 @@ class WarningLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // `KeyboardFocusRing` (`K2`) : Entrée/Espace ouvrent la fenêtre, comme
+    // un tap, et le contour de focus devient visible dès l'arrivée dessus —
+    // le lien du bandeau est le dernier arrêt de l'ordre de tabulation
+    // déclaré (`mapShortcuts`, `map_view.dart`). Posé SOUS `Semantics`, pas
+    // au-dessus : `warningLinkKey` doit rester la racine du sous-arbre où le
+    // focus finit par se trouver — un test vérifie que le focus REVIENT ici
+    // après la fermeture de la fenêtre (`Focus.of` ne cherche que des
+    // ancêtres, jamais l'inverse).
     return Semantics(
       key: warningLinkKey,
       button: true,
       label: warningLinkLabel,
       // Le libellé est déjà annoncé ici ; sans cette exclusion le `Text`
-      // intérieur en ferait un second nœud — même choix que les contrôles
-      // similaires de `features/map/view/`.
+      // intérieur en ferait un second nœud — même choix que les
+      // contrôles similaires de `features/map/view/`.
       excludeSemantics: true,
       // Sans ce rappel, `excludeSemantics` masque l'action de tap que
       // `InkWell` porterait sinon lui-même : un double-tap au lecteur
       // d'écran n'ouvrirait plus rien (même relecture que les contrôles
       // retirés par `W3c`).
       onTap: () => _open(context),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: () => _open(context),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: minimumTapTarget,
-              minHeight: minimumTapTarget,
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(Icons.warning_amber_rounded),
-                  SizedBox(width: 4),
-                  Text(
-                    warningLinkLabel,
-                    style: TextStyle(
-                      decoration: TextDecoration.underline,
-                      fontWeight: FontWeight.w600,
+      child: KeyboardFocusRing(
+        onActivate: () => _open(context),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: () => _open(context),
+            // `KeyboardFocusRing` porte déjà le focus et l'activation
+            // clavier : un second `FocusNode`, celui qu'`InkWell` créerait
+            // par défaut, ferait de ce contrôle DEUX arrêts de tabulation.
+            canRequestFocus: false,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: minimumTapTarget,
+                minHeight: minimumTapTarget,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(Icons.warning_amber_rounded),
+                    SizedBox(width: 4),
+                    Text(
+                      warningLinkLabel,
+                      style: TextStyle(
+                        decoration: TextDecoration.underline,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -184,6 +200,9 @@ class _CloseAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Même ordre que [WarningLink] : `Semantics` reste la racine du
+    // sous-arbre, `KeyboardFocusRing` en dessous — c'est là que le focus se
+    // trouve réellement, et un test le vérifie.
     return Semantics(
       key: warningWindowCloseButtonKey,
       button: true,
@@ -194,16 +213,23 @@ class _CloseAction extends StatelessWidget {
       // d'écran n'activerait plus rien (même relecture que les contrôles
       // retirés).
       onTap: onTap,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: minimumTapTarget,
-              minHeight: minimumTapTarget,
+      child: KeyboardFocusRing(
+        onActivate: onTap,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            // Voir [WarningLink] : `KeyboardFocusRing` porte déjà le focus,
+            // un second `FocusNode` ferait de « Fermer » deux arrêts de
+            // tabulation.
+            canRequestFocus: false,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: minimumTapTarget,
+                minHeight: minimumTapTarget,
+              ),
+              child: const Center(child: Text(warningReviewCloseLabel)),
             ),
-            child: const Center(child: Text(warningReviewCloseLabel)),
           ),
         ),
       ),

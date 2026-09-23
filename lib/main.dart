@@ -216,6 +216,16 @@ class MartinPecheurApp extends StatelessWidget {
                 onClose: ondeSheetViewModel.close,
               ),
             ),
+            // `Échap` (`K2`) : ferme la fiche ouverte, qu'elle soit station
+            // ou ONDE — cette racine est la seule à connaître les DEUX
+            // ViewModels de fiche (règle `feature-vers-feature`), au même
+            // titre qu'elle garantit déjà leur exclusivité mutuelle
+            // ci-dessus. Fermer une fiche déjà fermée est sans effet
+            // observable.
+            onCloseSheets: () {
+              stationSheetViewModel.close();
+              ondeSheetViewModel.close();
+            },
           );
         },
       ),
