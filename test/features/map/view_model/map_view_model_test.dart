@@ -1235,4 +1235,178 @@ void main() {
       expect(notifications, 0);
     });
   });
+
+  group('start() et onGestureEnded() — l enchainement charger-puis-precharger '
+      'rapatrie de la vue (H2, 2026-09-22)', () {
+    test('start() sur l echelle ecoulement (par defaut) ne precharge rien : '
+        'zero appel findLatest', () async {
+      repository.answer = (int _) async => _grid(50);
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.start();
+
+      expect(observations.requests, isEmpty);
+    });
+
+    test('selectScale(debit) APRES start() lance le prechargement, borne a '
+        '20', () async {
+      repository.answer = (int _) async => _grid(50);
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.start();
+
+      viewModel.selectScale(MapScaleKind.debit);
+      // `selectScale` lance le prechargement en tir-et-oublie : le
+      // `delay` injecte rend Future.value() (aucun vrai minuteur), donc
+      // une seule attente suffit a vider la chaine de micro-taches —
+      // comme le faisait `_handleScaleSelected` cote vue.
+      await Future<void>.delayed(Duration.zero);
+
+      expect(observations.requests, hasLength(20));
+    });
+
+    test(
+      'onGestureEnded sur l echelle debit charge PUIS precharge : 50 '
+      'stations dans l emprise donnent 20 appels, dans l ordre de '
+      'proximite, chacun sauf le premier precede d un delay de 200 ms',
+      () async {
+        repository.answer = (int _) async => _grid(50);
+        final MapViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+        viewModel.selectScale(MapScaleKind.debit);
+
+        await viewModel.onGestureEnded(_wideBounds());
+
+        expect(observations.requests, hasLength(20));
+        expect(
+          delays,
+          List<Duration>.filled(19, preloadInterval),
+          reason:
+              '20 requetes, 19 attentes ENTRE elles, jamais avant la '
+              'premiere',
+        );
+      },
+    );
+
+    test('onGestureEnded sur l echelle ecoulement ne precharge rien : zero '
+        'appel hydrometrie (C-15, NFR-07)', () async {
+      repository.answer = (int _) async => _grid(50);
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_wideBounds());
+
+      expect(observations.requests, isEmpty);
+    });
+
+    test('aucun findLatest tant que loadFor n est pas termine : le '
+        'prechargement attend la reponse du referentiel', () async {
+      final Completer<List<StationPoint>> completer =
+          Completer<List<StationPoint>>();
+      repository.answer = (int _) => completer.future;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      final Future<void> gesture = viewModel.onGestureEnded(_wideBounds());
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        observations.requests,
+        isEmpty,
+        reason:
+            "le prechargement n'a rien a precharger tant que loadFor "
+            "n'a pas repondu",
+      );
+
+      completer.complete(_grid(5));
+      await gesture;
+
+      expect(observations.requests, hasLength(5));
+    });
+
+    test('un changement d echelle PENDANT le chargement empeche le '
+        'prechargement : l echelle est relue APRES le chargement, jamais '
+        'avant', () async {
+      final Completer<List<StationPoint>> completer =
+          Completer<List<StationPoint>>();
+      repository.answer = (int _) => completer.future;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      final Future<void> gesture = viewModel.onGestureEnded(_wideBounds());
+      viewModel.selectScale(MapScaleKind.ecoulement);
+      completer.complete(_grid(5));
+      await gesture;
+
+      expect(observations.requests, isEmpty);
+    });
+
+    test('un second onGestureEnded pendant un prechargement annule le '
+        'premier : plus aucun appel de la premiere serie une fois la '
+        'seconde partie', () async {
+      repository.answer = (int call) async =>
+          call == 1 ? _grid(50) : <StationPoint>[_guadeloupe()];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      observations.answer = (StationCode station, int call) async {
+        if (call == 2) {
+          // Le second geste, pendant que le premier prechargement
+          // tourne encore.
+          await viewModel.onGestureEnded(
+            Bounds(west: -62, south: 15, east: -61, north: 17),
+          );
+        }
+        return _discharge(station, DateTime.utc(2026, 9, 13, 9));
+      };
+
+      await viewModel.onGestureEnded(_wideBounds());
+
+      expect(
+        observations.requests,
+        hasLength(3),
+        reason:
+            '2 requetes de la premiere serie avant l annulation, puis '
+            '1 pour la Guadeloupe de la seconde',
+      );
+      expect(observations.requestedCodes.last, '1011000101');
+    });
+  });
+
+  group('ondeAgeOf — l age de campagne sur l horloge du ViewModel (H2, '
+      'BR-010)', () {
+    test('observation du 2026-08-25 vue au 2026-09-13 est recente', () {
+      final MapViewModel viewModel = build(
+        now: () => DateTime.utc(2026, 9, 13),
+      );
+      addTearDown(viewModel.dispose);
+
+      expect(
+        viewModel.ondeAgeOf(_onde('12345678', DateTime.utc(2026, 8, 25))),
+        CampaignAge.recente,
+      );
+    });
+
+    test('la borne des 59 jours reste recente, 60 jours bascule en ancienne '
+        '(BR-010)', () {
+      final MapViewModel viewModel = build(
+        now: () => DateTime.utc(2026, 9, 13),
+      );
+      addTearDown(viewModel.dispose);
+
+      expect(
+        viewModel.ondeAgeOf(_onde('12345678', DateTime.utc(2026, 7, 16))),
+        CampaignAge.recente,
+        reason: '59 jours calendaires',
+      );
+      expect(
+        viewModel.ondeAgeOf(_onde('12345678', DateTime.utc(2026, 7, 15))),
+        CampaignAge.ancienne,
+        reason: '60 jours calendaires (BR-010)',
+      );
+    });
+  });
 }

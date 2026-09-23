@@ -217,6 +217,34 @@ final class MapViewModel extends ChangeNotifier {
   /// Charge l'emprise de démarrage ([startupBounds]).
   Future<void> loadInitial() => loadFor(startupBounds);
 
+  /// Point d'entrée du démarrage de l'écran (`H2`, 2026-09-22) : charge
+  /// l'emprise de démarrage, puis — si l'échelle active le justifie
+  /// ([shouldPreloadOn], **relue après** le chargement, jamais avant, car
+  /// l'usager a pu basculer d'échelle pendant l'attente réseau) — précharge
+  /// les stations visibles.
+  ///
+  /// Cet enchaînement vivait dans `_loadThenPreload`, côté vue
+  /// (`map_view.dart`), et n'était couvert par aucun test : « inatteignable
+  /// sans monter un `FlutterMap` ». Il vit ici pour que `K1`/`K2` le
+  /// réutilisent sans le recopier.
+  Future<void> start() async {
+    await loadInitial();
+    if (shouldPreloadOn(_scale)) {
+      await preloadVisibleStations();
+    }
+  }
+
+  /// Signalé par la vue à la fin d'un geste de caméra terminé sur [bounds]
+  /// (`H2`, 2026-09-22) : charge cette emprise, puis déclenche le
+  /// préchargement dans les mêmes conditions que [start]. La vue ne décide
+  /// plus rien — elle signale « geste terminé + emprise ».
+  Future<void> onGestureEnded(Bounds bounds) async {
+    await loadFor(bounds);
+    if (shouldPreloadOn(_scale)) {
+      await preloadVisibleStations();
+    }
+  }
+
   /// Charge les points de [bounds] et notifie la vue, sauf si l'emprise est
   /// identique à la dernière emprise demandée ([Bounds.==], structurelle sur
   /// les quatre bords) — un relâchement de geste qui ne change rien ne vaut
@@ -341,6 +369,11 @@ final class MapViewModel extends ChangeNotifier {
   /// (BR-008, `UC-001 A6`). Ce rechargement est asynchrone et notifie à son
   /// tour quand il aboutit — `selectScale` reste synchrone pour que la
   /// légende bascule à l'instant du geste, sans attendre le réseau.
+  ///
+  /// Le passage à [MapScaleKind.debit] lance lui-même le préchargement
+  /// ([shouldPreloadOn], `H2`) — c'est à cet instant que les stations
+  /// deviennent visibles, et non au relâchement de geste suivant. Ce
+  /// branchement vivait dans `_handleScaleSelected`, côté vue.
   void selectScale(MapScaleKind kind) {
     if (kind == _scale) {
       return;
@@ -353,7 +386,20 @@ final class MapViewModel extends ChangeNotifier {
     if (kind == MapScaleKind.ecoulement && bounds != null) {
       unawaited(_reloadOndeForScale(bounds));
     }
+
+    if (shouldPreloadOn(kind)) {
+      unawaited(preloadVisibleStations());
+    }
   }
+
+  /// L'âge de la campagne de [observation] (`BR-010`), sur l'horloge
+  /// **déjà injectée** de ce ViewModel ([_now]), ramenée en UTC comme le
+  /// faisait la vue (`campaignAgeOf` exige que `now` soit dans le fuseau
+  /// d'`observedAt`, l'UTC que le mapper rend — `T-08`). **Déplacée** de
+  /// `map_view.dart` (`H2`, 2026-09-22) : c'est ce ViewModel qui possède
+  /// l'horloge, la vue n'en lit plus aucune.
+  CampaignAge ondeAgeOf(OndeObservation observation) =>
+      campaignAgeOf(observedAt: observation.observedAt, now: _now().toUtc());
 
   /// L'état d'affichage de [code] sur la carte. Une station dont aucune
   /// requête n'a encore abouti porte [NonChargee] — jamais [SansDonnee], et

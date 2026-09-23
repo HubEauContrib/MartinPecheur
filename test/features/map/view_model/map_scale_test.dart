@@ -59,4 +59,24 @@ void main() {
       }
     }
   });
+
+  group('shouldPreloadOn — le debit ne se precharge que sur son echelle '
+      '(C-15, NFR-07, migre de map_view_test.dart en H2, 2026-09-22)', () {
+    test("l'echelle « debit » precharge : ses marqueurs sont ceux dont on "
+        'lit le debit', () {
+      expect(shouldPreloadOn(MapScaleKind.debit), isTrue);
+    });
+
+    test("l'echelle « ecoulement » ne precharge RIEN — aucune station n'est "
+        "dessinee, et Hub'Eau n'a ni SLA ni quota chiffre (C-15)", () {
+      expect(shouldPreloadOn(MapScaleKind.ecoulement), isFalse);
+    });
+
+    test('une seule echelle precharge — la decision est exhaustive sur '
+        "l'enumeration, jamais un defaut silencieux (BR-011)", () {
+      expect(MapScaleKind.values.where(shouldPreloadOn), <MapScaleKind>[
+        MapScaleKind.debit,
+      ]);
+    });
+  });
 }

@@ -168,10 +168,33 @@ Map<OndeStationCode, OndeObservation> _byStation(
 /// mapper rend en UTC (T-08).
 DateTime _now() => DateTime.utc(2026, 9, 14);
 
+/// `buildMapLayers` prend `ageOf` depuis H2 (l'âge se calcule maintenant sur
+/// l'horloge du `MapViewModel`, `MapViewModel.ondeAgeOf`) — ce repli
+/// reproduit ici, sans ViewModel, la même conversion en UTC que faisait la
+/// vue.
+CampaignAge Function(OndeObservation observation) _ageOf([
+  DateTime Function() now = _now,
+]) =>
+    (OndeObservation observation) =>
+        campaignAgeOf(observedAt: observation.observedAt, now: now().toUtc());
+
+/// `ageOf` est **requis** par `buildMapLayers` (correction du 2026-09-23,
+/// `H2`) — un repli constant y mentirait sur l'âge d'une campagne (`BR-010`).
+/// Ce nom explicite documente les appels de ce fichier qui construisent
+/// l'échelle « débit » ou une emprise sans observation ONDE : `ageOf` n'y
+/// est JAMAIS invoqué, et cette fonction ne doit donc jamais être appelée —
+/// si elle l'était, c'est qu'un test a changé de sens sans que son `ageOf`
+/// explicite ait suivi.
+CampaignAge _unusedAgeOf(OndeObservation observation) => throw StateError(
+  'ageOf ne doit pas être appelé : ce test ne dessine aucun marqueur '
+  "ONDE dont l'âge compte",
+);
+
 void main() {
   group('buildMapLayers', () {
     test('la première couche est le fond de tuiles IGN', () {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: const <StationPoint>[],
       );
@@ -194,6 +217,7 @@ void main() {
 
     test('sans stations, une seule couche est produite', () {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: const <StationPoint>[],
       );
@@ -244,6 +268,7 @@ void main() {
   group('buildMapLayers — marqueurs de stations (T0-M4)', () {
     test('une station produit deux couches : TileLayer puis MarkerLayer', () {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
       );
@@ -255,6 +280,7 @@ void main() {
 
     test('deux stations produisent deux marqueurs', () {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois(), _guadeloupe()],
       );
@@ -267,6 +293,7 @@ void main() {
         "l'ordre GeoJSON [longitude, latitude], LatLng prend la latitude en "
         'premier', () {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
       );
@@ -281,6 +308,7 @@ void main() {
         'TAP, pas la pastille — avec une pastille décorée dedans, jamais un '
         'glyphe de police', () {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
       );
@@ -297,6 +325,7 @@ void main() {
         'dessinées, marge comprise — le filtre fait foi côté dépôt '
         '(StationPointRepository)', () {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois(), _guadeloupe()],
       );
@@ -308,6 +337,7 @@ void main() {
     test('une liste de stations vide ne produit qu\'une seule couche — la '
         "couche de marqueurs vide n'est pas ajoutée", () {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: const <StationPoint>[],
       );
@@ -323,6 +353,7 @@ void main() {
     ) async {
       final List<StationCode> tapped = <StationCode>[];
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois(), _guadeloupe()],
         onStationTap: tapped.add,
@@ -359,6 +390,7 @@ void main() {
       final SemanticsHandle handle = tester.ensureSemantics();
       final List<StationCode> tapped = <StationCode>[];
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
         onStationTap: tapped.add,
@@ -397,6 +429,7 @@ void main() {
     testWidgets('sans rappel, le marqueur reste inerte — aucune exception au '
         'tap', (WidgetTester tester) async {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
       );
@@ -426,6 +459,7 @@ void main() {
     testWidgets('la pastille garde sa taille de 12 px au centre de la zone '
         'de tap de 44', (WidgetTester tester) async {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
       );
@@ -507,6 +541,7 @@ void main() {
       WidgetTester tester,
     ) async {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
         stateOf: (StationCode code) => const SansDonnee(),
@@ -534,6 +569,7 @@ void main() {
     testWidgets('stateOf est interrogé station par station : deux stations, '
         'deux états', (WidgetTester tester) async {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois(), _guadeloupe()],
         stateOf: (StationCode code) => code == StationCode('K447001001')
@@ -571,6 +607,7 @@ void main() {
       WidgetTester tester,
     ) async {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
         stateOf: (StationCode code) => const SansDonnee(),
@@ -623,6 +660,7 @@ void main() {
       WidgetTester tester,
     ) async {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
         stateOf: (StationCode code) => const Chargee(Freshness.fraiche),
@@ -662,6 +700,7 @@ void main() {
       WidgetTester tester,
     ) async {
       final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: <StationPoint>[_blois()],
       );
@@ -1287,26 +1326,6 @@ void main() {
     );
   });
 
-  group('shouldPreloadOn — le débit ne se précharge que sur son échelle '
-      '(C-15, NFR-07, relecture du 2026-09-14)', () {
-    test("l'échelle « débit » précharge : ses marqueurs sont ceux dont on "
-        'lit le débit', () {
-      expect(shouldPreloadOn(MapScaleKind.debit), isTrue);
-    });
-
-    test("l'échelle « écoulement » ne précharge RIEN — aucune station n'est "
-        "dessinée, et Hub'Eau n'a ni SLA ni quota chiffré (C-15)", () {
-      expect(shouldPreloadOn(MapScaleKind.ecoulement), isFalse);
-    });
-
-    test('une seule échelle précharge — la décision est exhaustive sur '
-        "l'énumération, jamais un défaut silencieux (BR-011)", () {
-      expect(MapScaleKind.values.where(shouldPreloadOn), <MapScaleKind>[
-        MapScaleKind.debit,
-      ]);
-    });
-  });
-
   group('MapScaleChips — la bascule d échelle (T1-U3, UC-001 A6)', () {
     Future<void> pumpChips(
       WidgetTester tester, {
@@ -1469,7 +1488,7 @@ void main() {
           observedAt: observedAt ?? DateTime.utc(2026, 9, 1),
         ),
       ]),
-      now: _now,
+      ageOf: _ageOf(),
       onOndeTap: onOndeTap,
     );
 
@@ -1540,7 +1559,7 @@ void main() {
       final List<Widget> layers = buildMapLayers(
         scale: MapScaleKind.ecoulement,
         stations: <StationPoint>[_blois()],
-        now: _now,
+        ageOf: _ageOf(),
       );
 
       expect(layers, hasLength(1));
@@ -1678,7 +1697,7 @@ void main() {
             observedAt: DateTime.utc(2026, 6, 1),
           ),
         ]),
-        now: () => DateTime.utc(2026, 6, 20),
+        ageOf: _ageOf(() => DateTime.utc(2026, 6, 20)),
       );
 
       await pumpMarkerChild(tester, (layers[1] as MarkerLayer).markers.single);
@@ -1800,6 +1819,7 @@ void main() {
       // Les marqueurs : `buildMapLayers` ne reçoit PAS l'erreur — c'est
       // structurellement ce qui garantit qu'une panne ne vide pas la carte.
       final List<Widget> couches = buildMapLayers(
+        ageOf: _unusedAgeOf,
         scale: MapScaleKind.debit,
         stations: stations,
       );
@@ -1973,15 +1993,6 @@ void main() {
         ),
         throwsA(isA<AssertionError>()),
       );
-    });
-  });
-
-  group('MapView — le câblage de U3', () {
-    test("`now` a une valeur par défaut : l'horloge du poste, sauf dans un "
-        'test qui la fixe', () {
-      final MapView view = MapView(viewModel: _viewModel());
-
-      expect(view.now(), isA<DateTime>());
     });
   });
 }

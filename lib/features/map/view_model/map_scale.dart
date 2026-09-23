@@ -43,3 +43,26 @@ String mapScaleLabel(MapScaleKind kind) => switch (kind) {
   MapScaleKind.ecoulement => 'Écoulement',
   MapScaleKind.debit => "Débit relatif à l'historique",
 };
+
+/// Décide si l'échelle [scale] justifie de précharger le débit des stations
+/// visibles. Fonction pure, testable sans widget ni ViewModel — **déplacée**
+/// de `map_view.dart` vers ce fichier (`H2`, 2026-09-22) : elle ferme
+/// l'énumération qu'elle lit, et c'est `MapViewModel` qui la consulte
+/// désormais ([MapViewModel.start], [MapViewModel.onGestureEnded],
+/// [MapViewModel.selectScale]), plus la vue.
+///
+/// **Seule l'échelle « débit » précharge** (relecture du 2026-09-14). Sur
+/// l'échelle « écoulement », qui est celle du démarrage (`UC-001 § 3`),
+/// `buildMapLayers` ne dessine **aucun** marqueur de station : précharger y
+/// enverrait jusqu'à vingt requêtes Hub'Eau par relâchement de geste pour
+/// des marqueurs que personne ne voit. L'API n'a ni SLA ni quota chiffré
+/// (`C-15`), et `NFR-07` interdit précisément le travail réseau sans
+/// destinataire à l'écran.
+///
+/// `switch` exhaustif sur un `enum` fermé (`BR-011`) : une échelle ajoutée
+/// sans branche ici ne compile pas — jamais un préchargement décidé par
+/// défaut.
+bool shouldPreloadOn(MapScaleKind scale) => switch (scale) {
+  MapScaleKind.ecoulement => false,
+  MapScaleKind.debit => true,
+};

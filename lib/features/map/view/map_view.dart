@@ -176,27 +176,6 @@ bool shouldRefreshOn(MapEvent event) =>
     event is MapEventDoubleTapZoomEnd ||
     event is MapEventRotateEnd;
 
-/// Décide si l'échelle [scale] justifie de précharger le débit des stations
-/// visibles. Fonction pure, testable sans widget — extraite pour cela : la
-/// décision vit sinon dans `_loadThenPreload`, qu'aucun test ne peut
-/// atteindre sans monter un `FlutterMap`.
-///
-/// **Seule l'échelle « débit » précharge** (relecture du 2026-09-14). Sur
-/// l'échelle « écoulement », qui est celle du démarrage (`UC-001 § 3`),
-/// `buildMapLayers` ne dessine **aucun** marqueur de station : précharger y
-/// enverrait jusqu'à vingt requêtes Hub'Eau par relâchement de geste pour
-/// des marqueurs que personne ne voit. L'API n'a ni SLA ni quota chiffré
-/// (`C-15`), et `NFR-07` interdit précisément le travail réseau sans
-/// destinataire à l'écran.
-///
-/// `switch` exhaustif sur un `enum` fermé (`BR-011`) : une échelle ajoutée
-/// sans branche ici ne compile pas — jamais un préchargement décidé par
-/// défaut.
-bool shouldPreloadOn(MapScaleKind scale) => switch (scale) {
-  MapScaleKind.ecoulement => false,
-  MapScaleKind.debit => true,
-};
-
 /// Construit les couches de la carte, dans l'ordre où `FlutterMap` doit les
 /// empiler — le fond de tuiles **premier**, les marqueurs ensuite. Fonction
 /// pure, testable sans rendu ni accès réseau.
@@ -241,19 +220,24 @@ bool shouldPreloadOn(MapScaleKind scale) => switch (scale) {
 /// les tests de tuiles, de tap et de taille — n'ont pas à fabriquer une
 /// fonction pour le dire.
 ///
-/// [now] donne l'instant de lecture, dont dépend l'âge de chaque campagne
-/// ONDE (`campaignAgeOf`, `BR-010`). **Injecté** plutôt que lu de l'horloge
-/// du poste : c'est ce qui rend la bascule des 60 jours testable. Il est
-/// appelé **une seule fois** par construction de couches, et ramené en UTC :
-/// deux marqueurs de la même carte doivent dater du même instant, et
-/// `campaignAgeOf` exige que `now` soit dans le fuseau de `observedAt` —
-/// l'UTC, que le mapper rend (`T-08`).
+/// [ageOf] rend l'âge de campagne (`BR-010`) d'une observation ONDE — en
+/// production, `MapViewModel.ondeAgeOf`, sur l'horloge **déjà injectée** du
+/// ViewModel. **Déplacé** depuis un paramètre `now` (`H2`, 2026-09-22) : le
+/// calcul de l'âge — conversion en UTC comprise — vit désormais dans le
+/// ViewModel, qui possède l'horloge ; cette vue ne fait plus qu'appeler
+/// [ageOf] par observation.
+///
+/// **Requis, sans valeur par défaut** (correction du 2026-09-23) :
+/// contrairement à [stateOf], aucune valeur n'est neutre ici — un repli
+/// constant (« toujours récente ») serait un mensonge silencieux sur une
+/// campagne vieille de plus de 60 jours (`BR-010`). Un appelant qui n'a pas
+/// d'âge à donner doit le dire explicitement, jamais hériter d'un défaut.
 List<Widget> buildMapLayers({
   required MapScaleKind scale,
   required List<StationPoint> stations,
   Map<OndeStationCode, OndeObservation> ondeObservations =
       const <OndeStationCode, OndeObservation>{},
-  DateTime Function() now = DateTime.now,
+  required CampaignAge Function(OndeObservation observation) ageOf,
   void Function(StationCode code)? onStationTap,
   void Function(OndePoint point)? onOndeTap,
   StationMapState Function(StationCode code) stateOf = _alwaysUnloaded,
@@ -272,7 +256,7 @@ List<Widget> buildMapLayers({
   final List<Marker> markers = switch (scale) {
     MapScaleKind.ecoulement => _ondeMarkers(
       ondeObservations: ondeObservations,
-      now: now().toUtc(),
+      ageOf: ageOf,
       onOndeTap: onOndeTap,
     ),
     MapScaleKind.debit => _stationMarkers(
@@ -351,17 +335,14 @@ List<Marker> _stationMarkers({
 /// sur la même ligne d'API — `T-09`), donc sans second appel au référentiel.
 List<Marker> _ondeMarkers({
   required Map<OndeStationCode, OndeObservation> ondeObservations,
-  required DateTime now,
+  required CampaignAge Function(OndeObservation observation) ageOf,
   required void Function(OndePoint point)? onOndeTap,
 }) {
   final void Function(OndePoint point)? handleTap = onOndeTap;
 
   return ondeObservations.values.map((OndeObservation observation) {
     final OndePoint point = observation.point;
-    final CampaignAge age = campaignAgeOf(
-      observedAt: observation.observedAt,
-      now: now,
-    );
+    final CampaignAge age = ageOf(observation);
 
     return Marker(
       point: LatLng(point.latitude, point.longitude),
@@ -861,7 +842,6 @@ class MapView extends StatefulWidget {
     this.onOndeTap,
     this.stationSheet,
     this.ondeSheet,
-    this.now = DateTime.now,
     super.key,
   }) : assert(
          (onStationTap == null) == (stationSheet == null),
@@ -890,15 +870,6 @@ class MapView extends StatefulWidget {
   /// (règle `feature-vers-feature`). `main.dart` le branche sur
   /// `OndeSheetViewModel.open` depuis `U4`.
   final void Function(OndePoint point)? onOndeTap;
-
-  /// L'instant de lecture, dont dépend l'âge de chaque campagne ONDE
-  /// (`BR-010`). Par défaut l'horloge du poste ; un test le fixe pour
-  /// éprouver la bascule des 60 jours sans dépendre de la date du jour.
-  ///
-  /// `DateTime.now` et non `() => DateTime.now()` : un tear-off de
-  /// constructeur est une expression constante, une fermeture ne l'est pas —
-  /// et ce constructeur est `const`.
-  final DateTime Function() now;
 
   /// Le panneau de la fiche station, déjà composé avec son ViewModel par
   /// `main.dart`, et affiché en bas de la carte. `null` tant qu'aucune fiche
@@ -943,12 +914,16 @@ class _MapViewState extends State<MapView> {
   @override
   void initState() {
     super.initState();
-    unawaited(_loadThenPreload(widget.viewModel.loadInitial()));
+    unawaited(widget.viewModel.start());
   }
 
-  /// Câblé à `MapOptions.onMapEvent` : ne déclenche un chargement que pour
+  /// Câblé à `MapOptions.onMapEvent` : ne signale un geste terminé que pour
   /// les événements de fin de geste ([shouldRefreshOn]), jamais à chaque
-  /// frame d'un glisser en cours.
+  /// frame d'un glisser en cours. La vue ne fait plus que traduire
+  /// l'événement `flutter_map` en emprise de domaine et le signaler au
+  /// ViewModel ([MapViewModel.onGestureEnded], `H2`) : c'est lui qui décide
+  /// de charger puis, le cas échéant, de précharger — l'enchaînement vivait
+  /// ici, dans `_loadThenPreload`, et n'était couvert par aucun test.
   void _handleMapEvent(MapEvent event) {
     if (!shouldRefreshOn(event)) {
       return;
@@ -956,74 +931,15 @@ class _MapViewState extends State<MapView> {
 
     final LatLngBounds visible = event.camera.visibleBounds;
     unawaited(
-      _loadThenPreload(
-        widget.viewModel.loadFor(
-          Bounds(
-            west: visible.west,
-            south: visible.south,
-            east: visible.east,
-            north: visible.north,
-          ),
+      widget.viewModel.onGestureEnded(
+        Bounds(
+          west: visible.west,
+          south: visible.south,
+          east: visible.east,
+          north: visible.north,
         ),
       ),
     );
-  }
-
-  /// Enchaîne un chargement de points et — **sur la seule échelle
-  /// « débit »** ([shouldPreloadOn]) — le préchargement du débit des
-  /// stations visibles.
-  ///
-  /// C'est bien la **vue** qui déclenche le préchargement : `loadFor` annule
-  /// celui qui tourne (une emprise quittée n'a plus de valeur, `NFR-07`,
-  /// `C-15`) mais n'en relance aucun de lui-même, pour qu'un écran qui n'en
-  /// veut pas n'ait pas à l'annuler (V2). Le branchement était explicitement
-  /// laissé à `U2`.
-  ///
-  /// ⚠️ La garde d'échelle est la correction du 2026-09-14 : sur l'échelle
-  /// « écoulement », active au démarrage, aucun marqueur de station n'est
-  /// dessiné, et vingt requêtes hydrométrie par relâchement de geste
-  /// partaient pour des marqueurs invisibles (`C-15`, `NFR-07`). L'échelle
-  /// est relue **après** le chargement, jamais avant : l'usager a pu
-  /// basculer entre-temps.
-  ///
-  /// L'attente est nécessaire : `preloadVisibleStations` choisit les vingt
-  /// stations les plus proches du centre de l'emprise **déjà chargée**. La
-  /// lancer avant que les points soient là ne précharge rien.
-  ///
-  /// La relancer à chaque fin de geste ne coûte rien quand rien n'a changé :
-  /// le ViewModel **saute les stations dont l'état est déjà connu** et ne
-  /// notifie qu'à un changement effectif. Un relâchement de geste sur la
-  /// même emprise ne fait donc ni requête ni reconstruction des 4 150
-  /// marqueurs (`NFR-01`) ; et la borne de vingt portant sur les requêtes et
-  /// non sur les stations regardées, un second geste sur la même emprise
-  /// précharge les **vingt suivantes**, de proche en proche.
-  Future<void> _loadThenPreload(Future<void> load) async {
-    await load;
-
-    if (!shouldPreloadOn(widget.viewModel.scale)) {
-      return;
-    }
-
-    await widget.viewModel.preloadVisibleStations();
-  }
-
-  /// Bascule d'échelle demandée par une puce ([MapScaleChips]) : le ViewModel
-  /// bascule, puis — si la nouvelle échelle le justifie ([shouldPreloadOn]) —
-  /// le préchargement part **ici**, parce que c'est à cet instant que les
-  /// stations deviennent visibles. Sans cela, passer à « Débit » n'aurait
-  /// préchargé qu'au relâchement de geste suivant.
-  ///
-  /// `selectScale` est synchrone (le rechargement ONDE qu'il déclenche
-  /// éventuellement notifie de son côté) : rien à attendre avant le
-  /// préchargement, qui ne dépend que des points déjà chargés.
-  void _handleScaleSelected(MapScaleKind kind) {
-    widget.viewModel.selectScale(kind);
-
-    if (!shouldPreloadOn(kind)) {
-      return;
-    }
-
-    unawaited(widget.viewModel.preloadVisibleStations());
   }
 
   /// « Élargir la recherche » : le ViewModel recharge une emprise deux fois
@@ -1066,7 +982,7 @@ class _MapViewState extends State<MapView> {
                     scale: widget.viewModel.scale,
                     stations: widget.viewModel.stations,
                     ondeObservations: widget.viewModel.ondeObservations,
-                    now: widget.now,
+                    ageOf: widget.viewModel.ondeAgeOf,
                     onStationTap: widget.onStationTap,
                     onOndeTap: widget.onOndeTap,
                     stateOf: widget.viewModel.stateOf,
@@ -1074,7 +990,7 @@ class _MapViewState extends State<MapView> {
                 ),
                 ...buildMapOverlays(
                   scale: widget.viewModel.scale,
-                  onSelect: _handleScaleSelected,
+                  onSelect: widget.viewModel.selectScale,
                   onWiden: _handleWiden,
                   onShowBanner: widget.viewModel.showBanner,
                   error: widget.viewModel.error,

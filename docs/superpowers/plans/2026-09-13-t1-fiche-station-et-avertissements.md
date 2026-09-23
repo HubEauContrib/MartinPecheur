@@ -1151,11 +1151,13 @@ git add lib/domain test && git commit -m "feat(avertissement): balayage mecaniqu
 - `shouldPreloadOn(debit)` vrai, `shouldPreloadOn(ecoulement)` faux — **migré** depuis `map_view_test.dart`, qui ne le teste plus.
 - Après `H2` : `grep -n "shouldPreloadOn\|preloadVisibleStations\|campaignAgeOf" lib/features/map/view/map_view.dart` → **vide**.
 
-- [ ] **Étape 1** — écrire les cas ci-dessus dans le test du ViewModel. Rouge (`start`, `onGestureEnded`, `ondeAgeOf` absents).
-- [ ] **Étape 2** — `flutter test test/features/map/view_model` → échec.
-- [ ] **Étape 3** — implémenter dans le ViewModel, **déplacer** `shouldPreloadOn`, puis réduire la vue à des appels (`start`, `onGestureEnded`, `selectScale`, `ondeAgeOf`). Retirer les tests de `map_view_test.dart` qui portaient sur la décision.
-- [ ] **Étape 4** — `grep` ci-dessus vide ; `flutter test test/features/map test/architecture` → vert, goldens compris ; `flutter test` → vert, **nombre de tests recopié** (il peut baisser d'autant qu'il y a de tests migrés, jamais au-delà).
-- [ ] **Étape 5** — critère de fin, puis commit.
+- [x] **Étape 1** (2026-09-23) — écrire les cas ci-dessus dans le test du ViewModel. Rouge (`start`, `onGestureEnded`, `ondeAgeOf` absents).
+- [x] **Étape 2** (2026-09-23) — `flutter test test/features/map/view_model` → échec.
+- [x] **Étape 3** (2026-09-23) — implémenter dans le ViewModel, **déplacer** `shouldPreloadOn`, puis réduire la vue à des appels (`start`, `onGestureEnded`, `selectScale`, `ondeAgeOf`). Retirer les tests de `map_view_test.dart` qui portaient sur la décision.
+- [x] **Étape 4** (2026-09-23) — `grep` ci-dessus vide ; `flutter test test/features/map test/architecture` → vert, goldens compris ; `flutter test` → vert, **nombre de tests recopié** (il peut baisser d'autant qu'il y a de tests migrés, jamais au-delà).
+- [x] **Étape 5** (2026-09-23) — critère de fin, puis commit.
+
+> **Exécution du 2026-09-23.** 932 tests verts (924 + 9 ajoutés − 1 obsolète, `MapView.now` disparu ; 3 migrés). `ageOf` est **obligatoire** dans `buildMapLayers` : un défaut « récente » aurait peint en couleur vive une campagne de plus de 60 jours sans que rien ne le signale (`BR-010`). Écart assumé : `selectScale` sur l'échelle déjà active ne précharge plus (geste sans effet, aucune requête). Relevé pour `X3` : passer à « écoulement » n'annule pas un préchargement en cours (comportement antérieur, inchangé).
 
 ```bash
 git add lib/features/map test/features/map && git commit -m "refactor(map): rendre au ViewModel les decisions de prechargement et l age de campagne" -m "La vue carte decidait : quand precharger, dans quel ordre charger puis precharger, et l age de chaque campagne ONDE. L enchainement n etait atteignable qu en montant un FlutterMap, donc teste par rien. Il vit desormais dans MapViewModel, teste sans rendu ; la vue signale un geste termine et son emprise. Comportement inchange : 20 stations au plus, 200 ms entre deux appels, annulable (NFR-07), echelle debit seule. Pas d anti-rebond de molette : NV-W6 n est pas mesure, il s instruit en X3."
