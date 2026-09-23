@@ -57,6 +57,13 @@ const int defaultPreloadLimit = 20;
 /// (`C-15`).
 const Duration preloadInterval = Duration(milliseconds: 200);
 
+/// Âge au-delà duquel un état [Chargee] ou [SansDonnee] redonne droit à une
+/// requête de préchargement : sans lui, une session laissée ouverte
+/// garderait pour toujours la première lecture de chaque station. Aligné sur
+/// le TTL de `observations_tr` (vingt minutes) : une requête plus tôt ne
+/// ferait que relire le cache du dépôt.
+const Duration stationStateRefreshAfter = Duration(minutes: 20);
+
 /// Attente réelle, utilisée quand aucun [delay] n'est injecté.
 Future<void> _wait(Duration duration) => Future<void>.delayed(duration);
 
@@ -159,6 +166,16 @@ final class MapViewModel extends ChangeNotifier {
 
   final Map<StationCode, StationMapState> _states =
       <StationCode, StationMapState>{};
+
+  /// L'observation de chaque station [Chargee] : sa fraîcheur est recalculée
+  /// à chaque lecture de [stateOf], jamais figée à l'instant du chargement
+  /// (BR-005).
+  final Map<StationCode, HydroObservation> _latestObservations =
+      <StationCode, HydroObservation>{};
+
+  /// L'instant où l'état de chaque station a été posé, pour
+  /// [stationStateRefreshAfter].
+  final Map<StationCode, DateTime> _stateSetAt = <StationCode, DateTime>{};
 
   Map<OndeStationCode, OndeObservation> _ondeObservations =
       UnmodifiableMapView<OndeStationCode, OndeObservation>(
@@ -406,8 +423,17 @@ final class MapViewModel extends ChangeNotifier {
   /// jamais un état par défaut (BR-007) : c'est cette distinction qui
   /// empêche un écran en cours de chargement de ressembler à une absence de
   /// donnée constatée.
-  StationMapState stateOf(StationCode code) =>
-      _states[code] ?? const NonChargee();
+  ///
+  /// La fraîcheur d'un [Chargee] est calculée à l'instant de la lecture, sur
+  /// l'horloge injectée : une mesure fraîche au chargement vieillit à
+  /// l'écran sans nouvelle requête (BR-005).
+  StationMapState stateOf(StationCode code) {
+    final HydroObservation? observation = _latestObservations[code];
+    if (observation != null) {
+      return Chargee(observation.freshnessAt(_now()));
+    }
+    return _states[code] ?? const NonChargee();
+  }
 
   /// Précharge le débit des [limit] stations visibles les plus proches du
   /// centre de l'emprise courante, en espaçant les requêtes de
@@ -473,14 +499,21 @@ final class MapViewModel extends ChangeNotifier {
       }
 
       final StationPoint target = targets[index];
-      final StationMapState next = await _stateFor(target.code);
+      final (StationMapState next, HydroObservation? observation) =
+          await _stateFor(target.code);
 
       if (_disposed || generation != _preloadGeneration) {
         return;
       }
       final StationMapState previous = stateOf(target.code);
       _states[target.code] = next;
-      if (next != previous) {
+      _stateSetAt[target.code] = _now();
+      if (observation == null) {
+        _latestObservations.remove(target.code);
+      } else {
+        _latestObservations[target.code] = observation;
+      }
+      if (stateOf(target.code) != previous) {
         notifyListeners();
       }
     }
@@ -495,10 +528,20 @@ final class MapViewModel extends ChangeNotifier {
   /// [EnEchec] est le seul état déjà connu qui redonne droit à une requête :
   /// une panne de source est transitoire (`UC-001 A4`), là où [SansDonnee]
   /// est un **fait constaté** (`BR-007`) et [Chargee] une valeur en main.
+  ///
+  /// [Chargee] et [SansDonnee] redeviennent éligibles passé
+  /// [stationStateRefreshAfter] : une session longue relit la source au
+  /// lieu de garder sa première lecture.
   bool _needsPreload(StationCode code) => switch (stateOf(code)) {
     NonChargee() || EnEchec() => true,
-    Chargee() || SansDonnee() => false,
+    Chargee() || SansDonnee() => _isOutdated(code),
   };
+
+  bool _isOutdated(StationCode code) {
+    final DateTime? setAt = _stateSetAt[code];
+    return setAt == null ||
+        _now().difference(setAt) >= stationStateRefreshAfter;
+  }
 
   /// L'état d'une station, lu au dépôt. Ne lève jamais : une panne devient
   /// [EnEchec] pour cette station seule (`UC-001 A4`), une absence devient
@@ -509,17 +552,22 @@ final class MapViewModel extends ChangeNotifier {
   /// [preloadVisibleStations] : une variable `final` affectée dans les deux
   /// branches d'un `try`/`catch` n'est pas reconnue comme certainement
   /// affectée par l'analyseur Dart.
-  Future<StationMapState> _stateFor(StationCode code) async {
+  ///
+  /// Rend aussi l'observation lue, pour que [stateOf] recalcule sa fraîcheur
+  /// à chaque lecture.
+  Future<(StationMapState, HydroObservation?)> _stateFor(
+    StationCode code,
+  ) async {
     try {
       final HydroObservation? observation = await _observations.findLatest(
         code,
         Grandeur.debit,
       );
       return observation == null
-          ? const SansDonnee()
-          : Chargee(observation.freshnessAt(_now()));
+          ? (const SansDonnee(), null)
+          : (Chargee(observation.freshnessAt(_now())), observation);
     } on Object catch (error) {
-      return EnEchec(error);
+      return (EnEchec(error), null);
     }
   }
 
