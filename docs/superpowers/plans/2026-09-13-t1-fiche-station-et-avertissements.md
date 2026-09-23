@@ -1407,23 +1407,25 @@ git add lib/features/map test/features/map && git commit -m "feat(map): piloter 
 
 **Invariant :** en dessous d'une certaine largeur le bandeau d'avertissement se tronque, et `BR-012` comme `04-ui.md § 3` l'interdisent. La taille minimale est donc **une exigence d'avertissement**, pas un confort. ⚠️ **Amendé le 2026-09-23 (`W3c`)** : plus de bandeau. Lire « bandeau » comme « puces, légende et contrôle « ⚠ Avertissement » tiennent sans se recouvrir, modal et fenêtre défilent sans être tronqués » ; le chiffre reste à justifier (décision 8).
 
+⚠️ **Amendé une seconde fois le 2026-09-23 (arbitrage du commanditaire)** : ~~800 × 600~~ → **800 × 700**. Mesuré par `K3` : à 800 × 600, la légende de l'échelle « débit » (le paragraphe « comparaison statistique », `BR-003`) recouvrait la colonne des contrôles de zoom — chiffres dans `test/features/map/view/map_view_test.dart` (test « RAISON DE L'AMENDEMENT »). L'échelle « écoulement » tenait déjà à 600 ; c'est l'échelle « débit » qui a fait remonter le chiffre. `ptMinTrackSize` contraint la fenêtre EXTÉRIEURE, pas la zone cliente : la contrainte est posée via `AdjustWindowRectExForDpi` (Win32, documentée) pour garantir que c'est bien la ZONE CLIENTE qui atteint 800 × 700, quels que soient bordures et barre de titre.
+
 **Cas de test**
 
-- Le fichier de plateforme déclare une taille minimale de **800 × 600** (décision 8), lisible par `grep` — le test lit le fichier, il ne compile rien.
-- La légende, le bandeau et les contrôles tiennent à 800 × 600 : test de widget à taille de fenêtre forcée, **sans** rendre `FlutterMap`.
-- À **200 %** de taille de police et 800 × 600, l'avertissement **défile** au lieu d'être tronqué (`04-ui.md § 3`).
+- Le fichier de plateforme déclare une taille minimale de ~~**800 × 600**~~ **800 × 700** (décision 8, amendée le 2026-09-23), lisible par `grep` — le test lit le fichier, il ne compile rien.
+- La légende, le bandeau et les contrôles tiennent à ~~800 × 600~~ **800 × 700**, sur les DEUX échelles : test de widget à taille de fenêtre forcée, **sans** rendre `FlutterMap`.
+- À **200 %** de taille de police et ~~800 × 600~~ **800 × 700**, l'avertissement **défile** au lieu d'être tronqué (`04-ui.md § 3`).
 
-- [ ] **Étape 1 — lire** le gabarit Windows pour trouver où la géométrie est posée. ⚠️ Ne pas écrire de mémoire : `flutter create` a généré ce code, sa forme se lit.
-- [ ] **Étape 2** — écrire le test rouge.
-- [ ] **Étape 3** — `flutter test test/project/windows_min_size_test.dart` → échec.
-- [ ] **Étape 4** — poser la contrainte dans le fichier lu à l'étape 1.
-- [ ] **Étape 5** — `flutter test` → vert.
+- [x] **Étape 1 — lire** le gabarit Windows pour trouver où la géométrie est posée. ⚠️ Ne pas écrire de mémoire : `flutter create` a généré ce code, sa forme se lit.
+- [x] **Étape 2** — écrire le test rouge.
+- [x] **Étape 3** — `flutter test test/project/windows_min_size_test.dart` → échec.
+- [x] **Étape 4** — poser la contrainte dans le fichier lu à l'étape 1.
+- [x] **Étape 5** (2026-09-23) — `flutter test` → vert, **1 077 tests**. Taille minimale **800 × 700 de zone cliente** (arbitrage du commanditaire), posée par `WM_GETMINMAXINFO` et `AdjustWindowRectExForDpi` dans `windows/runner/win32_window.cpp` ; relu avec essais de mutation. Le point 44 est écarté par test : ruban DEBUG, pas une troncature.
 - [ ] **Étape 6 — constat à l'écran : commanditaire.**
 
 ```bash
 flutter run -d windows
 ```
-Attendu : la fenêtre **refuse** d'être réduite sous 800 × 600 ; à cette taille, le bandeau d'avertissement et la légende restent **entiers**. **Recopier le constat.**
+Attendu : la fenêtre **refuse** d'être réduite sous ~~800 × 600~~ **800 × 700** (amendé le 2026-09-23) ; à cette taille, le bandeau d'avertissement et la légende restent **entiers**. **Recopier le constat.**
 
 - [ ] **Étape 7** — critère de fin, puis commit.
 
@@ -1622,7 +1624,7 @@ Attendu, à constater **à l'écran** — **les cinq points, ou la porte n'est p
 2. ~~Le **bandeau d'avertissement** est lisible sur la carte, à **tous** les zooms, et ne se ferme pas.~~ **Amendé le 2026-09-23 (`W3c`)** : le contrôle **« ⚠ Avertissement »** est présent sur la carte, au-dessus de la légende, à **tous** les zooms ; il ouvre la fenêtre « Des informations, pas une autorisation », lisible en entier, fermée par « Fermer ».
 3. **Un tap sur une station** ouvre la feuille : ~~encart daté en tête~~ **contrôle « ⚠ Avertissement » en tête, dont la fenêtre porte la phrase datée sous le texte général** (`W3c`, 2026-09-23), libellé, cours d'eau, département, **débit en m³/s avec sa date en heure locale** (« 27/08/2026 à 10:00 », **sans** « UTC » — `H1`) **et la source Hub'Eau nommée à côté** (`BR-001`, `W4`), hauteur en m, statut et qualification. Si la source est indisponible (`T-10`), la feuille **nomme la source** au lieu de rester vide — c'est aussi un constat valide.
 4. **L'échelle « écoulement » affiche les points ONDE** avec leurs formes et couleurs, et un tap ouvre la fiche avec sa **date de campagne**. La bascule vers « débit » change **marqueurs et légende ensemble**.
-5. Le **clavier** pilote la carte : `Tab` montre un focus visible, les flèches déplacent, `+`/`−` zooment ; la fenêtre **refuse** d'être réduite sous 800 × 600 et l'avertissement n'est pas tronqué.
+5. Le **clavier** pilote la carte : `Tab` montre un focus visible, les flèches déplacent, `+`/`−` zooment ; la fenêtre **refuse** d'être réduite sous ~~800 × 600~~ **800 × 700** (`K3`, amendé le 2026-09-23) et l'avertissement n'est pas tronqué.
 
 Un point manquant se note comme manquant : ce n'est pas une porte qu'on arrondit.
 
@@ -1685,7 +1687,7 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | 5 | **Appel groupé ou par emprise** | **À vérifier** (`Q-01`, `Q-02`) : `/v2/hydrometrie` a répondu **503** sur 19 tentatives le 2026-09-13. L'implémentation part de la forme garantie ; l'interface du dépôt ne changera pas | Écrire le code sur l'hypothèse que la virgule marche : un fait d'API non vérifié, exactement ce que `CLAUDE.md` interdit |
 | 6 | **Framework BDD** | **Aucun en T1.** Les `.feature` sont de la spécification lisible, et un test vérifie qu'ils sont bien formés et citent un `BR` **existant** | `bdd_widget_test` : générerait des tests depuis le Gherkin, mais c'est une dépendance d'outillage non vérifiée sur `pub.dev` pour ce projet, et la valeur des scénarios de T1 est d'être **lus**. À réexaminer en T2 |
 | 7 | **Matrice de traçabilité** | **Maintenue à la main, vérifiée par test** : chaque `BR`, `UC` et `US` Must présent, chaque fichier de test cité **existe** | Générée : supposerait de deviner une intention depuis un nom de test, et produirait une matrice complète et fausse |
-| 8 | **Taille de fenêtre minimale** | **800 × 600**, chiffre **proposé par ce plan** : la largeur en dessous de laquelle le bandeau se tronque à 200 % de police. ⚠️ **Amendé le 2026-09-23 (`W3c`)** : il n'y a plus de bandeau, et **cette justification ne tient plus**. Le modal et la fenêtre d'avertissement sont des dialogues qui **défilent**, ils ne se tronquent pas ; la colonne contrôle ⚠ + légende défile aussi. Ce qui reste à protéger : les puces d'échelle, la légende et le contrôle « ⚠ Avertissement », qui doivent tenir sans se recouvrir. **800 × 600 n'est plus dérivé d'aucune mesure** : `K3` doit le constater ou le réviser à l'écran | Ne pas contraindre : mais un avertissement tronqué est une violation de `BR-012`, pas un défaut cosmétique |
+| 8 | **Taille de fenêtre minimale** | ~~**800 × 600**~~ **800 × 700**, chiffre **proposé par ce plan** puis **révisé par mesure** : la largeur en dessous de laquelle le bandeau se tronque à 200 % de police. ⚠️ **Amendé le 2026-09-23 (`W3c`)** : il n'y a plus de bandeau, et **cette justification ne tient plus**. Le modal et la fenêtre d'avertissement sont des dialogues qui **défilent**, ils ne se tronquent pas ; la colonne contrôle ⚠ + légende défile aussi. Ce qui reste à protéger : les puces d'échelle, la légende et le contrôle « ⚠ Avertissement », qui doivent tenir sans se recouvrir. ⚠️ **Amendé une seconde fois le 2026-09-23, arbitrage du commanditaire** : `K3` a mesuré qu'à 800 × 600 la légende de l'échelle « débit » (paragraphe `BR-003`) recouvrait les contrôles de zoom — l'échelle « écoulement » tenait, pas « débit ». La hauteur minimale passe donc à **700**, sans changement de disposition. La contrainte porte sur la **zone cliente** (via `AdjustWindowRectExForDpi`, Win32 documentée), pas sur la fenêtre extérieure que `ptMinTrackSize` contraint nativement | Ne pas contraindre : mais un avertissement tronqué est une violation de `BR-012`, pas un défaut cosmétique |
 | 9 | **Version du texte d'avertissement** | Une **chaîne datée** (`'2026-09-13.1'`), persistée et comparée à la version compilée | Un booléen : un texte modifié ne serait jamais relu, ce qu'`UC-006 A3` exige |
 | 10 | **Ordre des lots** | Données → ViewModels → Vues → Avertissements → Clavier → Documentation → Porte | Les avertissements en premier : ils sont la condition de mise en production, mais l'encart de fiche n'a pas de fiche où se poser avant le lot 3 |
 | 11 | **`BR-013` (encart renforcé) — ✅ arbitrage du commanditaire du 2026-09-22** | **Reporté en T2**, posé sur l'écran des restrictions VigiEau. En T1 la fiche station donne une mesure, pas une disponibilité de la ressource : aucun écran de T1 n'entre dans le champ de `BR-013`. T1 écrit et verrouille le **texte** (`W5`), pas le widget | (a) Poser l'encart sur la fiche station : étendrait `BR-013` à un écran qu'il ne vise pas, et doublerait l'encart daté de `W4` en tête de la même fiche. (b) Écrire le widget en T1 sans l'afficher : un widget sans appelant (YAGNI), dont l'emplacement ne serait prouvé par aucun test |

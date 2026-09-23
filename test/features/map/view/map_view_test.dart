@@ -32,7 +32,7 @@ import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
-    show initialWarningTitle;
+    show initialWarningTitle, warningLinkLabel;
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
@@ -1191,6 +1191,274 @@ void main() {
   // `error.toString()` ne nommait aucune source, et `BR-007` exige un
   // « message par source ». `SourceUnavailableNotice` le remplace, et ses
   // cas vivent dans `map_empty_states_test.dart`.
+
+  group(
+    'buildMapOverlays — à la taille minimale de fenêtre Windows (800 × 700, '
+    'décision 8, K3, amendée le 2026-09-23 : 600 → 700)',
+    () {
+      /// Clé de la fiche de test, quand [pumpOverlaysAt] en reçoit une —
+      /// une hauteur réaliste (320, proche des fiches réelles de
+      /// `station_sheet`/`onde_sheet`, largement plus qu'un `SizedBox`
+      /// symbolique) : c'est CETTE hauteur qui doit tenir sans recouvrir
+      /// les autres surcouches à 800 × 700 (relecture du coordinateur du
+      /// 2026-09-23).
+      const Key ficheDeTestKey = Key('fiche-de-test-K3');
+      const double hauteurFicheRealiste = 320;
+
+      Future<void> pumpOverlaysAt(
+        WidgetTester tester,
+        Size size, {
+        required MapScaleKind scale,
+        bool debugBanner = false,
+        bool avecFiche = false,
+      }) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        return tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: debugBanner,
+            home: Scaffold(
+              body: Stack(
+                children: buildMapOverlays(
+                  scale: scale,
+                  onSelect: (MapScaleKind kind) {},
+                  onWiden: () {},
+                  error: null,
+                  stations: const <StationPoint>[],
+                  ondeObservations: const <OndeStationCode, OndeObservation>{},
+                  ondeUnreadableRows: 0,
+                  onZoomIn: () {},
+                  onZoomOut: () {},
+                  onRecenter: () {},
+                  stationSheet: avecFiche
+                      ? Container(
+                          key: ficheDeTestKey,
+                          width: double.infinity,
+                          height: hauteurFicheRealiste,
+                          color: Colors.red,
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      /// [rect] est ENTIÈREMENT dans l'écran [size] — aucun bord coupé.
+      void expectWithinScreen(Rect rect, Size size, String nom) {
+        expect(
+          rect.left,
+          greaterThanOrEqualTo(0),
+          reason: '$nom déborde à gauche : $rect',
+        );
+        expect(
+          rect.top,
+          greaterThanOrEqualTo(0),
+          reason: '$nom déborde en haut : $rect',
+        );
+        expect(
+          rect.right,
+          lessThanOrEqualTo(size.width),
+          reason: '$nom déborde à droite : $rect',
+        );
+        expect(
+          rect.bottom,
+          lessThanOrEqualTo(size.height),
+          reason: '$nom déborde en bas : $rect',
+        );
+      }
+
+      /// Les cinq surcouches, nommées — même liste pour les deux tests
+      /// ci-dessous, pour ne jamais diverger sur ce qui est comparé.
+      Map<String, Rect> rectsAt(WidgetTester tester) => <String, Rect>{
+        'WarningLink': tester.getRect(find.byType(WarningLink)),
+        'MapLegend': tester.getRect(find.byType(MapLegend)),
+        'MapScaleChips': tester.getRect(find.byType(MapScaleChips)),
+        'MapControls': tester.getRect(find.byType(MapControls)),
+        'IgnAttributionBadge': tester.getRect(find.byType(IgnAttributionBadge)),
+      };
+
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        testWidgets(
+          'échelle ${scale.name} : puces, légende, contrôles de zoom, '
+          "contrôle d'avertissement et attribution IGN tiennent SANS se "
+          'recouvrir et sans déborder de 800 × 700',
+          (WidgetTester tester) async {
+            const Size taille = Size(800, 700);
+            await pumpOverlaysAt(tester, taille, scale: scale);
+            await tester.pumpAndSettle();
+
+            final Map<String, Rect> rects = rectsAt(tester);
+            rects.forEach(
+              (String nom, Rect rect) => expectWithinScreen(rect, taille, nom),
+            );
+
+            for (final MapEntry<String, Rect> a in rects.entries) {
+              for (final MapEntry<String, Rect> b in rects.entries) {
+                if (a.key == b.key) {
+                  continue;
+                }
+                expect(
+                  a.value.overlaps(b.value),
+                  isFalse,
+                  reason:
+                      '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
+                      'à 800 × 700, échelle ${scale.name}',
+                );
+              }
+            }
+          },
+        );
+      }
+
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        testWidgets(
+          'échelle ${scale.name}, AVEC une fiche ouverte (hauteur réaliste, '
+          '$hauteurFicheRealiste) : rien ne se recouvre, rien ne déborde de '
+          '800 × 700',
+          (WidgetTester tester) async {
+            const Size taille = Size(800, 700);
+            await pumpOverlaysAt(tester, taille, scale: scale, avecFiche: true);
+            await tester.pumpAndSettle();
+
+            final Map<String, Rect> rects = <String, Rect>{
+              ...rectsAt(tester),
+              'StationSheet': tester.getRect(find.byKey(ficheDeTestKey)),
+            };
+            rects.forEach(
+              (String nom, Rect rect) => expectWithinScreen(rect, taille, nom),
+            );
+
+            for (final MapEntry<String, Rect> a in rects.entries) {
+              for (final MapEntry<String, Rect> b in rects.entries) {
+                if (a.key == b.key) {
+                  continue;
+                }
+                expect(
+                  a.value.overlaps(b.value),
+                  isFalse,
+                  reason:
+                      '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
+                      'à 800 × 700, échelle ${scale.name}, fiche ouverte',
+                );
+              }
+            }
+          },
+        );
+      }
+
+      testWidgets(
+        'RAISON DE L\'AMENDEMENT (2026-09-23) — échelle débit : à 800 × '
+        '600, la légende (paragraphe « comparaison statistique », BR-003) '
+        'débordait jusque dans la colonne des contrôles de zoom, ce qui a '
+        'fait remonter la décision 8 de 600 à 700 (voir le groupe '
+        'ci-dessus, désormais vert à 700)',
+        (WidgetTester tester) async {
+          const Size taille = Size(800, 600);
+          await pumpOverlaysAt(tester, taille, scale: MapScaleKind.debit);
+          await tester.pumpAndSettle();
+
+          final Rect legend = tester.getRect(find.byType(MapLegend));
+          final Rect controls = tester.getRect(find.byType(MapControls));
+
+          // ⚠️ Ce test verrouille un FAIT CONSTATÉ à l'ANCIENNE taille
+          // minimale (800 × 600), gardé volontairement pour documenter LA
+          // RAISON de l'amendement du 2026-09-23 : si une révision de
+          // disposition fait passer cette expression à `false`, ce test
+          // doit être corrigé À LA MAIN — jamais supprimé en silence —
+          // pour dire ce que l'écran fait vraiment.
+          expect(
+            controls.overlaps(legend),
+            isTrue,
+            reason:
+                'Mesuré le 2026-09-23 (K3) : controls=$controls, '
+                'legend=$legend. Si ceci devient faux, l\'écran s\'est '
+                'amélioré : mettre à jour ce test pour le dire. La légende '
+                '« débit » porte un paragraphe entier (BR-003) en plus des '
+                'six lignes de l\'échelle « écoulement », d\'où un '
+                'débordement qui persiste à 800 × 600 alors que '
+                '« écoulement » tient — c\'est ce chiffre qui a motivé '
+                'l\'amendement de la décision 8 (600 → 700).',
+          );
+        },
+      );
+
+      testWidgets(
+        'point 44 — le libellé du contrôle « ⚠ Avertissement » N\'EST PAS '
+        'tronqué par la mise en page à 800 × 700 (04-ui.md § 3)',
+        (WidgetTester tester) async {
+          await pumpOverlaysAt(
+            tester,
+            const Size(800, 700),
+            scale: MapScaleKind.ecoulement,
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.text(warningLinkLabel), findsOneWidget);
+          final Rect texte = tester.getRect(find.text(warningLinkLabel));
+          expectWithinScreen(texte, const Size(800, 700), 'warningLinkLabel');
+        },
+      );
+
+      testWidgets(
+        'point 44 — même constat à 1 266 × 713 (taille des captures du '
+        '2026-09-23)',
+        (WidgetTester tester) async {
+          await pumpOverlaysAt(
+            tester,
+            const Size(1266, 713),
+            scale: MapScaleKind.ecoulement,
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.text(warningLinkLabel), findsOneWidget);
+          final Rect texte = tester.getRect(find.text(warningLinkLabel));
+          expectWithinScreen(texte, const Size(1266, 713), 'warningLinkLabel');
+        },
+      );
+
+      testWidgets(
+        'point 44 — avec le ruban DEBUG (mode debug de `flutter run`), le '
+        'ruban se pose EN HAUT À DROITE, PAR-DESSUS le contrôle '
+        "d'avertissement, sans changer sa mise en page : c'est un "
+        'recouvrement de PEINTURE, pas une troncature de mise en page',
+        (WidgetTester tester) async {
+          await pumpOverlaysAt(
+            tester,
+            const Size(1266, 713),
+            scale: MapScaleKind.ecoulement,
+            debugBanner: true,
+          );
+          await tester.pumpAndSettle();
+
+          // Le ruban existe bien (mode debug de la suite de test) et
+          // occupe le coin haut-droit — même coin que `WarningLink`
+          // (`Align(alignment: Alignment.topRight, …)` dans
+          // `buildMapOverlays`).
+          expect(find.byType(Banner), findsOneWidget);
+          final Rect ruban = tester.getRect(find.byType(Banner));
+          final Rect lien = tester.getRect(find.byType(WarningLink));
+          expect(
+            ruban.overlaps(lien),
+            isTrue,
+            reason:
+                'ruban=$ruban, WarningLink=$lien : sans ce recouvrement de '
+                "peinture, rien n'expliquerait le constat des captures du "
+                '2026-09-23',
+          );
+
+          // Le texte du contrôle, lui, garde sa taille et sa position
+          // pleines : le ruban PEINT par-dessus, il ne réduit ni ne
+          // déplace la boîte de layout du libellé.
+          final Rect texte = tester.getRect(find.text(warningLinkLabel));
+          expectWithinScreen(texte, const Size(1266, 713), 'warningLinkLabel');
+        },
+      );
+    },
+  );
 
   group(
     'shouldRefreshOn — décide si un événement déclenche une requête d\'emprise',

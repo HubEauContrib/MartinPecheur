@@ -329,6 +329,43 @@ void main() {
         expect(repository.written, <String>[_currentVersion]);
       },
     );
+
+    testWidgets(
+      "a la taille minimale de fenetre Windows (800 x 700, decision 8 "
+      "amendee le 2026-09-23, K3) et 200% de police, le texte defile et "
+      "reste atteignable jusqu'au bouton",
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 700);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final _AcknowledgementRepositoryDouble repository = _repository();
+        await tester.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: _harness(_viewModelFor(repository)),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Aucune exception de rendu (dépassement, `RenderFlex overflowed`…) :
+        // le texte défile au lieu d'être tronqué, même sur ce format plus
+        // large que le téléphone du test précédent.
+        expect(tester.takeException(), isNull);
+
+        await tester.ensureVisible(find.byKey(initialWarningCheckboxKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
+
+        await tester.ensureVisible(find.byKey(initialWarningButtonKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(initialWarningButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(repository.written, <String>[_currentVersion]);
+      },
+    );
   });
 
   group('accessibilite (UC-006 A5, 04-ui.md § 3)', () {

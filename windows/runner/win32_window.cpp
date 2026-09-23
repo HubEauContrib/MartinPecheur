@@ -18,6 +18,28 @@ namespace {
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
+// Taille minimale de la ZONE CLIENTE (decision 8 du plan T1,
+// `docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md` ;
+// `docs/04-ui.md` section 3, typographie dynamique jusqu'a 200 %). Amendee
+// le 2026-09-23 (`W3c`) : il n'y a plus de bandeau a proteger, mais les
+// puces d'echelle, la legende et le controle "Avertissement" doivent tenir
+// sans se recouvrir.
+//
+// kMinWindowHeight amendee une seconde fois le 2026-09-23, arbitrage du
+// commanditaire : 600 -> 700. Raison mesuree par K3 : a une zone cliente de
+// 800 x 600, la legende de l'echelle debit (paragraphe BR-003) recouvrait
+// les controles de zoom - chiffres dans
+// `test/features/map/view/map_view_test.dart` (test "RAISON DE
+// L'AMENDEMENT"). Cette hauteur n'a rien a voir avec l'ecart entre fenetre
+// exterieure et zone cliente (voir le commentaire de WM_GETMINMAXINFO plus
+// bas, qui traite ce second sujet, distinct).
+//
+// Exprimee en pixels LOGIQUES (96 DPI), mise a l'echelle du moniteur
+// courant avant d'etre posee dans MINMAXINFO - comme `Create` le fait deja
+// pour la taille demandee a la creation.
+constexpr int kMinWindowWidth = 800;
+constexpr int kMinWindowHeight = 700;
+
 /// Registry key for app theme preference.
 ///
 /// A value of 0 indicates apps should use dark mode. A non-zero or missing
@@ -216,6 +238,55 @@ Win32Window::MessageHandler(HWND hwnd,
     case WM_DWMCOLORIZATIONCOLORCHANGED:
       UpdateTheme(hwnd);
       return 0;
+
+    case WM_GETMINMAXINFO: {
+      // Empeche de reduire la fenetre sous kMinWindowWidth x
+      // kMinWindowHeight (decision 8) de ZONE CLIENTE : sous ce seuil, la
+      // colonne "controle d'avertissement + legende" (04-ui.md section 3)
+      // n'a plus la place de tenir sans chevauchement. La RAISON du chiffre
+      // 700 (au lieu de 600) est documentee au commentaire de
+      // kMinWindowHeight, plus haut dans ce fichier - c'est une mesure de
+      // disposition (legende de l'echelle debit), sans rapport avec ce qui
+      // suit.
+      //
+      // Ce commentaire-ci ne traite qu'un second sujet, distinct : COMMENT
+      // poser cette taille. `ptMinTrackSize` contraint la fenetre
+      // EXTERIEURE (bordures et barre de titre comprises), pas la zone
+      // cliente - c'est ce que documente MINMAXINFO cote Win32. Poser
+      // directement kMinWindowWidth/kMinWindowHeight dedans laisserait donc
+      // une zone cliente PLUS PETITE que 800 x 700, quels que soient les
+      // chiffres choisis pour ces constantes.
+      //
+      // AdjustWindowRectExForDpi (Win32, documentee :
+      // https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi)
+      // convertit une zone cliente desiree en taille de fenetre exterieure,
+      // au DPI donne - c'est la variante par DPI d'AdjustWindowRectEx,
+      // necessaire ici car `Create` ne cree pas la fenetre au DPI systeme
+      // (96) mais a celui du moniteur cible. Appelee ici directement (import
+      // statique, pas de chargement dynamique) : elle exige Windows 10
+      // 1607+, accepte par le coordinateur le 2026-09-23 puisque Flutter
+      // 3.47 refuse deja Windows 6/7/8 au demarrage - seules les toutes
+      // premieres versions de Windows 10 (1507/1511, sans support depuis
+      // 2017) seraient exclues, aucune de plus que ce que Flutter exclut
+      // deja. `WS_OVERLAPPEDWINDOW` et l'absence de style etendu (`0`)
+      // reprennent exactement le style passe a `CreateWindow` dans
+      // `Create` ; `bMenu = FALSE`, la classe ne pose aucun menu
+      // (`lpszMenuName = nullptr`).
+      HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+      UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+      double scale_factor = dpi / 96.0;
+
+      RECT client_rect = {
+          0, 0, Scale(kMinWindowWidth, scale_factor),
+          Scale(kMinWindowHeight, scale_factor)};
+      AdjustWindowRectExForDpi(&client_rect, WS_OVERLAPPEDWINDOW, FALSE, 0,
+                               dpi);
+
+      MINMAXINFO* info = reinterpret_cast<MINMAXINFO*>(lparam);
+      info->ptMinTrackSize.x = client_rect.right - client_rect.left;
+      info->ptMinTrackSize.y = client_rect.bottom - client_rect.top;
+      return 0;
+    }
   }
 
   return DefWindowProc(window_handle_, message, wparam, lparam);
