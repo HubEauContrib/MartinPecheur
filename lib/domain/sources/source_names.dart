@@ -1,8 +1,9 @@
 // Noms de source affichés (Task W4). Dart pur, transverse — hors de
 // `warning_texts.dart` : un nom de source n'est pas un texte d'avertissement.
 //
-// Les premiers lecteurs sont les DEUX fiches, pas l'encart daté — celui-ci
-// ne nomme aucune source, seulement une date :
+// Les premiers lecteurs sont les DEUX fiches, pas la fenêtre d'avertissement
+// (`WarningLink`, `lib/features/shared/warning_link.dart`) — celle-ci ne
+// nomme aucune source, seulement le texte général et une phrase datée :
 // - `_MeasurementLine` (`lib/features/station_sheet/view/station_summary_sheet.dart`),
 //   qui nomme [hydrometrieSourceName] à côté du débit et de la hauteur, dans
 //   le MÊME `Text` que la valeur et sa date (`BR-001`, point 32) ;

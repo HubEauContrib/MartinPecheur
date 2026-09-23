@@ -151,6 +151,11 @@ ViewModel qui y vivrait n'importerait aucun widget.
 **Première occupation prévue :** l'encart d'avertissement de la tâche `W4`, commun à la fiche
 station et à la fiche ONDE — deux tranches distinctes, un seul texte.
 
+> **Amendement du 2026-09-23 (`W3c`, arbitrage du commanditaire).** L'encart de `W4`
+> (`sheet_warning_card.dart`) a bien été le premier occupant, puis il a été **supprimé** : l'occupant
+> de `lib/features/shared/` est désormais **`WarningLink`** (`warning_link.dart`), importé par trois
+> tranches — carte, fiche station, fiche ONDE. La règle `shared-sans-tranche` est inchangée.
+
 🔄 **Le dossier `lib/features/shared/` n'existe pas encore** au 2026-09-18 : la règle est décidée,
 pas encore occupée.
 

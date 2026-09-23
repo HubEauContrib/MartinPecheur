@@ -30,7 +30,7 @@ Ce plan est écrit **sur l'architecture cible**. Les tâches `R1` → `R6` de la
 | **iOS** | Déclaré, `bundleIdentifier` aligné. **Jamais compilé** — aucun hôte macOS |
 | **Android** | ~~⏸ différé (arbitrage 2026-09-12)~~ → 🔄 **réactivé le 2026-09-18** par le commanditaire. Les tâches restent listées en fin de plan, **hors décompte** : `A⏸1` faite, `A⏸2` à constater par une construction, les autres toujours ⏸ |
 
-**Ce que T1 fait :** (a) fiche station au tap · (b) carte colorée par état, deux échelles · (c) écoulement ONDE de bout en bout · (d) **trois des quatre avertissements** — modal, bandeau, encart daté ; le texte de l'encart renforcé est écrit, son widget part en T2 (décision 11) · (e) lot clavier/souris · (f) Gherkin, traçabilité, `NFR-01`.
+**Ce que T1 fait :** (a) fiche station au tap · (b) carte colorée par état, deux échelles · (c) écoulement ONDE de bout en bout · (d) **trois des quatre avertissements** — modal, bandeau, encart daté ; le texte de l'encart renforcé est écrit, son widget part en T2 (décision 11) — ⚠️ **amendé le 2026-09-23 (`W3c`)** : bandeau et encart daté réunis en un seul contrôle « ⚠ Avertissement », sur la carte et en tête de chaque fiche · (e) lot clavier/souris · (f) Gherkin, traçabilité, `NFR-01`.
 
 **Ce que T1 ne fait pas :**
 
@@ -153,13 +153,15 @@ lib/features/
   map/view/station_marker.dart  map/view/onde_marker.dart  map/view/map_legend.dart  (U2, U3)
   map/view/map_empty_states.dart  map/view/map_controls.dart                 (U6, K1)
   map/view/area_cluster_marker.dart     pastille de region / departement (Z4, ADR-015)
-  map/view/map_warning_banner.dart                                           (W3 — seul consommateur : la carte)
+  map/view/map_warning_banner.dart                                           (W3 — seul consommateur : la carte ; SUPPRIME par W3c, 2026-09-23)
+  map/view/map_menu.dart                                                     (W3b ; SUPPRIME par W3c, 2026-09-23)
   map/view/{map_scale_chips,ign_attribution_badge}.dart   sortis de map_view.dart (K1)
   station_sheet/{view_model/station_sheet_view_model.dart,view/station_summary_sheet.dart}  (V1, U1)
   onde_sheet/{view_model/onde_sheet_view_model.dart,view/onde_summary_sheet.dart}          (V3, U4)
   warnings/view_model/warnings_view_model.dart                               (V4)
   warnings/view/initial_warning_view.dart                                    (W2)
-  shared/sheet_warning_card.dart        encart date des deux fiches, premier occupant de shared/ (W4)
+  shared/sheet_warning_card.dart        encart date des deux fiches, premier occupant de shared/ (W4 ; SUPPRIME par W3c, 2026-09-23)
+  shared/warning_link.dart              WarningLink + WarningWindow, controle unique carte et fiches (W3c, 2026-09-23)
   shared/tap_target.dart                cible tactile 44 pt, constante unique (K1)
   (reinforced_warning_card.dart : T2, avec l'ecran des restrictions — decision 11)
 lib/diagnostics/frame_timing_probe.dart percentiles de trame, NFR-01 (X3)
@@ -959,7 +961,7 @@ git add lib test && git commit -m "feat(avertissement): modal bloquant du premie
 
 **Signatures publiques** — `class MapWarningBanner extends StatelessWidget { const MapWarningBanner({this.onExplain, super.key}); }` · `const String mapBannerText = 'Données indicatives. Ni autorisation, ni garantie.';` — **déclarée dans `lib/domain/warnings/warning_texts.dart`**
 
-**Invariant :** le bandeau reste visible **à tous les niveaux de zoom et sur tous les écrans de détail** (`04-ui.md § 4`) ; il n'est **ni repliable, ni masquable, ni escamotable au défilement**. ⚠️ **Remplacé le 2026-09-23 par `W3b`** : fermable pour la session, rappelable par le menu.
+**Invariant :** le bandeau reste visible **à tous les niveaux de zoom et sur tous les écrans de détail** (`04-ui.md § 4`) ; il n'est **ni repliable, ni masquable, ni escamotable au défilement**. ⚠️ **Remplacé le 2026-09-23 par `W3b`** : fermable pour la session, rappelable par le menu. ⚠️ **Puis remplacé le même jour par `W3c`** : plus de bandeau, un contrôle « ⚠ Avertissement ».
 
 **Cas de test**
 
@@ -990,6 +992,21 @@ git add lib/features lib/domain test/features && git commit -m "feat(avertisseme
 
 - [x] **Étape 1** (2026-09-23) — tests rouges : ViewModel sans rendu (état initial, fermeture, rappel, appels redondants muets) ; vue (fermer, rappeler par le menu, visible quelle que soit l'échelle et fiche ouverte tant qu'il n'est pas fermé, cibles ≥ 44 pt, menu au clavier, aucun recouvrement de la légende ni de l'attribution).
 - [x] **Étape 2** (2026-09-23) — implémentation, critère de fin (883 tests verts), relecture, commit.
+
+> ⚠️ **Remplacée par `W3c` le 2026-09-23** (arbitrage du commanditaire, point 41) : le bandeau, sa fermeture pour la session et le menu sont retirés. La tâche reste listée et comptée — elle a été faite et commitée (`2fd2d1b`).
+
+### Task W3c : Un seul contrôle « ⚠ Avertissement », sur la carte et en tête de chaque fiche (ajoutée le 2026-09-23, point 41)
+
+> **Arbitrage du commanditaire du 2026-09-23** (« trop de bandeaux »), qui remplace `W3b` et l'encart de `W4` : le bandeau de carte **et** l'encart daté de tête de fiche sont **remplacés** par un seul contrôle « ⚠ Avertissement » — sur la carte en haut à droite, **au-dessus de la légende** (le menu ☰ de `W3b` est retiré : une seule entrée, doublon), et **en tête de chaque fiche**, avant la valeur ou la catégorie. Il ouvre une fenêtre en lecture seule « Des informations, pas une autorisation » (titre et texte du modal initial, bouton « Fermer ») ; sur une fiche, la fenêtre est complétée **sous** le texte général par la phrase propre datée (`sheetWarningText`) ; **sans date, pas de phrase propre**. Inchangés : le modal du premier lancement (`BR-012`, `UC-006`), la date et la source à côté de chaque valeur (`BR-001`). Alternatives écartées par le commanditaire : garder le menu en plus ; une fenêtre identique partout (phrases propres perdues). `04-ui.md § 1, § 4, § 5`, `UC-001`, `UC-003`, `UC-004`, `UC-006` amendés.
+
+**Files:** créé `lib/features/shared/warning_link.dart` · test miroir `test/features/shared/warning_link_test.dart` · supprimés `lib/features/map/view/map_warning_banner.dart`, `lib/features/map/view/map_menu.dart`, `lib/features/shared/sheet_warning_card.dart` et leurs tests · modifiés `lib/features/map/view/map_view.dart` (`buildMapScreen` retiré, `buildMapOverlays` sans `onShowBanner`), `lib/features/map/view_model/map_view_model.dart` (`bannerVisible`, `dismissBanner`, `showBanner` retirés), `lib/features/station_sheet/view/station_summary_sheet.dart`, `lib/features/onde_sheet/view/onde_summary_sheet.dart`, `lib/domain/warnings/warning_texts.dart` (hors verrou de version), `test/project/vocabulary_lists.dart` (exception de `mapBannerText` retirée avec le texte) et leurs tests
+
+**Signatures publiques** — `class WarningLink extends StatelessWidget { const WarningLink({this.extraText, super.key}); }` · `class WarningWindow extends StatelessWidget { const WarningWindow({this.extraText, super.key}); }` · `const String warningLinkLabel = 'Avertissement';` · `const double warningLinkTapTarget = 44.0;` · `sheetWarningText` et `SheetWarningKind` **inchangés** — c'est l'appelant qui construit `extraText`, jamais le contrôle
+
+- [x] **Étape 1** (2026-09-23) — tests rouges : contrôle (libellé exact, cible ≥ 44 pt, Tab puis Entrée, action de tap au lecteur d'écran) ; fenêtre (titre et corps du modal, « Fermer », phrase propre **sous** le corps quand elle est fournie, aucune sans elle) ; carte (contrôle toujours présent, au-dessus de la légende, sans recouvrir ni les puces ni l'attribution IGN ; le tap ouvre la fenêtre) ; fiches (contrôle en tête, avant la valeur ou la catégorie ; fenêtre avec la phrase datée ; sans date, sans phrase propre).
+- [x] **Étape 2** (2026-09-23) — implémentation, suppression des trois widgets remplacés et de leurs tests, amendements de la documentation.
+- [x] **Étape 3** (2026-09-23) — critère de fin : 908 tests verts (932 − tests du bandeau, du menu et de l'encart supprimés + tests du contrôle, dont Tab, Entrée, Échap et retour du focus), relecture par un second agent, commit.
+- [ ] **Étape 4 — commanditaire.** `flutter run -d windows` : aucun bandeau sur la carte ni en tête de fiche ; « ⚠ Avertissement » au-dessus de la légende et en tête de chaque fiche ; sa fenêtre porte la phrase datée sous le texte général sur une fiche datée, aucune sur la carte. Constaté, pas supposé.
 
 ### Task W2b : Dire à l'écran que l'acquittement n'a pas été enregistré (ajoutée le 2026-09-22, point 37)
 
@@ -1077,6 +1094,8 @@ git add lib/domain/formatting lib/features lib/main.dart test/domain/formatting 
 - [x] **Étape 2** (2026-09-23) — `flutter test test/features/shared/sheet_warning_card_test.dart test/features/station_sheet test/features/onde_sheet` → échec.
 - [x] **Étape 3** (2026-09-23) — ajouter les textes de l'encart à `warning_texts.dart` (sans toucher `warningTextVersion`) et les deux noms de source à `lib/domain/sources/source_names.dart` ; implémenter l'encart dans `lib/features/shared/` ; brancher dans les deux feuilles ; faire réutiliser `ondeSourceName` par `mapSourceName`. Retirer le commentaire de réservation posé par `U4` en tête de `OndeSummarySheet`.
 - [x] **Étape 4** (2026-09-23) — `flutter test` → vert, puis critère de fin et commit. Mettre à jour le point 32 de `docs/project-state.md` : **clos par `W4`**.
+
+> ⚠️ **Encart remplacé par `W3c` le 2026-09-23** (arbitrage du commanditaire, point 41) : le widget `SheetWarningCard` est supprimé ; la phrase datée (`sheetWarningText`, inchangée) se lit désormais dans la fenêtre du contrôle « ⚠ Avertissement », sous le texte général. La source nommée à côté de la valeur (`BR-001`, point 32) reste acquise. La tâche reste listée et comptée — elle a été faite et commitée (`8e5780b`).
 
 > **Exécution du 2026-09-23.** Arbitrage du commanditaire : **sans date, aucun encart** (station sans aucune mesure, ONDE sans campagne ; point 39), verrouillé par test. L'encart de la fiche station porte la date du débit, à défaut celle de la hauteur (choix de la tâche). Textes recopiés de `UC-003:23`, `UC-004:23`, `04-ui.md:83`, égalité sur la phrase entière. 862 tests verts, relu par un second agent.
 
@@ -1386,7 +1405,7 @@ git add lib/features/map test/features/map && git commit -m "feat(map): piloter 
 
 **Files:** modifié le fichier du gabarit Windows qui pose la géométrie de fenêtre — `windows/runner/main.cpp` **ou** `windows/runner/win32_window.cpp`, **à lire avant d'écrire** · test `test/project/windows_min_size_test.dart`
 
-**Invariant :** en dessous d'une certaine largeur le bandeau d'avertissement se tronque, et `BR-012` comme `04-ui.md § 3` l'interdisent. La taille minimale est donc **une exigence d'avertissement**, pas un confort.
+**Invariant :** en dessous d'une certaine largeur le bandeau d'avertissement se tronque, et `BR-012` comme `04-ui.md § 3` l'interdisent. La taille minimale est donc **une exigence d'avertissement**, pas un confort. ⚠️ **Amendé le 2026-09-23 (`W3c`)** : plus de bandeau. Lire « bandeau » comme « puces, légende et contrôle « ⚠ Avertissement » tiennent sans se recouvrir, modal et fenêtre défilent sans être tronqués » ; le chiffre reste à justifier (décision 8).
 
 **Cas de test**
 
@@ -1429,7 +1448,7 @@ git add windows test && git commit -m "feat(ui): taille de fenetre minimale sur 
 - Les quatre fichiers couvrent au minimum `BR-005`, `BR-006`, `BR-007`, `BR-010`, `BR-012` — la liste est **dans le test**, pas seulement dans une intention. ~~`BR-013`~~ **retiré le 2026-09-22** (décision 11) : l'encart renforcé n'a pas d'écran en T1, un scénario qui le décrirait décrirait un comportement que le binaire n'a pas.
 - Aucun `.feature` ne contient les cinq mots bannis (`BR-003`) ni de verbe d'instruction (`BR-014`).
 - Un scénario **par borne** de `BR-005` — **1 h 59, 2 h 00, 23 h 59, 24 h 00** — et **par borne** de `BR-010` — **59 j, 60 j** — valeurs écrites dans le Gherkin avec l'affichage attendu.
-- `avertissements.feature` porte un scénario par emplacement de `04-ui.md § 5` : bouton inactif au premier lancement (`BR-012`) · texte modifié, écran réaffiché (`UC-006 A3`) · bandeau visible à tous les zooms · encart daté sur la fiche station, source nommée (`BR-001`). ~~Encart renforcé non repliable (`BR-013`)~~ : 🔄 **T2**, avec l'écran des restrictions (révision du 2026-09-22).
+- `avertissements.feature` porte un scénario par emplacement de `04-ui.md § 5` : bouton inactif au premier lancement (`BR-012`) · texte modifié, écran réaffiché (`UC-006 A3`) · ~~bandeau visible à tous les zooms~~ → **contrôle « ⚠ Avertissement » présent sur la carte à tous les zooms**, sa fenêtre reprend le texte du modal initial (`W3c`, 2026-09-23) · ~~encart daté sur la fiche station~~ → **contrôle « ⚠ Avertissement » en tête de la fiche station, sa fenêtre porte la phrase datée sous le texte général**, et la valeur porte sa date et sa source nommée (`BR-001`, `W3c`). ~~Encart renforcé non repliable (`BR-013`)~~ : 🔄 **T2**, avec l'écran des restrictions (révision du 2026-09-22).
 
 - [ ] **Étape 1** — écrire `acceptance_features_test.dart` **avant** les `.feature` : rouge, le dossier n'existe pas.
 - [ ] **Étape 2** — `flutter test test/project/acceptance_features_test.dart` → échec.
@@ -1533,7 +1552,7 @@ git add lib docs test && git commit -m "feat(diagnostics): mesurer la fluidite d
 
 - [ ] **Étape 1** — étendre `changelog_test.dart` : rouge sur `0.2.0`.
 - [ ] **Étape 2** — `flutter test test/project/changelog_test.dart` → échec.
-- [ ] **Étape 3** — écrire la section `0.2.0` : `### Ajouté` (fiche station, ONDE, **trois des quatre avertissements** — modal, bandeau, encart daté —, clavier/souris, Gherkin, traçabilité) · `### Modifié` (MVVM, `CachePolicy` en décorateur de dépôt, heure affichée en heure locale — `H1`) · `### Retiré` (`lib/application/`) · **`### Non vérifié`**.
+- [ ] **Étape 3** — écrire la section `0.2.0` : `### Ajouté` (fiche station, ONDE, **trois des quatre avertissements** — modal, bandeau, encart daté ; depuis `W3c` (2026-09-23) : modal, et un contrôle « ⚠ Avertissement » sur la carte et chaque fiche —, clavier/souris, Gherkin, traçabilité) · `### Modifié` (MVVM, `CachePolicy` en décorateur de dépôt, heure affichée en heure locale — `H1`) · `### Retiré` (`lib/application/`) · **`### Non vérifié`**.
 - [ ] **Étape 4** — porter `version: 0.2.0+2` dans `pubspec.yaml`.
 - [ ] **Étape 5** — reprendre `plan-de-tests.md`, `project-state.md`, `nfr.md`, les deux fiches de sources, `03-conception.md` (l. 48) et `CLAUDE.md`.
 - [ ] **Étape 6** — `flutter test` → vert, puis critère de fin et commit.
@@ -1600,8 +1619,8 @@ Attendu : un poids **≤ 60 Mo** (repère de `0.1.0` : **31 Mo**, 14 fichiers). 
 Attendu, à constater **à l'écran** — **les cinq points, ou la porte n'est pas franchie** :
 
 1. **Au premier lancement**, le modal s'affiche, le bouton est **inactif**, il s'active au cochage, le libellé est **« J'ai compris ces limites »**. **Relancer** ensuite : le modal **n'apparaît pas, pas même une image** — la carte vient directement (`BR-012`, `W1`, `W2`).
-2. Le **bandeau d'avertissement** est lisible sur la carte, à **tous** les zooms, et ne se ferme pas.
-3. **Un tap sur une station** ouvre la feuille : encart daté en tête, libellé, cours d'eau, département, **débit en m³/s avec sa date en heure locale** (« 27/08/2026 à 10:00 », **sans** « UTC » — `H1`) **et la source Hub'Eau nommée à côté** (`BR-001`, `W4`), hauteur en m, statut et qualification. Si la source est indisponible (`T-10`), la feuille **nomme la source** au lieu de rester vide — c'est aussi un constat valide.
+2. ~~Le **bandeau d'avertissement** est lisible sur la carte, à **tous** les zooms, et ne se ferme pas.~~ **Amendé le 2026-09-23 (`W3c`)** : le contrôle **« ⚠ Avertissement »** est présent sur la carte, au-dessus de la légende, à **tous** les zooms ; il ouvre la fenêtre « Des informations, pas une autorisation », lisible en entier, fermée par « Fermer ».
+3. **Un tap sur une station** ouvre la feuille : ~~encart daté en tête~~ **contrôle « ⚠ Avertissement » en tête, dont la fenêtre porte la phrase datée sous le texte général** (`W3c`, 2026-09-23), libellé, cours d'eau, département, **débit en m³/s avec sa date en heure locale** (« 27/08/2026 à 10:00 », **sans** « UTC » — `H1`) **et la source Hub'Eau nommée à côté** (`BR-001`, `W4`), hauteur en m, statut et qualification. Si la source est indisponible (`T-10`), la feuille **nomme la source** au lieu de rester vide — c'est aussi un constat valide.
 4. **L'échelle « écoulement » affiche les points ONDE** avec leurs formes et couleurs, et un tap ouvre la fiche avec sa **date de campagne**. La bascule vers « débit » change **marqueurs et légende ensemble**.
 5. Le **clavier** pilote la carte : `Tab` montre un focus visible, les flèches déplacent, `+`/`−` zooment ; la fenêtre **refuse** d'être réduite sous 800 × 600 et l'avertissement n'est pas tronqué.
 
@@ -1630,11 +1649,11 @@ git add docs && git commit -m "docs: consigner les constats de la porte T1 sur W
 - [ ] **Étape 4 — commit et tag.**
 
 ```bash
-git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.2.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "C est la premiere version ou chaque ecran porte l avertissement que BR-012 lui impose : modal acquitte, bandeau de carte, encart date par fiche. L encart renforce de BR-013 n a pas d ecran en T1 et part en T2 avec les restrictions (arbitrage du 2026-09-22). Ce n est pas pour autant un produit complet, et la section Non verifie le dit : aucun percentile, aucun appel VigiEau, BR-013 en T2, aucun parcours integre, iOS jamais compile, Android tel que constate."
+git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.2.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "C est la premiere version ou chaque ecran porte l avertissement que BR-012 lui impose : modal acquitte, puis un controle Avertissement sur la carte et en tete de chaque fiche, dont la fenetre reprend le texte du modal et, sur une fiche, sa phrase datee (W3c, arbitrage du 2026-09-23). L encart renforce de BR-013 n a pas d ecran en T1 et part en T2 avec les restrictions (arbitrage du 2026-09-22). Ce n est pas pour autant un produit complet, et la section Non verifie le dit : aucun percentile, aucun appel VigiEau, BR-013 en T2, aucun parcours integre, iOS jamais compile, Android tel que constate."
 ```
 
 ```bash
-git tag -a v0.2.0 -m "T1 — fiche station, ecoulement ONDE et avertissements, cible Windows. Le debit en m3 par seconde avec sa date en heure locale, sa source, sa fraicheur et sa qualification ; les points ONDE en quatre categories avec l age de leur campagne ; trois des quatre emplacements d avertissement, dont un acquittement qui survit au redemarrage — le quatrieme, BR-013, en T2 avec son ecran ; la carte au clavier et a la souris ; des criteres Gherkin et une matrice de tracabilite verifies par test. Aucun percentile (ADR-003 hors T1) : sur l echelle debit, toute station est Indeterminee au sens de BR-004."
+git tag -a v0.2.0 -m "T1 — fiche station, ecoulement ONDE et avertissements, cible Windows. Le debit en m3 par seconde avec sa date en heure locale, sa source, sa fraicheur et sa qualification ; les points ONDE en quatre categories avec l age de leur campagne ; trois des quatre emplacements d avertissement — modal, et un controle Avertissement sur la carte et chaque fiche (W3c) —, dont un acquittement qui survit au redemarrage — le quatrieme, BR-013, en T2 avec son ecran ; la carte au clavier et a la souris ; des criteres Gherkin et une matrice de tracabilite verifies par test. Aucun percentile (ADR-003 hors T1) : sur l echelle debit, toute station est Indeterminee au sens de BR-004."
 ```
 
 ⚠️ **Ne pas pousser le tag sans demande explicite.**
@@ -1666,7 +1685,7 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | 5 | **Appel groupé ou par emprise** | **À vérifier** (`Q-01`, `Q-02`) : `/v2/hydrometrie` a répondu **503** sur 19 tentatives le 2026-09-13. L'implémentation part de la forme garantie ; l'interface du dépôt ne changera pas | Écrire le code sur l'hypothèse que la virgule marche : un fait d'API non vérifié, exactement ce que `CLAUDE.md` interdit |
 | 6 | **Framework BDD** | **Aucun en T1.** Les `.feature` sont de la spécification lisible, et un test vérifie qu'ils sont bien formés et citent un `BR` **existant** | `bdd_widget_test` : générerait des tests depuis le Gherkin, mais c'est une dépendance d'outillage non vérifiée sur `pub.dev` pour ce projet, et la valeur des scénarios de T1 est d'être **lus**. À réexaminer en T2 |
 | 7 | **Matrice de traçabilité** | **Maintenue à la main, vérifiée par test** : chaque `BR`, `UC` et `US` Must présent, chaque fichier de test cité **existe** | Générée : supposerait de deviner une intention depuis un nom de test, et produirait une matrice complète et fausse |
-| 8 | **Taille de fenêtre minimale** | **800 × 600**, chiffre **proposé par ce plan** : la largeur en dessous de laquelle le bandeau se tronque à 200 % de police | Ne pas contraindre : mais un avertissement tronqué est une violation de `BR-012`, pas un défaut cosmétique |
+| 8 | **Taille de fenêtre minimale** | **800 × 600**, chiffre **proposé par ce plan** : la largeur en dessous de laquelle le bandeau se tronque à 200 % de police. ⚠️ **Amendé le 2026-09-23 (`W3c`)** : il n'y a plus de bandeau, et **cette justification ne tient plus**. Le modal et la fenêtre d'avertissement sont des dialogues qui **défilent**, ils ne se tronquent pas ; la colonne contrôle ⚠ + légende défile aussi. Ce qui reste à protéger : les puces d'échelle, la légende et le contrôle « ⚠ Avertissement », qui doivent tenir sans se recouvrir. **800 × 600 n'est plus dérivé d'aucune mesure** : `K3` doit le constater ou le réviser à l'écran | Ne pas contraindre : mais un avertissement tronqué est une violation de `BR-012`, pas un défaut cosmétique |
 | 9 | **Version du texte d'avertissement** | Une **chaîne datée** (`'2026-09-13.1'`), persistée et comparée à la version compilée | Un booléen : un texte modifié ne serait jamais relu, ce qu'`UC-006 A3` exige |
 | 10 | **Ordre des lots** | Données → ViewModels → Vues → Avertissements → Clavier → Documentation → Porte | Les avertissements en premier : ils sont la condition de mise en production, mais l'encart de fiche n'a pas de fiche où se poser avant le lot 3 |
 | 11 | **`BR-013` (encart renforcé) — ✅ arbitrage du commanditaire du 2026-09-22** | **Reporté en T2**, posé sur l'écran des restrictions VigiEau. En T1 la fiche station donne une mesure, pas une disponibilité de la ressource : aucun écran de T1 n'entre dans le champ de `BR-013`. T1 écrit et verrouille le **texte** (`W5`), pas le widget | (a) Poser l'encart sur la fiche station : étendrait `BR-013` à un écran qu'il ne vise pas, et doublerait l'encart daté de `W4` en tête de la même fiche. (b) Écrire le widget en T1 sans l'afficher : un widget sans appelant (YAGNI), dont l'emplacement ne serait prouvé par aucun test |
@@ -1683,14 +1702,14 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | **1 — Données** | `D1` → `D8` (8) | **faits d'API et fixtures d'abord**, domaine ONDE, mapper, client, dépôt hydro, cache 20 min, dépôt ONDE, point porté par l'observation (`D8`) |
 | **2 — ViewModels** | `V1` → `V4` (4) | fiche station, carte enrichie, fiche ONDE, avertissements — **aucun widget importé** |
 | **3 — Vues** | `U1` → `U6` (6) | feuille au tap, marqueur de station, points ONDE, fiche ONDE, goldens, états vides |
-| **4 — Avertissements** | `W1` → `W3`, **`W3b`**, **`W2b`**, **`H1`**, `W4`, `W5` (8) | stockage et `ADR-011`, modal, bandeau, **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
+| **4 — Avertissements** | `W1` → `W3`, **`W3b`**, **`W3c`**, **`W2b`**, **`H1`**, `W4`, `W5` (9) | stockage et `ADR-011`, modal, bandeau, **contrôle « ⚠ Avertissement » qui remplace bandeau, menu et encart daté** (`W3c`, 2026-09-23), **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
 | **4 bis — Regroupement par zone** | `Z1` → `Z4` (4) | **`ADR-015`** (2026-09-22) : ADR et amendement de `04-ui.md § 4` (`Z1`, rédigée le 2026-09-22, commit à suivre), rattachement région/département dans le domaine et les données, `mostSevere` (`Z2`), niveau de zoom dans `MapViewModel`, préchargement inhibé sous 9 (`Z3`), pastille, goldens et constat d'écran (`Z4`) — exécuté entre `H2` et `K1` |
 | **5 — Clavier/souris** | **`H2`**, `K1` → `K3` (4) | **décisions de la carte rendues au ViewModel** (`H2`, 2026-09-22), boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
 | **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge React Native (`X5`, demande du 2026-09-14) |
 | **7 — Porte** | `P1`, `P2` (2) | exécutable Windows, **cinq constats**, `0.2.0` datée et taguée |
 | **Android** (hors décompte) | `A⏸1` → `A⏸5` (5) | différées le 2026-09-12, **différé levé le 2026-09-18** : `A⏸1` ✅, `A⏸2` 🔄 à constater par une construction, `A⏸3`→`A⏸5` ⏸ |
 
-**41 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22, soit 35 ; **+`Z1` → `Z4`** le même jour, `ADR-015` ; **+`W2b`** le même jour, point 37 ; **+`W3b`** le 2026-09-23, point 40) : 8 + 4 + 6 + 8 + 4 + 4 + 5 + 2. **5 différées.** L'ordre des lignes suit la numérotation des lots ; l'ordre d'**exécution** place le lot 4 bis entre `H2` et `K1` (graphe ci-dessous).
+**42 tâches actives** (le décompte initial disait 31 : il oubliait `D8` et n'avait pas `X5` — 33 au 2026-09-14 ; **+`H1`, +`H2`** le 2026-09-22, soit 35 ; **+`Z1` → `Z4`** le même jour, `ADR-015` ; **+`W2b`** le même jour, point 37 ; **+`W3b`** le 2026-09-23, point 40 ; **+`W3c`** le même jour, point 41 — `W3b` et `W4` restent comptées, faites puis remplacées) : 8 + 4 + 6 + 9 + 4 + 4 + 5 + 2. **5 différées.** L'ordre des lignes suit la numérotation des lots ; l'ordre d'**exécution** place le lot 4 bis entre `H2` et `K1` (graphe ci-dessous).
 
 ## Ordre d'exécution
 
@@ -1700,9 +1719,9 @@ graph LR
     D1 --> D["Lot 1 — Donnees<br/>D2 a D8"]
     D --> V["Lot 2 — ViewModels<br/>V1 a V4"]
     V --> U["Lot 3 — Vues<br/>U1 a U6"]
-    U --> W13["W1 a W3<br/>stockage, modal, bandeau"]
+    U --> W13["W1 a W3, W2b, W3b<br/>stockage, modal, bandeau"]
     W13 --> H1["H1<br/>formateur de date, heure locale"]
-    H1 --> W45["W4, W5<br/>encart date, vocabulaire"]
+    H1 --> W45["W4, W5, W3c<br/>encart date, vocabulaire,<br/>controle unique (W3c, 2026-09-23)"]
     W45 --> H2["H2<br/>decisions carte vers le ViewModel"]
     H2 --> Z["Lot 4 bis — zones administratives<br/>Z1 a Z4 (ADR-015)"]
     Z --> K["Lot 5 — Clavier / souris<br/>K1 a K3"]

@@ -26,6 +26,7 @@ Le persona agriculteur/irrigant est le seul dont une décision engage sa respons
 - Reste affiché en mode hors ligne, où il est **plus** nécessaire encore : la donnée est datée.
 - Annoncé en priorité par le lecteur d'écran, comme région d'alerte, à l'ouverture de l'écran.
 - Distinct de l'encart de fiche (`BR-001`, contexte Hydrometrie/Ecoulement), qui est plus court et centré sur la nature de la mesure.
+  ⚠️ **Amendement du 2026-09-23 (`W3c`, arbitrage du commanditaire)** : « l'encart de fiche » renvoie désormais au **contrôle « ⚠ Avertissement »** en tête de fiche et à **sa fenêtre**, qui porte la phrase datée sous le texte général (`04-ui.md § 5`, emplacement 3). Cette forme **à la demande** ne vaut **pas** pour l'encart renforcé : il reste **affiché d'emblée, non repliable, en tête d'écran**, selon les invariants ci-dessus.
 
 ## Vérifiable par
 

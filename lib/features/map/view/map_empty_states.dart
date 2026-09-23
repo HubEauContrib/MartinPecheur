@@ -111,8 +111,9 @@ String unreadableRowsText(int count) => count > 1
 String mapSourceName(MapErrorSource? source) => switch (source) {
   MapErrorSource.referentiel => 'Le référentiel embarqué des stations',
   // Réutilise [ondeSourceName] (`lib/domain/sources/source_names.dart`,
-  // `W4`) : la même chaîne nomme cette source sur la carte et dans
-  // l'encart daté de la fiche ONDE — un concept, un mot (`glossary.md`).
+  // `W4`) : la même chaîne nomme cette source sur la carte et dans la fiche
+  // ONDE — jamais dans la fenêtre d'avertissement, qui ne nomme aucune
+  // source — un concept, un mot (`glossary.md`).
   MapErrorSource.ecoulement => ondeSourceName,
   null => 'Une source de données',
 };

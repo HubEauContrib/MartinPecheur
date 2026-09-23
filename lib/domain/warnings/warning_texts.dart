@@ -9,11 +9,10 @@
 //
 // Cette première tranche (tâche `W2`) ne pose que le texte du modal du
 // premier lancement (`UC-006`, emplacement 1 de `04-ui.md § 5`). Les textes
-// de `W3` (bandeau, emplacement 2), `W4` (encart daté, emplacement 3) et
-// `W5` (encart renforcé, emplacement 4) s'ajoutent ici au fil de ces tâches,
-// chacun avec son propre verrou — seul le texte du modal du premier
-// lancement est couvert par [warningTextVersion] (arbitrage du
-// coordinateur, 2026-09-22).
+// de `W4` (phrase datée propre à chaque fiche) et `W5` (encart renforcé,
+// emplacement 4) s'ajoutent ici au fil de ces tâches, chacun avec son
+// propre verrou — seul le texte du modal du premier lancement est couvert
+// par [warningTextVersion] (arbitrage du coordinateur, 2026-09-22).
 //
 // Provenance de chaque texte, recopié mot pour mot (aucune phrase inventée) :
 // - [initialWarningBody] : `docs/use-cases/UC-006-acquitter-l-avertissement-initial.md`,
@@ -75,55 +74,47 @@ const String initialWarningWriteFailedText =
     "Votre choix n'a pas pu être enregistré. Vous pouvez réessayer.";
 
 // ---------------------------------------------------------------------------
-// Tâche `W3` — bandeau d'avertissement de la carte (emplacement 2 de
-// `04-ui.md § 5`) : affiché à chaque lancement, fermable pour la SESSION
-// SEULE depuis l'arbitrage du commanditaire du 2026-09-23 (`W3b`, voir plus
-// bas). ⚠️ HORS VERROU DE VERSION : `warningTextVersion` ne couvre QUE le
-// texte du modal (arbitrage du coordinateur, 2026-09-22) — ce texte-ci est
-// figé par son propre test, `test/features/map/view/map_warning_banner_test.dart`.
+// Tâches `W3`/`W3b` — bandeau d'avertissement de la carte et menu associé :
+// RETIRÉS par l'arbitrage du commanditaire du 2026-09-23 (`W3c`, « trop de
+// bandeaux à l'écran »). Le widget du bandeau, sa feuille de relecture et le
+// bouton de menu disparaissent avec eux ; les libellés qui n'ont plus de
+// lecteur disparaissent aussi. À leur place : un seul contrôle, sur la carte
+// ET en tête de chaque fiche — voir la section `W3c` plus bas.
 // ---------------------------------------------------------------------------
 
-/// Texte du bandeau d'avertissement de la carte, recopié du wireframe
-/// (`docs/04-ui.md § 1`, l. ~15-16 : « ⚠ Données indicatives. Ni
-/// autorisation, ni garantie. »).
-const String mapBannerText =
-    'Données indicatives. Ni autorisation, ni garantie.';
-
-/// Libellé de l'action du bandeau qui ouvre la feuille de relecture des
-/// textes du modal initial (`docs/04-ui.md § 1`, l. 16 : « Ce que ça dit> »).
-const String mapExplainActionLabel = 'Ce que ça dit';
-
-/// Libellé du bouton de fermeture de la feuille de relecture — choix du
-/// coordinateur, 2026-09-22 : ce n'est pas une fiche, donc pas
-/// `'Fermer la fiche'` ; « Fermer » seul n'est interdit que pour le bouton
-/// d'acquittement du modal initial (`BR-012`, `initialWarningButtonLabel`),
-/// jamais pour une fermeture de lecture seule comme celle-ci.
+/// Libellé de fermeture d'une fenêtre ou d'une feuille en LECTURE SEULE —
+/// jamais un acquittement (`BR-012` ne s'applique qu'au bouton du modal
+/// initial, `initialWarningButtonLabel`). Choix du coordinateur, 2026-09-22.
 const String warningReviewCloseLabel = 'Fermer';
 
 // ---------------------------------------------------------------------------
-// Tâche `W3b` — menu de la carte (arbitrage du commanditaire du 2026-09-23,
-// qui remplace l'invariant « bandeau permanent, non repliable » de `W3` par
-// un bandeau fermable pour la session, réaffichable depuis ce menu). ⚠️ HORS
-// VERROU DE VERSION, comme les textes de `W3` : `warningTextVersion` ne
-// couvre QUE le texte du modal initial. Ces deux libellés sont figés par
-// leur propre test, `test/features/map/view/map_menu_test.dart`.
+// Tâche `W3c` — arbitrage du commanditaire du 2026-09-23, qui remplace le
+// bandeau de carte (`W3`), le menu (`W3b`) et l'encart daté de tête de fiche
+// (`W4`, le WIDGET seulement — `sheetWarningText` et [SheetWarningKind]
+// restent) par un seul contrôle, `WarningLink`
+// (`lib/features/shared/warning_link.dart`) : une icône et ce libellé,
+// posé sur la carte ET en tête de chaque fiche, qui ouvre la MÊME fenêtre —
+// le texte général du modal initial, complété sous lui par la phrase propre
+// à la fiche quand elle a une date. ⚠️ HORS VERROU DE VERSION :
+// `warningTextVersion` ne couvre QUE le texte du modal initial. Ce libellé
+// est figé par son propre test, `test/features/shared/warning_link_test.dart`.
 // ---------------------------------------------------------------------------
 
-/// Libellé d'accessibilité du bouton de menu de la carte (arbitrage du
-/// commanditaire du 2026-09-23).
-const String mapMenuLabel = 'Menu';
-
-/// Libellé de l'entrée « Avertissement » du menu de la carte, qui réaffiche
-/// le bandeau fermé pour la session (arbitrage du commanditaire du
+/// Libellé du contrôle qui ouvre la fenêtre d'avertissement, sur la carte et
+/// en tête de chaque fiche (`W3c`, arbitrage du commanditaire du
 /// 2026-09-23).
-const String mapMenuWarningItemLabel = 'Avertissement';
+const String warningLinkLabel = 'Avertissement';
 
 // ---------------------------------------------------------------------------
-// Tâche `W4` — encart daté de chaque fiche (emplacement 3 de
-// `04-ui.md § 5`). ⚠️ HORS VERROU DE VERSION : `warningTextVersion` ne
-// couvre QUE le texte du modal (arbitrage du coordinateur, 2026-09-22) — ce
-// texte-ci est figé par son propre test,
-// `test/features/shared/sheet_warning_card_test.dart`.
+// Tâche `W4` — phrase datée propre à chaque fiche (emplacement 3 de
+// `04-ui.md § 5`). ⚠️ Le WIDGET d'encart qui la rendait en tête de fiche est
+// retiré par `W3c` (arbitrage du commanditaire du 2026-09-23) : la phrase se
+// lit désormais dans la fenêtre de `WarningLink`
+// (`lib/features/shared/warning_link.dart`), sous le texte général. Le TEXTE
+// lui-même, [sheetWarningText] et [SheetWarningKind], ne change pas — figé
+// par son propre test, `test/domain/warnings/warning_texts_test.dart`. ⚠️
+// HORS VERROU DE VERSION : `warningTextVersion` ne couvre QUE le texte du
+// modal (arbitrage du coordinateur, 2026-09-22).
 //
 // Provenance, recopiée mot pour mot (aucune phrase inventée) :
 // - version station : `docs/use-cases/UC-003-consulter-une-station-hydrometrique.md`
@@ -136,13 +127,13 @@ const String mapMenuWarningItemLabel = 'Avertissement';
 //   insistant, vient de `docs/04-ui.md § 1`, wireframe « Fiche point ONDE ».
 // ---------------------------------------------------------------------------
 
-/// Les deux fiches qui portent l'encart daté de tête (`04-ui.md § 5`,
-/// emplacement 3) : station hydrométrique et point ONDE. La version ONDE
-/// est PLUS INSISTANTE (`04-ui.md § 1`) que la version station.
+/// Les deux fiches qui portent la phrase datée propre à la fiche
+/// (`04-ui.md § 5`, emplacement 3) : station hydrométrique et point ONDE. La
+/// version ONDE est PLUS INSISTANTE (`04-ui.md § 1`) que la version station.
 enum SheetWarningKind { station, onde }
 
-/// Le texte de l'encart daté pour [kind], [date] insérée à l'endroit prévu
-/// par le texte source. [offsetOf] est le décalage UTC → heure locale,
+/// La phrase datée propre à la fiche pour [kind], [date] insérée à l'endroit
+/// prévu par le texte source. [offsetOf] est le décalage UTC → heure locale,
 /// demandé pour [date] (`H1`) — utilisé pour la version station, un
 /// INSTANT ; sans effet pour la version ONDE, une DATE CALENDAIRE qui ne se
 /// convertit jamais (`T-08`).

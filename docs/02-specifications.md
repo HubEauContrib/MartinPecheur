@@ -89,7 +89,7 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 | ID | Persona | Story |
 |---|---|---|
 | US-01 | Tous | Au premier lancement, je vois un avertissement bloquant que je dois **acquitter explicitement** avant d'accéder à l'app |
-| US-02 | Tous | Sur la carte, un **bandeau d'avertissement permanent** reste visible à tous les niveaux de zoom |
+| US-02 | Tous | Sur la carte, un **bandeau d'avertissement permanent** reste visible à tous les niveaux de zoom · ⚠️ **Amendé le 2026-09-23 (`W3c`, arbitrage du commanditaire)** : un contrôle **« ⚠ Avertissement »** reste présent à tous les niveaux de zoom et ouvre le texte de l'avertissement initial ; plus de bandeau (`04-ui.md § 4-5`) |
 | US-03 | P1, P3 | Je vois sur une carte les stations et points d'observation autour de moi, colorés par état |
 | US-04 | P1, P3 | En tapant un point ONDE, je vois s'il est **à sec**, avec la **date de la campagne** |
 | US-05 | P4 | En tapant une station, je vois le **débit en m³/s** et **l'heure de la mesure** |

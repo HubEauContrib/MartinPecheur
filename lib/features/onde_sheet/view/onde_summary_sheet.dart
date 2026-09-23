@@ -16,15 +16,17 @@
 // - sans la date, une observation de septembre se lirait en février comme un
 //   fait du jour (`BR-010`, la justification même de la règle).
 //
-// ## L'encart d'avertissement de tête (Task W4)
+// ## Le contrôle d'avertissement de tête (Task W3c, ex-W4)
 //
-// L'encart de tête (`04-ui.md § 5`, emplacement 3 — « Observation du
-// {date}, lors d'une campagne ponctuelle… ») est [SheetWarningCard]
-// (`lib/features/shared/sheet_warning_card.dart`), rendu en tête de
-// [OndeSummarySheet] quand une campagne existe ([OndeSheetData.latest] non
-// nul). Sans campagne, aucune date n'existe : l'encart n'est pas rendu
-// (arbitrage du commanditaire du 2026-09-23) — c'est le message d'absence
-// de `UC-004 A4` qui porte alors l'avertissement.
+// Le contrôle de tête est [WarningLink]
+// (`lib/features/shared/warning_link.dart`), TOUJOURS rendu en tête de
+// [OndeSummarySheet], avant la catégorie (arbitrage du commanditaire du
+// 2026-09-23, qui retire l'ancien encart daté, le widget de `W4`). Sa
+// fenêtre porte la phrase « Observation du {date}, lors d'une
+// campagne ponctuelle… » quand une campagne existe
+// ([OndeSheetData.latest] non nul) ; sans campagne, elle s'ouvre sans
+// phrase propre — c'est le message d'absence de `UC-004 A4` qui porte alors
+// l'avertissement.
 //
 // ⚠️ Cette tranche n'importe AUCUNE autre tranche (`layers_test.dart`, règle
 // `feature-vers-feature`) : ni `features/map/`, ni `features/station_sheet/`.
@@ -54,9 +56,9 @@ import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
-    show SheetWarningKind;
+    show SheetWarningKind, sheetWarningText;
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
-import 'package:martinpecheur/features/shared/sheet_warning_card.dart';
+import 'package:martinpecheur/features/shared/warning_link.dart';
 
 /// Côté minimal d'une cible tactile, en pixels logiques : 44 × 44 pt (iOS)
 /// selon `04-ui.md` § 3. Recopié de la spécification, jamais choisi ici.
@@ -158,20 +160,20 @@ class OndeSummarySheet extends StatelessWidget {
     final OndeObservation? latest = data.latest;
     final DepartementCode? departement = point.departement;
 
+    // Le contrôle d'avertissement (`W3c`) : TOUJOURS rendu, la fenêtre porte
+    // la version ONDE, plus insistante que la version station, quand une
+    // campagne existe. Sans campagne, aucune date n'existe à dater
+    // (`BR-001`) : la fenêtre s'ouvre alors sans phrase propre.
+    final String? warningExtraText = latest == null
+        ? null
+        : sheetWarningText(SheetWarningKind.onde, latest.observedAt);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        // L'encart daté de tête (`W4`, `04-ui.md § 5`, emplacement 3) : la
-        // version ONDE, plus insistante que la version station. Sans
-        // campagne, aucune date n'existe à dater (`BR-001`).
-        if (latest != null) ...<Widget>[
-          SheetWarningCard(
-            kind: SheetWarningKind.onde,
-            dataDate: latest.observedAt,
-          ),
-          const SizedBox(height: 8),
-        ],
+        WarningLink(extraText: warningExtraText),
+        const SizedBox(height: 8),
         Text(
           point.label,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

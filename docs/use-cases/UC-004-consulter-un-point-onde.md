@@ -20,7 +20,7 @@ L'usager tape un marqueur ONDE sur la carte, puis « Voir la fiche ».
 
 ## Flux nominal
 
-1. L'encart d'avertissement s'affiche en tête, en version renforcée pour ONDE : *« Observation du {date}, lors d'une campagne ponctuelle. Ce n'est pas une mesure de débit, et la situation a pu changer depuis. »*
+1. L'encart d'avertissement s'affiche en tête, en version renforcée pour ONDE : *« Observation du {date}, lors d'une campagne ponctuelle. Ce n'est pas une mesure de débit, et la situation a pu changer depuis. »* ⚠️ **Amendement du 2026-09-23 (arbitrage du commanditaire, `W3c`)** : l'encart n'est plus affiché d'emblée. En tête de fiche, avant la catégorie, un contrôle **« ⚠ Avertissement »** ouvre une fenêtre en lecture seule : le texte général du modal initial, puis **sous lui** cette même phrase datée, précédée de « OBSERVATION VISUELLE PONCTUELLE ». Sans campagne (A4), la fenêtre n'a pas de phrase propre. La catégorie garde sa date de campagne et sa source (`BR-001`, étape 2).
 2. La catégorie s'affiche avec sa forme et son libellé — par exemple **À sec** — et la **date de la campagne** (`BR-001`, `BR-010`).
 3. La **modalité officielle exacte** est affichée en second niveau : *« code 3 — Assec »*. Le regroupement en 4 catégories (`ADR-006`) ne masque jamais la source.
 4. L'historique des campagnes précédentes s'affiche, chacune avec sa date et son état.

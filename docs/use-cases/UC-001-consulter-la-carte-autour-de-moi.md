@@ -21,7 +21,7 @@ L'usager ouvre l'application. La carte est l'écran d'accueil.
 ## Flux nominal
 
 1. L'application demande une position approximative et centre la carte dessus.
-2. Le **bandeau d'avertissement** s'affiche à chaque lancement et reste visible à tous les niveaux de zoom tant que l'usager ne l'a pas fermé pour la session ; « Menu » › « Avertissement » le réaffiche (amendement du 2026-09-23, `W3b`).
+2. Le **bandeau d'avertissement** s'affiche à chaque lancement et reste visible à tous les niveaux de zoom tant que l'usager ne l'a pas fermé pour la session ; « Menu » › « Avertissement » le réaffiche (amendement du 2026-09-23, `W3b`). ⚠️ **Amendement du 2026-09-23 (arbitrage du commanditaire, `W3c`)**, qui remplace le précédent : ni bandeau ni menu — un contrôle **« ⚠ Avertissement »**, en haut à droite au-dessus de la légende, présent à tous les niveaux de zoom, ouvre en lecture seule la fenêtre « Des informations, pas une autorisation » (texte du modal initial, « Fermer »).
 3. L'échelle **écoulement** est active par défaut ; la légende l'indique (`BR-008`).
 4. Les points de la zone visible sont lus depuis le cache et rendus immédiatement, groupés en clusters portant l'état le plus sévère qu'ils contiennent (`BR-009`).
 5. Si le TTL est dépassé et le réseau disponible, un rafraîchissement s'exécute en tâche de fond ; les marqueurs se mettent à jour sans vider l'écran.
@@ -36,7 +36,7 @@ sequenceDiagram
     participant API as Hub'Eau
 
     U->>Carte: ouvre l'application
-    Carte->>Carte: bandeau d'avertissement (BR-013 hors périmètre ici)
+    Carte->>Carte: contrôle ⚠ Avertissement, W3c (BR-013 hors périmètre ici)
     Carte->>Cache: points de la bbox visible
     Cache-->>Carte: points + dernier état connu + dates
     Carte-->>U: rendu immédiat, clusters (BR-009)

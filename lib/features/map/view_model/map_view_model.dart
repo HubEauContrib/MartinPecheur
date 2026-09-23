@@ -523,35 +523,7 @@ final class MapViewModel extends ChangeNotifier {
     }
   }
 
-  bool _bannerVisible = true;
-
-  /// Le bandeau d'avertissement de la carte (`map_warning_banner.dart`) est-il
-  /// affiché ? **Vrai à chaque démarrage** (arbitrage du commanditaire du
-  /// 2026-09-23, `W3b`, qui remplace l'invariant « permanent, non repliable »
-  /// de `W3`) : [dismissBanner] ne persiste RIEN, la fermeture ne vaut que
-  /// pour cette instance de ViewModel — donc pour la session en cours.
-  bool get bannerVisible => _bannerVisible;
-
-  /// Ferme le bandeau pour la session (tap sur « Fermer », `W3b`). Ne fait
-  /// **rien** — pas même une notification — s'il est déjà fermé : la vue n'a
-  /// aucune raison de se reconstruire pour un état inchangé.
-  void dismissBanner() {
-    if (!_bannerVisible) {
-      return;
-    }
-    _bannerVisible = false;
-    notifyListeners();
-  }
-
-  /// Réaffiche le bandeau, depuis l'entrée « Avertissement » du menu de la
-  /// carte (`map_menu.dart`, `W3b`). Ne fait rien s'il est déjà visible.
-  void showBanner() {
-    if (_bannerVisible) {
-      return;
-    }
-    _bannerVisible = true;
-    notifyListeners();
-  }
+  // L'état de visibilité du bandeau (afficher/fermer/réafficher) est retiré par `W3c` : `WarningLink` ne porte aucun état de session.
 
   /// Arrête le préchargement en cours, s'il y en a un : la requête déjà
   /// partie se termine, mais aucune autre n'est émise et son résultat

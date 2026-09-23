@@ -120,8 +120,9 @@ Future<void> main() async {
 // la tâche `W2` : tant que `warningsViewModel.requiresAcknowledgement` est
 // vrai, c'est [InitialWarningView] qui occupe `home`, et [MapView] n'est
 // JAMAIS construit — ce n'est pas un `Visibility` ni une superposition, la
-// carte et ses dépôts ne sont tout simplement pas atteints. Le bandeau
-// (`W3`) et l'encart daté (`W4`) sont posés ; l'encart renforcé (`BR-013`)
+// carte et ses dépôts ne sont tout simplement pas atteints. Le contrôle
+// d'avertissement partagé (`W3c`, `WarningLink`) remplace le bandeau (`W3`),
+// son menu (`W3b`) et l'encart daté (`W4`) ; l'encart renforcé (`BR-013`)
 // arrive en T2, `W5` n'en écrit que le texte.
 class MartinPecheurApp extends StatelessWidget {
   const MartinPecheurApp({

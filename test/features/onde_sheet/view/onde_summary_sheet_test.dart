@@ -25,7 +25,7 @@ import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
-import 'package:martinpecheur/features/shared/sheet_warning_card.dart';
+import 'package:martinpecheur/features/shared/warning_link.dart';
 
 OndeStationCode _code() => OndeStationCode('K4520001');
 
@@ -319,22 +319,9 @@ void main() {
       expect(modality, lessThan(date));
     });
 
-    // L'invariant de `W4` : l'encart daté est en TÊTE, avant la catégorie —
-    // assertion sur l'ORDRE dans l'arbre, pas sur la seule présence.
-    testWidgets(
-      "l'encart daté est rendu EN TÊTE, avant la catégorie (W4, 04-ui.md "
-      '§ 5, emplacement 3)',
-      (WidgetTester tester) async {
-        await _pump(tester, OndeSummarySheet(data: _data()));
-
-        final double encart = tester
-            .getTopLeft(find.textContaining('OBSERVATION VISUELLE'))
-            .dy;
-        final double category = tester.getTopLeft(find.text('À sec')).dy;
-
-        expect(encart, lessThan(category));
-      },
-    );
+    // L'invariant de `W4`, tenu désormais par le contrôle d'avertissement
+    // (`W3c`) : voir le groupe « le contrôle d'avertissement de tête »
+    // ci-dessous pour l'assertion d'ordre EN TÊTE, avant la catégorie.
 
     testWidgets('rend les CINQ campagnes de la fixture, chacune avec sa date '
         'et sa catégorie, la plus récente en tête (UC-004 § 4)', (
@@ -383,15 +370,40 @@ void main() {
     );
   });
 
-  group("OndeSummarySheet — l'encart daté de tête (W4, 04-ui.md § 5, "
-      'emplacement 3)', () {
+  group("OndeSummarySheet — le contrôle d'avertissement de tête (W3c, "
+      'arbitrage du commanditaire du 2026-09-23)', () {
+    testWidgets('le contrôle est TOUJOURS rendu, avec ou sans campagne', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, OndeSummarySheet(data: _data()));
+
+      expect(find.byType(WarningLink), findsOneWidget);
+    });
+
     testWidgets(
-      "l'encart est rendu, avec la date de la campagne, plus insistant "
+      'le contrôle est rendu EN TÊTE, avant la catégorie — assertion sur '
+      "l'ORDRE dans l'arbre, pas sur la seule présence",
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
+
+        final double linkTop = tester.getTopLeft(find.byType(WarningLink)).dy;
+        final double categoryTop = tester
+            .getTopLeft(find.text(flowCategoryLabel(_data().latest!.category)))
+            .dy;
+
+        expect(linkTop, lessThan(categoryTop));
+      },
+    );
+
+    testWidgets(
+      'avec une campagne, la fenêtre porte la phrase datée, plus insistante '
       'que la version station (UC-004 § 1)',
       (WidgetTester tester) async {
         await _pump(tester, OndeSummarySheet(data: _data()));
 
-        expect(find.byType(SheetWarningCard), findsOneWidget);
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+
         expect(
           find.textContaining('Observation du 25/08/2026'),
           findsOneWidget,
@@ -404,20 +416,27 @@ void main() {
       },
     );
 
-    testWidgets('sans campagne, AUCUN encart — arbitrage du commanditaire du '
-        '2026-09-23 : sans date, aucun encart', (WidgetTester tester) async {
-      await _pump(
-        tester,
-        OndeSummarySheet(
-          data: _data(
-            history: <OndeObservation>[],
-            officialModalityText: 'Aucune campagne connue pour ce point.',
+    testWidgets(
+      'sans campagne, le contrôle reste mais la fenêtre n\'a pas de phrase '
+      'propre — arbitrage du commanditaire du 2026-09-23 : sans date, '
+      'aucun encart',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          OndeSummarySheet(
+            data: _data(
+              history: <OndeObservation>[],
+              officialModalityText: 'Aucune campagne connue pour ce point.',
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(find.byType(SheetWarningCard), findsNothing);
-    });
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(warningWindowExtraTextKey), findsNothing);
+      },
+    );
   });
 
   group('OndeSummarySheet — une campagne ancienne (BR-010, UC-004 A1)', () {

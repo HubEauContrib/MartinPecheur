@@ -22,7 +22,7 @@
 /// pour le lit à sec, « à sec » (`glossary.md` ligne 45, « Un concept, un
 /// mot »), jamais « assec », « tari » ni « asséché ».
 ///
-/// **Formes fléchies incluses** (arbitrage du commanditaire du 2026-09-23,
+/// **Formes fléchies incluses** (arbitrage du coordinateur du 2026-09-23,
 /// relecture de `Task W5`) : un mot proscrit l'est sous toutes ses
 /// flexions — le féminin et le pluriel ne créent pas un mot différent, ce
 /// n'est donc pas en inventer un que de les lister. La correspondance reste
@@ -73,10 +73,10 @@ const List<String> forbiddenNeutralityPhrases = <String>[
 
 /// Mots de garantie proscrits (`BR-014` : « Aucun mot de garantie » ;
 /// `docs/glossary.md` lignes 46-47 : « en direct », « temps réel »,
-/// « fiable », « vérifié », « officiel »). « garantie » lui-même est ajouté
-/// pour la même raison que `mapBannerText` le nie explicitement (« Ni
-/// autorisation, ni garantie ») : c'est le mot que `BR-014` interdit
-/// d'affirmer, pas de nier.
+/// « fiable », « vérifié », « officiel »). « garantie » lui-même est ajouté :
+/// c'est le mot que `BR-014` interdit d'affirmer (« Aucun mot de
+/// garantie »), une négation explicite exigeant alors une exception
+/// nominative.
 const List<String> forbiddenGuaranteeWords = <String>[
   'fiable',
   'fiables',
@@ -110,12 +110,10 @@ const Map<String, List<String>> vocabularyExceptions = <String, List<String>>{
         '&REQUEST=GetTile&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal'
         '&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}',
   ],
-  // `mapBannerText` (`W3`) porte « garantie » dans une NÉGATION : « Ni
-  // autorisation, ni garantie. » C'est l'affirmation qui est interdite par
-  // `BR-014`, jamais sa négation explicite.
-  'lib/domain/warnings/warning_texts.dart': <String>[
-    'Données indicatives. Ni autorisation, ni garantie.',
-  ],
+  // `mapBannerText` (`W3`) portait « garantie » dans une NÉGATION : « Ni
+  // autorisation, ni garantie. » Le texte disparaît avec le bandeau
+  // (`W3c`, arbitrage du commanditaire du 2026-09-23) — l'exception n'a
+  // plus de littéral à admettre et est retirée avec lui.
   // `noDataInAreaText` (`BR-007`, `U6`) porte « tout va bien » dans une
   // NÉGATION, recopiée du corps même de `BR-007` : « Ce n'est pas un signe
   // que tout va bien ». Les trois segments adjacents ne forment qu'UN SEUL

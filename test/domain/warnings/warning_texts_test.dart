@@ -3,6 +3,12 @@
 // est `test/project/warning_texts_version_test.dart` — ce fichier-ci vérifie
 // le contenu (mots requis, mots bannis, absence de verbe d'instruction),
 // pas la valeur figée caractère pour caractère.
+//
+// Le groupe `sheetWarningText` (`W4`) vivait dans le fichier de test de
+// l'ancien encart daté de tête de fiche, aux côtés de son widget. `W3c`
+// (arbitrage du commanditaire du 2026-09-23) retire ce widget — le TEXTE,
+// lui, ne change pas — et ce fichier reprend donc ses tests de la fonction
+// PURE, mot pour mot.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 
@@ -169,6 +175,119 @@ void main() {
 
     test("n'est pas tronque : une phrase complete, terminee par un point", () {
       expect(reinforcedWarningBody.trim().endsWith('.'), isTrue);
+    });
+  });
+
+  group('sheetWarningText — le texte FIGÉ, phrase entière (W4)', () {
+    final DateTime instant = DateTime.utc(2026, 8, 27, 8);
+    final DateTime campagne = DateTime.utc(2026, 8, 25);
+    Duration plusDeuxHeures(DateTime _) => const Duration(hours: 2);
+
+    test('version station, mot pour mot (UC-003 § 1, +2 h injecté)', () {
+      expect(
+        sheetWarningText(
+          SheetWarningKind.station,
+          instant,
+          offsetOf: plusDeuxHeures,
+        ),
+        'Mesure brute du 27/08/2026 à 10:00, non validée. La station ne '
+        'voit pas les lâchers de barrage.',
+      );
+    });
+
+    test('version ONDE, mot pour mot (UC-004 § 1, 04-ui.md § 1)', () {
+      expect(
+        sheetWarningText(SheetWarningKind.onde, campagne),
+        'OBSERVATION VISUELLE PONCTUELLE\n'
+        "Observation du 25/08/2026, lors d'une campagne ponctuelle. Ce "
+        "n'est pas une mesure de débit, et la situation a pu changer "
+        'depuis.',
+      );
+    });
+  });
+
+  group('sheetWarningText — station (UC-003 § 1)', () {
+    final DateTime instant = DateTime.utc(2026, 8, 27, 8);
+    Duration plusDeuxHeures(DateTime _) => const Duration(hours: 2);
+
+    test('contient la date en heure locale, « brute », « non validée » et '
+        '« lâchers de barrage », mot pour mot', () {
+      final String text = sheetWarningText(
+        SheetWarningKind.station,
+        instant,
+        offsetOf: plusDeuxHeures,
+      );
+
+      expect(text, contains('27/08/2026 à 10:00'));
+      expect(text, contains('brute'));
+      expect(text, contains('non validée'));
+      expect(text, contains('lâchers de barrage'));
+    });
+
+    test('ne contient ni « UTC » ni « 08h00 » (décision 12, H1)', () {
+      final String text = sheetWarningText(
+        SheetWarningKind.station,
+        instant,
+        offsetOf: plusDeuxHeures,
+      );
+
+      expect(text, isNot(contains('UTC')));
+      expect(text, isNot(contains('08h00')));
+    });
+
+    test("ne contient PAS « observation visuelle ponctuelle » — c'est la "
+        'version ONDE qui est plus insistante', () {
+      final String text = sheetWarningText(
+        SheetWarningKind.station,
+        instant,
+        offsetOf: plusDeuxHeures,
+      );
+
+      expect(
+        text.toLowerCase(),
+        isNot(contains('observation visuelle ponctuelle')),
+      );
+    });
+  });
+
+  group('sheetWarningText — ONDE (UC-004 § 1, 04-ui.md § 1)', () {
+    final DateTime instant = DateTime.utc(2026, 8, 27, 8);
+    final DateTime campagne = DateTime.utc(2026, 8, 25);
+    Duration plusDeuxHeures(DateTime _) => const Duration(hours: 2);
+
+    test('contient la date calendaire (sans heure, H1), « campagne '
+        'ponctuelle », « Ce n\'est pas une mesure de débit » et « la '
+        'situation a pu changer depuis », mot pour mot', () {
+      final String text = sheetWarningText(SheetWarningKind.onde, campagne);
+
+      expect(text, contains('25/08/2026'));
+      expect(text, contains('campagne ponctuelle'));
+      expect(text, contains("Ce n'est pas une mesure de débit"));
+      expect(text, contains('la situation a pu changer depuis'));
+    });
+
+    test('est PLUS insistante que la version station : porte '
+        '« observation visuelle ponctuelle », la station non', () {
+      final String onde = sheetWarningText(SheetWarningKind.onde, campagne);
+      final String station = sheetWarningText(
+        SheetWarningKind.station,
+        instant,
+        offsetOf: plusDeuxHeures,
+      );
+
+      expect(onde.toLowerCase(), contains('observation visuelle ponctuelle'));
+      expect(
+        station.toLowerCase(),
+        isNot(contains('observation visuelle ponctuelle')),
+      );
+    });
+
+    test('ne porte aucune heure : la campagne ONDE est une date calendaire '
+        '(T-08)', () {
+      final String text = sheetWarningText(SheetWarningKind.onde, campagne);
+      final RegExp heure = RegExp(r'\d{1,2}\s?[:h]\s?\d{2}');
+
+      expect(heure.hasMatch(text), isFalse);
     });
   });
 }

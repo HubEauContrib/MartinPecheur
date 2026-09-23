@@ -36,8 +36,8 @@ import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
-    show SheetWarningKind;
-import 'package:martinpecheur/features/shared/sheet_warning_card.dart';
+    show SheetWarningKind, sheetWarningText;
+import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
 /// Côté minimal d'une cible tactile, en pixels logiques : 44 × 44 pt (iOS)
@@ -141,27 +141,31 @@ class StationSummarySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String? stalenessNotice = data.stalenessNotice;
-    // L'encart daté de tête (`W4`, `04-ui.md § 5`, emplacement 3) porte la
-    // date de la mesure la plus significative : le débit d'abord, la
-    // hauteur seule sinon — un ORDRE choisi par cette tâche (`W4`), pas
+    // Le contrôle d'avertissement (`W3c`, arbitrage du commanditaire du
+    // 2026-09-23) remplace l'ancien encart daté de tête (`W4`, le widget) :
+    // il est TOUJOURS rendu, en tête de fiche, avant la valeur.
+    // La phrase datée porte la date de la mesure la plus significative : le
+    // débit d'abord, la hauteur seule sinon — un ORDRE choisi par `W4`, pas
     // prescrit par `UC-003 § 1`, qui ne connaît qu'« la mesure ». Sans
-    // aucune des deux, aucune mesure n'existe : l'encart n'est pas rendu
-    // (arbitrage du commanditaire du 2026-09-23).
+    // aucune des deux, aucune mesure n'existe : la fenêtre s'ouvre alors
+    // sans phrase propre, jamais une phrase inventée (« sans date, aucun
+    // encart »).
     final DateTime? warningDate =
         data.discharge?.measuredAt ?? data.level?.measuredAt;
+    final String? warningExtraText = warningDate == null
+        ? null
+        : sheetWarningText(
+            SheetWarningKind.station,
+            warningDate,
+            offsetOf: utcOffsetOf,
+          );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        if (warningDate != null) ...<Widget>[
-          SheetWarningCard(
-            kind: SheetWarningKind.station,
-            dataDate: warningDate,
-            utcOffsetOf: utcOffsetOf,
-          ),
-          const SizedBox(height: 8),
-        ],
+        WarningLink(extraText: warningExtraText),
+        const SizedBox(height: 8),
         Text(
           data.station.label,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

@@ -155,7 +155,7 @@ Navigateur racine
 │   ├── Recherche (station / cours d'eau)
 │   ├── Filtres (feuille) : type · état · département · fraîcheur
 │   ├── Légende de l'échelle active
-│   ├── Bandeau d'avertissement permanent
+│   ├── Contrôle « ⚠ Avertissement » → fenêtre (remplace le bandeau permanent, W3c, 2026-09-23)
 │   └── Résumé au tap (feuille) → fiche
 ├── Fiche station hydrométrique .... route paramétrée par CodeStation
 │   ├── Débit (m³/s) + date + statut de qualification

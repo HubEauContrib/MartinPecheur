@@ -20,7 +20,7 @@ L'usager tape « Voir la fiche » depuis la carte, ou ouvre un favori.
 
 ## Flux nominal
 
-1. L'encart d'avertissement s'affiche en tête, **avec la date de la mesure** : *« Mesure brute du {date} à {heure}, non validée. La station ne voit pas les lâchers de barrage. »*
+1. L'encart d'avertissement s'affiche en tête, **avec la date de la mesure** : *« Mesure brute du {date} à {heure}, non validée. La station ne voit pas les lâchers de barrage. »* ⚠️ **Amendement du 2026-09-23 (arbitrage du commanditaire, `W3c`)** : l'encart n'est plus affiché d'emblée. En tête de fiche, avant la valeur, un contrôle **« ⚠ Avertissement »** ouvre une fenêtre en lecture seule : le texte général du modal initial, puis **sous lui** cette même phrase datée. Sans aucune mesure, la fenêtre n'a pas de phrase propre (aucune date à donner). La valeur garde sa date et sa source à côté d'elle (`BR-001`, étape 2).
 2. Le débit s'affiche en **m³/s**, converti depuis les l/s de l'API (`BR-002`), avec sa date, son statut et sa qualification (`BR-006`).
 3. L'asset de référence est consulté pour la quinzaine calendaire courante.
 4. Si l'historique compte au moins 10 années, le niveau relatif s'affiche — *« Bas pour la saison »* — avec son percentile, le nombre d'années de référence, et le sous-texte *« Comparaison statistique. Ce n'est pas un seuil réglementaire. »*
@@ -36,7 +36,7 @@ sequenceDiagram
     participant Asset as Référence percentiles
 
     U->>Fiche: ouvre la fiche station
-    Fiche-->>U: encart d'avertissement + date (BR-001)
+    Fiche-->>U: contrôle ⚠ Avertissement (W3c) puis valeur + date + source (BR-001)
     Fiche->>Cache: dernière observation connue
     Cache-->>Fiche: resultat_obs (l/s) + date + statut
     Fiche->>Fiche: conversion l/s → m³/s (BR-002)

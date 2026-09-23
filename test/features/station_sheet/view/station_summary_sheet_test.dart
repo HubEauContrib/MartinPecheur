@@ -18,7 +18,7 @@ import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
-import 'package:martinpecheur/features/shared/sheet_warning_card.dart';
+import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
@@ -413,30 +413,18 @@ void main() {
     );
   });
 
-  group('StationSummarySheet — l\'encart daté de tête (W4, 04-ui.md § 5, '
-      'emplacement 3)', () {
-    testWidgets(
-      "l'encart est rendu, avec la date de la mesure de débit (UC-003 § 1)",
-      (WidgetTester tester) async {
-        await _pump(
-          tester,
-          StationSummarySheet(
-            data: _data(discharge: _discharge(), level: _level()),
-            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
-          ),
-        );
+  group('StationSummarySheet — le contrôle d\'avertissement de tête (W3c, '
+      'arbitrage du commanditaire du 2026-09-23)', () {
+    testWidgets('le contrôle est TOUJOURS rendu, avec ou sans mesure', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, StationSummarySheet(data: _data()));
 
-        expect(find.byType(SheetWarningCard), findsOneWidget);
-        expect(
-          find.textContaining('Mesure brute du 27/08/2026 à 10:00'),
-          findsOneWidget,
-        );
-        expect(find.textContaining('lâchers de barrage'), findsOneWidget);
-      },
-    );
+      expect(find.byType(WarningLink), findsOneWidget);
+    });
 
     testWidgets(
-      "l'encart est rendu EN TÊTE, avant la valeur du débit — assertion "
+      "le contrôle est rendu EN TÊTE, avant la valeur du débit — assertion "
       "sur l'ORDRE dans l'arbre, pas sur la seule présence",
       (WidgetTester tester) async {
         await _pump(
@@ -447,24 +435,55 @@ void main() {
           ),
         );
 
-        final double encartTop = tester
-            .getTopLeft(find.textContaining('Mesure brute du'))
-            .dy;
+        final double linkTop = tester.getTopLeft(find.byType(WarningLink)).dy;
         final double debitTop = tester
             .getTopLeft(find.textContaining('47,8 m³/s'))
             .dy;
 
-        expect(encartTop, lessThan(debitTop));
+        expect(linkTop, lessThan(debitTop));
       },
     );
 
+    testWidgets('avec une mesure de débit, la fenêtre porte la phrase datée '
+        '(UC-003 § 1)', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        StationSummarySheet(
+          data: _data(discharge: _discharge(), level: _level()),
+          utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+        ),
+      );
+
+      await tester.tap(find.byKey(warningLinkKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Mesure brute du 27/08/2026 à 10:00'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(warningWindowExtraTextKey))
+            .data!
+            .contains('lâchers de barrage'),
+        isTrue,
+        reason:
+            'la phrase propre à la fiche (sous le corps général) porte '
+            'bien la mention des lâchers de barrage',
+      );
+    });
+
     testWidgets(
-      'sans débit ni hauteur, AUCUN encart — arbitrage du commanditaire du '
-      '2026-09-23 : sans date, aucun encart',
+      'sans débit ni hauteur, le contrôle reste mais la fenêtre n\'a pas '
+      'de phrase propre — arbitrage du commanditaire du 2026-09-23 : sans '
+      'date, aucun encart',
       (WidgetTester tester) async {
         await _pump(tester, StationSummarySheet(data: _data()));
 
-        expect(find.byType(SheetWarningCard), findsNothing);
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(warningWindowExtraTextKey), findsNothing);
       },
     );
   });
