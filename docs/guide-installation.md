@@ -1,24 +1,28 @@
 # Guide d'installation — poste de développement
 
 Ce guide sort du [`README`](../README.md) pour ne pas l'encombrer. Il ne concerne que le fait de
-**voir l'application à l'écran**. Les tests, le typecheck et le lint ne demandent rien de plus que
-Node : `npm install && npm run verify` suffit.
+**voir l'application à l'écran**. `flutter analyze` et `flutter test` ne demandent rien de plus que
+le SDK Flutter sur le poste.
 
 ## Prérequis
 
 | Pour | Outil | Version constatée |
 |---|---|---|
-| Compiler, tester, linter | **Node.js** LTS et npm | Node `24.18.1`, npm `11.16.0` — 2026-08-01 |
-| Lancer sur Android | **Android Studio** + **JDK 17** | Studio `2026.1.3.7`, JDK `17.0.20.8` — 2026-08-01 |
-| Lancer sur iOS | **macOS** avec Xcode | ⚠️ impossible depuis Windows ou Linux |
+| Compiler, tester, lancer sur Windows | **Flutter** stable, **Dart** (fourni avec Flutter) | Flutter `3.47.4`, Dart `3.13.3` — `flutter --version`, 2026-09-13 |
+| Lancer sur Android | **Android Studio** + JDK + SDK (API 36) + NDK | JDK `17.0.20.8`, SDK `36.0.0`, NDK `28.2.13676358` — constatés le 2026-09-18 |
+| Lancer ou livrer sur iOS | **macOS** avec Xcode | ⚠️ impossible depuis Windows ou Linux — jamais compilé sur ce projet |
 
-## 🚨 Le piège qui coûte une nuit : le chemin du SDK
+> ⚠️ **Flutter est hors `PATH` sur ce poste** : appeler le binaire par chemin absolu,
+> `C:\Users\oliver254\develop\flutter\bin\flutter.bat`. `pubspec.yaml` exige `^3.13.3`.
+
+## 🚨 Le piège qui coûte une nuit : le chemin du SDK Android
 
 > **Installez le SDK Android sur un chemin sans espace ni parenthèse.**
 
 Le NDK ne les supporte pas. Sous `C:\Program Files (x86)\…`, Windows réduit le chemin en notation
 8.3 et `clang++.exe` devient `CLANG_~1.EXE`. Or **clang choisit son mode C ou C++ d'après son propre
-nom d'exécutable** : privé de ses `++`, il compile en C et ne lie pas la bibliothèque standard.
+nom d'exécutable** : privé de ses `++`, il compile en C et ne lie pas la bibliothèque standard —
+symptôme qui touche tout autant une compilation Flutter/NDK qu'un outillage antérieur.
 
 Le symptôme ne désigne jamais la cause :
 
@@ -27,10 +31,11 @@ ld.lld: error: undefined symbol: operator new(unsigned long)
 ld.lld: error: undefined symbol: operator delete(void*)
 ```
 
-**Ne réutilisez pas un SDK hérité des workloads .NET Android de Visual Studio** : il vit sous
-`Program Files (x86)`, et il n'est pas inscriptible sans élévation — Gradle ne pourra pas y
-installer les composants qui lui manquent. Constaté le 2026-08-15, trois obstacles en cascade avant
-d'identifier la cause. Emplacement recommandé : `%LOCALAPPDATA%\Android\Sdk`.
+**Ne réutilisez pas un SDK hérité d'un autre outillage** (par exemple les workloads .NET Android de
+Visual Studio) : il vit sous `Program Files (x86)`, et il n'est pas inscriptible sans élévation —
+Gradle ne pourra pas y installer les composants qui lui manquent. Constaté le 2026-08-15, trois
+obstacles en cascade avant d'identifier la cause. Emplacement recommandé, sans espace et
+inscriptible sans élévation : `%LOCALAPPDATA%\Android\Sdk`.
 
 ## Installation sous Windows
 
@@ -54,25 +59,18 @@ winget install --exact --id Google.AndroidStudio --accept-package-agreements
 winget n'installe que l'IDE. Ouvrez Android Studio une fois et laissez l'assistant télécharger le
 SDK — plusieurs Go.
 
-> ⚠️ **L'installation « Standard » ne suffit pas.** Elle pose la plateforme la plus récente
-> (`android-37`), **aucune image système** — donc aucun émulateur ne démarre — et pas les
-> *Command-line Tools*.
+> ⚠️ **L'installation « Standard » ne suffit pas.** Elle pose la plateforme la plus récente,
+> **aucune image système** — donc aucun émulateur ne démarre — et pas les *Command-line Tools*.
 
-Expo SDK 57 veut l'**API 36**. Vérifié à la source, pas d'après la documentation
-(`node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle`) :
-
-```gradle
-compileSdkVersion project.ext.safeExtGet("compileSdkVersion", 36)
-minSdkVersion     project.ext.safeExtGet("minSdkVersion", 24)
-targetSdkVersion  project.ext.safeExtGet("targetSdkVersion", 36)
-```
-
-Complétez par **More Actions ▸ SDK Manager**, avec *Show Package Details* :
+Flutter 3.47.4 exige le NDK `28.2.13676358` (lu dans `FlutterExtension.kt` du SDK Flutter installé,
+constaté le 2026-09-18 — ne pas se fier à la documentation seule, cette version change d'une
+release Flutter à l'autre). Complétez par **More Actions ▸ SDK Manager**, avec *Show Package
+Details* :
 
 | Onglet | À cocher |
 |---|---|
 | **SDK Platforms** → *Android 16 (Baklava) — API 36* | **Android SDK Platform 36** · une **image système x86_64** |
-| **SDK Tools** | **NDK** · **Android SDK Build-Tools** · **Command-line Tools (latest)** |
+| **SDK Tools** | **NDK** (version exigée par Flutter, ci-dessus) · **Android SDK Build-Tools** · **Command-line Tools (latest)** |
 
 Puis créez un appareil virtuel : **More Actions ▸ Virtual Device Manager ▸ Create Device**.
 
@@ -85,67 +83,29 @@ Puis créez un appareil virtuel : **More Actions ▸ Virtual Device Manager ▸ 
 > ⚠️ **Rouvrez le terminal après cette commande.** Un terminal déjà ouvert garde l'ancien
 > environnement, et l'erreur *« Failed to resolve the Android SDK path »* persistera pour cette
 > seule raison.
+>
+> ⚠️ **Sonder le registre (`HKCU\Environment`), pas l'environnement du processus courant** : un
+> inventaire a déjà déclaré l'outillage Android absent alors qu'il ne l'était pas — la variable
+> existait, seul le processus qui inventoriait ne l'avait pas rechargée.
 
 ```bash
-npm run android
+flutter run -d emulator-5554
 ```
-
-## Le piège du JDK
-
-**JDK 17, pas plus récent** — la documentation React Native est explicite : *« you may encounter
-problems using higher JDK versions »*.
-
-Or **Android Studio embarque son propre runtime Java**, et ce n'en est pas un : le JBR livré avec
-Studio `2026.1.3.7` est un **openjdk 25.0.2**, précisément la version déconseillée, et c'est celle
-que Gradle prend par défaut. Le JDK 17 séparé n'est donc pas redondant.
-
-Si un build Gradle échoue bizarrement : *Settings ▸ Build, Execution, Deployment ▸ Build Tools ▸
-Gradle ▸ Gradle JDK*, à pointer sur `C:\Program Files\Microsoft\jdk-17…`, pas sur le JBR embarqué.
 
 ## Ce qu'on peut exécuter, et où
 
 | | Windows | Linux | macOS |
 |---|:---:|:---:|:---:|
-| `domain/`, `data/`, `application/` | ✅ | ✅ | ✅ |
-| `typecheck`, `lint`, `test` | ✅ | ✅ | ✅ |
-| Outillage percentiles | ✅ | ✅ | ✅ |
-| Lancer sur **Android** | ✅ | ✅ | ✅ |
-| Lancer ou livrer sur **iOS** | ❌ | ❌ | ✅ |
+| `lib/domain/`, `lib/data/`, `flutter analyze`, `flutter test` | ✅ | 🔄 non constaté | 🔄 non constaté |
+| `flutter run -d windows` / `flutter build windows` | ✅ construite et lancée hors Flutter (`0.1.0`, `F3`) | — | — |
+| Lancer sur **Android** | — | — | — |
+| ↳ chaîne d'outils vue par `flutter doctor`, gabarit généré, émulateur démarré | ✅ (2026-09-18) | 🔄 non constaté | 🔄 non constaté |
+| ↳ construction et lancement réels sur l'émulateur | 🔄 **jamais constaté** — `flutter run -d emulator-5554` reste à exécuter | — | — |
+| Lancer ou livrer sur **iOS** | ❌ | ❌ | 🔄 configuré, jamais compilé (aucun hôte macOS) |
 
-**Sur Windows, tout sauf iOS.** Les trois couches internes sont du TypeScript pur testé sous Node :
-ni émulateur, ni téléphone, ni carte. C'est délibéré, et vérifié par un test d'architecture.
-
-> ⚠️ **Windows n'est pas une cible du produit** — ajouté puis retiré le 2026-07-31
-> ([`ADR-009`](adr/ADR-009-cible-windows.md) → [`ADR-010`](adr/ADR-010-react-native.md)).
-> Machine de développement valable, pas plateforme de livraison.
->
-> ⚠️ **Expo Go ne suffit plus** depuis l'ajout de MapLibre : l'application embarque du code natif
-> et exige un *development build* (`npx expo prebuild` puis `npx expo run:android`).
-
-## Travailler sous VS Code
-
-L'espace de travail est préconfiguré dans [`.vscode/`](../.vscode/), versionné parce que c'est de la
-config d'équipe. Au premier démarrage, dans cet ordre :
-
-1. `code .` à la racine — **ouvrir le dossier, pas un fichier** : sans cela, ni les tâches, ni le
-   débogueur, ni les chemins `@domain/*` ne fonctionnent.
-2. Accepter la bannière **« Cet espace de travail recommande des extensions »**.
-3. Ouvrir un `.ts` et accepter **« Utiliser la version TypeScript de l'espace de travail »**.
-   Sinon : `Ctrl+Shift+P` ▸ *TypeScript: Select TypeScript Version…* ▸ **Use Workspace Version**.
-
-| Extension | Rôle |
-|---|---|
-| `dbaeumer.vscode-eslint` | Lint en direct, dont les règles de frontière entre couches |
-| `expo.vscode-expo-tools` | Complétion et validation d'`app.json` |
-| `msjsdiag.vscode-react-native` | Débogage React Native, gestion de Metro |
-| `Orta.vscode-jest` | Tests dans l'explorateur |
-
-Câblé d'office : **`Ctrl+Shift+B`** lance `verify` · **`F5`** débogue les tests unitaires, sans
-appareil ni émulateur · l'éditeur utilise le TypeScript du projet, pas celui de VS Code — sans quoi
-l'éditeur et `npm run typecheck` peuvent diverger, et c'est toujours l'éditeur qu'on croit.
-
-> ℹ️ Les extensions C# / .NET sont marquées non souhaitées : plus une ligne de C# dans ce dépôt
-> depuis le 2026-07-31.
+**Le bac à sable ne compile pas de natif** : `flutter run`, `flutter build` (Windows ou Android)
+sont exécutés **par le commanditaire**, jamais par l'agent. `flutter analyze`, `flutter test` et
+`dart format` sont, eux, lancés directement.
 
 ## Git en SSH
 

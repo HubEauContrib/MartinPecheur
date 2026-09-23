@@ -105,41 +105,21 @@ VigiEau / data.gouv : **Licence Ouverte 2.0**.
 | Fait | Constat | Date |
 |---|---|---|
 | Tuile WMTS `GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2` en `TILEMATRIXSET=PM` | **HTTP 200**, `image/png`, **256×256**, 80 838 octets | 2026-07-31, reconstaté le **2026-08-15** |
-| **`NV-2` — l'URL KVP survit-elle au *templating* de MapLibre ?** | ✅ **OUI.** Le gabarit `…?SERVICE=WMTS&…&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}` est expansé sans que les `?` ni les `&` soient altérés. **Constaté sur émulateur Android : le fond de carte s'affiche.** | **2026-08-15** |
+| **`NV-2` — l'URL KVP (`?SERVICE=WMTS&…&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}`) survit-elle au *templating* d'un client de tuiles ?** | ✅ **OUI.** Le gabarit est expansé sans que les `?` ni les `&` soient altérés. | **2026-08-15**, reconfirmé sur `flutter_map` par `F1` (2026-09-09, `spike/porte_flutter/COMPTE-RENDU.md`) |
 
 > C'était l'inconnue qui portait tout le fond cartographique. Une URL KVP n'est pas la forme
-> `/{z}/{x}/{y}.png` qu'attendent la plupart des styles, et rien ne garantissait *a priori* que
-> MapLibre ne réencoderait pas les séparateurs de requête. **Il ne le fait pas.**
-
-**Avertissements observés à l'exécution, tous deux bénins** (relevés par `adb logcat`, 2026-08-15) :
-
-| Message | Nature |
-|---|---|
-| `MapLibre Native [WARN] [Mbgl-HttpRequest] Request failed due to a permanent error: stream was reset: CANCEL` | MapLibre **annule** les requêtes de tuiles devenues inutiles quand la vue se stabilise. « permanent error » est son vocabulaire interne pour « ne pas rejouer », pas un échec du serveur IGN |
-| `Cannot connect to Expo CLI` · `Failed to open DevTools` | Metro n'était pas lancé ; l'application tournait sur le bundle embarqué. Sans effet sur le produit |
+> `/{z}/{x}/{y}.png` qu'attendent la plupart des styles, et rien ne garantissait *a priori* qu'un
+> client de tuiles ne réencoderait pas les séparateurs de requête. **Aucun des deux clients
+> essayés ne le fait.**
 
 ⚠️ **Ce qui reste non vérifié :** la tenue de ~4 150 marqueurs sur un Android d'entrée de gamme
-(`NV-5`, tâche `M5`). Pour le hors-ligne, voir la section 9 : `M4` a été exécutée, et son résultat
-est négatif.
+(`NV-5`).
 
-## 9. Pack hors-ligne — exécuté le 2026-08-15, résultat négatif
+## 9. Pack hors-ligne
 
-Environnement : émulateur `sdk_gphone64_x86_64`, **API 36** · `@maplibre/maplibre-react-native@11.3.6`
-(**dernière version publiée**) · `expo@57.0.13` · `react-native@0.86.2`.
-
-| Fait | Constat | Date |
-|---|---|---|
-| **`OfflineManager.createPack` tue le processus** | `SIGABRT` ~0,7 s après la création du pack — `std::regex_error` non rattrapée (« invalid range in a {} expression »), fil `DatabaseFileSource`, dans `libmaplibre.so`. **4 essais sur 4** | **2026-08-15** |
-| Le défaut n'est **ni l'IGN ni le raster** | Reproduit avec `https://demotiles.maplibre.org/style.json`, qui est **vectoriel** | **2026-08-15** |
-| Le défaut n'est **pas une base corrompue** | Reproduit après `adb shell pm clear`, base vierge | **2026-08-15** |
-| `mapStyle` est une **URL**, pas un style sérialisé | Un style sérialisé donne `Unable to parse resourceUrl {"version":8,…`. Côté Android : `OfflineTilePyramidRegionDefinition(styleURL, …)` | **2026-08-15** |
-| Une URI **`data:`** n'est pas résolue | La région passe `active` et reste à `tuiles=0`, **sans erreur** — échec silencieux | **2026-08-15** |
-| Plafond de tuiles par défaut : **6000** | Le dépasser **interrompt** le téléchargement et laisse un pack tronqué (`MLRNOfflineModule.kt:525`) | **2026-08-15** |
-
-> **`NV-1` n'est ni confirmé, ni infirmé.** Le plantage survient **avant** qu'une seule tuile soit
-> téléchargée : on sait que le chemin qui mène au hors-ligne raster plante, on ne sait toujours pas
-> si le hors-ligne raster lui-même fonctionne. `NV-3`, `NV-4` et `NV-6` restent bloqués par le même
-> défaut — **aucun octet, aucune tuile n'a pu être mesuré**.
-
-**Portée du constat :** un seul environnement, un émulateur `x86_64`. Ni `arm64` réel, ni iOS.
-Arbitrage : [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md).
+Le téléchargement de tuiles pour un usage hors-ligne a été **exécuté et a échoué** sur la stack
+précédente (plantage natif reproductible, 4 essais sur 4, avant même le premier octet téléchargé) —
+détail du constat et de l'exploration menée : [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md).
+Le `Must` hors-ligne d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **non
+livré** : sur `flutter_map`, seul le cache de tuiles déjà parcourues sert hors réseau (`NV-W2`,
+[`nfr.md`](nfr.md)), aucun téléchargement de zone n'existe.

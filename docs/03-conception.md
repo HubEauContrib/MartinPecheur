@@ -1,33 +1,36 @@
 # 03 — Conception
 
-**Cible** : **React Native + TypeScript**, **Android et iOS** en v1 ([`ADR-010`](adr/ADR-010-react-native.md)). Windows, macOS et Mac Catalyst sont hors périmètre.
+**Cible** : **Flutter / Dart**, **Windows en première cible construite** ([`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md)) ; Android réactivé le 2026-09-18 (jamais construit ni lancé), iOS configuré (jamais compilé).
 
-> ⚠️ **Réécrit le 2026-07-31.** Ce document décrivait une stack .NET MAUI jusqu'à cette date. Le commanditaire a révisé son arbitrage : [`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md), [`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) et [`ADR-009`](adr/ADR-009-cible-windows.md) sont remplacés par [`ADR-010`](adr/ADR-010-react-native.md).
+> ⚠️ **Deux bascules de stack avant celle-ci.** Ce document décrivait d'abord .NET MAUI, puis React
+> Native + MapLibre : [`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md), [`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md),
+> [`ADR-009`](adr/ADR-009-cible-windows.md) et [`ADR-010`](adr/ADR-010-react-native.md) racontent
+> pourquoi chacune a été abandonnée. La cible actuelle est tranchée par [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md)
+> (arbitrage du commanditaire du 2026-09-12).
 
 ## 1. Stack
 
 ### 1.1 Ce qui a été éliminé
 
-`react-native-maps` (Google/Apple Maps) est écarté : incompatible avec des **tuiles personnalisées** et avec le **hors-ligne**, qui sont deux exigences du produit. Le même motif avait éliminé `Microsoft.Maui.Controls.Maps` dans la conception précédente — la contrainte vient du produit, pas de la technologie.
+Deux bibliothèques de carte liées à une plateforme native (`Microsoft.Maui.Controls.Maps`, puis
+`react-native-maps`) ont été écartées avant Flutter : incompatibles avec des **tuiles
+personnalisées** et avec le **hors-ligne**, deux exigences du produit — la contrainte vient du
+produit, pas de la technologie. Sur Flutter, `flutter_map` (retenu, voir `CLAUDE.md` § Stack) répond
+aux deux.
 
-### 1.2 Le choix — [`ADR-010`](adr/ADR-010-react-native.md)
+### 1.2 Le choix — [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md), [`ADR-014`](adr/ADR-014-feature-first-mvvm.md)
 
-**`@maplibre/maplibre-react-native` (v11+), adossé à MapLibre Native.**
+**`flutter_map`**, fond de tuiles raster IGN Géoplateforme (WMTS KVP).
 
 | Besoin | Couverture |
 |---|---|
-| Clustering sur ~4 140 points | Configuration de couche, cas d'usage courant |
-| Tuiles WMTS/XYZ personnalisées | Sources natives |
-| **Hors-ligne** | **`OfflineManager.createPack`** — région + niveaux de zoom, téléchargement suivi par callbacks |
-| Rendu | **Natif, accéléré GPU** — pas de WebView à nourrir |
+| Regroupement de ~4 150 points | Regroupement par zone administrative sous le zoom 9, sans bibliothèque ([`ADR-015`](adr/ADR-015-regroupement-par-zone-administrative.md)) |
+| Tuiles WMTS personnalisées | `TileLayer(urlTemplate: …)`, gabarit KVP passé tel quel |
+| **Hors-ligne** | Cache de tuiles **intégré à `flutter_map` depuis 8.2** pour les zones déjà parcourues ; aucun téléchargement de zone à la demande — le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste non livré |
+| Rendu | Widgets Flutter, compilés nativement sur chaque cible |
 
-C'est le hors-ligne qui a fait basculer la décision : il était un **lot de développement à chiffrer** en .NET, il est une **API fournie** ici.
-
-⚠️ **v11 a changé son API hors-ligne** : packs identifiés par id auto-généré, `addListener`/`removeListener` au lieu de `subscribe`/`unsubscribe`. Cibler la v11+ dès le départ.
-
-**Fond de carte** : IGN Géoplateforme WMTS (Licence Ouverte, cohérent avec des données françaises), OSM en repli (ODbL). *Inchangé — ce choix ne dépendait pas de la stack.*
-**Stockage** : SQLite (`expo-sqlite` ou `op-sqlite`, **à trancher**) ; les packs de tuiles sont gérés par MapLibre, pas par nous.
-**Empaquetage** : **Expo avec *development builds*** — `maplibre-react-native` embarque du code natif, Expo Go ne suffit pas.
+**Fond de carte** : IGN Géoplateforme WMTS (Licence Ouverte, cohérent avec des données françaises), OSM en repli (ODbL). *Inchangé à travers les trois stacks — ce choix ne dépendait d'aucune d'elles.*
+**Stockage local** : `shared_preferences` pour la préférence simple ([`ADR-011`](adr/ADR-011-stockage-local.md)) ; moteur structuré (favoris, cache persistant) encore à trancher.
 
 ## 2. Architecture
 
@@ -128,23 +131,31 @@ flowchart LR
 
 > Cette règle est portée par **un composant unique** — le décorateur de dépôt `CachePolicy`, sous `lib/data/` ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md) ; le principe « un seul endroit » vient d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md), son véhicule a changé) — jamais recopiée dans un dépôt nu, un ViewModel ou un widget.
 
-### 4.2 Implémentation React Native
+### 4.2 Implémentation — client HTTP
 
-- Client `fetch` par source, avec **retry et backoff exponentiel à gigue** sur 429, 5xx et erreurs réseau transitoires.
-- **206 doit être traité comme un succès** : `fetch` ne lève pas, mais tout test `status === 200` casse dès la première pagination (`C-06`). Normaliser 200 et 206 au même endroit.
-- État du réseau vérifié avant toute tentative (`@react-native-community/netinfo`, **à confirmer**).
+- Client `package:http` par source, avec **retry et backoff exponentiel à gigue** sur 429, 5xx et erreurs réseau transitoires ([`CLAUDE.md`](../CLAUDE.md) § HTTP) — ✅ livré en T0 (`N4`).
+- **206 doit être traité comme un succès** (`C-06`) : normaliser 200 et 206 au même endroit, jamais un test `status == 200` seul qui casse dès la première pagination.
 - Throttle client global : Hub'Eau n'annonce aucun quota, et l'app n'a pas de proxy pour mutualiser la charge de sa base installée (`C-15`).
-- Conversion l/s → m³/s dans le mapper uniquement, couverte par test unitaire (`BR-002`). **Types *branded*** pour empêcher qu'un `number` en l/s soit passé là où on attend des m³/s — TypeScript ne l'interdit pas seul.
-- Toute nomenclature porte une branche `Inconnu`, garantie par un `switch` exhaustif gardé par `never` (`BR-011`).
+- Conversion l/s → m³/s **et** mm → m dans le mapper uniquement, couverte par test unitaire (`BR-002`). **`extension type`** (`LitresPerSecond`, `CubicMetresPerSecond`, `Millimetres`, `Metres`) pour empêcher qu'un `double` nu en l/s soit passé là où on attend des m³/s — Dart les ferme dans les deux sens.
+- Toute nomenclature porte une branche `Inconnu`, garantie par un `sealed class` + `switch` exhaustif — oublier une branche est une erreur de compilation (`BR-011`).
 
-### 4.3 Hors-ligne « dernière carte consultée »
+### 4.3 Hors-ligne « dernière carte consultée » — 💭 non livré, mécanisme à trancher
 
-1. À chaque stabilisation de la carte, `DerniereVueCarte` est mise à jour (bbox + zoom).
-2. Les `Station` et `PointOnde` de cette bbox, avec leur dernière observation connue, sont déjà en base : aucune duplication.
-3. Un **pack MapLibre** est créé pour la bbox ± marge, sur le zoom courant ± 2 niveaux, via `OfflineManager.createPack`.
-4. Au lancement sans réseau : lecture de `DerniereVueCarte` → centrage → **le pack local sert les tuiles nativement** → marqueurs au dernier état connu → bandeau persistant « Mode hors-ligne — données du JJ/MM/AAAA à HH:MM ».
+Cette section décrit un **besoin**, pas un mécanisme retenu : le hors-ligne cartographique a
+échoué sur la stack précédente ([`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md)) et
+n'a pas été repris depuis la bascule Flutter. Sur `flutter_map`, seul le cache de tuiles déjà
+parcourues sert hors réseau (constaté le 2026-09-13, `NV-W2`) ; aucun téléchargement de zone à la
+demande n'existe. Le besoin fonctionnel reste :
 
-> **Ce point faible a disparu.** La conception précédente devait développer spécifiquement l'énumération, le téléchargement et le stockage des tuiles XYZ, faute d'équivalent côté .NET. `OfflineManager.createPack` couvre le besoin ([`ADR-010`](adr/ADR-010-react-native.md), vérifié le 2026-07-31). ⚠️ **Reste à constater** que `createPack` accepte bien une source **raster WMTS** (IGN) et pas seulement des tuiles vectorielles — non vérifié.
+1. À chaque stabilisation de la carte, retenir la dernière bbox + zoom consultés.
+2. Les stations et points ONDE de cette bbox, avec leur dernière observation connue, doivent être
+   disponibles hors réseau — sans duplication avec le cache déjà en mémoire.
+3. Un mécanisme de téléchargement explicite pour la bbox ± marge reste **à concevoir** : aucune
+   bibliothèque de tuiles hors-ligne n'est retenue à ce jour.
+4. Au lancement sans réseau : centrage sur la dernière vue → marqueurs au dernier état connu →
+   bandeau persistant « Mode hors-ligne — données du JJ/MM/AAAA à HH:MM ».
+
+Le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **non livré**.
 
 ## 5. Arborescence des écrans
 

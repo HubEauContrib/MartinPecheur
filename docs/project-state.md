@@ -1,6 +1,6 @@
 # État du projet
 
-**Mis à jour :** 2026-09-23 — **`X1` et `X2` faites** (Gherkin, matrice de traçabilité) ; **sonde de fluidité `X3` codée**, 🔄 mesure du commanditaire due ; **1 185 tests verts**. Précédemment, 2026-09-23 — **lot 5 clos** : `K1`, `K2`, `K3` faites, `K2` et `K3` **constatées à l'écran sur Windows en release** par le commanditaire (six sur six) — clavier, ordre de tabulation, zone cliente minimale 800 × 700, première construction native du code de `K3` réussie ; **1 077 tests verts**. Précédemment, 2026-09-23 — **`K2` codée** (étapes 1 à 4) : raccourcis clavier, ordre de tabulation déclaré, carte parcourue au Tab (arbitrage du commanditaire), **1 057 tests verts** ; 🔄 constat d'écran dû. Précédemment, 2026-09-23 — **`K1` faite** : boutons zoom avant, zoom arrière et recentrage, cible de 44 pt déclarée une seule fois (`lib/features/shared/tap_target.dart`), **1 026 tests verts**. Précédemment, 2026-09-23 — **lot 4 bis clos** : `Z4` constatée à l'écran sur Windows par le commanditaire ; 54 stations aux coordonnées inversées par Hub'Eau corrigées (`C-18`, `5dde8d5`) et revues à l'écran ; chevauchement des pastilles d'Île-de-France accepté pour T1 (point 43) ; **998 tests verts**. Précédemment, 2026-09-23 — **`Z3` faite** : `MapViewModel` regroupe par région sous le zoom 7, par département de 7 à 9, marqueurs individuels à partir de 9 ; préchargement inhibé sous 9 ; **972 tests verts**. Précédemment, 2026-09-23 — **`Z2` faite** (lot 4 bis, `ADR-015`) : stations et points ONDE rattachés à leur région et à leur département, `clusterByArea`, `mostSevere` (`BR-009`), treize champs ONDE vérifiés par appel réel (`T-16`), **948 tests verts**. Précédemment, 2026-09-23 — **lot 4 de T1 clos** : `W3c` constaté à l'écran sur Windows par le commanditaire (aucun bandeau, contrôle « ⚠ Avertissement » présent, fenêtre conforme) ; PR #12 fusionnée sur `dev` (`5f02d3e`), 908 tests verts. Précédemment, 2026-09-23 — **« trop de bandeaux »** : bandeau de carte, menu et encart daté de fiche remplacés par un seul contrôle « ⚠ Avertissement » (point 41, tâche `W3c`, 42 tâches actives). Précédemment, 2026-09-22 — plan T1 révisé en place (`H1`, `H2` insérées, `BR-013` reporté en T2, heure locale arbitrée), puis **regroupement par zone administrative** arbitré (`ADR-015`, lot 4 bis `Z1`→`Z4`, 39 tâches actives). Précédemment, 2026-09-18 — **lot 3 de T1 clos** (`U1`→`U6`, les vues), après les lots 1 et 2 et le correctif `T-14`. Session interrompue à la demande du commanditaire (arrêt du poste) : voir § « Prochaine étape ».
+**Mis à jour :** 2026-09-23 — **`X5` faite** : traces React Native purgées de la doc (ADR remplacés gardés), deux guides APK et six PNG Expo retirés ; `node_modules/` reste sur le poste, **à supprimer par le commanditaire** (ignoré par git). Précédemment, 2026-09-23 — **`X1` et `X2` faites** (Gherkin, matrice de traçabilité) ; **sonde de fluidité `X3` codée**, 🔄 mesure du commanditaire due ; **1 185 tests verts**. Précédemment, 2026-09-23 — **lot 5 clos** : `K1`, `K2`, `K3` faites, `K2` et `K3` **constatées à l'écran sur Windows en release** par le commanditaire (six sur six) — clavier, ordre de tabulation, zone cliente minimale 800 × 700, première construction native du code de `K3` réussie ; **1 077 tests verts**. Précédemment, 2026-09-23 — **`K2` codée** (étapes 1 à 4) : raccourcis clavier, ordre de tabulation déclaré, carte parcourue au Tab (arbitrage du commanditaire), **1 057 tests verts** ; 🔄 constat d'écran dû. Précédemment, 2026-09-23 — **`K1` faite** : boutons zoom avant, zoom arrière et recentrage, cible de 44 pt déclarée une seule fois (`lib/features/shared/tap_target.dart`), **1 026 tests verts**. Précédemment, 2026-09-23 — **lot 4 bis clos** : `Z4` constatée à l'écran sur Windows par le commanditaire ; 54 stations aux coordonnées inversées par Hub'Eau corrigées (`C-18`, `5dde8d5`) et revues à l'écran ; chevauchement des pastilles d'Île-de-France accepté pour T1 (point 43) ; **998 tests verts**. Précédemment, 2026-09-23 — **`Z3` faite** : `MapViewModel` regroupe par région sous le zoom 7, par département de 7 à 9, marqueurs individuels à partir de 9 ; préchargement inhibé sous 9 ; **972 tests verts**. Précédemment, 2026-09-23 — **`Z2` faite** (lot 4 bis, `ADR-015`) : stations et points ONDE rattachés à leur région et à leur département, `clusterByArea`, `mostSevere` (`BR-009`), treize champs ONDE vérifiés par appel réel (`T-16`), **948 tests verts**. Précédemment, 2026-09-23 — **lot 4 de T1 clos** : `W3c` constaté à l'écran sur Windows par le commanditaire (aucun bandeau, contrôle « ⚠ Avertissement » présent, fenêtre conforme) ; PR #12 fusionnée sur `dev` (`5f02d3e`), 908 tests verts. Précédemment, 2026-09-23 — **« trop de bandeaux »** : bandeau de carte, menu et encart daté de fiche remplacés par un seul contrôle « ⚠ Avertissement » (point 41, tâche `W3c`, 42 tâches actives). Précédemment, 2026-09-22 — plan T1 révisé en place (`H1`, `H2` insérées, `BR-013` reporté en T2, heure locale arbitrée), puis **regroupement par zone administrative** arbitré (`ADR-015`, lot 4 bis `Z1`→`Z4`, 39 tâches actives). Précédemment, 2026-09-18 — **lot 3 de T1 clos** (`U1`→`U6`, les vues), après les lots 1 et 2 et le correctif `T-14`. Session interrompue à la demande du commanditaire (arrêt du poste) : voir § « Prochaine étape ».
 
 > Ce document est l'**état vivant** du projet. En cas de contradiction avec le code, **le code a
 > raison** — et ce document se corrige dans le même commit.
@@ -342,8 +342,9 @@ Relevés avant la bascule de stack, et **indépendants d'elle** :
 | Zoom 19 servi | Le géoplateforme sert **aussi** le zoom 19 (constaté par appel réel). Le zoom natif **18** retenu par `M1` est un **choix de charge**, pas une limite de la source | plan T0, écart `M1` |
 
 > Les vérifications de 2026-07-31 portant sur le SDK de cartographie de la stack précédente
-> (chemin de code du téléchargement hors-ligne, versions de paquets npm, signature de `createPack`)
-> sont **caduques** et rangées dans l'historique, en fin de document.
+> (chemin de code du téléchargement hors-ligne, versions de paquets npm, signature de la fonction de
+> téléchargement de tuiles) sont **caduques** — voir [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md)
+> pour ce qui a motivé l'abandon de cette stack.
 
 ## Points non vérifiés, assumés comme tels
 
@@ -381,76 +382,4 @@ Une case vide est une case vide, pas un « probablement ».
 
 ---
 
-<details>
-<summary><strong>Historique — React Native (2026-07-31 → 2026-09-12) et .NET (2026-07-30 → 07-31)</strong></summary>
-
-> ⚠️ Les hashes cités dans cet historique sont ceux de l'arbre git antérieur au 2026-09-12 (`archive/pre-flutter-2026-09-09`, absent de ce clone) : **aucun n'est résolvable ici**.
-
-**Deux socles applicatifs abandonnés en six semaines.** Le cadrage produit n'a été refait ni l'une
-ni l'autre fois — c'est ce qui a rendu ces bascules soutenables, et il ne faut pas en conclure
-qu'elles étaient bon marché. Ce qui suit est **du passé** : aucune ligne n'y décrit l'état actuel.
-
-### .NET MAUI Blazor Hybrid — 2026-07-30 → 2026-07-31
-
-Retiré du *working tree* le 2026-07-31 sur arbitrage du commanditaire (`74afe6d`), après
-[`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md). Étaient livrés : `src/MartinPecheur.App`
-(3 cibles vertes, `696be3a`), les projets `Domain` / `Application` / `Data` / `tests` (`22e9850`),
-et `MeasurementUnits.cs` avec 8 tests verts. Motif de l'abandon : le hors-ligne cartographique était
-un **lot de développement à chiffrer** en .NET.
-
-### React Native + Expo — 2026-07-31 → 2026-09-12
-
-Plan suivi : `T0 — Socle React Native` (`docs/superpowers/plans/2026-07-31-t0-socle-react-native.md`,
-**retiré du dépôt** depuis). Vérification verte au 2026-08-15 : `tsc --noEmit` sans erreur, ESLint
-propre, **149 tests** sur 18 suites.
-
-| Tâche | Livrable | Commit |
-|---|---|---|
-| `S1`, `S2` | Projet Expo `57.0.9`, TypeScript `6.0.3`, `tsconfig` durci | `08bf832` |
-| `S3` | Jest projet `unit` + ESLint + test d'architecture | `8c6ed61` |
-| `S4` | Référentiel figé — 4 150 stations, 6 604 249 octets | `0a76733` |
-| `D1`-`D4` | Conversion d'unités par types *branded*, nomenclature ONDE close, fraîcheur, entités et dépôts | `17d3359`, `37cd92a`, `20842be`, `42948e8` |
-| `N1`-`N5` | `isSuccess` 200/206, recul à gigue, mapper, client Hub'Eau, décorateur `CachePolicy` | `5504b3c`, `b13a11b`, `dbb74d3`, `2cf3ad2` |
-| `M1`-`M3` | MapLibre 11.3.6 compile, fond IGN raster affiché, clustering des 4 150 stations | `b035424`, `0c3596a` |
-| `P1`-`P4` | Outillage percentiles — aspiration `obs_elab`, quinzaines, poids mesuré, procédure | `e535e27`, `0954f9e` |
-
-**Ce qui a tué la stack — `M4`, le pack hors-ligne.** Exécuté le **2026-08-15**,
-`OfflineManager.createPack` **tue le processus** : `SIGABRT` sur une `std::regex_error` non
-rattrapée dans le fil `DatabaseFileSource`, ~0,7 s après la création du pack, **4 essais sur 4**,
-base vierge comprise, avec le style vectoriel de démonstration — donc ni l'IGN ni le raster en
-cause. **Zéro requête HTTP** avant la mort. Reproduit le **2026-08-18** sur `arm64` réel (Galaxy
-A54 5G, Android 16) — ⚠️ par observation seule, la signature n'y a pas été relevée.
-
-**Option E, 2026-08-24 — épuisée, pas démontrée épuisée.** Le SDK natif est épinglable par
-propriété Gradle : `13.0.0`, `13.1.0`, `13.2.0` et `13.5.1` plantent **à l'identique** ; `12.0.0` ne
-compile pas (`ColorReliefLayer` absent), ce qui bornait l'espace de recherche à
-`[13.0.0 … 13.5.1]`. Huit versions intercalaires n'ont jamais été essayées.
-Arbitrage : [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md), puis bascule Flutter
-([`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md)).
-
-**Le `createPack` n'a jamais été départagé.** « Que `createPack` télécharge les tuiles d'un WMTS
-IGN » est resté **ni confirmé ni infirmé** : l'appel plantait avant qu'une tuile soit téléchargée.
-Idem pour `tileset.tiles[0]` (`NV-3`), le volume d'un pack départemental (`NV-4`, **aucun octet
-mesuré**) et l'absence de test amont du chemin raster hors-ligne (`NV-6`).
-
-### La leçon qui resservira si Android revient
-
-**Installer le SDK Android sur un chemin sans espace ni parenthèse.** Le NDK ne les supporte pas :
-sous un chemin du type `Program Files (x86)`, Windows réduit le chemin en notation 8.3, `clang++.exe` devient
-`CLANG_~1.EXE`, et **clang choisit son mode C ou C++ d'après son propre nom d'exécutable**. Privé de
-ses `++`, il compile en C et ne lie pas la bibliothèque standard C++ — le symptôme, des symboles
-C++ manquants au link, **ne désigne jamais le chemin**. Deux diagnostics faux (« NDK trop ancien »,
-« NDK incomplet ») ont été écrits avant celui-là.
-
-Basculer `ANDROID_HOME` vers le SDK utilisateur (`%LOCALAPPDATA%\Android\Sdk`) — sans espace,
-**inscriptible sans élévation** — a levé les trois obstacles d'un coup le 2026-08-15, et `M1` a
-compilé (`app-debug.apk`, 58 Mo). Deux autres pièges relevés ce jour-là :
-
-- **`sdkmanager` en ligne de commande échoue en silence** : il n'affiche que
-  `Failed to read or create install properties file`, ne renvoie aucun code d'erreur et n'écrit
-  rien. Ne pas le re-tenter.
-- **Sonder le registre (`HKCU\Environment`), pas l'environnement du processus** : un inventaire
-  publié plus tôt le 2026-08-15 déclarait l'outillage Android absent — **il était faux sur les cinq
-  lignes**.
-
-</details>
+> Historique des stacks abandonnées avant Flutter : voir [`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md), [`ADR-010`](adr/ADR-010-react-native.md) et [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md).
