@@ -370,8 +370,12 @@ void main() {
           .firstWhere((AreaCluster<StationPoint> c) => c.area.code == '76');
       expect(occitanie.area.label, 'OCCITANIE');
       expect(occitanie.count, 753);
-      expect(occitanie.latitude, closeTo(43.0786, 1e-4));
-      expect(occitanie.longitude, closeTo(2.8731, 1e-4));
+      // Barycentre recalcule le 2026-09-23 apres correction de `C-18`
+      // (`code_projection 31` inversait latitude/longitude pour 54 stations
+      // metropolitaines, dont certaines en region 76) : 43,0786 ; 2,8731
+      // etaient calcules sur des positions fausses.
+      expect(occitanie.latitude, closeTo(43.674926, 1e-4));
+      expect(occitanie.longitude, closeTo(2.276708, 1e-4));
 
       final AreaCluster<StationPoint> laReunion = clustering.clusters
           .firstWhere((AreaCluster<StationPoint> c) => c.area.code == '04');

@@ -67,6 +67,7 @@
 | C-15 | **Aucun SLA.** CGU : mise à disposition « sans garantie sur leur disponibilité » | Indisponibilité normale | Mode dégradé obligatoire, pas optionnel |
 | C-16 | VigiEau en **version `0.1`** sur `beta.gouv.fr` | Rupture possible sans préavis | Interface d'abstraction + repli data.gouv |
 | C-17 | Paramètre `fields` qualifié d'**expérimental** par la spec | Réponse inattendue | Utilisable pour alléger, avec repli sans `fields` |
+| C-18 | **54 stations métropolitaines ont `code_projection: 31`** : `latitude_station`/`longitude_station` (et `geometry.coordinates`, qui les recopie) y sont **inversées** — `coordonnee_x_station`/`coordonnee_y_station` sont justes | Pastille de région/département affichée hors de sa zone (constaté à l'écran le 2026-09-23, ex. « Hauts-de-France » près de Besançon) | Sous `code_projection == 31`, lire `coordonnee_x_station`/`coordonnee_y_station` (x = longitude, y = latitude) plutôt que `geometry.coordinates` |
 
 ## 5. Fraîcheur et couverture — mesurées
 

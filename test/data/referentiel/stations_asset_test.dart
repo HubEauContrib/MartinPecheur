@@ -24,6 +24,9 @@ Map<String, dynamic> _featureWith({
   Object? codeRegion,
   Object? enService = true,
   Object? libelleCoursEau = 'la Loire',
+  Object? codeProjection,
+  Object? coordonneeXStation,
+  Object? coordonneeYStation,
 }) => <String, dynamic>{
   'type': 'Feature',
   'properties': <String, dynamic>{
@@ -33,6 +36,9 @@ Map<String, dynamic> _featureWith({
     'code_region': codeRegion,
     'en_service': enService,
     'libelle_cours_eau': libelleCoursEau,
+    'code_projection': codeProjection,
+    'coordonnee_x_station': coordonneeXStation,
+    'coordonnee_y_station': coordonneeYStation,
   },
   'geometry': geometry,
 };
@@ -332,5 +338,143 @@ void main() {
       expect(sansAucune, 37);
       expect(avecLesDeux + sansAucune, result.points.length);
     });
+
+    // C-18 (2026-09-23) : 54 stations métropolitaines ont `code_projection
+    // 31` — pour elles, `latitude_station`/`longitude_station` (et
+    // `geometry.coordinates`, qui les recopie) sont INVERSÉES.
+    // `coordonnee_x_station`/`coordonnee_y_station` sont justes. Vérifié par
+    // appel réel le 2026-09-23 à 12:38:59 UTC :
+    // https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations
+    // ?code_station=H000000201,H004000101&fields=code_station,
+    // latitude_station,longitude_station,coordonnee_x_station,
+    // coordonnee_y_station,code_projection,code_departement&format=json
+    // → HTTP 200, api_version 2.0.1 : pour les deux, code_projection 31,
+    // latitude_station/longitude_station inversées, coordonnee_x/y_station
+    // justes (H000000201 : x 4.099322, y 49.989435, dép. 59 ; H004000101 :
+    // x 3.6304581, y 49.8976718, dép. 02).
+    test('H000000201 (code_projection 31) : latitude lue depuis '
+        'coordonnee_y_station, longitude depuis coordonnee_x_station', () {
+      final String jsonText = File('assets/referentiel/stations.json')
+          .readAsStringSync();
+      final StationsReadResult result = parseStations(jsonText);
+
+      final StationPoint anor = result.points.firstWhere(
+        (StationPoint p) => p.code.value == 'H000000201',
+      );
+
+      expect(anor.latitude, closeTo(49.989435, 1e-6));
+      expect(anor.longitude, closeTo(4.099322, 1e-6));
+    });
+
+    // `J543211003` (dép. 56, projection 26) N'est PAS une inversion : point
+    // ouvert, listé nommément, jamais corrigé ni inventé (consigne du
+    // commanditaire, 2026-09-23).
+    test("aucun StationPoint d'une région métropolitaine (codes hors 01, "
+        '02, 03, 04, 06 — DOM) n\'a une position hors de la France '
+        "métropolitaine (latitude hors [41 ; 51.5] ou longitude hors "
+        "[-5.5 ; 10]), sauf J543211003 (point ouvert, non traité)", () {
+      final String jsonText = File('assets/referentiel/stations.json')
+          .readAsStringSync();
+      final StationsReadResult result = parseStations(jsonText);
+
+      const Set<String> codesRegionsDom = <String>{
+        '01',
+        '02',
+        '03',
+        '04',
+        '06',
+      };
+      const String pointOuvert = 'J543211003';
+
+      final List<StationPoint> horsEmprise = result.points.where((
+        StationPoint p,
+      ) {
+        if (p.code.value == pointOuvert) {
+          return false;
+        }
+        final AdministrativeArea? region = p.region;
+        if (region == null || codesRegionsDom.contains(region.code)) {
+          return false;
+        }
+        return p.latitude < 41 ||
+            p.latitude > 51.5 ||
+            p.longitude < -5.5 ||
+            p.longitude > 10;
+      }).toList();
+
+      expect(
+        horsEmprise.map((StationPoint p) => p.code.value).toList(),
+        isEmpty,
+      );
+    });
+  });
+
+  group('parseStations — code_projection 31 (C-18), position lue depuis '
+      'coordonnee_x/y_station', () {
+    test('projection 31 avec X/Y numériques : longitude = X, latitude = Y, '
+        'pas geometry.coordinates', () {
+      final StationsReadResult result = parseStations(
+        _collectionOf(<Map<String, dynamic>>[
+          _featureWith(
+            // geometry porte les valeurs INVERSEES, comme sur l'asset reel.
+            geometry: <String, dynamic>{
+              'type': 'Point',
+              'coordinates': <double>[49.989435, 4.099322],
+            },
+            codeProjection: 31,
+            coordonneeXStation: 4.099322,
+            coordonneeYStation: 49.989435,
+          ),
+        ]),
+      );
+
+      final StationPoint point = result.points.single;
+      expect(point.longitude, closeTo(4.099322, 1e-6));
+      expect(point.latitude, closeTo(49.989435, 1e-6));
+    });
+
+    test('projection 26 : geometry.coordinates lue meme si X/Y presents '
+        '(seule la projection 31 est concernee)', () {
+      final StationsReadResult result = parseStations(
+        _collectionOf(<Map<String, dynamic>>[
+          _featureWith(
+            geometry: const <String, dynamic>{
+              'type': 'Point',
+              'coordinates': <double>[3.6304581, 49.8976718],
+            },
+            codeProjection: 26,
+            coordonneeXStation: 499629.0,
+            coordonneeYStation: 5330897.0,
+          ),
+        ]),
+      );
+
+      final StationPoint point = result.points.single;
+      expect(point.longitude, closeTo(3.6304581, 1e-6));
+      expect(point.latitude, closeTo(49.8976718, 1e-6));
+    });
+
+    test(
+      'projection 31 sans X/Y numeriques : repli sur geometry.coordinates',
+      () {
+        final StationsReadResult result = parseStations(
+          _collectionOf(<Map<String, dynamic>>[
+            _featureWith(
+              geometry: const <String, dynamic>{
+                'type': 'Point',
+                'coordinates': <double>[1.335147948, 47.584957074],
+              },
+              codeProjection: 31,
+              coordonneeXStation: null,
+              coordonneeYStation: null,
+            ),
+          ]),
+        );
+
+        final StationPoint point = result.points.single;
+        expect(point.longitude, closeTo(1.335147948, 1e-6));
+        expect(point.latitude, closeTo(47.584957074, 1e-6));
+      },
+    );
   });
 }
