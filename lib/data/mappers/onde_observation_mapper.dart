@@ -21,6 +21,7 @@
 // planter l'appelant (C-10, BR-011) — une chaîne vide devient `Inconnu(null)`
 // et non `Inconnu('')`, `_text` l'ayant déjà normalisée en absence.
 
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
@@ -95,11 +96,38 @@ OndePoint mapOndePoint(Map<String, dynamic> raw) {
     latitude: rawLatitude.toDouble(),
     longitude: rawLongitude.toDouble(),
     waterCourseLabel: _text(raw, 'libelle_cours_eau'),
-    departement: switch (_text(raw, 'code_departement')) {
-      null => null,
-      final String value => DepartementCode(value),
-    },
+    departement: _departementArea(raw),
+    region: _regionArea(raw),
   );
+}
+
+/// Lit le département (ADR-015) sous forme d'[AdministrativeArea]. Le code
+/// reste validé par [DepartementCode], comme avant `Z2` — un code mal formé
+/// lève toujours, propagé tel quel. `libelle_departement` absent replie le
+/// libellé sur le code : les fixtures capturées avant `T-16` ne portent pas
+/// ce champ.
+AdministrativeArea? _departementArea(Map<String, dynamic> raw) {
+  final String? rawCode = _text(raw, 'code_departement');
+  if (rawCode == null) {
+    return null;
+  }
+  final DepartementCode code = DepartementCode(rawCode);
+  final String label = _text(raw, 'libelle_departement') ?? code.value;
+  return AdministrativeArea(code: code.value, label: label);
+}
+
+/// Lit la région (ADR-015). Aucun type dédié ne valide `code_region` — une
+/// chaîne libre, comme l'asset la porte (`ADR-015`) : un `code_region`
+/// numérique lève tout de même une [FormatException], via [_text], comme
+/// n'importe quel autre champ texte. `libelle_region` absent replie le
+/// libellé sur le code.
+AdministrativeArea? _regionArea(Map<String, dynamic> raw) {
+  final String? rawCode = _text(raw, 'code_region');
+  if (rawCode == null) {
+    return null;
+  }
+  final String label = _text(raw, 'libelle_region') ?? rawCode;
+  return AdministrativeArea(code: rawCode, label: label);
 }
 
 /// Lit `code_station`, partagé par [mapOndeObservation] et [mapOndePoint].

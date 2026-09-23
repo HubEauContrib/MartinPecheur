@@ -178,6 +178,15 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
 (`109905`), chaîne dans `/observations` (`"109905"`) — un modèle qui le type `int` casse sur
 l'un des deux.
 
+- `T-16` **La forme filaire à treize champs (`ADR-015`) est acceptée**, `code_region`,
+  `libelle_region` et `libelle_departement` compris — constaté par appel réel le 2026-09-23 à
+  10:32:44 UTC :
+  `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=code_station,libelle_station,code_departement,libelle_cours_eau,code_campagne,date_observation,code_ecoulement,libelle_ecoulement,latitude,longitude,code_region,libelle_region,libelle_departement`
+  → HTTP **206**, `count` **30**, `api_version` `1.2.0`. Première ligne : `code_station`
+  `"K4640001"`, `code_departement` `"41"`, `libelle_departement` `"Loir-et-Cher"`,
+  `code_region` `"24"`, `libelle_region` `"Centre-Val de Loire"`, `date_observation`
+  `"2026-08-25"`, `code_ecoulement` `"3"`. Les treize champs sont acceptés et rendus.
+
 ## Non vérifié
 
 - **Pourquoi les codes à espaces de bord ne se retrouvent pas** (`T-14 b`) : `" O968 5312 "`

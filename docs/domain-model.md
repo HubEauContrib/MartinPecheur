@@ -48,10 +48,22 @@ Identité + cycle de vie, à la différence des objets-valeur.
 - **`Station`** — identité : `StationCode`. `riverLabel` peut être absent (`null`), jamais une
   chaîne vide (`BR-007`).
 - **`StationPoint`** — la **projection** de `Station` que la carte dessine : code, libellé,
-  latitude, longitude, et rien de plus. Volontairement distincte de `Station` — au zoom national
-  les 4 150 points sont tous dessinés, et porter le département, le cours d'eau et l'état de
-  service dans chacun ne servirait aucun pixel (`NFR-01`). Son dépôt est `StationPointRepository`,
-  séparé de `StationRepository` par ségrégation d'interface.
+  latitude, longitude, et depuis `ADR-015` (2026-09-22) `region` et `departement`
+  (`AdministrativeArea?`, facultatifs) — le rattachement administratif que le regroupement de la
+  carte utilise sous le zoom 9. Volontairement distincte de `Station` malgré tout : au zoom
+  national les 4 150 points sont tous dessinés, et porter le cours d'eau ou l'état de service dans
+  chacun ne servirait aucun pixel (`NFR-01`) — ce sont eux, pas la zone administrative, que
+  `StationPoint` ne transporte pas. Son dépôt est `StationPointRepository`, séparé de
+  `StationRepository` par ségrégation d'interface. `region`/`departement` valent `null` sur les 37
+  stations sans rattachement du référentiel — jamais une zone inventée (`BR-007`).
+- **`AdministrativeArea`** — un code et un libellé de zone administrative (région ou
+  département), le même type des deux côtés (`ADR-015`). Ni `Station`, ni `Qualification` :
+  aucune validation propre, elle ne fait que porter le couple une fois la valeur acceptée par
+  `DepartementCode` (département) ou lue telle quelle (région, aucun type dédié).
+- **`OndePoint`** — la projection du référentiel ONDE (écoulement) : code, libellé, coordonnées,
+  cours d'eau, et depuis `ADR-015` `region` et `departement` en `AdministrativeArea?` (`departement`
+  portait un `DepartementCode?` nu avant Z2 — un seul type de zone désormais, partagé avec
+  `StationPoint`).
 - **`HydroObservation`** — identité : `StationCode` + `measuredAt`. Jamais de valeur sans sa
   date de mesure (`BR-001`). `discharge` et `level` sont déjà convertis (`BR-002`) : aucun
   `double` nu. `null` ≠ zéro (`BR-007`) — un zéro mesuré est un assec, une absence est une
@@ -65,7 +77,10 @@ Identité + cycle de vie, à la différence des objets-valeur.
   coup (`StationPointRepository.withinBounds`, marge proportionnelle comprise).
   `StationRepository` ne porte **plus** de recherche par emprise ni par département depuis la
   relecture du 2026-09-13 : rien ne les appelait, et la carte lit des `StationPoint`, pas des
-  `Station` complètes.
+  `Station` complètes. `StationPointRepository` gagne `all()` (`ADR-015`, 2026-09-22) : tous les
+  points du référentiel, sans filtre d'emprise — le regroupement par zone administrative porte
+  sur l'asset entier, pour que le compte et le barycentre d'une pastille ne dépendent pas du bord
+  de l'écran.
 
 Il n'existe **pas** d'agrégat « état de la rivière » : écoulement (fait observé), débit
 (statistique) et sécheresse (décision préfectorale) restent trois échelles séparées, jamais
@@ -128,6 +143,8 @@ classDiagram
         +String label
         +double latitude
         +double longitude
+        +AdministrativeArea? region
+        +AdministrativeArea? departement
     }
     class StationRepository {
         <<interface>>
@@ -136,6 +153,7 @@ classDiagram
     class StationPointRepository {
         <<interface>>
         +withinBounds(Bounds, double margin) StationPoint[]
+        +all() StationPoint[]
     }
     class HydroObservationRepository {
         <<interface>>

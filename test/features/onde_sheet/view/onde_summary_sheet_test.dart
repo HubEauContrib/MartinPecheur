@@ -16,13 +16,13 @@
 // un échec de tuile ne dirait rien sur ce code.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
@@ -38,7 +38,9 @@ OndePoint _chaon({
   latitude: 47.610620493,
   longitude: 2.173858157,
   waterCourseLabel: waterCourseLabel,
-  departement: departement == null ? null : DepartementCode(departement),
+  departement: departement == null
+      ? null
+      : AdministrativeArea(code: departement, label: departement),
 );
 
 /// Une observation de la fixture : la date, le code brut et le libellé

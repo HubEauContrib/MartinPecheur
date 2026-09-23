@@ -15,6 +15,7 @@
 
 import 'dart:convert';
 
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 
@@ -160,9 +161,59 @@ _ParsedFeature? _parseFeature(Object? feature) {
       label: label,
       latitude: rawLatitude.toDouble(),
       longitude: rawLongitude.toDouble(),
+      region: _regionOf(properties),
+      departement: _departementAreaOf(properties),
     ),
     properties,
   );
+}
+
+/// Analyse la région administrative (`code_region`/`libelle_region`,
+/// ADR-015). Rend `null` — jamais une erreur, jamais un point écarté
+/// (BR-007) — dès que `code_region` est absent, vide ou non textuel : les 37
+/// stations sans rattachement du référentiel (33 transfrontalières, deux à
+/// Boulogne-sur-Mer, deux en Corse) n'en portent aucune. Aucun type dédié ne
+/// valide le code région (à la différence de [DepartementCode]) : c'est une
+/// chaîne libre, comme le référentiel la porte. `libelle_region` absent ou
+/// vide replie le libellé sur le code, comme `libelle_station`.
+AdministrativeArea? _regionOf(Map<String, dynamic> properties) {
+  final Object? rawCode = properties['code_region'];
+  if (rawCode is! String || rawCode.trim().isEmpty) {
+    return null;
+  }
+  final Object? rawLabel = properties['libelle_region'];
+  final String label = (rawLabel is String && rawLabel.trim().isNotEmpty)
+      ? rawLabel
+      : rawCode;
+  return AdministrativeArea(code: rawCode, label: label);
+}
+
+/// Analyse le département administratif (ADR-015), sous forme
+/// d'[AdministrativeArea] — code ET libellé, à la différence de
+/// [_toStationEntity] qui ne porte que le [DepartementCode] validé. Le code
+/// reste validé par [DepartementCode] à la lecture, puis rangé comme `code`
+/// ; un code absent, vide ou mal formé rend `null` — jamais une erreur,
+/// jamais un point écarté (BR-007) : contrairement à [Station], un
+/// [StationPoint] reste dessiné sur la carte sans département connu.
+/// `libelle_departement` absent ou vide replie le libellé sur le code.
+AdministrativeArea? _departementAreaOf(Map<String, dynamic> properties) {
+  final Object? rawCode = properties['code_departement'];
+  if (rawCode is! String) {
+    return null;
+  }
+
+  final DepartementCode code;
+  try {
+    code = DepartementCode(rawCode);
+  } on ArgumentError {
+    return null;
+  }
+
+  final Object? rawLabel = properties['libelle_departement'];
+  final String label = (rawLabel is String && rawLabel.trim().isNotEmpty)
+      ? rawLabel
+      : code.value;
+  return AdministrativeArea(code: code.value, label: label);
 }
 
 /// Construit l'entite [Station] complete a partir de [parsed]. Renvoie

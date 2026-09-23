@@ -9,10 +9,10 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/mappers/onde_observation_mapper.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 
 Map<String, dynamic> _readFixtureRow(String path, {int index = 0}) {
   final String content = File('test/fixtures/$path').readAsStringSync();
@@ -70,7 +70,13 @@ void main() {
       expect(observation.rawFlowCode, '1a');
       expect(observation.point.label, 'Le Trey à Vilcey-sur-Trey');
       expect(observation.point.waterCourseLabel, 'Le Trey');
-      expect(observation.point.departement, DepartementCode('54'));
+      // Fixture capturée avec l'ancienne liste à dix champs (avant Z2) :
+      // libelle_departement absent, le libellé replie sur le code (BR-007).
+      expect(
+        observation.point.departement,
+        const AdministrativeArea(code: '54', label: '54'),
+      );
+      expect(observation.point.region, isNull);
       expect(observation.point.latitude, closeTo(48.931956125, 1e-9));
       expect(observation.point.longitude, closeTo(5.964665997, 1e-9));
     });
@@ -112,7 +118,73 @@ void main() {
       expect(point.latitude, closeTo(47.610620493, 1e-9));
       expect(point.longitude, closeTo(2.173858157, 1e-9));
       expect(point.waterCourseLabel, 'ruisseau la rivière aux loches');
-      expect(point.departement, DepartementCode('41'));
+      // Fixture non filtrée : porte code_region/libelle_region et
+      // libelle_departement, vérifié par appel réel le 2026-09-23 (T-16).
+      expect(
+        point.departement,
+        const AdministrativeArea(code: '41', label: 'Loir-et-Cher'),
+      );
+      expect(
+        point.region,
+        const AdministrativeArea(code: '24', label: 'Centre-Val de Loire'),
+      );
+    });
+  });
+
+  group('mapOndePoint — région et département (ADR-015)', () {
+    test('première ligne de la fixture bbox Loire : région et département '
+        'lus directement, la fixture les porte sans filtre `fields`', () {
+      final Map<String, dynamic> ligne = _readFixtureRow(
+        'onde/observations_bbox_loire_2026-09-13.json',
+      );
+
+      final OndePoint point = mapOndePoint(ligne);
+
+      expect(
+        point.region,
+        const AdministrativeArea(code: '24', label: 'Centre-Val de Loire'),
+      );
+      expect(
+        point.departement,
+        const AdministrativeArea(code: '41', label: 'Loir-et-Cher'),
+      );
+    });
+
+    test('fixture capturée SANS ces trois champs '
+        '(observations_station_P9130001, avant `T-16`) : région null, '
+        'département de code lu et de libellé replié sur le code — aucune '
+        'exception', () {
+      final Map<String, dynamic> ligne = _readFixtureRow(
+        'onde/observations_station_P9130001_code_ecoulement_null_2026-09-14.json',
+      );
+
+      final OndePoint point = mapOndePoint(ligne);
+
+      expect(point.region, isNull);
+      expect(
+        point.departement,
+        const AdministrativeArea(code: '33', label: '33'),
+      );
+    });
+
+    test(
+      'code_departement mal formé lève comme aujourd\'hui (DepartementCode)',
+      () {
+        final Map<String, dynamic> ligne = _readFixtureRow(
+          'onde/observations_bbox_loire_2026-09-13.json',
+        )..['code_departement'] = 'XYZ';
+
+        expect(() => mapOndePoint(ligne), throwsArgumentError);
+      },
+    );
+
+    test('code_region numérique : FormatException, comme tout autre champ '
+        'texte (via _text)', () {
+      final Map<String, dynamic> ligne = _readFixtureRow(
+        'onde/observations_bbox_loire_2026-09-13.json',
+      )..['code_region'] = 24;
+
+      expect(() => mapOndePoint(ligne), throwsA(isA<FormatException>()));
     });
   });
 

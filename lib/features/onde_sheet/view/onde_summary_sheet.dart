@@ -49,12 +49,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/formatting/display_date.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show SheetWarningKind, sheetWarningText;
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
@@ -158,7 +158,10 @@ class OndeSummarySheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final OndePoint point = data.point;
     final OndeObservation? latest = data.latest;
-    final DepartementCode? departement = point.departement;
+    // ADR-015 : departement porte desormais un AdministrativeArea (code +
+    // libelle) ; cette fiche ne lit que le code, exactement ce qu'elle
+    // affichait avant Z2.
+    final AdministrativeArea? departement = point.departement;
 
     // Le contrôle d'avertissement (`W3c`) : TOUJOURS rendu, la fenêtre porte
     // la version ONDE, plus insistante que la version station, quand une
@@ -182,7 +185,7 @@ class OndeSummarySheet extends StatelessWidget {
         Text(
           departement == null
               ? ondeDepartementNonRenseigne
-              : 'Département ${departement.value}',
+              : 'Département ${departement.code}',
         ),
         const SizedBox(height: 8),
         // Les trois lignes de l'invariant, dans l'ordre — ou, sans campagne,

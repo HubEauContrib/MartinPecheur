@@ -3,11 +3,11 @@
 // ici. Ce test vérifie le port des champs, y compris rawFlowCode conservé
 // tel que reçu même quand category est Inconnu (BR-011).
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 
 /// Le point réel de la station K4520001 (D8), relevé sur la fixture
 /// `test/fixtures/onde/observations_station_K4520001_2026-09-13.json`.
@@ -17,7 +17,7 @@ OndePoint _pointK4520001() => OndePoint(
   latitude: 47.610620493,
   longitude: 2.173858157,
   waterCourseLabel: 'ruisseau la rivière aux loches',
-  departement: DepartementCode('41'),
+  departement: const AdministrativeArea(code: '41', label: 'Loir-et-Cher'),
 );
 
 void main() {

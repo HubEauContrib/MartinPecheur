@@ -14,6 +14,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
@@ -105,7 +106,7 @@ OndeObservation _onde(String code, DateTime observedAt) {
       latitude: 47.5,
       longitude: 1.3,
       waterCourseLabel: 'La Loire',
-      departement: DepartementCode('41'),
+      departement: const AdministrativeArea(code: '41', label: '41'),
     ),
     observedAt: observedAt,
     category: const Ecoulement(),
@@ -137,6 +138,9 @@ final class _StationPointRepositoryDouble implements StationPointRepository {
     }
     return configured(calls);
   }
+
+  @override
+  Future<List<StationPoint>> all() async => const <StationPoint>[];
 }
 
 /// Double du depot hydrometrique : retient chaque couple demande, dans

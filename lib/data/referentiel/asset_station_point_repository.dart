@@ -18,7 +18,10 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 
 /// Depot des points de carte, adosse a l'asset fige (ADR-003).
 final class AssetStationPointRepository implements StationPointRepository {
-  AssetStationPointRepository(this._points);
+  /// [points] est rangé une fois pour toutes en liste non modifiable : c'est
+  /// ce que [all] rend directement, sans copie ni recalcul (`ADR-015`).
+  AssetStationPointRepository(List<StationPoint> points)
+    : _points = List<StationPoint>.unmodifiable(points);
 
   final List<StationPoint> _points;
 
@@ -36,4 +39,7 @@ final class AssetStationPointRepository implements StationPointRepository {
       margin: margin,
     );
   }
+
+  @override
+  Future<List<StationPoint>> all() async => _points;
 }

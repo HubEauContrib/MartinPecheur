@@ -5,12 +5,13 @@
 // pur : aucune dépendance d'infrastructure (CLAUDE.md, invariants
 // d'architecture ; ADR-014).
 
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 
 /// Un point du référentiel ONDE — station d'observation de l'écoulement.
 /// Classe immuable simple : aucune validation propre au-delà de celle déjà
-/// portée par [OndeStationCode] et [DepartementCode].
+/// portée par [OndeStationCode] et, à la lecture, par `DepartementCode`
+/// (`lib/domain/station/station.dart`).
 final class OndePoint {
   const OndePoint({
     required this.code,
@@ -19,6 +20,7 @@ final class OndePoint {
     required this.longitude,
     required this.waterCourseLabel,
     required this.departement,
+    this.region,
   });
 
   /// Code de la station ONDE, à huit caractères.
@@ -38,7 +40,14 @@ final class OndePoint {
   /// chaîne vide (BR-007).
   final String? waterCourseLabel;
 
-  /// Département de la station. `null` signifie une absence — jamais une
-  /// chaîne vide (BR-007).
-  final DepartementCode? departement;
+  /// Département de la station (ADR-015) — code ET libellé désormais, le
+  /// même type [AdministrativeArea] que [StationPoint.departement]. `null`
+  /// signifie une absence — jamais une chaîne vide (BR-007). Le code reste
+  /// validé par `DepartementCode` à la lecture (mapper), puis rangé ici
+  /// comme `code`.
+  final AdministrativeArea? departement;
+
+  /// Région de la station (ADR-015). `null` signifie une absence — jamais
+  /// une chaîne vide (BR-007).
+  final AdministrativeArea? region;
 }

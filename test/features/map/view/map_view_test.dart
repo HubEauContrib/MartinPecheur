@@ -15,6 +15,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
@@ -65,6 +66,9 @@ final class _EmptyStationPointRepository implements StationPointRepository {
     Bounds bounds, {
     double margin = defaultViewportMargin,
   }) async => const <StationPoint>[];
+
+  @override
+  Future<List<StationPoint>> all() async => const <StationPoint>[];
 }
 
 final class _EmptyHydroObservationRepository
@@ -117,7 +121,7 @@ OndePoint _leTrey() => OndePoint(
   latitude: 48.885312,
   longitude: 6.023145,
   waterCourseLabel: 'Le Trey',
-  departement: DepartementCode('54'),
+  departement: const AdministrativeArea(code: '54', label: '54'),
 );
 
 OndePoint _laSeille() => OndePoint(
@@ -126,7 +130,7 @@ OndePoint _laSeille() => OndePoint(
   latitude: 48.895,
   longitude: 6.242,
   waterCourseLabel: 'La Seille',
-  departement: DepartementCode('54'),
+  departement: const AdministrativeArea(code: '54', label: '54'),
 );
 
 OndeObservation _observation(

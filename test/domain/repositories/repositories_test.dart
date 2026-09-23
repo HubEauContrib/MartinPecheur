@@ -2,6 +2,7 @@
 // infrastructure : les doubles ci-dessous ne dependent que du domaine.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
@@ -19,7 +20,7 @@ OndePoint _pointK4520001() => OndePoint(
   latitude: 47.610620493,
   longitude: 2.173858157,
   waterCourseLabel: 'ruisseau la rivière aux loches',
-  departement: DepartementCode('41'),
+  departement: const AdministrativeArea(code: '41', label: 'Loir-et-Cher'),
 );
 
 /// Double en memoire de [StationRepository] : une seule methode, comme son

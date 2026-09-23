@@ -37,6 +37,12 @@ const String _basePath = '/api/v1/ecoulement';
 /// maintenue en double avec `test/data/http/onde_uris_test.dart` : un ajout
 /// de lecture dans `onde_observation_mapper.dart` impose une mise à jour ici
 /// **et** dans son test.
+///
+/// `code_region`, `libelle_region` et `libelle_departement` s'y ajoutent
+/// depuis `ADR-015` (2026-09-22, treize champs) : le regroupement par zone
+/// administrative de la carte a besoin de la région et du libellé du
+/// département, que la réponse porte dès que `fields` les demande — vérifié
+/// par appel réel le 2026-09-23 (`T-16`, `docs/sources/onde.md`).
 const List<String> _observationFields = <String>[
   'code_station',
   'libelle_station',
@@ -48,6 +54,9 @@ const List<String> _observationFields = <String>[
   'libelle_ecoulement',
   'latitude',
   'longitude',
+  'code_region',
+  'libelle_region',
+  'libelle_departement',
 ];
 
 /// URI de `/observations` filtrée par emprise, depuis [since] (inclus).

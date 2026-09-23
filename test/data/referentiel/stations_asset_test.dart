@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 
@@ -20,6 +21,7 @@ Map<String, dynamic> _featureWith({
   },
   String? codeStation = 'K447001001',
   Object? codeDepartement = '41',
+  Object? codeRegion,
   Object? enService = true,
   Object? libelleCoursEau = 'la Loire',
 }) => <String, dynamic>{
@@ -28,6 +30,7 @@ Map<String, dynamic> _featureWith({
     'code_station': codeStation,
     'libelle_station': 'La Loire à Blois',
     'code_departement': codeDepartement,
+    'code_region': codeRegion,
     'en_service': enService,
     'libelle_cours_eau': libelleCoursEau,
   },
@@ -97,6 +100,22 @@ void main() {
       expect(goyaves.departement.value, '971');
       expect(goyaves.riverLabel, 'Grande Rivière à Goyaves');
       expect(goyaves.inService, isTrue);
+    });
+
+    // ADR-015 : l'extrait ne porte ni code_region ni libelle_departement —
+    // region est donc null et le libelle du departement replie sur son code
+    // (BR-007), comme libelle_station le fait deja.
+    test('Blois (StationPoint) : region null (champ absent), departement '
+        'code 41 et libelle replie sur le code (libelle absent)', () {
+      final StationPoint blois = result.points.firstWhere(
+        (StationPoint p) => p.code.value == 'K447001001',
+      );
+
+      expect(blois.region, isNull);
+      expect(
+        blois.departement,
+        const AdministrativeArea(code: '41', label: '41'),
+      );
     });
   });
 
@@ -206,6 +225,40 @@ void main() {
     });
   });
 
+  group('parseStations — region/departement mal formes (ADR-015), jamais un '
+      'point ecarte pour autant (BR-007)', () {
+    test('code_region entier (76, pas une chaine) : region null, le point '
+        "n'est ni ecarte ni modifie ailleurs", () {
+      final StationsReadResult result = parseStations(
+        _collectionOf(<Map<String, dynamic>>[_featureWith(codeRegion: 76)]),
+      );
+
+      expect(result.points, hasLength(1));
+      expect(result.skipped, 0);
+      expect(result.points.single.region, isNull);
+      // Le departement, lui, est toujours valide (41) : le defaut de region
+      // ne rejaillit pas sur le departement, chacun est analyse a part.
+      expect(
+        result.points.single.departement,
+        const AdministrativeArea(code: '41', label: '41'),
+      );
+    });
+
+    test("code_departement mal forme ('XYZ') : departement null au niveau "
+        "du StationPoint, le point n'est pas ecarte (a la difference de "
+        'Station, qui refuse toujours ce departement)', () {
+      final StationsReadResult result = parseStations(
+        _collectionOf(<Map<String, dynamic>>[
+          _featureWith(codeDepartement: 'XYZ'),
+        ]),
+      );
+
+      expect(result.points, hasLength(1));
+      expect(result.skipped, 0);
+      expect(result.points.single.departement, isNull);
+    });
+  });
+
   group('parseStations — entree illisible', () {
     test("un tableau JSON ('[]') leve une FormatException — ce n'est pas un "
         'objet FeatureCollection', () {
@@ -256,6 +309,28 @@ void main() {
 
       expect(result.stations, hasLength(4113));
       expect(result.stationsSkipped, 37);
+    });
+
+    // ADR-015 (2026-09-22) : les mêmes 37 entités sans code_departement sont
+    // aussi celles sans code_region — le rattachement administratif de la
+    // carte suit exactement le même partage que celui de Station.
+    test('4 113 StationPoint avec region et departement non nuls, 37 avec '
+        'les deux nuls — le même partage que Station/stationsSkipped', () {
+      final String jsonText = File('assets/referentiel/stations.json')
+          .readAsStringSync();
+
+      final StationsReadResult result = parseStations(jsonText);
+
+      final int avecLesDeux = result.points
+          .where((StationPoint p) => p.region != null && p.departement != null)
+          .length;
+      final int sansAucune = result.points
+          .where((StationPoint p) => p.region == null && p.departement == null)
+          .length;
+
+      expect(avecLesDeux, 4113);
+      expect(sansAucune, 37);
+      expect(avecLesDeux + sansAucune, result.points.length);
     });
   });
 }
