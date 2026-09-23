@@ -1388,14 +1388,14 @@ git add lib/features test/features && git commit -m "feat(map): boutons plus, mo
 - [x] **Étape 2** — `flutter test test/features/map/view/map_keyboard_test.dart` → échec.
 - [x] **Étape 3** — implémenter avec `Shortcuts` / `Actions` / `FocusTraversalOrder` — **rien d'autre**, aucune dépendance ajoutée.
 - [x] **Étape 4** (2026-09-23) — `flutter test` → vert, **1 057 tests** en 12,7 s. Arbitrage du commanditaire : la carte est un groupe de tabulation — Tab parcourt pastilles ou marqueurs dessinés du plus proche au plus lointain du centre, Entrée/Espace = tap. Relu deux fois avec essais de mutation : ordre au-delà de 500 marqueurs, anneau de focus peint sous le contrôle, focus qui changeait de station, touche « + » inopérante — corrigés.
-- [ ] **Étape 5 — constat à l'écran : commanditaire.**
+- [x] **Étape 5 — constat à l'écran : commanditaire** (2026-09-23, Windows, `--release`). Vu : focus visible et déplacé dans l'ordre annoncé (Maj+Tab à l'inverse), Entrée sur une pastille zoome et sur un marqueur ouvre sa fiche, flèches déplacent la carte, `+`/`−` zooment (clavier principal, AZERTY et pavé numérique), Échap ferme la fiche. Six sur six.
 
 ```bash
 flutter run -d windows
 ```
 Attendu, à constater **à l'écran** : (1) `Tab` fait apparaître un focus **visible** et le déplace dans l'ordre annoncé ; (2) les flèches déplacent la carte ; (3) `+` et `−` zooment ; (4) `Échap` ferme la feuille. **Recopier ce qui a été vu, y compris ce qui n'a pas marché.**
 
-- [ ] **Étape 6** — critère de fin, puis commit, avec le constat recopié.
+- [x] **Étape 6** (2026-09-23) — critère de fin, puis commit, avec le constat recopié.
 
 ```bash
 git add lib/features/map test/features/map && git commit -m "feat(map): piloter la carte au clavier, avec un ordre de tabulation declare" -m "L ordre de tabulation est declare et teste, pas laisse au hasard de l arbre de widgets : un reordonnancement de la vue le changerait sans que rien ne le dise. Un raccourci ne se declenche pas quand le focus est dans un champ de saisie. Constate a l ecran sur Windows : <recopier>."
@@ -1420,14 +1420,14 @@ git add lib/features/map test/features/map && git commit -m "feat(map): piloter 
 - [x] **Étape 3** — `flutter test test/project/windows_min_size_test.dart` → échec.
 - [x] **Étape 4** — poser la contrainte dans le fichier lu à l'étape 1.
 - [x] **Étape 5** (2026-09-23) — `flutter test` → vert, **1 077 tests**. Taille minimale **800 × 700 de zone cliente** (arbitrage du commanditaire), posée par `WM_GETMINMAXINFO` et `AdjustWindowRectExForDpi` dans `windows/runner/win32_window.cpp` ; relu avec essais de mutation. Le point 44 est écarté par test : ruban DEBUG, pas une troncature.
-- [ ] **Étape 6 — constat à l'écran : commanditaire.**
+- [x] **Étape 6 — constat à l'écran : commanditaire** (2026-09-23, Windows, `--release` — première construction native du code de `K3`). Vu : la fenêtre refuse de descendre sous ≈ 800 × 700 ; à cette taille, légende, contrôles de zoom, puces, « ⚠ Avertissement » et attribution IGN tiennent sans se recouvrir, sur les deux échelles ; « ⚠ Avertissement » entier, sans ruban DEBUG (point 44 clos) ; une fiche ouverte ne passe pas sous les boutons.
 
 ```bash
 flutter run -d windows
 ```
 Attendu : la fenêtre **refuse** d'être réduite sous ~~800 × 600~~ **800 × 700** (amendé le 2026-09-23) ; à cette taille, le bandeau d'avertissement et la légende restent **entiers**. **Recopier le constat.**
 
-- [ ] **Étape 7** — critère de fin, puis commit.
+- [x] **Étape 7** (2026-09-23) — critère de fin, puis commit.
 
 ```bash
 git add windows test && git commit -m "feat(ui): taille de fenetre minimale sur Windows, pour que l avertissement ne se tronque pas" -m "Ce n est pas un confort : sous une certaine largeur le bandeau d avertissement se tronque, et 04-ui section 3 comme BR-012 l interdisent. La geometrie a ete LUE dans le gabarit genere avant d etre modifiee. Constate a l ecran : <recopier>."
