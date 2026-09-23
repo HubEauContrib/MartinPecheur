@@ -20,7 +20,7 @@ Immuables, sans identité — deux instances aux mêmes champs sont interchangea
 | `StationCode` | Code station à dix caractères. Refuse un code site à huit caractères (`C-05`) — une classe, pas un `extension type`, parce qu'elle **valide**. |
 | `DepartementCode` | Code département en chaîne. Refuse un entier déguisé : `"01"` interprété comme un nombre deviendrait `1`, et la Corse (`2A`/`2B`) rendrait la conversion impossible de toute façon. |
 | `Qualification` | Statut et qualification d'une observation, transportés tels quels (`BR-006`) — aucun champ n'est interprété ni filtré ici. |
-| `Bounds` | Emprise rectangulaire WGS 84. Refuse une emprise inversée (`west >= east` ou `south >= north`) à la construction. |
+| `Bounds` | Emprise rectangulaire WGS 84 (`lib/domain/geo/bounds.dart`). Refuse une emprise inversée (`west >= east` ou `south >= north`) à la construction. Rangée sous `geo/` et non dans le fichier des contrats de dépôt : la vue en construit une à chaque relâchement de geste, et elle n'a pas à importer `StationRepository` pour cela. |
 
 `StationCode`, `DepartementCode`, `Qualification` et `Bounds` sont des classes, et non des
 `extension type` comme les unités, précisément **parce qu'elles valident**.
@@ -47,6 +47,11 @@ Identité + cycle de vie, à la différence des objets-valeur.
 
 - **`Station`** — identité : `StationCode`. `riverLabel` peut être absent (`null`), jamais une
   chaîne vide (`BR-007`).
+- **`StationPoint`** — la **projection** de `Station` que la carte dessine : code, libellé,
+  latitude, longitude, et rien de plus. Volontairement distincte de `Station` — au zoom national
+  les 4 150 points sont tous dessinés, et porter le département, le cours d'eau et l'état de
+  service dans chacun ne servirait aucun pixel (`NFR-01`). Son dépôt est `StationPointRepository`,
+  séparé de `StationRepository` par ségrégation d'interface.
 - **`HydroObservation`** — identité : `StationCode` + `measuredAt`. Jamais de valeur sans sa
   date de mesure (`BR-001`). `discharge` et `level` sont déjà convertis (`BR-002`) : aucun
   `double` nu. `null` ≠ zéro (`BR-007`) — un zéro mesuré est un assec, une absence est une
@@ -56,8 +61,11 @@ Identité + cycle de vie, à la différence des objets-valeur.
 
 - **Station observée** — racine `Station`, dernière observation connue par `Grandeur`. Une
   station sans observation est un état valide, affiché comme tel (`BR-007`) — jamais masqué.
-- **Emprise** — racine `Bounds`, unité de chargement des stations : jamais les 4 150 d'un coup
-  (`StationRepository.findWithinBounds`).
+- **Emprise** — racine `Bounds`, unité de chargement des points de carte : jamais les 4 150 d'un
+  coup (`StationPointRepository.withinBounds`, marge proportionnelle comprise).
+  `StationRepository` ne porte **plus** de recherche par emprise ni par département depuis la
+  relecture du 2026-09-13 : rien ne les appelait, et la carte lit des `StationPoint`, pas des
+  `Station` complètes.
 
 Il n'existe **pas** d'agrégat « état de la rivière » : écoulement (fait observé), débit
 (statistique) et sécheresse (décision préfectorale) restent trois échelles séparées, jamais
@@ -75,7 +83,8 @@ défaut.
 - Aucun type de réponse d'API — la traduction est au mapper (`data/`), pas ici.
 - Aucun accès réseau, disque ou écran — verrouillé par
   `test/architecture/domain_isolation_test.dart`.
-- Aucune politique de cache — un seul décorateur `CachePolicy`, en couche application.
+- Aucune politique de cache — un seul décorateur de dépôt `CachePolicy`, sous `data/`
+  (`ADR-014`).
 - **Aucun seuil hydrologique** (`ADR-002`, `BR-003`) — la faute la plus grave possible sur ce
   produit.
 
@@ -114,11 +123,19 @@ classDiagram
     class Inconnu { +String? rawCode }
     class Grandeur { <<enumeration>> hauteur debit inconnu }
     class Freshness { <<enumeration>> fraiche ancienne perimee }
+    class StationPoint {
+        +StationCode code
+        +String label
+        +double latitude
+        +double longitude
+    }
     class StationRepository {
         <<interface>>
         +findByCode(StationCode) Station?
-        +findWithinBounds(Bounds) Station[]
-        +findByDepartement(DepartementCode) Station[]
+    }
+    class StationPointRepository {
+        <<interface>>
+        +withinBounds(Bounds, double margin) StationPoint[]
     }
     class HydroObservationRepository {
         <<interface>>
@@ -135,8 +152,10 @@ classDiagram
     HydroObservation --> Grandeur
     HydroObservation ..> Freshness : calcule
     FlowCategory <|-- Inconnu
+    StationPoint --> StationCode : identifie par
     StationRepository ..> Station
-    StationRepository ..> Bounds
+    StationPointRepository ..> StationPoint
+    StationPointRepository ..> Bounds
     HydroObservationRepository ..> HydroObservation
     LitresPerSecond ..> CubicMetresPerSecond : toCubicMetresPerSecond
     Millimetres ..> Metres : toMetres

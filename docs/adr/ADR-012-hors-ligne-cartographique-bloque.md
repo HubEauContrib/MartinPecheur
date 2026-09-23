@@ -1,6 +1,6 @@
 # ADR-012 — Le hors-ligne cartographique est bloqué par un défaut de MapLibre
 
-- **Statut :** 🚨 **E exécutée le 2026-08-24 — épuisée. Le plantage survit à toutes les versions compatibles du SDK natif.** L'arbitrage entre **A, B et C** revient donc intact, et sans l'échappatoire bon marché qu'on espérait. Voir « Résultat de E ».
+- **Statut :** 🚨 **E exécutée le 2026-08-24 — épuisée. Le plantage survit à toutes les versions compatibles du SDK natif.** L'arbitrage entre **A, B et C** revient donc intact, et sans l'échappatoire bon marché qu'on espérait. Voir « Résultat de E ». **Question déplacée par [`ADR-013`](ADR-013-bascule-flutter-cible-windows.md)** (bascule Flutter, 2026-09-12) : `createPack` n'est plus sur le chemin critique, mais l'arbitrage A/B/C sur le téléchargement de zone (`UC-005`) n'est **pas** tranché.
 - **Option E retenue le 2026-08-18** — épingler une autre version du SDK natif avant d'arbitrer A, B ou C. Voir « Option E » pour ce qui était établi et le piège de clé Gradle.
 - **D exécutée le 2026-08-18 — le plantage se reproduit sur `arm64` réel.** La branche favorable est écartée. Voir « Résultat de D », et la réserve sur le niveau de preuve.
 - **Arbitré en première instance le 2026-08-15** — option **D** retenue.
@@ -391,6 +391,8 @@ puis à mesurer `completedTileCount`, `completedTileSize` et la durée, et à co
 en ligne (`M2`, constaté le 2026-08-15 et reconduit depuis).
 
 ## Liens
+
+- **Question déplacée par :** [`ADR-013`](ADR-013-bascule-flutter-cible-windows.md) (bascule Flutter, 2026-09-12) — `createPack` n'est plus sur le chemin critique ; l'arbitrage A/B/C sur le téléchargement de zone (`UC-005`) reste ouvert
 
 - Met en défaut un appui de : [`ADR-010`](ADR-010-react-native.md)
 - Cas d'usage menacé : [`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md)

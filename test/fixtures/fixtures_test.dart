@@ -122,28 +122,41 @@ void main() {
     });
   });
 
-  group('Écoulement ONDE (C-10)', () {
-    late Map<String, dynamic> reponseOnde;
-    late List<Map<String, dynamic>> lignesOnde;
+  group('Écoulement ONDE', () {
+    const String cheminDepartement =
+        'onde/observations_departement_41_2026-09-13.json';
+    const String cheminCampagnes =
+        'onde/campagnes_departement_41_2026-09-13.json';
+    const String cheminBbox = 'onde/observations_bbox_loire_2026-09-13.json';
+    const String cheminStation =
+        'onde/observations_station_K4520001_2026-09-13.json';
+
+    late List<Map<String, dynamic>> lignesDepartement;
+    late Map<String, dynamic> reponseCampagnes;
+    late List<Map<String, dynamic>> lignesCampagnes;
+    late List<Map<String, dynamic>> lignesBbox;
+    late List<Map<String, dynamic>> lignesStation;
 
     setUpAll(() {
-      reponseOnde = readFixture(
-        'onde/observations_departement_41_2026-09-13.json',
-      );
-      lignesOnde = rows(reponseOnde);
+      lignesDepartement = rows(readFixture(cheminDepartement));
+      reponseCampagnes = readFixture(cheminCampagnes);
+      lignesCampagnes = rows(reponseCampagnes);
+      lignesBbox = rows(readFixture(cheminBbox));
+      lignesStation = rows(readFixture(cheminStation));
     });
 
-    test('code_ecoulement est toujours une chaîne ou une absence, jamais un entier', () {
-      for (final Map<String, dynamic> ligne in lignesOnde) {
+    test('code_ecoulement est toujours une chaîne ou une absence, jamais un '
+        'entier (C-10)', () {
+      for (final Map<String, dynamic> ligne in lignesDepartement) {
         final Object? code = ligne['code_ecoulement'];
         expect(code == null || code is String, isTrue);
       }
     });
 
-    test('les codes observés appartiennent à la nomenclature connue '
-        "({'1','1a','1f','2','3','4'})", () {
+    test("les codes observés appartiennent à la nomenclature connue ({'1',"
+        "'1a','1f','2','3','4'}) (C-10)", () {
       const Set<String> codesConnus = <String>{'1', '1a', '1f', '2', '3', '4'};
-      final Set<Object?> codesObserves = lignesOnde
+      final Set<Object?> codesObserves = lignesDepartement
           .map((Map<String, dynamic> l) => l['code_ecoulement'])
           .toSet();
       for (final Object? code in codesObserves) {
@@ -154,9 +167,243 @@ void main() {
           codesConnus.contains(code),
           isTrue,
           reason:
-              'code inédit $code — à consigner dans docs/sources/onde.md (BR-011)',
+              'code inédit $code — à consigner dans docs/sources/onde.md '
+              '(BR-011)',
         );
       }
+    });
+
+    test(
+      'les trois fixtures capturées le 2026-09-13 portent api_version 1.2.0',
+      () {
+        for (final String chemin in <String>[
+          cheminCampagnes,
+          cheminBbox,
+          cheminStation,
+        ]) {
+          final Map<String, dynamic> reponse = readFixture(chemin);
+          expect(reponse['api_version'], '1.2.0', reason: chemin);
+        }
+      },
+    );
+
+    test(
+      'toute fixture du dossier onde/ est citée dans docs/sources/onde.md',
+      () {
+        final String doc = File('docs/sources/onde.md').readAsStringSync();
+        final List<File> fichiers = Directory('test/fixtures/onde')
+            .listSync()
+            .whereType<File>()
+            .where((File f) => f.path.endsWith('.json'))
+            .toList();
+        expect(fichiers, isNotEmpty);
+        for (final File fichier in fichiers) {
+          final String nomFichier = fichier.uri.pathSegments.last;
+          expect(
+            doc.contains(nomFichier),
+            isTrue,
+            reason:
+                '$nomFichier doit être citée depuis docs/sources/onde.md — '
+                'une fixture orpheline est une fixture dont personne ne sait '
+                "ce qu'elle prouve",
+          );
+        }
+      },
+    );
+
+    test('code_campagne est un entier dans /campagnes, sur toutes les lignes '
+        '(T-07)', () {
+      for (final Map<String, dynamic> ligne in lignesCampagnes) {
+        expect(ligne['code_campagne'], isA<int>());
+      }
+    });
+
+    test('code_campagne est une chaîne dans /observations, sur toutes les '
+        "lignes (T-07) — un modèle qui le type int casse sur l'un des deux "
+        'endpoints', () {
+      for (final Map<String, dynamic> ligne in lignesBbox) {
+        expect(ligne['code_campagne'], isA<String>());
+      }
+      for (final Map<String, dynamic> ligne in lignesStation) {
+        expect(ligne['code_campagne'], isA<String>());
+      }
+    });
+
+    test(
+      'libelle_type_campagne est en minuscules, y compris accentué (T-06)',
+      () {
+        final Set<String> libelles = lignesCampagnes
+            .map(
+              (Map<String, dynamic> l) => l['libelle_type_campagne'] as String,
+            )
+            .toSet();
+        expect(libelles, contains('usuelle'));
+        expect(libelles, contains('complémentaire'));
+        for (final String libelle in libelles) {
+          expect(libelle, libelle.toLowerCase());
+        }
+      },
+    );
+
+    test(
+      'date_observation est une date sans heure, format YYYY-MM-DD (T-08)',
+      () {
+        final RegExp formatDate = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+        for (final Map<String, dynamic> ligne in lignesStation) {
+          expect(
+            formatDate.hasMatch(ligne['date_observation'] as String),
+            isTrue,
+          );
+        }
+      },
+    );
+
+    test('aucun code_ecoulement null dans la fixture bbox filtrée par '
+        'date_observation_min (Q-05) — zéro est une réponse, Inconnu(null) '
+        'reste un cas synthétique en test', () {
+      expect(
+        lignesBbox.where(
+          (Map<String, dynamic> l) => l['code_ecoulement'] == null,
+        ),
+        isEmpty,
+      );
+    });
+
+    test("libelle_cours_eau : la casse n'obéit à aucune règle — majuscule "
+        'dans chacun des 15 libellés de la fixture bbox, minuscules dans la '
+        'fixture station (T-09)', () {
+      final RegExp majuscule = RegExp(r'[A-Z]');
+      final Set<String> libellesBbox = lignesBbox
+          .map((Map<String, dynamic> l) => l['libelle_cours_eau'] as String)
+          .toSet();
+      expect(
+        libellesBbox.every((String libelle) => majuscule.hasMatch(libelle)),
+        isTrue,
+        reason:
+            'les 15 libellés de la fixture bbox portent chacun une '
+            'majuscule, ex. "La Masse" sur '
+            "l'article",
+      );
+
+      final Set<String> libellesStation = lignesStation
+          .map((Map<String, dynamic> l) => l['libelle_cours_eau'] as String)
+          .toSet();
+      expect(
+        libellesStation.every(
+          (String libelle) => libelle == libelle.toLowerCase(),
+        ),
+        isTrue,
+        reason:
+            '"ruisseau la rivière aux loches" est entièrement en '
+            "minuscules, à l'inverse de la fixture bbox",
+      );
+    });
+
+    test('libelle_cours_eau porte un accent dans la fixture bbox (T-09)', () {
+      final RegExp accent = RegExp('[éèêëàâîïôûù]');
+      final Set<String> libelles = lignesBbox
+          .map((Map<String, dynamic> l) => l['libelle_cours_eau'] as String)
+          .toSet();
+      expect(
+        libelles.any((String libelle) => accent.hasMatch(libelle)),
+        isTrue,
+        reason:
+            '"le Vézenne" porte un accent : la fixture doit rester lisible '
+            'en UTF-8 sans normalisation',
+      );
+    });
+
+    test(
+      'la pagination de /campagnes est page + size, vue dans le champ next',
+      () {
+        final String suivant = reponseCampagnes['next'] as String;
+        expect(suivant, contains('page=2'));
+        expect(suivant, contains('size=20'));
+      },
+    );
+  });
+
+  group('Écoulement ONDE — captures du 2026-09-14 (T-14)', () {
+    const String cheminEspace =
+        'onde/observations_station_A721_3011_espace_2026-09-14.json';
+    const String cheminSansEspace =
+        'onde/observations_station_A7213011_sans_espace_2026-09-14.json';
+    const String cheminEcoulementNull =
+        'onde/observations_station_P9130001_code_ecoulement_null_2026-09-14'
+        '.json';
+
+    test('les trois captures du 2026-09-14 sont lisibles et portent '
+        'api_version 1.2.0', () {
+      for (final String chemin in <String>[
+        cheminEspace,
+        cheminSansEspace,
+        cheminEcoulementNull,
+      ]) {
+        final Map<String, dynamic> reponse = readFixture(chemin);
+        expect(reponse['api_version'], '1.2.0', reason: chemin);
+        expect(rows(reponse), isNotEmpty, reason: chemin);
+      }
+    });
+
+    test("un code de station porte un espace intérieur et neuf caractères : "
+        "la forme à huit caractères de T-04 n'est pas générale", () {
+      final Map<String, dynamic> reponse = readFixture(cheminEspace);
+      expect(reponse['count'], 40);
+      for (final Map<String, dynamic> ligne in rows(reponse)) {
+        expect(ligne['code_station'], 'A721 3011');
+      }
+      expect(RegExp(r'^[A-Z0-9]{8}$').hasMatch('A721 3011'), isFalse);
+    });
+
+    test("l'espace est significatif : le même code sans espace rend un autre "
+        'count et un autre libellé de station (T-14)', () {
+      final Map<String, dynamic> avecEspace = readFixture(cheminEspace);
+      final Map<String, dynamic> sansEspace = readFixture(cheminSansEspace);
+
+      expect(avecEspace['count'], 40);
+      expect(sansEspace['count'], 63);
+      expect(
+        rows(avecEspace).first['libelle_station'],
+        'Le Trey à Vilcey-sur-Trey',
+      );
+      expect(
+        rows(sansEspace).first['libelle_station'],
+        'Le Trey à Vilcey sur Trey',
+      );
+      expect(rows(sansEspace).first['code_station'], 'A7213011');
+    });
+
+    test("l'URL rendue par l'API dans `first` encode l'espace en %20 — c'est "
+        'la forme que le service réécrit, pas celle que Dart émet (`+`, '
+        'T-14 c) : les deux sont acceptées', () {
+      final String premiere = readFixture(cheminEspace)['first'] as String;
+
+      expect(premiere, contains('code_station=A721%203011'));
+      expect(Uri.parse(premiere).queryParameters['code_station'], 'A721 3011');
+    });
+
+    test('code_ecoulement à null existe bel et bien en capture réelle — '
+        "Q-05 ne valait que de l'emprise Loire (T-14 e)", () {
+      final Map<String, dynamic> reponse = readFixture(cheminEcoulementNull);
+      final List<Map<String, dynamic>> lignes = rows(reponse);
+
+      expect(reponse['count'], 126);
+      final List<Map<String, dynamic>> nulles = lignes
+          .where((Map<String, dynamic> l) => l['code_ecoulement'] == null)
+          .toList();
+      expect(nulles, isNotEmpty);
+      // libelle_ecoulement est null sur les mêmes lignes : les deux champs
+      // manquent ensemble, jamais l'un sans l'autre.
+      for (final Map<String, dynamic> ligne in nulles) {
+        expect(ligne['libelle_ecoulement'], isNull);
+      }
+      // Et la capture porte aussi une ligne renseignée : la fixture prouve
+      // le mélange des deux cas dans une même réponse, pas seulement
+      // l'absence.
+      expect(
+        lignes.any((Map<String, dynamic> l) => l['code_ecoulement'] != null),
+        isTrue,
+      );
     });
   });
 
@@ -172,7 +419,7 @@ void main() {
     });
 
     test('GeoJSON ordonne [longitude, latitude] — la Guadeloupe reste au '
-        "large de la Guadeloupe, pas de la Somalie", () {
+        'large de la Guadeloupe, pas de la Somalie', () {
       final Map<String, dynamic> guadeloupe = features.firstWhere(
         (Map<String, dynamic> f) =>
             (f['properties'] as Map<String, dynamic>)['code_station'] ==
@@ -192,7 +439,7 @@ void main() {
       expect(coordinates[1] as num, closeTo(16.189402, 1e-5));
     });
 
-    test('les code_station de l\'extrait font dix caractères', () {
+    test("les code_station de l'extrait font dix caractères", () {
       for (final Map<String, dynamic> feature in features) {
         final String code =
             (feature['properties'] as Map<String, dynamic>)['code_station']

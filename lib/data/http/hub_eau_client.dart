@@ -1,6 +1,15 @@
-// Le client de l'API hydrométrie v2, et les seuls constructeurs d'URI vers
-// elle (ADR-001 : uniquement la v2, la v1 est arrêtée depuis le 05/05/2025,
-// C-01). `date_debut_obs_elab` est un paramètre requis de [obsElabUri],
+// [HubEauClient.getJson] sert **tous** les endpoints Hub'Eau — hydrométrie
+// v2 et écoulement ONDE v1 (`lib/data/http/onde_uris.dart`) : il prend
+// n'importe quelle URI du même hôte, rejoue sur 429/5xx (`isRetryable`),
+// accepte 200 et 206 (`isSuccess`, C-06), décode en UTF-8 explicite, avec
+// attente et gigue injectées. Recréer un second client pour ONDE aurait
+// recopié cette logique de rejeu — ce que le produit interdit. Les
+// constructeurs d'URI de ce fichier, eux, restent propres à l'hydrométrie
+// v2 (ADR-001 : uniquement la v2, la v1 est arrêtée depuis le 05/05/2025,
+// C-01) ; `checkPageSize`, `maxPageSize` et `formatDateUtc` vivent dans
+// `lib/data/http/hub_eau_paging.dart`, communs aux deux endpoints, pour que
+// `onde_uris.dart` n'ait pas à importer ce fichier pour deux fonctions
+// utilitaires. `date_debut_obs_elab` est un paramètre requis de [obsElabUri],
 // jamais optionnel : sans lui, `sort` est ignoré et la réponse commence au
 // 1er janvier 1900 (C-04, reproduit le 2026-09-13, voir
 // docs/sources/hubeau-hydrometrie.md). `size` au-delà de [maxPageSize] fait
@@ -41,13 +50,10 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:martinpecheur/data/http/http_status.dart';
+import 'package:martinpecheur/data/http/hub_eau_paging.dart';
 import 'package:martinpecheur/data/http/retry.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/station/station.dart';
-
-/// Taille de page maximale acceptée par l'API hydrométrie v2 avant de
-/// répondre `400` (C-08, constaté sur `/observations_tr`).
-const int maxPageSize = 20000;
 
 /// Hôte unique de l'API hydrométrie v2 (ADR-001).
 const String _host = 'hubeau.eaufrance.fr';
@@ -79,7 +85,7 @@ Uri observationsTrUri({
   required Grandeur grandeur,
   int size = 100,
 }) {
-  _checkSize(size);
+  checkPageSize(size);
   return _uri('observations_tr', <String, String>{
     'code_entite': station.value,
     'grandeur_hydro': grandeurCode(grandeur),
@@ -95,11 +101,11 @@ Uri obsElabUri({
   required DateTime since,
   int size = 1000,
 }) {
-  _checkSize(size);
+  checkPageSize(size);
   return _uri('obs_elab', <String, String>{
     'code_entite': station.value,
     'grandeur_hydro_elab': 'QmnJ',
-    'date_debut_obs_elab': _formatDate(since.toUtc()),
+    'date_debut_obs_elab': formatDateUtc(since),
     'size': '$size',
   });
 }
@@ -109,26 +115,6 @@ Uri referentielStationUri(StationCode station) {
   return _uri('referentiel/stations', <String, String>{
     'code_station': station.value,
   });
-}
-
-void _checkSize(int size) {
-  if (size < 1) {
-    throw ArgumentError.value(size, 'size', 'doit être au moins 1');
-  }
-  if (size > maxPageSize) {
-    throw ArgumentError.value(
-      size,
-      'size',
-      'dépasse maxPageSize ($maxPageSize) — l\'API répond 400 (C-08)',
-    );
-  }
-}
-
-String _formatDate(DateTime utc) {
-  final String year = utc.year.toString().padLeft(4, '0');
-  final String month = utc.month.toString().padLeft(2, '0');
-  final String day = utc.day.toString().padLeft(2, '0');
-  return '$year-$month-$day';
 }
 
 Uri _uri(String path, Map<String, String> queryParameters) {
@@ -237,13 +223,13 @@ final class HubEauClient {
           );
         }
 
-        final String corps = utf8.decode(response.bodyBytes);
+        final String body = utf8.decode(response.bodyBytes);
 
         if (!isRetryable(response.statusCode)) {
-          throw HubEauFailure('statut ${response.statusCode} : $corps');
+          throw HubEauFailure('statut ${response.statusCode} : $body');
         }
 
-        lastFailure = HubEauFailure('statut ${response.statusCode} : $corps');
+        lastFailure = HubEauFailure('statut ${response.statusCode} : $body');
       } on http.ClientException catch (error) {
         if (error.message.contains('already closed')) {
           throw HubEauFailure(

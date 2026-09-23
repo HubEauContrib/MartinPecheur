@@ -33,6 +33,7 @@ dependencies:
   flutter_map: ^8.3.2   # dernière publiée 2026-09-13, BSD-3-Clause, Windows ok
   latlong2: ^0.9.1      # ce qui se résout réellement, constaté à l'étape 6
   http: ^1.6.0          # MockClient fourni par package:http/testing.dart
+  shared_preferences: ^2.5.5  # 2026-03-25, BSD-3-Clause, Windows ok (ADR-011)
 
 dev_dependencies:
   flutter_test:

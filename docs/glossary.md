@@ -44,5 +44,5 @@ notions différentes.
 | « normal », « dans la normale » | « habituel pour la saison » | `BR-003` — « normal » suggère une adéquation écologique |
 | « assec », « tari », « asséché » | **« à sec »** partout | Un concept, un mot |
 | « en direct », « temps réel » | « dernière mesure connue » | La fraîcheur va de 7 minutes à 9 jours |
-| « fiable », « vérifié », « officiel », « sûr » | « selon les données disponibles » | `BR-014` — aucune garantie n'est promise |
+| « fiable », « vérifié », « officiel », « sûr » | « selon les données disponibles » | `BR-014` — aucune garantie n'est promise, sauf pour attribuer une nomenclature à sa source, comme « Modalité officielle ONDE : » (`UC-004 § 3`) — le mot qualifie alors l'origine, jamais nos données |
 | « rien à signaler », « tout va bien » | « aucune donnée disponible ici » | `BR-007` — l'absence n'est pas un état neutre |

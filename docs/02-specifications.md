@@ -89,7 +89,7 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 | ID | Persona | Story |
 |---|---|---|
 | US-01 | Tous | Au premier lancement, je vois un avertissement bloquant que je dois **acquitter explicitement** avant d'accéder à l'app |
-| US-02 | Tous | Sur la carte, un **bandeau d'avertissement permanent** reste visible à tous les niveaux de zoom |
+| US-02 | Tous | Sur la carte, un **bandeau d'avertissement permanent** reste visible à tous les niveaux de zoom · ⚠️ **Amendé le 2026-09-23 (`W3c`, arbitrage du commanditaire)** : un contrôle **« ⚠ Avertissement »** reste présent à tous les niveaux de zoom et ouvre le texte de l'avertissement initial ; plus de bandeau (`04-ui.md § 4-5`) |
 | US-03 | P1, P3 | Je vois sur une carte les stations et points d'observation autour de moi, colorés par état |
 | US-04 | P1, P3 | En tapant un point ONDE, je vois s'il est **à sec**, avec la **date de la campagne** |
 | US-05 | P4 | En tapant une station, je vois le **débit en m³/s** et **l'heure de la mesure** |
@@ -128,7 +128,8 @@ Compte utilisateur · notifications push · prévision ou modélisation hydrolog
 | Situation | Détection | Comportement |
 |---|---|---|
 | **Hors ligne** | `Connectivity.NetworkAccess` | Carte servie depuis le cache, bandeau persistant « Mode hors-ligne — données du JJ/MM à HH:MM », rafraîchissement désactivé |
-| **Aucune station dans la zone** | Résultat vide sur la bbox | « Il n'y a ni station de mesure ni point d'observation dans le secteur affiché. Ce n'est pas un signe que tout va bien : c'est simplement que personne ne mesure ici. » + action « Élargir la recherche » |
+| **Aucune station dans la zone — échelle écoulement** | Résultat vide sur la bbox, stations ET points ONDE lus (échelle écoulement) | « Il n'y a ni station de mesure ni point d'observation dans le secteur affiché. Ce n'est pas un signe que tout va bien : c'est simplement que personne ne mesure ici. » + action « Élargir la recherche » |
+| **Aucune station de mesure dans la zone — échelle débit** | Résultat vide sur la bbox pour les stations, échelle débit active ; l'ONDE n'est pas interrogée (`BR-008`) | « Il n'y a aucune station de mesure dans le secteur affiché. Cela ne dit rien de l'état des cours d'eau : le débit n'est simplement pas mesuré ici. » + action « Élargir la recherche » |
 | **Zone hors couverture ONDE** | Aucun point ONDE, et département hors périmètre (DOM) | « Le réseau ONDE ne suit que certains petits cours d'eau de France hexagonale et de Corse. » |
 | **Donnée périmée (> 24 h)** | `now - date_obs` | Marqueur atténué, valeur assortie de « Dernière mesure reçue le JJ/MM à HH:MM, il y a N jours. La station n'a rien transmis depuis. » |
 | **Hors saison ONDE** | Mois entre octobre et avril | Âge de la campagne affiché systématiquement, état en gris au-delà de 60 jours |

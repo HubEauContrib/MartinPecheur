@@ -3,7 +3,7 @@
 Spec vivante du projet. Tout vit dans **ce dépôt** : code et spec évoluent dans le même commit.
 
 MartinPêcheur informe les usagers d'une rivière française sur son état — écoulement, débit,
-sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application mobile iOS et Android,
+sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application **Flutter — Windows en première cible**, iOS configuré (jamais compilé), Android **réactivé le 2026-09-18** (différé levé, amendement d'`ADR-013`) — gabarit généré et émulateur démarré, **jamais construit ni lancé** —
 **sans backend, sans compte utilisateur**.
 
 > 📍 **Où commencer** — [`project-state.md`](project-state.md) est la **source de vérité des
@@ -44,7 +44,8 @@ Les quatre livrables de cadrage, en tête de dossier :
 
 | Plan | Tranche | Statut |
 |---|---|---|
-| [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md) | **T0** — socle Flutter, domaine, données, application, carte, porte Windows | 🔄 validé le 2026-09-13, **0 tâche sur 31** (5 Android ⏸) |
+| [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md) | **T0** — socle Flutter, domaine, données, carte, porte Windows · § « Suite immédiate » : réusinage MVVM `R1`–`R6` | ✅ clos le 2026-09-13, **31 tâches sur 31**, `v0.1.0`, 248 tests verts · les 5 tâches Android (hors décompte) ne sont plus toutes ⏸ depuis la levée du 2026-09-18 : `A⏸1` ✅, `A⏸2` 🔄, `A⏸3`→`A⏸5` ⏸ |
+| [`2026-09-13-t1-fiche-station-et-avertissements.md`](superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md) | **T1** — fiche station, écoulement ONDE, les quatre avertissements, clavier/souris, porte `0.2.0` | 🔄 en cours sur `feat/t1-mvvm-fiche-station` — **lots 1 à 3 clos** (2026-09-14, 18 tâches sur 33), lot 4 débloqué par les arbitrages du 2026-09-18 ; statuts à jour dans [`project-state.md`](project-state.md) |
 | [`2026-08-24-porte-spike-flutter.md`](superpowers/plans/2026-08-24-porte-spike-flutter.md) | Porte de spike `F1`–`F3` | ✅ franchie le 2026-09-12 sur Windows — `spike/porte_flutter/COMPTE-RENDU.md` |
 
 ## Index des décisions
@@ -58,17 +59,26 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-005](adr/ADR-005-stack-maui-blazor-hybrid.md) | ~~.NET MAUI Blazor Hybrid + MapLibre GL JS~~ | **Remplacé par ADR-010** |
 | [ADR-006](adr/ADR-006-onde-quatre-categories.md) | ONDE en 4 catégories d'affichage | Accepté ⚠️ |
 | [ADR-007](adr/ADR-007-ecarter-qualite-eau.md) | Écarter la qualité de l'eau de la v1 | Accepté |
-| [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | CQRS léger, cache par décorateur de handler | **Remplacé par ADR-010** — *le principe survit* |
-| [ADR-009](adr/ADR-009-cible-windows.md) | ~~Ajouter **Windows** aux cibles de la v1~~ | **Remplacé par ADR-010** |
-| [ADR-010](adr/ADR-010-react-native.md) | **React Native**, abandon de MAUI et de Windows | Accepté — arbitrage du commanditaire |
-| [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — `createPack` plante en natif | **Arbitré en première instance** — éprouver sur `arm64` réel avant de trancher |
+| [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | ~~CQRS léger, cache par décorateur de gestionnaire~~ | **Remplacé par ADR-014** — *seul survivant : le cache en un point unique* |
+| [ADR-009](adr/ADR-009-cible-windows.md) | ~~Ajouter **Windows** aux cibles de la v1~~ | **Remplacé par ADR-010** — intention rétablie par ADR-013, sans réactivation |
+| [ADR-010](adr/ADR-010-react-native.md) | ~~**React Native**, abandon de MAUI et de Windows~~ | **Remplacé par ADR-013** (stack, 2026-09-12) · volet architecture remplacé par ADR-014 |
+| [ADR-011](adr/ADR-011-stockage-local.md) | **Stockage local : `shared_preferences`** pour la préférence simple | Accepté — arbitrage du commanditaire du 2026-09-18, **portée limitée** · ✅ réalisé par `W1` (`6b9e9ed`, 2026-09-22) — `shared_preferences` 2.5.5 dans `pubspec.yaml`, `SharedPreferencesAcknowledgementRepository` ; moteur structuré toujours ouvert |
+| [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — le téléchargement de packs plante en natif | **D exécutée** (le plantage se reproduit sur `arm64` réel), **E épuisée** ; question déplacée, non tranchée (`ADR-013`) ; le `Must` hors-ligne de `UC-005` reste non livré |
+| [ADR-013](adr/ADR-013-bascule-flutter-cible-windows.md) | **Bascule Flutter, Windows première cible** construite | Accepté — arbitrage du 2026-09-12, écrit a posteriori le 2026-09-13 |
+| [ADR-014](adr/ADR-014-feature-first-mvvm.md) | **Feature-first + MVVM** (`ChangeNotifier`), à la place du CQRS léger | Accepté — arbitrage du commanditaire du 2026-09-13 |
+| [ADR-015](adr/ADR-015-regroupement-par-zone-administrative.md) | **Regroupement par zone administrative** sous le zoom 9 (région, puis département), `F2c` au-delà | Accepté — arbitrage du commanditaire du 2026-09-22 · 🔄 pas encore codé (lot 4 bis de T1, `Z2`→`Z4`) |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».
 
-> 🔄 **`ADR-011` reste à écrire** — le choix entre `expo-sqlite` et `op-sqlite` (tâche `S5`).
-> Son numéro lui est **réservé** : `ADR-012` a été écrit avant lui, le 2026-08-15, parce que
-> l'exécution de `M4` l'a imposé.
+> ✅ **`ADR-011` n'est plus réservé** — il est **tranché le 2026-09-18**, par arbitrage du
+> commanditaire, et **seulement sur la préférence simple** : `shared_preferences` pour une clé et
+> une chaîne, la version d'avertissement acquittée. Le **moteur de donnée structurée** (favoris,
+> dernière vue, cache d'observations persistant) **reste à trancher quand un écran en aura
+> besoin** — `drift` candidat par défaut, `sqflite` seul **ne couvrant pas Windows**.
+> ✅ La dépendance est dans `pubspec.yaml` et utilisée par `SharedPreferencesAcknowledgementRepository`
+> depuis la tâche `W1` de T1 (`6b9e9ed`, 2026-09-22) ; son câblage dans `main.dart` vient avec `W2`. Son numéro sort dans le désordre : `ADR-012` a été écrit avant lui, le
+> 2026-08-15, parce que l'exécution de `M4` l'a imposé.
 
 ## Index des règles métier
 

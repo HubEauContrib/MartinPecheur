@@ -10,6 +10,11 @@
 
 **Spec :** [`2026-08-24-bascule-flutter-trois-cibles-design.md`](../specs/2026-08-24-bascule-flutter-trois-cibles-design.md)
 
+> ⚠️ **Plan exécuté, cases jamais cochées.** Les `- [ ]` ci-dessous ne reflètent pas l'avancement : la porte a
+> été exécutée le 2026-09-09 et franchie sur Windows par arbitrage du 2026-09-12 (`F1` et `F3` constatés, `F2`
+> non tranchée, Android ⏸ différé). **La preuve est [`COMPTE-RENDU.md`](../../../spike/porte_flutter/COMPTE-RENDU.md)**,
+> pas ce plan. Note ajoutée le 2026-09-18, à la suite d'un bilan qui relevait la contradiction.
+
 ---
 
 ## Deux contraintes d'exécution, à lire avant de commencer

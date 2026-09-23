@@ -37,3 +37,8 @@ android/key.properties
 
 # Consignes et réglages propres à un poste — jamais versionnés
 CLAUDE.local.md
+
+# Rendus de référence — les images sont versionnées, les écarts d'une
+# exécution ne le sont pas : `flutter test` dépose ici l'image produite,
+# l'image de référence et leur différence quand un golden tombe.
+test/features/goldens/failures/

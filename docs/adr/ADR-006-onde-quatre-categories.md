@@ -1,7 +1,11 @@
 # ADR-006 — Afficher l'écoulement ONDE en 4 catégories
 
-- **Statut :** Accepté · *tranché par défaut, sans arbitrage du commanditaire*
-- **Date :** 2026-07-30
+- **Statut :** Accepté · *tranché par défaut, sans arbitrage du commanditaire* — **sauf le
+  traitement du code inconnu, arbitré par le commanditaire le 2026-09-18** (voir
+  « [Amendement du 2026-09-18](#amendement-du-2026-09-18--le-code-inconnu-garde-son-propre-libellé) »).
+  Le **reste** de cet ADR — le regroupement en quatre catégories, les libellés de carte, la
+  palette — garde son statut : tranché par défaut, réversible, sans arbitrage.
+- **Date :** 2026-07-30 · **amendé le 2026-09-18**
 
 ## Contexte
 
@@ -44,8 +48,35 @@ flowchart LR
     C2["code 2<br/>non visible"] --> NV[Eau stagnante]
     C3["code 3<br/>Assec"] --> A[À sec]
     C4["code 4<br/>Observation impossible"] --> NO[Non observé]
-    CX["code inconnu"] --> NO
+    CX["code inconnu"] --> NR["Non renseigné<br/>(amendement 2026-09-18)"]
 ```
+
+### Amendement du 2026-09-18 — le code inconnu garde son propre libellé
+
+**Arbitrage du commanditaire du 2026-09-18.** Un code d'écoulement **inconnu de l'application**
+(`Inconnu`) est annoncé **« Non renseigné »**, **sixième libellé de légende**, distinct de
+**« Non observé »** (code `4`).
+
+| Catégorie | Code source | Libellé | Nature |
+|---|---|---|---|
+| *(absence)* Non observé | `4` | **Non observé** | un **fait de terrain** : l'observation était impossible |
+| *(absence)* Non renseigné | *aucun code, ou code non reconnu* | **Non renseigné** | **notre propre ignorance** d'un code |
+
+**Motif — [`BR-007`](../br/BR-007-absence-de-donnee-jamais-neutre.md), « L'absence de donnée n'est
+jamais un état neutre » :** un fait constaté et notre ignorance ne portent jamais le même mot.
+C'est déjà ce que dit `lib/domain/nomenclature/flow_category.dart` de `NonObserve` : *« Un fait de
+terrain (observation impossible), jamais confondu avec `Inconnu` qui est notre propre ignorance
+d'un code (BR-007). »* — et ce que produit `flowCategoryLabel` :
+`Inconnu() => 'Non renseigné'`.
+
+**Le rendu visuel ne change pas** : « Non renseigné » garde **la teinte, la forme et le motif** de
+« Non observé », tels que cet ADR et [`04-ui.md § 2`](../04-ui.md) les fixent. Ce qui se sépare est
+le **mot**, pas le symbole — la carte reste lisible à quatre états plus une absence, la légende en
+nomme six.
+
+Cette déviation était signalée « à acter » dans le code depuis le 2026-09-14 ; elle est désormais
+**arbitrée**. Le ➖ ci-dessous — *« Un code futur ajouté au référentiel tombera en "Non observé" »* —
+se lit donc **« tombera en "Non renseigné" »**.
 
 ## Conséquences
 

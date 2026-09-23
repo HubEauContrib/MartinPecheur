@@ -4,6 +4,9 @@
 // touche l'API réelle : http.testing.MockClient sert des réponses
 // préparées, et l'attente entre tentatives est injectée pour ne jamais
 // dormir — delayForAttempt lui-même reste vérifié seul dans retry_test.dart.
+// maxPageSize, checkPageSize et formatDateUtc, communs à tous les endpoints
+// Hub'Eau, sont vérifiés directement dans hub_eau_paging_test.dart — ici, on
+// ne teste plus que leur usage par les constructeurs d'URI de ce fichier.
 import 'dart:convert';
 import 'dart:io';
 
@@ -373,19 +376,6 @@ void main() {
             (http.Request request) async => http.Response('{}', 200),
           ),
           maxAttempts: 0,
-        ),
-        throwsArgumentError,
-      );
-    });
-  });
-
-  group('_checkSize — size minimal', () {
-    test('size: 0 lève ArgumentError', () {
-      expect(
-        () => observationsTrUri(
-          station: station,
-          grandeur: Grandeur.debit,
-          size: 0,
         ),
         throwsArgumentError,
       );

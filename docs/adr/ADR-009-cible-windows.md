@@ -1,6 +1,6 @@
 # ADR-009 — Ajouter Windows aux cibles de la v1
 
-- **Statut :** **Remplacé par [`ADR-010`](ADR-010-react-native.md)** le 2026-07-31 — **Windows est abandonné le jour même de son ajout**, la bascule sur React Native ne couvrant qu'Android et iOS. Décision conservée pour l'historique : elle documente pourquoi Windows a été demandé, et ce que son abandon coûte.
+- **Statut :** **Remplacé par [`ADR-010`](ADR-010-react-native.md)** le 2026-07-31 — **Windows est abandonné le jour même de son ajout**, la bascule sur React Native ne couvrant qu'Android et iOS. Décision conservée pour l'historique : elle documente pourquoi Windows a été demandé, et ce que son abandon coûte. **Intention rétablie par [`ADR-013`](ADR-013-bascule-flutter-cible-windows.md)** le 2026-09-12 — Windows redevient la première cible construite, sous Flutter ; la mise en œuvre MAUI décrite ici ne revient pas.
 - **Date :** 2026-07-31
 - **Modifie :** [`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md), dont le contexte fixait « iOS et Android uniquement ». Le reste d'`ADR-005` — Blazor Hybrid, MapLibre GL JS, fond IGN — est inchangé.
 
@@ -66,6 +66,8 @@ flowchart TD
 Retirer Windows revient à supprimer une ligne `TargetFrameworks` conditionnelle, la propriété `WindowsPackageType` et le dossier `Platforms/Windows`. **Rien d'autre ne bouge** : ni le Domain, ni la couche Data, ni les composants Razor. C'est la propriété du `SingleProject` — la cible est additive.
 
 ## Liens
+
+- **Intention rétablie par :** [`ADR-013`](ADR-013-bascule-flutter-cible-windows.md) — Windows redevient la première cible construite, sous Flutter (2026-09-12) ; la mise en œuvre MAUI décrite ici ne revient pas
 
 - Décisions liées : [`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md) (stack et spike), [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md) (runtime .NET 10)
 - Spec impactée : [`04-ui.md`](../04-ui.md) — wireframes mobile, lot responsive à chiffrer

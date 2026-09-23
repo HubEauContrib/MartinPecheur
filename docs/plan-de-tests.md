@@ -11,22 +11,41 @@ d'implémentation en cours.
 
 | Étage | Ce qu'il prouve | Coût | État |
 |---|---|---|---|
-| `test/architecture/` | Les frontières de couches tiennent : aucune infrastructure sous `lib/domain/`, aucun appel au volet sécheresse hors de son module | quelques ms | ✅ T0 (`domain_isolation_test.dart`) |
-| `test/domain/`, `test/data/`, `test/application/` | Règles métier et conversions ; tout `BR-xxx` se vérifie ici **ou nulle part** | ms | ✅ T0 |
+| `test/architecture/` | Les frontières de couches tiennent : aucune infrastructure sous `lib/domain/`, `data/` n'importe jamais `features/`, aucun `view_model` n'importe un widget, aucun appel au volet sécheresse hors de son module | quelques ms | ✅ T0 (`domain_isolation_test.dart`), complété en T1 (`layers_test.dart`) |
+| `test/domain/`, `test/data/` | Règles métier et conversions ; tout `BR-xxx` se vérifie ici **ou nulle part** | ms | ✅ T0 |
+| `test/features/<feature>/view_model/` | La logique d'écran **sans rendu** : un `ChangeNotifier` est instancié avec un faux dépôt, une action est appelée, on observe l'état et les notifications. Aucun widget monté | ms | 🔄 T1 (`ADR-014`) |
 | `test/features/` | Un écran affiche ce que la règle impose : attribution présente, marqueurs filtrés, absence jamais neutre | dizaines de ms | ✅ T0 minimal |
-| `test/features/goldens/` | Rendu d'un marqueur : contraste, halo, atténuation d'une donnée périmée | secondes | 🔄 T1 |
+| `test/features/goldens/` | Rendu d'un marqueur : contraste, halo, atténuation d'une donnée périmée | secondes | ✅ T1 (`U5`, 2026-09-14) — **20 images** : 5 états de pastille, 12 marqueurs ONDE (6 catégories × 2 âges), 2 planches en niveaux de gris, 1 comparaison périmée / fraîche. ⚠️ **plateforme-dépendantes**, produites sur Windows |
 | `integration_test/` | Parcours complet, sur fenêtre ou appareil réel | minutes | 🔄 T1 |
 
 ```mermaid
 graph BT
-    A[test/architecture] --> B[test/domain, data, application]
-    B --> C[test/features]
+    A[test/architecture] --> B[test/domain, test/data]
+    B --> VM["test/features/…/view_model<br/>sans rendu"]
+    VM --> C[test/features — widgets]
     C --> D[test/features/goldens]
     D --> E[integration_test]
 ```
 
 Le coût croît de bas en haut : une règle se vérifie à l'étage le plus bas où elle est visible,
 jamais plus haut « pour être sûr ».
+
+L'étage `goldens` est le seul qui prouve **ce qui se voit** — l'atténuation de `BR-005`, le halo de
+2 px de `04-ui.md § 3`, la séparabilité des formes en achromatopsie. Il ne remplace aucun test de
+règle : `station_marker_test.dart` vérifie déjà qu'une opacité de 0,4 est demandée ; l'image dit si
+l'œil la distingue. Deux disciplines s'y attachent. **Une image de référence se regarde avant
+d'être versionnée** : en générer sans l'ouvrir fige un défaut au lieu de le détecter, ce qui retire
+à l'étage sa seule raison d'exister. Et un défaut de rendu constaté sur une image se corrige dans
+la tâche qui dessine le marqueur, jamais dans le test qui le photographie. **Les images sont
+plateforme-dépendantes** (rastériseur, anticrénelage, rendu sous-pixel) : un écart sur un autre
+système se règle en regardant les fichiers déposés sous `test/features/goldens/failures/`, puis en
+régénérant avec `flutter test --update-goldens` — jamais à l'aveugle.
+
+L'étage `view_model` est **le premier gain de MVVM** : ce qui se testait autrefois en montant un
+écran — l'emprise demandée au relâcher du geste, l'erreur qui reste visible plutôt qu'avalée
+(`BR-007`) — se teste désormais sur un `ChangeNotifier` observé, en millisecondes et sans
+`FlutterMap`. Un comportement d'écran qui **exige** un widget pour être vérifié est le signe qu'il
+est resté dans la vue.
 
 ## 2. Les quatre règles qui décident de l'étage
 
@@ -52,7 +71,7 @@ jamais plus haut « pour être sûr ».
 - **La couverture chiffrée.** Un pourcentage ne dit pas si `BR-002` est couvert. La question de
   revue est « quel test tombe si cette règle est cassée ? », pas « combien de lignes sont
   exécutées ? ».
-- **Le hors-ligne, en T0.** Aucun stockage local n'existe encore (`ADR-011` réservé) ; `NFR-03`
+- **Le hors-ligne, en T0.** Aucun stockage local n'existe encore (`ADR-011` ne tranche que la **préférence simple**, pas encore codée — `W1`) ; `NFR-03`
   chiffre cette exigence pour T1.
 
 ## 4. Fixtures

@@ -27,9 +27,4 @@ void main() {
       );
     });
   });
-
-  test("le dossier android n'existe pas : le report Android est une decision, "
-      'pas un oubli', () {
-    expect(Directory('android').existsSync(), isFalse);
-  });
 }

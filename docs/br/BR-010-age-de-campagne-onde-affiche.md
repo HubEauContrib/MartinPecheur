@@ -7,8 +7,9 @@
 ## Règle
 
 > Tout point ONDE affiche la **date de sa dernière campagne**.
-> Au-delà de **60 jours**, l'état est affiché en gris, accompagné de la mention
-> « dernière observation le JJ/MM ».
+> À partir de **60 jours révolus** (60 jours exactement est déjà « ancienne » —
+> la borne appartient à l'état le plus sévère), l'état est affiché en gris,
+> accompagné de la mention « dernière observation le JJ/MM ».
 
 ## Justification
 
@@ -33,7 +34,7 @@ Soit **une campagne par mois, de mai à septembre**. Répartition nationale 2026
 
 ## Vérifiable par
 
-Test unitaire aux bornes : 59 jours → état coloré, 61 jours → état gris avec mention. Test de comparaison de libellé de type de campagne insensible à la casse.
+Test unitaire aux bornes : 59 jours → état coloré (récente), 60 jours exactement → état gris avec mention (ancienne, la borne appartient à l'état le plus sévère), 61 jours → état gris avec mention (ancienne). Test de comparaison de libellé de type de campagne insensible à la casse.
 
 ## Liens
 
