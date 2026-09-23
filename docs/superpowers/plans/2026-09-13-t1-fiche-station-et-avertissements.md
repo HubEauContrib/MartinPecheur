@@ -1358,10 +1358,10 @@ git add -- lib/features/map test/features docs/project-state.md && git commit -m
 - `grep -rn "= 44" lib/` → **une** occurrence, dans `lib/features/shared/tap_target.dart` ; les tests de taille de `U1`, `U2`, `U4` passent inchangés en valeur.
 - `MapScaleChips` et `IgnAttributionBadge` : leurs tests existants passent **sans modification d'assertion** après le déplacement (seuls les imports changent).
 
-- [ ] **Étape 1** — écrire le test. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view/map_controls_test.dart` → échec.
-- [ ] **Étape 3** — poser `lib/features/shared/tap_target.dart` et y rattacher les trois copies ; sortir `MapScaleChips` et `IgnAttributionBadge` ; implémenter `MapControls` et brancher.
-- [ ] **Étape 4** — `flutter test` → vert (`layers_test.dart` compris : trois tranches importent `features/shared/`, qui n'en importe aucune), puis critère de fin et commit.
+- [x] **Étape 1** — écrire le test. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view/map_controls_test.dart` → échec.
+- [x] **Étape 3** — poser `lib/features/shared/tap_target.dart` et y rattacher les trois copies ; sortir `MapScaleChips` et `IgnAttributionBadge` ; implémenter `MapControls` et brancher.
+- [x] **Étape 4** (2026-09-23 — **1 026 tests** ; relu avec essais de mutation : bornes de zoom sorties dans `view_model/map_zoom_bounds.dart`, fiche décalée pour ne jamais passer sous les boutons, bouton qui s'étirait sur toute la largeur corrigé, alias de 44 supprimés) — `flutter test` → vert (`layers_test.dart` compris : trois tranches importent `features/shared/`, qui n'en importe aucune), puis critère de fin et commit.
 
 ```bash
 git add lib/features test/features && git commit -m "feat(map): boutons plus, moins et recentrage, cibles de 44 pt" -m "La molette zoome sur Windows depuis le constat du 2026-09-13 ; ces boutons ne la remplacent pas, ils servent qui n en a pas. Les bornes de zoom restent celles de MapOptions : les redefinir ici en ferait deux sources de verite. La cible de 44 pt, definie trois fois faute d endroit commun, l est une seule fois dans features/shared. Les puces d echelle et l attribution IGN sortent de map_view.dart. Les controles ne recouvrent ni le bandeau d avertissement ni l attribution IGN."

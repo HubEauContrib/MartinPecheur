@@ -34,14 +34,19 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show initialWarningTitle;
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
+import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 StationPoint _blois() => StationPoint(
@@ -230,34 +235,9 @@ void main() {
     });
   });
 
-  group('IgnAttributionBadge', () {
-    testWidgets('affiche l\'attribution IGN et Licence Ouverte', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: IgnAttributionBadge())),
-      );
-
-      expect(find.text(ignAttribution), findsOneWidget);
-      expect(ignAttribution, contains('IGN'));
-      expect(ignAttribution, contains('Licence Ouverte'));
-    });
-
-    testWidgets('porte son propre fond opaque', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: IgnAttributionBadge())),
-      );
-
-      final DecoratedBox decoratedBox = tester.widget<DecoratedBox>(
-        find.byType(DecoratedBox).first,
-      );
-      final BoxDecoration decoration = decoratedBox.decoration as BoxDecoration;
-      final Color? color = decoration.color;
-
-      expect(color, isNotNull);
-      expect(color!.a, greaterThan(0.8));
-    });
-  });
+  // Le groupe « IgnAttributionBadge » vit désormais dans
+  // `ign_attribution_badge_test.dart` — extrait par `K1` en même temps que
+  // le widget lui-même (`lib/features/map/view/ign_attribution_badge.dart`).
 
   group('constantes de la carte', () {
     test('centre et zoom initiaux couvrent la France métropolitaine', () {
@@ -308,7 +288,7 @@ void main() {
       expect(marker.point.longitude, closeTo(1.335147948, 1e-9));
     });
 
-    test('chaque marqueur est carré, à stationMarkerTapTarget — la ZONE DE '
+    test('chaque marqueur est carré, à minimumTapTarget — la ZONE DE '
         'TAP, pas la pastille — avec une pastille décorée dedans, jamais un '
         'glyphe de police', () {
       final List<Widget> layers = buildMapLayers(
@@ -319,8 +299,8 @@ void main() {
 
       final MarkerLayer markerLayer = layers[1] as MarkerLayer;
       final Marker marker = markerLayer.markers.single;
-      expect(marker.width, stationMarkerTapTarget);
-      expect(marker.height, stationMarkerTapTarget);
+      expect(marker.width, minimumTapTarget);
+      expect(marker.height, minimumTapTarget);
       expect(marker.child, isNot(isA<Icon>()));
       expect(marker.child, isNot(isA<Text>()));
     });
@@ -370,8 +350,8 @@ void main() {
             body: Align(
               alignment: Alignment.topLeft,
               child: SizedBox(
-                width: stationMarkerTapTarget,
-                height: stationMarkerTapTarget,
+                width: minimumTapTarget,
+                height: minimumTapTarget,
                 child: markerLayer.markers[1].child,
               ),
             ),
@@ -407,8 +387,8 @@ void main() {
             body: Align(
               alignment: Alignment.topLeft,
               child: SizedBox(
-                width: stationMarkerTapTarget,
-                height: stationMarkerTapTarget,
+                width: minimumTapTarget,
+                height: minimumTapTarget,
                 child: markerLayer.markers.single.child,
               ),
             ),
@@ -445,8 +425,8 @@ void main() {
             body: Align(
               alignment: Alignment.topLeft,
               child: SizedBox(
-                width: stationMarkerTapTarget,
-                height: stationMarkerTapTarget,
+                width: minimumTapTarget,
+                height: minimumTapTarget,
                 child: markerLayer.markers.single.child,
               ),
             ),
@@ -475,8 +455,8 @@ void main() {
             body: Align(
               alignment: Alignment.topLeft,
               child: SizedBox(
-                width: stationMarkerTapTarget,
-                height: stationMarkerTapTarget,
+                width: minimumTapTarget,
+                height: minimumTapTarget,
                 child: markerLayer.markers.single.child,
               ),
             ),
@@ -656,8 +636,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: SizedBox(
-              width: stationMarkerTapTarget,
-              height: stationMarkerTapTarget,
+              width: minimumTapTarget,
+              height: minimumTapTarget,
               child: markerLayer.markers.single.child,
             ),
           ),
@@ -690,8 +670,8 @@ void main() {
           MaterialApp(
             home: Scaffold(
               body: SizedBox(
-                width: stationMarkerTapTarget,
-                height: stationMarkerTapTarget,
+                width: minimumTapTarget,
+                height: minimumTapTarget,
                 child: markerLayer.markers[index].child,
               ),
             ),
@@ -722,8 +702,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: SizedBox(
-              width: stationMarkerTapTarget,
-              height: stationMarkerTapTarget,
+              width: minimumTapTarget,
+              height: minimumTapTarget,
               child: markerLayer.markers.single.child,
             ),
           ),
@@ -775,8 +755,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: SizedBox(
-              width: stationMarkerTapTarget,
-              height: stationMarkerTapTarget,
+              width: minimumTapTarget,
+              height: minimumTapTarget,
               child: markerLayer.markers.single.child,
             ),
           ),
@@ -814,8 +794,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: SizedBox(
-              width: stationMarkerTapTarget,
-              height: stationMarkerTapTarget,
+              width: minimumTapTarget,
+              height: minimumTapTarget,
               child: markerLayer.markers.single.child,
             ),
           ),
@@ -860,6 +840,9 @@ void main() {
                 stations: stations,
                 ondeObservations: ondeObservations,
                 ondeUnreadableRows: ondeUnreadableRows,
+                onZoomIn: () {},
+                onZoomOut: () {},
+                onRecenter: () {},
                 stationSheet: stationSheet,
                 ondeSheet: ondeSheet,
               ),
@@ -1017,6 +1000,23 @@ void main() {
       expect(link.overlaps(attribution), isFalse);
     });
 
+    testWidgets('les contrôles de zoom (K1) ne recouvrent ni le contrôle '
+        "d'avertissement, ni la légende, ni les puces d'échelle, ni "
+        "l'attribution IGN", (WidgetTester tester) async {
+      await pumpOverlays(tester, stations: <StationPoint>[_blois()]);
+
+      final Rect controls = tester.getRect(find.byType(MapControls));
+      final Rect link = tester.getRect(find.byType(WarningLink));
+      final Rect legend = tester.getRect(find.byType(MapLegend));
+      final Rect chips = tester.getRect(find.byType(MapScaleChips));
+      final Rect attribution = tester.getRect(find.byType(IgnAttributionBadge));
+
+      expect(controls.overlaps(link), isFalse);
+      expect(controls.overlaps(legend), isFalse);
+      expect(controls.overlaps(chips), isFalse);
+      expect(controls.overlaps(attribution), isFalse);
+    });
+
     testWidgets("le tap sur le contrôle d'avertissement ouvre la fenêtre "
         '(W3c)', (WidgetTester tester) async {
       await pumpOverlays(tester);
@@ -1025,6 +1025,148 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(initialWarningTitle), findsOneWidget);
+    });
+  });
+
+  group(
+    'buildMapOverlays — la fiche ne passe jamais sous les contrôles de '
+    'zoom (arbitrage du coordinateur du 2026-09-23, « décaler la fiche »)',
+    () {
+      /// Clé du gabarit de fiche : une largeur infinie, bornée par le
+      /// `ConstrainedBox(maxWidth: _sheetMaxWidth)` et par la marge que le
+      /// panneau réserve à droite — c'est ce qui rend visible, à l'écran,
+      /// l'effet réel de cette marge plutôt qu'une largeur choisie au hasard
+      /// par le test.
+      const Key ficheKey = Key('fiche-de-test-K1');
+
+      Future<void> pumpWithSheet(WidgetTester tester, {required Size size}) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        return tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Stack(
+                children: buildMapOverlays(
+                  scale: MapScaleKind.debit,
+                  onSelect: (MapScaleKind kind) {},
+                  onWiden: () {},
+                  error: null,
+                  stations: <StationPoint>[_blois()],
+                  ondeObservations: const <OndeStationCode, OndeObservation>{},
+                  ondeUnreadableRows: 0,
+                  onZoomIn: () {},
+                  onZoomOut: () {},
+                  onRecenter: () {},
+                  stationSheet: Container(
+                    key: ficheKey,
+                    width: double.infinity,
+                    height: 200,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      Future<void> expectNoOverlapWithControls(WidgetTester tester) async {
+        await tester.pumpAndSettle();
+        final Rect fiche = tester.getRect(find.byKey(ficheKey));
+        for (final Key bouton in <Key>[
+          mapZoomInButtonKey,
+          mapZoomOutButtonKey,
+          mapRecenterButtonKey,
+        ]) {
+          expect(
+            fiche.overlaps(tester.getRect(find.byKey(bouton))),
+            isFalse,
+            reason: '$bouton, fiche=$fiche',
+          );
+        }
+      }
+
+      testWidgets('400 × 800 (portrait étroit)', (WidgetTester tester) async {
+        await pumpWithSheet(tester, size: const Size(400, 800));
+        await expectNoOverlapWithControls(tester);
+      });
+
+      testWidgets('800 × 600', (WidgetTester tester) async {
+        await pumpWithSheet(tester, size: const Size(800, 600));
+        await expectNoOverlapWithControls(tester);
+      });
+    },
+  );
+
+  group('buildMapOverlays — paysage court (800 × 400), constat du coordinateur '
+      'du 2026-09-23', () {
+    Future<void> pumpOverlaysAt(WidgetTester tester, Size size) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: buildMapOverlays(
+                scale: MapScaleKind.ecoulement,
+                onSelect: (MapScaleKind kind) {},
+                onWiden: () {},
+                error: null,
+                stations: const <StationPoint>[],
+                ondeObservations: const <OndeStationCode, OndeObservation>{},
+                ondeUnreadableRows: 0,
+                onZoomIn: () {},
+                onZoomOut: () {},
+                onRecenter: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets("les contrôles de zoom ne recouvrent pas le contrôle "
+        "d'avertissement, même sur cette hauteur réduite", (
+      WidgetTester tester,
+    ) async {
+      await pumpOverlaysAt(tester, const Size(800, 400));
+      await tester.pumpAndSettle();
+
+      final Rect controls = tester.getRect(find.byType(MapControls));
+      final Rect link = tester.getRect(find.byType(WarningLink));
+
+      expect(controls.overlaps(link), isFalse);
+    });
+
+    testWidgets('CONSTAT — à 800 × 400, la légende de six lignes (échelle '
+        "écoulement) déborde jusque dans la colonne des contrôles de zoom : "
+        'ni corrigé ni masqué ici (signalé au coordinateur, K3 traite la '
+        'taille minimale de fenêtre, pas ce fichier)', (
+      WidgetTester tester,
+    ) async {
+      await pumpOverlaysAt(tester, const Size(800, 400));
+      await tester.pumpAndSettle();
+
+      final Rect controls = tester.getRect(find.byType(MapControls));
+      final Rect legend = tester.getRect(find.byType(MapLegend));
+
+      // ⚠️ Ce test verrouille un FAIT CONSTATÉ, pas un invariant désiré :
+      // si une tâche future (K3 ou une révision de disposition) fait
+      // passer cette expression à `false`, ce test doit être corrigé À
+      // LA MAIN — jamais supprimé en silence — pour dire ce que
+      // l'écran fait vraiment.
+      expect(
+        controls.overlaps(legend),
+        isTrue,
+        reason:
+            'Mesuré le 2026-09-23 : controls=$controls, legend=$legend. '
+            "Si ceci devient faux, l'écran s'est amélioré : mettre à "
+            'jour ce test pour le dire.',
+      );
     });
   });
 
@@ -1151,147 +1293,6 @@ void main() {
     },
   );
 
-  group('MapScaleChips — la bascule d échelle (T1-U3, UC-001 A6)', () {
-    Future<void> pumpChips(
-      WidgetTester tester, {
-      required MapScaleKind scale,
-      required void Function(MapScaleKind kind) onSelect,
-    }) {
-      return tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: MapScaleChips(scale: scale, onSelect: onSelect),
-            ),
-          ),
-        ),
-      );
-    }
-
-    testWidgets('rend une puce par échelle, nommée par mapScaleLabel — '
-        'jamais une reformulation locale', (WidgetTester tester) async {
-      await pumpChips(
-        tester,
-        scale: MapScaleKind.ecoulement,
-        onSelect: (MapScaleKind kind) {},
-      );
-
-      for (final MapScaleKind kind in MapScaleKind.values) {
-        expect(find.text(mapScaleLabel(kind)), findsOneWidget);
-      }
-    });
-
-    testWidgets("la puce active est sémantiquement sélectionnée, l'autre "
-        'non — la sélection ne tient pas qu à un aplat de couleur '
-        '(04-ui.md § 3)', (WidgetTester tester) async {
-      for (final MapScaleKind active in MapScaleKind.values) {
-        await pumpChips(
-          tester,
-          scale: active,
-          onSelect: (MapScaleKind kind) {},
-        );
-
-        for (final MapScaleKind kind in MapScaleKind.values) {
-          final Semantics chip = tester.widget<Semantics>(
-            find.byKey(ValueKey<MapScaleKind>(kind)),
-          );
-          expect(
-            chip.properties.selected,
-            kind == active,
-            reason: '$kind, échelle active $active',
-          );
-          expect(chip.properties.button, isTrue);
-          expect(chip.properties.label, mapScaleLabel(kind));
-        }
-      }
-    });
-
-    testWidgets('un tap sur « Débit » appelle onSelect(debit) UNE fois', (
-      WidgetTester tester,
-    ) async {
-      final List<MapScaleKind> selected = <MapScaleKind>[];
-      await pumpChips(
-        tester,
-        scale: MapScaleKind.ecoulement,
-        onSelect: selected.add,
-      );
-
-      await tester.tap(
-        find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
-      );
-      await tester.pump();
-
-      expect(selected, <MapScaleKind>[MapScaleKind.debit]);
-    });
-
-    testWidgets("chaque puce porte une action tap pour le lecteur d'écran — "
-        '`excludeSemantics` masque celle du geste (relecture du '
-        '2026-09-23)', (WidgetTester tester) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
-      final List<MapScaleKind> selected = <MapScaleKind>[];
-      await pumpChips(
-        tester,
-        scale: MapScaleKind.ecoulement,
-        onSelect: selected.add,
-      );
-
-      for (final MapScaleKind kind in MapScaleKind.values) {
-        final SemanticsNode node = tester.getSemantics(
-          find.byKey(ValueKey<MapScaleKind>(kind)),
-        );
-        expect(
-          node.getSemanticsData().hasAction(SemanticsAction.tap),
-          isTrue,
-          reason: kind.name,
-        );
-
-        selected.clear();
-        node.owner!.performAction(node.id, SemanticsAction.tap);
-        await tester.pump();
-        expect(selected, <MapScaleKind>[kind]);
-      }
-
-      handle.dispose();
-    });
-
-    testWidgets('un tap sur la puce déjà active la redemande telle quelle — '
-        "c'est le ViewModel qui décide que cela ne change rien", (
-      WidgetTester tester,
-    ) async {
-      final List<MapScaleKind> selected = <MapScaleKind>[];
-      await pumpChips(
-        tester,
-        scale: MapScaleKind.ecoulement,
-        onSelect: selected.add,
-      );
-
-      await tester.tap(
-        find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
-      );
-      await tester.pump();
-
-      expect(selected, <MapScaleKind>[MapScaleKind.ecoulement]);
-    });
-
-    testWidgets('chaque puce mesure au moins 44 pt dans les deux dimensions '
-        '(04-ui.md § 3, cibles tactiles)', (WidgetTester tester) async {
-      await pumpChips(
-        tester,
-        scale: MapScaleKind.ecoulement,
-        onSelect: (MapScaleKind kind) {},
-      );
-
-      for (final MapScaleKind kind in MapScaleKind.values) {
-        final Size size = tester.getSize(
-          find.byKey(ValueKey<MapScaleKind>(kind)),
-        );
-        expect(size.width, greaterThanOrEqualTo(stationMarkerTapTarget));
-        expect(size.height, greaterThanOrEqualTo(stationMarkerTapTarget));
-      }
-    });
-  });
-
   group('buildMapLayers — une seule famille de marqueurs par échelle '
       '(BR-008, T1-U3)', () {
     List<Widget> layersFor(
@@ -1324,8 +1325,8 @@ void main() {
             body: Align(
               alignment: Alignment.topLeft,
               child: SizedBox(
-                width: stationMarkerTapTarget,
-                height: stationMarkerTapTarget,
+                width: minimumTapTarget,
+                height: minimumTapTarget,
                 child: marker.child,
               ),
             ),
@@ -1374,8 +1375,8 @@ void main() {
           layersFor(MapScaleKind.ecoulement)[1] as MarkerLayer;
 
       for (final Marker marker in markerLayer.markers) {
-        expect(marker.width, stationMarkerTapTarget);
-        expect(marker.height, stationMarkerTapTarget);
+        expect(marker.width, minimumTapTarget);
+        expect(marker.height, minimumTapTarget);
       }
     });
 
@@ -1561,6 +1562,9 @@ void main() {
                 stations: stations,
                 ondeObservations: ondeObservations,
                 ondeUnreadableRows: ondeUnreadableRows,
+                onZoomIn: () {},
+                onZoomOut: () {},
+                onRecenter: () {},
               ),
             ),
           ),
@@ -1717,6 +1721,9 @@ void main() {
                 stations: <StationPoint>[_blois()],
                 ondeObservations: _uneObservation(),
                 ondeUnreadableRows: 0,
+                onZoomIn: () {},
+                onZoomOut: () {},
+                onRecenter: () {},
               ),
             ),
           ),
@@ -2041,6 +2048,295 @@ void main() {
       },
     );
   });
+
+  group('MapView — les boutons de zoom (K1) réutilisent EXACTEMENT le '
+      'mécanisme de la sélection de pastille : onGestureEnded avec '
+      'emprise et zoom résultants, franchissement des seuils ADR-015', () {
+    /// Une seule station, avec un département — assez pour que le
+    /// regroupement départemental (`ADR-015`) ne soit jamais vide entre les
+    /// zooms 7 et 9, et assez pour que le préchargement de l'échelle débit
+    /// ait un destinataire au niveau individuel.
+    _StationsStub uneStationAvecDepartement() => _StationsStub(<StationPoint>[
+      StationPoint(
+        code: StationCode('K000000001'),
+        label: 'Station de test',
+        latitude: initialMapCenterLatitude,
+        longitude: initialMapCenterLongitude,
+        departement: const AdministrativeArea(code: '45', label: 'Loiret'),
+      ),
+    ]);
+
+    testWidgets(
+      "au zoom maximal, + est désactivé (Semantics.enabled faux) ; au "
+      'zoom minimal, − l est — le test passe par le rendu de MapControls, '
+      'pas seulement par MapViewModel.canZoomIn/canZoomOut',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: uneStationAvecDepartement(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: _EmptyOndeObservationRepository(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+
+        // Au zoom initial (5), les deux boutons restent actifs.
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapZoomInButtonKey))
+              .properties
+              .enabled,
+          isTrue,
+        );
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapZoomOutButtonKey))
+              .properties
+              .enabled,
+          isTrue,
+        );
+
+        await viewModel.onGestureEnded(
+          MapViewModel.startupBounds,
+          zoom: maximumMapZoom,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapZoomInButtonKey))
+              .properties
+              .enabled,
+          isFalse,
+          reason: 'zoom maximal : + ne doit plus rien pouvoir demander',
+        );
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapZoomOutButtonKey))
+              .properties
+              .enabled,
+          isTrue,
+        );
+
+        await viewModel.onGestureEnded(
+          MapViewModel.startupBounds,
+          zoom: minimumMapZoom,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapZoomOutButtonKey))
+              .properties
+              .enabled,
+          isFalse,
+          reason: 'zoom minimal : − ne doit plus rien pouvoir demander',
+        );
+      },
+    );
+
+    testWidgets(
+      '+ deux fois depuis le zoom initial (5) atteint 7 : level passe de '
+      'region à departement',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: uneStationAvecDepartement(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: _EmptyOndeObservationRepository(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+
+        expect(viewModel.level, AreaLevel.region);
+
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.pumpAndSettle();
+        expect(viewModel.zoom, 6);
+        expect(viewModel.level, AreaLevel.region);
+
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.pumpAndSettle();
+        expect(viewModel.zoom, 7);
+        expect(viewModel.level, AreaLevel.departement);
+      },
+    );
+
+    testWidgets(
+      '+ depuis le zoom 8 atteint 9 : clusters vide (niveau individuel) et '
+      'le préchargement de la station visible est lancé',
+      (WidgetTester tester) async {
+        final _SpyHydroObservationRepository observations =
+            _SpyHydroObservationRepository();
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: uneStationAvecDepartement(),
+          observations: observations,
+          onde: _EmptyOndeObservationRepository(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+
+        // zoom 5 -> 6 -> 7 -> 8 : trois taps, toujours regroupé.
+        for (int i = 0; i < 3; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.zoom, 8);
+        expect(viewModel.level, AreaLevel.departement);
+        expect(observations.callCount, 0, reason: 'toujours regroupé');
+
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(viewModel.zoom, 9);
+        expect(viewModel.level, isNull);
+        expect(viewModel.clusters, isEmpty);
+        expect(
+          observations.callCount,
+          1,
+          reason: 'niveau individuel : la station visible est préchargée',
+        );
+      },
+    );
+
+    testWidgets('− depuis le zoom 9 revient à 8 : pastilles départementales '
+        'revenues, aucun nouvel appel findLatest', (WidgetTester tester) async {
+      final _SpyHydroObservationRepository observations =
+          _SpyHydroObservationRepository();
+      final MapViewModel viewModel = MapViewModel(
+        stationPoints: uneStationAvecDepartement(),
+        observations: observations,
+        onde: _EmptyOndeObservationRepository(),
+      );
+
+      await tester.pumpWidget(MaterialApp(home: MapView(viewModel: viewModel)));
+      await tester.pumpAndSettle();
+      viewModel.selectScale(MapScaleKind.debit);
+      await tester.pumpAndSettle();
+
+      // zoom 5 -> ... -> 9 : quatre taps, niveau individuel, un
+      // préchargement.
+      for (int i = 0; i < 4; i++) {
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.pumpAndSettle();
+      }
+      expect(viewModel.zoom, 9);
+      expect(viewModel.level, isNull);
+      final int callsAtZoomNeuf = observations.callCount;
+      expect(callsAtZoomNeuf, 1);
+
+      await tester.tap(find.byKey(mapZoomOutButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(viewModel.zoom, 8);
+      expect(viewModel.level, AreaLevel.departement);
+      expect(viewModel.clusters, isNotEmpty);
+      expect(
+        observations.callCount,
+        callsAtZoomNeuf,
+        reason: 'de retour au niveau regroupé, aucun findLatest de plus',
+      );
+    });
+
+    testWidgets(
+      'le recentrage ramène au zoom de démarrage (5) : niveau région',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: uneStationAvecDepartement(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: _EmptyOndeObservationRepository(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+
+        for (int i = 0; i < 4; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.level, isNull);
+
+        await tester.tap(find.byKey(mapRecenterButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(viewModel.zoom, initialMapZoom);
+        expect(viewModel.level, AreaLevel.region);
+      },
+    );
+
+    testWidgets(
+      'le recentrage ramène aussi le CENTRE (pas seulement le zoom) — '
+      "arbitrage du coordinateur du 2026-09-23 : un recentrage décalé "
+      "en latitude/longitude ne serait pas un recentrage",
+      (WidgetTester tester) async {
+        final _BoundsSpyStationsStub stations = _BoundsSpyStationsStub(
+          <StationPoint>[
+            StationPoint(
+              code: StationCode('K000000001'),
+              label: 'Station de test',
+              latitude: initialMapCenterLatitude,
+              longitude: initialMapCenterLongitude,
+              departement: const AdministrativeArea(
+                code: '45',
+                label: 'Loiret',
+              ),
+            ),
+          ],
+        );
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: stations,
+          observations: _EmptyHydroObservationRepository(),
+          onde: _EmptyOndeObservationRepository(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+
+        // Un zoom avant pour bouger la caméra, avant de vérifier que le
+        // recentrage la ramène au bon endroit.
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(mapRecenterButtonKey));
+        await tester.pumpAndSettle();
+
+        final Bounds? lastBounds = stations.lastBounds;
+        expect(lastBounds, isNotNull);
+        final double centreLatitude =
+            (lastBounds!.south + lastBounds.north) / 2;
+        final double centreLongitude = (lastBounds.west + lastBounds.east) / 2;
+        // ⚠️ La projection Web Mercator (`Epsg3857`) n'est PAS symétrique en
+        // latitude : la moyenne des bords nord/sud d'une emprise s'écarte du
+        // centre réel de la caméra de quelques dixièmes de degré (mesuré :
+        // ≈ 0,73° à 46,6° N). La tolérance reste bien en-dessous d'un
+        // décalage de plusieurs degrés — ce qu'une régression romprait — sans
+        // exiger une précision que la projection ne permet pas ici. La
+        // longitude, elle, N'EST PAS déformée par Mercator (l'axe X reste
+        // linéaire) : sa tolérance reste serrée.
+        expect(centreLatitude, closeTo(initialMapCenterLatitude, 1.5));
+        expect(centreLongitude, closeTo(initialMapCenterLongitude, 0.01));
+      },
+    );
+  });
 }
 
 /// Un double PROGRAMMABLE de [StationPointRepository] : `all()` et
@@ -2061,6 +2357,51 @@ final class _StationsStub implements StationPointRepository {
 
   @override
   Future<List<StationPoint>> all() async => points;
+}
+
+/// Un double PROGRAMMABLE de [StationPointRepository] qui enregistre la
+/// DERNIÈRE emprise demandée à [withinBounds] — c'est ce qui permet de
+/// vérifier que le bouton de recentrage (`K1`) ramène la caméra au bon
+/// CENTRE, pas seulement au bon zoom (arbitrage du coordinateur du
+/// 2026-09-23).
+final class _BoundsSpyStationsStub implements StationPointRepository {
+  _BoundsSpyStationsStub(this.points);
+
+  final List<StationPoint> points;
+
+  /// La dernière emprise passée à [withinBounds], `null` tant qu'aucun
+  /// appel n'a eu lieu.
+  Bounds? lastBounds;
+
+  @override
+  Future<List<StationPoint>> withinBounds(
+    Bounds bounds, {
+    double margin = defaultViewportMargin,
+  }) async {
+    lastBounds = bounds;
+    return points;
+  }
+
+  @override
+  Future<List<StationPoint>> all() async => points;
+}
+
+/// Un double de [HydroObservationRepository] qui ne rend jamais de mesure
+/// (`SansDonnee`), et COMPTE ses appels — c'est ce compte qui prouve qu'un
+/// bouton de zoom (`K1`) a bien lancé (ou pas) le préchargement du niveau
+/// individuel, sans dépendre d'une vraie mesure Hub'Eau.
+final class _SpyHydroObservationRepository
+    implements HydroObservationRepository {
+  int callCount = 0;
+
+  @override
+  Future<HydroObservation?> findLatest(
+    StationCode station,
+    Grandeur grandeur,
+  ) async {
+    callCount++;
+    return null;
+  }
 }
 
 /// Un double PROGRAMMABLE de [OndeObservationRepository] : rend toujours

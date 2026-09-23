@@ -37,19 +37,15 @@ import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show SheetWarningKind, sheetWarningText;
+import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
-/// Côté minimal d'une cible tactile, en pixels logiques : 44 × 44 pt (iOS)
-/// selon `04-ui.md` § 3. Recopié de la spécification, jamais choisi ici.
-///
-/// ⚠️ La carte tient la même exigence pour la zone de tap d'un marqueur,
-/// avec sa PROPRE constante (`stationMarkerTapTarget`,
-/// `lib/features/map/view/map_view.dart`) : une tranche n'importe pas une
-/// autre tranche (`test/architecture/layers_test.dart`, règle
-/// `feature-vers-feature`). Les deux constantes recopient la même ligne de
-/// `04-ui.md`, elles ne se recopient pas l'une l'autre.
-const double minimumTapTarget = 44.0;
+// Le ré-export de `minimumTapTarget` posé par `K1` est retiré (YAGNI,
+// relecture du coordinateur du 2026-09-23) : cette fiche a longtemps déclaré
+// SA PROPRE constante (dette actée en `U1`) ; ses appelants, y compris ses
+// propres tests, importent désormais directement
+// `features/shared/tap_target.dart`.
 
 /// Clé du bouton de fermeture de la fiche — le seul contrôle du panneau, et
 /// le seul chemin qui ferme la feuille. Nommée pour que le test puisse en

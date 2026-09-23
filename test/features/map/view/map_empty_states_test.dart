@@ -38,11 +38,10 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
-import 'package:martinpecheur/features/map/view/station_marker.dart'
-    show stationMarkerTapTarget;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
+import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Le fichier source des avis, lu par le verrou d'exhaustivité ci-dessous.
 const String _sourcePath = 'lib/features/map/view/map_empty_states.dart';
@@ -197,8 +196,8 @@ void main() {
       expect(find.text(widenSearchLabel), findsOneWidget);
 
       final Size taille = tester.getSize(action);
-      expect(taille.width, greaterThanOrEqualTo(stationMarkerTapTarget));
-      expect(taille.height, greaterThanOrEqualTo(stationMarkerTapTarget));
+      expect(taille.width, greaterThanOrEqualTo(minimumTapTarget));
+      expect(taille.height, greaterThanOrEqualTo(minimumTapTarget));
 
       await tester.tap(action);
       await tester.pump();

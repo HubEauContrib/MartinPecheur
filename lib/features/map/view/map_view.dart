@@ -109,13 +109,18 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
+import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 // API de caméra lue dans le paquet installé `flutter_map` 8.3.2 avant
@@ -154,12 +159,15 @@ const double initialMapCenterLongitude = 2.2;
 /// Zoom initial — la France métropolitaine tient à l'écran.
 const double initialMapZoom = 5;
 
-/// Zoom minimal — en dessous, la France n'emplit plus l'écran.
-const double minimumMapZoom = 4;
-
-/// Zoom maximal — aligné sur le niveau natif maximal du plan IGN
-/// ([ignMaxNativeZoom]) : au-delà, le serveur n'a rien à offrir de plus fin.
-const double maximumMapZoom = ignMaxNativeZoom * 1.0;
+// `minimumMapZoom` et `maximumMapZoom` (importées ci-dessus, avec
+// `ignMaxNativeZoom`) vivent dans
+// `features/map/view_model/map_zoom_bounds.dart`, Dart pur (`K1`,
+// relecture du coordinateur du 2026-09-23) : `MapViewModel` doit pouvoir
+// décider si `+`/`−` restent actifs (`canZoomIn`/`canZoomOut`) sans importer
+// un fichier de `features/map/view/`. `MapOptions.minZoom`/`maxZoom`,
+// ci-dessous, restent la SEULE consommatrice de ces bornes côté caméra — les
+// redéfinir ici en ferait deux sources de vérité, ce que cette tâche
+// s'interdit précisément.
 
 /// État par défaut de [buildMapLayers.stateOf] : aucune requête n'a abouti
 /// pour cette station. Une fonction de premier niveau, et non une fermeture
@@ -372,8 +380,8 @@ List<Marker> _stationMarkers({
           // pastille de 12 px reste centrée dedans. Les deux tailles sont
           // distinctes à dessein : ce qui se voit et ce qui se touche n'ont
           // pas la même exigence.
-          width: stationMarkerTapTarget,
-          height: stationMarkerTapTarget,
+          width: minimumTapTarget,
+          height: minimumTapTarget,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: handleTap == null ? null : () => handleTap(station.code),
@@ -422,8 +430,8 @@ List<Marker> _ondeMarkers({
 
     return Marker(
       point: LatLng(point.latitude, point.longitude),
-      width: stationMarkerTapTarget,
-      height: stationMarkerTapTarget,
+      width: minimumTapTarget,
+      height: minimumTapTarget,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: handleTap == null ? null : () => handleTap(point),
@@ -527,7 +535,10 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    ordre. Les deux dépendent d'échelles différentes et ne sont jamais
 ///    ouverts ensemble en production ; fournis ensemble, ils s'empilent
 ///    plutôt que de se masquer (`BR-007`) ;
-/// 5. l'**attribution IGN**, toujours, en bas à droite — une condition
+/// 5. les **boutons de zoom et de recentrage** ([MapControls], `K1`), en bas
+///    à droite, AU-DESSUS de l'attribution — jamais l'inverse, l'attribution
+///    reste la dernière chose qu'un empilement pourrait masquer ;
+/// 6. l'**attribution IGN**, toujours, tout en bas à droite — une condition
 ///    d'usage de la Licence Ouverte, jamais une finition (`04-ui.md` § 3).
 ///
 /// [onSelect] est appelé avec l'échelle demandée par un tap de puce — en
@@ -554,6 +565,13 @@ List<Widget> buildMapOverlays({
   required List<StationPoint> stations,
   required Map<OndeStationCode, OndeObservation> ondeObservations,
   required int ondeUnreadableRows,
+  // `K1`, 2026-09-23 — [onZoomIn]/[onZoomOut] sont **nuls** quand
+  // `MapViewModel.canZoomIn`/`canZoomOut` disent qu'un cran de plus n'aurait
+  // aucun effet ; [MapControls] rend alors le bouton correspondant
+  // désactivé. [onRecenter], lui, a toujours un effet — non nul.
+  required VoidCallback? onZoomIn,
+  required VoidCallback? onZoomOut,
+  required VoidCallback onRecenter,
   MapErrorSource? errorSource,
   Widget? stationSheet,
   Widget? ondeSheet,
@@ -631,10 +649,18 @@ List<Widget> buildMapOverlays({
           // Marge basse plus épaisse : elle dégage le bandeau d'attribution
           // IGN, qui reste lisible en toutes circonstances (Licence
           // Ouverte, `04-ui.md` § 3).
+          //
+          // Marge DROITE réservée à la colonne des boutons de zoom
+          // (arbitrage du coordinateur du 2026-09-23, « décaler la
+          // fiche ») : sur un écran étroit, le panneau de fiche s'étend
+          // sur toute la largeur disponible — sans cette réserve, il
+          // passerait SOUS `MapControls`, posés en bas à droite. Même
+          // schéma que la réserve de la légende pour les puces d'échelle,
+          // plus haut dans cette fonction.
           padding: const EdgeInsets.fromLTRB(
             _overlayPadding,
             _overlayPadding,
-            _overlayPadding,
+            _sheetRightPadding,
             _sheetBottomPadding,
           ),
           child: ConstrainedBox(
@@ -663,11 +689,27 @@ List<Widget> buildMapOverlays({
           ),
         ),
       ),
-    const Align(
+    Align(
       alignment: Alignment.bottomRight,
       child: Padding(
-        padding: EdgeInsets.all(_overlayPadding),
-        child: IgnAttributionBadge(),
+        padding: const EdgeInsets.all(_overlayPadding),
+        // Une colonne, comme celle du contrôle d'avertissement et de la
+        // légende en haut à droite (`K1`) : les boutons de zoom et
+        // l'attribution IGN ne peuvent alors PAS se chevaucher, par
+        // construction.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: <Widget>[
+            MapControls(
+              onZoomIn: onZoomIn,
+              onZoomOut: onZoomOut,
+              onRecenter: onRecenter,
+            ),
+            const SizedBox(height: _overlayPadding),
+            const IgnAttributionBadge(),
+          ],
+        ),
       ),
     ),
   ];
@@ -684,175 +726,27 @@ const double _sheetBottomPadding = 32;
 /// Largeur maximale du panneau de fiche, en pixels logiques.
 const double _sheetMaxWidth = 420;
 
-/// Les puces de bascule d'échelle, en haut à gauche de la carte : une par
-/// valeur de [MapScaleKind], celle de [scale] marquée active.
-///
-/// `BR-008` et `UC-001 A6` : changer d'échelle change **marqueurs et légende
-/// ensemble**, et une seule échelle est active à la fois. Ce widget ne
-/// décide rien — il appelle [onSelect], et c'est le ViewModel qui bascule
-/// (et qui ignore une demande sans effet).
-///
-/// Les libellés viennent de `mapScaleLabel`, jamais d'une recopie locale :
-/// la légende nomme l'échelle active avec exactement les mêmes mots.
-class MapScaleChips extends StatelessWidget {
-  const MapScaleChips({required this.scale, required this.onSelect, super.key});
+/// Largeur de la colonne des boutons de zoom ([MapControls]), en pixels
+/// logiques : chaque bouton mesure [minimumTapTarget]
+/// (`lib/features/shared/tap_target.dart`), et la colonne les empile avec
+/// `CrossAxisAlignment.end` — sa largeur ne dépasse donc jamais celle d'un
+/// bouton. Nommée plutôt que recopiée : c'est ce que [_sheetRightPadding]
+/// doit réserver pour que la fiche ne passe jamais sous ces boutons
+/// (arbitrage du coordinateur du 2026-09-23, « décaler la fiche »).
+const double _mapControlsColumnWidth = minimumTapTarget;
 
-  /// L'échelle active, lue sur `MapViewModel.scale`.
-  final MapScaleKind scale;
+/// Marge droite que le panneau de fiche réserve pour ne jamais passer sous
+/// la colonne des boutons de zoom, posée en bas à droite : la largeur de
+/// cette colonne ([_mapControlsColumnWidth]), plus la marge qui l'entoure
+/// des deux côtés ([_overlayPadding], comme partout ailleurs dans ce
+/// fichier). Dérivée de [minimumTapTarget], jamais un nombre posé au hasard.
+const double _sheetRightPadding = _mapControlsColumnWidth + 2 * _overlayPadding;
 
-  /// Appelé avec l'échelle demandée. En production,
-  /// `MapViewModel.selectScale`.
-  final void Function(MapScaleKind kind) onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    // `Wrap` et non `Row` : « Débit relatif à l'historique » est un libellé
-    // long, et les deux puces ne tiennent pas côte à côte sur un écran
-    // étroit — ni sur un large, une fois réservée la place de la légende.
-    // Une `Row` déborderait ; `Wrap` les empile.
-    //
-    // ⚠️ Le `Wrap` ne replie qu'ENTRE les puces, jamais dans l'une d'elles :
-    // ce qui tient la typographie dynamique jusqu'à 200 % (`04-ui.md` § 3)
-    // est, à l'intérieur de chaque puce, le `ConstrainedBox(minWidth: 44)`
-    // — un plancher, pas un plafond — et le retour à la ligne du `Text`,
-    // qu'aucune contrainte de hauteur ne bride.
-    return Wrap(
-      spacing: _overlayPadding,
-      runSpacing: _overlayPadding,
-      children: <Widget>[
-        for (final MapScaleKind kind in MapScaleKind.values)
-          _MapScaleChip(
-            kind: kind,
-            selected: kind == scale,
-            onSelect: onSelect,
-          ),
-      ],
-    );
-  }
-}
-
-/// Une puce. Construite à la main plutôt qu'avec un `ChoiceChip` de
-/// Material pour deux raisons, dans cet ordre :
-/// 1. la **cible tactile** de 44 pt (`04-ui.md` § 3) est ici une contrainte
-///    explicite, pas la densité que le thème veut bien accorder ;
-/// 2. l'état sélectionné est porté par `Semantics(selected:)` **en plus** du
-///    rendu : « aucune information n'est portée par la seule couleur »
-///    (`04-ui.md` § 3) vaut aussi pour un contrôle.
-///
-/// ⚠️ Le noir et le blanc employés ici ne codent **aucun état de l'eau** :
-/// `04-ui.md` § 2 ne régit que les teintes d'état, et une puce de filtre
-/// n'en est pas une. Ce sont les mêmes neutres que l'attribution IGN et le
-/// bandeau d'erreur de ce fichier.
-class _MapScaleChip extends StatelessWidget {
-  const _MapScaleChip({
-    required this.kind,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final MapScaleKind kind;
-  final bool selected;
-  final void Function(MapScaleKind kind) onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      // La clé est posée sur le nœud sémantique, donc sur la boîte entière :
-      // c'est elle que les tests tapent et mesurent.
-      key: ValueKey<MapScaleKind>(kind),
-      button: true,
-      selected: selected,
-      label: mapScaleLabel(kind),
-      // Le libellé est déjà annoncé ici ; sans cette exclusion le `Text`
-      // intérieur en ferait un second nœud.
-      excludeSemantics: true,
-      // Sans ce rappel, `excludeSemantics` masque l'action de tap que le
-      // geste porterait sinon lui-même : un double-tap au lecteur d'écran
-      // n'activerait plus rien (relecture du 2026-09-23).
-      onTap: () => onSelect(kind),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onSelect(kind),
-        child: ConstrainedBox(
-          // 44 × 44 pt au minimum (`04-ui.md` § 3). La puce s'élargit avec
-          // son texte, elle ne rétrécit jamais en deçà.
-          constraints: const BoxConstraints(
-            minWidth: stationMarkerTapTarget,
-            minHeight: stationMarkerTapTarget,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: selected ? Colors.black : Colors.white,
-              border: Border.all(color: Colors.black),
-              borderRadius: const BorderRadius.all(
-                Radius.circular(stationMarkerTapTarget / 2),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _chipHorizontalPadding,
-                vertical: _chipVerticalPadding,
-              ),
-              // `Align` à facteurs 1 : la boîte se dimensionne sur son
-              // texte, et c'est le `ConstrainedBox` au-dessus qui impose le
-              // plancher de 44 pt.
-              child: Align(
-                widthFactor: 1,
-                heightFactor: 1,
-                child: Text(
-                  mapScaleLabel(kind),
-                  style: TextStyle(
-                    fontSize: _chipFontSize,
-                    color: selected ? Colors.white : Colors.black,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Marge horizontale d'une puce, en pixels logiques.
-const double _chipHorizontalPadding = 12;
-
-/// Marge verticale d'une puce, en pixels logiques.
-const double _chipVerticalPadding = 8;
-
-/// Taille de texte d'une puce, en pixels logiques.
-const double _chipFontSize = 12;
-
-// `MapErrorBanner` vivait ici jusqu'à `U6`. Retiré : son texte —
-// « Les stations n'ont pas pu être chargées : $error » — ne nommait aucune
-// source et exposait un `toString()` à l'usager, là où `BR-007` demande un
-// « message par source ». `SourceUnavailableNotice`
-// (`map_empty_states.dart`) le remplace, et la cause technique y est en
-// retrait plutôt qu'en titre.
-
-/// Bandeau d'attribution IGN Géoplateforme, exigé par la Licence Ouverte.
-/// Porte son propre fond opaque : un texte posé directement sur un fond de
-/// carte quelconque ne tient aucun contraste (`04-ui.md` § 3). Entièrement
-/// `const` : rien ici ne dépend de l'état de l'écran.
-class IgnAttributionBadge extends StatelessWidget {
-  const IgnAttributionBadge({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.all(Radius.circular(4)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        child: Text(ignAttribution, style: TextStyle(fontSize: 11)),
-      ),
-    );
-  }
-}
+// `MapScaleChips`/`_MapScaleChip` (`map_scale_chips.dart`) et
+// `IgnAttributionBadge` (`ign_attribution_badge.dart`) sont **extraits** de
+// ce fichier par `K1` (2026-09-23), au même titre que `MapControls`
+// (`map_controls.dart`) : aucun changement de comportement, seuls les
+// imports ci-dessus changent.
 
 /// L'écran carte : fond IGN, attribution, et les marqueurs de stations du
 /// viewport. N'appelle aucun dépôt — il observe [viewModel] et lui demande
@@ -1033,6 +927,22 @@ class _MapViewState extends State<MapView> {
         _mapController.move(LatLng(lat, lon), zoom),
     };
 
+    _afterCameraMove(moved);
+  }
+
+  /// Signale au ViewModel un déplacement de caméra qui vient d'aboutir —
+  /// avec l'emprise et le zoom **résultants** ([_mapController.camera], lu
+  /// APRÈS le déplacement), jamais une géométrie recalculée ici. Factorisée
+  /// par `K1` (2026-09-23) : [_handleClusterSelect] (sélection d'une
+  /// pastille, `Z4`) et les trois handlers de [MapControls] ci-dessous
+  /// partagent EXACTEMENT ce mécanisme — aucun enchaînement recopié.
+  ///
+  /// [moved] est le retour de `MapController.move`/`fitCamera` : `false`
+  /// quand le déplacement demandé n'avait aucun effet (cible égale à la
+  /// position courante, ou contrainte de caméra qui le refuse) — rien à
+  /// signaler alors, la caméra n'a pas bougé (même relecture que
+  /// [_handleClusterSelect] avant cette factorisation).
+  void _afterCameraMove(bool moved) {
     if (!moved) {
       return;
     }
@@ -1042,6 +952,36 @@ class _MapViewState extends State<MapView> {
       widget.viewModel.onGestureEnded(
         _boundsFromLatLngBounds(camera.visibleBounds),
         zoom: camera.zoom,
+      ),
+    );
+  }
+
+  /// Bouton `+` de [MapControls] (`K1`) : un cran de [zoomStep] au même
+  /// centre — jamais construit quand `MapViewModel.canZoomIn` est faux
+  /// (voir [buildMapOverlays]).
+  void _handleZoomIn() {
+    final MapCamera camera = _mapController.camera;
+    _afterCameraMove(
+      _mapController.move(camera.center, camera.zoom + zoomStep),
+    );
+  }
+
+  /// Bouton `−` de [MapControls] (`K1`) : symétrique de [_handleZoomIn].
+  void _handleZoomOut() {
+    final MapCamera camera = _mapController.camera;
+    _afterCameraMove(
+      _mapController.move(camera.center, camera.zoom - zoomStep),
+    );
+  }
+
+  /// Bouton de recentrage de [MapControls] (`K1`) : ramène la caméra à
+  /// l'emprise de démarrage — même centre et même zoom qu'au lancement de
+  /// l'écran (`initialMapCenterLatitude`/`Longitude`, [initialMapZoom]).
+  void _handleRecenter() {
+    _afterCameraMove(
+      _mapController.move(
+        const LatLng(initialMapCenterLatitude, initialMapCenterLongitude),
+        initialMapZoom,
       ),
     );
   }
@@ -1097,6 +1037,9 @@ class _MapViewState extends State<MapView> {
                 stations: widget.viewModel.stations,
                 ondeObservations: widget.viewModel.ondeObservations,
                 ondeUnreadableRows: widget.viewModel.ondeUnreadableRows,
+                onZoomIn: widget.viewModel.canZoomIn ? _handleZoomIn : null,
+                onZoomOut: widget.viewModel.canZoomOut ? _handleZoomOut : null,
+                onRecenter: _handleRecenter,
                 stationSheet: widget.stationSheet,
                 ondeSheet: widget.ondeSheet,
               ),

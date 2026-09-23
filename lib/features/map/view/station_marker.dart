@@ -83,6 +83,7 @@
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Gris de l'état « Indéterminé », recopié de `04-ui.md` § 2 (échelle 2 —
 /// débit relatif à l'historique). Sur blanc, `#767676` tient 4,54:1
@@ -107,23 +108,15 @@ const double stationMarkerBorderWidth = 2;
 
 /// Taille d'une pastille de station, en pixels logiques. Volontairement
 /// petite : ce n'est **pas** la cible tactile — celle-ci vaut
-/// [stationMarkerTapTarget], et la pastille est centrée dedans. Quatre mille
-/// cent cinquante pastilles de 44 px couvriraient la France d'un aplat ;
-/// c'est la zone de tap, invisible, qui porte l'exigence d'accessibilité.
+/// [minimumTapTarget] (`lib/features/shared/tap_target.dart`), et la
+/// pastille est centrée dedans. Quatre mille cent cinquante pastilles de
+/// 44 px couvriraient la France d'un aplat ; c'est la zone de tap,
+/// invisible, qui porte l'exigence d'accessibilité.
 const double stationMarkerSize = 12;
 
-/// Côté de la zone de tap d'un marqueur, en pixels logiques : 44 × 44 pt,
-/// recopié de `04-ui.md` § 3 (cibles tactiles ≥ 44 × 44 pt iOS).
-///
-/// ⚠️ La fiche station porte la même exigence, avec sa PROPRE constante
-/// (`minimumTapTarget`,
-/// `lib/features/station_sheet/view/station_summary_sheet.dart`) : une
-/// tranche n'importe pas une autre tranche
-/// (`test/architecture/layers_test.dart`, règle `feature-vers-feature`). Les
-/// deux constantes recopient la même ligne de `04-ui.md`, jamais l'une
-/// l'autre — le jour où une troisième tranche en a besoin, c'est le signe
-/// qu'il faut un endroit commun, et cela se tranche avec le commanditaire.
-const double stationMarkerTapTarget = 44;
+// L'alias `stationMarkerTapTarget` (`K1`) est retiré (YAGNI, relecture du
+// coordinateur du 2026-09-23) : tous les appelants lisent directement
+// [minimumTapTarget].
 
 /// Opacité du remplissage d'une observation périmée (`BR-005`). Le contour,
 /// lui, reste à opacité pleine : l'atténuation doit réduire la saturation,

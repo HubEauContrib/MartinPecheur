@@ -30,10 +30,11 @@
 //
 // ⚠️ Cette tranche n'importe AUCUNE autre tranche (`layers_test.dart`, règle
 // `feature-vers-feature`) : ni `features/map/`, ni `features/station_sheet/`.
-// La cible tactile de 44 pt (`04-ui.md § 3`) y est donc recopiée de sa
-// spécification, jamais de l'autre tranche — duplication assumée,
-// conséquence directe de la règle de couches. Le format de date, lui, n'est
-// plus recopié depuis `H1` (2026-09-22) : `formatCalendarDate` vit dans
+// La cible tactile de 44 pt (`04-ui.md § 3`) vient de [minimumTapTarget]
+// (`lib/features/shared/tap_target.dart`, `K1`) — `features/shared/` reste
+// ouverte à toute tranche (règle `shared-sans-tranche`). Le format de date,
+// lui, n'est plus recopié depuis `H1` (2026-09-22) : `formatCalendarDate` vit
+// dans
 // `lib/domain/formatting/display_date.dart`, lu par les trois tranches sans
 // que l'une importe l'autre (le domaine leur est ouvert à toutes).
 //
@@ -58,17 +59,8 @@ import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show SheetWarningKind, sheetWarningText;
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
-
-/// Côté minimal d'une cible tactile, en pixels logiques : 44 × 44 pt (iOS)
-/// selon `04-ui.md` § 3. Recopié de la spécification, jamais choisi ici.
-///
-/// ⚠️ La fiche station et la carte tiennent la même exigence avec LEURS
-/// propres constantes (`minimumTapTarget`, `stationMarkerTapTarget`) : une
-/// tranche n'importe pas une autre tranche (`layers_test.dart`, règle
-/// `feature-vers-feature`). Les trois recopient la même ligne de `04-ui.md`,
-/// elles ne se recopient pas l'une l'autre.
-const double ondeSheetTapTarget = 44.0;
 
 // ⚠️ Décision de relecture (2026-09-14) : aucune teinte grise sur cette
 // fiche. `#767676` tient 4,54:1 sur blanc — suffisant pour du texte
@@ -321,7 +313,7 @@ class OndeSheetPanel extends StatelessWidget {
   }
 }
 
-/// Le bouton de fermeture, dimensionné à [ondeSheetTapTarget] par un
+/// Le bouton de fermeture, dimensionné à [minimumTapTarget] par un
 /// `SizedBox` explicite et non par les valeurs par défaut d'un bouton
 /// Material : la taille est alors une propriété du code, mesurable par test
 /// (`04-ui.md` § 3), pas un effet de thème.
@@ -340,8 +332,8 @@ class _CloseButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onClose,
         child: const SizedBox(
-          width: ondeSheetTapTarget,
-          height: ondeSheetTapTarget,
+          width: minimumTapTarget,
+          height: minimumTapTarget,
           child: Center(child: Icon(Icons.close)),
         ),
       ),

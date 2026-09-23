@@ -36,6 +36,7 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
 
 /// Codes reels des fixtures du projet (D1) : une station de metropole, une
 /// d'outre-mer. Les codes synthetiques de `_grid` en derivent le prefixe.
@@ -1523,6 +1524,61 @@ void main() {
       expect(viewModel.levelFor(8.9), AreaLevel.departement);
       expect(viewModel.levelFor(9), isNull);
       expect(viewModel.levelFor(18), isNull);
+    });
+  });
+
+  group('canZoomIn, canZoomOut — les boutons de zoom (K1)', () {
+    test('avant tout geste (aucun start ni onGestureEnded), les deux '
+        'restent actifs : un zoom inconnu ne désactive rien', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      expect(viewModel.zoom, isNull);
+      expect(viewModel.canZoomIn, isTrue);
+      expect(viewModel.canZoomOut, isTrue);
+    });
+
+    test('les deux restent actifs entre les bornes', () async {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.start(zoom: 10);
+
+      expect(viewModel.zoom, 10);
+      expect(viewModel.canZoomIn, isTrue);
+      expect(viewModel.canZoomOut, isTrue);
+    });
+
+    test('canZoomIn devient faux au zoom maximal (maximumMapZoom)', () async {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.start(zoom: maximumMapZoom);
+
+      expect(viewModel.canZoomIn, isFalse);
+      expect(viewModel.canZoomOut, isTrue);
+    });
+
+    test('canZoomOut devient faux au zoom minimal (minimumMapZoom)', () async {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.start(zoom: minimumMapZoom);
+
+      expect(viewModel.canZoomOut, isFalse);
+      expect(viewModel.canZoomIn, isTrue);
+    });
+
+    test('onGestureEnded met zoom, canZoomIn et canZoomOut à jour, comme '
+        'start', () async {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.start(zoom: 5);
+
+      await viewModel.onGestureEnded(_wideBounds(), zoom: maximumMapZoom);
+
+      expect(viewModel.zoom, maximumMapZoom);
+      expect(viewModel.canZoomIn, isFalse);
     });
   });
 

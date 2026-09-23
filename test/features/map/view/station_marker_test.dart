@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Les six etats que `StationMapState` peut prendre. Six, et non les cinq du
 /// tableau de U2 : `EnEchec` existe dans le domaine depuis V2 et doit, lui
@@ -81,8 +82,8 @@ void main() {
     });
 
     test('la zone de tap vaut 44 pt et reste plus grande que la pastille', () {
-      expect(stationMarkerTapTarget, 44.0);
-      expect(stationMarkerSize, lessThan(stationMarkerTapTarget));
+      expect(minimumTapTarget, 44.0);
+      expect(stationMarkerSize, lessThan(minimumTapTarget));
     });
   });
 

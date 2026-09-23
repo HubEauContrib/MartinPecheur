@@ -67,6 +67,7 @@ import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Sous-texte permanent de l'indicateur de débit, recopié mot pour mot de
 /// `BR-003` et de `L-01` (`docs/02-specifications.md`) : un percentile n'est
@@ -258,7 +259,7 @@ class _ShapeRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           SizedBox(
-            width: stationMarkerTapTarget / 2,
+            width: minimumTapTarget / 2,
             child: Text(
               shape,
               style: const TextStyle(fontSize: _entryFontSize),
@@ -293,7 +294,7 @@ class _OndeRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           SizedBox(
-            width: stationMarkerTapTarget / 2,
+            width: minimumTapTarget / 2,
             child: Center(
               child: SizedBox(
                 width: stationMarkerSize,
@@ -341,7 +342,7 @@ class _DotRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           SizedBox(
-            width: stationMarkerTapTarget / 2,
+            width: minimumTapTarget / 2,
             child: Center(
               child: SizedBox(
                 width: stationMarkerSize,

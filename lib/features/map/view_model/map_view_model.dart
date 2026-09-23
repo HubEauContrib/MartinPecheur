@@ -46,6 +46,11 @@ import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+// [minimumMapZoom]/[maximumMapZoom] viennent de `map_zoom_bounds.dart`, un
+// fichier Dart pur de CE dossier (`view_model/`) — plus d'import du dossier
+// de la VUE carte ici (relecture du coordinateur, 2026-09-23) : ce
+// ViewModel n'importe plus aucun fichier de ce dossier-là, même Dart pur.
+import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
 
 /// Nombre maximal de stations préchargées après un geste de carte, faute
 /// d'instruction contraire (décision 4 du plan T1). Ni 50, ni « toutes les
@@ -77,6 +82,10 @@ const double regionClustersBelowZoom = 7;
 /// (`ADR-015`, `F2c` inchangé) ; entre [regionClustersBelowZoom] et ce seuil,
 /// le regroupement se fait par département.
 const double individualMarkersFromZoom = 9;
+
+// `minimumMapZoom`/`maximumMapZoom` vivent dans `map_zoom_bounds.dart`
+// (import ci-dessus) — plus ici : une seule source de vérité, jamais un
+// ré-export (relecture du coordinateur, 2026-09-23).
 
 /// Un agrégat de zone administrative, prêt à dessiner (`ADR-015`) : la
 /// projection carte d'un `AreaCluster` du domaine, propre à une échelle. Sur
@@ -268,6 +277,29 @@ final class MapViewModel extends ChangeNotifier {
   /// qu'aucun des deux n'a encore été appelé — c'est alors le niveau
   /// individuel, comme avant `ADR-015`.
   AreaLevel? get level => _level;
+
+  double? _zoom;
+
+  /// Le dernier zoom transmis à [start] ou [onGestureEnded] — `null` tant
+  /// qu'aucun des deux n'a encore été appelé. Posé au même endroit que
+  /// [_level] ([_updateLevel]) : les deux décrivent le MÊME geste, ils ne
+  /// doivent pas pouvoir diverger.
+  double? get zoom => _zoom;
+
+  /// `+` reste-t-il actif (`K1`) ? `true` avant tout appel à [start] — un
+  /// bouton n'a aucune raison d'être désactivé sur un zoom encore inconnu.
+  /// Ensuite, actif tant que [zoom] n'a pas atteint [maximumMapZoom].
+  bool get canZoomIn {
+    final double? current = _zoom;
+    return current == null || current < maximumMapZoom;
+  }
+
+  /// `−` reste-t-il actif (`K1`) ? Même règle que [canZoomIn], au plancher
+  /// [minimumMapZoom].
+  bool get canZoomOut {
+    final double? current = _zoom;
+    return current == null || current > minimumMapZoom;
+  }
 
   /// Le niveau de regroupement pour [zoom] (`ADR-015`) : région sous
   /// [regionClustersBelowZoom], département de ce seuil à
@@ -639,12 +671,14 @@ final class MapViewModel extends ChangeNotifier {
     }
   }
 
-  /// Met à jour [level] pour [zoom] ([levelFor]). Appelé au tout début de
-  /// [start] et [onGestureEnded], avant tout `await` : c'est ce qui rend
-  /// [clusters] et [individualStations] cohérents avec le geste qui vient
-  /// d'arriver, même si le réseau met du temps à répondre.
+  /// Met à jour [level] et [zoom] pour le zoom [zoom] ([levelFor]). Appelé
+  /// au tout début de [start] et [onGestureEnded], avant tout `await` :
+  /// c'est ce qui rend [clusters], [individualStations], [canZoomIn] et
+  /// [canZoomOut] cohérents avec le geste qui vient d'arriver, même si le
+  /// réseau met du temps à répondre.
   void _updateLevel(double zoom) {
     _level = levelFor(zoom);
+    _zoom = zoom;
   }
 
   /// Charge l'asset entier ([StationPointRepository.all]) si le niveau

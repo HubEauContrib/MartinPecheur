@@ -26,13 +26,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 
-/// Côté minimal d'une cible tactile, en pixels logiques : 44 × 44 pt
-/// (`04-ui.md` § 3). Recopié de la spécification, jamais choisi ici — une
-/// constante PROPRE à ce fichier, comme le veut la règle `feature-vers-feature`
-/// pour les tranches qui portent la même exigence (`minimumTapTarget`,
-/// `stationMarkerTapTarget`, `ondeSheetTapTarget`).
-const double warningLinkTapTarget = 44.0;
+// L'alias local que ce fichier portait (`K1`) est retiré (YAGNI, relecture
+// du coordinateur du 2026-09-23) : ce fichier lit directement
+// [minimumTapTarget] (`lib/features/shared/tap_target.dart`) — un import
+// entre deux fichiers de `features/shared/` reste permis
+// (`layers_test.dart`, règle `shared-sans-tranche`).
 
 /// Clé du contrôle lui-même.
 const Key warningLinkKey = Key('warning-link');
@@ -81,8 +81,8 @@ class WarningLink extends StatelessWidget {
           onTap: () => _open(context),
           child: ConstrainedBox(
             constraints: const BoxConstraints(
-              minWidth: warningLinkTapTarget,
-              minHeight: warningLinkTapTarget,
+              minWidth: minimumTapTarget,
+              minHeight: minimumTapTarget,
             ),
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
@@ -200,8 +200,8 @@ class _CloseAction extends StatelessWidget {
           onTap: onTap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(
-              minWidth: warningLinkTapTarget,
-              minHeight: warningLinkTapTarget,
+              minWidth: minimumTapTarget,
+              minHeight: minimumTapTarget,
             ),
             child: const Center(child: Text(warningReviewCloseLabel)),
           ),
