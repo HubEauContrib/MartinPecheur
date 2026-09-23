@@ -9,11 +9,12 @@ le SDK Flutter sur le poste.
 | Pour | Outil | Version constatée |
 |---|---|---|
 | Compiler, tester, lancer sur Windows | **Flutter** stable, **Dart** (fourni avec Flutter) | Flutter `3.47.4`, Dart `3.13.3` — `flutter --version`, 2026-09-13 |
-| Lancer sur Android | **Android Studio** + JDK + SDK (API 36) + NDK | JDK `17.0.20.8`, SDK `36.0.0`, NDK `28.2.13676358` — constatés le 2026-09-18 |
+| Lancer sur Android | **Android Studio** + JDK + SDK (API 36) + NDK | JDK `17.0.20.8` — constaté le 2026-08-01 ; SDK `36.0.0`, NDK `28.2.13676358` — constatés le 2026-09-18 |
 | Lancer ou livrer sur iOS | **macOS** avec Xcode | ⚠️ impossible depuis Windows ou Linux — jamais compilé sur ce projet |
 
-> ⚠️ **Flutter est hors `PATH` sur ce poste** : appeler le binaire par chemin absolu,
-> `C:\Users\oliver254\develop\flutter\bin\flutter.bat`. `pubspec.yaml` exige `^3.13.3`.
+> `flutter` et `dart` doivent être sur le `PATH`. Ce qui est propre à un poste (chemin d'installation,
+> réglages locaux) vit dans `CLAUDE.local.md`, ignoré par git — jamais dans le dépôt. `pubspec.yaml`
+> exige Dart `^3.13.3`.
 
 ## 🚨 Le piège qui coûte une nuit : le chemin du SDK Android
 
