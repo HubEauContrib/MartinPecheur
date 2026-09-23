@@ -108,6 +108,7 @@ import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
@@ -116,6 +117,33 @@ import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
+
+// API de caméra lue dans le paquet installé `flutter_map` 8.3.2 avant
+// d'être écrite (étape 3 de la tâche Z4, jamais de mémoire) :
+// - `MapController.fitCamera(CameraFit cameraFit)` —
+//   `lib/src/map/controller/map_controller.dart` l. 126 du paquet installé ;
+// - `MapController.move(LatLng center, double zoom, {…})` — même fichier,
+//   l. 57 ;
+// - `CameraFit.bounds({required LatLngBounds bounds, …})` —
+//   `lib/src/map/camera/camera_fit.dart` l. 21 ;
+// - `LatLngBounds(LatLng corner1, LatLng corner2)` — deux coins opposés,
+//   quel que soit l'ordre — `lib/src/geo/latlng_bounds.dart`.
+// [_MapViewState._handleClusterSelect] n'applique que ce que
+// `MapViewModel.zoomTargetFor` (Z3) a déjà décidé : aucune géométrie n'est
+// calculée ici.
+
+/// Traduit l'emprise visible d'une caméra `flutter_map` en [Bounds] de
+/// domaine — la SEULE conversion du fichier, partagée par [_handleMapEvent]
+/// (fin d'un geste de carte) et [_MapViewState._handleClusterSelect] (fin
+/// d'une sélection de pastille, relecture du coordinateur) : les deux
+/// signalent la même chose au ViewModel, « voici où la caméra se trouve
+/// maintenant », et ne doivent pas pouvoir diverger sur la façon de le dire.
+Bounds _boundsFromLatLngBounds(LatLngBounds bounds) => Bounds(
+  west: bounds.west,
+  south: bounds.south,
+  east: bounds.east,
+  north: bounds.north,
+);
 
 /// Centre initial de la carte : France métropolitaine.
 const double initialMapCenterLatitude = 46.6;
@@ -139,6 +167,18 @@ const double maximumMapZoom = ignMaxNativeZoom * 1.0;
 /// niveau est une expression constante, donc utilisable comme valeur par
 /// défaut d'un paramètre.
 StationMapState _alwaysUnloaded(StationCode code) => const NonChargee();
+
+/// Reclasse [observations] par code de station — la forme que
+/// [buildMapLayers] attend ([_ondeMarkers] les indexe déjà ainsi côté
+/// dépôt). `MapViewModel.individualOndeObservations` (Z3) rend une `List`,
+/// filtrée des points déjà couverts par une pastille (`ADR-015`) : cette
+/// fonction ne fait que reprendre la forme, aucun filtre supplémentaire.
+Map<OndeStationCode, OndeObservation> _byCode(
+  List<OndeObservation> observations,
+) => <OndeStationCode, OndeObservation>{
+  for (final OndeObservation observation in observations)
+    observation.point.code: observation,
+};
 
 /// Décide si [event] doit déclencher un nouveau chargement d'emprise.
 /// Fonction pure, testable sans widget ni `FlutterMap` — construite avec les
@@ -225,6 +265,13 @@ bool shouldRefreshOn(MapEvent event) =>
 /// constant (« toujours récente ») serait un mensonge silencieux sur une
 /// campagne vieille de plus de 60 jours (`BR-010`). Un appelant qui n'a pas
 /// d'âge à donner doit le dire explicitement, jamais hériter d'un défaut.
+/// [clusters] porte les pastilles de zone administrative (`ADR-015`, Z4),
+/// dessinées **avant** les marqueurs individuels — vide au niveau
+/// individuel ([MapViewModel.clusters]). [onClusterSelect] est appelé avec
+/// la pastille tapée ; en production, il applique
+/// `MapViewModel.zoomTargetFor` à la caméra (`_MapViewState`) et **n'ouvre
+/// aucune fiche** — `onStationTap`/`onOndeTap` ne sont jamais atteints par ce
+/// tap (`BR-009`).
 List<Widget> buildMapLayers({
   required MapScaleKind scale,
   required List<StationPoint> stations,
@@ -234,6 +281,8 @@ List<Widget> buildMapLayers({
   void Function(StationCode code)? onStationTap,
   void Function(OndePoint point)? onOndeTap,
   StationMapState Function(StationCode code) stateOf = _alwaysUnloaded,
+  List<MapAreaCluster> clusters = const <MapAreaCluster>[],
+  void Function(MapAreaCluster cluster)? onClusterSelect,
 }) {
   final List<Widget> layers = <Widget>[
     TileLayer(
@@ -246,7 +295,7 @@ List<Widget> buildMapLayers({
 
   // `switch` exhaustif sur un `enum` fermé (`BR-011`) : une échelle ajoutée
   // sans branche ici ne compile pas — jamais une carte silencieusement vide.
-  final List<Marker> markers = switch (scale) {
+  final List<Marker> individualMarkers = switch (scale) {
     MapScaleKind.ecoulement => _ondeMarkers(
       ondeObservations: ondeObservations,
       ageOf: ageOf,
@@ -259,11 +308,45 @@ List<Widget> buildMapLayers({
     ),
   };
 
+  // Les pastilles d'abord, puis les individuels (plan T1, tâche Z4) : au
+  // niveau individuel, `clusters` est vide et cette liste ne change rien.
+  final List<Marker> markers = <Marker>[
+    ..._areaClusterMarkers(clusters: clusters, onSelect: onClusterSelect),
+    ...individualMarkers,
+  ];
+
   if (markers.isNotEmpty) {
     layers.add(MarkerLayer(markers: markers));
   }
 
   return layers;
+}
+
+/// Les pastilles de zone administrative (`ADR-015`). [AreaClusterMarker] est
+/// un widget de contenu pur (voir son en-tête) : c'est ici, comme pour
+/// [_stationMarkers] et [_ondeMarkers], que le `GestureDetector` de
+/// sélection est posé — sans second `Semantics` : la pastille porte déjà le
+/// sien, préfixé par l'échelle (`BR-008`).
+List<Marker> _areaClusterMarkers({
+  required List<MapAreaCluster> clusters,
+  required void Function(MapAreaCluster cluster)? onSelect,
+}) {
+  final void Function(MapAreaCluster cluster)? handleSelect = onSelect;
+
+  return clusters
+      .map(
+        (MapAreaCluster cluster) => Marker(
+          point: LatLng(cluster.latitude, cluster.longitude),
+          width: areaClusterMarkerSize,
+          height: areaClusterMarkerSize,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: handleSelect == null ? null : () => handleSelect(cluster),
+            child: AreaClusterMarker(cluster: cluster),
+          ),
+        ),
+      )
+      .toList();
 }
 
 /// Les marqueurs de l'échelle « débit » : une pastille par station.
@@ -842,6 +925,11 @@ class MapView extends StatefulWidget {
 }
 
 class _MapViewState extends State<MapView> {
+  /// Le contrôleur de caméra `flutter_map` (Z4) : c'est lui que
+  /// [_handleClusterSelect] pilote pour appliquer la cible calculée par
+  /// `MapViewModel.zoomTargetFor` (Z3) — jamais de géométrie recalculée ici.
+  final MapController _mapController = MapController();
+
   /// Construites une seule fois : `MapOptions ==` (paquet flutter_map
   /// 8.3.2, `options.dart`) compare chaque callback par égalité de
   /// fonction, et les tear-offs de méthodes d'instance ci-dessous restent
@@ -877,15 +965,9 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
-    final LatLngBounds visible = event.camera.visibleBounds;
     unawaited(
       widget.viewModel.onGestureEnded(
-        Bounds(
-          west: visible.west,
-          south: visible.south,
-          east: visible.east,
-          north: visible.north,
-        ),
+        _boundsFromLatLngBounds(event.camera.visibleBounds),
         zoom: event.camera.zoom,
       ),
     );
@@ -907,6 +989,69 @@ class _MapViewState extends State<MapView> {
     unawaited(widget.viewModel.widenSearch());
   }
 
+  /// Applique la cible calculée par `MapViewModel.zoomTargetFor` (Z3) —
+  /// aucune géométrie n'est décidée ici, seulement traduite vers l'API du
+  /// contrôleur `flutter_map` (voir la note de lecture en tête de fichier).
+  /// `switch` exhaustif sur [ClusterZoomTarget] (`sealed class`, `BR-011`) :
+  /// une variante ajoutée sans branche ici ne compile pas.
+  ///
+  /// ⚠️ **Relecture du coordinateur** : `fitCamera`/`move` déplacent la
+  /// caméra en émettant un `MapEventMove` de source `mapController`
+  /// (`map_events.dart` l. 134-145, via `moveRaw`,
+  /// `map_controller_impl.dart` l. 142-178, du paquet installé) — un
+  /// événement que [shouldRefreshOn] ignore délibérément (un `MapEventMove`
+  /// est aussi émis à CHAQUE frame d'un glisser en cours, `NFR-01`).
+  /// [MapViewModel.onGestureEnded] n'était donc **jamais** rappelé après
+  /// une sélection de pastille : `level` restait bloqué au niveau d'origine
+  /// malgré une caméra qui avait bougé. Cette méthode appelle donc
+  /// explicitement [MapViewModel.onGestureEnded] avec l'emprise et le zoom
+  /// **résultants** ([_mapController.camera], lu APRÈS le déplacement) —
+  /// jamais [shouldRefreshOn] ni [_handleMapEvent], qui restent réservés
+  /// aux gestes de la carte elle-même.
+  ///
+  /// `fitCamera`/`move` rendent `false` quand le déplacement demandé
+  /// n'avait aucun effet (cible égale à la position courante, ou
+  /// contrainte de caméra qui le refuse) : rien à signaler alors, la caméra
+  /// n'a pas bougé.
+  void _handleClusterSelect(MapAreaCluster cluster) {
+    final bool moved = switch (widget.viewModel.zoomTargetFor(cluster)) {
+      CoverBounds(bounds: final Bounds bounds, minZoom: final double minZoom) =>
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: LatLngBounds(
+              LatLng(bounds.south, bounds.west),
+              LatLng(bounds.north, bounds.east),
+            ),
+            minZoom: minZoom,
+          ),
+        ),
+      CentreOn(
+        latitude: final double lat,
+        longitude: final double lon,
+        zoom: final double zoom,
+      ) =>
+        _mapController.move(LatLng(lat, lon), zoom),
+    };
+
+    if (!moved) {
+      return;
+    }
+
+    final MapCamera camera = _mapController.camera;
+    unawaited(
+      widget.viewModel.onGestureEnded(
+        _boundsFromLatLngBounds(camera.visibleBounds),
+        zoom: camera.zoom,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Tout est DANS le `ListenableBuilder` : la légende doit basculer avec
@@ -923,15 +1068,24 @@ class _MapViewState extends State<MapView> {
           return Stack(
             children: <Widget>[
               FlutterMap(
+                mapController: _mapController,
                 options: _mapOptions,
                 children: buildMapLayers(
                   scale: widget.viewModel.scale,
-                  stations: widget.viewModel.stations,
-                  ondeObservations: widget.viewModel.ondeObservations,
+                  // Marqueurs individuels de l'emprise courante — vide au
+                  // niveau régroupé, `individualStations`/
+                  // `individualOndeObservations` filtrant déjà ce qui est
+                  // couvert par une pastille (`ADR-015`, Z3).
+                  stations: widget.viewModel.individualStations,
+                  ondeObservations: _byCode(
+                    widget.viewModel.individualOndeObservations,
+                  ),
                   ageOf: widget.viewModel.ondeAgeOf,
                   onStationTap: widget.onStationTap,
                   onOndeTap: widget.onOndeTap,
                   stateOf: widget.viewModel.stateOf,
+                  clusters: widget.viewModel.clusters,
+                  onClusterSelect: _handleClusterSelect,
                 ),
               ),
               ...buildMapOverlays(

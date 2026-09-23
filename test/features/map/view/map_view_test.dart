@@ -16,6 +16,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
+import 'package:martinpecheur/domain/geo/area_cluster.dart' show AreaLevel;
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
@@ -32,6 +33,7 @@ import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show initialWarningTitle;
+import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
@@ -493,6 +495,106 @@ void main() {
         tester.getTopLeft(find.byType(StationMarkerDot)),
         const Offset(16, 16),
       );
+    });
+  });
+
+  group('buildMapLayers — pastilles de zone administrative (Z4, ADR-015)', () {
+    MapAreaCluster centreValDeLoire({int count = 15}) => MapAreaCluster(
+      scale: MapScaleKind.ecoulement,
+      level: AreaLevel.region,
+      area: const AdministrativeArea(code: '24', label: 'Centre-Val de Loire'),
+      latitude: 47.5,
+      longitude: 1.5,
+      count: count,
+      bounds: Bounds(west: 0, south: 47, east: 2, north: 48),
+      severest: const Assec(),
+      severestAge: CampaignAge.recente,
+    );
+
+    test(
+      'au niveau région, une pastille par agrégat, plus les individuels',
+      () {
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.ecoulement,
+          stations: const <StationPoint>[],
+          clusters: <MapAreaCluster>[centreValDeLoire()],
+        );
+
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        expect(markerLayer.markers, hasLength(1));
+        final Marker marker = markerLayer.markers.single;
+        expect(marker.child, isA<GestureDetector>());
+      },
+    );
+
+    test('les pastilles sont dessinées AVANT les marqueurs individuels', () {
+      final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
+        scale: MapScaleKind.debit,
+        stations: <StationPoint>[_blois()],
+        clusters: <MapAreaCluster>[
+          MapAreaCluster(
+            scale: MapScaleKind.debit,
+            level: AreaLevel.departement,
+            area: const AdministrativeArea(code: '41', label: 'LOIR-ET-CHER'),
+            latitude: 47.6,
+            longitude: 1.3,
+            count: 28,
+            bounds: Bounds(west: 0.9, south: 47.3, east: 1.9, north: 48.1),
+            severest: null,
+            severestAge: null,
+          ),
+        ],
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      expect(markerLayer.markers, hasLength(2));
+      final GestureDetector premier =
+          markerLayer.markers.first.child as GestureDetector;
+      expect(premier.child, isA<AreaClusterMarker>());
+    });
+
+    test('niveau individuel (clusters vide) : aucune pastille', () {
+      final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
+        scale: MapScaleKind.debit,
+        stations: <StationPoint>[_blois()],
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      expect(markerLayer.markers, hasLength(1));
+      expect(
+        (markerLayer.markers.single.child as GestureDetector).child,
+        isNot(isA<AreaClusterMarker>()),
+      );
+    });
+
+    test('un tap appelle onClusterSelect une seule fois, avec la pastille — '
+        "n'ouvre aucune fiche", () async {
+      final List<MapAreaCluster> recus = <MapAreaCluster>[];
+      final MapAreaCluster cluster = centreValDeLoire();
+      bool stationTapAppele = false;
+      bool ondeTapAppele = false;
+
+      final List<Widget> layers = buildMapLayers(
+        ageOf: _unusedAgeOf,
+        scale: MapScaleKind.ecoulement,
+        stations: const <StationPoint>[],
+        clusters: <MapAreaCluster>[cluster],
+        onClusterSelect: recus.add,
+        onStationTap: (_) => stationTapAppele = true,
+        onOndeTap: (_) => ondeTapAppele = true,
+      );
+
+      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+      final GestureDetector detecteur =
+          markerLayer.markers.single.child as GestureDetector;
+      detecteur.onTap!();
+
+      expect(recus, <MapAreaCluster>[cluster]);
+      expect(stationTapAppele, isFalse);
+      expect(ondeTapAppele, isFalse);
     });
   });
 
@@ -1716,4 +1818,275 @@ void main() {
       );
     });
   });
+
+  group('MapView — la sélection d une pastille recharge l emprise '
+      '(relecture du coordinateur, Z4)', () {
+    // Deux points ONDE de la MÊME région, très écartés (Ariège / Nord de
+    // la Champagne) : leur emprise couvre plusieurs degrés, de sorte que
+    // l'ajustement NATUREL de la caméra (`CameraFit.bounds`, sans plancher)
+    // retombe SOUS le zoom 7 — exactement le bug relevé par le
+    // coordinateur (Occitanie à 412 dp ≈ 6,83). Le plancher `minZoom`
+    // (`zoomTargetFor`) doit le remonter à 7 pile, ce qui fait passer
+    // `level` de région à département.
+    //
+    // ⚠️ **Rattachement SYNTHÉTIQUE, signalé comme tel** (relecture du
+    // coordinateur) : l'Ariège (09) et les Ardennes (08) appartiennent en
+    // réalité à deux régions différentes (Occitanie et Grand Est) ; ces deux
+    // points leur sont ici arbitrairement affectés « Grand Est » pour
+    // fabriquer un agrégat aux membres écartés, jamais un fait constaté sur
+    // le référentiel — l'invariant `CLAUDE.md` sur les fixtures datées et
+    // réelles ne s'applique qu'aux données vérifiées par appel, pas aux
+    // valeurs synthétiques de ce test, mais mérite d'être dit explicitement.
+    OndePoint pointNord() => OndePoint(
+      code: OndeStationCode('05500001'),
+      label: 'Point nord',
+      latitude: 49.5,
+      longitude: 4.5,
+      waterCourseLabel: 'Ruisseau nord',
+      departement: const AdministrativeArea(code: '08', label: 'ARDENNES'),
+      region: const AdministrativeArea(code: '44', label: 'Grand Est'),
+    );
+    OndePoint pointSud() => OndePoint(
+      code: OndeStationCode('05500002'),
+      label: 'Point sud',
+      latitude: 43.0,
+      longitude: 1.5,
+      waterCourseLabel: 'Ruisseau sud',
+      departement: const AdministrativeArea(code: '09', label: 'ARIEGE'),
+      region: const AdministrativeArea(code: '44', label: 'Grand Est'),
+    );
+    // Sans rattachement (BR-007) : reste un marqueur individuel à tous les
+    // niveaux, jamais absorbé par la pastille de la région voisine.
+    OndePoint pointSansRegion() => OndePoint(
+      code: OndeStationCode('05500003'),
+      label: 'Point sans région',
+      latitude: initialMapCenterLatitude,
+      longitude: initialMapCenterLongitude,
+      waterCourseLabel: 'Ruisseau isolé',
+      departement: null,
+    );
+
+    testWidgets(
+      'pastille dessinée au démarrage ; seul le point non rattaché est '
+      'individuel ; le tap fait passer le niveau de région à département '
+      "et relance latestWithinBounds",
+      (WidgetTester tester) async {
+        final _SpyOndeObservationRepository onde =
+            _SpyOndeObservationRepository(<OndeObservation>[
+              _observation(
+                pointNord(),
+                category: const Assec(),
+                observedAt: DateTime.utc(2026, 9, 1),
+              ),
+              _observation(
+                pointSud(),
+                category: const Assec(),
+                observedAt: DateTime.utc(2026, 9, 1),
+              ),
+              _observation(
+                pointSansRegion(),
+                category: const Ecoulement(),
+                observedAt: DateTime.utc(2026, 9, 1),
+              ),
+            ]);
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: _EmptyStationPointRepository(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: onde,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(viewModel.level, AreaLevel.region);
+        expect(onde.callCount, 1);
+        // (a) une pastille est dessinée
+        expect(find.byType(AreaClusterMarker), findsOneWidget);
+        // (b) seul le point non rattaché est dessiné en individuel — la
+        // légende (`MapLegend`, toujours rendue, BR-008) porte ses PROPRES
+        // `OndeMarkerShape` pour les six catégories : on ne cherche donc
+        // que sous la couche de marqueurs de la carte.
+        expect(
+          find.descendant(
+            of: find.byType(MarkerLayer),
+            matching: find.byType(OndeMarkerShape),
+          ),
+          findsOneWidget,
+        );
+
+        // (c) tap sur la pastille : la caméra se déplace (Z4), et ce
+        // déplacement doit désormais signaler un geste terminé au
+        // ViewModel (relecture du coordinateur — sans elle, `level`
+        // resterait bloqué à `region` malgré la caméra qui a bougé).
+        // Le tap est invoqué directement sur le `GestureDetector` posé par
+        // `_areaClusterMarkers` — `tester.tap()` par coordonnées échoue le
+        // hit-test dans ce montage (l'empilement `flutter_map` place
+        // d'autres `RenderPointerListener` au même point), sans rapport
+        // avec le câblage vérifié ici.
+        final GestureDetector detecteur = tester.widget<GestureDetector>(
+          find.byWidgetPredicate(
+            (Widget widget) =>
+                widget is GestureDetector && widget.child is AreaClusterMarker,
+          ),
+        );
+        detecteur.onTap!();
+        await tester.pumpAndSettle();
+
+        expect(viewModel.level, AreaLevel.departement);
+        expect(onde.callCount, greaterThanOrEqualTo(2));
+      },
+    );
+
+    testWidgets('agrégat d un seul membre (CentreOn) : le tap ramène au niveau '
+        'individuel (contre-relecture du coordinateur)', (
+      WidgetTester tester,
+    ) async {
+      // Un seul membre : `AreaCluster.bounds` est plat (nul),
+      // `zoomTargetFor` rend `CentreOn` — pas `CoverBounds`. La cible est
+      // `individualMarkersFromZoom` (9) : `_handleClusterSelect` doit
+      // l'appliquer via `MapController.move`, puis signaler le geste au
+      // ViewModel comme pour `CoverBounds`.
+      final _SpyOndeObservationRepository onde = _SpyOndeObservationRepository(
+        <OndeObservation>[
+          _observation(
+            pointNord(),
+            category: const Assec(),
+            observedAt: DateTime.utc(2026, 9, 1),
+          ),
+        ],
+      );
+      final MapViewModel viewModel = MapViewModel(
+        stationPoints: _EmptyStationPointRepository(),
+        observations: _EmptyHydroObservationRepository(),
+        onde: onde,
+      );
+
+      await tester.pumpWidget(MaterialApp(home: MapView(viewModel: viewModel)));
+      await tester.pumpAndSettle();
+
+      expect(viewModel.level, AreaLevel.region);
+      expect(find.byType(AreaClusterMarker), findsOneWidget);
+
+      final GestureDetector detecteur = tester.widget<GestureDetector>(
+        find.byWidgetPredicate(
+          (Widget widget) =>
+              widget is GestureDetector && widget.child is AreaClusterMarker,
+        ),
+      );
+      detecteur.onTap!();
+      await tester.pumpAndSettle();
+
+      // Niveau individuel : `levelFor(9)` rend `null` — c'est bien vers
+      // `individualMarkersFromZoom` que `CentreOn` a déplacé la caméra.
+      expect(viewModel.level, isNull);
+    });
+  });
+
+  group('MapView — échelle débit, contre-relecture du coordinateur '
+      '(seuls les non-rattachés sont des marqueurs individuels)', () {
+    testWidgets(
+      'zoom 5, niveau région : une pastille pour la station rattachée, '
+      'un seul StationMarkerDot individuel pour la station sans région',
+      (WidgetTester tester) async {
+        final _StationsStub stations = _StationsStub(<StationPoint>[
+          StationPoint(
+            code: StationCode('K000000001'),
+            label: 'Station rattachée',
+            latitude: 46.7,
+            longitude: 2.1,
+            region: const AdministrativeArea(
+              code: '24',
+              label: 'Centre-Val de Loire',
+            ),
+          ),
+          StationPoint(
+            code: StationCode('K000000002'),
+            label: 'Station sans région',
+            latitude: initialMapCenterLatitude,
+            longitude: initialMapCenterLongitude,
+          ),
+        ]);
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: stations,
+          observations: _EmptyHydroObservationRepository(),
+          onde: _EmptyOndeObservationRepository(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+
+        // `loadFor` (appelé par `start`) charge `_stations` quelle que
+        // soit l'échelle active au démarrage (`ecoulement`) : basculer
+        // vers `débit` ne fait que changer la famille de marqueurs
+        // dessinée, pas relire `withinBounds`.
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+
+        expect(viewModel.level, AreaLevel.region);
+        expect(find.byType(AreaClusterMarker), findsOneWidget);
+        // Seule la station SANS région est un marqueur individuel — la
+        // légende (`MapLegend`, BR-008) porte sa PROPRE pastille de
+        // référence, hors `MarkerLayer`.
+        expect(
+          find.descendant(
+            of: find.byType(MarkerLayer),
+            matching: find.byType(StationMarkerDot),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+  });
+}
+
+/// Un double PROGRAMMABLE de [StationPointRepository] : `all()` et
+/// [withinBounds] rendent tous deux [points], sans filtre — le
+/// regroupement par zone (`clusters`, sur l'asset entier) et l'emprise
+/// courante (`individualStations`) portent donc sur le MÊME jeu, ce qui
+/// suffit à isoler la station non rattachée dans les deux vues.
+final class _StationsStub implements StationPointRepository {
+  _StationsStub(this.points);
+
+  final List<StationPoint> points;
+
+  @override
+  Future<List<StationPoint>> withinBounds(
+    Bounds bounds, {
+    double margin = defaultViewportMargin,
+  }) async => points;
+
+  @override
+  Future<List<StationPoint>> all() async => points;
+}
+
+/// Un double PROGRAMMABLE de [OndeObservationRepository] : rend toujours
+/// [observations] (aucun filtre d'emprise, les tests de ce groupe n'en ont
+/// pas besoin), et COMPTE ses appels — c'est ce compte qui prouve qu'un
+/// geste (ici une sélection de pastille) a bien relancé un chargement
+/// réseau, plutôt que de se contenter de déplacer la caméra en silence.
+final class _SpyOndeObservationRepository implements OndeObservationRepository {
+  _SpyOndeObservationRepository(this.observations);
+
+  final List<OndeObservation> observations;
+
+  int callCount = 0;
+
+  @override
+  Future<OndeSweep> latestWithinBounds(
+    Bounds bounds, {
+    required DateTime since,
+  }) async {
+    callCount++;
+    return OndeSweep(observations: observations, unreadableRows: 0);
+  }
+
+  @override
+  Future<List<OndeObservation>> historyFor(
+    OndeStationCode station, {
+    int limit = 5,
+  }) async => const <OndeObservation>[];
 }

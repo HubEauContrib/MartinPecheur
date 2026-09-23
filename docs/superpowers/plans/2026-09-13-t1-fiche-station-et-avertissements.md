@@ -1315,12 +1315,12 @@ git add -- lib/features/map test/features/map && git commit -m "feat(map): le Vi
 - `buildMapLayers` au niveau `region`, échelle `debit` : autant de pastilles que d'agrégats, **plus** un marqueur individuel par point sans région ; au niveau individuel : **aucune** pastille (famille unique, `BR-008`).
 - **Goldens**, regardés avant versionnement et contre-épreuve rouge constatée (même harnais que `U5`, `golden_harness.dart`) : (1) pastille **régionale**, échelle écoulement, `Assec` récent, compte **15** ; (2) pastille **départementale**, échelle débit, ◇ neutre, compte **28** (Loir-et-Cher) ; (3) compte à trois chiffres, **753**, pour vérifier que le badge ne déborde pas.
 
-- [ ] **Étape 1** — écrire `area_cluster_marker_test.dart` et les ajouts à `map_view_test.dart`. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view` → échec.
-- [ ] **Étape 3** — **lire** dans `flutter_map` 8.3.2 installé l'API d'ajustement de caméra à une emprise et de déplacement ; noter fichier et ligne dans l'en-tête de `area_cluster_marker.dart` ou de `map_view.dart`.
-- [ ] **Étape 4** — implémenter la pastille et brancher `buildMapLayers` ; `flutter test test/features/map` → vert.
-- [ ] **Étape 5** — écrire les goldens, `--update-goldens`, **regarder** les trois images, contre-épreuve (une teinte changée → rouge), rétablir.
-- [ ] **Étape 6** — `flutter test` → vert, **nombre de tests recopié**.
+- [x] **Étape 1** — écrire `area_cluster_marker_test.dart` et les ajouts à `map_view_test.dart`. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view` → échec.
+- [x] **Étape 3** — **lire** dans `flutter_map` 8.3.2 installé l'API d'ajustement de caméra à une emprise et de déplacement ; noter fichier et ligne dans l'en-tête de `area_cluster_marker.dart` ou de `map_view.dart`.
+- [x] **Étape 4** — implémenter la pastille et brancher `buildMapLayers` ; `flutter test test/features/map` → vert.
+- [x] **Étape 5** — écrire les goldens, `--update-goldens`, **regarder** les trois images, contre-épreuve (une teinte changée → rouge), rétablir.
+- [x] **Étape 6** (2026-09-23) — `flutter test` → vert, **993 tests** (972 avant `Z4`) ; relu deux fois par un second agent avec essais de mutation : sélection sans rechargement corrigée, `CoverBounds.minZoom` ajouté (arbitrage du coordinateur : sur écran étroit l'ajustement retombait sous le seuil), `MapController` libéré.
 - [ ] **Étape 7 — constat à l'écran : commanditaire.**
 
 ```bash

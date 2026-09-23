@@ -142,10 +142,25 @@ sealed class ClusterZoomTarget {
 }
 
 /// Cale la caméra sur [bounds] — l'emprise exacte des membres de l'agrégat.
+///
+/// [minZoom] est le plancher de zoom que la vue doit imposer à
+/// `CameraFit.bounds` (relecture du coordinateur, Z4) : sans lui,
+/// l'ajustement NATUREL à [bounds] peut retomber sous le seuil du niveau
+/// d'où vient la sélection — mesuré sur Occitanie à 412 dp (zoom ≈ 6,83
+/// < [regionClustersBelowZoom]) — et redessiner la MÊME pastille : un
+/// second tap ne bougerait alors plus rien. [zoomTargetFor] le choisit
+/// selon le niveau de l'agrégat sélectionné : [regionClustersBelowZoom]
+/// pour un agrégat de niveau région (garantit d'atteindre au moins le
+/// niveau département), [individualMarkersFromZoom] pour un agrégat de
+/// niveau département (garantit d'atteindre au moins le niveau individuel).
 final class CoverBounds extends ClusterZoomTarget {
-  const CoverBounds(this.bounds);
+  const CoverBounds(this.bounds, {required this.minZoom});
 
   final Bounds bounds;
+
+  /// Le plancher de zoom à passer tel quel à `CameraFit.bounds(minZoom:)` —
+  /// la vue ne calcule rien, elle applique.
+  final double minZoom;
 }
 
 /// Centre la caméra sur le point donné, au zoom [zoom] — utilisé quand
@@ -428,7 +443,14 @@ final class MapViewModel extends ChangeNotifier {
   ClusterZoomTarget zoomTargetFor(MapAreaCluster cluster) {
     final Bounds? bounds = cluster.bounds;
     if (bounds != null) {
-      return CoverBounds(bounds);
+      // `switch` exhaustif sur `AreaLevel` (`BR-011`) : un niveau ajouté
+      // sans branche ici ne compile pas. Le plancher garantit de quitter le
+      // niveau d'où vient la sélection (relecture du coordinateur, Z4).
+      final double minZoom = switch (cluster.level) {
+        AreaLevel.region => regionClustersBelowZoom,
+        AreaLevel.departement => individualMarkersFromZoom,
+      };
+      return CoverBounds(bounds, minZoom: minZoom);
     }
     return CentreOn(
       latitude: cluster.latitude,

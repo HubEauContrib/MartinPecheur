@@ -1966,6 +1966,71 @@ void main() {
       expect(bounds.north, 48.0);
     });
 
+    test(
+      'zoomTargetFor : CoverBounds porte un plancher de zoom — '
+      'regionClustersBelowZoom pour un agregat de niveau region '
+      '(relecture du coordinateur, Z4 — impasse de camera sur ecran etroit)',
+      () async {
+        onde.answer = (int _) async => <OndeObservation>[
+          _assecAt(
+            '12345601',
+            DateTime.utc(2026, 7, 15),
+            latitude: 47.0,
+            longitude: 1.0,
+          ),
+          _assecAt(
+            '12345602',
+            DateTime.utc(2026, 8, 25),
+            latitude: 48.0,
+            longitude: 2.0,
+          ),
+        ];
+        final MapViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+
+        // zoom 5 < regionClustersBelowZoom (7) : niveau region.
+        await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+        final MapAreaCluster cluster = viewModel.clusters.single;
+        expect(cluster.level, AreaLevel.region);
+        final CoverBounds target =
+            viewModel.zoomTargetFor(cluster) as CoverBounds;
+        expect(target.minZoom, regionClustersBelowZoom);
+      },
+    );
+
+    test(
+      'zoomTargetFor : CoverBounds porte individualMarkersFromZoom pour '
+      'un agregat de niveau departement (relecture du coordinateur, Z4)',
+      () async {
+        onde.answer = (int _) async => <OndeObservation>[
+          _assecAt(
+            '12345601',
+            DateTime.utc(2026, 7, 15),
+            latitude: 47.0,
+            longitude: 1.0,
+          ),
+          _assecAt(
+            '12345602',
+            DateTime.utc(2026, 8, 25),
+            latitude: 48.0,
+            longitude: 2.0,
+          ),
+        ];
+        final MapViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+
+        // 7 <= zoom < individualMarkersFromZoom (9) : niveau departement.
+        await viewModel.onGestureEnded(_loireBounds(), zoom: 7);
+
+        final MapAreaCluster cluster = viewModel.clusters.single;
+        expect(cluster.level, AreaLevel.departement);
+        final CoverBounds target =
+            viewModel.zoomTargetFor(cluster) as CoverBounds;
+        expect(target.minZoom, individualMarkersFromZoom);
+      },
+    );
+
     test('zoomTargetFor : agregat d un seul membre rend CentreOn a '
         'individualMarkersFromZoom — la selection montre toujours ses '
         'membres', () async {

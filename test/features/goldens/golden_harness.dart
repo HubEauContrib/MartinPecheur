@@ -25,11 +25,25 @@
 // - Fond **blanc explicite** : le seul fond de carte du projet est le plan
 //   IGN, un fond clair — c'est contre lui que le halo noir de `04-ui.md` § 3
 //   doit tenir.
-// - **Aucun texte** dans une image de référence. Les polices varient d'un
-//   système à l'autre ; un `Text` rendrait les goldens illisibles hors de ce
-//   poste. Les libellés des marqueurs ne sont d'ailleurs pas peints — ils
-//   sont portés par `Semantics`, et `station_marker_test.dart` /
-//   `onde_marker_test.dart` les vérifient déjà.
+// - **Aucun texte peint** dans les images de référence de `station_marker.dart`
+//   et `onde_marker.dart` : leurs libellés sont portés par `Semantics`, et
+//   `station_marker_test.dart`/`onde_marker_test.dart` les vérifient déjà —
+//   ces deux peintres n'ont donc aucune raison de peindre du texte.
+//   ⚠️ **Amendé (relecture du coordinateur, Z4)** : ce n'est pas une règle
+//   du harnais lui-même mais une conséquence du fait que ces deux widgets ne
+//   peignent pas de texte. `area_cluster_marker.dart` (`AreaClusterMarker`,
+//   `ADR-015`), lui, peint un badge de compte — exigé par le plan, vérifié
+//   par `area_cluster_marker_golden_test.dart`. Ce texte est rendu par la
+//   police de TEST embarquée de Flutter (déterministe d'un poste à l'autre :
+//   chaque glyphe devient un rectangle plein de la largeur du caractère,
+//   jamais la police système) — c'est pour cela que le compte n'est pas
+//   LISIBLE dans ces PNG. Ces goldens prouvent ce qu'un rectangle suffit à
+//   prouver (symbole reconnaissable, le compte tient dans la pastille à
+//   trois chiffres — sur le golden 753, les blocs touchent l'anneau, ils
+//   ne le dépassent pas) ;
+//   la lisibilité RÉELLE du compte, avec de vraies polices, se vérifie à
+//   l'écran (`flutter run -d windows`, étape 7 de la tâche Z4) — pas ici, et
+//   aucune police supplémentaire n'est ajoutée pour le simuler.
 // - Les ombres sont désactivées par `TestWidgetsFlutterBinding`
 //   (`debugDisableShadows`), et aucun des deux peintres n'en dessine.
 //
