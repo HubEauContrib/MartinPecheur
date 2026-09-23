@@ -862,7 +862,7 @@ class _MapViewState extends State<MapView> {
   @override
   void initState() {
     super.initState();
-    unawaited(widget.viewModel.start());
+    unawaited(widget.viewModel.start(zoom: initialMapZoom));
   }
 
   /// Câblé à `MapOptions.onMapEvent` : ne signale un geste terminé que pour
@@ -886,6 +886,7 @@ class _MapViewState extends State<MapView> {
           east: visible.east,
           north: visible.north,
         ),
+        zoom: event.camera.zoom,
       ),
     );
   }

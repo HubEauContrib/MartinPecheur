@@ -12,9 +12,13 @@
 // seconde injection, un test du prechargement de 20 stations durerait
 // 4 secondes de mur.
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/data/mappers/onde_observation_mapper.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
+import 'package:martinpecheur/domain/geo/area_cluster.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
@@ -116,6 +120,121 @@ OndeObservation _onde(String code, DateTime observedAt) {
   );
 }
 
+/// Une observation Assec datee, a une position choisie — pour les cas de
+/// regroupement par zone (Z3) : region et departement fixes (memes que la
+/// fixture Loire), latitude/longitude parametrees pour construire des
+/// emprises non plates.
+OndeObservation _assecAt(
+  String code,
+  DateTime observedAt, {
+  double latitude = 47.5,
+  double longitude = 1.3,
+  FlowCategory category = const Assec(),
+}) {
+  final OndeStationCode station = OndeStationCode(code);
+  return OndeObservation(
+    station: station,
+    point: OndePoint(
+      code: station,
+      label: 'Point $code',
+      latitude: latitude,
+      longitude: longitude,
+      waterCourseLabel: 'La Loire',
+      departement: const AdministrativeArea(code: '41', label: 'Loir-et-Cher'),
+      region: const AdministrativeArea(
+        code: '24',
+        label: 'Centre-Val de Loire',
+      ),
+    ),
+    observedAt: observedAt,
+    category: category,
+    rawFlowCode: '3',
+    officialLabel: 'Assec',
+    campaignCode: '2026',
+  );
+}
+
+/// Une copie synthetique de [observation], SANS region, sous un nouveau code
+/// station (pour ne pas ecraser l'observation d'origine dans la carte
+/// regroupee par station du depot) — signalee comme telle partout ou elle
+/// est utilisee : ce n'est jamais une ligne reellement recue de l'API.
+OndeObservation _withoutRegion(OndeObservation observation, String newCode) {
+  final OndeStationCode station = OndeStationCode(newCode);
+  final OndePoint point = observation.point;
+  return OndeObservation(
+    station: station,
+    point: OndePoint(
+      code: station,
+      label: point.label,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      waterCourseLabel: point.waterCourseLabel,
+      departement: point.departement,
+    ),
+    observedAt: observation.observedAt,
+    category: observation.category,
+    rawFlowCode: observation.rawFlowCode,
+    officialLabel: observation.officialLabel,
+    campaignCode: observation.campaignCode,
+  );
+}
+
+/// Les 15 observations de la fixture reelle Loire
+/// (`test/fixtures/onde/observations_bbox_loire_2026-09-13.json`, 30 lignes,
+/// 2 par station) : LA PLUS RECENTE de chaque station, lue par
+/// `mapOndeObservation` (D3) — jamais une valeur inventee (chiffres relus le
+/// 2026-09-23, cf. Z3 du plan).
+List<OndeObservation> _loireObservationsLatestPerStation() {
+  final String content = File(
+    'test/fixtures/onde/observations_bbox_loire_2026-09-13.json',
+  ).readAsStringSync();
+  final Map<String, dynamic> decoded =
+      jsonDecode(content) as Map<String, dynamic>;
+  final List<Map<String, dynamic>> rows = (decoded['data'] as List<dynamic>)
+      .cast<Map<String, dynamic>>();
+  final Map<String, Map<String, dynamic>> latestByStation =
+      <String, Map<String, dynamic>>{};
+  for (final Map<String, dynamic> row in rows) {
+    final String station = row['code_station'] as String;
+    final Map<String, dynamic>? current = latestByStation[station];
+    final String date = row['date_observation'] as String;
+    if (current == null ||
+        date.compareTo(current['date_observation'] as String) > 0) {
+      latestByStation[station] = row;
+    }
+  }
+  return latestByStation.values.map(mapOndeObservation).toList();
+}
+
+/// [count] stations regroupees sous [region], a des positions distinctes —
+/// pour les cas de regroupement par zone administrative sur l'echelle debit.
+List<StationPoint> _stationsInRegion(
+  AdministrativeArea region,
+  int count, {
+  int startIndex = 0,
+}) => <StationPoint>[
+  for (int i = startIndex; i < startIndex + count; i++)
+    StationPoint(
+      code: StationCode('K44700${i.toString().padLeft(4, '0')}'),
+      label: 'Station $i',
+      latitude: 40 + i.toDouble(),
+      longitude: i.toDouble(),
+      region: region,
+    ),
+];
+
+/// [count] stations SANS aucun rattachement administratif (BR-007).
+List<StationPoint> _stationsWithoutArea(int count, {int startIndex = 0}) =>
+    <StationPoint>[
+      for (int i = startIndex; i < startIndex + count; i++)
+        StationPoint(
+          code: StationCode('K44700${i.toString().padLeft(4, '0')}'),
+          label: 'Station $i',
+          latitude: 30 + i.toDouble(),
+          longitude: -i.toDouble(),
+        ),
+    ];
+
 /// Double de test du depot de points : compte les appels, note l'emprise
 /// recue, et rend ce qu'on lui a dit de rendre — ou leve.
 final class _StationPointRepositoryDouble implements StationPointRepository {
@@ -123,6 +242,16 @@ final class _StationPointRepositoryDouble implements StationPointRepository {
   Bounds? receivedBounds;
   double? receivedMargin;
   Future<List<StationPoint>> Function(int call)? answer;
+
+  /// Nombre d'appels à [all] — sépare du compteur de [withinBounds] : c'est
+  /// ce qui prouve que l'asset entier n'est lu qu'UNE SEULE fois et gardé en
+  /// mémoire (`ADR-015`, `Z3`).
+  int allCalls = 0;
+
+  /// Rend l'asset entier configuré, ou lève si configuré pour le faire.
+  /// `null` par défaut : le double rend alors une liste vide, comme avant
+  /// `ADR-015`.
+  Future<List<StationPoint>> Function()? allAnswer;
 
   @override
   Future<List<StationPoint>> withinBounds(
@@ -140,7 +269,14 @@ final class _StationPointRepositoryDouble implements StationPointRepository {
   }
 
   @override
-  Future<List<StationPoint>> all() async => const <StationPoint>[];
+  Future<List<StationPoint>> all() async {
+    allCalls++;
+    final Future<List<StationPoint>> Function()? configured = allAnswer;
+    if (configured == null) {
+      return const <StationPoint>[];
+    }
+    return configured();
+  }
 }
 
 /// Double du depot hydrometrique : retient chaque couple demande, dans
@@ -1194,7 +1330,7 @@ void main() {
       final MapViewModel viewModel = build();
       addTearDown(viewModel.dispose);
 
-      await viewModel.start();
+      await viewModel.start(zoom: individualMarkersFromZoom);
 
       expect(observations.requests, isEmpty);
     });
@@ -1204,7 +1340,7 @@ void main() {
       repository.answer = (int _) async => _grid(50);
       final MapViewModel viewModel = build();
       addTearDown(viewModel.dispose);
-      await viewModel.start();
+      await viewModel.start(zoom: individualMarkersFromZoom);
 
       viewModel.selectScale(MapScaleKind.debit);
       // `selectScale` lance le prechargement en tir-et-oublie : le
@@ -1226,7 +1362,10 @@ void main() {
         addTearDown(viewModel.dispose);
         viewModel.selectScale(MapScaleKind.debit);
 
-        await viewModel.onGestureEnded(_wideBounds());
+        await viewModel.onGestureEnded(
+          _wideBounds(),
+          zoom: individualMarkersFromZoom,
+        );
 
         expect(observations.requests, hasLength(20));
         expect(
@@ -1245,7 +1384,10 @@ void main() {
       final MapViewModel viewModel = build();
       addTearDown(viewModel.dispose);
 
-      await viewModel.onGestureEnded(_wideBounds());
+      await viewModel.onGestureEnded(
+        _wideBounds(),
+        zoom: individualMarkersFromZoom,
+      );
 
       expect(observations.requests, isEmpty);
     });
@@ -1259,7 +1401,10 @@ void main() {
       addTearDown(viewModel.dispose);
       viewModel.selectScale(MapScaleKind.debit);
 
-      final Future<void> gesture = viewModel.onGestureEnded(_wideBounds());
+      final Future<void> gesture = viewModel.onGestureEnded(
+        _wideBounds(),
+        zoom: individualMarkersFromZoom,
+      );
       await Future<void>.delayed(Duration.zero);
       expect(
         observations.requests,
@@ -1285,7 +1430,10 @@ void main() {
       addTearDown(viewModel.dispose);
       viewModel.selectScale(MapScaleKind.debit);
 
-      final Future<void> gesture = viewModel.onGestureEnded(_wideBounds());
+      final Future<void> gesture = viewModel.onGestureEnded(
+        _wideBounds(),
+        zoom: individualMarkersFromZoom,
+      );
       viewModel.selectScale(MapScaleKind.ecoulement);
       completer.complete(_grid(5));
       await gesture;
@@ -1308,12 +1456,16 @@ void main() {
           // tourne encore.
           await viewModel.onGestureEnded(
             Bounds(west: -62, south: 15, east: -61, north: 17),
+            zoom: individualMarkersFromZoom,
           );
         }
         return _discharge(station, DateTime.utc(2026, 9, 13, 9));
       };
 
-      await viewModel.onGestureEnded(_wideBounds());
+      await viewModel.onGestureEnded(
+        _wideBounds(),
+        zoom: individualMarkersFromZoom,
+      );
 
       expect(
         observations.requests,
@@ -1356,6 +1508,603 @@ void main() {
         viewModel.ondeAgeOf(_onde('12345678', DateTime.utc(2026, 7, 15))),
         CampaignAge.ancienne,
         reason: '60 jours calendaires (BR-010)',
+      );
+    });
+  });
+
+  group('levelFor — les seuils de ADR-015 (Z3)', () {
+    test('la borne appartient au niveau le plus fin', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      expect(viewModel.levelFor(4), AreaLevel.region);
+      expect(viewModel.levelFor(6.9), AreaLevel.region);
+      expect(viewModel.levelFor(7), AreaLevel.departement);
+      expect(viewModel.levelFor(8.9), AreaLevel.departement);
+      expect(viewModel.levelFor(9), isNull);
+      expect(viewModel.levelFor(18), isNull);
+    });
+  });
+
+  group('clusters, individualStations, individualOndeObservations — le '
+      'regroupement par zone administrative (ADR-015, Z3)', () {
+    test('onGestureEnded(zoom: 5) sur debit : clusters non vide, '
+        'individualStations = les stations sans region, zero findLatest, '
+        'prechargement inhibe sous le zoom 9', () async {
+      const AdministrativeArea region = AdministrativeArea(
+        code: '24',
+        label: 'Centre-Val de Loire',
+      );
+      final List<StationPoint> cinquante = <StationPoint>[
+        ..._stationsInRegion(region, 48),
+        ..._stationsWithoutArea(2, startIndex: 48),
+      ];
+      repository.answer = (int _) async => cinquante;
+      repository.allAnswer = () async => cinquante;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      final Bounds bounds = _wideBounds();
+
+      await viewModel.onGestureEnded(bounds, zoom: 5);
+
+      expect(viewModel.clusters, isNotEmpty);
+      expect(
+        viewModel.individualStations,
+        cinquante.sublist(48),
+        reason: 'les 2 stations sans region restent individuelles (BR-007)',
+      );
+      expect(observations.requests, isEmpty);
+      expect(delays, isEmpty);
+
+      await viewModel.onGestureEnded(bounds, zoom: 8.9);
+      expect(observations.requests, isEmpty, reason: 'toujours regroupe');
+
+      await viewModel.onGestureEnded(bounds, zoom: 9);
+      expect(observations.requests, hasLength(defaultPreloadLimit));
+      expect(viewModel.clusters, isEmpty);
+      expect(viewModel.individualStations, cinquante);
+    });
+
+    test('individualStations reste limite a l EMPRISE, meme si l asset '
+        "entier porte d'autres stations non rattachees (invariant du plan : "
+        "« les marqueurs individuels restent ceux de l'emprise »)", () async {
+      final List<StationPoint> sansRegionDeuxSurAsset = _stationsWithoutArea(2);
+      // all() porte DEUX stations sans rattachement (asset entier) ;
+      // withinBounds n'en rend qu'UNE — l'autre est hors de l'emprise
+      // courante et ne doit donc pas apparaitre parmi les marqueurs
+      // individuels de cet ecran.
+      repository.allAnswer = () async => sansRegionDeuxSurAsset;
+      repository.answer = (int _) async => sansRegionDeuxSurAsset.sublist(0, 1);
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      await viewModel.onGestureEnded(_wideBounds(), zoom: 5);
+
+      expect(viewModel.individualStations, <StationPoint>[
+        sansRegionDeuxSurAsset.first,
+      ]);
+    });
+
+    test('selectScale(debit) a zoom 6 ne precharge rien ; onGestureEnded a '
+        'zoom 9 (meme emprise) lance le prechargement', () async {
+      repository.answer = (int _) async => _grid(50);
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      final Bounds bounds = _wideBounds();
+
+      await viewModel.onGestureEnded(bounds, zoom: 6);
+      viewModel.selectScale(MapScaleKind.debit);
+      await Future<void>.delayed(Duration.zero);
+      expect(observations.requests, isEmpty);
+
+      await viewModel.onGestureEnded(bounds, zoom: 9);
+      expect(observations.requests, hasLength(defaultPreloadLimit));
+    });
+
+    test(
+      'start(zoom: 5) sur echelle debit : level == region, zero '
+      'findLatest (le prechargement n a lieu qu au niveau individuel)',
+      () async {
+        final MapViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+        viewModel.selectScale(MapScaleKind.debit);
+
+        await viewModel.start(zoom: 5);
+
+        expect(viewModel.level, AreaLevel.region);
+        expect(observations.requests, isEmpty);
+      },
+    );
+
+    test('selectScale(debit) au zoom 5 SANS geste ensuite : clusters non '
+        'vide, all() appele une seule fois (parcours reel : demarrage zoom '
+        '5 puis puce Debit)', () async {
+      const AdministrativeArea region = AdministrativeArea(
+        code: '24',
+        label: 'Centre-Val de Loire',
+      );
+      final List<StationPoint> cinq = _stationsInRegion(region, 5);
+      repository.allAnswer = () async => cinq;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.start(zoom: 5);
+      viewModel.selectScale(MapScaleKind.debit);
+      await pumpEventQueue();
+
+      expect(viewModel.clusters, isNotEmpty);
+      expect(repository.allCalls, 1);
+    });
+
+    test('all() qui echoue puis reussit au geste suivant : error revient a '
+        'null — MEME emprise, seul le niveau change (zoom 5 -> 8), pour que '
+        'ce ne soit PAS le loadFor (inchange, il ne tourne meme pas) qui '
+        'efface deja error avant que all() ne soit rejoue', () async {
+      int allCallCount = 0;
+      repository.allAnswer = () async {
+        allCallCount++;
+        if (allCallCount == 1) {
+          throw StateError('panne temporaire de l asset');
+        }
+        return _grid(5);
+      };
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      final Bounds bounds = _wideBounds();
+
+      await viewModel.onGestureEnded(bounds, zoom: 5);
+      expect(viewModel.error, isA<StateError>());
+      expect(viewModel.errorSource, MapErrorSource.referentiel);
+
+      // MEME emprise (region -> departement, zoom 5 -> 8) : boundsChanged
+      // est faux, loadFor ne tourne donc pas et ne peut pas effacer
+      // error lui-meme — seul un nouvel appel reussi de all() peut le
+      // faire.
+      await viewModel.onGestureEnded(bounds, zoom: 8);
+
+      expect(allCallCount, 2, reason: 'all() doit avoir ete rejoue');
+      expect(viewModel.error, isNull);
+      expect(viewModel.errorSource, isNull);
+    });
+
+    test('echelle debit, zoom 5 : chaque cluster porte severest et '
+        'severestAge nuls — le compte seul (ADR-015, BR-004)', () async {
+      const AdministrativeArea region = AdministrativeArea(
+        code: '24',
+        label: 'Centre-Val de Loire',
+      );
+      final List<StationPoint> cinq = _stationsInRegion(region, 5);
+      repository.allAnswer = () async => cinq;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      await viewModel.onGestureEnded(_wideBounds(), zoom: 5);
+
+      expect(viewModel.clusters, hasLength(1));
+      final MapAreaCluster cluster = viewModel.clusters.single;
+      expect(cluster.severest, isNull);
+      expect(cluster.severestAge, isNull);
+      expect(cluster.count, 5);
+    });
+
+    test('les stations sont regroupees sur l ASSET ENTIER : le compte reste '
+        'vrai hors ecran, all() appele une seule fois sur trois '
+        'onGestureEnded successifs', () async {
+      const AdministrativeArea regionR = AdministrativeArea(
+        code: '76',
+        label: 'OCCITANIE',
+      );
+      final List<StationPoint> dixDansLaRegion = _stationsInRegion(regionR, 10);
+      repository.allAnswer = () async => dixDansLaRegion;
+      repository.answer = (int _) async => dixDansLaRegion.take(4).toList();
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      await viewModel.onGestureEnded(_wideBounds(), zoom: 5);
+      await viewModel.onGestureEnded(
+        Bounds(west: -4, south: 40, east: 4, north: 50),
+        zoom: 5,
+      );
+      await viewModel.onGestureEnded(
+        Bounds(west: -3, south: 41, east: 3, north: 49),
+        zoom: 5,
+      );
+
+      expect(repository.allCalls, 1);
+      expect(viewModel.clusters, hasLength(1));
+      final MapAreaCluster cluster = viewModel.clusters.single;
+      expect(cluster.count, 10);
+      final double barycentreLatitude =
+          dixDansLaRegion
+              .map((StationPoint s) => s.latitude)
+              .reduce((double a, double b) => a + b) /
+          10;
+      final double barycentreLongitude =
+          dixDansLaRegion
+              .map((StationPoint s) => s.longitude)
+              .reduce((double a, double b) => a + b) /
+          10;
+      expect(cluster.latitude, closeTo(barycentreLatitude, 1e-9));
+      expect(cluster.longitude, closeTo(barycentreLongitude, 1e-9));
+    });
+
+    test('un echec de all() est pose dans error avec la source referentiel, '
+        'clusters vide (comme un echec de withinBounds)', () async {
+      repository.allAnswer = () async => throw StateError('panne asset');
+      repository.answer = (int _) async => _grid(5);
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+
+      await viewModel.onGestureEnded(_wideBounds(), zoom: 5);
+
+      expect(viewModel.error, isA<StateError>());
+      expect(viewModel.errorSource, MapErrorSource.referentiel);
+      expect(viewModel.clusters, isEmpty);
+    });
+
+    test('echelle ecoulement, fixture Loire (15 stations) : un agregat '
+        'regional Assec au zoom 5', () async {
+      final List<OndeObservation> quinze = _loireObservationsLatestPerStation();
+      onde.answer = (int _) async => quinze;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      expect(viewModel.clusters, hasLength(1));
+      final MapAreaCluster cluster = viewModel.clusters.single;
+      expect(cluster.area.code, '24');
+      expect(cluster.count, 15);
+      expect(cluster.severest, const Assec());
+      expect(cluster.latitude, closeTo(47.542750, 1e-6));
+      expect(cluster.longitude, closeTo(1.401170, 1e-6));
+    });
+
+    test('echelle ecoulement, fixture Loire : deux agregats departementaux '
+        'au zoom 8', () async {
+      final List<OndeObservation> quinze = _loireObservationsLatestPerStation();
+      onde.answer = (int _) async => quinze;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 8);
+
+      expect(viewModel.clusters, hasLength(2));
+      final MapAreaCluster c41 = viewModel.clusters.firstWhere(
+        (MapAreaCluster c) => c.area.code == '41',
+      );
+      expect(c41.count, 13);
+      expect(c41.severest, const Assec());
+      expect(c41.latitude, closeTo(47.507709, 1e-6));
+      expect(c41.longitude, closeTo(1.346744, 1e-6));
+      final MapAreaCluster c45 = viewModel.clusters.firstWhere(
+        (MapAreaCluster c) => c.area.code == '45',
+      );
+      expect(c45.count, 2);
+      expect(c45.severest, const Assec());
+      expect(c45.latitude, closeTo(47.770521, 1e-6));
+      expect(c45.longitude, closeTo(1.754937, 1e-6));
+    });
+
+    test('echelle ecoulement, fixture Loire : marqueurs individuels au zoom '
+        '9, les 15 observations', () async {
+      final List<OndeObservation> quinze = _loireObservationsLatestPerStation();
+      onde.answer = (int _) async => quinze;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 9);
+
+      expect(viewModel.clusters, isEmpty);
+      expect(viewModel.individualOndeObservations, hasLength(15));
+    });
+
+    test('le compte d un agregat ONDE est celui des points CHARGES pour '
+        "l'emprise, pas de tout le referentiel", () async {
+      final List<OndeObservation> cinq = _loireObservationsLatestPerStation()
+          .take(5)
+          .toList();
+      onde.answer = (int _) async => cinq;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      expect(viewModel.clusters, hasLength(1));
+      expect(viewModel.clusters.single.count, 5);
+    });
+
+    test('une observation sans region reste individuelle, dans aucun '
+        "agregat, et n'est pas comptee dans celui de sa region d'origine "
+        '(BR-007)', () async {
+      final List<OndeObservation> quinze = _loireObservationsLatestPerStation();
+      final OndeObservation sansRegion = _withoutRegion(
+        quinze.first,
+        'SYNTH001',
+      );
+      onde.answer = (int _) async => <OndeObservation>[...quinze, sansRegion];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      expect(
+        viewModel.individualOndeObservations,
+        equals(<OndeObservation>[sansRegion]),
+      );
+      expect(viewModel.clusters, hasLength(1));
+      expect(
+        viewModel.clusters.single.count,
+        15,
+        reason: 'la copie sans region ne compte pas dans "24"',
+      );
+    });
+
+    test('severestAge : le membre le plus RECENT de la categorie la plus '
+        'severe, entre deux membres observes le 2026-07-15 et le '
+        '2026-08-25', () async {
+      onde.answer = (int _) async => <OndeObservation>[
+        _assecAt('12345601', DateTime.utc(2026, 7, 15)),
+        _assecAt('12345602', DateTime.utc(2026, 8, 25)),
+      ];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      expect(viewModel.clusters, hasLength(1));
+      expect(
+        viewModel.clusters.single.severestAge,
+        CampaignAge.recente,
+        reason: '19 jours au 2026-09-13 (now par defaut du test)',
+      );
+    });
+
+    test(
+      'severestAge : un seul membre a 60 jours est ancienne (BR-010)',
+      () async {
+        onde.answer = (int _) async => <OndeObservation>[
+          _assecAt('12345601', DateTime.utc(2026, 7, 15)),
+        ];
+        final MapViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+
+        await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+        expect(viewModel.clusters.single.severestAge, CampaignAge.ancienne);
+      },
+    );
+
+    test('BR-009 : severest est le PIRE de tous les membres, severestAge est '
+        "l'age du plus RECENT PARMI CEUX-LA — pas du plus recent de tout "
+        'l agregat (donnees synthetiques melangeant plusieurs categories, '
+        'signalees comme telles)', () async {
+      // Cinq membres synthetiques du meme departement : un Ecoulement, un
+      // EcoulementFaible PLUS RECENT que les deux Assec (2026-09-01, 12 j —
+      // donc CampaignAge.recente si on le prenait a tort), et deux Assec
+      // ANCIENS (2026-07-01 et 2026-07-10, 74 j et 65 j — donc
+      // CampaignAge.ancienne). BR-009 doit retenir Assec (le pire) et
+      // l'age du plus RECENT DES DEUX ASSEC (2026-07-10, 65 j, ancienne) —
+      // jamais celui de l'EcoulementFaible, qui rendrait a tort
+      // CampaignAge.recente : c'est cette divergence qui distingue
+      // l'implementation correcte de la mutation « age pris sur le plus
+      // recent de TOUS les membres ».
+      onde.answer = (int _) async => <OndeObservation>[
+        _assecAt(
+          '10000001',
+          DateTime.utc(2026, 6, 1),
+          category: const Ecoulement(),
+        ),
+        _assecAt(
+          '10000002',
+          DateTime.utc(2026, 9, 1),
+          category: const EcoulementFaible(),
+        ),
+        _assecAt('10000003', DateTime.utc(2026, 7, 1), category: const Assec()),
+        _assecAt(
+          '10000004',
+          DateTime.utc(2026, 7, 10),
+          category: const Assec(),
+        ),
+      ];
+      final MapViewModel viewModel = build(
+        now: () => DateTime.utc(2026, 9, 13),
+      );
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      expect(viewModel.clusters, hasLength(1));
+      final MapAreaCluster cluster = viewModel.clusters.single;
+      expect(cluster.severest, const Assec());
+      expect(
+        cluster.severestAge,
+        CampaignAge.ancienne,
+        reason:
+            "l'age doit venir du membre Assec du 2026-07-10 (le plus "
+            "recent des DEUX Assec, 65 j — ancienne), jamais de "
+            "l'EcoulementFaible du 2026-09-01 (12 j) qui est pourtant le "
+            'plus recent de tous les membres — celui-la rendrait a tort '
+            'recente',
+      );
+    });
+
+    test('zoomTargetFor : agregat de deux membres distincts rend '
+        'CoverBounds egale aux min/max des membres', () async {
+      onde.answer = (int _) async => <OndeObservation>[
+        _assecAt(
+          '12345601',
+          DateTime.utc(2026, 7, 15),
+          latitude: 47.0,
+          longitude: 1.0,
+        ),
+        _assecAt(
+          '12345602',
+          DateTime.utc(2026, 8, 25),
+          latitude: 48.0,
+          longitude: 2.0,
+        ),
+      ];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      final MapAreaCluster cluster = viewModel.clusters.single;
+      final ClusterZoomTarget target = viewModel.zoomTargetFor(cluster);
+      expect(target, isA<CoverBounds>());
+      final Bounds bounds = (target as CoverBounds).bounds;
+      expect(bounds.west, 1.0);
+      expect(bounds.east, 2.0);
+      expect(bounds.south, 47.0);
+      expect(bounds.north, 48.0);
+    });
+
+    test('zoomTargetFor : agregat d un seul membre rend CentreOn a '
+        'individualMarkersFromZoom — la selection montre toujours ses '
+        'membres', () async {
+      onde.answer = (int _) async => <OndeObservation>[
+        _assecAt(
+          '12345601',
+          DateTime.utc(2026, 7, 15),
+          latitude: 47.0,
+          longitude: 1.0,
+        ),
+      ];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      final MapAreaCluster cluster = viewModel.clusters.single;
+      final ClusterZoomTarget target = viewModel.zoomTargetFor(cluster);
+      expect(target, isA<CentreOn>());
+      final CentreOn centre = target as CentreOn;
+      expect(centre.latitude, 47.0);
+      expect(centre.longitude, 1.0);
+      expect(centre.zoom, individualMarkersFromZoom);
+    });
+
+    test('un changement de niveau notifie meme si l emprise est inchangee '
+        '(8,9 -> 9), level passe a null', () async {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      final Bounds bounds = _loireBounds();
+      await viewModel.onGestureEnded(bounds, zoom: 8.9);
+      expect(viewModel.level, AreaLevel.departement);
+
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      await viewModel.onGestureEnded(bounds, zoom: 9);
+
+      expect(notifications, 1);
+      expect(viewModel.level, isNull);
+    });
+  });
+
+  group('onGestureEnded — notifier apres le chargement des clusters, '
+      'jamais le taire (relecture avec mutations)', () {
+    test('geste qui change EMPRISE ET NIVEAU (individuel -> region), all() '
+        'jamais charge avant : a la DERNIERE notification, clusters n est '
+        'pas vide', () async {
+      const AdministrativeArea region = AdministrativeArea(
+        code: '24',
+        label: 'Centre-Val de Loire',
+      );
+      final List<StationPoint> cinq = _stationsInRegion(region, 5);
+      repository.answer = (int _) async => _grid(50);
+      repository.allAnswer = () async => cinq;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      // Premier geste : niveau INDIVIDUEL (zoom 10), all() pas encore
+      // necessaire — c'est le cas ecarte par la relecture : `all()` n'a
+      // jamais ete charge quand le niveau bascule.
+      await viewModel.onGestureEnded(_wideBounds(), zoom: 10);
+      expect(viewModel.level, isNull);
+
+      final List<bool> clustersEmptyParNotification = <bool>[];
+      viewModel.addListener(() {
+        clustersEmptyParNotification.add(viewModel.clusters.isEmpty);
+      });
+
+      // Deuxieme geste : AUTRE emprise, zoom 5 (region) — bounds ET niveau
+      // changent ensemble.
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      expect(
+        clustersEmptyParNotification,
+        isNotEmpty,
+        reason: 'au moins une notification doit avoir eu lieu',
+      );
+      expect(
+        clustersEmptyParNotification.last,
+        isFalse,
+        reason:
+            'a la derniere notification, les pastilles doivent etre '
+            'calculables — pas de carte vide jusqu au geste suivant',
+      );
+    });
+
+    test('idem, mais all() LEVE : a la DERNIERE notification, error est '
+        'posee avec la source referentiel (pas une erreur muette)', () async {
+      repository.answer = (int _) async => _grid(50);
+      repository.allAnswer = () async => throw StateError('panne asset');
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      await viewModel.onGestureEnded(_wideBounds(), zoom: 10);
+      expect(viewModel.level, isNull);
+
+      final List<(Object?, MapErrorSource?)> etatsParNotification =
+          <(Object?, MapErrorSource?)>[];
+      viewModel.addListener(() {
+        etatsParNotification.add((viewModel.error, viewModel.errorSource));
+      });
+
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+
+      expect(etatsParNotification, isNotEmpty);
+      expect(etatsParNotification.last.$1, isA<StateError>());
+      expect(etatsParNotification.last.$2, MapErrorSource.referentiel);
+    });
+  });
+
+  group('onGestureEnded — pas de retour anticipe sur emprise et niveau '
+      'inchanges (H2, relecture avec mutations)', () {
+    test('un geste sur la MEME emprise (meme niveau individuel) relance le '
+        'prechargement : une station EnEchec est retentee', () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      observations.answer = (StationCode station, int call) async {
+        if (call == 1) {
+          throw StateError('panne hydro');
+        }
+        return _discharge(station, DateTime.utc(2026, 9, 13, 9));
+      };
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      final Bounds bounds = _loireBounds();
+
+      await viewModel.onGestureEnded(bounds, zoom: individualMarkersFromZoom);
+      expect(observations.requests, hasLength(1));
+      expect(viewModel.stateOf(_blois().code), isA<EnEchec>());
+
+      await viewModel.onGestureEnded(bounds, zoom: individualMarkersFromZoom);
+
+      expect(
+        observations.requests,
+        hasLength(2),
+        reason:
+            'la station EnEchec doit etre retentee, le plan ne demande '
+            'aucun retour anticipe sur emprise+niveau inchanges',
       );
     });
   });

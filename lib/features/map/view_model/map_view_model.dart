@@ -32,7 +32,11 @@ import 'dart:collection' show UnmodifiableListView, UnmodifiableMapView;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
+import 'package:martinpecheur/domain/geo/area_cluster.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
+import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
+import 'package:martinpecheur/domain/nomenclature/flow_severity.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
@@ -63,6 +67,100 @@ const Duration preloadInterval = Duration(milliseconds: 200);
 /// le TTL de `observations_tr` (vingt minutes) : une requête plus tôt ne
 /// ferait que relire le cache du dépôt.
 const Duration stationStateRefreshAfter = Duration(minutes: 20);
+
+/// Sous ce zoom, la carte regroupe ses marqueurs par région (`ADR-015`).
+/// Constante nommée, ajustable après constat d'écran — jamais un nombre posé
+/// dans un `if` (`MapViewModel.levelFor`).
+const double regionClustersBelowZoom = 7;
+
+/// À partir de ce zoom, la carte revient aux marqueurs individuels
+/// (`ADR-015`, `F2c` inchangé) ; entre [regionClustersBelowZoom] et ce seuil,
+/// le regroupement se fait par département.
+const double individualMarkersFromZoom = 9;
+
+/// Un agrégat de zone administrative, prêt à dessiner (`ADR-015`) : la
+/// projection carte d'un `AreaCluster` du domaine, propre à une échelle. Sur
+/// l'échelle [MapScaleKind.debit], [severest] et [severestAge] sont **nuls**
+/// — sans percentile (`ADR-003`, hors T1), toute station est `Indéterminé`
+/// et le classement de `BR-009` n'a rien à départager (compte seul).
+final class MapAreaCluster {
+  const MapAreaCluster({
+    required this.scale,
+    required this.level,
+    required this.area,
+    required this.latitude,
+    required this.longitude,
+    required this.count,
+    required this.bounds,
+    required this.severest,
+    required this.severestAge,
+  });
+
+  /// L'échelle dont cet agrégat porte les membres — une seule à la fois
+  /// (BR-008).
+  final MapScaleKind scale;
+
+  /// Le niveau administratif de cet agrégat.
+  final AreaLevel level;
+
+  /// La zone administrative de cet agrégat.
+  final AdministrativeArea area;
+
+  /// Latitude du barycentre des membres.
+  final double latitude;
+
+  /// Longitude du barycentre des membres.
+  final double longitude;
+
+  /// Le nombre de membres de cet agrégat. Sur l'échelle écoulement, c'est le
+  /// compte des points ONDE **chargés** pour l'emprise courante ; sur
+  /// l'échelle débit, c'est le compte sur l'asset **entier** (`ADR-015`).
+  final int count;
+
+  /// L'emprise exacte des membres, `null` si elle est plate (un seul
+  /// membre, ou membres alignés en latitude ou en longitude).
+  final Bounds? bounds;
+
+  /// La catégorie d'écoulement la plus sévère des membres (`BR-009`), `null`
+  /// sur l'échelle débit.
+  final FlowCategory? severest;
+
+  /// L'âge de campagne (`BR-010`) du membre le plus récent de la catégorie
+  /// [severest], `null` sur l'échelle débit.
+  final CampaignAge? severestAge;
+}
+
+/// Où la caméra doit se poser après la sélection d'un [MapAreaCluster]
+/// (`ADR-015`) : sur l'emprise de ses membres quand elle existe, sinon
+/// centrée sur son barycentre au niveau individuel — la sélection montre
+/// toujours ses membres, jamais une caméra immobile.
+///
+/// `sealed class` fermée (`BR-011`) : la vue (`K1`, `Z4`) traite les deux cas
+/// par un `switch` exhaustif.
+sealed class ClusterZoomTarget {
+  const ClusterZoomTarget();
+}
+
+/// Cale la caméra sur [bounds] — l'emprise exacte des membres de l'agrégat.
+final class CoverBounds extends ClusterZoomTarget {
+  const CoverBounds(this.bounds);
+
+  final Bounds bounds;
+}
+
+/// Centre la caméra sur le point donné, au zoom [zoom] — utilisé quand
+/// l'agrégat n'a qu'un membre (emprise plate, `AreaCluster.bounds` nul).
+final class CentreOn extends ClusterZoomTarget {
+  const CentreOn({
+    required this.latitude,
+    required this.longitude,
+    required this.zoom,
+  });
+
+  final double latitude;
+  final double longitude;
+  final double zoom;
+}
 
 /// Attente réelle, utilisée quand aucun [delay] n'est injecté.
 Future<void> _wait(Duration duration) => Future<void>.delayed(duration);
@@ -139,6 +237,205 @@ final class MapViewModel extends ChangeNotifier {
   /// la liste, donc jusqu'à 4 150 éléments à chaque relâchement de geste, là
   /// où la vue n'a besoin que de se voir refuser l'écriture (NFR-01).
   List<StationPoint> get stations => _stations;
+
+  /// Tous les points du référentiel, lus **une seule fois** au premier
+  /// besoin (`_refreshClusterDataIfNeeded`) et gardés en mémoire — `null`
+  /// tant qu'aucun regroupement de stations n'a encore été demandé.
+  /// `ADR-015` : le regroupement des stations porte sur l'asset entier, pas
+  /// sur l'emprise, pour que le compte et le barycentre d'une pastille
+  /// soient vrais quel que soit le bord de l'écran.
+  List<StationPoint>? _allStations;
+
+  AreaLevel? _level;
+
+  /// Le niveau de regroupement administratif actif, décidé par le dernier
+  /// zoom transmis à [start] ou [onGestureEnded] ([levelFor]) : `null` tant
+  /// qu'aucun des deux n'a encore été appelé — c'est alors le niveau
+  /// individuel, comme avant `ADR-015`.
+  AreaLevel? get level => _level;
+
+  /// Le niveau de regroupement pour [zoom] (`ADR-015`) : région sous
+  /// [regionClustersBelowZoom], département de ce seuil à
+  /// [individualMarkersFromZoom] exclu, `null` (niveau individuel) à partir
+  /// de [individualMarkersFromZoom]. Fonction pure — elle ne lit ni n'écrit
+  /// aucun champ de ce ViewModel. La borne appartient toujours au niveau le
+  /// plus fin.
+  AreaLevel? levelFor(double zoom) {
+    if (zoom < regionClustersBelowZoom) {
+      return AreaLevel.region;
+    }
+    if (zoom < individualMarkersFromZoom) {
+      return AreaLevel.departement;
+    }
+    return null;
+  }
+
+  /// Les agrégats de zone administrative à dessiner (`ADR-015`) — **vide**
+  /// au niveau individuel ([level] nul). Une seule échelle à la fois
+  /// (BR-008) : sur [MapScaleKind.debit], calculés sur [StationPointRepository.all]
+  /// (l'asset entier) ; sur [MapScaleKind.ecoulement], sur les observations
+  /// ONDE **chargées** pour l'emprise ([ondeObservations]).
+  List<MapAreaCluster> get clusters {
+    final AreaLevel? level = _level;
+    if (level == null) {
+      return const <MapAreaCluster>[];
+    }
+    return switch (_scale) {
+      MapScaleKind.debit => _stationMapClusters(level),
+      MapScaleKind.ecoulement => _ondeMapClusters(level),
+    };
+  }
+
+  /// Les stations à dessiner individuellement : au niveau individuel,
+  /// **toutes** les stations de l'emprise ([stations]) ; sous le zoom 9,
+  /// **seulement** celles sans zone au niveau courant ([level]) — un point
+  /// sans région reste affiché, jamais rattaché à une zone voisine
+  /// (BR-007).
+  ///
+  /// ⚠️ Toujours filtrées sur [stations] (l'emprise **courante**), jamais
+  /// sur l'asset entier ([_allStations]) — même si le regroupement des
+  /// [clusters] porte, lui, sur l'asset entier (`ADR-015`). Le plan est
+  /// explicite : « les marqueurs individuels restent ceux de l'emprise,
+  /// dans les deux échelles ». Une station sans rattachement mais hors de
+  /// l'emprise courante n'a rien à faire sur cet écran (relecture avec
+  /// mutations : l'asset entier peut porter des stations non rattachées
+  /// que `withinBounds` ne renvoie pas).
+  List<StationPoint> get individualStations {
+    final AreaLevel? level = _level;
+    if (level == null) {
+      return _stations;
+    }
+    return _stations
+        .where((StationPoint point) => _stationAreaOf(level, point) == null)
+        .toList(growable: false);
+  }
+
+  /// Les observations ONDE à dessiner individuellement, même règle que
+  /// [individualStations].
+  List<OndeObservation> get individualOndeObservations {
+    final AreaLevel? level = _level;
+    if (level == null) {
+      return _ondeObservations.values.toList(growable: false);
+    }
+    return _ondeClustering(level).unassigned;
+  }
+
+  /// La zone administrative de [point] au niveau [level] — région ou
+  /// département, seule différence entre les deux niveaux (`ADR-015`).
+  AdministrativeArea? _stationAreaOf(AreaLevel level, StationPoint point) =>
+      level == AreaLevel.region ? point.region : point.departement;
+
+  /// Le partitionnement des stations au niveau [level], sur l'asset entier
+  /// ([_allStations]) — `null` tant qu'il n'a pas encore été chargé
+  /// ([_refreshClusterDataIfNeeded]).
+  AreaClustering<StationPoint>? _stationClustering(AreaLevel level) {
+    final List<StationPoint>? all = _allStations;
+    if (all == null) {
+      return null;
+    }
+    return clusterByArea<StationPoint>(
+      all,
+      level: level,
+      areaOf: (StationPoint point) => _stationAreaOf(level, point),
+      positionOf: (StationPoint point) =>
+          (latitude: point.latitude, longitude: point.longitude),
+    );
+  }
+
+  /// Le partitionnement des observations ONDE **chargées pour l'emprise**
+  /// au niveau [level].
+  AreaClustering<OndeObservation> _ondeClustering(AreaLevel level) {
+    return clusterByArea<OndeObservation>(
+      _ondeObservations.values,
+      level: level,
+      areaOf: (OndeObservation observation) => level == AreaLevel.region
+          ? observation.point.region
+          : observation.point.departement,
+      positionOf: (OndeObservation observation) => (
+        latitude: observation.point.latitude,
+        longitude: observation.point.longitude,
+      ),
+    );
+  }
+
+  List<MapAreaCluster> _stationMapClusters(AreaLevel level) {
+    final AreaClustering<StationPoint>? clustering = _stationClustering(level);
+    if (clustering == null) {
+      return const <MapAreaCluster>[];
+    }
+    return <MapAreaCluster>[
+      for (final AreaCluster<StationPoint> cluster in clustering.clusters)
+        MapAreaCluster(
+          scale: MapScaleKind.debit,
+          level: level,
+          area: cluster.area,
+          latitude: cluster.latitude,
+          longitude: cluster.longitude,
+          count: cluster.count,
+          bounds: cluster.bounds,
+          // Sans percentile (ADR-003, hors T1), toute station est
+          // « Indéterminé » (BR-004) : le classement de BR-009 n'a rien à
+          // départager, la pastille porte le compte seul.
+          severest: null,
+          severestAge: null,
+        ),
+    ];
+  }
+
+  List<MapAreaCluster> _ondeMapClusters(AreaLevel level) {
+    final AreaClustering<OndeObservation> clustering = _ondeClustering(level);
+    return <MapAreaCluster>[
+      for (final AreaCluster<OndeObservation> cluster in clustering.clusters)
+        MapAreaCluster(
+          scale: MapScaleKind.ecoulement,
+          level: level,
+          area: cluster.area,
+          latitude: cluster.latitude,
+          longitude: cluster.longitude,
+          count: cluster.count,
+          bounds: cluster.bounds,
+          severest: mostSevere(
+            cluster.members.map((OndeObservation o) => o.category),
+          ),
+          severestAge: _severestAgeOf(cluster.members),
+        ),
+    ];
+  }
+
+  /// L'âge (`ondeAgeOf`, `BR-010`) du membre le plus récent portant la
+  /// catégorie la plus sévère de [members] — jamais la moyenne, jamais le
+  /// dernier lu (`BR-009`).
+  CampaignAge _severestAgeOf(List<OndeObservation> members) {
+    final FlowCategory severest = mostSevere(
+      members.map((OndeObservation o) => o.category),
+    );
+    OndeObservation? latest;
+    for (final OndeObservation member in members) {
+      if (member.category != severest) {
+        continue;
+      }
+      if (latest == null || member.observedAt.isAfter(latest.observedAt)) {
+        latest = member;
+      }
+    }
+    return ondeAgeOf(latest!);
+  }
+
+  /// Où poser la caméra après la sélection de [cluster] (`ADR-015`) :
+  /// [CoverBounds] quand l'emprise de ses membres n'est pas plate, sinon
+  /// [CentreOn] son barycentre au niveau individuel — la sélection montre
+  /// toujours ses membres, jamais une caméra immobile.
+  ClusterZoomTarget zoomTargetFor(MapAreaCluster cluster) {
+    final Bounds? bounds = cluster.bounds;
+    if (bounds != null) {
+      return CoverBounds(bounds);
+    }
+    return CentreOn(
+      latitude: cluster.latitude,
+      longitude: cluster.longitude,
+      zoom: individualMarkersFromZoom,
+    );
+  }
 
   Object? _error;
 
@@ -244,21 +541,135 @@ final class MapViewModel extends ChangeNotifier {
   /// (`map_view.dart`), et n'était couvert par aucun test : « inatteignable
   /// sans monter un `FlutterMap` ». Il vit ici pour que `K1`/`K2` le
   /// réutilisent sans le recopier.
-  Future<void> start() async {
+  ///
+  /// [zoom] fixe le [level] de démarrage (`ADR-015`, `Z3`) : la vue ne fait
+  /// que le transmettre (`camera.zoom`, ou [initialMapZoom] au tout premier
+  /// appel) — ce ViewModel ne connaît pas `flutter_map`, [zoom] est un
+  /// `double` comme l'emprise est un [Bounds]. **Le préchargement n'a lieu
+  /// qu'au niveau individuel** ([shouldPreloadOn] ET [level] nul, relus
+  /// **après** le chargement) : une pastille ne montre aucun état de
+  /// station, précharger sous le zoom 9 serait du travail réseau sans
+  /// destinataire (`NFR-07`).
+  ///
+  /// N'appelle **pas** [_refreshClusterDataIfNeeded] : l'échelle de
+  /// démarrage est toujours [MapScaleKind.ecoulement] (`UC-001 § 3`), qui
+  /// n'a jamais besoin de l'asset entier — seul le regroupement des
+  /// STATIONS (échelle débit) en dépend. Aucun test ne justifie cet appel
+  /// ici (YAGNI, relecture avec mutations) : le premier geste ou le premier
+  /// passage à l'échelle débit s'en chargera, via [onGestureEnded] ou
+  /// [selectScale].
+  Future<void> start({required double zoom}) async {
+    _updateLevel(zoom);
     await loadInitial();
-    if (shouldPreloadOn(_scale)) {
+    if (shouldPreloadOn(_scale) && _level == null) {
       await preloadVisibleStations();
     }
   }
 
-  /// Signalé par la vue à la fin d'un geste de caméra terminé sur [bounds]
-  /// (`H2`, 2026-09-22) : charge cette emprise, puis déclenche le
-  /// préchargement dans les mêmes conditions que [start]. La vue ne décide
-  /// plus rien — elle signale « geste terminé + emprise ».
-  Future<void> onGestureEnded(Bounds bounds) async {
-    await loadFor(bounds);
-    if (shouldPreloadOn(_scale)) {
+  /// Signalé par la vue à la fin d'un geste de caméra terminé sur [bounds],
+  /// au zoom [zoom] (`H2`, 2026-09-22 ; [zoom] ajouté en `Z3`) : charge
+  /// cette emprise, puis déclenche le préchargement dans les mêmes
+  /// conditions que [start]. La vue ne décide plus rien — elle signale
+  /// « geste terminé + emprise + zoom ».
+  ///
+  /// ⚠️ **Aucun retour anticipé sur emprise et niveau inchangés** (relecture
+  /// avec mutations, régression de `Z3` sur `H2`) : le plan ne le demande
+  /// pas, et [loadFor] refuse déjà, de lui-même, une emprise identique à la
+  /// dernière demandée. Court-circuiter ici en plus empêchait un geste sur
+  /// la MÊME emprise de relancer [preloadVisibleStations] — donc de
+  /// retenter une station [EnEchec] ou de rafraîchir une station devenue
+  /// périmée ([stationStateRefreshAfter]) — ce que `H2` garantissait.
+  ///
+  /// Un changement de **niveau** ([levelFor]) notifie même quand l'emprise
+  /// est inchangée (`ADR-015`) : [loadFor] ne le ferait pas de lui-même,
+  /// puisqu'il refuse une emprise identique à la dernière demandée — mais
+  /// une pastille qui cède la place aux marqueurs individuels (ou
+  /// l'inverse) est un changement à l'écran, pas un chargement réseau.
+  ///
+  /// ⚠️ La notification du changement de niveau ne suffit pas à elle seule
+  /// (relecture avec mutations) : quand l'emprise change **en même temps**
+  /// que le niveau, [_refreshClusterDataIfNeeded] peut poser [_allStations]
+  /// ou [error] **après** la notification de [loadFor] — sans notification
+  /// à elle, la dernière valeur connue de l'écran resterait « pas encore
+  /// calculable », carte vide ou erreur muette, jusqu'au geste suivant.
+  /// [_refreshClusterDataIfNeeded] rend donc un `bool` : `true` s'il vient
+  /// de poser [_allStations] ou [error], et ce ViewModel notifie alors,
+  /// qu'il y ait déjà eu une notification de [loadFor] ou non.
+  Future<void> onGestureEnded(Bounds bounds, {required double zoom}) async {
+    final AreaLevel? previousLevel = _level;
+    _updateLevel(zoom);
+    final bool levelChanged = _level != previousLevel;
+    final bool boundsChanged = _lastRequestedBounds != bounds;
+
+    if (boundsChanged) {
+      await loadFor(bounds);
+    }
+
+    final bool clusterDataChanged = await _refreshClusterDataIfNeeded();
+
+    if (!_disposed &&
+        (clusterDataChanged || (!boundsChanged && levelChanged))) {
+      notifyListeners();
+    }
+
+    if (shouldPreloadOn(_scale) && _level == null) {
       await preloadVisibleStations();
+    }
+  }
+
+  /// Met à jour [level] pour [zoom] ([levelFor]). Appelé au tout début de
+  /// [start] et [onGestureEnded], avant tout `await` : c'est ce qui rend
+  /// [clusters] et [individualStations] cohérents avec le geste qui vient
+  /// d'arriver, même si le réseau met du temps à répondre.
+  void _updateLevel(double zoom) {
+    _level = levelFor(zoom);
+  }
+
+  /// Charge l'asset entier ([StationPointRepository.all]) si le niveau
+  /// courant et l'échelle active en ont besoin, et si ce n'est pas déjà
+  /// fait — **une seule fois**, gardé en mémoire ([_allStations]) tant que
+  /// l'application tourne (`ADR-015`). Ne fait rien au niveau individuel ni
+  /// sur l'échelle écoulement : seul le regroupement des STATIONS porte sur
+  /// l'asset entier, celui des observations ONDE porte sur les points déjà
+  /// chargés pour l'emprise ([_ondeObservations]).
+  ///
+  /// Une panne est posée dans [error] avec la source [MapErrorSource.referentiel]
+  /// — comme un échec de [StationPointRepository.withinBounds] — et
+  /// n'est **pas** mise en cache : le prochain appel retente.
+  ///
+  /// Rend `true` quand cet appel vient de poser [_allStations] ou [error] —
+  /// c'est-à-dire chaque fois qu'il a réellement tenté l'appel réseau, ce
+  /// bloc n'étant traversé qu'une fois par succès (`_allStations` non nul
+  /// ensuite empêche tout nouvel essai) — `false` sinon (rien à faire, ou
+  /// [dispose] survenu entre-temps). L'appelant ([onGestureEnded]) s'en sert
+  /// pour notifier même quand [loadFor] a déjà notifié pour l'emprise
+  /// seule : sans cela, un geste qui change emprise ET niveau en même temps
+  /// laisserait la dernière notification connue de l'écran en retard d'un
+  /// tour (carte vide ou erreur muette jusqu'au geste suivant).
+  Future<bool> _refreshClusterDataIfNeeded() async {
+    if (_level == null ||
+        _scale != MapScaleKind.debit ||
+        _allStations != null) {
+      return false;
+    }
+    try {
+      final List<StationPoint> response = await _stationPoints.all();
+      if (_disposed) {
+        return false;
+      }
+      _allStations = response;
+      if (_errorSource == MapErrorSource.referentiel) {
+        _error = null;
+        _errorSource = null;
+      }
+      return true;
+    } on Object catch (error) {
+      if (_disposed) {
+        return false;
+      }
+      _error = error;
+      _errorSource = MapErrorSource.referentiel;
+      return true;
     }
   }
 
@@ -404,8 +815,23 @@ final class MapViewModel extends ChangeNotifier {
       unawaited(_reloadOndeForScale(bounds));
     }
 
-    if (shouldPreloadOn(kind)) {
+    if (kind == MapScaleKind.debit && _level != null) {
+      unawaited(_refreshClusterDataThenNotify());
+    }
+
+    if (shouldPreloadOn(kind) && _level == null) {
       unawaited(preloadVisibleStations());
+    }
+  }
+
+  /// Charge l'asset entier si le passage à l'échelle débit en a besoin
+  /// ([_refreshClusterDataIfNeeded]), puis notifie : [selectScale] reste
+  /// synchrone, ce chargement est en tir-et-oublie comme le rechargement
+  /// ONDE de [_reloadOndeForScale].
+  Future<void> _refreshClusterDataThenNotify() async {
+    await _refreshClusterDataIfNeeded();
+    if (!_disposed) {
+      notifyListeners();
     }
   }
 

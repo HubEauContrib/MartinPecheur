@@ -1288,11 +1288,11 @@ git add -- lib/domain lib/data lib/features/onde_sheet test/domain test/data tes
 - `onGestureEnded` avec la **même** emprise et un zoom qui change de niveau (`8,9` → `9`) → une notification, `level` passe à `null`.
 - Après `Z3` : `grep -n "levelFor\|individualMarkersFromZoom" lib/features/map/view/map_view.dart` ne montre que des **lectures**, aucune comparaison de zoom écrite dans la vue.
 
-- [ ] **Étape 1** — écrire les cas ci-dessus. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view_model` → échec.
-- [ ] **Étape 3** — implémenter dans le ViewModel ; la vue ne fait que **transmettre** `camera.zoom` avec l'emprise (`start`, `onGestureEnded`).
-- [ ] **Étape 4** — `flutter test test/features/map test/architecture` → vert ; `flutter test` → vert, **nombre de tests recopié**.
-- [ ] **Étape 5** — critère de fin, puis commit.
+- [x] **Étape 1** — écrire les cas ci-dessus. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view_model` → échec.
+- [x] **Étape 3** — implémenter dans le ViewModel ; la vue ne fait que **transmettre** `camera.zoom` avec l'emprise (`start`, `onGestureEnded`).
+- [x] **Étape 4** (2026-09-23) — `flutter test test/features/map test/architecture` → vert ; `flutter test` → vert, **972 tests** (948 avant `Z3`) ; relu par un second agent avec essais de mutation, corrections appliquées.
+- [x] **Étape 5** — critère de fin, puis commit.
 
 ```bash
 git add -- lib/features/map test/features/map && git commit -m "feat(map): le ViewModel regroupe par region puis par departement sous le zoom 9" -m "Sous le zoom 7 une pastille par region, de 7 a 9 une par departement, a partir de 9 les marqueurs individuels (ADR-015). Seuils en constantes nommees, testes aux bornes 6,9 / 7 / 8,9 / 9. Le prechargement des debits n a lieu qu au niveau individuel : une pastille ne montre aucun etat de station, NFR-07 interdit le travail reseau sans destinataire. Sur l echelle debit, compte seul avant les percentiles. Un point sans region reste individuel."
