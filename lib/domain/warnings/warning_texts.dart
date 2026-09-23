@@ -160,3 +160,45 @@ String sheetWarningText(
         "ponctuelle. Ce n'est pas une mesure de débit, et la situation a pu "
         'changer depuis.',
 };
+
+// ---------------------------------------------------------------------------
+// Tâche `W5` — texte de l'encart renforcé (`BR-013`), emplacement 4 de
+// `04-ui.md § 5`. Révision du plan T1 du 2026-09-22 (décision 11) : le
+// WIDGET part en T2 avec le premier écran de disponibilité de la ressource
+// au sens de `BR-013` — aucun écran de T1 n'en est un. Seul le TEXTE est
+// écrit ici, pour être balayé et figé par son test dès maintenant. ⚠️ HORS
+// VERROU DE VERSION : `warningTextVersion` ne couvre QUE le texte du modal
+// (arbitrage du coordinateur, 2026-09-22) — ce texte-ci est figé par son
+// propre test, `test/domain/warnings/warning_texts_test.dart`.
+//
+// Le nom du service n'apparaît pas ici : `ADR-004` le confine à son module,
+// verrouillé par un test.
+//
+// Provenance, recopiée mot pour mot (aucune phrase inventée) :
+// `docs/04-ui.md § 1`, wireframe de l'écran de sécheresse et de
+// disponibilité de la ressource, avertissement renforcé (lignes 116-129).
+// Les lignes du wireframe sont rejointes à l'endroit où la largeur de la
+// boîte ASCII les a coupées, sans ajouter ni retirer un mot ; la ligne
+// blanche du wireframe (l. 125) sépare les deux phrases en deux
+// paragraphes.
+// ---------------------------------------------------------------------------
+
+/// Titre de l'encart renforcé, en capitales comme le wireframe
+/// (`docs/04-ui.md § 1`, l. 116-117 : « ⚠ NE FONDEZ AUCUNE DÉCISION SUR /
+/// CET ÉCRAN », rejointes sur une seule ligne).
+const String reinforcedWarningHeadline =
+    'NE FONDEZ AUCUNE DÉCISION SUR CET ÉCRAN';
+
+/// Corps de l'encart renforcé (`docs/04-ui.md § 1`, l. 119-127) : les
+/// arrêtés préfectoraux font seuls foi, et les données ne remplacent pas
+/// non plus une évaluation de sécurité (`BR-013`).
+const String reinforcedWarningBody =
+    "Les seules règles qui s'appliquent chez vous sont celles des arrêtés "
+    'préfectoraux. Consultez-les avant tout prélèvement, arrosage ou '
+    "irrigation : ce que vous lisez ici n'autorise rien et n'interdit "
+    'rien.\n\n'
+    'Ces données ne remplacent pas non plus une évaluation de sécurité.';
+
+/// Libellé de l'action de l'encart renforcé, vers les arrêtés en vigueur
+/// (`docs/04-ui.md § 1`, l. 129 : « [ Consulter les arrêtés en vigueur ] »).
+const String reinforcedWarningActionLabel = 'Consulter les arrêtés en vigueur';

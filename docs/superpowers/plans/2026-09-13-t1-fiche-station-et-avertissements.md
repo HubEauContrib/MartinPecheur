@@ -1104,11 +1104,13 @@ git add lib/features lib/domain test/features test/domain docs/project-state.md 
 - `assec` en minuscules hors d'un nom de type → rouge : un concept, un mot, et l'écran dit **« à sec »** (`glossary.md`).
 - Contre-épreuve : ajouter `'débit normal'` dans un fichier temporaire de `lib/features/` rend le test **rouge** ; ajouter `// débit normal` en commentaire ne le rend **pas** rouge. Retirer. Un balayage qui ne tombe jamais ne prouve rien.
 
-- [ ] **Étape 1** — écrire `vocabulary_test.dart`, ses listes sous `test/`, et le test des textes de l'encart renforcé. Rouge.
-- [ ] **Étape 2** — `flutter test test/project/vocabulary_test.dart test/domain/warnings` → échec.
-- [ ] **Étape 3** — écrire les trois textes de l'encart renforcé dans `warning_texts.dart` (sans toucher `warningTextVersion`) et les figer dans `warning_texts_test.dart` ; recopier les trois listes de `glossary.md § Vocabulaire proscrit`, `BR-003` et `BR-014` ; déclarer les exceptions nominatives constatées au premier passage, **une par une, avec leur motif**.
-- [ ] **Étape 4** — faire les deux contre-épreuves et **recopier le rouge obtenu** dans le message de commit.
-- [ ] **Étape 5** — `flutter test` → vert, recopier le total de tests. Puis critère de fin et commit.
+- [x] **Étape 1** (2026-09-23) — écrire `vocabulary_test.dart`, ses listes sous `test/`, et le test des textes de l'encart renforcé. Rouge.
+- [x] **Étape 2** (2026-09-23) — `flutter test test/project/vocabulary_test.dart test/domain/warnings` → échec.
+- [x] **Étape 3** (2026-09-23) — écrire les trois textes de l'encart renforcé dans `warning_texts.dart` (sans toucher `warningTextVersion`) et les figer dans `warning_texts_test.dart` ; recopier les trois listes de `glossary.md § Vocabulaire proscrit`, `BR-003` et `BR-014` ; déclarer les exceptions nominatives constatées au premier passage, **une par une, avec leur motif**.
+- [x] **Étape 4** (2026-09-23) — faire les deux contre-épreuves et **recopier le rouge obtenu** dans le message de commit.
+- [x] **Étape 5** (2026-09-23) — `flutter test` → vert, recopier le total de tests. Puis critère de fin et commit.
+
+> **Exécution du 2026-09-23.** Relecture : quatre trous comblés — « dans la normale », formes fléchies (un mot proscrit l'est sous toutes ses flexions, arbitrage du coordinateur), littéraux adjacents séparés par un commentaire, contenu des interpolations ; échappements `\u` décodés ; l'extracteur a ses propres tests. Le balayage élargi a trouvé « officielle » dans « Modalité officielle ONDE : » et « Modalité officielle non renseignée » : exceptions nominatives, dans la lettre de `glossary.md:47` (le mot attribue une nomenclature à sa source). Contre-épreuve : `'débit normal'` dans un fichier temporaire → rouge ; en commentaire → vert. 924 tests verts.
 
 ```bash
 git add lib/domain test && git commit -m "feat(avertissement): balayage mecanique du vocabulaire proscrit, texte de l encart renforce" -m "Les trois emplacements qui ont un ecran en T1 sont tenus : modal acquitte, bandeau de carte, encart date par fiche. Le quatrieme, l encart renforce de BR-013, n a pas d ecran en T1 : son texte est ecrit et fige par son test, son widget part en T2 avec l ecran des restrictions (arbitrage du 2026-09-22). Le balayage parcourt les litteraux de lib/domain et lib/features, commentaires retires, en mot entier et sans casse ; ses listes vivent sous test, sinon il se trouverait lui-meme. Chaque exception nomme un fichier et un litteral, dont STYLE=normal de l URL IGN. Contre-epreuve faite : <recopier le rouge>. L exception des libelles cites de VigiEau est declaree et vide en T1."

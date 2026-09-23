@@ -126,4 +126,49 @@ void main() {
       });
     },
   );
+
+  group('encart renforce (W5, BR-013, texte seul — le widget part en T2)', () {
+    test('reinforcedWarningHeadline vaut exactement "NE FONDEZ AUCUNE '
+        'DECISION SUR CET ECRAN" (04-ui.md § 1, l. 116-117)', () {
+      expect(
+        reinforcedWarningHeadline,
+        'NE FONDEZ AUCUNE DÉCISION SUR CET ÉCRAN',
+      );
+    });
+
+    test('reinforcedWarningActionLabel vaut exactement "Consulter les '
+        'arretes en vigueur" (04-ui.md § 1, l. 129)', () {
+      expect(reinforcedWarningActionLabel, 'Consulter les arrêtés en vigueur');
+    });
+
+    const List<String> requiredPhrases = <String>[
+      'arrêtés préfectoraux',
+      'évaluation de sécurité',
+      'irrigation',
+    ];
+
+    for (final String phrase in requiredPhrases) {
+      test(
+        'reinforcedWarningBody contient "$phrase" (BR-013, 04-ui.md § 1)',
+        () {
+          expect(reinforcedWarningBody, contains(phrase));
+        },
+      );
+    }
+
+    test('ne contient aucun mot banni (BR-003)', () {
+      expect(_bannedWords.hasMatch(reinforcedWarningHeadline), isFalse);
+      expect(_bannedWords.hasMatch(reinforcedWarningBody), isFalse);
+      expect(_bannedWords.hasMatch(reinforcedWarningActionLabel), isFalse);
+    });
+
+    test('ne contient aucun verbe d\'instruction sur un usage de l\'eau '
+        '(BR-014)', () {
+      expect(_instructionVerbs.hasMatch(reinforcedWarningBody), isFalse);
+    });
+
+    test("n'est pas tronque : une phrase complete, terminee par un point", () {
+      expect(reinforcedWarningBody.trim().endsWith('.'), isTrue);
+    });
+  });
 }
