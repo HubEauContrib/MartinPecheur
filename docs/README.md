@@ -29,6 +29,7 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application **F
 | [`guide-release.md`](guide-release.md) | **Livrer un APK à un testeur distant** — commandes, signature, verrou produit | — |
 | [`guide-test-appareil.md`](guide-test-appareil.md) | **Tester sur un Android réel** — procédure de `M4` et `M5`, seuils fixés d'avance | — |
 | [`plan-de-tests.md`](plan-de-tests.md) | **Plan de tests** — la pyramide, à quel étage une règle se vérifie | — |
+| [`tracabilite.md`](tracabilite.md) | **Matrice de traçabilité** — US, BR, UC et leur fichier de test, maintenue à la main et vérifiée par `test/project/tracabilite_test.dart` (`Task X2`) | — |
 
 ## Cadrage produit
 
