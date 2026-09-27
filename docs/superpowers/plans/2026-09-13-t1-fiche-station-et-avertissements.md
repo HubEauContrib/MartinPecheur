@@ -1596,28 +1596,28 @@ git add docs assets CLAUDE.md && git commit -m "docs: purger les traces de l arc
 
 **Files:** aucun fichier modifié. C'est une **épreuve**, pas un développement.
 
-- [ ] **Étape 1 — vérifier une dernière fois, avant de construire.** Claude :
+- [x] **Étape 1 — vérifier une dernière fois, avant de construire.** Claude : (2026-09-27, au commit `1240879`, code inchangé depuis : `No issues found!`, **1 188 tests verts**, 0 fichier reformaté)
 
 ```bash
 flutter analyze && flutter test && dart format --set-exit-if-changed lib test
 ```
 Attendu : `No issues found!`, **tous les tests verts**, code de sortie 0 au formatage. **Recopier le nombre total de tests** : c'est un chiffre de la porte.
 
-- [ ] **Étape 2 — construire : commanditaire.**
+- [x] **Étape 2 — construire : commanditaire.** (2026-09-27 : « Building Windows application... 21,1s » ; ⚠️ la ligne `√ Built` **n'a pas été recopiée** — la construction est attestée par `martinpecheur.exe`, daté du 2026-09-27 11:55:34)
 
 ```bash
 flutter build windows --release
 ```
 Attendu : une ligne finale `√ Built` (ou `Built`) nommant le chemin sous `build\windows\`. **Recopier la ligne exacte et la durée.** ⚠️ **Ne pas mettre cette commande dans un tube** : un tube masque le code de sortie et l'on croit avoir réussi alors que rien n'a été produit.
 
-- [ ] **Étape 3 — mesurer le dossier produit (`NFR-06`).** Claude :
+- [x] **Étape 3 — mesurer le dossier produit (`NFR-06`).** Claude : (2026-09-27 : **33 Mo**, 4 entrées à la racine, 14 fichiers en tout — `NFR-06` tenu)
 
 ```bash
 du -sh build/windows/x64/runner/Release && ls -1 build/windows/x64/runner/Release | wc -l
 ```
 Attendu : un poids **≤ 60 Mo** (repère de `0.1.0` : **31 Mo**, 14 fichiers). **Recopier les deux chiffres.** Si le chemin diffère, le corriger d'après la ligne `Built` — le chemin s'énonce d'après le constat.
 
-- [ ] **Étape 4 — lancer l'exécutable seul : commanditaire.** **Fermer d'abord toute session de développement** : l'épreuve est qu'il tourne **sans** l'outil.
+- [x] **Étape 4 — lancer l'exécutable seul : commanditaire.** (2026-09-27 : **les cinq points constatés à l'écran**. Le point 1 l'a été après effacement de l'acquittement déjà présent sur le poste — fichier `shared_preferences.json` renommé en `.bak` —, puis réécrit par l'exécutable à 12:17:20) **Fermer d'abord toute session de développement** : l'épreuve est qu'il tourne **sans** l'outil.
 
 ```bash
 ./build/windows/x64/runner/Release/martinpecheur.exe
@@ -1634,8 +1634,8 @@ Un point manquant se note comme manquant : ce n'est pas une porte qu'on arrondit
 
 ⚠️ **L'encart renforcé est absent de `0.2.0`, et c'est attendu** : `BR-013` est reporté en T2 (décision 11), faute d'écran de ressource en T1. Son absence n'est **pas** un point manquant de la porte ; elle est écrite dans la section « Non vérifié » de `P2`.
 
-- [ ] **Étape 5 — épreuve hors réseau : commanditaire.** Désactiver la carte réseau, relancer l'exécutable. Attendu, **non connu d'avance** : les pastilles s'affichent (asset embarqué), les tuiles viennent du cache de la bibliothèque sur les zones déjà parcourues, et la feuille d'une station **nomme la source injoignable** au lieu d'afficher un état neutre (`BR-007`). **Constater, ne pas supposer.**
-- [ ] **Étape 6 — consigner** dans `docs/nfr.md` (`NFR-01`, `NFR-03`, `NFR-04`, `NFR-06`) et `docs/project-state.md`, puis commit.
+- [x] **Étape 5 — épreuve hors réseau : commanditaire.** (2026-09-27 : conforme à l'attendu, constaté à l'écran) Désactiver la carte réseau, relancer l'exécutable. Attendu, **non connu d'avance** : les pastilles s'affichent (asset embarqué), les tuiles viennent du cache de la bibliothèque sur les zones déjà parcourues, et la feuille d'une station **nomme la source injoignable** au lieu d'afficher un état neutre (`BR-007`). **Constater, ne pas supposer.**
+- [x] **Étape 6 — consigner** dans `docs/nfr.md` (`NFR-01`, `NFR-03`, `NFR-04`, `NFR-06`) et `docs/project-state.md`, puis commit.
 
 ```bash
 git add docs && git commit -m "docs: consigner les constats de la porte T1 sur Windows" -m "<recopier : ligne Built, duree, poids du dossier Release, nombre de fichiers, les cinq constats a l ecran un par un, et le comportement hors reseau tel qu il a ete VU>. NFR-06 : <tenu / non tenu> a <poids> pour un budget de 60 Mo. NFR-01 : <chiffres des trois gestes>. Ce qui n a pas marche est ecrit comme tel."

@@ -17,8 +17,8 @@ Deuxième tranche (T1) : la carte devient consultable — fiches, écoulement
 observé, avertissements. **Ce n'est toujours pas un produit** : l'encart
 renforcé de `BR-013` n'a pas d'écran en T1 (arbitrage du 2026-09-22), et
 `CLAUDE.md` interdit toute mise en production avant T2. La porte de la
-version (exécutable lancé hors outil, poids, hors réseau) reste à passer
-(`P1`) ; les constats d'écran lot par lot sont dans
+version (exécutable lancé hors outil, poids, hors réseau) est passée sur
+Windows le 2026-09-27 (`P1`) ; les constats d'écran lot par lot sont dans
 `docs/project-state.md`.
 
 ### Ajouté
