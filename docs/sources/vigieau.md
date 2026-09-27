@@ -32,9 +32,9 @@ domaine** : `https://api.vigieau.beta.gouv.fr/swagger-json` → `200`. `version`
 
 ### `VG-02` — forme de la réponse, plusieurs zones, plusieurs zones du même type ?
 
-`/zones` rend une **liste JSON** d'objets `ZoneDto` (jamais un objet unique). Sur les cinq points
-interrogés qui portent au moins une zone, **chacun en porte trois** : un `SUP`, un `SOU`, un
-`AEP` simultanément (Ain, Corse, Paris) ou deux sur le point d'Ariège (`AEP`, `SUP` — le `SOU`
+`/zones` rend une **liste JSON** d'objets `ZoneDto` (jamais un objet unique). Sur les quatre points
+interrogés qui portent au moins une zone, **trois en portent trois** — un `SUP`, un `SOU`, un
+`AEP` simultanément (Ain, Corse, Paris) — et le point d'Ariège en porte deux (`AEP`, `SUP` — le `SOU`
 n'y est pas remonté, sans qu'on sache s'il est absent ou d'un niveau différent non atteint par ce
 point précis). **Aucune occurrence de deux zones du même type au même point** n'a été observée
 par `lat`/`lon` dans cet échantillon ; le cas existe **par commune** (`?commune=45210` → `409`,
@@ -116,6 +116,10 @@ Aucun champ de date de mise à jour de la donnée n'existe sur `ZoneDto` ; `/dep
 revanche `availability.AEP.asOf` (ex. `"2026-09-27T00:44:28.228Z"`), une fraîcheur au niveau
 département, pour l'eau potable seulement.
 
+### Site public — constaté le 2026-09-27 à 11:45 UTC
+
+`https://vigieau.gouv.fr/` → `200`, `text/html; charset=utf-8`. `https://www.vigieau.gouv.fr` → nom d'hôte **non résolu** : l'adresse sans `www` est la seule à utiliser pour le lien de repli et l'action de l'encart renforcé.
+
 ### `VG-09` — identité de la zone
 
 Chaque zone porte `id` (numérique interne), `code` (ex. `"84_01_4"`, `"01_ZONE_SUP"` en exemple
@@ -143,7 +147,7 @@ aucune garantie de longueur. ⚠️ `code` peut être **`null`** : c'est le cas 
 
 ### `VG-11` — `SOU` et `AEP` au même point qu'une zone `SUP`
 
-**Oui, confirmé sur cinq points sur cinq testés qui portent une zone.** Ain, Corse et Paris
+**Oui, confirmé sur quatre points sur quatre testés qui portent une zone.** Ain, Corse et Paris
 rendent chacun trois zones simultanées (`SUP`, `SOU`, `AEP`) ; l'Ariège en rend deux (`AEP`,
 `SUP`). Les niveaux de gravité et les usages **diffèrent par type de zone au même point** — sur
 l'Ain, `SOU` est à `vigilance` quand `SUP`/`AEP` sont à `alerte`, avec des jeux d'usages propres à
@@ -170,7 +174,7 @@ plus sévère.
 - **`cheminFichierArreteCadre`** : champ présent dans le schéma, **aucun appel `HEAD` séparé**
   n'a été fait dessus (le point d'Ariège en portait un dans `arrete`, non testé isolément).
 - **Deux zones du même type au même point exact (hors commune)** : non rencontré dans
-  l'échantillon de cinq points ; le cas `409` n'a été observé que par `commune`.
+  l'échantillon de quatre points ; le cas `409` n'a été observé que par `commune`.
 - **Points DOM autres que la Guyane** (Guadeloupe, Martinique, La Réunion, Mayotte) et la Corse
   au-delà d'Ajaccio : vus seulement au niveau département dans `/departements`, aucun appel
   `lat`/`lon` dédié faute de budget — les niveaux de gravité de ces départements
