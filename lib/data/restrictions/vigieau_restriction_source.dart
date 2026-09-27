@@ -37,11 +37,8 @@ import 'package:martinpecheur/domain/restrictions/zones_at_point.dart';
 final class VigieauRestrictionSource implements RestrictionSource {
   /// [now] fournit l'horloge de `retrievedAt` ; sans elle, `DateTime.now`
   /// (reelle). Les tests injectent une horloge fixe.
-  VigieauRestrictionSource({
-    required JsonHttpClient client,
-    DateTime Function()? now,
-  }) : _client = client, // ignore: prefer_initializing_formals
-       _now = now ?? DateTime.now;
+  VigieauRestrictionSource({required this._client, DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   final JsonHttpClient _client;
   final DateTime Function() _now;

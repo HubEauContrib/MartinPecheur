@@ -119,14 +119,11 @@ final class JsonHttpClient {
   /// est le minimum pour qu'un appel ait un sens. Sans [sleep], l'attente
   /// est réelle (`Future.delayed`).
   JsonHttpClient({
-    required http.Client httpClient,
+    required this._httpClient,
     Future<void> Function(Duration)? sleep,
-    double Function()? jitter,
+    this._jitter,
     this.maxAttempts = 4,
-  }) : _httpClient = httpClient, // ignore: prefer_initializing_formals
-       _sleepFn = sleep ?? _sleep,
-       // ignore: prefer_initializing_formals
-       _jitter = jitter {
+  }) : _sleepFn = sleep ?? _sleep {
     if (maxAttempts < 1) {
       throw ArgumentError.value(
         maxAttempts,

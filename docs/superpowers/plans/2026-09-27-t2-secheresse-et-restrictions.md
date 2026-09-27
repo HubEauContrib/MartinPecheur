@@ -427,7 +427,7 @@ git commit -m "feat(restrictions): source VigiEau, echecs distingues, et equival
 - **AR-3** : à `T0 + 6 h` (borne incluse), l'entrée est rendue **immédiatement** avec son `retrievedAt` d'origine, un rafraîchissement part en tâche de fond ; la lecture suivante rend la réponse rafraîchie ; deux lectures simultanées → **un** appel à `inner` ; rafraîchissement en échec → l'ancienne réponse reste.
 - `grep -n "ttl\|Duration(hours" lib/data/restrictions/cached_restriction_source.dart` : la durée n'est écrite qu'une fois, dans la constante.
 
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(restrictions): cache de session de six heures, par le decorateur unique" -m "Q7-A : en memoire, perdu au relancement, aucun moteur structure. Un echec n est jamais ecrit ; une reponse vide l est. Une entree de plus de six heures est servie datee de sa recuperation pendant que le rafraichissement court (AR-3), sans nouveau mode de CachePolicy. La cle est la chaine meme qui part dans l URI."
