@@ -106,8 +106,10 @@ schéma) — et quatre booléens `concerneParticulier`, `concerneEntreprise`, `c
 `https://regleau.s3.gra.perf.cloud.ovh.net/arrete-restriction/…`). `HEAD` sur l'URL de l'arrêté
 d'Ariège (11:26:51 UTC) → `200`, `Content-Type: application/pdf`, `Content-Length` **7 240 160**
 octets (non téléchargé, seul l'en-tête a été demandé). Le schéma déclare aussi
-`cheminFichierArreteCadre` (URL du PDF de l'arrêté-cadre) — présent dans le DTO, non vérifié par
-un appel séparé (voir « Non vérifié »).
+`cheminFichierArreteCadre` (URL du PDF de l'arrêté-cadre) — présent dans le DTO. **`O6`, vérifié
+le 2026-09-27 à 13:12:07 UTC** (tâche `D2` de T2) : `HEAD` sur le `cheminFichierArreteCadre`
+d'Ariège (`https://regleau.s3.gra.perf.cloud.ovh.net/arrete-cadre/30849/20260710_ACI_secheresse_DDT-SER-2026-058.pdf`)
+→ `200`, `Content-Type: application/pdf`, `Content-Length` **2 888 295** octets (non téléchargé).
 
 ### `VG-08` — dates
 
@@ -173,8 +175,6 @@ plus sévère.
 - **La fenêtre exacte de `X-RateLimit-Reset`** (valeur `1` vue une fois, unité non déterminée).
 - **`429` et `5xx`** : jamais provoqués, comportement du client à cet égard non observable
   aujourd'hui.
-- **`cheminFichierArreteCadre`** : champ présent dans le schéma, **aucun appel `HEAD` séparé**
-  n'a été fait dessus (le point d'Ariège en portait un dans `arrete`, non testé isolément).
 - **Deux zones du même type au même point exact (hors commune)** : non rencontré dans
   l'échantillon de quatre points ; le cas `409` n'a été observé que par `commune`.
 - **Points DOM autres que la Guyane** (Guadeloupe, Martinique, La Réunion, Mayotte) et la Corse
@@ -186,7 +186,13 @@ plus sévère.
 - **Cas `alerte_renforcee` par point exact** : présent dans `/departements` (16 départements),
   **aucun point précis interrogé** dans cette capture pour ce niveau — seuls `alerte` (Ain,
   Corse), `vigilance` (Paris) et `crise` (Ariège) l'ont été par appel `/zones`. Non capturé,
-  écrit tel quel plutôt que supposé.
+  écrit tel quel plutôt que supposé. **`O4`, cherché le 2026-09-27 (tâche `D2` de T2) : non
+  trouvé.** Trois appels, dans trois départements que `departements_2026-09-27.json` donne à
+  `alerte_renforcee` sur toutes leurs ressources, tous `200` avec trois zones `SOU`/`SUP`/`AEP`
+  **toutes en `vigilance`** : `https://api.vigieau.beta.gouv.fr/api/zones?lat=49.5641&lon=3.6199` (Laon, Aisne, 13:12:14 UTC),
+  `https://api.vigieau.beta.gouv.fr/api/zones?lat=43.1242&lon=5.928` (Toulon, Var, 13:12:22 UTC), `https://api.vigieau.beta.gouv.fr/api/zones?lat=43.9493&lon=4.8055`
+  (Avignon, Vaucluse, 13:12:24 UTC). Aucune fixture gardée. `AlerteRenforcee` reste couverte par
+  une **valeur** dans le test du mapper, pas par une fixture.
 - **`crise` récent ou levé** : sans objet ici — `crise` est au contraire le niveau **le plus
   fréquent** constaté fin septembre 2026, à l'inverse de la mise en garde du cadrage T2 sur un
   hypothétique manque de cas.

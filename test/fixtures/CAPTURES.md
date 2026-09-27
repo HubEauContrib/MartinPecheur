@@ -68,3 +68,15 @@ n'ont pas été conservés en fixture (hors du besoin de T2, § 5 du cadrage lim
 
 Politesse respectée : 21 appels HTTP au total pour cette capture (dont le `HEAD` du PDF), espacés
 d'au moins une seconde, aucun balayage.
+
+Quatre requêtes supplémentaires le 2026-09-27 (tâche `D2` de T2, faits ouverts `O6` et `O4`),
+aucune gardée en fixture, espacées d'au moins une seconde :
+
+| Requête | Heure UTC | Statut | Constat |
+|---|---|---|---|
+| `HEAD` sur le `cheminFichierArreteCadre` d'Ariège (`https://regleau.s3.gra.perf.cloud.ovh.net/arrete-cadre/30849/20260710_ACI_secheresse_DDT-SER-2026-058.pdf`) | 13:12:07 | `200` | `O6` : `Content-Type: application/pdf`, `Content-Length: 2 888 295` |
+| `/zones?lat=49.5641&lon=3.6199` (Laon, Aisne) | 13:12:14 | `200` | `O4` : trois zones `SOU`/`SUP`/`AEP`, toutes `vigilance` — pas d'`alerte_renforcee` |
+| `/zones?lat=43.1242&lon=5.928` (Toulon, Var) | 13:12:22 | `200` | `O4` : trois zones, toutes `vigilance` |
+| `/zones?lat=43.9493&lon=4.8055` (Avignon, Vaucluse) | 13:12:24 | `200` | `O4` : trois zones, toutes `vigilance` |
+
+`O4` : **non trouvé** en trois appels. Aucune fixture n'est fabriquée pour ce niveau.
