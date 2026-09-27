@@ -258,10 +258,10 @@ Le test « aucun `package:http/` sous `lib/data/restrictions/` » garde son sens
 - Confinement, synthétique : `lib/features/x/view/y.dart` contenant `'VigiEau'` → violation ; `lib/domain/sources/source_names.dart` contenant `https://vigieau.gouv.fr/` → aucune ; `lib/domain/restrictions/z.dart` contenant « restriction » → aucune ; `lib/features/…` contenant `niveauGravite` → violation ; `lib/main.dart` contenant `VigieauRestrictionSource` → aucune ; `lib/data/http/json_http_client.dart` contenant « vigieau » en **commentaire** → violation.
 - Confinement, réel : `lib/` → aucune violation.
 
-- [ ] **Étape 1** — tests rouges ; `flutter test test/domain/restrictions test/data/restrictions` → échec.
-- [ ] **Étape 2** — implémenter les nomenclatures, réécrire le groupe de confinement, `domain-model.md` (nomenclatures closes) et `typesDuDomaine`.
-- [ ] **Étape 3 — contre-épreuve** : `'niveauGravite'` ajouté dans un fichier temporaire de `lib/features/` → rouge ; retiré → vert. **Recopier le rouge** dans le message de commit.
-- [ ] **Étape 4** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; `flutter test test/domain/restrictions test/data/restrictions` → échec.
+- [x] **Étape 2** — implémenter les nomenclatures, réécrire le groupe de confinement, `domain-model.md` (nomenclatures closes) et `typesDuDomaine`.
+- [x] **Étape 3 — contre-épreuve** : `'niveauGravite'` ajouté dans un fichier temporaire de `lib/features/` → rouge ; retiré → vert. **Recopier le rouge** dans le message de commit.
+- [x] **Étape 4** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(restrictions): nomenclatures de gravite, de type de zone et de profil ; confinement redefini" -m "Quatre niveaux plus GraviteInconnue et trois types plus TypeZoneInconnu, valeur brute gardee (BR-011) ; pas Inconnu, deja pris par flow_category. UserProfile est un enum : il est choisi, jamais recu. Aucun rang de severite (YAGNI). Confinement d ADR-004 redefini (AR-1) : le mot restriction est libere, le nom de la source et le vocabulaire filaire restent au module, source_names et main.dart exemptes. Contre-epreuve : <recopier le rouge>."

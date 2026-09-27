@@ -42,6 +42,24 @@ non des `extension type` comme les unités, précisément **parce qu'elles valid
 code) restent deux branches distinctes (`BR-007`) : les confondre transformerait une absence de
 mesure en un défaut d'implémentation, ou l'inverse.
 
+Contexte Restrictions (`lib/domain/restrictions/`, T2) :
+
+- `DroughtSeverity` — sealed, échelle 3 de `04-ui.md § 2` : `Vigilance`, `Alerte`,
+  `AlerteRenforcee`, `Crise`, branche par défaut **`GraviteInconnue`**, porteuse de la valeur
+  brute (`rawValue`). `droughtSeverityScale` rend les quatre niveaux dans l'ordre, **sans** la
+  branche inconnue ; `droughtSeverityLabel` est le seul libellé de l'échelle (« Non renseigné »
+  pour l'inconnue). **Aucun rang de sévérité** : T2 ne compare jamais deux zones (YAGNI).
+- `ZoneKind` — sealed : `EauxSuperficielles` (`SUP`), `EauxSouterraines` (`SOU`), `EauPotable`
+  (`AEP`), branche par défaut **`TypeZoneInconnu`**, porteuse de la valeur brute. Libellés
+  fixés par la conception d'écran, pas ici.
+- `UserProfile` — `enum` fermé (`particulier`, `exploitation`, `collectivite`, `entreprise`, ordre
+  d'`UC-002`), **sans** branche inconnue : le profil est choisi par l'usager, jamais reçu d'une
+  API — ce n'est pas un écart à `BR-011`.
+
+Les branches inconnues s'appellent `GraviteInconnue` et `TypeZoneInconnu`, et non `Inconnu`,
+déjà pris par `FlowCategory` : deux classes homonymes rendraient ambigu tout fichier qui importe
+deux échelles. Branches connues égales **par type**, branches inconnues **par valeur brute**.
+
 ## Entités
 
 Identité + cycle de vie, à la différence des objets-valeur.
