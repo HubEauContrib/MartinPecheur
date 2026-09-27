@@ -59,7 +59,7 @@ Détail et URL : `docs/sources/vigieau.md` (`VG-01`→`VG-11`), `test/fixtures/C
 | # | Question | Instruction | Si sans réponse |
 |---|---|---|---|
 | `A⏸2` | L'app **se construit-elle** sur Android, et s'affiche-t-elle ? Jamais fait | `A1` (commanditaire) | la porte de T2 ne se franchit pas (Q10-B) |
-| `B-01` | Bibliothèque d'ouverture de lien : version, date, licence compatible GPL-3.0, **Windows et Android**, exigences de manifeste Android | `B1`, puis **arbitrage** | `B2` ne démarre pas |
+| `B-01` | Bibliothèque d'ouverture de lien : version, date, licence compatible GPL-3.0, **Windows et Android**, exigences de manifeste Android | `B1`, puis **arbitrage** | ✅ **Relevé le 2026-09-27** (pub.dev, API `packages/url_launcher` et `/score`) : `url_launcher` **6.3.2**, publiée le 2025-07-10, éditeur `flutter.dev`, licence `bsd-3-clause` (étiquette lue), plateformes lues `android`, `ios`, `linux`, `macos`, `web`, `windows` ; contraintes `sdk ^3.6.0`, `flutter >=3.27.0`, satisfaites par Dart 3.13.3 et Flutter 3.47.4 ; Android 11+ : un élément `<queries>` au manifeste pour l'intention `VIEW` (d'après la page du paquet). **Arbitré par le commanditaire le 2026-09-27 : oui**, `url_launcher ^6.3.2`, ajouté en `B2` |
 | `O1` | Deux zones du même type au même point | aucune : le modèle porte des **listes** (`M3`) | « Non vérifié » de `P3` |
 | `O2`, `O3` | `409` par `lat`/`lon` ; `429`/`5xx`, fenêtre de `X-RateLimit-Reset` | aucune : rejeu hérité (`D1`), branches d'échec (`D3`) | « Non vérifié » |
 | `O4` | `alerte_renforcee` rendu par `/zones` | `D2` étape 0 : **au plus trois** appels dans un département que `departements_2026-09-27.json` donne à `alerte_renforcee` ; fixture datée si trouvée, **jamais fabriquée** | couvert par une **valeur** dans le test du mapper |
@@ -181,16 +181,16 @@ git add -- docs/project-state.md && git commit -m "docs: consigner la premiere c
 
 > **Candidat : `url_launcher`** — nom seulement, **aucun fait relevé à ce jour**. Q9-A est arbitrée (« une bibliothèque, vérifiée avant ajout ») ; le **paquet précis**, lui, est un ajout de bibliothèque, donc un arbitrage (`CLAUDE.md`).
 
-- [ ] **Étape 1 — relever**, et recopier ce qui est **lu**, pas ce qui est attendu :
+- [x] **Étape 1 — relever**, et recopier ce qui est **lu**, pas ce qui est attendu :
 
 ```bash
 curl -s "https://pub.dev/api/packages/url_launcher" | head -c 800
 curl -s "https://pub.dev/api/packages/url_launcher/score"
 ```
 Attendu : **inconnu**. Relever la dernière version et sa date de publication ; licence et plateformes depuis la réponse `/score` (étiquettes `license:…`, `platform:…`) si elle répond, sinon depuis la page `https://pub.dev/packages/url_launcher`. Contraintes `sdk`/`flutter` satisfaites par le poste (Dart 3.13.3, Flutter 3.47.4) ?
-- [ ] **Étape 2** — critères : licence **compatible GPL-3.0** ; **Windows et Android** couverts ; publication récente ; ouverture **hors de l'application** possible (US-08 « le PDF s'ouvre hors de l'application ») ; exigences de manifeste Android (déclaration de requêtes d'intention) **lues dans la documentation du paquet**, recopiées, non appliquées.
-- [ ] **Étape 3 — STOP. Question fermée au commanditaire**, avec les chiffres relevés : « Ajouter `url_launcher ^<version>` (<licence>, Windows et Android, publiée le <date>) ? **Recommandation : oui.** Alternative : Q9-B seule — adresse affichée et copiable, action de l'encart = copier l'adresse. » **Aucun `flutter pub add` avant un oui.**
-- [ ] **Étape 4** — consigner la réponse (ligne `B-01`), commit.
+- [x] **Étape 2** — critères : licence **compatible GPL-3.0** ; **Windows et Android** couverts ; publication récente ; ouverture **hors de l'application** possible (US-08 « le PDF s'ouvre hors de l'application ») ; exigences de manifeste Android (déclaration de requêtes d'intention) **lues dans la documentation du paquet**, recopiées, non appliquées.
+- [x] **Étape 3 — STOP. Question fermée au commanditaire**, avec les chiffres relevés : « Ajouter `url_launcher ^<version>` (<licence>, Windows et Android, publiée le <date>) ? **Recommandation : oui.** Alternative : Q9-B seule — adresse affichée et copiable, action de l'encart = copier l'adresse. » **Aucun `flutter pub add` avant un oui.**
+- [x] **Étape 4** — consigner la réponse (ligne `B-01`), commit.
 
 ```bash
 git add -- docs/superpowers/plans/2026-09-27-t2-secheresse-et-restrictions.md docs/project-state.md && git commit -m "docs: relever la bibliotheque d ouverture de lien sur pub.dev et son arbitrage (B1 de T2)" -m "<version, date, licence, plateformes relevees ; reponse du commanditaire>." -- docs/superpowers/plans/2026-09-27-t2-secheresse-et-restrictions.md docs/project-state.md
@@ -217,9 +217,9 @@ git add -- docs/superpowers/plans/2026-09-27-t2-secheresse-et-restrictions.md do
 - `latitude: 46.20512345678` rendu **à l'identique** (aucun arrondi).
 - Égalité et `hashCode` structurels ; `latitude` et `longitude` non interchangeables (`GeoPoint(latitude: 1, longitude: 2) != GeoPoint(latitude: 2, longitude: 1)`).
 
-- [ ] **Étape 1** — test rouge, puis `flutter test test/domain/geo` → échec.
-- [ ] **Étape 2** — implémenter ; `domain-model.md` (objets-valeur) et `typesDuDomaine` + `'GeoPoint'`.
-- [ ] **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — test rouge, puis `flutter test test/domain/geo` → échec.
+- [x] **Étape 2** — implémenter ; `domain-model.md` (objets-valeur) et `typesDuDomaine` + `'GeoPoint'`.
+- [x] **Étape 3** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(domain): GeoPoint, le point designe sur la carte" -m "Seule entree geographique de T2 (Q1-A). Une paire de doubles nus ouvrirait la porte a une inversion latitude/longitude ; la validation a la construction rend le 400 de VigiEau impossible. Aucun arrondi : le point interroge est celui que l usager a designe."
