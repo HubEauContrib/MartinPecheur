@@ -215,7 +215,7 @@ Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 - **Le bac à sable de Claude ne construit rien en natif.** `flutter run -d windows`, `flutter build windows` et — depuis la levée du différé Android du 2026-09-18 — `flutter run -d emulator-5554` sont lancés **par le commanditaire** : une commande par bloc `bash`, avec le résultat attendu énoncé. Ce résultat est **constaté, jamais supposé**
 - Claude lance lui-même `flutter analyze`, `flutter test`, `dart format`
 - **Ne rien toucher à Bitdefender ni au système**
-- **`gh` est absent du bac à sable** — toute opération qui en dépend est déléguée au commanditaire
+- **`gh` dépend du poste** — constater par `command -v gh` (ou le chemin d'installation) et `gh auth status` avant de déléguer une opération GitHub au commanditaire ; sa présence se note dans `CLAUDE.local.md`, pas ici. Constaté le 2026-09-27 sur un poste : installé et authentifié (PR #14 ouverte avec lui)
 ---
 
 ## Orchestration
