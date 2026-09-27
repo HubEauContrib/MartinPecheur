@@ -73,8 +73,10 @@ cohérent avec `VG-03`.
 
 Le schéma déclare `["particulier", "entreprise", "collectivité", "exploitation"]` — **avec accent
 sur `collectivité`**. `profil` n'est **pas obligatoire** (`/zones` sans `profil` répond `200` et
-rend l'union de tous les usages). **Le filtrage est fait côté serveur**, pas par des drapeaux
-laissés au client : sur le point de l'Ain, le nombre d'`usages` par zone varie avec `profil`
+rend l'union de tous les usages). **Le serveur filtre quand `profil` est passé** — et chaque usage
+porte aussi les quatre booléens `concerne*`, qui reproduisent ce filtre (listes égales pour les quatre
+profils sur les trois zones de l'Ain, vérifié le 2026-09-27 ; c'est le fondement d'`AR-1`,
+[`ADR-004`](../adr/ADR-004-integration-vigieau.md)) : sur le point de l'Ain, le nombre d'`usages` par zone varie avec `profil`
 (zone `SOU`, 45 usages sans profil → 30 en `particulier`, 26 en `exploitation`, 36 en
 `entreprise`).
 
