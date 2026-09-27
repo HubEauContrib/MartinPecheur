@@ -14,7 +14,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// réusinage MVVM du 2026-09-13. `StationPoint` et `StationPointRepository`
 /// s'y ajoutent : ils étaient écrits sous lib/domain/ et absents du document,
 /// soit exactement le retard que ce test doit attraper. `GeoPoint` s'y ajoute
-/// à son tour (T2, M1), puis les trois nomenclatures des restrictions (T2, M2).
+/// à son tour (T2, M1), puis les trois nomenclatures des restrictions (T2, M2),
+/// puis la zone d'alerte, l'arrêté, l'usage cité et la réponse datée au
+/// point (T2, M3).
 const List<String> typesDuDomaine = <String>[
   'StationCode',
   'DepartementCode',
@@ -34,6 +36,11 @@ const List<String> typesDuDomaine = <String>[
   'ZoneKind',
   'TypeZoneInconnu',
   'UserProfile',
+  'AlertZone',
+  'RestrictionDecree',
+  'DocumentLink',
+  'RestrictedUsage',
+  'ZonesAtPoint',
   'StationRepository',
   'HydroObservationRepository',
   'LitresPerSecond',

@@ -88,6 +88,44 @@ Identité + cycle de vie, à la différence des objets-valeur.
   `double` nu. `null` ≠ zéro (`BR-007`) — un zéro mesuré est un assec, une absence est une
   absence. `level` traverse sans contrôle de signe : une hauteur négative est possible.
 
+## Contexte Restrictions — la réponse datée au point (T2, M3)
+
+Objets-valeur immuables, à égalité structurelle. Rien n'a de cycle de vie dans l'app : une
+réponse est un **instantané daté**, pas une entité suivie — il n'y a donc pas d'agrégat à racine
+persistante ici. Le seul regroupement porteur d'invariant est `ZonesAtPoint` (conception T2 § 2.3
+et § 5). Toutes les collections (`usages`, `concernedProfiles`, `zones`) sont copiées et rendues
+non modifiables à la construction ; l'égalité de liste et de set (et la validation UTC partagée)
+sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, factorisées entre
+`alert_zone.dart` et `zones_at_point.dart` — `package:flutter/foundation.dart` et
+`package:collection` restent interdits ici comme partout sous `lib/domain/`.
+
+- `DocumentLink` — un lien vers un PDF (arrêté ou arrêté-cadre), affiché **tel que reçu**
+  (`raw`), jamais décodé ni « réparé » (`BR-014`) : l'adresse de Paris contient
+  `sign%C3%83%C2%A9` et le reste. `openableUri` rend une `Uri` seulement pour une URL absolue en
+  `http` ou `https` ; sinon `null` — le lien reste affiché, aucune action d'ouverture n'est
+  proposée.
+- `RestrictionDecree` — l'arrêté d'une zone : `validFrom` (non optionnel, `BR-001`), `validUntil`
+  (optionnel), `document` et `frameworkDocument` (`DocumentLink?`). Les deux dates sont des dates
+  calendaires vues à minuit **UTC** ; un `DateTime` local à la construction lève une
+  `ArgumentError`.
+- `RestrictedUsage` — un usage restreint, **cité tel quel** (`name`, `theme`, `description` :
+  les mots du préfet, jamais reformulés — l'exception voulue à « aucune valeur brute d'API
+  n'atteint la vue », qui vise les codes et les unités, pas une citation). `concernedProfiles`
+  (`Set<UserProfile>`, non modifiable) et `concerns(UserProfile)` filtrent par profil.
+- `AlertZone` — une zone d'alerte : `name`, `kind` (`ZoneKind`), `severity` (`DroughtSeverity`),
+  `decree` (`RestrictionDecree`), `usages` (non modifiable, ordre de la source).
+  `usagesFor(profile)` rend les usages qui concernent ce profil, dans l'ordre de la source, sans
+  tri ni dédoublonnage. Aucun `id`, aucun `code`, aucun `departement` : aucune US de T2 ne les
+  affiche.
+- `ZonesAtPoint` — la réponse au point : `point` (`GeoPoint`), `retrievedAt` (instant UTC de la
+  réponse, voyage **avec** la valeur et non dans le cache, `AR-3`), `zones` (non modifiable, vide
+  = « aucune zone », `BR-007`). `surfaceWaterZones` et `otherZones` forment une **partition sans
+  perte** de `zones` : `surfaceWaterZones` isole les zones `EauxSuperficielles` dans l'ordre de
+  la source, `otherZones` garde toutes les autres dans un **ordre fixe par type**
+  (`EauxSouterraines`, puis `EauPotable`, puis `TypeZoneInconnu`) et dans l'ordre de la source à
+  l'intérieur d'un même type. **Aucun tri par sévérité** : chaque zone régit ses propres usages,
+  rien ne fonde une zone « principale » (`Q5-B`).
+
 ## Agrégats
 
 - **Station observée** — racine `Station`, dernière observation connue par `Grandeur`. Une
@@ -178,6 +216,47 @@ classDiagram
         <<interface>>
         +findLatest(StationCode, Grandeur) HydroObservation?
     }
+    class GeoPoint {
+        +double latitude
+        +double longitude
+    }
+    class ZonesAtPoint {
+        +GeoPoint point
+        +DateTime retrievedAt
+        +List~AlertZone~ zones
+        +surfaceWaterZones() List~AlertZone~
+        +otherZones() List~AlertZone~
+    }
+    class AlertZone {
+        +String name
+        +ZoneKind kind
+        +DroughtSeverity severity
+        +RestrictionDecree decree
+        +List~RestrictedUsage~ usages
+        +usagesFor(UserProfile) List~RestrictedUsage~
+    }
+    class RestrictionDecree {
+        +DateTime validFrom
+        +DateTime? validUntil
+        +DocumentLink? document
+        +DocumentLink? frameworkDocument
+    }
+    class DocumentLink {
+        +String raw
+        +openableUri() Uri?
+    }
+    class RestrictedUsage {
+        +String name
+        +String theme
+        +String description
+        +Set~UserProfile~ concernedProfiles
+        +concerns(UserProfile) bool
+    }
+    class DroughtSeverity { <<sealed>> }
+    class GraviteInconnue { +String? rawValue }
+    class ZoneKind { <<sealed>> }
+    class TypeZoneInconnu { +String? rawValue }
+    class UserProfile { <<enumeration>> particulier exploitation collectivite entreprise }
     class LitresPerSecond { <<extension type>> +double value }
     class CubicMetresPerSecond { <<extension type>> +double value }
     class Millimetres { <<extension type>> +double value }
@@ -196,4 +275,14 @@ classDiagram
     HydroObservationRepository ..> HydroObservation
     LitresPerSecond ..> CubicMetresPerSecond : toCubicMetresPerSecond
     Millimetres ..> Metres : toMetres
+    ZonesAtPoint --> GeoPoint
+    ZonesAtPoint --> "0..*" AlertZone
+    AlertZone --> ZoneKind
+    AlertZone --> DroughtSeverity
+    AlertZone --> RestrictionDecree
+    AlertZone --> "0..*" RestrictedUsage
+    RestrictionDecree --> DocumentLink
+    RestrictedUsage --> UserProfile
+    DroughtSeverity <|-- GraviteInconnue
+    ZoneKind <|-- TypeZoneInconnu
 ```

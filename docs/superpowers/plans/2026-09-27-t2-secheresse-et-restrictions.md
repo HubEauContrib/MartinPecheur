@@ -290,7 +290,7 @@ git commit -m "feat(restrictions): nomenclatures de gravite, de type de zone et 
 - **Sans perte** : pour les 120 permutations d'une liste de cinq zones de types mêlés, `surfaceWaterZones.length + otherZones.length == zones.length` et chaque zone apparaît exactement une fois.
 - `zones` vide → deux listes vides ; `retrievedAt` local → `ArgumentError`.
 
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — implémentation, `domain-model.md` (+ diagramme `classDiagram` de la conception § 2) ; **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — implémentation, `domain-model.md` (+ diagramme `classDiagram` de la conception § 2) ; **Étape 3** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(restrictions): zone d alerte, arrete, usage cite et reponse datee au point" -m "Toutes les zones du point sont gardees (Q5-B) : le domaine les partage en eaux superficielles d abord, puis les autres dans un ordre fixe par type, sans jamais en perdre une — verifie sur toutes les permutations. Aucun tri par severite. Le lien d arrete est garde tel que recu, encodage abime compris : on l affiche, on ne le repare pas. retrievedAt voyage avec la reponse, cache ou non."
