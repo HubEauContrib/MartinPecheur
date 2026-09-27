@@ -81,9 +81,10 @@ version (exécutable lancé hors outil, poids, hors réseau) reste à passer
 
 ### Non vérifié
 
-- **Fluidité (`NFR-01`) non mesurée** : la sonde est livrée, la mesure du
-  commanditaire est due (`NV-W3`). Le coût du rechargement à chaque cran de
-  molette (`NV-W6`) n'est pas mesuré non plus.
+- **Fluidité (`NFR-01`) mesurée une seule fois**, le 2026-09-27, sur un
+  seul poste Windows, en `--profile` : seuils tenus sur les trois gestes,
+  sans campagne répétée. Rien n'est mesuré sur Android ni sur un appareil
+  d'entrée de gamme.
 - **`BR-013` reporté en T2** : le texte de l'encart renforcé est écrit et
   figé, mais posé sur aucun écran — aucun écran de ressource en T1
   (arbitrage du 2026-09-22).

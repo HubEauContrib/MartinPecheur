@@ -1523,7 +1523,7 @@ git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tes
 - [x] **Étape 2** — `flutter test test/diagnostics` → échec.
 - [x] **Étape 3** — implémenter la sonde et la brancher derrière le drapeau.
 - [x] **Étape 4** (2026-09-23 — **1 185 tests** ; relu deux fois avec essais de mutation : panneau à largeur fixe en bas à gauche, boutons sans animation et premier lot de trames ignoré après `start()` (sinon ~50-60 trames rapides diluaient la mesure d'environ 9 %), `buildP90` et retard sur `totalSpan` ajoutés à titre informatif, seuils `NFR-01` inchangés) — `flutter test` → vert.
-- [ ] **Étape 5 — mesurer : commanditaire.**
+- [x] **Étape 5 — mesurer : commanditaire.** (2026-09-27, en `--profile` : `NFR-01` tenu sur `G1` — deux essais, les deux recopiés —, `G2` avec 5 appels au dépôt pour 6 crans, et `G3` ; chiffres dans `docs/nfr.md`)
 
 ```bash
 ~~flutter run -d windows --dart-define=FLUIDITY_PROBE=true~~
@@ -1534,8 +1534,8 @@ flutter run -d windows --profile --dart-define=FLUIDITY_PROBE=true
 ```
 Attendu : exécuter `G1`, `G2`, `G3` dans l'ordre et **recopier les trois rapports** — `frameCount`, `rasterP50`, `rasterP90`, `lateFramePercent` —, plus, pour `G2`, le **nombre d'appels au dépôt de points** et le nombre de crans de molette donnés. ⚠️ **Le résultat n'est pas connu d'avance.** Le repère du spike — p90 **16,2 ms** pour **8,9 %** de trames en retard — vient d'une autre plateforme et de l'approche par regroupement : **il ne se transpose pas**. Si `NFR-01` n'est pas tenu, c'est un **résultat** : il se consigne, le seuil ne bouge pas, le travail se planifie.
 
-- [ ] **Étape 6** — mettre `docs/nfr.md` à jour : `NFR-01` colonnes « Constaté par » et « État », les trois gestes nommés, les chiffres recopiés ; `NV-W3` levé ou maintenu ; **`NV-W6` instruit** — clos avec les chiffres, ou maintenu avec la tâche d'anti-rebond ouverte et soumise au commanditaire (point 21 de `docs/project-state.md` mis à jour dans le même commit).
-- [ ] **Étape 7** — critère de fin, puis commit.
+- [x] **Étape 6** (2026-09-27 — `NV-W3` levé, `NV-W6` clos sans anti-rebond) — mettre `docs/nfr.md` à jour : `NFR-01` colonnes « Constaté par » et « État », les trois gestes nommés, les chiffres recopiés ; `NV-W3` levé ou maintenu ; **`NV-W6` instruit** — clos avec les chiffres, ou maintenu avec la tâche d'anti-rebond ouverte et soumise au commanditaire (point 21 de `docs/project-state.md` mis à jour dans le même commit).
+- [x] **Étape 7** — critère de fin, puis commit.
 
 ```bash
 git add lib docs test && git commit -m "feat(diagnostics): mesurer la fluidite de la carte sur Windows, sur trois gestes definis d avance" -m "Les trois gestes sont ecrits AVANT la mesure : choisir le geste apres avoir vu les chiffres est la facon la plus simple de tenir un seuil sans rien tenir. Les seuils de NFR-01 — p90 16,7 ms et moins de 5 pour cent de trames en retard — ne bougent pas. Mesure du <date> sur Windows : G1 <..>, G2 <..> et <N> appels au depot pour <M> crans, G3 <..>. NV-W3 <leve / maintenu>. NV-W6 <clos / tache d anti-rebond ouverte>. La sonde et le compteur sont inertes sans leur drapeau."
