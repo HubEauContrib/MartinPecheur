@@ -76,6 +76,19 @@ void main() {
       );
     });
 
+    // Task P2 du plan T1 : la porte P1 passee, la version se date.
+    test('la version 0.2.0 est datee : une version sans date n est pas '
+        'publiee', () {
+      final String? ligne = contenuChangelog
+          .split('\n')
+          .map((String l) => l.trimRight())
+          .where((String l) => l.startsWith('## [0.2.0]'))
+          .firstOrNull;
+      expect(ligne, isNotNull);
+      expect(ligne, matches(RegExp(r'^## \[0\.2\.0\] — \d{4}-\d{2}-\d{2}$')));
+      expect(ligne, isNot(contains('à publier')));
+    });
+
     test('le CHANGELOG porte une section ## [0.2.0], et une seule', () {
       final int occurrences = RegExp(
         r'^## \[0\.2\.0\]',

@@ -1647,12 +1647,12 @@ git add docs && git commit -m "docs: consigner les constats de la porte T1 sur W
 
 **Cas de test** (1 ajouté) — la ligne `## [0.2.0]` correspond à `## \[0\.2\.0\] — \d{4}-\d{2}-\d{2}` et ne contient **pas** « à publier ».
 
-- [ ] **Étape 1** — `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
-- [ ] **Étape 2** — dater la version et ajouter deux sections :
+- [x] **Étape 1** (2026-09-27, `Actual: '## [0.2.0] — à publier'`) — `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
+- [x] **Étape 2** (2026-09-27 ; `Q-01` à `Q-05` : aucune ne reste ouverte, `Q-01`→`Q-04` notées « mesurées une seule fois ») — dater la version et ajouter deux sections :
   - `### Constaté à l'exécution` — les **cinq** constats de `P1` étape 4, un par un · poids et nombre de fichiers du dossier de publication · comportement hors réseau, **sans interprétation** · les trois rapports de fluidité.
   - `### Non vérifié` — `Q-01` à `Q-05` restés ouverts · aucun percentile, donc aucune qualification statistique du débit (`ADR-003` hors T1) · aucun appel VigiEau (T2) · **`BR-013` reporté en T2** : encart renforcé écrit mais posé sur aucun écran (arbitrage du 2026-09-22) · aucun `integration_test/` · cibles de 48 dp non vérifiées (Android réactivé le 2026-09-18 : recopier ce qui a été réellement constaté sur l'émulateur) · iOS jamais compilé.
-- [ ] **Étape 3** — `flutter test` → **tous verts**.
-- [ ] **Étape 4 — commit et tag.**
+- [x] **Étape 3** — `flutter test` → **tous verts**.
+- [ ] **Étape 4 — commit et tag.** (2026-09-27 : commit fait ; **tag `v0.2.0` non posé**, en attente de la demande du commanditaire)
 
 ```bash
 git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.2.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "C est la premiere version ou chaque ecran porte l avertissement que BR-012 lui impose : modal acquitte, puis un controle Avertissement sur la carte et en tete de chaque fiche, dont la fenetre reprend le texte du modal et, sur une fiche, sa phrase datee (W3c, arbitrage du 2026-09-23). L encart renforce de BR-013 n a pas d ecran en T1 et part en T2 avec les restrictions (arbitrage du 2026-09-22). Ce n est pas pour autant un produit complet, et la section Non verifie le dit : aucun percentile, aucun appel VigiEau, BR-013 en T2, aucun parcours integre, iOS jamais compile, Android tel que constate."

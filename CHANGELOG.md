@@ -11,7 +11,7 @@ observable n'y figure pas.
 
 ## [Non publié]
 
-## [0.2.0] — à publier
+## [0.2.0] — 2026-09-27
 
 Deuxième tranche (T1) : la carte devient consultable — fiches, écoulement
 observé, avertissements. **Ce n'est toujours pas un produit** : l'encart
@@ -79,6 +79,35 @@ Windows le 2026-09-27 (`P1`) ; les constats d'écran lot par lot sont dans
 - Traces de l'ancienne architecture React Native : deux guides APK et six
   images héritées d'Expo (les ADR remplacés sont gardés).
 
+### Constaté à l'exécution
+
+- Exécutable Windows (`flutter build windows --release`, 21,1 s) produit et
+  lancé **sans outil de développement** par le commanditaire le 2026-09-27.
+  La ligne finale `Built` n'a pas été recopiée ; l'exécutable daté du jour
+  atteste la construction.
+- Dossier de publication : **33 Mo** (budget 60 Mo), 14 fichiers, dont
+  `flutter_windows.dll` 21 Mo et le référentiel 6,4 Mo.
+- Premier lancement : l'écran d'avertissement s'affiche, le bouton
+  « J'ai compris ces limites » reste inactif tant que la case n'est pas
+  cochée ; au lancement suivant, la carte vient directement. Éprouvé après
+  effacement de l'acquittement déjà présent sur le poste.
+- Le contrôle « ⚠ Avertissement » est présent sur la carte à tous les
+  zooms ; sa fenêtre se lit en entier et se ferme par « Fermer ».
+- Fiche d'une station : « ⚠ Avertissement » en tête, date de la mesure en
+  heure locale, source nommée.
+- Points ONDE sur l'échelle « écoulement », fiche avec sa date de campagne ;
+  la bascule vers « débit » change marqueurs et légende ensemble.
+- Clavier : focus visible au `Tab`, flèches, `+`/`−` ; la fenêtre refuse de
+  descendre sous 800 × 700 ; le libellé « Avertissement » n'est pas tronqué.
+- Hors réseau, carte réseau désactivée : les pastilles s'affichent, le fond
+  de carte vient du cache sur les zones déjà parcourues, la fiche d'une
+  station nomme la source injoignable.
+- Fluidité (`NFR-01`), en `--profile`, rastérisation p90 / trames en
+  retard : glisser au zoom départemental 6,4 ms / 2,5 % puis 2,1 ms / 0,0 %
+  (deux essais) ; six crans de molette 2,4 ms / 2,2 %, avec 5 appels au dépôt
+  de points ; glisser au zoom national 1,8 ms / 0,0 %. Seuils : 16,7 ms et
+  5 %.
+
 ### Non vérifié
 
 - **Fluidité (`NFR-01`) mesurée une seule fois**, le 2026-09-27, sur un
@@ -99,6 +128,8 @@ Windows le 2026-09-27 (`P1`) ; les constats d'écran lot par lot sont dans
   construction, aucun lancement, aucun écran de l'app constaté sur
   Android** ; aucun appareil réel.
 - **iOS** n'a jamais été compilé, faute d'hôte macOS.
+- Cibles tactiles de 48 dp (Android) : non vérifiées, T1 tient les 44 pt.
+- Aucun ratio de contraste audité (`NFR-04`).
 - Aucun percentile (`ADR-003` hors T1) : sur l'échelle « débit », aucune
   station n'est positionnée statistiquement.
 - Aucun appel VigiEau (volet sécheresse prévu en T2).
