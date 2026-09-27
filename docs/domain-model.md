@@ -21,9 +21,10 @@ Immuables, sans identité — deux instances aux mêmes champs sont interchangea
 | `DepartementCode` | Code département en chaîne. Refuse un entier déguisé : `"01"` interprété comme un nombre deviendrait `1`, et la Corse (`2A`/`2B`) rendrait la conversion impossible de toute façon. |
 | `Qualification` | Statut et qualification d'une observation, transportés tels quels (`BR-006`) — aucun champ n'est interprété ni filtré ici. |
 | `Bounds` | Emprise rectangulaire WGS 84 (`lib/domain/geo/bounds.dart`). Refuse une emprise inversée (`west >= east` ou `south >= north`) à la construction. Rangée sous `geo/` et non dans le fichier des contrats de dépôt : la vue en construit une à chaque relâchement de geste, et elle n'a pas à importer `StationRepository` pour cela. |
+| `GeoPoint` | Point désigné par l'usager sur la carte (`lib/domain/geo/geo_point.dart`, T2). Refuse une latitude hors `[-90, 90]`, une longitude hors `[-180, 180]`, `NaN` ou une valeur infinie sur l'une ou l'autre — à la construction, aucun arrondi. Seule entrée géographique de T2 (Q1-A) : une paire de `double` nus ouvrirait la porte à une inversion latitude/longitude. |
 
-`StationCode`, `DepartementCode`, `Qualification` et `Bounds` sont des classes, et non des
-`extension type` comme les unités, précisément **parce qu'elles valident**.
+`StationCode`, `DepartementCode`, `Qualification`, `Bounds` et `GeoPoint` sont des classes, et
+non des `extension type` comme les unités, précisément **parce qu'elles valident**.
 
 ## Nomenclatures closes
 
