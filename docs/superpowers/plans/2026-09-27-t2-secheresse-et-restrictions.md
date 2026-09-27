@@ -344,7 +344,7 @@ git commit -m "feat(restrictions): RestrictionSource declaree dans le domaine, e
 - `Pré-validée` sans `charset` → décodé correctement ; en-tête `Accept: application/json` envoyé ; gigue injectée transmise à `delayForAttempt` (durées de `sleep` relevées).
 - `hub_eau_client_test.dart` **vert sans modification** ; `grep -c "for (int attempt" lib/data/http/*.dart` → **1**, dans `json_http_client.dart`.
 
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — extraire, faire déléguer ; **Étape 3** — `flutter test test/data/http` vert, sans toucher au test de `HubEauClient` ; critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — extraire, faire déléguer ; **Étape 3** — `flutter test test/data/http` vert, sans toucher au test de `HubEauClient` ; critère de fin, commit.
 
 ```bash
 git commit -m "refactor(data): extraire le transport JSON a rejeu, partage par Hub Eau et les restrictions" -m "HubEauClient refusait un tableau JSON ; /zones rend toujours un tableau. Recopier la boucle de rejeu, le produit l interdit. Le transport rend un Object? et des echecs types (statut, reseau, corps illisible) : c est ce qui permettra de distinguer une requete refusee d une source injoignable sans analyser un message. Les tests de HubEauClient passent sans une ligne changee."
