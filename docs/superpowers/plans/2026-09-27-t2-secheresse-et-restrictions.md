@@ -484,13 +484,13 @@ git commit -m "feat(restrictions): RestrictionsViewModel, un etat par reponse de
 - Implémentation de données : la fonction injectée reçoit l'`Uri` inchangée et le mode « hors de l'application ».
 - `grep -rln "package:<bibliotheque>" lib` → **uniquement** `lib/data/links/` ; `domain_isolation_test` et `layers_test` verts.
 
-- [ ] **Étape 1** — tests rouges (port, implémentation, ViewModel).
-- [ ] **Étape 2** — ajouter la dépendance **arbitrée** ; recopier la version **résolue** ; commentaire `pubspec.yaml` au format existant (date, licence, plateformes) :
+- [x] **Étape 1** — tests rouges (port, implémentation, ViewModel).
+- [x] **Étape 2** — ajouter la dépendance **arbitrée** ; recopier la version **résolue** ; commentaire `pubspec.yaml` au format existant (date, licence, plateformes) :
 
 ```bash
 flutter pub add <bibliotheque>:^<version relevee en B1> && flutter pub get
 ```
-- [ ] **Étape 3** — implémenter ; manifeste Android si et seulement si `B1` l'a relevé. **Étape 4** — critère de fin, commit.
+- [x] **Étape 3** — implémenter ; manifeste Android si et seulement si `B1` l'a relevé. **Étape 4** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(restrictions): ouvrir l arrete et le site public hors de l application, derriere un port" -m "<bibliotheque> <version resolue>, <licence>, Windows et Android, relevee sur pub.dev le <date> et arbitree par le commanditaire (B1). Le port vit dans le domaine, l implementation dans data : aucune tranche n importe la bibliotheque. Un lien qui ne s ouvre pas laisse son adresse a l ecran, sans pretendre que le document existe (UC-002 A6)."

@@ -23,13 +23,23 @@
 //
 // L'encart renforce (BR-013) n'est PAS un etat : il est affiche d'emblee et
 // dans tous les etats par la vue elle-meme, ce ViewModel n'a rien a en dire.
+//
+// Les liens (T2, B2) — l'arrete en PDF et le site public de la source —
+// s'ouvrent hors de l'application par le port `ExternalLinkOpener`, injecte
+// par `main.dart` : aucune bibliotheque d'ouverture n'est importee ici. Un
+// lien qui ne s'ouvre pas n'est pas une exception : son adresse brute reste
+// dans [RestrictionsViewModel.unopenedLink] pour que la vue l'affiche
+// (`UC-002 A6`), sans pretendre que le document existe.
 
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, FlutterError, FlutterErrorDetails;
 import 'package:martinpecheur/domain/geo/geo_point.dart';
+import 'package:martinpecheur/domain/links/external_link_opener.dart';
+import 'package:martinpecheur/domain/restrictions/alert_zone.dart';
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
 import 'package:martinpecheur/domain/restrictions/zones_at_point.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 
 /// Etat de l'ecran des restrictions. `sealed` + `switch` exhaustif
 /// (BR-011) : une sous-classe ajoutee sans branche ailleurs devient une
@@ -89,9 +99,18 @@ final class RestrictionsEnEchec extends RestrictionsState {
 /// profil choisi pour la session, et le seul chemin par lequel l'un et
 /// l'autre changent.
 final class RestrictionsViewModel extends ChangeNotifier {
-  RestrictionsViewModel({required this._source});
+  RestrictionsViewModel({required this._source, required this._links});
 
   final RestrictionSource _source;
+
+  final ExternalLinkOpener _links;
+
+  String? _unopenedLink;
+
+  /// Adresse BRUTE du dernier lien qui n'a pas pu s'ouvrir (`UC-002 A6`),
+  /// ou `null`. Remise a `null` par une ouverture reussie, par [open] et par
+  /// [close].
+  String? get unopenedLink => _unopenedLink;
 
   RestrictionsState _state = const RestrictionsFermees();
 
@@ -121,6 +140,7 @@ final class RestrictionsViewModel extends ChangeNotifier {
   /// `ZonesTrouvees`, `AucuneZone` ou `RestrictionsEnEchec`.
   Future<void> open(GeoPoint point) async {
     final int generation = ++_generation;
+    _unopenedLink = null;
     _emit(generation, RestrictionsEnCours(point));
 
     try {
@@ -203,7 +223,63 @@ final class RestrictionsViewModel extends ChangeNotifier {
   /// et n'ecrira plus rien (le jeton de generation change ici aussi).
   void close() {
     final int generation = ++_generation;
+    _unopenedLink = null;
     _emit(generation, const RestrictionsFermees());
+  }
+
+  /// Ouvre hors de l'application le PDF [link]. Sans adresse ouvrable
+  /// (`DocumentLink.openableUri` nul), l'ouvreur n'est pas appele et
+  /// l'adresse brute devient [unopenedLink].
+  Future<void> openDocument(DocumentLink link) async {
+    final Uri? uri = link.openableUri;
+    if (uri == null) {
+      _setUnopenedLink(_generation, link.raw);
+      return;
+    }
+    await _openLink(uri, link.raw);
+  }
+
+  /// Ouvre hors de l'application le site public de la source des
+  /// restrictions — dans tous les etats, echec compris (`BR-013`).
+  Future<void> openPublicSite() => _openLink(
+    Uri.parse(restrictionsPublicSiteUrl),
+    restrictionsPublicSiteUrl,
+  );
+
+  /// Demande l'ouverture de [uri] au port ; [raw] devient [unopenedLink] si
+  /// elle n'aboutit pas. Rien ne fuit : une `Exception` est un echec
+  /// d'ouverture, une `Error` aussi, mais signalee au canal de diagnostic de
+  /// Flutter (meme regle que [open], arbitrage du 2026-09-27).
+  Future<void> _openLink(Uri uri, String raw) async {
+    final int generation = _generation;
+    bool opened;
+    try {
+      opened = await _links.open(uri);
+    } on Exception {
+      opened = false;
+    } on Error catch (error, stackTrace) {
+      opened = false;
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'restrictions',
+        ),
+      );
+    }
+    _setUnopenedLink(generation, opened ? null : raw);
+  }
+
+  /// Ecrit [next] dans [unopenedLink] si [generation] est toujours la
+  /// derniere (un [open] ou un [close] survenu entre-temps l'a remis a
+  /// `null`, une reponse tardive ne le reecrit pas) et que ce ViewModel
+  /// n'est pas dispose ; notifie seulement s'il change.
+  void _setUnopenedLink(int generation, String? next) {
+    if (_disposed || generation != _generation || _unopenedLink == next) {
+      return;
+    }
+    _unopenedLink = next;
+    notifyListeners();
   }
 
   /// Applique [next] si [generation] est toujours la derniere demandee et

@@ -143,6 +143,12 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
     HTTP tel que reçu (`400`, `404`, `409`…).
   - `ReponseIllisible` — la réponse ne se laisse pas lire : corps non JSON, racine non tableau, ou
     champ obligatoire absent/mal typé (§ 4.4, tout ou rien — `AR-2`).
+- `ExternalLinkOpener` — le port d'ouverture d'une adresse **hors de l'application** (T2, `B2`) :
+  `open(Uri) → Future<bool>`, vrai si la plateforme a accepté d'ouvrir. Déclaré dans le domaine
+  (`lib/domain/links/`) pour qu'un ViewModel l'appelle sans importer la bibliothèque ; implémenté
+  sous `lib/data/links/` autour de `url_launcher`, choisi par `main.dart`. Un échec d'ouverture
+  est un **résultat** (`false`), jamais une exception : l'adresse brute reste à l'écran
+  (`UC-002 A6`).
 
 ## Agrégats
 
@@ -275,6 +281,10 @@ classDiagram
         +zonesAt(GeoPoint) ZonesAtPoint
     }
     class RestrictionLookupFailure { <<sealed>> +String diagnostic }
+    class ExternalLinkOpener {
+        <<interface>>
+        +open(Uri) bool
+    }
     class SourceInjoignable
     class RequeteRefusee { +int statusCode }
     class ReponseIllisible

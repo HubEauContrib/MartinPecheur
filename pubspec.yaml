@@ -34,6 +34,7 @@ dependencies:
   latlong2: ^0.9.1      # ce qui se résout réellement, constaté à l'étape 6
   http: ^1.6.0          # MockClient fourni par package:http/testing.dart
   shared_preferences: ^2.5.5  # 2026-03-25, BSD-3-Clause, Windows ok (ADR-011)
+  url_launcher: ^6.3.2        # 2025-07-10, BSD-3-Clause, Windows et Android ok, relevé 2026-09-27 (B-01)
 
 dev_dependencies:
   flutter_test:

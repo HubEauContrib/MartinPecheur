@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// à son tour (T2, M1), puis les trois nomenclatures des restrictions (T2, M2),
 /// puis la zone d'alerte, l'arrêté, l'usage cité et la réponse datée au
 /// point (T2, M3), puis le contrat `RestrictionSource` et son échec fermé à
-/// trois branches (T2, M4).
+/// trois branches (T2, M4), puis le port d'ouverture de lien (T2, B2).
 const List<String> typesDuDomaine = <String>[
   'StationCode',
   'DepartementCode',
@@ -47,6 +47,7 @@ const List<String> typesDuDomaine = <String>[
   'SourceInjoignable',
   'RequeteRefusee',
   'ReponseIllisible',
+  'ExternalLinkOpener',
   'StationRepository',
   'HydroObservationRepository',
   'LitresPerSecond',
