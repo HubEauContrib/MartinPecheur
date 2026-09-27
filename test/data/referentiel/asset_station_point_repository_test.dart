@@ -4,8 +4,11 @@
 // `StationPointsWithinBoundsQuery` de T0 (R3/R4, arbitrage 2026-09-13) : le
 // ViewModel appelle ce depot directement, de facon typee, au lieu d'envoyer
 // un message a un registre.
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/referentiel/asset_station_point_repository.dart';
+import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
@@ -83,4 +86,60 @@ void main() {
       );
     },
   );
+
+  group('all() — ADR-015 : le regroupement porte sur l\'asset entier', () {
+    test('rend tous les points, sans filtre d\'emprise', () async {
+      final List<StationPoint> resultat = await repository.all();
+
+      expect(resultat.map((StationPoint p) => p.code.value), <String>[
+        'K447001001',
+        '1011000101',
+      ]);
+    });
+
+    test('une tentative d\'ecriture dans la liste rendue leve '
+        'UnsupportedError — la vue n\'est pas modifiable', () async {
+      final List<StationPoint> resultat = await repository.all();
+
+      expect(() => resultat.add(_blois()), throwsUnsupportedError);
+    });
+
+    test('deux appels rendent des listes de meme contenu', () async {
+      final List<StationPoint> premier = await repository.all();
+      final List<StationPoint> second = await repository.all();
+
+      expect(
+        premier.map((StationPoint p) => p.code.value),
+        second.map((StationPoint p) => p.code.value),
+      );
+    });
+
+    test('sur l\'extrait reel : 2 points', () async {
+      final StationsReadResult extrait = parseStations(
+        File('test/fixtures/referentiel/stations_extrait_2026-09-13.json')
+            .readAsStringSync(),
+      );
+      final AssetStationPointRepository depot = AssetStationPointRepository(
+        extrait.points,
+      );
+
+      expect(await depot.all(), hasLength(2));
+    });
+
+    test('sur l\'asset reel (test lent) : 4 150 points, le premier et le '
+        'dernier identiques a ceux de parseStations(...).points', () async {
+      final StationsReadResult reel = parseStations(
+        File('assets/referentiel/stations.json').readAsStringSync(),
+      );
+      final AssetStationPointRepository depot = AssetStationPointRepository(
+        reel.points,
+      );
+
+      final List<StationPoint> tous = await depot.all();
+
+      expect(tous, hasLength(4150));
+      expect(tous.first.code, reel.points.first.code);
+      expect(tous.last.code, reel.points.last.code);
+    });
+  });
 }

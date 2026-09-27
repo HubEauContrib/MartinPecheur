@@ -53,6 +53,15 @@ abstract interface class StationPointRepository {
     Bounds bounds, {
     double margin = defaultViewportMargin,
   });
+
+  /// Tous les points du référentiel, dans l'ordre du fichier — jamais
+  /// filtrés par emprise. Ajoutée pour `ADR-015` (2026-09-22) : le
+  /// regroupement des stations par zone administrative porte sur l'asset
+  /// ENTIER, pour que le compte et le barycentre d'une pastille ne dépendent
+  /// pas du bord de l'écran. `AssetStationPointRepository` la rend déjà en
+  /// mémoire, sans copie (vue non modifiable) ; tout décorateur futur
+  /// délègue cette méthode comme [withinBounds].
+  Future<List<StationPoint>> all();
 }
 
 /// Depot des observations hydrometriques. Lit la derniere observation

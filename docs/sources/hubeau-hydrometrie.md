@@ -39,7 +39,7 @@ un client déjà fermé (`ClientException` « already closed ») ne l'est pas. L
 
 ```mermaid
 sequenceDiagram
-    participant Écran as Écran / handler
+    participant Écran as Dépôt appelant
     participant Client as HubEauClient
     participant Retry as retry.dart
     participant API as Hub'Eau v2
@@ -113,7 +113,7 @@ sequenceDiagram
 ## Contraintes subies
 
 Renvoi au tableau `C-xx` de `01-analyse.md § 4` : `C-01`, `C-02`, `C-03`, `C-04`, `C-05`,
-`C-06`, `C-07`, `C-08`, `C-09`, `C-12`, `C-15`, `C-17`.
+`C-06`, `C-07`, `C-08`, `C-09`, `C-12`, `C-15`, `C-17`, `C-18`.
 
 ## Référentiel figé
 
@@ -134,6 +134,28 @@ Semois/l'Escaut en Belgique) plus deux stations corses (`Y880000101`, `Y97100020
 pas un bug de l'analyse : le référentiel Hub'Eau porte ces stations sans département français.
 Les 37 restent dans `points` — la carte les affiche — mais sont écartées de `stations` plutôt
 que de recevoir un département inventé (`BR-007`).
+
+**`C-18`, fait constaté le 2026-09-23** : la pastille « Hauts-de-France » s'affichait près de
+Besançon et « Centre-Val de Loire » vers le Massif central (constat d'écran du commanditaire) —
+leurs barycentres étaient faussés par des stations placées au large de la Somalie. Dans l'asset,
+**54 stations ont `code_projection == 31`** : pour elles, `latitude_station`/`longitude_station`
+(et `geometry.coordinates`, qui les recopie) sont **inversées** — ex. `H000000201` (Nord, dép.
+59) : `latitude_station 4.099322`, `longitude_station 49.989435`, alors que
+`coordonnee_x_station 4.099322` (longitude) et `coordonnee_y_station 49.989435` (latitude) sont
+justes. Plages sur les 54 : X ∈ [-0.616424 ; 5.593353], Y ∈ [42.4174 ; 49.989435] — exactement
+les stations métropolitaines hors emprise en projection 31 (régions 24, 32, 44, 75, 76, 84, 93).
+Vérifié par appel réel le **2026-09-23 à 12:38:59 UTC** :
+`https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?code_station=H000000201,H004000101&fields=code_station,latitude_station,longitude_station,coordonnee_x_station,coordonnee_y_station,code_projection,code_departement&format=json`
+→ HTTP 200, `api_version` 2.0.1, pour les deux : `code_projection 31`,
+`latitude_station`/`longitude_station` inversées, `coordonnee_x/y_station` justes
+(`H004000101` : x 3.6304581, y 49.8976718, dép. 02). Règle de lecture retenue (arbitrage du
+commanditaire, 2026-09-23) : sous `code_projection == 31`, avec `coordonnee_x_station`/
+`coordonnee_y_station` numériques, longitude = X, latitude = Y ; sinon `geometry.coordinates`
+comme avant (`parseStations`, `lib/data/referentiel/stations_asset.dart`). Les autres
+projections (`26` : 3 890 stations, et `39`, `38`, `5`, `41`, `40` pour l'outre-mer) ont X/Y en
+mètres et gardent `geometry` comme source, sans changement. **`J543211003`** (dép. 56,
+projection `26`, latitude 35.108562837156846, longitude 0.8404834005115892) n'est **pas** une
+inversion : point ouvert, listé nommément, non traité — ni corrigé ni inventé.
 
 ## Panne constatée le 2026-09-13
 
@@ -220,6 +242,11 @@ ci-dessous sont datés en UTC, `api_version` **2.0.1** à chaque réponse.
   **max 4,069 s**, **médiane 1,498 s** (moyenne des 5ᵉ et 6ᵉ valeurs). Échantillon de dix
   appels sur une fenêtre de 50 s un seul jour : ne pas figer un seuil de préchargement dessus
   sans remesure.
+
+**Conséquence retenue au 2026-09-23 (version `0.2.0`)** : `HttpHydroObservationRepository`
+(`D5`) reste dans sa **forme garantie** — un appel `code_entite=<station>` par station, jamais
+l'appel groupé ni l'emprise, faute de garantie d'une mesure par station (`Q-01`, `Q-02`) ; une
+bascule serait une décision du commanditaire (`docs/project-state.md`, point 14).
 
 - **En-têtes** — `curl -sI` sur la forme garantie, **09:05:44 UTC** → **206 Partial
   Content**. Présents : `Date`, `Vary`, `Content-Type`, `Link` (pagination `first`/`prev`/

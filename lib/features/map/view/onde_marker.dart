@@ -527,8 +527,9 @@ class OndeMarkerPainter extends CustomPainter {
 /// Une forme **dessinée** ([OndeMarkerPainter]) de [stationMarkerSize] px,
 /// et un libellé porté par `Semantics` plutôt que peint dedans — à 12 px,
 /// aucun texte n'atteindrait les seuils de lisibilité de `04-ui.md` § 3. La
-/// cible tactile, elle, vaut [stationMarkerTapTarget] : c'est l'appelant qui
-/// la pose autour (voir `buildMapLayers`, `map_view.dart`).
+/// cible tactile, elle, vaut `minimumTapTarget`
+/// (`lib/features/shared/tap_target.dart`) : c'est l'appelant qui la pose
+/// autour (voir `buildMapLayers`, `map_view.dart`).
 ///
 /// Le `Semantics` est porté **ici** pour que la forme soit annonçable telle
 /// quelle en légende, où elle n'a aucun point à nommer. Sur la carte, le

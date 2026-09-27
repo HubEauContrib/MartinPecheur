@@ -98,6 +98,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -108,14 +109,168 @@ import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
+import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
+
+// API de caméra lue dans le paquet installé `flutter_map` 8.3.2 avant
+// d'être écrite (étape 3 de la tâche Z4, jamais de mémoire) :
+// - `MapController.fitCamera(CameraFit cameraFit)` —
+//   `lib/src/map/controller/map_controller.dart` l. 126 du paquet installé ;
+// - `MapController.move(LatLng center, double zoom, {…})` — même fichier,
+//   l. 57 ;
+// - `CameraFit.bounds({required LatLngBounds bounds, …})` —
+//   `lib/src/map/camera/camera_fit.dart` l. 21 ;
+// - `LatLngBounds(LatLng corner1, LatLng corner2)` — deux coins opposés,
+//   quel que soit l'ordre — `lib/src/geo/latlng_bounds.dart`.
+// [_MapViewState._handleClusterSelect] n'applique que ce que
+// `MapViewModel.zoomTargetFor` (Z3) a déjà décidé : aucune géométrie n'est
+// calculée ici.
+
+/// Traduit l'emprise visible d'une caméra `flutter_map` en [Bounds] de
+/// domaine — la SEULE conversion du fichier, partagée par [_handleMapEvent]
+/// (fin d'un geste de carte) et [_MapViewState._handleClusterSelect] (fin
+/// d'une sélection de pastille, relecture du coordinateur) : les deux
+/// signalent la même chose au ViewModel, « voici où la caméra se trouve
+/// maintenant », et ne doivent pas pouvoir diverger sur la façon de le dire.
+Bounds _boundsFromLatLngBounds(LatLngBounds bounds) => Bounds(
+  west: bounds.west,
+  south: bounds.south,
+  east: bounds.east,
+  north: bounds.north,
+);
+
+// Le clavier (`K2`, 2026-09-23) : « tout ce qui se fait à la souris se fait
+// au clavier » (`04-ui.md § 3`). `ZoomIntent`/`PanIntent` et [mapShortcuts]
+// sont les signatures publiques attendues par le plan
+// (`docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md`,
+// tâche K2) : des `Intent` de haut niveau, indépendants de `flutter_map`,
+// que [_MapViewState] traduit ensuite en appels de caméra — les MÊMES
+// [_handleZoomIn]/[_handleZoomOut] que `MapControls` (`K1`), et une nouvelle
+// méthode symétrique pour le déplacement, [_MapViewState._handlePan].
+// Aucun enchaînement n'est recopié : les deux origines de geste (souris,
+// clavier) convergent vers [_MapViewState._afterCameraMove].
+
+/// Demande un cran de zoom : `1` pour `+`/`=`, `-1` pour `−`. La valeur du
+/// cran lui-même ([zoomStep], `map_controls.dart`) reste celle de `K1` —
+/// [delta] ne porte que le SIGNE, jamais une amplitude différente de celle
+/// du bouton `+`/`−` ou de la molette.
+class ZoomIntent extends Intent {
+  const ZoomIntent(this.delta);
+
+  /// Positif pour zoomer, négatif pour dézoomer.
+  final double delta;
+}
+
+/// Demande un déplacement de la caméra dans [direction] — un cran de
+/// [keyboardPanFraction] de l'emprise visible, jamais un nombre de pixels :
+/// la vue traduit, le déplacement lui-même reste proportionnel à ce qui est
+/// affiché, quel que soit le zoom courant.
+class PanIntent extends Intent {
+  const PanIntent(this.direction);
+
+  final AxisDirection direction;
+}
+
+/// Fraction de l'emprise visible que déplace un cran de flèche — nommée
+/// plutôt qu'un nombre de pixels posé au hasard (`CLAUDE.md`, « jamais de
+/// nombre magique ») : `0,25`, un quart d'écran par appui, assez pour
+/// avancer sans jamais perdre le contexte affiché avant le geste.
+const double keyboardPanFraction = 0.25;
+
+/// Les raccourcis clavier de la carte : `+`/`=` avancent d'un cran de zoom,
+/// `−` recule d'un cran, les quatre flèches déplacent la caméra. Une seule
+/// source de vérité pour ces raccourcis — [_MapViewState.build] les pose via
+/// `Shortcuts`, jamais recopiés ailleurs.
+///
+/// ⚠️ `Échap` (ferme la fiche ouverte) n'est PAS ici : cette carte n'a de
+/// sens qu'à l'intérieur de [_MapViewState], qui seule sait comment fermer
+/// une fiche (`MapView.onCloseSheets`) — [mapShortcuts] reste, lui, une
+/// fonction PURE, testable sans widget, comme le veut l'étape 1 du plan.
+// `CharacterActivator('+')`/`CharacterActivator('-')` et
+// `numpadAdd`/`numpadSubtract` (relecture du commanditaire du 2026-09-23,
+// 🟠 4) : `LogicalKeyboardKey.add`/`.equal`/`.minus` restent les touches
+// PHYSIQUES du pavé principal — sur un clavier RÉEL (contrairement au
+// simulateur de `flutter_test`, voir `map_keyboard_test.dart`), un clavier
+// AZERTY produit le CARACTÈRE `+` avec Maj+`=`, ce que `SingleActivator`
+// n'intercepte pas (il regarde la touche physique, pas le caractère rendu).
+// `CharacterActivator` regarde le caractère produit, quel que soit
+// l'agencement. Les touches du pavé NUMÉRIQUE (`numpadAdd`/
+// `numpadSubtract`) sont, elles, des touches physiques DISTINCTES de `add`/
+// `minus` (`hardware_keyboard.dart`, paquet Flutter installé) : aucune ne
+// couvre l'autre.
+Map<ShortcutActivator, Intent> mapShortcuts() => <ShortcutActivator, Intent>{
+  const SingleActivator(LogicalKeyboardKey.add): const ZoomIntent(1),
+  const SingleActivator(LogicalKeyboardKey.equal): const ZoomIntent(1),
+  const SingleActivator(LogicalKeyboardKey.minus): const ZoomIntent(-1),
+  const SingleActivator(LogicalKeyboardKey.numpadAdd): const ZoomIntent(1),
+  const SingleActivator(LogicalKeyboardKey.numpadSubtract): const ZoomIntent(
+    -1,
+  ),
+  const CharacterActivator('+'): const ZoomIntent(1),
+  const CharacterActivator('-'): const ZoomIntent(-1),
+  const SingleActivator(LogicalKeyboardKey.arrowUp): const PanIntent(
+    AxisDirection.up,
+  ),
+  const SingleActivator(LogicalKeyboardKey.arrowDown): const PanIntent(
+    AxisDirection.down,
+  ),
+  const SingleActivator(LogicalKeyboardKey.arrowLeft): const PanIntent(
+    AxisDirection.left,
+  ),
+  const SingleActivator(LogicalKeyboardKey.arrowRight): const PanIntent(
+    AxisDirection.right,
+  ),
+};
+
+/// Ferme la ou les fiches ouvertes ([MapView.onCloseSheets]) — liée à
+/// `Échap`. Privée : ni le plan ni aucun appelant hors de ce fichier n'a
+/// besoin de la nommer, contrairement à [ZoomIntent]/[PanIntent].
+class _CloseSheetsIntent extends Intent {
+  const _CloseSheetsIntent();
+}
+
+/// L'ordre de tabulation déclaré (`K2`) : chips d'échelle → contrôles de
+/// zoom → carte → fiche, si une est ouverte → lien du bandeau
+/// (`WarningLink`). Des constantes NOMMÉES, jamais des `1`/`2`/`3` recopiés
+/// à chaque `FocusTraversalOrder` : un futur réordonnancement se lit ici,
+/// à un seul endroit.
+const double mapTraversalOrderChips = 1;
+
+/// Voir [mapTraversalOrderChips].
+const double mapTraversalOrderControls = 2;
+
+/// Voir [mapTraversalOrderChips]. « carte » est un GROUPE (arbitrage du
+/// commanditaire du 2026-09-23, `K2`) : `FlutterMap` porte son PROPRE
+/// `FocusTraversalGroup(policy: OrderedTraversalPolicy())`, placé à CET
+/// ordre dans le groupe parent — voir [_MapViewState.build]. À l'intérieur
+/// de ce sous-groupe, chaque marqueur reçoit un `NumericFocusOrder` ENTIER
+/// (`0`, `1`, `2`, …), une échelle INDÉPENDANTE de celle du groupe parent :
+/// aucun nombre d'éléments ne peut donc jamais atteindre
+/// [mapTraversalOrderSheet] (relecture du commanditaire du 2026-09-23,
+/// 🔴 1 — la première version partageait l'échelle du parent avec un pas de
+/// 0,001, dépassée par une zone dense de plus de 500 marqueurs).
+const double mapTraversalOrderCarte = 3;
+
+/// Entre « carte » et « lien du bandeau » : une fiche ouverte s'intercale
+/// dans l'ordre déclaré, plutôt que de sauter au dernier arrêt ou de rester
+/// hors de l'ordre de tabulation.
+const double mapTraversalOrderSheet = 3.5;
+
+/// Voir [mapTraversalOrderChips] — le dernier arrêt.
+const double mapTraversalOrderWarningLink = 4;
 
 /// Centre initial de la carte : France métropolitaine.
 const double initialMapCenterLatitude = 46.6;
@@ -126,12 +281,15 @@ const double initialMapCenterLongitude = 2.2;
 /// Zoom initial — la France métropolitaine tient à l'écran.
 const double initialMapZoom = 5;
 
-/// Zoom minimal — en dessous, la France n'emplit plus l'écran.
-const double minimumMapZoom = 4;
-
-/// Zoom maximal — aligné sur le niveau natif maximal du plan IGN
-/// ([ignMaxNativeZoom]) : au-delà, le serveur n'a rien à offrir de plus fin.
-const double maximumMapZoom = ignMaxNativeZoom * 1.0;
+// `minimumMapZoom` et `maximumMapZoom` (importées ci-dessus, avec
+// `ignMaxNativeZoom`) vivent dans
+// `features/map/view_model/map_zoom_bounds.dart`, Dart pur (`K1`,
+// relecture du coordinateur du 2026-09-23) : `MapViewModel` doit pouvoir
+// décider si `+`/`−` restent actifs (`canZoomIn`/`canZoomOut`) sans importer
+// un fichier de `features/map/view/`. `MapOptions.minZoom`/`maxZoom`,
+// ci-dessous, restent la SEULE consommatrice de ces bornes côté caméra — les
+// redéfinir ici en ferait deux sources de vérité, ce que cette tâche
+// s'interdit précisément.
 
 /// État par défaut de [buildMapLayers.stateOf] : aucune requête n'a abouti
 /// pour cette station. Une fonction de premier niveau, et non une fermeture
@@ -139,6 +297,18 @@ const double maximumMapZoom = ignMaxNativeZoom * 1.0;
 /// niveau est une expression constante, donc utilisable comme valeur par
 /// défaut d'un paramètre.
 StationMapState _alwaysUnloaded(StationCode code) => const NonChargee();
+
+/// Reclasse [observations] par code de station — la forme que
+/// [buildMapLayers] attend ([_ondeMarkers] les indexe déjà ainsi côté
+/// dépôt). `MapViewModel.individualOndeObservations` (Z3) rend une `List`,
+/// filtrée des points déjà couverts par une pastille (`ADR-015`) : cette
+/// fonction ne fait que reprendre la forme, aucun filtre supplémentaire.
+Map<OndeStationCode, OndeObservation> _byCode(
+  List<OndeObservation> observations,
+) => <OndeStationCode, OndeObservation>{
+  for (final OndeObservation observation in observations)
+    observation.point.code: observation,
+};
 
 /// Décide si [event] doit déclencher un nouveau chargement d'emprise.
 /// Fonction pure, testable sans widget ni `FlutterMap` — construite avec les
@@ -225,6 +395,13 @@ bool shouldRefreshOn(MapEvent event) =>
 /// constant (« toujours récente ») serait un mensonge silencieux sur une
 /// campagne vieille de plus de 60 jours (`BR-010`). Un appelant qui n'a pas
 /// d'âge à donner doit le dire explicitement, jamais hériter d'un défaut.
+/// [clusters] porte les pastilles de zone administrative (`ADR-015`, Z4),
+/// dessinées **avant** les marqueurs individuels — vide au niveau
+/// individuel ([MapViewModel.clusters]). [onClusterSelect] est appelé avec
+/// la pastille tapée ; en production, il applique
+/// `MapViewModel.zoomTargetFor` à la caméra (`_MapViewState`) et **n'ouvre
+/// aucune fiche** — `onStationTap`/`onOndeTap` ne sont jamais atteints par ce
+/// tap (`BR-009`).
 List<Widget> buildMapLayers({
   required MapScaleKind scale,
   required List<StationPoint> stations,
@@ -234,6 +411,8 @@ List<Widget> buildMapLayers({
   void Function(StationCode code)? onStationTap,
   void Function(OndePoint point)? onOndeTap,
   StationMapState Function(StationCode code) stateOf = _alwaysUnloaded,
+  List<MapAreaCluster> clusters = const <MapAreaCluster>[],
+  void Function(MapAreaCluster cluster)? onClusterSelect,
 }) {
   final List<Widget> layers = <Widget>[
     TileLayer(
@@ -246,18 +425,33 @@ List<Widget> buildMapLayers({
 
   // `switch` exhaustif sur un `enum` fermé (`BR-011`) : une échelle ajoutée
   // sans branche ici ne compile pas — jamais une carte silencieusement vide.
-  final List<Marker> markers = switch (scale) {
+  //
+  // `focusOrderStartIndex: clusters.length` (arbitrage du commanditaire du
+  // 2026-09-23, `K2`) : les marqueurs individuels suivent les pastilles
+  // dans l'ordre de tabulation du groupe « carte » — leur indice de focus
+  // continue donc APRÈS le dernier indice de pastille, jamais depuis 0 (ce
+  // qui les ferait chevaucher).
+  final List<Marker> individualMarkers = switch (scale) {
     MapScaleKind.ecoulement => _ondeMarkers(
       ondeObservations: ondeObservations,
       ageOf: ageOf,
       onOndeTap: onOndeTap,
+      focusOrderStartIndex: clusters.length,
     ),
     MapScaleKind.debit => _stationMarkers(
       stations: stations,
       stateOf: stateOf,
       onStationTap: onStationTap,
+      focusOrderStartIndex: clusters.length,
     ),
   };
+
+  // Les pastilles d'abord, puis les individuels (plan T1, tâche Z4) : au
+  // niveau individuel, `clusters` est vide et cette liste ne change rien.
+  final List<Marker> markers = <Marker>[
+    ..._areaClusterMarkers(clusters: clusters, onSelect: onClusterSelect),
+    ...individualMarkers,
+  ];
 
   if (markers.isNotEmpty) {
     layers.add(MarkerLayer(markers: markers));
@@ -266,32 +460,117 @@ List<Widget> buildMapLayers({
   return layers;
 }
 
+/// Les pastilles de zone administrative (`ADR-015`). [AreaClusterMarker] est
+/// un widget de contenu pur (voir son en-tête) : c'est ici, comme pour
+/// [_stationMarkers] et [_ondeMarkers], que le `GestureDetector` de
+/// sélection est posé — sans second `Semantics` : la pastille porte déjà le
+/// sien, préfixé par l'échelle (`BR-008`).
+///
+/// ⚠️ [KeyboardFocusRing] (arbitrage du commanditaire du 2026-09-23, `K2`) :
+/// « carte » est un GROUPE de tabulation depuis cet arbitrage — Tab y entre
+/// puis parcourt les pastilles (et les marqueurs individuels non rattachés,
+/// [_stationMarkers]/[_ondeMarkers]) dans l'ordre où [clusters] les donne.
+/// Cet ordre est décidé par `MapViewModel.orderedClusters` (distance
+/// croissante au centre de l'emprise, code de zone en cas d'égalité) — cette
+/// fonction ne trie RIEN, elle ne fait que rendre l'ordre reçu focalisable.
+/// Entrée/Espace appellent [onSelect], exactement comme le tap.
+List<Marker> _areaClusterMarkers({
+  required List<MapAreaCluster> clusters,
+  required void Function(MapAreaCluster cluster)? onSelect,
+}) {
+  final void Function(MapAreaCluster cluster)? handleSelect = onSelect;
+
+  return <Marker>[
+    for (final (int index, MapAreaCluster cluster) in clusters.indexed)
+      Marker(
+        // `key` (relecture du commanditaire du 2026-09-23, 🟠 3) :
+        // `MarkerLayer` réconcilie ses enfants par CETTE clé — sans elle,
+        // Flutter réconcilie par POSITION dans la liste, et un
+        // réordonnancement (un geste qui change l'ordre déterministe du
+        // groupe « carte ») ferait glisser l'état — dont le `FocusNode` de
+        // [KeyboardFocusRing] — sur la pastille qui prend la même place,
+        // pas sur celle qui a le focus. Niveau ET code : deux zones de
+        // niveaux différents peuvent partager un même code administratif.
+        key: ValueKey<String>('${cluster.level}-${cluster.area.code}'),
+        point: LatLng(cluster.latitude, cluster.longitude),
+        width: areaClusterMarkerSize,
+        height: areaClusterMarkerSize,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: handleSelect == null ? null : () => handleSelect(cluster),
+          child: _carteFocusOrder(
+            index,
+            KeyboardFocusRing(
+              onActivate: handleSelect == null
+                  ? null
+                  : () => handleSelect(cluster),
+              canRequestFocus: handleSelect != null,
+              child: AreaClusterMarker(cluster: cluster),
+            ),
+          ),
+        ),
+      ),
+  ];
+}
+
+/// Pose l'ordre de tabulation d'un élément du groupe « carte », à [index]
+/// dans l'ordre déjà décidé par le ViewModel (arbitrage du commanditaire du
+/// 2026-09-23, `K2`).
+///
+/// Un `NumericFocusOrder` ENTIER, PAS une fraction de [mapTraversalOrderCarte]
+/// (relecture du commanditaire du 2026-09-23, 🔴 1) : ce sous-groupe vit dans
+/// son PROPRE `FocusTraversalGroup` ([_MapViewState.build], sur `FlutterMap`
+/// tout entier), une échelle d'ordre INDÉPENDANTE de celle du groupe parent
+/// — aucun nombre de marqueurs ne peut donc chevaucher [mapTraversalOrderSheet]
+/// ou [mapTraversalOrderWarningLink], contrairement à l'ancien partage d'une
+/// seule échelle par un pas de 0,001 (dépassé dès 500 marqueurs, une zone
+/// dense en dépasse 1 400).
+Widget _carteFocusOrder(int index, Widget child) => FocusTraversalOrder(
+  order: NumericFocusOrder(index.toDouble()),
+  child: child,
+);
+
 /// Les marqueurs de l'échelle « débit » : une pastille par station.
+///
+/// [focusOrderStartIndex] (`K2`) : l'indice de focus du PREMIER marqueur de
+/// cette liste dans le groupe « carte » — les pastilles ([_areaClusterMarkers])
+/// occupent déjà les indices `0`..`focusOrderStartIndex - 1` ; sans ce
+/// décalage, deux éléments du groupe partageraient le même ordre de
+/// tabulation.
 List<Marker> _stationMarkers({
   required List<StationPoint> stations,
   required StationMapState Function(StationCode code) stateOf,
   required void Function(StationCode code)? onStationTap,
+  int focusOrderStartIndex = 0,
 }) {
   // Copié dans un local `final` : la promotion de type survit ainsi dans la
   // fermeture construite pour chaque marqueur.
   final void Function(StationCode code)? handleTap = onStationTap;
 
-  return stations
-      .map(
-        (StationPoint station) => Marker(
-          // ⚠️ GeoJSON range les coordonnées [longitude, latitude] ;
-          // `LatLng` prend la latitude EN PREMIER. `StationPoint` a déjà
-          // absorbé cet écart à l'analyse (stations_asset.dart) — ici,
-          // `station.latitude`/`station.longitude` sont déjà dans l'ordre
-          // attendu par `LatLng`.
-          point: LatLng(station.latitude, station.longitude),
-          // Le marqueur mesure la ZONE DE TAP (44 pt, `04-ui.md` § 3) ; la
-          // pastille de 12 px reste centrée dedans. Les deux tailles sont
-          // distinctes à dessein : ce qui se voit et ce qui se touche n'ont
-          // pas la même exigence.
-          width: stationMarkerTapTarget,
-          height: stationMarkerTapTarget,
-          child: GestureDetector(
+  return <Marker>[
+    for (final (int index, StationPoint station) in stations.indexed)
+      Marker(
+        // `key` (relecture du commanditaire du 2026-09-23, 🟠 3) : voir
+        // [_areaClusterMarkers] — sans lui, un déplacement de caméra qui
+        // change l'ensemble des stations visibles ferait glisser le focus
+        // clavier (et l'état interne de [KeyboardFocusRing]) sur celle qui
+        // prend la même POSITION dans la liste, pas sur celle qui l'avait.
+        key: ValueKey<String>(station.code.value),
+        // ⚠️ GeoJSON range les coordonnées [longitude, latitude] ;
+        // `LatLng` prend la latitude EN PREMIER. `StationPoint` a déjà
+        // absorbé cet écart à l'analyse (stations_asset.dart) — ici,
+        // `station.latitude`/`station.longitude` sont déjà dans l'ordre
+        // attendu par `LatLng`.
+        point: LatLng(station.latitude, station.longitude),
+        // Le marqueur mesure la ZONE DE TAP (44 pt, `04-ui.md` § 3) ; la
+        // pastille de 12 px reste centrée dedans. Les deux tailles sont
+        // distinctes à dessein : ce qui se voit et ce qui se touche n'ont
+        // pas la même exigence.
+        width: minimumTapTarget,
+        height: minimumTapTarget,
+        child: _carteFocusOrder(
+          focusOrderStartIndex + index,
+          GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: handleTap == null ? null : () => handleTap(station.code),
             child: Semantics(
@@ -309,62 +588,94 @@ List<Marker> _stationMarkers({
               // son descendant, et `excludeSemantics` ne masque que les
               // descendants (relecture du 2026-09-23).
               excludeSemantics: true,
-              child: Center(
-                child: SizedBox(
-                  width: stationMarkerSize,
-                  height: stationMarkerSize,
-                  child: StationMarkerDot(state: stateOf(station.code)),
+              // [KeyboardFocusRing] (`K2`, arbitrage du 2026-09-23) : SOUS
+              // `Semantics`, comme les autres contrôles de la carte — la
+              // clé du marqueur (posée par l'appelant via `Marker`, pas
+              // ici) reste la racine du sous-arbre où le focus se trouve.
+              // L'ordre dans lequel Tab atteint ces marqueurs vient de
+              // `MapViewModel.orderedIndividualStations` : cette fonction
+              // ne trie rien, elle rend l'ordre reçu focalisable.
+              child: KeyboardFocusRing(
+                onActivate: handleTap == null
+                    ? null
+                    : () => handleTap(station.code),
+                canRequestFocus: handleTap != null,
+                child: Center(
+                  child: SizedBox(
+                    width: stationMarkerSize,
+                    height: stationMarkerSize,
+                    child: StationMarkerDot(state: stateOf(station.code)),
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      )
-      .toList();
+      ),
+  ];
 }
 
 /// Les marqueurs de l'échelle « écoulement » : un par observation ONDE,
 /// posé sur le point que l'observation porte (`OndeObservation.point`, lu
 /// sur la même ligne d'API — `T-09`), donc sans second appel au référentiel.
+/// [focusOrderStartIndex] : voir [_stationMarkers].
 List<Marker> _ondeMarkers({
   required Map<OndeStationCode, OndeObservation> ondeObservations,
   required CampaignAge Function(OndeObservation observation) ageOf,
   required void Function(OndePoint point)? onOndeTap,
+  int focusOrderStartIndex = 0,
 }) {
   final void Function(OndePoint point)? handleTap = onOndeTap;
 
-  return ondeObservations.values.map((OndeObservation observation) {
-    final OndePoint point = observation.point;
-    final CampaignAge age = ageOf(observation);
-
-    return Marker(
-      point: LatLng(point.latitude, point.longitude),
-      width: stationMarkerTapTarget,
-      height: stationMarkerTapTarget,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: handleTap == null ? null : () => handleTap(point),
-        child: Semantics(
-          button: true,
-          label: _ondeSemanticLabel(observation, age),
-          // Même raison que pour une station : [OndeMarkerShape] porte son
-          // propre `Semantics` pour la légende, le marqueur le masque.
-          excludeSemantics: true,
-          child: Center(
-            child: SizedBox(
-              width: stationMarkerSize,
-              height: stationMarkerSize,
-              child: OndeMarkerShape(
-                category: observation.category,
-                age: age,
-                observedAt: observation.observedAt,
+  return <Marker>[
+    for (final (int index, OndeObservation observation)
+        in ondeObservations.values.indexed)
+      Marker(
+        // `key` (relecture du commanditaire du 2026-09-23, 🟠 3) : même
+        // raison que [_stationMarkers].
+        key: ValueKey<String>(observation.point.code.value),
+        point: LatLng(observation.point.latitude, observation.point.longitude),
+        width: minimumTapTarget,
+        height: minimumTapTarget,
+        child: _carteFocusOrder(
+          focusOrderStartIndex + index,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: handleTap == null
+                ? null
+                : () => handleTap(observation.point),
+            child: Semantics(
+              button: true,
+              label: _ondeSemanticLabel(observation, ageOf(observation)),
+              // Même raison que pour une station : [OndeMarkerShape] porte
+              // son propre `Semantics` pour la légende, le marqueur le
+              // masque.
+              excludeSemantics: true,
+              // [KeyboardFocusRing] (`K2`) : même construction que
+              // [_stationMarkers] — l'ordre de Tab vient de
+              // `MapViewModel.orderedIndividualOndeObservations`.
+              child: KeyboardFocusRing(
+                onActivate: handleTap == null
+                    ? null
+                    : () => handleTap(observation.point),
+                canRequestFocus: handleTap != null,
+                child: Center(
+                  child: SizedBox(
+                    width: stationMarkerSize,
+                    height: stationMarkerSize,
+                    child: OndeMarkerShape(
+                      category: observation.category,
+                      age: ageOf(observation),
+                      observedAt: observation.observedAt,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
       ),
-    );
-  }).toList();
+  ];
 }
 
 /// L'annonce d'un marqueur de station au lecteur d'écran : l'**échelle
@@ -444,7 +755,10 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    ordre. Les deux dépendent d'échelles différentes et ne sont jamais
 ///    ouverts ensemble en production ; fournis ensemble, ils s'empilent
 ///    plutôt que de se masquer (`BR-007`) ;
-/// 5. l'**attribution IGN**, toujours, en bas à droite — une condition
+/// 5. les **boutons de zoom et de recentrage** ([MapControls], `K1`), en bas
+///    à droite, AU-DESSUS de l'attribution — jamais l'inverse, l'attribution
+///    reste la dernière chose qu'un empilement pourrait masquer ;
+/// 6. l'**attribution IGN**, toujours, tout en bas à droite — une condition
 ///    d'usage de la Licence Ouverte, jamais une finition (`04-ui.md` § 3).
 ///
 /// [onSelect] est appelé avec l'échelle demandée par un tap de puce — en
@@ -471,6 +785,13 @@ List<Widget> buildMapOverlays({
   required List<StationPoint> stations,
   required Map<OndeStationCode, OndeObservation> ondeObservations,
   required int ondeUnreadableRows,
+  // `K1`, 2026-09-23 — [onZoomIn]/[onZoomOut] sont **nuls** quand
+  // `MapViewModel.canZoomIn`/`canZoomOut` disent qu'un cran de plus n'aurait
+  // aucun effet ; [MapControls] rend alors le bouton correspondant
+  // désactivé. [onRecenter], lui, a toujours un effet — non nul.
+  required VoidCallback? onZoomIn,
+  required VoidCallback? onZoomOut,
+  required VoidCallback onRecenter,
   MapErrorSource? errorSource,
   Widget? stationSheet,
   Widget? ondeSheet,
@@ -504,7 +825,10 @@ List<Widget> buildMapOverlays({
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
-              const WarningLink(),
+              const FocusTraversalOrder(
+                order: NumericFocusOrder(mapTraversalOrderWarningLink),
+                child: WarningLink(),
+              ),
               const SizedBox(height: _overlayPadding),
               MapLegend(scale: scale),
             ],
@@ -531,7 +855,10 @@ List<Widget> buildMapOverlays({
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            MapScaleChips(scale: scale, onSelect: onSelect),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(mapTraversalOrderChips),
+              child: MapScaleChips(scale: scale, onSelect: onSelect),
+            ),
             for (final MapNotice notice in notices)
               Padding(
                 padding: const EdgeInsets.only(top: _overlayPadding),
@@ -548,10 +875,18 @@ List<Widget> buildMapOverlays({
           // Marge basse plus épaisse : elle dégage le bandeau d'attribution
           // IGN, qui reste lisible en toutes circonstances (Licence
           // Ouverte, `04-ui.md` § 3).
+          //
+          // Marge DROITE réservée à la colonne des boutons de zoom
+          // (arbitrage du coordinateur du 2026-09-23, « décaler la
+          // fiche ») : sur un écran étroit, le panneau de fiche s'étend
+          // sur toute la largeur disponible — sans cette réserve, il
+          // passerait SOUS `MapControls`, posés en bas à droite. Même
+          // schéma que la réserve de la légende pour les puces d'échelle,
+          // plus haut dans cette fonction.
           padding: const EdgeInsets.fromLTRB(
             _overlayPadding,
             _overlayPadding,
-            _overlayPadding,
+            _sheetRightPadding,
             _sheetBottomPadding,
           ),
           child: ConstrainedBox(
@@ -567,24 +902,46 @@ List<Widget> buildMapOverlays({
             // fixé — station au-dessus, ONDE en dessous — pour que
             // l'empilement soit une décision testée et non un hasard de
             // `Stack`.
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                ?sheet,
-                if (sheet != null && onde != null)
-                  const SizedBox(height: _overlayPadding),
-                ?onde,
-              ],
+            child: FocusTraversalOrder(
+              order: const NumericFocusOrder(mapTraversalOrderSheet),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  ?sheet,
+                  if (sheet != null && onde != null)
+                    const SizedBox(height: _overlayPadding),
+                  ?onde,
+                ],
+              ),
             ),
           ),
         ),
       ),
-    const Align(
+    Align(
       alignment: Alignment.bottomRight,
       child: Padding(
-        padding: EdgeInsets.all(_overlayPadding),
-        child: IgnAttributionBadge(),
+        padding: const EdgeInsets.all(_overlayPadding),
+        // Une colonne, comme celle du contrôle d'avertissement et de la
+        // légende en haut à droite (`K1`) : les boutons de zoom et
+        // l'attribution IGN ne peuvent alors PAS se chevaucher, par
+        // construction.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: <Widget>[
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(mapTraversalOrderControls),
+              child: MapControls(
+                onZoomIn: onZoomIn,
+                onZoomOut: onZoomOut,
+                onRecenter: onRecenter,
+              ),
+            ),
+            const SizedBox(height: _overlayPadding),
+            const IgnAttributionBadge(),
+          ],
+        ),
       ),
     ),
   ];
@@ -601,175 +958,27 @@ const double _sheetBottomPadding = 32;
 /// Largeur maximale du panneau de fiche, en pixels logiques.
 const double _sheetMaxWidth = 420;
 
-/// Les puces de bascule d'échelle, en haut à gauche de la carte : une par
-/// valeur de [MapScaleKind], celle de [scale] marquée active.
-///
-/// `BR-008` et `UC-001 A6` : changer d'échelle change **marqueurs et légende
-/// ensemble**, et une seule échelle est active à la fois. Ce widget ne
-/// décide rien — il appelle [onSelect], et c'est le ViewModel qui bascule
-/// (et qui ignore une demande sans effet).
-///
-/// Les libellés viennent de `mapScaleLabel`, jamais d'une recopie locale :
-/// la légende nomme l'échelle active avec exactement les mêmes mots.
-class MapScaleChips extends StatelessWidget {
-  const MapScaleChips({required this.scale, required this.onSelect, super.key});
+/// Largeur de la colonne des boutons de zoom ([MapControls]), en pixels
+/// logiques : chaque bouton mesure [minimumTapTarget]
+/// (`lib/features/shared/tap_target.dart`), et la colonne les empile avec
+/// `CrossAxisAlignment.end` — sa largeur ne dépasse donc jamais celle d'un
+/// bouton. Nommée plutôt que recopiée : c'est ce que [_sheetRightPadding]
+/// doit réserver pour que la fiche ne passe jamais sous ces boutons
+/// (arbitrage du coordinateur du 2026-09-23, « décaler la fiche »).
+const double _mapControlsColumnWidth = minimumTapTarget;
 
-  /// L'échelle active, lue sur `MapViewModel.scale`.
-  final MapScaleKind scale;
+/// Marge droite que le panneau de fiche réserve pour ne jamais passer sous
+/// la colonne des boutons de zoom, posée en bas à droite : la largeur de
+/// cette colonne ([_mapControlsColumnWidth]), plus la marge qui l'entoure
+/// des deux côtés ([_overlayPadding], comme partout ailleurs dans ce
+/// fichier). Dérivée de [minimumTapTarget], jamais un nombre posé au hasard.
+const double _sheetRightPadding = _mapControlsColumnWidth + 2 * _overlayPadding;
 
-  /// Appelé avec l'échelle demandée. En production,
-  /// `MapViewModel.selectScale`.
-  final void Function(MapScaleKind kind) onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    // `Wrap` et non `Row` : « Débit relatif à l'historique » est un libellé
-    // long, et les deux puces ne tiennent pas côte à côte sur un écran
-    // étroit — ni sur un large, une fois réservée la place de la légende.
-    // Une `Row` déborderait ; `Wrap` les empile.
-    //
-    // ⚠️ Le `Wrap` ne replie qu'ENTRE les puces, jamais dans l'une d'elles :
-    // ce qui tient la typographie dynamique jusqu'à 200 % (`04-ui.md` § 3)
-    // est, à l'intérieur de chaque puce, le `ConstrainedBox(minWidth: 44)`
-    // — un plancher, pas un plafond — et le retour à la ligne du `Text`,
-    // qu'aucune contrainte de hauteur ne bride.
-    return Wrap(
-      spacing: _overlayPadding,
-      runSpacing: _overlayPadding,
-      children: <Widget>[
-        for (final MapScaleKind kind in MapScaleKind.values)
-          _MapScaleChip(
-            kind: kind,
-            selected: kind == scale,
-            onSelect: onSelect,
-          ),
-      ],
-    );
-  }
-}
-
-/// Une puce. Construite à la main plutôt qu'avec un `ChoiceChip` de
-/// Material pour deux raisons, dans cet ordre :
-/// 1. la **cible tactile** de 44 pt (`04-ui.md` § 3) est ici une contrainte
-///    explicite, pas la densité que le thème veut bien accorder ;
-/// 2. l'état sélectionné est porté par `Semantics(selected:)` **en plus** du
-///    rendu : « aucune information n'est portée par la seule couleur »
-///    (`04-ui.md` § 3) vaut aussi pour un contrôle.
-///
-/// ⚠️ Le noir et le blanc employés ici ne codent **aucun état de l'eau** :
-/// `04-ui.md` § 2 ne régit que les teintes d'état, et une puce de filtre
-/// n'en est pas une. Ce sont les mêmes neutres que l'attribution IGN et le
-/// bandeau d'erreur de ce fichier.
-class _MapScaleChip extends StatelessWidget {
-  const _MapScaleChip({
-    required this.kind,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final MapScaleKind kind;
-  final bool selected;
-  final void Function(MapScaleKind kind) onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      // La clé est posée sur le nœud sémantique, donc sur la boîte entière :
-      // c'est elle que les tests tapent et mesurent.
-      key: ValueKey<MapScaleKind>(kind),
-      button: true,
-      selected: selected,
-      label: mapScaleLabel(kind),
-      // Le libellé est déjà annoncé ici ; sans cette exclusion le `Text`
-      // intérieur en ferait un second nœud.
-      excludeSemantics: true,
-      // Sans ce rappel, `excludeSemantics` masque l'action de tap que le
-      // geste porterait sinon lui-même : un double-tap au lecteur d'écran
-      // n'activerait plus rien (relecture du 2026-09-23).
-      onTap: () => onSelect(kind),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onSelect(kind),
-        child: ConstrainedBox(
-          // 44 × 44 pt au minimum (`04-ui.md` § 3). La puce s'élargit avec
-          // son texte, elle ne rétrécit jamais en deçà.
-          constraints: const BoxConstraints(
-            minWidth: stationMarkerTapTarget,
-            minHeight: stationMarkerTapTarget,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: selected ? Colors.black : Colors.white,
-              border: Border.all(color: Colors.black),
-              borderRadius: const BorderRadius.all(
-                Radius.circular(stationMarkerTapTarget / 2),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _chipHorizontalPadding,
-                vertical: _chipVerticalPadding,
-              ),
-              // `Align` à facteurs 1 : la boîte se dimensionne sur son
-              // texte, et c'est le `ConstrainedBox` au-dessus qui impose le
-              // plancher de 44 pt.
-              child: Align(
-                widthFactor: 1,
-                heightFactor: 1,
-                child: Text(
-                  mapScaleLabel(kind),
-                  style: TextStyle(
-                    fontSize: _chipFontSize,
-                    color: selected ? Colors.white : Colors.black,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Marge horizontale d'une puce, en pixels logiques.
-const double _chipHorizontalPadding = 12;
-
-/// Marge verticale d'une puce, en pixels logiques.
-const double _chipVerticalPadding = 8;
-
-/// Taille de texte d'une puce, en pixels logiques.
-const double _chipFontSize = 12;
-
-// `MapErrorBanner` vivait ici jusqu'à `U6`. Retiré : son texte —
-// « Les stations n'ont pas pu être chargées : $error » — ne nommait aucune
-// source et exposait un `toString()` à l'usager, là où `BR-007` demande un
-// « message par source ». `SourceUnavailableNotice`
-// (`map_empty_states.dart`) le remplace, et la cause technique y est en
-// retrait plutôt qu'en titre.
-
-/// Bandeau d'attribution IGN Géoplateforme, exigé par la Licence Ouverte.
-/// Porte son propre fond opaque : un texte posé directement sur un fond de
-/// carte quelconque ne tient aucun contraste (`04-ui.md` § 3). Entièrement
-/// `const` : rien ici ne dépend de l'état de l'écran.
-class IgnAttributionBadge extends StatelessWidget {
-  const IgnAttributionBadge({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.all(Radius.circular(4)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        child: Text(ignAttribution, style: TextStyle(fontSize: 11)),
-      ),
-    );
-  }
-}
+// `MapScaleChips`/`_MapScaleChip` (`map_scale_chips.dart`) et
+// `IgnAttributionBadge` (`ign_attribution_badge.dart`) sont **extraits** de
+// ce fichier par `K1` (2026-09-23), au même titre que `MapControls`
+// (`map_controls.dart`) : aucun changement de comportement, seuls les
+// imports ci-dessus changent.
 
 /// L'écran carte : fond IGN, attribution, et les marqueurs de stations du
 /// viewport. N'appelle aucun dépôt — il observe [viewModel] et lui demande
@@ -790,6 +999,7 @@ class MapView extends StatefulWidget {
     this.onOndeTap,
     this.stationSheet,
     this.ondeSheet,
+    this.onCloseSheets,
     super.key,
   }) : assert(
          (onStationTap == null) == (stationSheet == null),
@@ -837,17 +1047,50 @@ class MapView extends StatefulWidget {
   /// tapable à la fois.
   final Widget? ondeSheet;
 
+  /// Appelé par `Échap` (`K2`) pour fermer la fiche ouverte — station OU
+  /// ONDE, jamais les deux à distinguer ici : `main.dart`, la racine de
+  /// composition, ferme les deux ViewModels de fiche d'un coup
+  /// (`stationSheetViewModel.close`, `ondeSheetViewModel.close`), au même
+  /// titre qu'elle garantit déjà leur exclusivité mutuelle au tap
+  /// (`onStationTap`/`onOndeTap` ci-dessus). Fermer une fiche déjà fermée
+  /// est sans effet observable — `StationSheetViewModel.close`/
+  /// `OndeSheetViewModel.close` réémettent le même état `Fermee`. `null` :
+  /// aucune fiche n'est branchée, `Échap` n'a alors rien à fermer.
+  final VoidCallback? onCloseSheets;
+
   @override
   State<MapView> createState() => _MapViewState();
 }
 
 class _MapViewState extends State<MapView> {
+  /// Le contrôleur de caméra `flutter_map` (Z4) : c'est lui que
+  /// [_handleClusterSelect] pilote pour appliquer la cible calculée par
+  /// `MapViewModel.zoomTargetFor` (Z3) — jamais de géométrie recalculée ici.
+  final MapController _mapController = MapController();
+
   /// Construites une seule fois : `MapOptions ==` (paquet flutter_map
   /// 8.3.2, `options.dart`) compare chaque callback par égalité de
   /// fonction, et les tear-offs de méthodes d'instance ci-dessous restent
   /// égaux d'un accès à l'autre — contrairement à des fermetures inline
   /// recréées à chaque `build`, qui auraient fait remplacer l'état interne
   /// du contrôleur `flutter_map` à chaque frame (NFR-01).
+  ///
+  /// `interactionOptions.keyboardOptions` (`K2`, 2026-09-23) : `flutter_map`
+  /// pose, PAR DÉFAUT, son propre `Focus(debugLabel: 'FlutterMap',
+  /// autofocus: true)` et son propre déplacement au clavier — lu dans le
+  /// paquet installé, `lib/src/gestures/map_interactive_viewer.dart` l. 338
+  /// et `lib/src/map/options/keyboard.dart`. Trois choses constatées par
+  /// test avant d'être comprises, dans cet ordre : (1) son `autofocus`
+  /// volait le focus au premier affichage, avant tout `Tab` ; (2) sans lui,
+  /// `flutter_map` aurait déplacé la caméra à la fois par ses propres
+  /// flèches ET par [PanIntent] — deux chemins pour un seul geste ; (3)
+  /// même désactivé, ce `Focus` interne reste un `FocusNode` DISTINCT,
+  /// focalisable — un second arrêt de tabulation pour « carte », que
+  /// l'ordre déclaré n'en compte qu'UN. `focusNode: _mapFocusNode` fait
+  /// donc réutiliser CE nœud par `flutter_map` lui-même : un seul
+  /// `FocusNode` pour « carte », que ce fichier n'enveloppe plus d'un
+  /// second `Focus` (voir le commentaire sur [_mapFocusNode] et la
+  /// disparition de `KeyboardFocusRing` autour de `FlutterMap`).
   late final MapOptions _mapOptions = MapOptions(
     initialCenter: const LatLng(
       initialMapCenterLatitude,
@@ -857,12 +1100,23 @@ class _MapViewState extends State<MapView> {
     minZoom: minimumMapZoom,
     maxZoom: maximumMapZoom,
     onMapEvent: _handleMapEvent,
+    interactionOptions: InteractionOptions(
+      keyboardOptions: KeyboardOptions(
+        enableArrowKeysPanning: false,
+        enableWASDPanning: false,
+        enableQERotating: false,
+        enableRFZooming: false,
+        performLeapTriggerDuration: null,
+        autofocus: false,
+        focusNode: _mapFocusNode,
+      ),
+    ),
   );
 
   @override
   void initState() {
     super.initState();
-    unawaited(widget.viewModel.start());
+    unawaited(widget.viewModel.start(zoom: initialMapZoom));
   }
 
   /// Câblé à `MapOptions.onMapEvent` : ne signale un geste terminé que pour
@@ -877,15 +1131,10 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
-    final LatLngBounds visible = event.camera.visibleBounds;
     unawaited(
       widget.viewModel.onGestureEnded(
-        Bounds(
-          west: visible.west,
-          south: visible.south,
-          east: visible.east,
-          north: visible.north,
-        ),
+        _boundsFromLatLngBounds(event.camera.visibleBounds),
+        zoom: event.camera.zoom,
       ),
     );
   }
@@ -906,6 +1155,187 @@ class _MapViewState extends State<MapView> {
     unawaited(widget.viewModel.widenSearch());
   }
 
+  /// Applique la cible calculée par `MapViewModel.zoomTargetFor` (Z3) —
+  /// aucune géométrie n'est décidée ici, seulement traduite vers l'API du
+  /// contrôleur `flutter_map` (voir la note de lecture en tête de fichier).
+  /// `switch` exhaustif sur [ClusterZoomTarget] (`sealed class`, `BR-011`) :
+  /// une variante ajoutée sans branche ici ne compile pas.
+  ///
+  /// ⚠️ **Relecture du coordinateur** : `fitCamera`/`move` déplacent la
+  /// caméra en émettant un `MapEventMove` de source `mapController`
+  /// (`map_events.dart` l. 134-145, via `moveRaw`,
+  /// `map_controller_impl.dart` l. 142-178, du paquet installé) — un
+  /// événement que [shouldRefreshOn] ignore délibérément (un `MapEventMove`
+  /// est aussi émis à CHAQUE frame d'un glisser en cours, `NFR-01`).
+  /// [MapViewModel.onGestureEnded] n'était donc **jamais** rappelé après
+  /// une sélection de pastille : `level` restait bloqué au niveau d'origine
+  /// malgré une caméra qui avait bougé. Cette méthode appelle donc
+  /// explicitement [MapViewModel.onGestureEnded] avec l'emprise et le zoom
+  /// **résultants** ([_mapController.camera], lu APRÈS le déplacement) —
+  /// jamais [shouldRefreshOn] ni [_handleMapEvent], qui restent réservés
+  /// aux gestes de la carte elle-même.
+  ///
+  /// `fitCamera`/`move` rendent `false` quand le déplacement demandé
+  /// n'avait aucun effet (cible égale à la position courante, ou
+  /// contrainte de caméra qui le refuse) : rien à signaler alors, la caméra
+  /// n'a pas bougé.
+  void _handleClusterSelect(MapAreaCluster cluster) {
+    final bool moved = switch (widget.viewModel.zoomTargetFor(cluster)) {
+      CoverBounds(bounds: final Bounds bounds, minZoom: final double minZoom) =>
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: LatLngBounds(
+              LatLng(bounds.south, bounds.west),
+              LatLng(bounds.north, bounds.east),
+            ),
+            minZoom: minZoom,
+          ),
+        ),
+      CentreOn(
+        latitude: final double lat,
+        longitude: final double lon,
+        zoom: final double zoom,
+      ) =>
+        _mapController.move(LatLng(lat, lon), zoom),
+    };
+
+    _afterCameraMove(moved);
+  }
+
+  /// Signale au ViewModel un déplacement de caméra qui vient d'aboutir —
+  /// avec l'emprise et le zoom **résultants** ([_mapController.camera], lu
+  /// APRÈS le déplacement), jamais une géométrie recalculée ici. Factorisée
+  /// par `K1` (2026-09-23) : [_handleClusterSelect] (sélection d'une
+  /// pastille, `Z4`) et les trois handlers de [MapControls] ci-dessous
+  /// partagent EXACTEMENT ce mécanisme — aucun enchaînement recopié.
+  ///
+  /// [moved] est le retour de `MapController.move`/`fitCamera` : `false`
+  /// quand le déplacement demandé n'avait aucun effet (cible égale à la
+  /// position courante, ou contrainte de caméra qui le refuse) — rien à
+  /// signaler alors, la caméra n'a pas bougé (même relecture que
+  /// [_handleClusterSelect] avant cette factorisation).
+  void _afterCameraMove(bool moved) {
+    if (!moved) {
+      return;
+    }
+
+    final MapCamera camera = _mapController.camera;
+    unawaited(
+      widget.viewModel.onGestureEnded(
+        _boundsFromLatLngBounds(camera.visibleBounds),
+        zoom: camera.zoom,
+      ),
+    );
+  }
+
+  /// Bouton `+` de [MapControls] (`K1`) : un cran de [zoomStep] au même
+  /// centre — jamais construit quand `MapViewModel.canZoomIn` est faux
+  /// (voir [buildMapOverlays]).
+  void _handleZoomIn() {
+    final MapCamera camera = _mapController.camera;
+    _afterCameraMove(
+      _mapController.move(camera.center, camera.zoom + zoomStep),
+    );
+  }
+
+  /// Bouton `−` de [MapControls] (`K1`) : symétrique de [_handleZoomIn].
+  void _handleZoomOut() {
+    final MapCamera camera = _mapController.camera;
+    _afterCameraMove(
+      _mapController.move(camera.center, camera.zoom - zoomStep),
+    );
+  }
+
+  /// Bouton de recentrage de [MapControls] (`K1`) : ramène la caméra à
+  /// l'emprise de démarrage — même centre et même zoom qu'au lancement de
+  /// l'écran (`initialMapCenterLatitude`/`Longitude`, [initialMapZoom]).
+  void _handleRecenter() {
+    _afterCameraMove(
+      _mapController.move(
+        const LatLng(initialMapCenterLatitude, initialMapCenterLongitude),
+        initialMapZoom,
+      ),
+    );
+  }
+
+  /// Le nœud de focus DE SECOURS de « carte », troisième arrêt de l'ordre
+  /// de tabulation déclaré (`mapTraversalOrderCarte`, `K2`) — atteint par
+  /// Tab UNIQUEMENT quand rien n'est dessiné (`skipTraversal`, [build]) :
+  /// chaque marqueur ou pastille réellement dessiné(e) porte, LUI, son
+  /// PROPRE `FocusNode` ([KeyboardFocusRing], dans son propre
+  /// `FocusTraversalGroup` — voir [build] et [_carteFocusOrder]). Ce nœud-ci
+  /// garde `MapView` interactive au clavier même quand aucun marqueur n'est
+  /// encore chargé (`04-ui.md § 3`, « chips → contrôles de zoom → carte →
+  /// lien »).
+  ///
+  /// Passé à `_mapOptions.interactionOptions.keyboardOptions.focusNode` :
+  /// `flutter_map` construit son PROPRE `Focus` interne (paquet installé,
+  /// `map_interactive_viewer.dart`), et lui donner ce nœud ÉVITE d'en
+  /// ajouter un second — voir le commentaire de [_mapOptions]. C'est aussi
+  /// pourquoi ce fichier ne l'enveloppe plus d'un `KeyboardFocusRing` : le
+  /// contour de focus visible de « carte » vient d'un simple
+  /// `AnimatedBuilder` sur ce même nœud (un `FocusNode` est déjà un
+  /// `Listenable`), dans [build].
+  final FocusNode _mapFocusNode = FocusNode(debugLabel: 'carte');
+
+  /// Bouton `+`/`=`/`−` au clavier ([ZoomIntent], `K2`) : réutilise
+  /// EXACTEMENT [_handleZoomIn]/[_handleZoomOut] — aucun enchaînement
+  /// recopié, la souris et le clavier convergent vers le même chemin
+  /// ([_afterCameraMove]).
+  void _handleZoomIntent(ZoomIntent intent) {
+    if (intent.delta > 0) {
+      _handleZoomIn();
+    } else {
+      _handleZoomOut();
+    }
+  }
+
+  /// Les quatre flèches ([PanIntent], `K2`) : déplace le CENTRE de la
+  /// caméra d'une fraction ([keyboardPanFraction]) de l'emprise visible,
+  /// dans [PanIntent.direction] — jamais un nombre de pixels, jamais de
+  /// géométrie recalculée hors de cette méthode. Même chemin que tout autre
+  /// déplacement de caméra : [_afterCameraMove], avec l'emprise et le zoom
+  /// **résultants**.
+  void _handlePan(AxisDirection direction) {
+    final MapCamera camera = _mapController.camera;
+    final LatLngBounds bounds = camera.visibleBounds;
+    final double latitudeStep =
+        (bounds.north - bounds.south) * keyboardPanFraction;
+    final double longitudeStep =
+        (bounds.east - bounds.west) * keyboardPanFraction;
+
+    // `switch` exhaustif sur `AxisDirection` (quatre valeurs) : une
+    // direction ajoutée sans branche ici ne compile pas (`BR-011`, même
+    // discipline que pour `ClusterZoomTarget`).
+    final LatLng target = switch (direction) {
+      AxisDirection.up => LatLng(
+        camera.center.latitude + latitudeStep,
+        camera.center.longitude,
+      ),
+      AxisDirection.down => LatLng(
+        camera.center.latitude - latitudeStep,
+        camera.center.longitude,
+      ),
+      AxisDirection.left => LatLng(
+        camera.center.latitude,
+        camera.center.longitude - longitudeStep,
+      ),
+      AxisDirection.right => LatLng(
+        camera.center.latitude,
+        camera.center.longitude + longitudeStep,
+      ),
+    };
+
+    _afterCameraMove(_mapController.move(target, camera.zoom));
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    _mapFocusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Tout est DANS le `ListenableBuilder` : la légende doit basculer avec
@@ -919,33 +1349,196 @@ class _MapViewState extends State<MapView> {
       body: ListenableBuilder(
         listenable: widget.viewModel,
         builder: (BuildContext context, Widget? child) {
-          return Stack(
-            children: <Widget>[
-              FlutterMap(
-                options: _mapOptions,
-                children: buildMapLayers(
-                  scale: widget.viewModel.scale,
-                  stations: widget.viewModel.stations,
-                  ondeObservations: widget.viewModel.ondeObservations,
-                  ageOf: widget.viewModel.ondeAgeOf,
-                  onStationTap: widget.onStationTap,
-                  onOndeTap: widget.onOndeTap,
-                  stateOf: widget.viewModel.stateOf,
+          // Arbitrage du commanditaire du 2026-09-23 (`K2`) : « carte »
+          // devient un GROUPE de tabulation — Tab y parcourt les pastilles
+          // OU les marqueurs individuels (plus les individuels non
+          // rattachés sous le zoom 9), dans l'ordre DÉTERMINISTE que
+          // `MapViewModel` décide (`orderedClusters`/
+          // `orderedIndividualStations`/`orderedIndividualOndeObservations`
+          // — distance croissante au centre de l'emprise, code croissant en
+          // cas d'égalité, même règle que le préchargement). Cette vue ne
+          // calcule aucune géométrie : elle affiche l'ordre reçu, et
+          // `MarkerLayer` en hérite pour son propre rendu — c'est aussi cet
+          // ordre que Tab suit, par un `NumericFocusOrder` ENTIER posé
+          // explicitement sur chaque élément ([_carteFocusOrder]), PAS par
+          // la règle de repli de `OrderedTraversalPolicy`
+          // (`ReadingOrderTraversalPolicy`, qui trie par POSITION À
+          // L'ÉCRAN — relecture du commanditaire du 2026-09-23, 🔴 1 :
+          // c'est elle qui départageait, à tort, deux éléments de même
+          // ordre par leur position géographique plutôt que par la liste
+          // reçue).
+          //
+          // ⚠️ Un seul `switch` sur [MapScaleKind] décide QUELLE liste
+          // individuelle compte (`BR-008` : une seule famille de marqueurs à
+          // la fois) — le même que celui de [buildMapLayers], jamais
+          // recopié à la légère : les deux DOIVENT s'accorder sur ce qui
+          // est dessiné, sous peine d'un nœud de focus qui pointerait sur
+          // un marqueur absent de l'écran.
+          final List<MapAreaCluster> clusters =
+              widget.viewModel.orderedClusters;
+          final List<StationPoint> orderedStations =
+              widget.viewModel.orderedIndividualStations;
+          final List<OndeObservation> orderedOnde =
+              widget.viewModel.orderedIndividualOndeObservations;
+          final bool carteADuContenuFocalisable =
+              switch (widget.viewModel.scale) {
+                MapScaleKind.debit =>
+                  clusters.isNotEmpty || orderedStations.isNotEmpty,
+                MapScaleKind.ecoulement =>
+                  clusters.isNotEmpty || orderedOnde.isNotEmpty,
+              };
+          // NFR-01 : cette bascule ne crée AUCUN `FocusNode` supplémentaire
+          // — elle règle un champ mutable du nœud interne de `flutter_map`
+          // (voir le commentaire de `_mapOptions`). Les `FocusNode` des
+          // marqueurs, eux, sont créés par [KeyboardFocusRing] UNIQUEMENT
+          // pour ce que [buildMapLayers] dessine réellement (l'emprise
+          // courante, jamais l'asset entier de 4 150 stations) — voir
+          // `_stationMarkers`/`_ondeMarkers`/`_areaClusterMarkers`.
+          _mapFocusNode.skipTraversal = carteADuContenuFocalisable;
+
+          // `Shortcuts`/`Actions`/`FocusTraversalGroup` (`K2`) : les
+          // raccourcis et l'ordre de tabulation ne couvrent QUE cet écran —
+          // un `TextField` posé À CÔTÉ de `MapView` (hors de ce sous-arbre,
+          // comme le harnais de test de `map_keyboard_test.dart`) ne les
+          // reçoit jamais, sans code de garde supplémentaire : l'événement
+          // clavier ne remonte que la chaîne d'ancêtres du nœud focalisé, et
+          // ce `Shortcuts` n'en fait pas partie.
+          return Shortcuts(
+            shortcuts: <ShortcutActivator, Intent>{
+              ...mapShortcuts(),
+              const SingleActivator(LogicalKeyboardKey.escape):
+                  const _CloseSheetsIntent(),
+            },
+            child: Actions(
+              actions: <Type, Action<Intent>>{
+                ZoomIntent: CallbackAction<ZoomIntent>(
+                  onInvoke: (ZoomIntent intent) {
+                    _handleZoomIntent(intent);
+                    return null;
+                  },
+                ),
+                PanIntent: CallbackAction<PanIntent>(
+                  onInvoke: (PanIntent intent) {
+                    _handlePan(intent.direction);
+                    return null;
+                  },
+                ),
+                _CloseSheetsIntent: CallbackAction<_CloseSheetsIntent>(
+                  onInvoke: (_CloseSheetsIntent intent) {
+                    widget.onCloseSheets?.call();
+                    return null;
+                  },
+                ),
+              },
+              child: FocusTraversalGroup(
+                policy: OrderedTraversalPolicy(),
+                child: Stack(
+                  children: <Widget>[
+                    FocusTraversalOrder(
+                      order: const NumericFocusOrder(mapTraversalOrderCarte),
+                      // `_mapFocusNode` reste le `FocusNode` interne de
+                      // `flutter_map` (voir le commentaire de
+                      // `_mapOptions.interactionOptions.keyboardOptions`) —
+                      // mais désormais SAUTÉ par Tab dès qu'un marqueur ou
+                      // une pastille est dessiné(e) ([skipTraversal],
+                      // calculé ci-dessus) : Tab entre alors DIRECTEMENT sur
+                      // le premier élément du groupe, sans arrêt
+                      // intermédiaire vide. Sans contenu (emprise sans rien
+                      // à dessiner), ce nœud reste le seul arrêt de
+                      // « carte » — c'est ce qui garde `MapView` interactive
+                      // au clavier même quand rien n'y est encore chargé.
+                      //
+                      // `FocusTraversalGroup(policy: OrderedTraversalPolicy())`
+                      // (relecture du commanditaire du 2026-09-23, 🔴 1) :
+                      // `FlutterMap` porte sa PROPRE échelle d'ordre, séparée
+                      // de celle du groupe parent — les `NumericFocusOrder`
+                      // ENTIERS posés par [_carteFocusOrder] sur chaque
+                      // marqueur (`0`, `1`, `2`, …) ne peuvent alors jamais
+                      // chevaucher [mapTraversalOrderSheet] (3,5) ni
+                      // [mapTraversalOrderWarningLink] (4), quel que soit le
+                      // nombre de marqueurs dessinés — contrairement à
+                      // l'ancien partage d'une seule échelle avec un pas de
+                      // 0,001, dépassé par une zone dense de plus de 500
+                      // marqueurs (jusqu'à 1 487 constatés à 1920×1080 au
+                      // zoom individuel).
+                      child: FocusTraversalGroup(
+                        policy: OrderedTraversalPolicy(),
+                        child: AnimatedBuilder(
+                          animation: _mapFocusNode,
+                          builder: (BuildContext context, Widget? child) =>
+                              DecoratedBox(
+                                // `position: DecorationPosition.foreground`
+                                // (relecture du commanditaire du
+                                // 2026-09-23, 🔴 2) : par défaut,
+                                // `DecoratedBox` peint sa décoration EN
+                                // ARRIÈRE-PLAN de [child] — ici recouverte
+                                // par les tuiles IGN, opaques, qui rendent
+                                // le contour invisible. En premier plan, il
+                                // se peint PAR-DESSUS.
+                                position: DecorationPosition.foreground,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    // `hasPrimaryFocus`, pas `hasFocus`
+                                    // (relecture du commanditaire du
+                                    // 2026-09-23, 🟢 6) : `hasFocus` reste
+                                    // vrai tant qu'un DESCENDANT porte le
+                                    // focus — un marqueur focalisé aurait
+                                    // ainsi allumé CE contour en même temps
+                                    // que le sien. `hasPrimaryFocus` ne
+                                    // s'allume que si ce nœud précis, et
+                                    // aucun autre, porte le focus.
+                                    color: _mapFocusNode.hasPrimaryFocus
+                                        ? focusRingColor
+                                        : Colors.transparent,
+                                    width: focusRingWidth,
+                                  ),
+                                ),
+                                child: child,
+                              ),
+                          child: FlutterMap(
+                            mapController: _mapController,
+                            options: _mapOptions,
+                            children: buildMapLayers(
+                              scale: widget.viewModel.scale,
+                              // Marqueurs individuels de l'emprise
+                              // courante — vide au niveau régroupé — dans
+                              // l'ordre déterministe calculé ci-dessus.
+                              stations: orderedStations,
+                              ondeObservations: _byCode(orderedOnde),
+                              ageOf: widget.viewModel.ondeAgeOf,
+                              onStationTap: widget.onStationTap,
+                              onOndeTap: widget.onOndeTap,
+                              stateOf: widget.viewModel.stateOf,
+                              clusters: clusters,
+                              onClusterSelect: _handleClusterSelect,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    ...buildMapOverlays(
+                      scale: widget.viewModel.scale,
+                      onSelect: widget.viewModel.selectScale,
+                      onWiden: _handleWiden,
+                      error: widget.viewModel.error,
+                      errorSource: widget.viewModel.errorSource,
+                      stations: widget.viewModel.stations,
+                      ondeObservations: widget.viewModel.ondeObservations,
+                      ondeUnreadableRows: widget.viewModel.ondeUnreadableRows,
+                      onZoomIn: widget.viewModel.canZoomIn
+                          ? _handleZoomIn
+                          : null,
+                      onZoomOut: widget.viewModel.canZoomOut
+                          ? _handleZoomOut
+                          : null,
+                      onRecenter: _handleRecenter,
+                      stationSheet: widget.stationSheet,
+                      ondeSheet: widget.ondeSheet,
+                    ),
+                  ],
                 ),
               ),
-              ...buildMapOverlays(
-                scale: widget.viewModel.scale,
-                onSelect: widget.viewModel.selectScale,
-                onWiden: _handleWiden,
-                error: widget.viewModel.error,
-                errorSource: widget.viewModel.errorSource,
-                stations: widget.viewModel.stations,
-                ondeObservations: widget.viewModel.ondeObservations,
-                ondeUnreadableRows: widget.viewModel.ondeUnreadableRows,
-                stationSheet: widget.stationSheet,
-                ondeSheet: widget.ondeSheet,
-              ),
-            ],
+            ),
           );
         },
       ),

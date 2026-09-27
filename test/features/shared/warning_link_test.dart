@@ -187,6 +187,40 @@ void main() {
     });
   });
 
+  group('WarningWindow — taille minimale de fenêtre Windows (800 × 700, '
+      'décision 8 amendée le 2026-09-23, K3) à 200 % de police', () {
+    testWidgets(
+      'le texte défile au lieu d\'être tronqué, "Fermer" reste atteignable',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 700);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        const String extra = 'Mesure brute du 27/08/2026 à 10:00…';
+        await tester.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: _harness(const WarningLink(extraText: extra)),
+          ),
+        );
+
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+
+        // Aucune exception de rendu (dépassement, `RenderFlex
+        // overflowed`…) : le texte défile au lieu d'être tronqué.
+        expect(tester.takeException(), isNull);
+
+        await tester.ensureVisible(find.byKey(warningWindowCloseButtonKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningWindowCloseButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(find.text(initialWarningTitle), findsNothing);
+      },
+    );
+  });
+
   group('WarningWindow — clavier et focus (relecture du 2026-09-23)', () {
     testWidgets('Tab puis Entrée sur « Fermer » referme la fenêtre', (
       WidgetTester tester,

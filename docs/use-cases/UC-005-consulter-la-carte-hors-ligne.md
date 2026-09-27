@@ -66,5 +66,5 @@ stateDiagram-v2
 
 ## Liens
 
-- ADR : [`ADR-010`](../adr/ADR-010-react-native.md) — le téléchargement de tuiles est fourni par **`OfflineManager.createPack`** (région + niveaux de zoom), vérifié le 2026-07-31. *Auparavant `ADR-005` en faisait un lot de développement à chiffrer, faute d'équivalent côté .NET — c'est ce point qui a motivé la bascule de stack.*
+- ADR : [`ADR-012`](../adr/ADR-012-hors-ligne-cartographique-bloque.md) — le téléchargement de zone reposait, sous la stack précédente, sur `OfflineManager.createPack` ([`ADR-010`](../adr/ADR-010-react-native.md), remplacé), qui plantait ; [`ADR-013`](../adr/ADR-013-bascule-flutter-cible-windows.md) déplace la question sans la résoudre. 💭 **Non livré en Flutter** : seul le cache de tuiles des zones déjà parcourues est constaté (`NV-W2`, `docs/nfr.md` ; point 10 de `docs/project-state.md`). *Amendé le 2026-09-23 (`X5`, purge React Native).*
 - Écran : [`04-ui.md § 1`](../04-ui.md) · Conception : [`03-conception.md § 4.3`](../03-conception.md)

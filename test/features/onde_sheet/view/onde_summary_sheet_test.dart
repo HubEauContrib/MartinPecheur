@@ -16,15 +16,16 @@
 // un échec de tuile ne dirait rien sur ce code.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 OndeStationCode _code() => OndeStationCode('K4520001');
@@ -38,7 +39,9 @@ OndePoint _chaon({
   latitude: 47.610620493,
   longitude: 2.173858157,
   waterCourseLabel: waterCourseLabel,
-  departement: departement == null ? null : DepartementCode(departement),
+  departement: departement == null
+      ? null
+      : AdministrativeArea(code: departement, label: departement),
 );
 
 /// Une observation de la fixture : la date, le code brut et le libellé
@@ -213,9 +216,9 @@ void main() {
     });
   });
 
-  group('ondeSheetTapTarget', () {
+  group('minimumTapTarget (K1, features/shared/tap_target.dart)', () {
     test('vaut 44 pt (04-ui.md § 3, cibles tactiles)', () {
-      expect(ondeSheetTapTarget, 44.0);
+      expect(minimumTapTarget, 44.0);
     });
   });
 
@@ -694,8 +697,8 @@ void main() {
 
         final Size size = tester.getSize(find.byKey(ondeSheetCloseButtonKey));
 
-        expect(size.width, greaterThanOrEqualTo(ondeSheetTapTarget));
-        expect(size.height, greaterThanOrEqualTo(ondeSheetTapTarget));
+        expect(size.width, greaterThanOrEqualTo(minimumTapTarget));
+        expect(size.height, greaterThanOrEqualTo(minimumTapTarget));
       },
     );
 

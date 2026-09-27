@@ -27,6 +27,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/mappers/onde_observation_mapper.dart';
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
@@ -34,7 +35,6 @@ import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
-import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
 
 /// Les dix lignes de la fixture réelle de `K4520001`, converties par le
@@ -615,7 +615,7 @@ void main() {
         latitude: 47.444182169,
         longitude: 1.78116675,
         waterCourseLabel: 'la Bonne Heure',
-        departement: DepartementCode('41'),
+        departement: const AdministrativeArea(code: '41', label: '41'),
       );
       final OndeSheetViewModel viewModel = OndeSheetViewModel(
         onde: onde,

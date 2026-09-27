@@ -28,6 +28,7 @@ import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Les cinq mots proscrits pour qualifier un debit (BR-003, `glossary.md`).
 const List<String> bannedWords = <String>[
@@ -611,7 +612,7 @@ void main() {
         const Size(stationMarkerSize, stationMarkerSize),
       );
       expect(stationMarkerSize, 12);
-      expect(stationMarkerTapTarget, 44);
+      expect(minimumTapTarget, 44);
     });
 
     testWidgets('porte son PROPRE libelle semantique : c est ce qui rend la '

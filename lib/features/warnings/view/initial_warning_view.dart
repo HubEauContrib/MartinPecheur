@@ -3,10 +3,11 @@
 // vient de `lib/domain/warnings/warning_texts.dart` (`BR-012`, `BR-014`).
 //
 // ⚠️ Cette tranche n'importe aucune autre tranche
-// (`test/architecture/layers_test.dart`, règle `feature-vers-feature`) : la
-// cible tactile de 44 pt (`04-ui.md § 3`) est donc recopiée ici, avec sa
-// propre constante — même choix assumé que `station_summary_sheet.dart` et
-// `onde_summary_sheet.dart`.
+// (`test/architecture/layers_test.dart`, règle `feature-vers-feature`), mais
+// `features/shared/` lui reste ouverte (règle `shared-sans-tranche`) : la
+// cible tactile de 44 pt (`04-ui.md § 3`) vient donc de [minimumTapTarget]
+// (`K1`, `lib/features/shared/tap_target.dart`), plus recopiée localement
+// depuis la révision qui a posé cette constante unique.
 //
 // Le corps défile (`SingleChildScrollView`) : à 200 % de police, le texte
 // n'est jamais tronqué (`UC-006 A4`). L'écran entier est une région
@@ -27,12 +28,8 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.dart';
-
-/// Côté minimal d'une cible tactile, en pixels logiques : 44 × 44 pt (iOS),
-/// recopié de `04-ui.md` § 3 — jamais choisi ici, jamais importé d'une autre
-/// tranche (règle `feature-vers-feature`).
-const double minimumTapTarget = 44.0;
 
 /// Clé de la région d'alerte que forme l'écran entier — c'est sur ce
 /// `Semantics` que les tests vérifient `SemanticsFlag.isLiveRegion`.

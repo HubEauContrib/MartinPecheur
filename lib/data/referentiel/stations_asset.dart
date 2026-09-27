@@ -15,11 +15,26 @@
 
 import 'dart:convert';
 
+import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 
 /// Chemin de l'asset du referentiel, fige a la generation (ADR-003).
 const String stationsAssetPath = 'assets/referentiel/stations.json';
+
+/// Code de projection pour lequel `latitude_station`/`longitude_station` (et
+/// `geometry.coordinates`, qui les recopie) sont INVERSEES dans le
+/// referentiel (`C-18`). Fait constate le 2026-09-23 : 54 stations
+/// metropolitaines portent `code_projection: 31` ; verifie par appel reel le
+/// 2026-09-23 a 12:38:59 UTC sur `H000000201` et `H004000101`
+/// (`/v2/hydrometrie/referentiel/stations?code_station=H000000201,H004000101
+/// &fields=...&format=json`, HTTP 200, `api_version` 2.0.1) — pour les deux,
+/// `coordonnee_x_station`/`coordonnee_y_station` sont justes (x = longitude,
+/// y = latitude), `docs/sources/hubeau-hydrometrie.md` § « Référentiel
+/// figé ». Arbitrage du commanditaire (2026-09-23) : pour ce seul code, lire
+/// X/Y plutot que `geometry.coordinates`. Aucune autre heuristique — un 55e
+/// cas hors projection 31 (`J543211003`) reste un point ouvert, non traite.
+const int _swappedLatLonProjectionCode = 31;
 
 /// Resultat de l'analyse du referentiel : les points exploitables, les
 /// entites [Station] completes, et les deux compteurs d'entites ecartees
@@ -140,6 +155,12 @@ _ParsedFeature? _parseFeature(Object? feature) {
     return null;
   }
 
+  final ({num latitude, num longitude}) position = _positionOf(
+    properties,
+    fallbackLatitude: rawLatitude,
+    fallbackLongitude: rawLongitude,
+  );
+
   final String? rawCode = properties['code_station'] as String?;
   if (rawCode == null) {
     return null;
@@ -158,11 +179,85 @@ _ParsedFeature? _parseFeature(Object? feature) {
     StationPoint(
       code: code,
       label: label,
-      latitude: rawLatitude.toDouble(),
-      longitude: rawLongitude.toDouble(),
+      latitude: position.latitude.toDouble(),
+      longitude: position.longitude.toDouble(),
+      region: _regionOf(properties),
+      departement: _departementAreaOf(properties),
     ),
     properties,
   );
+}
+
+/// Position d'une station (`C-18`) : sous `code_projection ==
+/// [_swappedLatLonProjectionCode]` et quand `coordonnee_x_station`/
+/// `coordonnee_y_station` sont des nombres, longitude = X, latitude = Y —
+/// `geometry.coordinates` est alors inversee et ne doit pas etre lue. Sinon
+/// (autre projection, ou X/Y absents/mal formes), repli sur
+/// [fallbackLatitude]/[fallbackLongitude] issues de `geometry.coordinates`,
+/// comme avant `C-18`. Aucune autre heuristique : pas de permutation « si
+/// incoherent ».
+({num latitude, num longitude}) _positionOf(
+  Map<String, dynamic> properties, {
+  required num fallbackLatitude,
+  required num fallbackLongitude,
+}) {
+  final Object? codeProjection = properties['code_projection'];
+  if (codeProjection == _swappedLatLonProjectionCode) {
+    final Object? x = properties['coordonnee_x_station'];
+    final Object? y = properties['coordonnee_y_station'];
+    if (x is num && y is num) {
+      return (latitude: y, longitude: x);
+    }
+  }
+  return (latitude: fallbackLatitude, longitude: fallbackLongitude);
+}
+
+/// Analyse la région administrative (`code_region`/`libelle_region`,
+/// ADR-015). Rend `null` — jamais une erreur, jamais un point écarté
+/// (BR-007) — dès que `code_region` est absent, vide ou non textuel : les 37
+/// stations sans rattachement du référentiel (33 transfrontalières, deux à
+/// Boulogne-sur-Mer, deux en Corse) n'en portent aucune. Aucun type dédié ne
+/// valide le code région (à la différence de [DepartementCode]) : c'est une
+/// chaîne libre, comme le référentiel la porte. `libelle_region` absent ou
+/// vide replie le libellé sur le code, comme `libelle_station`.
+AdministrativeArea? _regionOf(Map<String, dynamic> properties) {
+  final Object? rawCode = properties['code_region'];
+  if (rawCode is! String || rawCode.trim().isEmpty) {
+    return null;
+  }
+  final Object? rawLabel = properties['libelle_region'];
+  final String label = (rawLabel is String && rawLabel.trim().isNotEmpty)
+      ? rawLabel
+      : rawCode;
+  return AdministrativeArea(code: rawCode, label: label);
+}
+
+/// Analyse le département administratif (ADR-015), sous forme
+/// d'[AdministrativeArea] — code ET libellé, à la différence de
+/// [_toStationEntity] qui ne porte que le [DepartementCode] validé. Le code
+/// reste validé par [DepartementCode] à la lecture, puis rangé comme `code`
+/// ; un code absent, vide ou mal formé rend `null` — jamais une erreur,
+/// jamais un point écarté (BR-007) : contrairement à [Station], un
+/// [StationPoint] reste dessiné sur la carte sans département connu.
+/// `libelle_departement` absent ou vide replie le libellé sur le code.
+AdministrativeArea? _departementAreaOf(Map<String, dynamic> properties) {
+  final Object? rawCode = properties['code_departement'];
+  if (rawCode is! String) {
+    return null;
+  }
+
+  final DepartementCode code;
+  try {
+    code = DepartementCode(rawCode);
+  } on ArgumentError {
+    return null;
+  }
+
+  final Object? rawLabel = properties['libelle_departement'];
+  final String label = (rawLabel is String && rawLabel.trim().isNotEmpty)
+      ? rawLabel
+      : code.value;
+  return AdministrativeArea(code: code.value, label: label);
 }
 
 /// Construit l'entite [Station] complete a partir de [parsed]. Renvoie

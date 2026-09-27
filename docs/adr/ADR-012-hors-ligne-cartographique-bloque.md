@@ -109,7 +109,7 @@ Marche à suivre, et lecture du résultat :
 
 Le cas de reproduction tient en un appui : `src/features/map/OfflinePackProbe.tsx`. La marche à
 suivre complète — installation, relevé du journal, lecture du résultat — est dans
-[`guide-test-appareil.md`](../guide-test-appareil.md).
+`guide-test-appareil.md` — *guide supprimé le 2026-09-23 avec la purge React Native (`X5`) ; il reste lisible dans l'historique git.*
 
 ⚠️ **La preuve est dans le journal, pas à l'écran.** « L'application s'est fermée » est une
 impression ; c'est la ligne `regex_error` qui distingue ce plantage-ci de n'importe quel autre.

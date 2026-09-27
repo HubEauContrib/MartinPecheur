@@ -4,6 +4,11 @@ Base URL : `https://hubeau.eaufrance.fr/api/v1/ecoulement` · `api_version` **1.
 le 2026-09-13) · aucune authentification · Licence Ouverte Etalab. Rôle : observations
 visuelles de terrain. Décision liée : `ADR-006` — quatre catégories d'affichage.
 
+**Consommée par l'app depuis la version `0.2.0`** (T1) : `HttpOndeObservationRepository`
+(`lib/data/onde/`), décoré par `CachedOndeObservationRepository` — par emprise pour la carte, par
+code de station pour la fiche, sur le `HubEauClient` partagé avec l'hydrométrie. Forme filaire à
+treize champs depuis `ADR-015` (`T-16`).
+
 ⚠️ **Ce n'est pas une mesure, c'est un regard** : des agents se déplacent quelques fois par
 an, de mai à septembre. Entre deux campagnes, personne ne regarde — `BR-010` impose
 d'afficher l'âge de la campagne pour cette raison.
@@ -106,7 +111,8 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
 
 > ⚠️ **Numérotation** : le commanditaire a demandé ce fait sous le numéro `T-11`. `T-11` est
 > **déjà pris** par le relevé `shared_preferences` du plan T1
-> (`docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md`, l. 56, 757 et 771).
+> (`docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md`, tableau des faits
+> à vérifier, l. 60 au 2026-09-23 ; repris à la tâche `W1`).
 > Un numéro ne se réutilise pas : ce fait est donc `T-14`, premier libre.
 
 - `T-14` 🚨 **Le code de station ONDE est une chaîne libre, pas un code à huit caractères.**
@@ -177,6 +183,15 @@ mot, l'écran dit **« À sec »** ; le libellé officiel reste conservé pour l
 ⚠️ `T-07` **`code_campagne` change de type selon l'endpoint** : entier dans `/campagnes`
 (`109905`), chaîne dans `/observations` (`"109905"`) — un modèle qui le type `int` casse sur
 l'un des deux.
+
+- `T-16` **La forme filaire à treize champs (`ADR-015`) est acceptée**, `code_region`,
+  `libelle_region` et `libelle_departement` compris — constaté par appel réel le 2026-09-23 à
+  10:32:44 UTC :
+  `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=code_station,libelle_station,code_departement,libelle_cours_eau,code_campagne,date_observation,code_ecoulement,libelle_ecoulement,latitude,longitude,code_region,libelle_region,libelle_departement`
+  → HTTP **206**, `count` **30**, `api_version` `1.2.0`. Première ligne : `code_station`
+  `"K4640001"`, `code_departement` `"41"`, `libelle_departement` `"Loir-et-Cher"`,
+  `code_region` `"24"`, `libelle_region` `"Centre-Val de Loire"`, `date_observation`
+  `"2026-08-25"`, `code_ecoulement` `"3"`. Les treize champs sont acceptés et rendus.
 
 ## Non vérifié
 

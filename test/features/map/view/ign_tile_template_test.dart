@@ -4,6 +4,8 @@
 // test qui distingue x et y à l'exécution attrape la panne.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart'
+    show ignMaxNativeZoom;
 
 void main() {
   group('ignTileUrlTemplate', () {
@@ -53,6 +55,9 @@ void main() {
       expect(ignTileDimension, 256);
     });
 
+    // `ignMaxNativeZoom` vit désormais dans `map_zoom_bounds.dart` (`K1`,
+    // relecture du coordinateur du 2026-09-23), pas dans ce module — le
+    // TileLayer IGN reste son appelant, ce test reste donc à sa place.
     test('le zoom natif maximal est 18', () {
       expect(ignMaxNativeZoom, 18);
     });

@@ -31,6 +31,30 @@ const Set<String> _expectedFields = <String>{
   'libelle_station',
   'libelle_cours_eau',
   'code_departement',
+  // ADR-015 (2026-09-22) : treize champs désormais, vérifiés par appel réel
+  // le 2026-09-23 (T-16, docs/sources/onde.md).
+  'code_region',
+  'libelle_region',
+  'libelle_departement',
+};
+
+/// Les DIX champs demandés le 2026-09-14 (T-14), avant `ADR-015` — un fait
+/// historique figé dans `test/fixtures/onde/
+/// observations_station_A721_3011_espace_2026-09-14.json` (son champ
+/// `first`), jamais mis à jour : ce n'est pas ce que l'app construit
+/// aujourd'hui (`_expectedFields`, treize champs), seulement ce qu'elle
+/// construisait alors.
+const Set<String> _dixChampsHistoriquesDuT14 = <String>{
+  'code_station',
+  'libelle_station',
+  'code_departement',
+  'libelle_cours_eau',
+  'code_campagne',
+  'date_observation',
+  'code_ecoulement',
+  'libelle_ecoulement',
+  'latitude',
+  'longitude',
 };
 
 void main() {
@@ -69,19 +93,22 @@ void main() {
       expect(uri.queryParameters['sort'], 'desc');
     });
 
-    test('fields vaut exactement les dix champs attendus (liste maintenue en '
-        'double avec le mapper, voir commentaire de _observationFields)', () {
-      final Uri uri = ondeObservationsWithinBoundsUri(
-        bounds: Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
-        since: DateTime.utc(2026, 7, 15),
-      );
+    test(
+      'fields vaut exactement les treize champs attendus (liste maintenue en '
+      'double avec le mapper, voir commentaire de _observationFields)',
+      () {
+        final Uri uri = ondeObservationsWithinBoundsUri(
+          bounds: Bounds(west: 1.0, south: 47.3, east: 1.8, north: 47.8),
+          since: DateTime.utc(2026, 7, 15),
+        );
 
-      final Set<String> fields = uri.queryParameters['fields']!
-          .split(',')
-          .toSet();
+        final Set<String> fields = uri.queryParameters['fields']!
+            .split(',')
+            .toSet();
 
-      expect(fields, _expectedFields);
-    });
+        expect(fields, _expectedFields);
+      },
+    );
 
     test('les virgules sont encodées en %2C (forme vérifiée par appel réel le '
         '2026-09-13, voir docs/sources/onde.md, T-12, T-13)', () {
@@ -129,19 +156,22 @@ void main() {
       expect(uri.queryParameters['sort'], 'desc');
     });
 
-    test('fields vaut exactement les dix champs attendus (liste maintenue en '
-        'double avec le mapper, voir commentaire de _observationFields)', () {
-      final Uri uri = ondeObservationsForStationUri(
-        OndeStationCode('K4520001'),
-        size: 5,
-      );
+    test(
+      'fields vaut exactement les treize champs attendus (liste maintenue en '
+      'double avec le mapper, voir commentaire de _observationFields)',
+      () {
+        final Uri uri = ondeObservationsForStationUri(
+          OndeStationCode('K4520001'),
+          size: 5,
+        );
 
-      final Set<String> fields = uri.queryParameters['fields']!
-          .split(',')
-          .toSet();
+        final Set<String> fields = uri.queryParameters['fields']!
+            .split(',')
+            .toSet();
 
-      expect(fields, _expectedFields);
-    });
+        expect(fields, _expectedFields);
+      },
+    );
 
     test('size: 0 lève ArgumentError (C-08)', () {
       expect(
@@ -213,9 +243,11 @@ void main() {
       expect(premiere['libelle_cours_eau'], 'ruisseau la rivière aux loches');
     });
 
-    test("l'URI construite pour 'A721 3011' porte les mêmes paramètres que "
-        "celle que l'API a elle-même rendue dans le champ `first` de la "
-        'capture du 2026-09-14 (T-14)', () {
+    test("l'URI construite pour 'A721 3011' porte le même code_station et "
+        "le même chemin que celle que l'API a elle-même rendue dans le "
+        'champ `first` de la capture du 2026-09-14 (T-14) ; ses treize '
+        'champs actuels restent un sur-ensemble des dix champs historiques '
+        'de cette capture', () {
       final Map<String, dynamic> capture = jsonDecode(
         File(
           'test/fixtures/onde/'
@@ -239,9 +271,20 @@ void main() {
       );
       expect(construite.queryParameters['code_station'], 'A721 3011');
       expect(rendueParLApi.path, construite.path);
+      // La fixture a été capturée le 2026-09-14, AVANT `ADR-015` — le champ
+      // `first` qu'elle porte reflète encore les dix champs d'alors, pas les
+      // treize actuels. Comparaison contre ce fait historique, jamais contre
+      // `_expectedFields` (qui, lui, décrit ce que l'app construit AUJOURD'HUI).
       expect(
         rendueParLApi.queryParameters['fields']!.split(',').toSet(),
-        _expectedFields,
+        _dixChampsHistoriquesDuT14,
+      );
+      // Le lien avec l'app d'aujourd'hui : ses treize champs contiennent
+      // TOUJOURS les dix de cette capture historique — `ADR-015` en a
+      // ajouté trois, il n'en a retiré aucun.
+      expect(
+        construite.queryParameters['fields']!.split(',').toSet(),
+        containsAll(_dixChampsHistoriquesDuT14),
       );
     });
   });

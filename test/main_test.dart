@@ -44,6 +44,9 @@ final class _EmptyStationPointRepository implements StationPointRepository {
     Bounds bounds, {
     double margin = defaultViewportMargin,
   }) async => const <StationPoint>[];
+
+  @override
+  Future<List<StationPoint>> all() async => const <StationPoint>[];
 }
 
 final class _EmptyHydroObservationRepository

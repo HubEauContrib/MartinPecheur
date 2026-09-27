@@ -1190,7 +1190,7 @@ git add lib/features/map test/features/map && git commit -m "refactor(map): rend
 
 | Fait | Constat |
 |---|---|
-| Asset `assets/referentiel/stations.json` | 4 150 entités ; `code_region`, `libelle_region`, `code_departement`, `libelle_departement` présents sur **4 113**, absents **ensemble** sur **37**. **18 régions** (13 hexagonales Corse comprise, 5 d'outre-mer : `01`, `02`, `03`, `04`, `06`), **101 départements**, aucun département rattaché à deux régions. Libellés en capitales sans accent (`OCCITANIE`, `LOIR-ET-CHER`). Occitanie `76` : **753** stations, barycentre `43,0786 ; 2,8731`. La Réunion `04` : **51** stations, barycentre `−21,0700 ; 55,5233`. Loir-et-Cher `41` : **28** stations |
+| Asset `assets/referentiel/stations.json` | 4 150 entités ; `code_region`, `libelle_region`, `code_departement`, `libelle_departement` présents sur **4 113**, absents **ensemble** sur **37**. **18 régions** (13 hexagonales Corse comprise, 5 d'outre-mer : `01`, `02`, `03`, `04`, `06`), **101 départements**, aucun département rattaché à deux régions. Libellés en capitales sans accent (`OCCITANIE`, `LOIR-ET-CHER`). Occitanie `76` : **753** stations, barycentre ~~`43,0786 ; 2,8731`~~ **`43,674926 ; 2,276708`** (recalculé le 2026-09-23 après `C-18` : l'ancien chiffre incluait des stations aux coordonnées inversées). La Réunion `04` : **51** stations, barycentre `−21,0700 ; 55,5233`. Loir-et-Cher `41` : **28** stations |
 | Les 37 sans rattachement | `en_service` est un booléen sur les 4 150 : ces 37 sont exactement les `stationsSkipped` de `parseStations`. ⚠️ **Elles restent des `StationPoint`** et sont dessinées sur la carte (`main.dart` l'alimente avec `stationsRead.points`) — ex. `A021005050` « Le Rhin en Suisse [Bâle (Rheinhalle)] ». Le regroupement doit donc les laisser **individuelles**, à tous les zooms |
 | Fixture `test/fixtures/onde/observations_bbox_loire_2026-09-13.json` | **30 lignes sur 30** portent `code_region` `24` / `libelle_region` « Centre-Val de Loire » et `libelle_departement` (casse mixte) ; **15** stations distinctes. Une observation par station, la plus récente : département `41` **13** points (7 « 3 », 5 « 1f », 1 « 2 »), barycentre `47,507709 ; 1,346744` ; département `45` **2** points (2 « 3 »), barycentre `47,770521 ; 1,754937` ; les 15 ensemble `47,542750 ; 1,401170` |
 | `fields` de `lib/data/http/onde_uris.dart` | Les dix champs demandés **n'incluent ni `code_region`, ni `libelle_region`, ni `libelle_departement`** : en production, la réponse ne les porte pas aujourd'hui. Les trois fixtures capturées avec `fields` (`observations_station_*_2026-09-14.json`) n'en ont aucun |
@@ -1236,7 +1236,7 @@ git add -- docs/adr/ADR-015-regroupement-par-zone-administrative.md docs/04-ui.m
 
 - `mostSevere` : 19 × `Ecoulement` + 1 × `Assec` → `Assec` (cas de `BR-009`, mot pour mot) ; `NonObserve` + 1 × `Ecoulement` → `Ecoulement` ; `[EcoulementFaible, EcoulementNonVisible]` → `EcoulementNonVisible` ; `[Ecoulement, EcoulementFaible]` → `EcoulementFaible` ; `[NonObserve, Inconnu('9z')]` → `NonObserve` ; `[Inconnu(null)]` → `Inconnu(null)` ; la même liste **inversée** rend la même catégorie ; liste vide → `ArgumentError`.
 - `clusterByArea`, niveau `departement`, sur les 15 observations de la fixture Loire (une par station, la plus récente, lues par `mapOndeObservation`) → **2** agrégats, `41` puis `45` ; `41` : **13** membres, barycentre `47,507709 ; 1,346744` (à 1e-6), `mostSevere` des catégories → `Assec` ; `45` : **2** membres, barycentre `47,770521 ; 1,754937`. Niveau `region` → **1** agrégat `24` « Centre-Val de Loire », **15** membres, barycentre `47,542750 ; 1,401170`.
-- `clusterByArea` sur l'asset réel, niveau `region` → **18** agrégats et **37** `unassigned` ; `76` « OCCITANIE » : **753** membres, barycentre `43,0786 ; 2,8731` (à 1e-4) ; `04` : **51** membres, barycentre de latitude **négative** — l'outre-mer tombe sur son territoire. Niveau `departement` → **101** agrégats, **37** `unassigned`. Somme des `count` + `unassigned.length` = **4 150**.
+- `clusterByArea` sur l'asset réel, niveau `region` → **18** agrégats et **37** `unassigned` ; `76` « OCCITANIE » : **753** membres, barycentre ~~`43,0786 ; 2,8731`~~ **`43,674926 ; 2,276708`** (recalculé le 2026-09-23 après `C-18` : l'ancien chiffre incluait des stations aux coordonnées inversées) (à 1e-4) ; `04` : **51** membres, barycentre de latitude **négative** — l'outre-mer tombe sur son territoire. Niveau `departement` → **101** agrégats, **37** `unassigned`. Somme des `count` + `unassigned.length` = **4 150**.
 - Un point sans zone (`A021005050`) est dans `unassigned`, à la même position relative qu'en entrée ; deux membres de même code et de libellés différents → **un** agrégat, libellé du premier.
 - `AreaCluster.bounds` : un membre unique → `null` ; deux membres de même latitude → `null` ; deux membres distincts → une `Bounds` égale aux min/max exacts, sans marge.
 - `parseStations` sur l'asset réel : **4 113** `StationPoint` avec `region` et `departement` non nuls, **37** avec les deux nuls ; `points` **4 150**, `skipped` **0**, `stations` **4 113**, `stationsSkipped` **37** — inchangés. Sur `stations_extrait_2026-09-13.json` : `K447001001` → `region` `null` (champ absent), `departement` code `41` et libellé replié `41` (libellé absent de l'extrait).
@@ -1244,16 +1244,16 @@ git add -- docs/adr/ADR-015-regroupement-par-zone-administrative.md docs/04-ui.m
 - `onde_uris_test.dart` : la liste attendue passe à **treize** champs, dans l'ordre de `_observationFields`.
 - `AssetStationPointRepository.all()` sur l'asset réel → **4 150** points, le premier et le dernier identiques à ceux de `parseStations(…).points` ; sur l'extrait `stations_extrait_2026-09-13.json` → **2** points ; une tentative d'écriture dans la liste rendue lève `UnsupportedError` ; deux appels rendent des listes de même contenu.
 
-- [ ] **Étape 1** — écrire `flow_severity_test.dart`, `administrative_area_test.dart`, `area_cluster_test.dart` et les ajouts à `onde_point_test.dart`. Rouge.
-- [ ] **Étape 2** — `flutter test test/domain` → échec, types absents.
-- [ ] **Étape 3** — implémenter le domaine ; `flutter test test/domain test/architecture` → vert.
-- [ ] **Étape 4** — **vérifier par appel réel** la forme filaire à treize champs, avant d'y toucher (`CLAUDE.md`, anti-hallucination) : `curl` de `…/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=<les treize champs>` → attendu HTTP **200** ou **206**, chaque ligne porte `code_region`, `libelle_region`, `libelle_departement`. **Recopier** le code HTTP et la date ; consigner le fait dans `docs/sources/onde.md` sous le **premier numéro `T-` libre** (`T-15` est pris par l'hydrométrie, vérifier avant d'écrire). Si l'API refuse un champ, **arrêt et question** : le mapper n'est pas modifié sur une hypothèse.
-- [ ] **Étape 5** — écrire les ajouts aux tests de `stations_asset`, du mapper, des URI et d'`AssetStationPointRepository.all()`. Rouge.
-- [ ] **Étape 6** — implémenter l'analyse de l'asset, le mapper, la liste de champs et `all()` (contrat, dépôt d'asset, deux doubles de test) ; `flutter test test/data test/domain test/architecture` → vert.
-- [ ] **Étape 7** — `flutter test` → vert, **nombre de tests recopié** ; critère de fin, puis commit.
+- [x] **Étape 1** — écrire `flow_severity_test.dart`, `administrative_area_test.dart`, `area_cluster_test.dart` et les ajouts à `onde_point_test.dart`. Rouge.
+- [x] **Étape 2** — `flutter test test/domain` → échec, types absents.
+- [x] **Étape 3** — implémenter le domaine ; `flutter test test/domain test/architecture` → vert.
+- [x] **Étape 4** (2026-09-23, HTTP 206, consigné en `T-16`) — **vérifier par appel réel** la forme filaire à treize champs, avant d'y toucher (`CLAUDE.md`, anti-hallucination) : `curl` de `…/v1/ecoulement/observations?bbox=1.0%2C47.3%2C1.8%2C47.8&date_observation_min=2026-07-15&size=2&sort=desc&fields=<les treize champs>` → attendu HTTP **200** ou **206**, chaque ligne porte `code_region`, `libelle_region`, `libelle_departement`. **Recopier** le code HTTP et la date ; consigner le fait dans `docs/sources/onde.md` sous le **premier numéro `T-` libre** (`T-15` est pris par l'hydrométrie, vérifier avant d'écrire). Si l'API refuse un champ, **arrêt et question** : le mapper n'est pas modifié sur une hypothèse.
+- [x] **Étape 5** — écrire les ajouts aux tests de `stations_asset`, du mapper, des URI et d'`AssetStationPointRepository.all()`. Rouge.
+- [x] **Étape 6** — implémenter l'analyse de l'asset, le mapper, la liste de champs et `all()` (contrat, dépôt d'asset, deux doubles de test) ; `flutter test test/data test/domain test/architecture` → vert.
+- [x] **Étape 7** (2026-09-23) — `flutter test` → vert, **948 tests** (908 avant Z2), relu par un second agent, corrections appliquées ; critère de fin, puis commit.
 
 ```bash
-git add -- lib/domain lib/data lib/features/onde_sheet test/domain test/data test/features docs/sources/onde.md docs/domain-model.md && git commit -m "feat(domain): rattacher stations et points ONDE a leur region et a leur departement" -m "Le referentiel embarque porte region et departement sur 4 113 entites sur 4 150 ; la reponse ONDE les porte des que fields les demande (verifie par appel reel, voir docs/sources/onde.md). Le champ est facultatif : les 37 points sans rattachement restent sur la carte, sans zone inventee (BR-007). clusterByArea est une partition, au barycentre calcule, sans centroide recopie ; mostSevere suit l ordre de BR-009, Non observe et Non renseigne hors classement. ADR-015."
+git add -- lib/domain lib/data lib/features/onde_sheet test/domain test/data test/features docs/sources/onde.md docs/domain-model.md test/main_test.dart && git commit -m "feat(domain): rattacher stations et points ONDE a leur region et a leur departement" -m "Le referentiel embarque porte region et departement sur 4 113 entites sur 4 150 ; la reponse ONDE les porte des que fields les demande (verifie par appel reel, voir docs/sources/onde.md). Le champ est facultatif : les 37 points sans rattachement restent sur la carte, sans zone inventee (BR-007). clusterByArea est une partition, au barycentre calcule, sans centroide recopie ; mostSevere suit l ordre de BR-009, Non observe et Non renseigne hors classement. ADR-015."
 ```
 
 ### Task Z3 : `MapViewModel` — le niveau de zoom décide du regroupement
@@ -1288,11 +1288,11 @@ git add -- lib/domain lib/data lib/features/onde_sheet test/domain test/data tes
 - `onGestureEnded` avec la **même** emprise et un zoom qui change de niveau (`8,9` → `9`) → une notification, `level` passe à `null`.
 - Après `Z3` : `grep -n "levelFor\|individualMarkersFromZoom" lib/features/map/view/map_view.dart` ne montre que des **lectures**, aucune comparaison de zoom écrite dans la vue.
 
-- [ ] **Étape 1** — écrire les cas ci-dessus. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view_model` → échec.
-- [ ] **Étape 3** — implémenter dans le ViewModel ; la vue ne fait que **transmettre** `camera.zoom` avec l'emprise (`start`, `onGestureEnded`).
-- [ ] **Étape 4** — `flutter test test/features/map test/architecture` → vert ; `flutter test` → vert, **nombre de tests recopié**.
-- [ ] **Étape 5** — critère de fin, puis commit.
+- [x] **Étape 1** — écrire les cas ci-dessus. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view_model` → échec.
+- [x] **Étape 3** — implémenter dans le ViewModel ; la vue ne fait que **transmettre** `camera.zoom` avec l'emprise (`start`, `onGestureEnded`).
+- [x] **Étape 4** (2026-09-23) — `flutter test test/features/map test/architecture` → vert ; `flutter test` → vert, **972 tests** (948 avant `Z3`) ; relu par un second agent avec essais de mutation, corrections appliquées.
+- [x] **Étape 5** — critère de fin, puis commit.
 
 ```bash
 git add -- lib/features/map test/features/map && git commit -m "feat(map): le ViewModel regroupe par region puis par departement sous le zoom 9" -m "Sous le zoom 7 une pastille par region, de 7 a 9 une par departement, a partir de 9 les marqueurs individuels (ADR-015). Seuils en constantes nommees, testes aux bornes 6,9 / 7 / 8,9 / 9. Le prechargement des debits n a lieu qu au niveau individuel : une pastille ne montre aucun etat de station, NFR-07 interdit le travail reseau sans destinataire. Sur l echelle debit, compte seul avant les percentiles. Un point sans region reste individuel."
@@ -1315,20 +1315,20 @@ git add -- lib/features/map test/features/map && git commit -m "feat(map): le Vi
 - `buildMapLayers` au niveau `region`, échelle `debit` : autant de pastilles que d'agrégats, **plus** un marqueur individuel par point sans région ; au niveau individuel : **aucune** pastille (famille unique, `BR-008`).
 - **Goldens**, regardés avant versionnement et contre-épreuve rouge constatée (même harnais que `U5`, `golden_harness.dart`) : (1) pastille **régionale**, échelle écoulement, `Assec` récent, compte **15** ; (2) pastille **départementale**, échelle débit, ◇ neutre, compte **28** (Loir-et-Cher) ; (3) compte à trois chiffres, **753**, pour vérifier que le badge ne déborde pas.
 
-- [ ] **Étape 1** — écrire `area_cluster_marker_test.dart` et les ajouts à `map_view_test.dart`. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view` → échec.
-- [ ] **Étape 3** — **lire** dans `flutter_map` 8.3.2 installé l'API d'ajustement de caméra à une emprise et de déplacement ; noter fichier et ligne dans l'en-tête de `area_cluster_marker.dart` ou de `map_view.dart`.
-- [ ] **Étape 4** — implémenter la pastille et brancher `buildMapLayers` ; `flutter test test/features/map` → vert.
-- [ ] **Étape 5** — écrire les goldens, `--update-goldens`, **regarder** les trois images, contre-épreuve (une teinte changée → rouge), rétablir.
-- [ ] **Étape 6** — `flutter test` → vert, **nombre de tests recopié**.
-- [ ] **Étape 7 — constat à l'écran : commanditaire.**
+- [x] **Étape 1** — écrire `area_cluster_marker_test.dart` et les ajouts à `map_view_test.dart`. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view` → échec.
+- [x] **Étape 3** — **lire** dans `flutter_map` 8.3.2 installé l'API d'ajustement de caméra à une emprise et de déplacement ; noter fichier et ligne dans l'en-tête de `area_cluster_marker.dart` ou de `map_view.dart`.
+- [x] **Étape 4** — implémenter la pastille et brancher `buildMapLayers` ; `flutter test test/features/map` → vert.
+- [x] **Étape 5** — écrire les goldens, `--update-goldens`, **regarder** les trois images, contre-épreuve (une teinte changée → rouge), rétablir.
+- [x] **Étape 6** (2026-09-23) — `flutter test` → vert, **993 tests** (972 avant `Z4`) ; relu deux fois par un second agent avec essais de mutation : sélection sans rechargement corrigée, `CoverBounds.minZoom` ajouté (arbitrage du coordinateur : sur écran étroit l'ajustement retombait sous le seuil), `MapController` libéré.
+- [x] **Étape 7 — constat à l'écran : commanditaire** (2026-09-23, Windows). (1) à (4) **vus**, et le badge « 753 » lisible ; (5) Narrateur, facultatif, non essayé. **Vu aussi** : deux pastilles régionales mal placées (Hauts-de-France près de Besançon, Centre-Val de Loire vers le Massif central) — 54 stations aux coordonnées inversées par Hub'Eau, corrigé en `5dde8d5` (`C-18`) puis **revu à l'écran** (220 à Amiens, 225 entre Orléans et Tours, plus aucun losange hors de France) ; pastilles d'Île-de-France qui se chevauchent au niveau département, marqueurs corses sur la pastille 62 — **écart accepté pour T1** (`04-ui.md § 3`). Seuils 7 et 9 **gardés**.
 
 ```bash
 flutter run -d windows
 ```
 Attendu, à constater **à l'écran**, un point par ligne : (1) au démarrage (zoom 5, échelle écoulement), **une pastille par région** hexagonale visible, chacune avec son compte et le symbole de son état le plus sévère — plus de nappe de marqueurs ; (2) échelle débit au même zoom : pastilles ◇ avec **compte seul** — une région à moitié hors écran garde son compte entier (Occitanie : **753**) —, et les stations transfrontalières (Rhin à Bâle, Semois en Belgique) **dessinées seules** ; (3) molette jusqu'au zoom 7 → **une pastille par département** ; jusqu'au zoom 9 → **marqueurs individuels**, et sur l'échelle débit les losanges commencent à se remplir (préchargement) ; (4) **sélection d'une pastille** → la carte zoome sur ses membres, **aucune fiche** ne s'ouvre ; (5) facultatif : le Narrateur annonce « Écoulement : …, N points d'observation sur cette vue, état le plus sévère : … ». **Recopier ce qui a été vu, y compris ce qui n'a pas marché**, et dire si les seuils 7 et 9 conviennent — ce sont eux que le constat révise.
 
-- [ ] **Étape 8** — critère de fin, puis commit, avec le constat recopié ; mettre à jour le point 30 de `docs/project-state.md` (résolu sous le zoom 9) dans le même commit.
+- [x] **Étape 8** (2026-09-23) — critère de fin, puis commit, avec le constat recopié ; mettre à jour le point 30 de `docs/project-state.md` (résolu sous le zoom 9) dans le même commit.
 
 ```bash
 git add -- lib/features/map test/features docs/project-state.md && git commit -m "feat(map): pastilles de region et de departement, selection qui zoome sur la zone" -m "Symboles existants seulement : le symbole ONDE de l etat le plus severe sur l echelle ecoulement (BR-009), le losange neutre et le compte seul sur l echelle debit. Une annonce par pastille, prefixee par l echelle (BR-008). La selection applique la cible calculee par le ViewModel, n ouvre aucune fiche. Trois goldens regardes, contre-epreuve rouge constatee. Constate a l ecran sur Windows : <recopier>. Point 30 resolu sous le zoom 9 (ADR-015)."
@@ -1358,10 +1358,10 @@ git add -- lib/features/map test/features docs/project-state.md && git commit -m
 - `grep -rn "= 44" lib/` → **une** occurrence, dans `lib/features/shared/tap_target.dart` ; les tests de taille de `U1`, `U2`, `U4` passent inchangés en valeur.
 - `MapScaleChips` et `IgnAttributionBadge` : leurs tests existants passent **sans modification d'assertion** après le déplacement (seuls les imports changent).
 
-- [ ] **Étape 1** — écrire le test. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view/map_controls_test.dart` → échec.
-- [ ] **Étape 3** — poser `lib/features/shared/tap_target.dart` et y rattacher les trois copies ; sortir `MapScaleChips` et `IgnAttributionBadge` ; implémenter `MapControls` et brancher.
-- [ ] **Étape 4** — `flutter test` → vert (`layers_test.dart` compris : trois tranches importent `features/shared/`, qui n'en importe aucune), puis critère de fin et commit.
+- [x] **Étape 1** — écrire le test. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view/map_controls_test.dart` → échec.
+- [x] **Étape 3** — poser `lib/features/shared/tap_target.dart` et y rattacher les trois copies ; sortir `MapScaleChips` et `IgnAttributionBadge` ; implémenter `MapControls` et brancher.
+- [x] **Étape 4** (2026-09-23 — **1 026 tests** ; relu avec essais de mutation : bornes de zoom sorties dans `view_model/map_zoom_bounds.dart`, fiche décalée pour ne jamais passer sous les boutons, bouton qui s'étirait sur toute la largeur corrigé, alias de 44 supprimés) — `flutter test` → vert (`layers_test.dart` compris : trois tranches importent `features/shared/`, qui n'en importe aucune), puis critère de fin et commit.
 
 ```bash
 git add lib/features test/features && git commit -m "feat(map): boutons plus, moins et recentrage, cibles de 44 pt" -m "La molette zoome sur Windows depuis le constat du 2026-09-13 ; ces boutons ne la remplacent pas, ils servent qui n en a pas. Les bornes de zoom restent celles de MapOptions : les redefinir ici en ferait deux sources de verite. La cible de 44 pt, definie trois fois faute d endroit commun, l est une seule fois dans features/shared. Les puces d echelle et l attribution IGN sortent de map_view.dart. Les controles ne recouvrent ni le bandeau d avertissement ni l attribution IGN."
@@ -1384,18 +1384,18 @@ git add lib/features test/features && git commit -m "feat(map): boutons plus, mo
 - Un raccourci **ne se déclenche pas** quand le focus est dans un champ de saisie : vérifié avec un **`TextField` posé dans le harnais de test** à côté de la surcouche de carte — focus dans le champ, `+` tapé → le caractère entre dans le champ, **aucune** `ZoomIntent` ne parvient au ViewModel. ~~Vérifié sur le modal d'acquittement~~ (révision du 2026-09-22 : le modal n'a qu'une case à cocher et précède la carte, il ne peut pas prouver ce cas).
 - `mapShortcuts()` n'a **aucune clé en double** : aucune collision de raccourci.
 
-- [ ] **Étape 1** — écrire le test avec `sendKeyEvent`, sans rendre `FlutterMap` : les intentions sont vérifiées sur le ViewModel. Rouge.
-- [ ] **Étape 2** — `flutter test test/features/map/view/map_keyboard_test.dart` → échec.
-- [ ] **Étape 3** — implémenter avec `Shortcuts` / `Actions` / `FocusTraversalOrder` — **rien d'autre**, aucune dépendance ajoutée.
-- [ ] **Étape 4** — `flutter test` → vert.
-- [ ] **Étape 5 — constat à l'écran : commanditaire.**
+- [x] **Étape 1** — écrire le test avec `sendKeyEvent`, sans rendre `FlutterMap` : les intentions sont vérifiées sur le ViewModel. Rouge.
+- [x] **Étape 2** — `flutter test test/features/map/view/map_keyboard_test.dart` → échec.
+- [x] **Étape 3** — implémenter avec `Shortcuts` / `Actions` / `FocusTraversalOrder` — **rien d'autre**, aucune dépendance ajoutée.
+- [x] **Étape 4** (2026-09-23) — `flutter test` → vert, **1 057 tests** en 12,7 s. Arbitrage du commanditaire : la carte est un groupe de tabulation — Tab parcourt pastilles ou marqueurs dessinés du plus proche au plus lointain du centre, Entrée/Espace = tap. Relu deux fois avec essais de mutation : ordre au-delà de 500 marqueurs, anneau de focus peint sous le contrôle, focus qui changeait de station, touche « + » inopérante — corrigés.
+- [x] **Étape 5 — constat à l'écran : commanditaire** (2026-09-23, Windows, `--release`). Vu : focus visible et déplacé dans l'ordre annoncé (Maj+Tab à l'inverse), Entrée sur une pastille zoome et sur un marqueur ouvre sa fiche, flèches déplacent la carte, `+`/`−` zooment (clavier principal, AZERTY et pavé numérique), Échap ferme la fiche. Six sur six.
 
 ```bash
 flutter run -d windows
 ```
 Attendu, à constater **à l'écran** : (1) `Tab` fait apparaître un focus **visible** et le déplace dans l'ordre annoncé ; (2) les flèches déplacent la carte ; (3) `+` et `−` zooment ; (4) `Échap` ferme la feuille. **Recopier ce qui a été vu, y compris ce qui n'a pas marché.**
 
-- [ ] **Étape 6** — critère de fin, puis commit, avec le constat recopié.
+- [x] **Étape 6** (2026-09-23) — critère de fin, puis commit, avec le constat recopié.
 
 ```bash
 git add lib/features/map test/features/map && git commit -m "feat(map): piloter la carte au clavier, avec un ordre de tabulation declare" -m "L ordre de tabulation est declare et teste, pas laisse au hasard de l arbre de widgets : un reordonnancement de la vue le changerait sans que rien ne le dise. Un raccourci ne se declenche pas quand le focus est dans un champ de saisie. Constate a l ecran sur Windows : <recopier>."
@@ -1407,25 +1407,27 @@ git add lib/features/map test/features/map && git commit -m "feat(map): piloter 
 
 **Invariant :** en dessous d'une certaine largeur le bandeau d'avertissement se tronque, et `BR-012` comme `04-ui.md § 3` l'interdisent. La taille minimale est donc **une exigence d'avertissement**, pas un confort. ⚠️ **Amendé le 2026-09-23 (`W3c`)** : plus de bandeau. Lire « bandeau » comme « puces, légende et contrôle « ⚠ Avertissement » tiennent sans se recouvrir, modal et fenêtre défilent sans être tronqués » ; le chiffre reste à justifier (décision 8).
 
+⚠️ **Amendé une seconde fois le 2026-09-23 (arbitrage du commanditaire)** : ~~800 × 600~~ → **800 × 700**. Mesuré par `K3` : à 800 × 600, la légende de l'échelle « débit » (le paragraphe « comparaison statistique », `BR-003`) recouvrait la colonne des contrôles de zoom — chiffres dans `test/features/map/view/map_view_test.dart` (test « RAISON DE L'AMENDEMENT »). L'échelle « écoulement » tenait déjà à 600 ; c'est l'échelle « débit » qui a fait remonter le chiffre. `ptMinTrackSize` contraint la fenêtre EXTÉRIEURE, pas la zone cliente : la contrainte est posée via `AdjustWindowRectExForDpi` (Win32, documentée) pour garantir que c'est bien la ZONE CLIENTE qui atteint 800 × 700, quels que soient bordures et barre de titre.
+
 **Cas de test**
 
-- Le fichier de plateforme déclare une taille minimale de **800 × 600** (décision 8), lisible par `grep` — le test lit le fichier, il ne compile rien.
-- La légende, le bandeau et les contrôles tiennent à 800 × 600 : test de widget à taille de fenêtre forcée, **sans** rendre `FlutterMap`.
-- À **200 %** de taille de police et 800 × 600, l'avertissement **défile** au lieu d'être tronqué (`04-ui.md § 3`).
+- Le fichier de plateforme déclare une taille minimale de ~~**800 × 600**~~ **800 × 700** (décision 8, amendée le 2026-09-23), lisible par `grep` — le test lit le fichier, il ne compile rien.
+- La légende, le bandeau et les contrôles tiennent à ~~800 × 600~~ **800 × 700**, sur les DEUX échelles : test de widget à taille de fenêtre forcée, **sans** rendre `FlutterMap`.
+- À **200 %** de taille de police et ~~800 × 600~~ **800 × 700**, l'avertissement **défile** au lieu d'être tronqué (`04-ui.md § 3`).
 
-- [ ] **Étape 1 — lire** le gabarit Windows pour trouver où la géométrie est posée. ⚠️ Ne pas écrire de mémoire : `flutter create` a généré ce code, sa forme se lit.
-- [ ] **Étape 2** — écrire le test rouge.
-- [ ] **Étape 3** — `flutter test test/project/windows_min_size_test.dart` → échec.
-- [ ] **Étape 4** — poser la contrainte dans le fichier lu à l'étape 1.
-- [ ] **Étape 5** — `flutter test` → vert.
-- [ ] **Étape 6 — constat à l'écran : commanditaire.**
+- [x] **Étape 1 — lire** le gabarit Windows pour trouver où la géométrie est posée. ⚠️ Ne pas écrire de mémoire : `flutter create` a généré ce code, sa forme se lit.
+- [x] **Étape 2** — écrire le test rouge.
+- [x] **Étape 3** — `flutter test test/project/windows_min_size_test.dart` → échec.
+- [x] **Étape 4** — poser la contrainte dans le fichier lu à l'étape 1.
+- [x] **Étape 5** (2026-09-23) — `flutter test` → vert, **1 077 tests**. Taille minimale **800 × 700 de zone cliente** (arbitrage du commanditaire), posée par `WM_GETMINMAXINFO` et `AdjustWindowRectExForDpi` dans `windows/runner/win32_window.cpp` ; relu avec essais de mutation. Le point 44 est écarté par test : ruban DEBUG, pas une troncature.
+- [x] **Étape 6 — constat à l'écran : commanditaire** (2026-09-23, Windows, `--release` — première construction native du code de `K3`). Vu : la fenêtre refuse de descendre sous ≈ 800 × 700 ; à cette taille, légende, contrôles de zoom, puces, « ⚠ Avertissement » et attribution IGN tiennent sans se recouvrir, sur les deux échelles ; « ⚠ Avertissement » entier, sans ruban DEBUG (point 44 clos) ; une fiche ouverte ne passe pas sous les boutons.
 
 ```bash
 flutter run -d windows
 ```
-Attendu : la fenêtre **refuse** d'être réduite sous 800 × 600 ; à cette taille, le bandeau d'avertissement et la légende restent **entiers**. **Recopier le constat.**
+Attendu : la fenêtre **refuse** d'être réduite sous ~~800 × 600~~ **800 × 700** (amendé le 2026-09-23) ; à cette taille, le bandeau d'avertissement et la légende restent **entiers**. **Recopier le constat.**
 
-- [ ] **Étape 7** — critère de fin, puis commit.
+- [x] **Étape 7** (2026-09-23) — critère de fin, puis commit.
 
 ```bash
 git add windows test && git commit -m "feat(ui): taille de fenetre minimale sur Windows, pour que l avertissement ne se tronque pas" -m "Ce n est pas un confort : sous une certaine largeur le bandeau d avertissement se tronque, et 04-ui section 3 comme BR-012 l interdisent. La geometrie a ete LUE dans le gabarit genere avant d etre modifiee. Constate a l ecran : <recopier>."
@@ -1450,11 +1452,11 @@ git add windows test && git commit -m "feat(ui): taille de fenetre minimale sur 
 - Un scénario **par borne** de `BR-005` — **1 h 59, 2 h 00, 23 h 59, 24 h 00** — et **par borne** de `BR-010` — **59 j, 60 j** — valeurs écrites dans le Gherkin avec l'affichage attendu.
 - `avertissements.feature` porte un scénario par emplacement de `04-ui.md § 5` : bouton inactif au premier lancement (`BR-012`) · texte modifié, écran réaffiché (`UC-006 A3`) · ~~bandeau visible à tous les zooms~~ → **contrôle « ⚠ Avertissement » présent sur la carte à tous les zooms**, sa fenêtre reprend le texte du modal initial (`W3c`, 2026-09-23) · ~~encart daté sur la fiche station~~ → **contrôle « ⚠ Avertissement » en tête de la fiche station, sa fenêtre porte la phrase datée sous le texte général**, et la valeur porte sa date et sa source nommée (`BR-001`, `W3c`). ~~Encart renforcé non repliable (`BR-013`)~~ : 🔄 **T2**, avec l'écran des restrictions (révision du 2026-09-22).
 
-- [ ] **Étape 1** — écrire `acceptance_features_test.dart` **avant** les `.feature` : rouge, le dossier n'existe pas.
-- [ ] **Étape 2** — `flutter test test/project/acceptance_features_test.dart` → échec.
-- [ ] **Étape 3** — écrire les quatre `.feature`, avec les valeurs concrètes des bornes.
-- [ ] **Étape 4** — contre-épreuve : remplacer un `BR-005` par `BR-099` → **rouge**. Rétablir.
-- [ ] **Étape 5** — indexer `docs/acceptance/` dans `docs/README.md`, puis critère de fin et commit.
+- [x] **Étape 1** — écrire `acceptance_features_test.dart` **avant** les `.feature` : rouge, le dossier n'existe pas.
+- [x] **Étape 2** — `flutter test test/project/acceptance_features_test.dart` → échec.
+- [x] **Étape 3** — écrire les quatre `.feature`, avec les valeurs concrètes des bornes.
+- [x] **Étape 4** — contre-épreuve : remplacer un `BR-005` par `BR-099` → **rouge**. Rétablir.
+- [x] **Étape 5** (2026-09-23, `e062b13`) — indexer `docs/acceptance/` dans `docs/README.md`, puis critère de fin et commit.
 
 ```bash
 git add docs test && git commit -m "docs(acceptance): criteres Gherkin en francais, rattaches a une regle existante" -m "Aucun framework BDD en T1 : ces scenarios sont de la specification lisible, et un test verifie qu ils sont bien formes et qu ils citent un BR qui EXISTE sur le disque. Contre-epreuve faite : un BR-099 invente rend la suite rouge. Un scenario par borne de BR-005 et de BR-010, avec les valeurs ecrites — 1 h 59, 2 h 00, 59 jours, 60 jours."
@@ -1479,11 +1481,11 @@ git add docs test && git commit -m "docs(acceptance): criteres Gherkin en franca
 - **`BR-013` porte l'état 🔄 T2** (révision du 2026-09-22, décision 11) : il apparaît dans la matrice, ce qui satisfait « chaque `BR` apparaît », et le test l'**accepte sans fichier de test**, au même titre que les user stories de sécheresse. Son texte est verrouillé par `warning_texts_version_test.dart`, mais aucun test ne prouve encore son **emplacement** : la matrice ne le prétend pas.
 - Contre-épreuve : retirer la ligne `BR-010` → **rouge**.
 
-- [ ] **Étape 1** — écrire `tracabilite_test.dart` d'abord. Rouge.
-- [ ] **Étape 2** — `flutter test test/project/tracabilite_test.dart` → échec.
-- [ ] **Étape 3** — écrire `docs/tracabilite.md` en lisant les fichiers de test **réellement présents** : aucun chemin écrit de mémoire.
-- [ ] **Étape 4** — contre-épreuve ci-dessus, puis rétablir.
-- [ ] **Étape 5** — indexer dans `docs/README.md`, puis critère de fin et commit.
+- [x] **Étape 1** — écrire `tracabilite_test.dart` d'abord. Rouge.
+- [x] **Étape 2** — `flutter test test/project/tracabilite_test.dart` → échec.
+- [x] **Étape 3** — écrire `docs/tracabilite.md` en lisant les fichiers de test **réellement présents** : aucun chemin écrit de mémoire.
+- [x] **Étape 4** — contre-épreuve ci-dessus, puis rétablir.
+- [x] **Étape 5** (2026-09-23, `4640cc2`) — indexer dans `docs/README.md`, puis critère de fin et commit.
 
 ```bash
 git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tests, maintenue a la main et verifiee par test" -m "Generer la matrice supposerait de deviner une intention a partir d un nom de test : on obtiendrait une matrice complete et fausse. Le test refuse les trous — chaque BR, chaque UC, chaque US Must apparait, et chaque fichier de test cite existe reellement sur le disque. C est ce qui empeche une matrice ecrite a la main de pourrir. Les user stories de secheresse portent l etat T2, sans pretendre etre couvertes."
@@ -1517,19 +1519,23 @@ git add docs test && git commit -m "docs(tracabilite): matrice US, BR, UC et tes
 - Sans `--dart-define`, `main.dart` ne l'instancie pas : assertion sur l'absence d'enregistrement de rappel.
 - Le décorateur de comptage délègue **chaque** appel au dépôt décoré et compte exactement le nombre d'appels ; sans drapeau, `main.dart` ne l'intercale pas.
 
-- [ ] **Étape 1** — écrire le test du calcul. Rouge.
-- [ ] **Étape 2** — `flutter test test/diagnostics` → échec.
-- [ ] **Étape 3** — implémenter la sonde et la brancher derrière le drapeau.
-- [ ] **Étape 4** — `flutter test` → vert.
-- [ ] **Étape 5 — mesurer : commanditaire.**
+- [x] **Étape 1** — écrire le test du calcul. Rouge.
+- [x] **Étape 2** — `flutter test test/diagnostics` → échec.
+- [x] **Étape 3** — implémenter la sonde et la brancher derrière le drapeau.
+- [x] **Étape 4** (2026-09-23 — **1 185 tests** ; relu deux fois avec essais de mutation : panneau à largeur fixe en bas à gauche, boutons sans animation et premier lot de trames ignoré après `start()` (sinon ~50-60 trames rapides diluaient la mesure d'environ 9 %), `buildP90` et retard sur `totalSpan` ajoutés à titre informatif, seuils `NFR-01` inchangés) — `flutter test` → vert.
+- [x] **Étape 5 — mesurer : commanditaire.** (2026-09-27, en `--profile` : `NFR-01` tenu sur `G1` — deux essais, les deux recopiés —, `G2` avec 5 appels au dépôt pour 6 crans, et `G3` ; chiffres dans `docs/nfr.md`)
 
 ```bash
-flutter run -d windows --dart-define=FLUIDITY_PROBE=true
+~~flutter run -d windows --dart-define=FLUIDITY_PROBE=true~~
+```
+**Amendement du 2026-09-23 (relecture, 🔴 1/🟠 2/🟠 5)** — le mode debug fausse la mesure (`CLAUDE.md`) ; la commande ci-dessus n'est pas corrigée mais barrée, remplacée par celle-ci :
+```bash
+flutter run -d windows --profile --dart-define=FLUIDITY_PROBE=true
 ```
 Attendu : exécuter `G1`, `G2`, `G3` dans l'ordre et **recopier les trois rapports** — `frameCount`, `rasterP50`, `rasterP90`, `lateFramePercent` —, plus, pour `G2`, le **nombre d'appels au dépôt de points** et le nombre de crans de molette donnés. ⚠️ **Le résultat n'est pas connu d'avance.** Le repère du spike — p90 **16,2 ms** pour **8,9 %** de trames en retard — vient d'une autre plateforme et de l'approche par regroupement : **il ne se transpose pas**. Si `NFR-01` n'est pas tenu, c'est un **résultat** : il se consigne, le seuil ne bouge pas, le travail se planifie.
 
-- [ ] **Étape 6** — mettre `docs/nfr.md` à jour : `NFR-01` colonnes « Constaté par » et « État », les trois gestes nommés, les chiffres recopiés ; `NV-W3` levé ou maintenu ; **`NV-W6` instruit** — clos avec les chiffres, ou maintenu avec la tâche d'anti-rebond ouverte et soumise au commanditaire (point 21 de `docs/project-state.md` mis à jour dans le même commit).
-- [ ] **Étape 7** — critère de fin, puis commit.
+- [x] **Étape 6** (2026-09-27 — `NV-W3` levé, `NV-W6` clos sans anti-rebond) — mettre `docs/nfr.md` à jour : `NFR-01` colonnes « Constaté par » et « État », les trois gestes nommés, les chiffres recopiés ; `NV-W3` levé ou maintenu ; **`NV-W6` instruit** — clos avec les chiffres, ou maintenu avec la tâche d'anti-rebond ouverte et soumise au commanditaire (point 21 de `docs/project-state.md` mis à jour dans le même commit).
+- [x] **Étape 7** — critère de fin, puis commit.
 
 ```bash
 git add lib docs test && git commit -m "feat(diagnostics): mesurer la fluidite de la carte sur Windows, sur trois gestes definis d avance" -m "Les trois gestes sont ecrits AVANT la mesure : choisir le geste apres avoir vu les chiffres est la facon la plus simple de tenir un seuil sans rien tenir. Les seuils de NFR-01 — p90 16,7 ms et moins de 5 pour cent de trames en retard — ne bougent pas. Mesure du <date> sur Windows : G1 <..>, G2 <..> et <N> appels au depot pour <M> crans, G3 <..>. NV-W3 <leve / maintenu>. NV-W6 <clos / tache d anti-rebond ouverte>. La sonde et le compteur sont inertes sans leur drapeau."
@@ -1550,12 +1556,12 @@ git add lib docs test && git commit -m "feat(diagnostics): mesurer la fluidite d
 - `CLAUDE.md` : la table « Où on en est » met T1 à jour, la ligne CQRS est **retirée** au profit de MVVM (`ADR-014`), et `ADR-011` n'est plus marqué « réservé ».
 - `docs/project-state.md` cite `v0.2.0` et les constats de la porte.
 
-- [ ] **Étape 1** — étendre `changelog_test.dart` : rouge sur `0.2.0`.
-- [ ] **Étape 2** — `flutter test test/project/changelog_test.dart` → échec.
-- [ ] **Étape 3** — écrire la section `0.2.0` : `### Ajouté` (fiche station, ONDE, **trois des quatre avertissements** — modal, bandeau, encart daté ; depuis `W3c` (2026-09-23) : modal, et un contrôle « ⚠ Avertissement » sur la carte et chaque fiche —, clavier/souris, Gherkin, traçabilité) · `### Modifié` (MVVM, `CachePolicy` en décorateur de dépôt, heure affichée en heure locale — `H1`) · `### Retiré` (`lib/application/`) · **`### Non vérifié`**.
-- [ ] **Étape 4** — porter `version: 0.2.0+2` dans `pubspec.yaml`.
-- [ ] **Étape 5** — reprendre `plan-de-tests.md`, `project-state.md`, `nfr.md`, les deux fiches de sources, `03-conception.md` (l. 48) et `CLAUDE.md`.
-- [ ] **Étape 6** — `flutter test` → vert, puis critère de fin et commit.
+- [x] **Étape 1** — étendre `changelog_test.dart` : rouge sur `0.2.0`.
+- [x] **Étape 2** — `flutter test test/project/changelog_test.dart` → échec.
+- [x] **Étape 3** — écrire la section `0.2.0` : `### Ajouté` (fiche station, ONDE, **trois des quatre avertissements** — modal, bandeau, encart daté ; depuis `W3c` (2026-09-23) : modal, et un contrôle « ⚠ Avertissement » sur la carte et chaque fiche —, clavier/souris, Gherkin, traçabilité) · `### Modifié` (MVVM, `CachePolicy` en décorateur de dépôt, heure affichée en heure locale — `H1`) · `### Retiré` (`lib/application/`) · **`### Non vérifié`**.
+- [x] **Étape 4** — porter `version: 0.2.0+2` dans `pubspec.yaml`.
+- [x] **Étape 5** — reprendre `plan-de-tests.md`, `project-state.md`, `nfr.md`, les deux fiches de sources, `03-conception.md` (l. 48) et `CLAUDE.md`.
+- [x] **Étape 6** (2026-09-23 — **1 188 tests** ; `NFR-01` écrit « sonde livrée, mesure due » dans `### Non vérifié`, aucun chiffre) — `flutter test` → vert, puis critère de fin et commit.
 
 ```bash
 git add CHANGELOG.md pubspec.yaml docs CLAUDE.md test && git commit -m "docs: ouvrir la version 0.2.0, et reprendre les documents que le code a fait mentir" -m "CLAUDE.md decrivait un CQRS leger que ADR-014 a remplace, et un ADR-011 reserve que W1 a tranche : un fichier qui contredit le code se corrige dans le meme commit. La section Non verifie nomme les questions d API restees ouvertes, iOS jamais compile, l etat reel d Android et BR-013 reporte en T2 — un CHANGELOG qui les taisait ferait croire a un produit fini."
@@ -1576,9 +1582,9 @@ git add CHANGELOG.md pubspec.yaml docs CLAUDE.md test && git commit -m "docs: ou
 **Critère de fin :** `grep -rniE "react native|expo|maplibre|createpack|jest|tsc|typescript" docs CLAUDE.md README.md --include=*.md` ne rend que les ADR conservés et `ADR-013` (qui raconte la bascule) ; `git ls-files assets` ne liste que `assets/referentiel/stations.json` ; `docs/README.md` ne référence plus de guide APK ; `flutter test test/project/` vert (les tests de docs lisent `nfr.md`, `domain-model.md`, `CHANGELOG.md`).
 
 - [ ] ~~**Étape 1** — poser la question fermée sur les ADR ; attendre la réponse.~~ **Supprimée le 2026-09-22** : arbitrée le 2026-09-18, ADR remplacés gardés.
-- [ ] **Étape 2** — purger `docs/project-state.md` (retirer le `<details>` historique, garder une ligne « historique des stacks : voir ADR-005, 010, 013 »), `docs/README.md`, les documents de cadrage, `guide-installation.md`.
-- [ ] **Étape 3** — `git rm` des deux guides et des six PNG ; vérifier qu'aucun test ne les lit. Signaler au commanditaire que `node_modules/` reste à supprimer par lui.
-- [ ] **Étape 4** — critère de fin, `flutter analyze`, `flutter test`, commit.
+- [x] **Étape 2** — purger `docs/project-state.md` (retirer le `<details>` historique, garder une ligne « historique des stacks : voir ADR-005, 010, 013 »), `docs/README.md`, les documents de cadrage, `guide-installation.md`.
+- [x] **Étape 3** — `git rm` des deux guides et des six PNG ; vérifier qu'aucun test ne les lit. Signaler au commanditaire que `node_modules/` reste à supprimer par lui.
+- [x] **Étape 4** (2026-09-23 — deux guides APK et six PNG Expo retirés, `git ls-files assets` ne liste plus que le référentiel ; `UC-005` et `ADR-012` amendés pour ne plus pointer vers `createPack` comme vers un fait vivant ni vers un guide supprimé) — critère de fin, `flutter analyze`, `flutter test`, commit.
 
 ```bash
 git add docs assets CLAUDE.md && git commit -m "docs: purger les traces de l architecture React Native, sauf les ADR remplaces" -m "Demande du commanditaire du 2026-09-14. Les guides APK et les PNG Expo sont supprimes, l historique de project-state.md retire ; les ADR remplaces restent, avec leur statut : ce sont les seules traces de pourquoi deux stacks ont ete abandonnees."
@@ -1590,28 +1596,28 @@ git add docs assets CLAUDE.md && git commit -m "docs: purger les traces de l arc
 
 **Files:** aucun fichier modifié. C'est une **épreuve**, pas un développement.
 
-- [ ] **Étape 1 — vérifier une dernière fois, avant de construire.** Claude :
+- [x] **Étape 1 — vérifier une dernière fois, avant de construire.** Claude : (2026-09-27, au commit `1240879`, code inchangé depuis : `No issues found!`, **1 188 tests verts**, 0 fichier reformaté)
 
 ```bash
 flutter analyze && flutter test && dart format --set-exit-if-changed lib test
 ```
 Attendu : `No issues found!`, **tous les tests verts**, code de sortie 0 au formatage. **Recopier le nombre total de tests** : c'est un chiffre de la porte.
 
-- [ ] **Étape 2 — construire : commanditaire.**
+- [x] **Étape 2 — construire : commanditaire.** (2026-09-27 : « Building Windows application... 21,1s » ; ⚠️ la ligne `√ Built` **n'a pas été recopiée** — la construction est attestée par `martinpecheur.exe`, daté du 2026-09-27 11:55:34)
 
 ```bash
 flutter build windows --release
 ```
 Attendu : une ligne finale `√ Built` (ou `Built`) nommant le chemin sous `build\windows\`. **Recopier la ligne exacte et la durée.** ⚠️ **Ne pas mettre cette commande dans un tube** : un tube masque le code de sortie et l'on croit avoir réussi alors que rien n'a été produit.
 
-- [ ] **Étape 3 — mesurer le dossier produit (`NFR-06`).** Claude :
+- [x] **Étape 3 — mesurer le dossier produit (`NFR-06`).** Claude : (2026-09-27 : **33 Mo**, 4 entrées à la racine, 14 fichiers en tout — `NFR-06` tenu)
 
 ```bash
 du -sh build/windows/x64/runner/Release && ls -1 build/windows/x64/runner/Release | wc -l
 ```
 Attendu : un poids **≤ 60 Mo** (repère de `0.1.0` : **31 Mo**, 14 fichiers). **Recopier les deux chiffres.** Si le chemin diffère, le corriger d'après la ligne `Built` — le chemin s'énonce d'après le constat.
 
-- [ ] **Étape 4 — lancer l'exécutable seul : commanditaire.** **Fermer d'abord toute session de développement** : l'épreuve est qu'il tourne **sans** l'outil.
+- [x] **Étape 4 — lancer l'exécutable seul : commanditaire.** (2026-09-27 : **les cinq points constatés à l'écran**. Le point 1 l'a été après effacement de l'acquittement déjà présent sur le poste — fichier `shared_preferences.json` renommé en `.bak` —, puis réécrit par l'exécutable à 12:17:20) **Fermer d'abord toute session de développement** : l'épreuve est qu'il tourne **sans** l'outil.
 
 ```bash
 ./build/windows/x64/runner/Release/martinpecheur.exe
@@ -1622,14 +1628,14 @@ Attendu, à constater **à l'écran** — **les cinq points, ou la porte n'est p
 2. ~~Le **bandeau d'avertissement** est lisible sur la carte, à **tous** les zooms, et ne se ferme pas.~~ **Amendé le 2026-09-23 (`W3c`)** : le contrôle **« ⚠ Avertissement »** est présent sur la carte, au-dessus de la légende, à **tous** les zooms ; il ouvre la fenêtre « Des informations, pas une autorisation », lisible en entier, fermée par « Fermer ».
 3. **Un tap sur une station** ouvre la feuille : ~~encart daté en tête~~ **contrôle « ⚠ Avertissement » en tête, dont la fenêtre porte la phrase datée sous le texte général** (`W3c`, 2026-09-23), libellé, cours d'eau, département, **débit en m³/s avec sa date en heure locale** (« 27/08/2026 à 10:00 », **sans** « UTC » — `H1`) **et la source Hub'Eau nommée à côté** (`BR-001`, `W4`), hauteur en m, statut et qualification. Si la source est indisponible (`T-10`), la feuille **nomme la source** au lieu de rester vide — c'est aussi un constat valide.
 4. **L'échelle « écoulement » affiche les points ONDE** avec leurs formes et couleurs, et un tap ouvre la fiche avec sa **date de campagne**. La bascule vers « débit » change **marqueurs et légende ensemble**.
-5. Le **clavier** pilote la carte : `Tab` montre un focus visible, les flèches déplacent, `+`/`−` zooment ; la fenêtre **refuse** d'être réduite sous 800 × 600 et l'avertissement n'est pas tronqué.
+5. Le **clavier** pilote la carte : `Tab` montre un focus visible, les flèches déplacent, `+`/`−` zooment ; la fenêtre **refuse** d'être réduite sous ~~800 × 600~~ **800 × 700** (`K3`, amendé le 2026-09-23) et l'avertissement n'est pas tronqué.
 
 Un point manquant se note comme manquant : ce n'est pas une porte qu'on arrondit.
 
 ⚠️ **L'encart renforcé est absent de `0.2.0`, et c'est attendu** : `BR-013` est reporté en T2 (décision 11), faute d'écran de ressource en T1. Son absence n'est **pas** un point manquant de la porte ; elle est écrite dans la section « Non vérifié » de `P2`.
 
-- [ ] **Étape 5 — épreuve hors réseau : commanditaire.** Désactiver la carte réseau, relancer l'exécutable. Attendu, **non connu d'avance** : les pastilles s'affichent (asset embarqué), les tuiles viennent du cache de la bibliothèque sur les zones déjà parcourues, et la feuille d'une station **nomme la source injoignable** au lieu d'afficher un état neutre (`BR-007`). **Constater, ne pas supposer.**
-- [ ] **Étape 6 — consigner** dans `docs/nfr.md` (`NFR-01`, `NFR-03`, `NFR-04`, `NFR-06`) et `docs/project-state.md`, puis commit.
+- [x] **Étape 5 — épreuve hors réseau : commanditaire.** (2026-09-27 : conforme à l'attendu, constaté à l'écran) Désactiver la carte réseau, relancer l'exécutable. Attendu, **non connu d'avance** : les pastilles s'affichent (asset embarqué), les tuiles viennent du cache de la bibliothèque sur les zones déjà parcourues, et la feuille d'une station **nomme la source injoignable** au lieu d'afficher un état neutre (`BR-007`). **Constater, ne pas supposer.**
+- [x] **Étape 6 — consigner** dans `docs/nfr.md` (`NFR-01`, `NFR-03`, `NFR-04`, `NFR-06`) et `docs/project-state.md`, puis commit.
 
 ```bash
 git add docs && git commit -m "docs: consigner les constats de la porte T1 sur Windows" -m "<recopier : ligne Built, duree, poids du dossier Release, nombre de fichiers, les cinq constats a l ecran un par un, et le comportement hors reseau tel qu il a ete VU>. NFR-06 : <tenu / non tenu> a <poids> pour un budget de 60 Mo. NFR-01 : <chiffres des trois gestes>. Ce qui n a pas marche est ecrit comme tel."
@@ -1641,12 +1647,12 @@ git add docs && git commit -m "docs: consigner les constats de la porte T1 sur W
 
 **Cas de test** (1 ajouté) — la ligne `## [0.2.0]` correspond à `## \[0\.2\.0\] — \d{4}-\d{2}-\d{2}` et ne contient **pas** « à publier ».
 
-- [ ] **Étape 1** — `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
-- [ ] **Étape 2** — dater la version et ajouter deux sections :
+- [x] **Étape 1** (2026-09-27, `Actual: '## [0.2.0] — à publier'`) — `flutter test test/project/changelog_test.dart` → échec, la ligne porte encore « à publier ».
+- [x] **Étape 2** (2026-09-27 ; `Q-01` à `Q-05` : aucune ne reste ouverte, `Q-01`→`Q-04` notées « mesurées une seule fois ») — dater la version et ajouter deux sections :
   - `### Constaté à l'exécution` — les **cinq** constats de `P1` étape 4, un par un · poids et nombre de fichiers du dossier de publication · comportement hors réseau, **sans interprétation** · les trois rapports de fluidité.
   - `### Non vérifié` — `Q-01` à `Q-05` restés ouverts · aucun percentile, donc aucune qualification statistique du débit (`ADR-003` hors T1) · aucun appel VigiEau (T2) · **`BR-013` reporté en T2** : encart renforcé écrit mais posé sur aucun écran (arbitrage du 2026-09-22) · aucun `integration_test/` · cibles de 48 dp non vérifiées (Android réactivé le 2026-09-18 : recopier ce qui a été réellement constaté sur l'émulateur) · iOS jamais compilé.
-- [ ] **Étape 3** — `flutter test` → **tous verts**.
-- [ ] **Étape 4 — commit et tag.**
+- [x] **Étape 3** — `flutter test` → **tous verts**.
+- [ ] **Étape 4 — commit et tag.** (2026-09-27 : commit fait ; **tag `v0.2.0` non posé**, en attente de la demande du commanditaire)
 
 ```bash
 git add CHANGELOG.md test/project/changelog_test.dart && git commit -m "docs: clore la version 0.2.0, avec ce qui a ete constate et ce qui ne l a pas ete" -m "C est la premiere version ou chaque ecran porte l avertissement que BR-012 lui impose : modal acquitte, puis un controle Avertissement sur la carte et en tete de chaque fiche, dont la fenetre reprend le texte du modal et, sur une fiche, sa phrase datee (W3c, arbitrage du 2026-09-23). L encart renforce de BR-013 n a pas d ecran en T1 et part en T2 avec les restrictions (arbitrage du 2026-09-22). Ce n est pas pour autant un produit complet, et la section Non verifie le dit : aucun percentile, aucun appel VigiEau, BR-013 en T2, aucun parcours integre, iOS jamais compile, Android tel que constate."
@@ -1685,7 +1691,7 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | 5 | **Appel groupé ou par emprise** | **À vérifier** (`Q-01`, `Q-02`) : `/v2/hydrometrie` a répondu **503** sur 19 tentatives le 2026-09-13. L'implémentation part de la forme garantie ; l'interface du dépôt ne changera pas | Écrire le code sur l'hypothèse que la virgule marche : un fait d'API non vérifié, exactement ce que `CLAUDE.md` interdit |
 | 6 | **Framework BDD** | **Aucun en T1.** Les `.feature` sont de la spécification lisible, et un test vérifie qu'ils sont bien formés et citent un `BR` **existant** | `bdd_widget_test` : générerait des tests depuis le Gherkin, mais c'est une dépendance d'outillage non vérifiée sur `pub.dev` pour ce projet, et la valeur des scénarios de T1 est d'être **lus**. À réexaminer en T2 |
 | 7 | **Matrice de traçabilité** | **Maintenue à la main, vérifiée par test** : chaque `BR`, `UC` et `US` Must présent, chaque fichier de test cité **existe** | Générée : supposerait de deviner une intention depuis un nom de test, et produirait une matrice complète et fausse |
-| 8 | **Taille de fenêtre minimale** | **800 × 600**, chiffre **proposé par ce plan** : la largeur en dessous de laquelle le bandeau se tronque à 200 % de police. ⚠️ **Amendé le 2026-09-23 (`W3c`)** : il n'y a plus de bandeau, et **cette justification ne tient plus**. Le modal et la fenêtre d'avertissement sont des dialogues qui **défilent**, ils ne se tronquent pas ; la colonne contrôle ⚠ + légende défile aussi. Ce qui reste à protéger : les puces d'échelle, la légende et le contrôle « ⚠ Avertissement », qui doivent tenir sans se recouvrir. **800 × 600 n'est plus dérivé d'aucune mesure** : `K3` doit le constater ou le réviser à l'écran | Ne pas contraindre : mais un avertissement tronqué est une violation de `BR-012`, pas un défaut cosmétique |
+| 8 | **Taille de fenêtre minimale** | ~~**800 × 600**~~ **800 × 700**, chiffre **proposé par ce plan** puis **révisé par mesure** : la largeur en dessous de laquelle le bandeau se tronque à 200 % de police. ⚠️ **Amendé le 2026-09-23 (`W3c`)** : il n'y a plus de bandeau, et **cette justification ne tient plus**. Le modal et la fenêtre d'avertissement sont des dialogues qui **défilent**, ils ne se tronquent pas ; la colonne contrôle ⚠ + légende défile aussi. Ce qui reste à protéger : les puces d'échelle, la légende et le contrôle « ⚠ Avertissement », qui doivent tenir sans se recouvrir. ⚠️ **Amendé une seconde fois le 2026-09-23, arbitrage du commanditaire** : `K3` a mesuré qu'à 800 × 600 la légende de l'échelle « débit » (paragraphe `BR-003`) recouvrait les contrôles de zoom — l'échelle « écoulement » tenait, pas « débit ». La hauteur minimale passe donc à **700**, sans changement de disposition. La contrainte porte sur la **zone cliente** (via `AdjustWindowRectExForDpi`, Win32 documentée), pas sur la fenêtre extérieure que `ptMinTrackSize` contraint nativement | Ne pas contraindre : mais un avertissement tronqué est une violation de `BR-012`, pas un défaut cosmétique |
 | 9 | **Version du texte d'avertissement** | Une **chaîne datée** (`'2026-09-13.1'`), persistée et comparée à la version compilée | Un booléen : un texte modifié ne serait jamais relu, ce qu'`UC-006 A3` exige |
 | 10 | **Ordre des lots** | Données → ViewModels → Vues → Avertissements → Clavier → Documentation → Porte | Les avertissements en premier : ils sont la condition de mise en production, mais l'encart de fiche n'a pas de fiche où se poser avant le lot 3 |
 | 11 | **`BR-013` (encart renforcé) — ✅ arbitrage du commanditaire du 2026-09-22** | **Reporté en T2**, posé sur l'écran des restrictions VigiEau. En T1 la fiche station donne une mesure, pas une disponibilité de la ressource : aucun écran de T1 n'entre dans le champ de `BR-013`. T1 écrit et verrouille le **texte** (`W5`), pas le widget | (a) Poser l'encart sur la fiche station : étendrait `BR-013` à un écran qu'il ne vise pas, et doublerait l'encart daté de `W4` en tête de la même fiche. (b) Écrire le widget en T1 sans l'afficher : un widget sans appelant (YAGNI), dont l'emplacement ne serait prouvé par aucun test |

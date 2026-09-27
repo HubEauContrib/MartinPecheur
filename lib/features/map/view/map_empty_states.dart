@@ -34,11 +34,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
-import 'package:martinpecheur/features/map/view/station_marker.dart'
-    show stationMarkerTapTarget;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
+import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Zone sans station ni point, recopié de `BR-007` § « Invariants & cas
 /// limites » et de `02-specifications.md § 4` (« Aucune station dans la
@@ -341,15 +340,15 @@ class _WidenSearchAction extends StatelessWidget {
         onTap: onWiden,
         child: ConstrainedBox(
           constraints: const BoxConstraints(
-            minWidth: stationMarkerTapTarget,
-            minHeight: stationMarkerTapTarget,
+            minWidth: minimumTapTarget,
+            minHeight: minimumTapTarget,
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: Colors.black),
               borderRadius: const BorderRadius.all(
-                Radius.circular(stationMarkerTapTarget / 2),
+                Radius.circular(minimumTapTarget / 2),
               ),
             ),
             child: const Padding(

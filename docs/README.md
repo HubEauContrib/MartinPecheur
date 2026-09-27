@@ -19,15 +19,15 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application **F
 | [`adr/`](adr/) | **Architecture Decision Records** — décisions tranchées, avec alternatives écartées | `ADR-NNN-slug.md` |
 | [`superpowers/plans/`](superpowers/plans/) | Plans d'implémentation par tranche | `YYYY-MM-DD-slug.md` |
 | [`sources/`](sources/) | **Fiches de sources de données** — faits vérifiés et datés, fixtures associées | `<source>.md` |
+| [`acceptance/`](acceptance/) | **Critères d'acceptation Gherkin** — spécification lisible, chaque `Scénario` cite une `BR-` qui existe sur le disque (`test/project/acceptance_features_test.dart`, `Task X1`) ; aucun framework BDD en T1 | `slug.feature` |
 | [`glossary.md`](glossary.md) | **Langage omniprésent** — termes métier, ce qui est dit à l'usager, vocabulaire proscrit | — |
 | [`context-map.md`](context-map.md) | **Carte des contextes** — 6 contextes bornés et leurs sources externes | — |
 | [`domain-model.md`](domain-model.md) | **Modèle de domaine** — objets-valeur, entités, agrégats, ce que le domaine ne contient pas | — |
 | [`nfr.md`](nfr.md) | **Exigences non fonctionnelles** — seuils chiffrés, et constats ouverts | — |
 | [`project-state.md`](project-state.md) | **État vivant** — où on en est, ce qui bloque | — |
 | [`guide-installation.md`](guide-installation.md) | Installation du poste de développement, et ses pièges | — |
-| [`guide-release.md`](guide-release.md) | **Livrer un APK à un testeur distant** — commandes, signature, verrou produit | — |
-| [`guide-test-appareil.md`](guide-test-appareil.md) | **Tester sur un Android réel** — procédure de `M4` et `M5`, seuils fixés d'avance | — |
 | [`plan-de-tests.md`](plan-de-tests.md) | **Plan de tests** — la pyramide, à quel étage une règle se vérifie | — |
+| [`tracabilite.md`](tracabilite.md) | **Matrice de traçabilité** — US, BR, UC et leur fichier de test, maintenue à la main et vérifiée par `test/project/tracabilite_test.dart` (`Task X2`) | — |
 
 ## Cadrage produit
 
