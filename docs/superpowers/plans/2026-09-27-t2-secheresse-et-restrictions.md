@@ -404,9 +404,9 @@ git commit -m "feat(restrictions): URI et mapper VigiEau, seul point de conversi
 
 **Cas de test — équivalence, obligatoire (conception § 10.1)** — pour `particulier`, `exploitation`, `entreprise` et `collectivite` (référence : fixture **sans accent**) : mapper la fixture sans profil et la fixture de référence ; apparier les zones **par type** ; pour chaque paire, `zoneSansProfil.usagesFor(profil)` projetée en `(name, description)` **égale, dans l'ordre**, la liste de la zone de référence.
 
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter.
-- [ ] **Étape 3** — ⚠️ **Si le test d'équivalence est rouge : arrêt.** Aucun ajustement du test ni du filtrage. Question fermée au commanditaire : revenir au filtrage serveur (conception § 8, A1, valeur `collectivite`) — recommandation selon l'écart constaté, recopié.
-- [ ] **Étape 4** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — implémenter.
+- [x] **Étape 3** — ⚠️ **Si le test d'équivalence est rouge : arrêt.** Aucun ajustement du test ni du filtrage. Question fermée au commanditaire : revenir au filtrage serveur (conception § 8, A1, valeur `collectivite`) — recommandation selon l'écart constaté, recopié.
+- [x] **Étape 4** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(restrictions): source VigiEau, echecs distingues, et equivalence du filtrage par profil verrouillee" -m "Une requete refusee (400, 409) n est pas une source injoignable : la source a repondu. 429 et 5xx, apres rejeux, le sont. Le filtrage par profil se fait dans le domaine sur les booleens concerne* : sur les fixtures de l Ain, il rend pour les quatre profils exactement les listes que le serveur filtre lui-meme (AR-1). Le piege collectivite accentue ne peut plus se produire : on n envoie pas de profil."
