@@ -16,7 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// soit exactement le retard que ce test doit attraper. `GeoPoint` s'y ajoute
 /// à son tour (T2, M1), puis les trois nomenclatures des restrictions (T2, M2),
 /// puis la zone d'alerte, l'arrêté, l'usage cité et la réponse datée au
-/// point (T2, M3).
+/// point (T2, M3), puis le contrat `RestrictionSource` et son échec fermé à
+/// trois branches (T2, M4).
 const List<String> typesDuDomaine = <String>[
   'StationCode',
   'DepartementCode',
@@ -41,6 +42,11 @@ const List<String> typesDuDomaine = <String>[
   'DocumentLink',
   'RestrictedUsage',
   'ZonesAtPoint',
+  'RestrictionSource',
+  'RestrictionLookupFailure',
+  'SourceInjoignable',
+  'RequeteRefusee',
+  'ReponseIllisible',
   'StationRepository',
   'HydroObservationRepository',
   'LitresPerSecond',

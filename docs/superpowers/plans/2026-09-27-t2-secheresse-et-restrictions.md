@@ -313,7 +313,7 @@ git commit -m "feat(restrictions): zone d alerte, arrete, usage cite et reponse 
 - `grep -rn "SurfaceWaterRestriction\|surfaceWaterZonesAt" lib test` → **vide**.
 - Confinement (`M2`) vert avec les deux constantes.
 
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter, supprimer l'ancienne couture (aucun appelant) et ses deux tests ; **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — implémenter, supprimer l'ancienne couture (aucun appelant) et ses deux tests ; **Étape 3** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(restrictions): RestrictionSource declaree dans le domaine, echec ferme a trois branches" -m "Un ViewModel ne pouvait pas importer le contrat depuis data (features-vers-data) : point 35 clos. Source injoignable, requete refusee, reponse illisible ; aucune zone n est pas un echec mais une reponse vide. L echec est leve, jamais rendu : withCachePolicy ne l ecrit donc jamais en cache. Le nom affiche et l adresse du site public vivent dans source_names : ils doivent rester disponibles quand la source ne repond pas. L ancienne couture filtrait SUP seul (remplace par Q5-B) et n avait aucun appelant."

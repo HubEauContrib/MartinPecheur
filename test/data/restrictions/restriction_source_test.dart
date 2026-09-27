@@ -1,7 +1,8 @@
-// Verrouille l'interface RestrictionSource (ADR-004) : la signature ne
-// propose pas de commune (C-14), le niveau de gravite traverse brut
-// (BR-011). Les deux tests sur SurfaceWaterRestriction vivent jusqu'a M4 de
-// T2, qui fait passer le contrat au domaine.
+// Le contrat RestrictionSource (ADR-004) est passe au domaine par M4 de T2
+// (`lib/domain/restrictions/restriction_source.dart`,
+// `test/domain/restrictions/restriction_source_test.dart`) : ce fichier ne
+// garde plus que la regle pure de confinement, qui continue de porter sur
+// `lib/` reel independamment de l'emplacement du contrat.
 //
 // Confinement redefini par l'amendement d'ADR-004 (AR-1, 2026-09-27 ;
 // conception T2 § 7, point 1) — le fichier est lu EN ENTIER, commentaires
@@ -18,64 +19,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:martinpecheur/data/restrictions/restriction_source.dart';
-
-/// Double de test : n'appelle jamais VigiEau, enregistre simplement les
-/// coordonnees recues et renvoie une reponse preparee.
-final class _FakeRestrictionSource implements RestrictionSource {
-  double? latitudeRecue;
-  double? longitudeRecue;
-  List<SurfaceWaterRestriction> reponse = const <SurfaceWaterRestriction>[];
-
-  @override
-  Future<List<SurfaceWaterRestriction>> surfaceWaterZonesAt({
-    required double latitude,
-    required double longitude,
-  }) async {
-    latitudeRecue = latitude;
-    longitudeRecue = longitude;
-    return reponse;
-  }
-}
 
 void main() {
-  group('RestrictionSource (ADR-004)', () {
-    test('interrogee par latitude/longitude, renvoie une zone et enregistre '
-        'les coordonnees recues', () async {
-      final _FakeRestrictionSource source = _FakeRestrictionSource()
-        ..reponse = const <SurfaceWaterRestriction>[
-          SurfaceWaterRestriction(
-            rawSeverityLevel: 'crise',
-            decreeFilePath: 'arrete-41-2026-09-13.pdf',
-          ),
-        ];
-
-      final List<SurfaceWaterRestriction> zones = await source
-          .surfaceWaterZonesAt(latitude: 47.584957074, longitude: 1.335147948);
-
-      expect(zones, hasLength(1));
-      expect(source.latitudeRecue, 47.584957074);
-      expect(source.longitudeRecue, 1.335147948);
-    });
-
-    test('un niveau de gravite inedit est conserve tel quel, le PDF peut '
-        'etre absent (BR-011)', () async {
-      final _FakeRestrictionSource source = _FakeRestrictionSource()
-        ..reponse = const <SurfaceWaterRestriction>[
-          SurfaceWaterRestriction(
-            rawSeverityLevel: 'un_niveau_inedit',
-            decreeFilePath: null,
-          ),
-        ];
-
-      final List<SurfaceWaterRestriction> zones = await source
-          .surfaceWaterZonesAt(latitude: 0, longitude: 0);
-
-      expect(zones.single.rawSeverityLevel, 'un_niveau_inedit');
-      expect(zones.single.decreeFilePath, isNull);
-    });
-  });
-
   group('Confinement redefini (ADR-004 amende, AR-1) — regle pure, '
       'contenus synthetiques', () {
     test('le nom de la source dans une vue est une violation', () {

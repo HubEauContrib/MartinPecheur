@@ -125,6 +125,24 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
   (`EauxSouterraines`, puis `EauPotable`, puis `TypeZoneInconnu`) et dans l'ordre de la source à
   l'intérieur d'un même type. **Aucun tri par sévérité** : chaque zone régit ses propres usages,
   rien ne fonde une zone « principale » (`Q5-B`).
+- `RestrictionSource` — le contrat qui rend un `ZonesAtPoint` pour un `GeoPoint` (T2, M4). Passé au
+  domaine depuis `lib/data/` (`ADR-014`, règle `features-vers-data`) : un ViewModel ne pouvait pas
+  l'importer autrement. L'ancienne couture `lib/data/restrictions/restriction_source.dart`
+  (`SurfaceWaterRestriction`, `ADR-004` T0) est supprimée par cette tâche — elle n'avait aucun
+  appelant. `RestrictionSource` garde son nom : cité dans l'invariant de `CLAUDE.md`, `ADR-004` et
+  `context-map.md` ; « source » dit ce que les autres dépôts ne disent pas, la frontière d'un
+  service externe en version 0.1 (`C-16`).
+- `RestrictionLookupFailure` — `sealed class`, fermée à **trois** branches (`BR-011`) : un `switch`
+  exhaustif est une erreur de compilation tant qu'une branche manque. Toujours **levée**, jamais
+  rendue comme une valeur : `withCachePolicy` n'écrit en cache que ce que `load` rend, jamais ce
+  qu'il lève — un échec rendu serait servi jusqu'à expiration de la clé. « Aucune zone » n'est pas
+  un échec : `200 []` rend un `ZonesAtPoint` à `zones` vide (`BR-007`).
+  - `SourceInjoignable` — la source n'a pas répondu : panne réseau/TLS, ou `429`/`5xx` persistant
+    après les rejeux du transport partagé.
+  - `RequeteRefusee` — la source a répondu mais a refusé ce point : `statusCode` porte le statut
+    HTTP tel que reçu (`400`, `404`, `409`…).
+  - `ReponseIllisible` — la réponse ne se laisse pas lire : corps non JSON, racine non tableau, ou
+    champ obligatoire absent/mal typé (§ 4.4, tout ou rien — `AR-2`).
 
 ## Agrégats
 
@@ -252,6 +270,14 @@ classDiagram
         +Set~UserProfile~ concernedProfiles
         +concerns(UserProfile) bool
     }
+    class RestrictionSource {
+        <<interface>>
+        +zonesAt(GeoPoint) ZonesAtPoint
+    }
+    class RestrictionLookupFailure { <<sealed>> +String diagnostic }
+    class SourceInjoignable
+    class RequeteRefusee { +int statusCode }
+    class ReponseIllisible
     class DroughtSeverity { <<sealed>> }
     class GraviteInconnue { +String? rawValue }
     class ZoneKind { <<sealed>> }
@@ -285,4 +311,9 @@ classDiagram
     RestrictedUsage --> UserProfile
     DroughtSeverity <|-- GraviteInconnue
     ZoneKind <|-- TypeZoneInconnu
+    RestrictionSource ..> ZonesAtPoint : rend
+    RestrictionSource ..> RestrictionLookupFailure : lève
+    RestrictionLookupFailure <|-- SourceInjoignable
+    RestrictionLookupFailure <|-- RequeteRefusee
+    RestrictionLookupFailure <|-- ReponseIllisible
 ```

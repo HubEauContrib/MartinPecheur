@@ -22,5 +22,22 @@ void main() {
     test('les deux noms sont distincts', () {
       expect(hydrometrieSourceName, isNot(ondeSourceName));
     });
+
+    test('restrictionsSourceName nomme VigiEau (T2, M4)', () {
+      expect(restrictionsSourceName, 'VigiEau');
+    });
+
+    test('restrictionsPublicSiteUrl est le site public, sans www.', () {
+      expect(restrictionsPublicSiteUrl, 'https://vigieau.gouv.fr/');
+      expect(restrictionsPublicSiteUrl, isNot(contains('www.')));
+    });
+
+    test('les trois noms de source sont distincts', () {
+      expect(<String>{
+        hydrometrieSourceName,
+        ondeSourceName,
+        restrictionsSourceName,
+      }, hasLength(3));
+    });
   });
 }

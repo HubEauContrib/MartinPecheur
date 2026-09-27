@@ -13,6 +13,17 @@
 //   RÉUTILISE [ondeSourceName] au lieu de recopier la chaîne : un concept,
 //   un mot (`glossary.md`).
 //
+// [restrictionsSourceName] et [restrictionsPublicSiteUrl] s'ajoutent en T2
+// (M4) : l'écran d'échec des restrictions (`BR-007`, « message par source »)
+// nomme la source et pointe vers son site public — les deux doivent rester
+// disponibles quand `RestrictionSource` lève, donc vivre ici plutôt que dans
+// `lib/data/restrictions/`. Seul endroit hors de ce module et de
+// `lib/main.dart` où le nom de la source (casse indifférente) est admis
+// (confinement redéfini, `test/data/restrictions/restriction_source_test.dart`).
+// Le vocabulaire technique de l'API (hôte d'API, noms de champs…) reste
+// interdit ici : `restrictionsPublicSiteUrl` est le site public, pas l'hôte
+// d'API.
+//
 // ⚠️ Ce fichier vit sous `lib/domain/` : aucun `package:flutter`, aucune
 // dépendance d'infrastructure (`test/architecture/domain_isolation_test.dart`).
 
@@ -24,3 +35,15 @@ const String hydrometrieSourceName = "Hub'Eau hydrométrie";
 /// que `mapSourceName(MapErrorSource.ecoulement)` rendait déjà avant `W4` :
 /// `mapSourceName` la réutilise désormais, il ne la recopie plus.
 const String ondeSourceName = "Hub'Eau écoulement ONDE";
+
+/// Nom affiché de la source des restrictions et zones d'alerte sécheresse
+/// (T2, M4). VigiEau est en version 0.1, derrière `RestrictionSource` : ce
+/// nom reste disponible quand la source ne répond pas (`SourceInjoignable`,
+/// `RequeteRefusee`, `ReponseIllisible`).
+const String restrictionsSourceName = 'VigiEau';
+
+/// Adresse du site public de la source des restrictions, à distinguer de
+/// l'hôte d'API (celui-ci reste confiné à `lib/data/restrictions/`). Sans
+/// `www.` : jamais vérifié autrement que par appel réel
+/// (`docs/sources/vigieau.md`).
+const String restrictionsPublicSiteUrl = 'https://vigieau.gouv.fr/';
