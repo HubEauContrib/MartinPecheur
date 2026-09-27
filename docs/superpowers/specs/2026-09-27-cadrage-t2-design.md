@@ -275,7 +275,7 @@ Chacune est fermée ; la recommandation n'engage rien tant qu'elle n'est pas arb
 | Q7 | **A** — cache de session de 6 h, date de récupération affichée | — |
 | Q8 | **A** — écran « D'où vient cette donnée ? » dans T2, réduit aux sources livrées ; vérifier l'effet du lien sur `warningTextVersion` | — |
 | Q9 | **A** — une bibliothèque d'ouverture de lien, **à vérifier sur pub.dev avant ajout** (version, licence compatible GPL-3.0, Windows et Android, date), URL toujours visible et copiable | — |
-| Q10 | **B** — la porte de T2 se franchit sur **Windows et Android** (`flutter run -d emulator-5554` constaté) | ⚠️ **contraire à la recommandation A.** Conséquence : la première construction Android (`A⏸2`, jamais faite) devient un **prérequis de la porte de T2** ; les cibles de 48 dp (`A⏸5`) et l'appareil réel (`A⏸4`) sont à reposer au plan — non tranchés ici |
+| Q10 | **B** — la porte de T2 se franchit sur **Windows et Android** (`flutter run -d emulator-5554` constaté) | ⚠️ **contraire à la recommandation A.** Conséquence : la première construction Android (`A⏸2`, jamais faite) devient un **prérequis de la porte de T2** ; les cibles de 48 dp (identifiant propre `T2-K4` au plan de T2 : `A⏸5` désigne la publication d'une préversion) et l'appareil réel (`A⏸4`) sont à reposer au plan — non tranchés ici |
 
 ### Q1 — D'où vient le point géographique interrogé ?
 
