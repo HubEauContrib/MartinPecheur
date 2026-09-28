@@ -95,6 +95,18 @@ final class RestrictionsEnEchec extends RestrictionsState {
   final RestrictionLookupFailure cause;
 }
 
+/// L'interrogation du point [point] a echoue pour une raison que la source
+/// n'a PAS levee (une `Exception` ou une `Error` imprevue) : la vue ne peut
+/// pas affirmer que la source est en cause, donc ne la nomme pas (Q-5d de C1,
+/// conception T2 § 5.4). Aucun autre champ : le diagnostic n'a pas de
+/// porteur ici, une `Error` est remontee a `FlutterError.reportError`.
+final class RestrictionsNonObtenues extends RestrictionsState {
+  const RestrictionsNonObtenues(this.point);
+
+  /// Point dont l'interrogation n'a pas abouti.
+  final GeoPoint point;
+}
+
 /// ViewModel de l'ecran des restrictions : porte l'etat de l'ecran, le
 /// profil choisi pour la session, et le seul chemin par lequel l'un et
 /// l'autre changent.
@@ -137,7 +149,8 @@ final class RestrictionsViewModel extends ChangeNotifier {
 
   /// Interroge la source pour le point [point] : `RestrictionsEnCours`
   /// d'abord, notifie avant toute reponse, puis l'issue de la source —
-  /// `ZonesTrouvees`, `AucuneZone` ou `RestrictionsEnEchec`.
+  /// `ZonesTrouvees`, `AucuneZone`, `RestrictionsEnEchec` (cause nommee par
+  /// la source) ou `RestrictionsNonObtenues` (echec imprevu).
   Future<void> open(GeoPoint point) async {
     final int generation = ++_generation;
     _unopenedLink = null;
@@ -155,37 +168,15 @@ final class RestrictionsViewModel extends ChangeNotifier {
       _emit(generation, ZonesTrouvees(zones));
     } on RestrictionLookupFailure catch (failure) {
       _emit(generation, RestrictionsEnEchec(point: point, cause: failure));
-    } on Exception catch (error) {
-      // Un echec non nomme par la source n'est pas une absence de panne :
-      // il est traite comme une source qui n'a pas repondu (meme regle que
-      // le `switch` exhaustif de `RestrictionLookupFailure`, dernier
-      // recours). Arbitrage du commanditaire du 2026-09-27 : echec neutre a
-      // l'ecran, ERREUR remontee — voir la clause `on Error` ci-dessous
-      // pour ce qui distingue les deux.
-      _emit(
-        generation,
-        RestrictionsEnEchec(
-          point: point,
-          cause: SourceInjoignable('${error.runtimeType}: $error'),
-        ),
-      );
+    } on Exception {
+      // Un echec que la source n'a pas nomme n'est pas une panne de la
+      // source : etat distinct (Q-5d de C1), rien n'est remonte.
+      _emit(generation, RestrictionsNonObtenues(point));
     } on Error catch (error, stackTrace) {
-      // Arbitrage du commanditaire du 2026-09-27 : « echec neutre, et
-      // erreur remontee ». Une `Error` (par opposition a une `Exception`)
-      // signale un bug — assertion, etat incoherent, appel invalide — pas
-      // une panne attendue du reseau ou de la source. L'ecran ne doit
-      // jamais rester blanc (`BR-007`) : il recoit le MEME etat d'echec
-      // neutre qu'une `Exception`. Mais l'erreur ne doit plus disparaitre
-      // en silence : elle est signalee au canal de diagnostic de Flutter,
-      // pour que le commanditaire la voie, sans jamais l'afficher a
-      // l'usager (`cause.diagnostic` reste reserve au journal).
-      _emit(
-        generation,
-        RestrictionsEnEchec(
-          point: point,
-          cause: SourceInjoignable('${error.runtimeType}: $error'),
-        ),
-      );
+      // Une `Error` signale un bug (assertion, etat incoherent) : meme etat
+      // neutre a l'ecran, mais l'erreur est signalee au canal de diagnostic
+      // de Flutter, jamais affichee a l'usager.
+      _emit(generation, RestrictionsNonObtenues(point));
       FlutterError.reportError(
         FlutterErrorDetails(
           exception: error,
@@ -207,16 +198,24 @@ final class RestrictionsViewModel extends ChangeNotifier {
   }
 
   /// Reinterroge le point d'un echec courant. Sans effet hors de
-  /// [RestrictionsEnEchec] — en particulier apres [close] (l'ecran est
-  /// ferme, il n'y a plus de point a reinterroger) et depuis
+  /// [RestrictionsEnEchec] et [RestrictionsNonObtenues] — en particulier
+  /// apres [close] (l'ecran est ferme, il n'y a plus de point a reinterroger) et depuis
   /// [ZonesTrouvees]/[AucuneZone] (une reponse deja recue ne se reinterroge
   /// pas d'elle-meme).
   Future<void> retry() async {
     final RestrictionsState current = _state;
-    if (current is! RestrictionsEnEchec) {
+    final GeoPoint? point = switch (current) {
+      RestrictionsEnEchec() => current.point,
+      RestrictionsNonObtenues() => current.point,
+      RestrictionsFermees() ||
+      RestrictionsEnCours() ||
+      ZonesTrouvees() ||
+      AucuneZone() => null,
+    };
+    if (point == null) {
       return;
     }
-    await open(current.point);
+    await open(point);
   }
 
   /// Ferme l'ecran : toute reponse d'un `open()` en cours devient tardive

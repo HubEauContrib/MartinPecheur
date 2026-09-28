@@ -8,8 +8,8 @@
 // - open(p) : EnCours(p) notifie AVANT la reponse, puis ZonesTrouvees ;
 //   reponse vide -> AucuneZone(point, retrievedAt).
 // - Les trois branches d'echec -> RestrictionsEnEchec avec la MEME cause ;
-//   un StateError -> RestrictionsEnEchec(cause: SourceInjoignable(...)) dont
-//   diagnostic contient "StateError".
+//   une Exception ou une Error non nommee -> RestrictionsNonObtenues(point)
+//   (V1b, Q-5d de C1), jamais RestrictionsEnEchec.
 // - chooseProfile(exploitation) notifie ; le meme profil de nouveau ->
 //   AUCUNE notification ; le profil survit a close() puis open(p2).
 // - Reponse perimee : open(p1) lent puis open(p2) rapide -> l'etat final
@@ -222,10 +222,9 @@ void main() {
     expect((state as RestrictionsEnEchec).cause, same(failure));
   });
 
-  test('un StateError (Error, non nomme) -> RestrictionsEnEchec(cause: '
-      'SourceInjoignable) dont diagnostic contient "StateError", ET '
-      "l'erreur est remontee a FlutterError.onError (arbitrage du "
-      '2026-09-27 : echec neutre a l ecran, erreur remontee)', () async {
+  test('un StateError (Error, non nomme) -> RestrictionsNonObtenues(point), '
+      "pas un RestrictionsEnEchec, ET l'erreur est remontee a "
+      'FlutterError.onError (Q-5d de C1, V1b)', () async {
     final StateError thrown = StateError('inattendu');
     source.answer = (GeoPoint point) => throw thrown;
     final RestrictionsViewModel viewModel = RestrictionsViewModel(
@@ -242,10 +241,9 @@ void main() {
     await viewModel.open(_pointAin());
 
     final RestrictionsState state = viewModel.state;
-    expect(state, isA<RestrictionsEnEchec>());
-    final RestrictionLookupFailure cause = (state as RestrictionsEnEchec).cause;
-    expect(cause, isA<SourceInjoignable>());
-    expect(cause.diagnostic, contains('StateError'));
+    expect(state, isNot(isA<RestrictionsEnEchec>()));
+    expect(state, isA<RestrictionsNonObtenues>());
+    expect((state as RestrictionsNonObtenues).point, _pointAin());
 
     expect(
       reported,
@@ -256,9 +254,9 @@ void main() {
     expect(reported.single.library, 'restrictions');
   });
 
-  test('une Exception ordinaire (echec non nomme) -> RestrictionsEnEchec('
-      'cause: SourceInjoignable), et NE remonte RIEN a FlutterError.onError '
-      '(distinct d une Error)', () async {
+  test('une Exception ordinaire (echec non nomme) -> '
+      'RestrictionsNonObtenues(point), et NE remonte RIEN a '
+      'FlutterError.onError (distinct d une Error)', () async {
     final Exception thrown = Exception('panne ordinaire');
     source.answer = (GeoPoint point) => throw thrown;
     final RestrictionsViewModel viewModel = RestrictionsViewModel(
@@ -275,11 +273,86 @@ void main() {
     await viewModel.open(_pointAin());
 
     final RestrictionsState state = viewModel.state;
-    expect(state, isA<RestrictionsEnEchec>());
-    final RestrictionLookupFailure cause = (state as RestrictionsEnEchec).cause;
-    expect(cause, isA<SourceInjoignable>());
+    expect(state, isNot(isA<RestrictionsEnEchec>()));
+    expect(state, isA<RestrictionsNonObtenues>());
+    expect((state as RestrictionsNonObtenues).point, _pointAin());
 
     expect(reported, isEmpty);
+  });
+
+  test('retry() depuis RestrictionsNonObtenues(p) -> EnCours(p) puis le '
+      'resultat', () async {
+    int attempt = 0;
+    source.answer = (GeoPoint point) {
+      attempt++;
+      if (attempt == 1) {
+        throw Exception('panne ordinaire');
+      }
+      return Future<ZonesAtPoint>.value(_zonesTrouvees(point));
+    };
+    final RestrictionsViewModel viewModel = RestrictionsViewModel(
+      source: source,
+      links: links,
+    );
+    addTearDown(viewModel.dispose);
+
+    await viewModel.open(_pointAin());
+    expect(viewModel.state, isA<RestrictionsNonObtenues>());
+
+    final List<RestrictionsState> seen = <RestrictionsState>[];
+    viewModel.addListener(() => seen.add(viewModel.state));
+    await viewModel.retry();
+
+    expect(seen.first, isA<RestrictionsEnCours>());
+    expect((seen.first as RestrictionsEnCours).point, _pointAin());
+    expect(seen.last, isA<ZonesTrouvees>());
+    expect(source.calls, 2);
+  });
+
+  test('reponse perimee : open(p1) qui leve une Exception apres open(p2) -> '
+      "l'etat final est celui de p2", () async {
+    final Completer<ZonesAtPoint> slow = Completer<ZonesAtPoint>();
+    final Completer<ZonesAtPoint> fast = Completer<ZonesAtPoint>();
+    int attempt = 0;
+    source.answer = (GeoPoint point) {
+      attempt++;
+      return attempt == 1 ? slow.future : fast.future;
+    };
+    final RestrictionsViewModel viewModel = RestrictionsViewModel(
+      source: source,
+      links: links,
+    );
+    addTearDown(viewModel.dispose);
+
+    final Future<void> openingA = viewModel.open(_pointAin());
+    final Future<void> openingB = viewModel.open(_pointCorse());
+
+    fast.complete(_zonesTrouvees(_pointCorse()));
+    await openingB;
+    slow.completeError(Exception('panne tardive'));
+    await openingA;
+
+    final RestrictionsState state = viewModel.state;
+    expect(state, isA<ZonesTrouvees>());
+    expect((state as ZonesTrouvees).zones.point, _pointCorse());
+  });
+
+  test('close() pendant un chargement qui leve une Exception -> reste '
+      'RestrictionsFermees', () async {
+    final Completer<ZonesAtPoint> late = Completer<ZonesAtPoint>();
+    source.answer = (GeoPoint point) => late.future;
+    final RestrictionsViewModel viewModel = RestrictionsViewModel(
+      source: source,
+      links: links,
+    );
+    addTearDown(viewModel.dispose);
+
+    final Future<void> opening = viewModel.open(_pointAin());
+    viewModel.close();
+    late.completeError(Exception('panne tardive'));
+    await opening;
+
+    expect(viewModel.state, isA<RestrictionsFermees>());
   });
 
   test('chooseProfile notifie ; le meme profil de nouveau ne notifie pas', () {
@@ -555,6 +628,7 @@ void main() {
       ZonesTrouvees() => 'zones trouvees',
       AucuneZone() => 'aucune zone',
       RestrictionsEnEchec() => 'en echec',
+      RestrictionsNonObtenues() => 'non obtenues',
     };
 
     expect(label, 'fermee');
@@ -658,12 +732,18 @@ void main() {
       expect(vm.state, isA<RestrictionsEnEchec>());
       await vm.openPublicSite();
 
+      source.answer = (GeoPoint point) =>
+          Future<ZonesAtPoint>.error(Exception('panne ordinaire'));
+      await vm.open(_pointAin());
+      expect(vm.state, isA<RestrictionsNonObtenues>());
+      await vm.openPublicSite();
+
       source.answer = null;
       await vm.open(_pointAin());
       expect(vm.state, isA<ZonesTrouvees>());
       await vm.openPublicSite();
 
-      expect(links.opened, <Uri>[site, site, site]);
+      expect(links.opened, <Uri>[site, site, site, site]);
     });
 
     test(
