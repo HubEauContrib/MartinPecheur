@@ -50,6 +50,8 @@ import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/windows_platform.dart';
+
 StationPoint _blois() => StationPoint(
   code: StationCode('K447001001'),
   label: 'La Loire à Blois',
@@ -441,42 +443,45 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('la pastille garde sa taille de 12 px au centre de la zone '
-        'de tap de 44', (WidgetTester tester) async {
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois()],
-      );
+    testWidgetsOnWindows(
+      'la pastille garde sa taille de 12 px au centre de la zone '
+      'de tap de 44',
+      (WidgetTester tester) async {
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois()],
+        );
 
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: minimumTapTarget,
-                height: minimumTapTarget,
-                child: markerLayer.markers.single.child,
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: minimumTapTarget,
+                  height: minimumTapTarget,
+                  child: markerLayer.markers.single.child,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(
-        tester.getSize(find.byType(StationMarkerDot)),
-        const Size(stationMarkerSize, stationMarkerSize),
-      );
-      // Centrée, et pas seulement de la bonne taille : (44 − 12) / 2 = 16 de
-      // marge de chaque côté. Le `SizedBox` de test est posé en haut à
-      // gauche, l'origine de la pastille est donc directement comparable.
-      expect(
-        tester.getTopLeft(find.byType(StationMarkerDot)),
-        const Offset(16, 16),
-      );
-    });
+        expect(
+          tester.getSize(find.byType(StationMarkerDot)),
+          const Size(stationMarkerSize, stationMarkerSize),
+        );
+        // Centrée, et pas seulement de la bonne taille : (44 − 12) / 2 = 16 de
+        // marge de chaque côté. Le `SizedBox` de test est posé en haut à
+        // gauche, l'origine de la pastille est donc directement comparable.
+        expect(
+          tester.getTopLeft(find.byType(StationMarkerDot)),
+          const Offset(16, 16),
+        );
+      },
+    );
   });
 
   group('buildMapLayers — pastilles de zone administrative (Z4, ADR-015)', () {
@@ -1282,7 +1287,7 @@ void main() {
       };
 
       for (final MapScaleKind scale in MapScaleKind.values) {
-        testWidgets(
+        testWidgetsOnWindows(
           'échelle ${scale.name} : puces, légende, contrôles de zoom, '
           "contrôle d'avertissement et attribution IGN tiennent SANS se "
           'recouvrir et sans déborder de 800 × 700',
@@ -1315,7 +1320,7 @@ void main() {
       }
 
       for (final MapScaleKind scale in MapScaleKind.values) {
-        testWidgets(
+        testWidgetsOnWindows(
           'échelle ${scale.name}, AVEC une fiche ouverte (hauteur réaliste, '
           '$hauteurFicheRealiste) : rien ne se recouvre, rien ne déborde de '
           '800 × 700',

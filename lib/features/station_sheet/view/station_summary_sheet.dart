@@ -378,10 +378,10 @@ class _CloseButton extends StatelessWidget {
         key: stationSheetCloseButtonKey,
         behavior: HitTestBehavior.opaque,
         onTap: onClose,
-        child: const SizedBox(
+        child: SizedBox(
           width: minimumTapTarget,
           height: minimumTapTarget,
-          child: Center(child: Icon(Icons.close)),
+          child: const Center(child: Icon(Icons.close)),
         ),
       ),
     );

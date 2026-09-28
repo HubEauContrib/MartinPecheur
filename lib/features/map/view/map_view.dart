@@ -883,7 +883,7 @@ List<Widget> buildMapOverlays({
           // passerait SOUS `MapControls`, posés en bas à droite. Même
           // schéma que la réserve de la légende pour les puces d'échelle,
           // plus haut dans cette fonction.
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             _overlayPadding,
             _overlayPadding,
             _sheetRightPadding,
@@ -965,14 +965,14 @@ const double _sheetMaxWidth = 420;
 /// bouton. Nommée plutôt que recopiée : c'est ce que [_sheetRightPadding]
 /// doit réserver pour que la fiche ne passe jamais sous ces boutons
 /// (arbitrage du coordinateur du 2026-09-23, « décaler la fiche »).
-const double _mapControlsColumnWidth = minimumTapTarget;
+double get _mapControlsColumnWidth => minimumTapTarget;
 
 /// Marge droite que le panneau de fiche réserve pour ne jamais passer sous
 /// la colonne des boutons de zoom, posée en bas à droite : la largeur de
 /// cette colonne ([_mapControlsColumnWidth]), plus la marge qui l'entoure
 /// des deux côtés ([_overlayPadding], comme partout ailleurs dans ce
 /// fichier). Dérivée de [minimumTapTarget], jamais un nombre posé au hasard.
-const double _sheetRightPadding = _mapControlsColumnWidth + 2 * _overlayPadding;
+double get _sheetRightPadding => _mapControlsColumnWidth + 2 * _overlayPadding;
 
 // `MapScaleChips`/`_MapScaleChip` (`map_scale_chips.dart`) et
 // `IgnAttributionBadge` (`ign_attribution_badge.dart`) sont **extraits** de

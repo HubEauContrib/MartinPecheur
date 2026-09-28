@@ -5,7 +5,7 @@
 // ⚠️ Cette tranche n'importe aucune autre tranche
 // (`test/architecture/layers_test.dart`, règle `feature-vers-feature`), mais
 // `features/shared/` lui reste ouverte (règle `shared-sans-tranche`) : la
-// cible tactile de 44 pt (`04-ui.md § 3`) vient donc de [minimumTapTarget]
+// cible tactile de 44 pt (48 dp sur Android) (`04-ui.md § 3`) vient donc de [minimumTapTarget]
 // (`K1`, `lib/features/shared/tap_target.dart`), plus recopiée localement
 // depuis la révision qui a posé cette constante unique.
 //
@@ -90,7 +90,7 @@ final class InitialWarningView extends StatelessWidget {
                       onTap: () =>
                           viewModel.toggleCheckbox(!viewModel.checkboxChecked),
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(
+                        constraints: BoxConstraints(
                           minHeight: minimumTapTarget,
                         ),
                         child: Row(
@@ -121,7 +121,7 @@ final class InitialWarningView extends StatelessWidget {
                               }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(minimumTapTarget),
+                          minimumSize: Size.fromHeight(minimumTapTarget),
                         ),
                         child: const Text(initialWarningButtonLabel),
                       ),

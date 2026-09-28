@@ -82,7 +82,7 @@ void main() {
     });
 
     test('la zone de tap vaut 44 pt et reste plus grande que la pastille', () {
-      expect(minimumTapTarget, 44.0);
+      expect(minimumTapTargetFor(TargetPlatform.windows), 44.0);
       expect(stationMarkerSize, lessThan(minimumTapTarget));
     });
   });

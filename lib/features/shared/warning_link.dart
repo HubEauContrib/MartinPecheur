@@ -48,7 +48,7 @@ const Key warningWindowCloseButtonKey = Key('warning-window-close');
 const Key warningWindowExtraTextKey = Key('warning-window-extra-text');
 
 /// Le contrôle d'avertissement (`W3c`) : une icône et [warningLinkLabel],
-/// cible tactile ≥ 44 pt, atteignable et activable au clavier (Tab puis
+/// cible tactile ≥ 44 pt (48 dp sur Android), atteignable et activable au clavier (Tab puis
 /// Entrée/Espace — porté par [InkWell], comme l'était le bouton « Fermer »
 /// du bandeau retiré). Le tap ouvre [WarningWindow] avec [extraText].
 class WarningLink extends StatelessWidget {
@@ -95,7 +95,7 @@ class WarningLink extends StatelessWidget {
             // par défaut, ferait de ce contrôle DEUX arrêts de tabulation.
             canRequestFocus: false,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
+              constraints: BoxConstraints(
                 minWidth: minimumTapTarget,
                 minHeight: minimumTapTarget,
               ),
@@ -224,7 +224,7 @@ class _CloseAction extends StatelessWidget {
             // tabulation.
             canRequestFocus: false,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
+              constraints: BoxConstraints(
                 minWidth: minimumTapTarget,
                 minHeight: minimumTapTarget,
               ),

@@ -36,10 +36,10 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 /// [stationMarkerSize] (12 px, une pastille de station), celle-ci PORTE à la
 /// fois le rendu et la cible tactile : elle affiche un compte lisible, elle
 /// ne peut donc pas rester minuscule comme un simple point. `04-ui.md § 3`
-/// fixe le plancher tactile à 44 pt ; c'est aussi la taille retenue ici pour
+/// fixe le plancher tactile à 44 pt (48 dp sur Android) ; c'est aussi la taille retenue ici pour
 /// que le symbole ET le compte restent lisibles. Alias de [minimumTapTarget]
 /// (`K1`) : plus recopiée, gardée sous ce nom pour ses appelants existants.
-const double areaClusterMarkerSize = minimumTapTarget;
+double get areaClusterMarkerSize => minimumTapTarget;
 
 /// Le libellé annoncé au lecteur d'écran pour [cluster] — le SEUL de ce
 /// widget, préfixé par l'échelle active (`BR-008`, comme

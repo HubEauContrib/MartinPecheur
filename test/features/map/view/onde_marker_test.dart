@@ -30,6 +30,8 @@ import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+import '../../../support/windows_platform.dart';
+
 /// Les cinq mots proscrits pour qualifier un debit (BR-003, `glossary.md`).
 const List<String> bannedWords = <String>[
   'suffisant',
@@ -598,22 +600,25 @@ void main() {
       );
     });
 
-    testWidgets('mesure stationMarkerSize — 12 px, la taille VISUELLE, pas '
-        'la cible tactile', (WidgetTester tester) async {
-      await _pumpShape(
-        tester,
-        category: const Assec(),
-        age: CampaignAge.recente,
-        observedAt: null,
-      );
+    testWidgetsOnWindows(
+      'mesure stationMarkerSize — 12 px, la taille VISUELLE, pas '
+      'la cible tactile',
+      (WidgetTester tester) async {
+        await _pumpShape(
+          tester,
+          category: const Assec(),
+          age: CampaignAge.recente,
+          observedAt: null,
+        );
 
-      expect(
-        tester.getSize(find.byType(OndeMarkerShape)),
-        const Size(stationMarkerSize, stationMarkerSize),
-      );
-      expect(stationMarkerSize, 12);
-      expect(minimumTapTarget, 44);
-    });
+        expect(
+          tester.getSize(find.byType(OndeMarkerShape)),
+          const Size(stationMarkerSize, stationMarkerSize),
+        );
+        expect(stationMarkerSize, 12);
+        expect(minimumTapTarget, 44);
+      },
+    );
 
     testWidgets('porte son PROPRE libelle semantique : c est ce qui rend la '
         'forme annoncable telle quelle en legende', (

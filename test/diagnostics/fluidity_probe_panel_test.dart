@@ -49,6 +49,8 @@ import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../support/windows_platform.dart';
+
 final class _EmptyStationPointRepository implements StationPointRepository {
   @override
   Future<List<StationPoint>> withinBounds(
@@ -152,7 +154,7 @@ void main() {
       }
     }
 
-    testWidgets(
+    testWidgetsOnWindows(
       'panneau au repos : aucune exception, aucun recouvrement (puces, '
       "avis « ni station… », avertissement, légende, contrôles, "
       'attribution)',
@@ -176,7 +178,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'G2 mesuré ET son rapport affiché (le cas qui déborde le plus) : '
       'toujours aucun recouvrement, et le bas du rapport reste VISIBLE '
       'sans défilement',

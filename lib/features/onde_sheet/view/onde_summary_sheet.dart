@@ -30,7 +30,7 @@
 //
 // ⚠️ Cette tranche n'importe AUCUNE autre tranche (`layers_test.dart`, règle
 // `feature-vers-feature`) : ni `features/map/`, ni `features/station_sheet/`.
-// La cible tactile de 44 pt (`04-ui.md § 3`) vient de [minimumTapTarget]
+// La cible tactile de 44 pt (48 dp sur Android) (`04-ui.md § 3`) vient de [minimumTapTarget]
 // (`lib/features/shared/tap_target.dart`, `K1`) — `features/shared/` reste
 // ouverte à toute tranche (règle `shared-sans-tranche`). Le format de date,
 // lui, n'est plus recopié depuis `H1` (2026-09-22) : `formatCalendarDate` vit
@@ -331,10 +331,10 @@ class _CloseButton extends StatelessWidget {
         key: ondeSheetCloseButtonKey,
         behavior: HitTestBehavior.opaque,
         onTap: onClose,
-        child: const SizedBox(
+        child: SizedBox(
           width: minimumTapTarget,
           height: minimumTapTarget,
-          child: Center(child: Icon(Icons.close)),
+          child: const Center(child: Icon(Icons.close)),
         ),
       ),
     );

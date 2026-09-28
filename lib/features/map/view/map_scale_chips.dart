@@ -106,9 +106,9 @@ class _MapScaleChip extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: () => onSelect(kind),
           child: ConstrainedBox(
-            // 44 × 44 pt au minimum (`04-ui.md` § 3). La puce s'élargit avec
+            // 44 × 44 pt (48 dp sur Android) au minimum (`04-ui.md` § 3). La puce s'élargit avec
             // son texte, elle ne rétrécit jamais en deçà.
-            constraints: const BoxConstraints(
+            constraints: BoxConstraints(
               minWidth: minimumTapTarget,
               minHeight: minimumTapTarget,
             ),
@@ -116,7 +116,7 @@ class _MapScaleChip extends StatelessWidget {
               decoration: BoxDecoration(
                 color: selected ? Colors.black : Colors.white,
                 border: Border.all(color: Colors.black),
-                borderRadius: const BorderRadius.all(
+                borderRadius: BorderRadius.all(
                   Radius.circular(minimumTapTarget / 2),
                 ),
               ),

@@ -241,7 +241,7 @@ void main() {
 
   group('minimumTapTarget', () {
     test('vaut 44 pt (04-ui.md § 3, cibles tactiles)', () {
-      expect(minimumTapTarget, 44.0);
+      expect(minimumTapTargetFor(TargetPlatform.windows), 44.0);
     });
   });
 
