@@ -25,7 +25,7 @@
 | Cible | État dans ce plan |
 |---|---|
 | **Windows** | construite en release, exécutable lancé hors Flutter (`P1`) |
-| **Android** | **jamais construite à ce jour.** Première construction en tête de plan (`A1`, `A⏸2`), constat d'écran à la porte (`P2`). Publication (`A⏸3` signature, `A⏸5` préversion) reste ⏸ ; cibles de 48 dp (`T2-K4`) et appareil réel (`A⏸4`) **non tranchés** : « Décisions à valider » 1 et 2 |
+| **Android** | **jamais construite à ce jour.** Première construction en tête de plan (`A1`, `A⏸2`), constat d'écran à la porte (`P2`). Publication (`A⏸3` signature, `A⏸5` préversion) reste ⏸ ; ~~cibles de 48 dp (`T2-K4`) et appareil réel (`A⏸4`) **non tranchés** : « Décisions à valider » 1 et 2~~ → arbitrés le 2026-09-27 : cibles de 48 dp partout (**tâche `T2-K4`**, décision 1), appareil réel (`A⏸4`) hors de la porte, émulateur seul (décision 2) |
 | **iOS** | configuré, jamais compilé |
 
 **Ce que T2 fait :** (a) désignation d'un point sur la carte, seule entrée géographique (Q1-A) · (b) zones d'alerte du point, niveau daté sur l'échelle complète, `SUP` d'abord puis `SOU`/`AEP`/inconnu nommés (Q5-B) · (c) profil choisi, jamais présélectionné, gardé pour la session (Q2-A) · (d) usages cités et attribués (`BR-014`) · (e) arrêté et arrêté-cadre ouverts hors de l'app, adresse toujours visible et copiable (Q9-A) · (f) **encart renforcé** (`BR-013`), quatrième et dernier emplacement d'avertissement · (g) cache de session 6 h, date de récupération affichée (Q7-A) · (h) écran « D'où vient cette donnée ? » réduit aux sources livrées, lien du modal rétabli (Q8-A).
@@ -66,7 +66,7 @@ Détail et URL : `docs/sources/vigieau.md` (`VG-01`→`VG-11`), `test/fixtures/C
 | `O5` | Heure non nulle sur une date de validité | `D2` : cas de test (la date UTC est gardée) | — |
 | `O6` | `cheminFichierArreteCadre` servi en `200 application/pdf` ? | `D2` étape 0 : **un** `HEAD` sur l'URL d'Ariège, consigné dans `vigieau.md` | « Non vérifié » ; l'écran n'affirme jamais qu'un document existe |
 | `O7` | Arrêté expiré encore rendu ? | aucune : on affiche les deux dates, on ne filtre rien | « Non vérifié » |
-| `O9` | Libellés des types de zone et des profils (« Exploitant » dans `04-ui.md`, « exploitation » dans `UC-002`) | `C1`, arbitrage du commanditaire | `E2` ne démarre pas |
+| `O9` | Libellés des types de zone et des profils (« Exploitant » dans `04-ui.md`, « exploitation » dans `UC-002`) | `C1`, arbitrage du commanditaire | `E2` ne démarre pas — ✅ **clos le 2026-09-27** (Q-5a, Q-5b de `C1`) : Eaux superficielles · Eaux souterraines · Eau potable · Type de zone non renseigné ; « Profil d'usager » : Particulier · Exploitation · Collectivité · Entreprise |
 | `O10` | Forme exacte du port d'ouverture de lien | `B2`, après `B1` | — |
 | `O11` | Outre-mer autres que la Guyane, par point | aucune | « Non vérifié » |
 
@@ -123,21 +123,26 @@ lib/data/
   restrictions/restriction_source.dart   SUPPRIME (M4)
   links/<bibliotheque>_external_link_opener.dart                           (B2)
 lib/features/
-  restrictions/view_model/restrictions_view_model.dart                     (V1, B2)
-  restrictions/view/restrictions_panel.dart  restrictions/view/drought_severity_badge.dart  (E2)
+  restrictions/view_model/restrictions_view_model.dart                     (V1, B2, + RestrictionsNonObtenues V1b)
+  restrictions/view/restrictions_screen.dart  restrictions/view/drought_severity_badge.dart  (E2)
+                                         (restrictions_panel.dart : REMPLACE par l ecran plein, Q-1 de C1)
   restrictions/view/reinforced_warning_card.dart   encart renforce, reste dans sa tranche (E4)
-  map/view/map_view.dart                 + onPointDesignated, + emplacement du panneau (E1, E3)
+  map/view/map_view.dart                 + onPointDesignated, + epingle dans _MapViewState (E1)
+                                         (« + emplacement du panneau (E3) » : SANS OBJET, Q-1 de C1)
+  map/view/map_controls.dart             + bouton « Restrictions au centre de la carte » (E1)
+  shared/tap_target.dart                 minimumTapTarget 44 -> 48 (K4)
   shared/data_sources_view.dart          « D'ou vient cette donnee ? » (S1, decision 4)
   shared/warning_link.dart               + lien vers les sources dans WarningWindow (S1)
   warnings/view/initial_warning_view.dart  + lien « Relire le detail des sources » (S1)
-lib/main.dart                            cable source cachee → ViewModel → panneau (E3)
+lib/main.dart                            cable source cachee → ViewModel → route de l ecran (E3)
 
 test/  un test par fichier de code, plus :
   data/restrictions/profile_filter_equivalence_test.dart   AR-1, obligatoire (D3)
   data/restrictions/restriction_source_test.dart           confinement redefini (M2, M4)
   features/restrictions/zones_samples.dart                 zones de test recopiees des fixtures (E2)
 
-docs/  specs/<date>-ecran-restrictions-t2-design.md (C1) · 04-ui.md § 1 (C1)
+docs/  specs/2026-09-27-ecran-restrictions-t2-design.md (C1) · 04-ui.md § 1, § 3, § 5 (C1)
+       sources/vigieau.md, sources/hubeau-hydrometrie.md, 01-analyse.md § 7 (S1, etape 0 : licences)
        acceptance/restrictions.feature (X1) · tracabilite.md (X2) · UC-002, BR-011, glossary,
        03-conception, context-map, project-state, CLAUDE.md (X3) · CHANGELOG.md 0.3.0 (X4, P3)
 ```
@@ -503,7 +508,7 @@ git commit -m "feat(restrictions): ouvrir l arrete et le site public hors de l a
 ### Task C1 : Concevoir l'écran des restrictions, sa désignation et l'écran des sources
 
 **Agent :** **raisonnement** (opus), puis relecture par un second agent.
-**Files:** créé `docs/superpowers/specs/<date>-ecran-restrictions-t2-design.md` · modifié `docs/04-ui.md` (§ 1 : croquis « Sécheresse et restrictions » **sans profil présélectionné**, plusieurs zones, adresse visible, date de récupération ; croquis « D'où vient cette donnée ? » ; § 3 si la désignation au clavier y entre)
+**Files:** créé `docs/superpowers/specs/<date>-ecran-restrictions-t2-design.md` (**`2026-09-27-ecran-restrictions-t2-design.md`**) · modifiés ce plan (2026-09-29) et `docs/04-ui.md` (§ 1 : croquis « Sécheresse et restrictions » **sans profil présélectionné**, plusieurs zones, adresse visible, date de récupération ; croquis « D'où vient cette donnée ? » ; § 3 si la désignation au clavier y entre)
 
 > Livrable **documentaire**. Lire d'abord : cadrage § 4 (Gherkin), conception § 2 et § 6, `04-ui.md § 1-3 et § 5`, `BR-001`, `007`, `008`, `011`, `013`, `014`, `glossary.md`, et les **vrais** noms de zone des fixtures (« Zone d'alerte n°4.3_Les affluents de l'Ariège aval », « UDI_crise »).
 
@@ -517,10 +522,68 @@ git commit -m "feat(restrictions): ouvrir l arrete et le site public hors de l a
 7. **Badge** — teintes, formes et motifs **recopiés** de `04-ui.md § 2`, échelle 3 ; aucune teinte inventée.
 8. **Écran des sources (Q8-A)** — sources livrées (hydrométrie, ONDE, VigiEau, IGN), licences, `L-06`, limites propres à VigiEau (seul l'arrêté fait foi, API en version 0.1), note d'interprétation d'`ADR-006` ; **aucun** `L-01`→`L-05` ; accès depuis le modal et après acquittement (décision 5). Textes passés au balayage de vocabulaire (ni « officiel », ni « garantie » sauf exception nominative justifiée).
 
-- [ ] **Étape 1** — rédiger ; **Étape 2** — relecture par un second agent (conformité `ADR-014`, `BR-013`, `BR-014`, rien d'inventé) ; **Étape 3** — **questions fermées au commanditaire**, une par point non trivial (au moins 1, 2, 4 et 5), chacune avec recommandation ; **Étape 4** — consigner les arbitrages dans le document, amender `04-ui.md`, commit.
+- [x] **Étape 1** — rédiger ; **Étape 2** — relecture par un second agent (conformité `ADR-014`, `BR-013`, `BR-014`, rien d'inventé) ; **Étape 3** — **questions fermées au commanditaire**, une par point non trivial (au moins 1, 2, 4 et 5), chacune avec recommandation ; **Étape 4** — consigner les arbitrages dans le document, amender `04-ui.md`, commit.
+  - [x] Étape 1 — [`2026-09-27-ecran-restrictions-t2-design.md`](../specs/2026-09-27-ecran-restrictions-t2-design.md)
+  - [x] Étape 2 — relecture
+  - [x] Étape 3 — Q-1 à Q-8 (§ 10 de la conception) posées ; **toutes les recommandations retenues** (Q-1 à Q-5d le 2026-09-27, Q-5e à Q-8 le 2026-09-29)
+  - [x] Étape 4 — arbitrages consignés en tête de la conception (statut « arbitré »), `04-ui.md` amendé (§ 1 : croquis « Sécheresse et restrictions » et « D'où vient cette donnée ? » ; § 3 : cibles de 48, désignation, badges, 200 % ; § 5 : note sur l'emplacement 4), ce plan mis en cohérence (`T2-V1b`, `T2-K4`, `E1`→`E4`, `S1`) le 2026-09-29. Commit : **à faire par la boucle principale**.
+
+> **Arbitrages de `C1` — ce qu'ils changent au plan** (conception, section « Arbitrages du commanditaire ») : **Q-1 (a)** écran plein → `E2` rend `RestrictionsScreen`, `E3` pousse une route ; **Q-2 (a)** appui long, clic droit et bouton clavier « Restrictions au centre de la carte » (48 dp) → `E1` ; **Q-2b (a)** épingle tenue par `_MapViewState` → `E1`, sans toucher `MapViewModel` ni `V1` ; **Q-3 (a)**, **Q-5a/b/c/e (a)**, **Q-6 (a)**, **Q-7 (a)** → `E2` ; **Q-4 (a)** titre et action épinglés, corps défilant → `E2`, `E4` ; **Q-5d (a)** état `RestrictionsNonObtenues` → nouvelle tâche **`T2-V1b`** ; **Q-8 (a)** → `S1`, avec vérification préalable de deux licences par appel réel. `O9` est **clos** (Q-5b).
 
 ```bash
 git commit -m "docs(restrictions): conception de l ecran des restrictions, de la designation et de l ecran des sources" -m "<recopier les arbitrages du commanditaire, point par point>."
+```
+
+---
+
+## Lot 4 bis — Amendements issus de `C1` (ajouté le 2026-09-29)
+
+> Deux tâches **avant `E2`**, nées des arbitrages : Q-5d (a) pour `V1b`, décision 1 pour `K4`. Indépendantes l'une de l'autre, elles peuvent précéder `E1`.
+
+### Task V1b : État `RestrictionsNonObtenues`
+
+**Agent :** mécanique.
+**Files:** modifiés `lib/features/restrictions/view_model/restrictions_view_model.dart`, `test/features/restrictions/view_model/restrictions_view_model_test.dart`
+
+> **Revient sur l'arbitrage du 2026-09-27 relatif à `V1`** (échec imprévu rangé dans `RestrictionsEnEchec(cause: SourceInjoignable(…))`) : arbitrage Q-5d (a) de `C1`, conception § 5.4. Motif : la vue ne peut pas distinguer une panne de VigiEau d'un bug de l'app, et doit nommer la source dans le premier cas (`BR-007`, Gherkin `US-07`) mais pas dans le second (contrainte du 2026-09-27).
+
+**Signature** — `final class RestrictionsNonObtenues extends RestrictionsState { const RestrictionsNonObtenues(this.point); final GeoPoint point; }` — **sixième** état, **aucun autre champ** (conception § 5.4 : le `diagnostic` d'une `Exception` n'a plus de porteur, accepté).
+
+**Invariants :** émis par les clauses `on Exception` **et** `on Error` d'`open`, jamais par `on RestrictionLookupFailure` ; la clause `on Error` garde son `FlutterError.reportError(…, library: 'restrictions')`, la clause `on Exception` ne remonte toujours rien ; `RestrictionsEnEchec` ne porte plus **que** des causes levées par la source ; domaine et `RestrictionLookupFailure` **inchangés** ; jeton `_generation` appliqué au nouvel état comme aux autres ; aucun widget importé.
+
+**Cas de test**
+- **Réécrit** — « un `StateError` (`Error`, non nommé) » → `RestrictionsNonObtenues` dont `point` est celui passé à `open` ; l'état n'est **pas** un `RestrictionsEnEchec` ; l'erreur remontée **une** fois à `FlutterError.onError`, même instance, `library == 'restrictions'`.
+- **Réécrit** — « une `Exception` ordinaire » → `RestrictionsNonObtenues(point)` ; **rien** remonté à `FlutterError.onError`.
+- Les trois branches nommées → toujours `RestrictionsEnEchec` avec la **même** cause (tests existants, inchangés).
+- `retry()` **étendu** : depuis `RestrictionsNonObtenues(p)` → `RestrictionsEnCours(p)` puis le résultat ; depuis `Fermees`, `ZonesTrouvees`, `AucuneZone` → toujours sans effet (tests existants, inchangés).
+- Réponse périmée : `open(p1)` qui lève une `Exception` **après** `open(p2)` → l'état final est celui de `p2` ; `close()` pendant un chargement qui lèvera → reste `RestrictionsFermees`.
+- `openPublicSite()` en `RestrictionsNonObtenues` appelle l'ouvreur (`BR-013`) : le test « dans tous les états » gagne ce cas.
+- Le test « `switch` exhaustif sur `RestrictionsState`, sans `default` » gagne la branche `RestrictionsNonObtenues()` : sans elle, il ne compile pas.
+- `flutter test test/architecture` vert (`view-model-sans-widget`, `features-vers-data`).
+
+- [ ] **Étape 1** — réécrire les deux tests, ajouter les autres ; `flutter test test/features/restrictions/view_model` → rouge (recopier). **Étape 2** — implémenter. **Étape 3** — critère de fin (le nombre de tests croît : deux réécrits, au moins trois ajoutés), commit.
+
+```bash
+git commit -m "feat(restrictions): etat RestrictionsNonObtenues pour un echec que la source n a pas leve (V1b de T2)" -m "Arbitrage Q-5d (a) de C1, qui revient sur celui de V1 du 2026-09-27 : une Exception ou une Error non nommee n est plus rangee dans RestrictionsEnEchec(SourceInjoignable), indiscernable d une vraie panne. L ecran pourra nommer la source quand elle n a pas repondu (BR-007) et rester neutre quand l echec n est peut-etre pas le sien. L Error reste remontee a FlutterError ; retry() reinterroge aussi depuis ce nouvel etat. Deux tests de V1 reecrits."
+```
+
+### Task K4 : Cibles de 48 dp
+
+**Agent :** mécanique.
+**Files:** modifiés `lib/features/shared/tap_target.dart` (valeur **et** commentaire d'en-tête, qui cite « 44 × 44 pt iOS ») et les tests qui figent la valeur 44 (repérés à l'étape 1)
+
+> **Décision 1, arbitrée le 2026-09-27** (§ « Décisions à valider ») : `minimumTapTarget` porté à **48** sur **toutes** les plateformes ; elle satisfait les deux normes de `04-ui.md § 3` (amendé le 2026-09-29). La constante est **unique** depuis `K1` : aucune autre valeur littérale ne change.
+
+**Cas de test**
+- `minimumTapTarget == 48` ; `grep -rn "44\.0\|= 44;" lib` → aucune cible tactile.
+- Les tests qui affirment « 44 » (libellés et valeurs, p. ex. « vaut 44 pt », « au moins 44 × 44 ») passent à 48, libellé compris ; **aucun** seuil abaissé.
+- Tests de disposition à **800 × 700** (`map_view_test.dart`, `windows_min_size_test.dart` et voisins) : verts **sans modification**. ⚠️ **S'ils rougissent : arrêt et question** au commanditaire (décision 1), sortie recopiée — aucun ajustement de disposition dans cette tâche.
+- Goldens : ceux dont la taille dérive de `minimumTapTarget` (pastille de zone, `areaClusterMarkerSize`) changent. Liste des goldens rouges **recopiée** ; régénération (`--update-goldens`) **de ceux-là seulement**, images relues par le second agent ; tout autre golden rouge → arrêt et question.
+
+- [ ] **Étape 1** — `grep -rn "44" test/features lib/features` : lister les assertions de cible ; test rouge sur la constante. **Étape 2** — porter à 48, aligner les tests. **Étape 3** — critère de fin, commit.
+
+```bash
+git commit -m "feat(ui): cibles tactiles portees a 48 sur toutes les plateformes (K4 de T2)" -m "Decision 1 du plan T2, arbitree le 2026-09-27 : Android devient une cible de porte et 04-ui.md section 3 lui demande 48 dp. La constante unique posee par K1 satisfait ainsi les deux normes, sans branche de plateforme. Dispositions a 800 x 700 : <recopier>. Goldens regeneres : <liste, ou aucun>."
 ```
 
 ---
@@ -530,47 +593,60 @@ git commit -m "docs(restrictions): conception de l ecran des restrictions, de la
 ### Task E1 : Désigner un point sur la carte
 
 **Agent :** mécanique.
-**Files:** modifiés `lib/features/map/view/map_view.dart` (et `map_view_model.dart` **si** `C1` retient une marque du point) et leurs tests
+**Files:** modifiés `lib/features/map/view/map_view.dart` ~~(et `map_view_model.dart` **si** `C1` retient une marque du point)~~, `lib/features/map/view/map_controls.dart` (bouton clavier) et leurs tests — **`map_view_model.dart` non modifié** : Q-2b (a) tient l'épingle dans `_MapViewState`
 
-**Signature** — `MapView({…, void Function(GeoPoint point)? onPointDesignated})`
+> **Arbitré en `C1`** (Q-2 (a), Q-2b (a), 2026-09-27 ; conception § 2) : **appui long** (`MapOptions.onLongPress`) au toucher ; **clic droit** (`onSecondaryTap`) et appui long à la souris ; **bouton** « Restrictions au centre de la carte », 48 × 48 dp (`minimumTapTarget`, porté à 48 par `K4`), dans la colonne des contrôles (`MapControls`), atteint par `Tab` dans l'ordre des contrôles, qui désigne le **centre de la caméra**. **Épingle** du point désigné : noire à halo blanc, hors de toute famille de formes d'échelle, inerte au pointeur, exclue de la tabulation, gardée par `_MapViewState` **jusqu'à la désignation suivante** — elle survit donc à la fermeture de l'écran des restrictions (`RestrictionsFermees` ne porte aucun point). Tap simple sur le fond de carte : **aucun** effet (désignation accidentelle écartée).
 
-**Cas de test** (gestes exacts : ceux de `C1`)
-- Le geste retenu à une position d'écran appelle le rappel **une** fois, avec le `GeoPoint` que la caméra donne pour cette position (caméra fixée dans le test, écart ≤ 1e-6).
-- L'équivalent clavier désigne le **centre** de la caméra.
+**Signature** — `MapView({…, void Function(GeoPoint point)? onPointDesignated})` ; `MapControls` gagne un rappel optionnel pour le bouton de désignation (nom fixé à l'écriture du test), **bouton absent** quand `onPointDesignated` est nul.
+
+**Cas de test** (gestes ~~exacts : ceux de `C1`~~ arbitrés en `C1`, ci-dessus)
+- ~~Le geste retenu~~ L'**appui long**, puis le **clic droit**, à une position d'écran appellent chacun le rappel **une** fois, avec le `GeoPoint` que la caméra donne pour cette position (caméra fixée dans le test, écart ≤ 1e-6).
+- Le **tap simple** sur le fond de carte n'appelle **pas** le rappel.
+- L'équivalent clavier désigne le **centre** de la caméra : bouton « Restrictions au centre de la carte » (libellé sémantique exact), ≥ `minimumTapTarget` de côté, atteint par `Tab` dans l'ordre des contrôles, activé par `Entrée` et `Espace`.
+- **Épingle** : absente avant toute désignation ; dessinée au point désigné après appui long, clic droit ou bouton ; **déplacée** à la désignation suivante (une seule épingle) ; toujours là après un déplacement de caméra ; ne capte aucun tap (un tap à sa position atteint ce qui est dessous) ; absente de l'ordre de tabulation.
 - La sélection simple d'un marqueur ouvre toujours sa fiche : tests existants de la carte **inchangés** et verts.
-- Rappel `null` → le geste est sans effet, sans erreur.
+- Appui long commencé **sur** un marqueur → désigne le **lieu** sous le pointeur, n'ouvre pas la fiche. ⚠️ Non vérifié (arène de gestes de `flutter_map`, conception § 2) : **si le test ne peut pas passer sans détourner le tap des marqueurs, arrêt et question.**
+- Les rappels passés à `MapOptions` sont des **références de méthode** (égalité de `MapOptions`, `NFR-01`).
+- Rappel `null` → gestes sans effet, sans erreur, **aucun** bouton de désignation.
 - `layers_test.dart` vert : la tranche carte ne nomme pas la tranche restrictions (`feature-vers-feature`).
 
 - [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
 
 ```bash
-git commit -m "feat(map): designer un point sur la carte, rappel type sur GeoPoint" -m "Seule entree geographique des restrictions (Q1-A) : aucune localisation de l usager, aucune station associee a un arrete. La carte rend un GeoPoint du domaine a un rappel injecte ; elle ignore qui l ecoute. <recopier le geste et l equivalent clavier arbitres en C1>."
+git commit -m "feat(map): designer un point sur la carte, rappel type sur GeoPoint" -m "Seule entree geographique des restrictions (Q1-A) : aucune localisation de l usager, aucune station associee a un arrete. La carte rend un GeoPoint du domaine a un rappel injecte ; elle ignore qui l ecoute. Arbitrage C1 (Q-2, Q-2b) : appui long et clic droit, bouton Restrictions au centre de la carte pour le clavier ; epingle tenue par l etat de la vue carte jusqu a la designation suivante, sans toucher MapViewModel."
 ```
 
 ### Task E2 : L'écran des restrictions
 
 **Agent :** **raisonnement** (le plus gros écran de T2).
-**Files:** créés `lib/features/restrictions/view/{restrictions_panel,drought_severity_badge}.dart`, `test/features/restrictions/zones_samples.dart` et tests miroirs · modifiés `lib/domain/restrictions/{zone_kind,user_profile}.dart` (+ libellés de `C1`) et leurs tests
+**Files:** créés `lib/features/restrictions/view/{~~restrictions_panel~~ restrictions_screen,drought_severity_badge}.dart`, `test/features/restrictions/zones_samples.dart` et tests miroirs · modifiés `lib/domain/restrictions/{zone_kind,user_profile}.dart` (+ libellés de `C1`) et leurs tests
+**Prérequis :** `C1`, `V1b` (sixième état), `K4` (48 dp), `B2`.
 
-**Signatures** — forme finale dictée par `C1` ; par défaut, sur le modèle de `StationSheetPanel` :
-- `class RestrictionsPanel extends StatelessWidget { const RestrictionsPanel({required this.state, required this.profile, required this.onChooseProfile, required this.onRetry, required this.onClose, this.onOpenDocument, this.onOpenPublicSite, this.unopenedLink, this.utcOffsetOf = systemUtcOffsetOf, super.key}); }`
+> **Arbitré en `C1`** (conception, section « Arbitrages ») : **écran plein** (Q-1), pas un panneau ; ordre du § 3 de la conception (Q-3) ; section « Arrêtés » dédoublonnée (Q-6) ; badge Q-7 ; textes des § 5.1 à 5.3, mot pour mot (Q-5a, Q-5b, Q-5c, Q-5e) ; en-tête épinglé de l'encart (Q-4) réservé à `E4`.
+
+**Signatures** — ~~forme finale dictée par `C1` ; par défaut, sur le modèle de `StationSheetPanel` :~~ forme arbitrée en `C1` (Q-1 (a), écran plein) :
+- ~~`class RestrictionsPanel extends StatelessWidget { const RestrictionsPanel({required this.state, required this.profile, required this.onChooseProfile, required this.onRetry, required this.onClose, this.onOpenDocument, this.onOpenPublicSite, this.unopenedLink, this.utcOffsetOf = systemUtcOffsetOf, super.key}); }`~~
+- `class RestrictionsScreen extends StatelessWidget { const RestrictionsScreen({required this.state, required this.profile, required this.onChooseProfile, required this.onRetry, this.onOpenDocument, this.onOpenPublicSite, this.unopenedLink, this.utcOffsetOf = systemUtcOffsetOf, super.key}); }` — barre de titre « Sécheresse et restrictions » et bouton de retour ; **pas d'`onClose`** : le retour (bouton, `Échap`, retour Android) **retire la route** (`Navigator.maybePop`), et `E3` ferme le ViewModel au retrait
 - `class DroughtSeverityBadge extends StatelessWidget { const DroughtSeverityBadge({required this.severity, super.key}); }`
-- `String zoneKindLabel(ZoneKind kind)` · `String userProfileLabel(UserProfile profile)` — `switch` exhaustifs, textes de `C1`
+- `String zoneKindLabel(ZoneKind kind)` · `String userProfileLabel(UserProfile profile)` — `switch` exhaustifs, textes de `C1` : **Eaux superficielles**, **Eaux souterraines**, **Eau potable**, **Type de zone non renseigné** (valeur brute non affichée) · **Particulier**, **Exploitation**, **Collectivité**, **Entreprise** ; titre du choix « **Profil d'usager** »
 
-**Invariants :** les tests de vue ne lisent **pas** `lib/data/` : `zones_samples.dart` construit des `ZonesAtPoint` avec des valeurs **recopiées** des fixtures ; l'emplacement de tête est réservé à l'encart (`E4`).
+**Invariants :** les tests de vue ne lisent **pas** `lib/data/` : `zones_samples.dart` construit des `ZonesAtPoint` avec des valeurs **recopiées** des fixtures ; l'emplacement de tête ~~est réservé à l'encart (`E4`)~~ — **en-tête épinglé** sous la barre de titre, puis **premier élément** du défilement — est réservé à l'encart (`E4`, Q-4) ; le défilement revient **en haut** à chaque nouveau point.
 
 **Cas de test**
-- `RestrictionsFermees` → rien ; `RestrictionsEnCours(p)` → point rappelé, texte de chargement, **aucun** badge ni niveau (`BR-007`).
-- `ZonesTrouvees` (Ain) : zone `SUP` d'abord, puis les autres sous leur libellé de type ; chaque zone porte son nom, son badge, le libellé de gravité et **« depuis le 20/08/2026 »** (`formatCalendarDate`, sans conversion) à côté du niveau (`BR-001`) ; la date de fin, ou la phrase de `C1` si elle manque ; l'échelle complète, **position de la zone marquée**.
-- `GraviteInconnue` → « Non renseigné », badge `#767676` ◌, **aucune** position marquée sur l'échelle, teinte d'aucun des quatre niveaux (`BR-011`).
-- Date de récupération : `formatLocalDateTime(retrievedAt)` sous décalage injecté, dans `ZonesTrouvees` **et** `AucuneZone` (Q7-A).
-- Profil `null` → quatre choix, **aucun** sélectionné (sémantique : aucun coché), **aucune** liste d'usages ; choix → `onChooseProfile(p)` ; profil posé → profil rappelé au-dessus de la liste, usages = `zone.usagesFor(profile)`, présentés comme cités et attribués.
-- Description rendue **à l'identique**, `\n` et espace de fin compris (égalité sur la chaîne entière) ; aucun usage pour ce profil → phrase de `C1`, jamais une phrase de neutralité.
-- Arrêté : adresse brute **visible et sélectionnable** (arrêté et arrêté-cadre) ; sans `openableUri` → adresse visible, **aucune** action d'ouverture ; sans document → phrase de `C1` ; `unopenedLink` posé → adresse gardée, texte qui ne prétend pas que le document existe (`UC-002 A6`).
-- `AucuneZone` → exactement « Cela ne signifie pas qu'aucun arrêté ne s'applique : vérifiez auprès de votre préfecture. », aucun badge.
-- `SourceInjoignable`, `ReponseIllisible` → `restrictionsSourceName` nommée, adresse du site public visible, aucun niveau ; `RequeteRefusee` → le texte ne dit pas « injoignable » ; « Réessayer » → `onRetry`.
-- Même arrêté pour trois zones (Paris) → comportement arbitré en `C1`.
-- 200 % de police : tout défile, rien n'est tronqué ; badge : contraste du texte selon `04-ui.md § 3`, assertion sur le couple de teintes déclaré.
+- ~~`RestrictionsFermees` → rien~~ `RestrictionsFermees` → aucun contenu d'état (l'écran n'est pas censé être affiché, `E3`) ; `RestrictionsEnCours(p)` → point rappelé (« Point désigné : 46,20000° N, 5,22600° E » pour l'Ain), texte de chargement de `C1`, **aucun** badge ni niveau (`BR-007`).
+- `ZonesTrouvees` (Ain) : zone `SUP` d'abord, puis le titre « Autres zones au même point » et sa phrase, puis les autres sous leur libellé de type ; chaque zone porte son nom, son badge, le libellé de gravité et **« depuis le 20/08/2026 »** (`formatCalendarDate`, sans conversion) à côté du niveau (`BR-001`) ; la date de fin, ou la phrase de `C1` (« Date de fin non transmise par la source. ») si elle manque ; l'échelle complète, **position de la zone marquée** (« ← cette zone »), **une échelle par zone**.
+- `GraviteInconnue` → « Non renseigné », badge `#767676` ◌, **puis la phrase de `BR-007` telle quelle** (Q-5c), **aucune** position marquée sur l'échelle, teinte d'aucun des quatre niveaux (`BR-011`).
+- Date de récupération : « Réponse de VigiEau obtenue le … » avec `formatLocalDateTime(retrievedAt)` sous décalage injecté, dans `ZonesTrouvees` **et** `AucuneZone` (Q7-A).
+- Ordre (Q-3) : zones, puis « Arrêtés », puis « Profil d'usager », puis les usages — assertion sur l'**ordre**, pas sur la présence seule.
+- Profil `null` → quatre choix, **aucun** sélectionné (sémantique : groupe exclusif, aucun coché), chacun ≥ `minimumTapTarget`, **aucune** liste d'usages, phrase « Les usages restreints s'affichent une fois un profil choisi. » ; choix → `onChooseProfile(p)` ; profil posé → « Usages restreints pour le profil {…} » et la phrase d'attribution de `C1` au-dessus de la liste, usages = `zone.usagesFor(profile)` **groupés par zone dans l'ordre des zones**, chaque groupe titré par son type, son nom et son niveau daté ; `theme` **non affiché** (Q-5e).
+- Description rendue **à l'identique**, `\n` et espace de fin compris (égalité sur la chaîne entière, guillemets « » posés hors de la chaîne) ; aucun usage pour ce profil → phrase de `C1`, jamais une phrase de neutralité.
+- Arrêté : adresse brute **visible et sélectionnable** (arrêté et arrêté-cadre) ; sans `openableUri` → adresse visible, **aucune** action d'ouverture, phrase de `C1` ; sans document → phrase de `C1` **dans le bloc de la zone** ; `unopenedLink` posé → adresse gardée, texte de `C1` qui ne prétend pas que le document existe (`UC-002 A6`) ; boutons « Ouvrir l'arrêté » / « Ouvrir l'arrêté-cadre » → `onOpenDocument`.
+- `AucuneZone` → « VigiEau ne renvoie aucune zone d'alerte pour ce point. » puis exactement « Cela ne signifie pas qu'aucun arrêté ne s'applique : vérifiez auprès de votre préfecture. », aucun badge, aucun profil.
+- `SourceInjoignable`, `ReponseIllisible` → `restrictionsSourceName` nommée (textes du § 5.3), adresse du site public visible, aucun niveau ; `RequeteRefusee` → le texte ne dit pas « injoignable » ; **`RestrictionsNonObtenues`** (`V1b`) → « Les restrictions n'ont pas pu être obtenues pour ce point. Aucun niveau n'est affiché. », **aucune** occurrence de `restrictionsSourceName` dans le texte d'échec ; « Réessayer » → `onRetry` dans les quatre cas.
+- Même arrêté pour trois zones (Paris) → ~~comportement arbitré en `C1`~~ **une** entrée par adresse exacte dans « Arrêtés » (Q-6), rôle (« Arrêté de restriction » / « Arrêté-cadre ») et « S'applique à : » les trois zones ; deux adresses différentes → deux entrées ; aucun titre ne date l'arrêté.
+- Badge (Q-7) : libellé **à côté** de la forme, jamais sur la teinte ; contour noir 2 px sur chaque badge ; Crise : second liseré intérieur **blanc** 1 px ; teintes, formes et glyphes recopiés de `04-ui.md § 2` ; assertion sur les couples de teintes déclarés (ratios de la conception, K-5).
+- 200 % de police : tout défile, rien n'est tronqué ~~; badge : contraste du texte selon `04-ui.md § 3`, assertion sur le couple de teintes déclaré~~ (contraste : ligne « Badge » ci-dessus).
+- `Échap` → la route est retirée (`maybePop`).
 - `vocabulary_test.dart` vert ; `vigieauLabelExceptions` **reste vide** (les mots du préfet arrivent à l'exécution, aucun littéral).
 
 - [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
@@ -582,40 +658,41 @@ git commit -m "feat(restrictions): l ecran des zones, niveaux dates et usages ci
 ### Task E3 : Câbler l'écran dans la racine de composition
 
 **Agent :** mécanique.
-**Files:** modifiés `lib/main.dart`, `lib/features/map/view/map_view.dart` (emplacement du panneau, si `C1` retient le panneau), `test/main_test.dart`, `test/features/map/view/map_view_test.dart`
+**Files:** modifiés `lib/main.dart`, ~~`lib/features/map/view/map_view.dart` (emplacement du panneau, si `C1` retient le panneau),~~ `test/main_test.dart` ~~· `test/features/map/view/map_view_test.dart`~~ — Q-1 (a) : l'écran est une **route**, la carte ne lui réserve aucun emplacement
 
-**Câblage** — `CachedRestrictionSource(inner: VigieauRestrictionSource(client: JsonHttpClient(httpClient: http.Client())))` → `RestrictionsViewModel(source: …, links: …)` ; `MartinPecheurApp` gagne `required RestrictionsViewModel restrictionsViewModel` ; `onPointDesignated` ferme les deux fiches puis `unawaited(restrictionsViewModel.open(p))` ; `onStationTap` et `onOndeTap` ferment aussi l'écran des restrictions ; `onCloseSheets` (`Échap`) le ferme.
+**Câblage** — `CachedRestrictionSource(inner: VigieauRestrictionSource(client: JsonHttpClient(httpClient: http.Client())))` → `RestrictionsViewModel(source: …, links: …)` ; `MartinPecheurApp` gagne `required RestrictionsViewModel restrictionsViewModel` ; `onPointDesignated` ferme les deux fiches puis `unawaited(restrictionsViewModel.open(p))` ~~; `onStationTap` et `onOndeTap` ferment aussi l'écran des restrictions ; `onCloseSheets` (`Échap`) le ferme~~ **et pousse la route** de `RestrictionsScreen` (reconstruite par `ListenableBuilder` sur le ViewModel) ; **au retrait de la route** — bouton de retour, `Échap`, retour Android — `restrictionsViewModel.close()`. `onStationTap`/`onOndeTap` n'ont plus à fermer l'écran : il couvre la carte (conception § 1). Le `BuildContext` qui porte le `Navigator` est **lu dans `main.dart` avant d'écrire** (aucune route n'y est poussée aujourd'hui).
 
 **Cas de test**
 - Racine, sans rendre `FlutterMap` : l'acquittement garde toujours tout, restrictions comprises (`BR-012`).
-- Désignation → fiches fermées, écran ouvert ; sélection d'une station → écran des restrictions fermé ; `Échap` → fermé.
+- Désignation → fiches fermées, ~~écran ouvert~~ route de l'écran poussée, `open(p)` appelé avec le point désigné ; ~~sélection d'une station → écran des restrictions fermé ; `Échap` → fermé~~ retour par le bouton **ou** par `Échap` → route retirée, ViewModel en `RestrictionsFermees`, carte de nouveau visible ; retour pendant un chargement → reste `RestrictionsFermees`.
+- Deux désignations successives (retour entre les deux) → **une** route à la fois, l'état est celui du second point.
 - `restriction_source_test.dart` vert : `main.dart` est le seul fichier hors module à nommer `VigieauRestrictionSource`.
 
 - [ ] **Étape 1** — tests rouges ; **Étape 2** — câbler ; **Étape 3** — critère de fin, commit.
 
 ```bash
-git commit -m "feat(restrictions): cabler la source cachee, le ViewModel et l ecran dans la racine" -m "Seul main.dart nomme l implementation VigiEau, comme il nomme les depots Hub Eau. Un seul ecran de detail ouvert a la fois : fiches et restrictions se ferment mutuellement, et Echap les ferme toutes."
+git commit -m "feat(restrictions): cabler la source cachee, le ViewModel et l ecran dans la racine" -m "Seul main.dart nomme l implementation VigiEau, comme il nomme les depots Hub Eau. L ecran des restrictions est une route poussee a la designation (arbitrage C1, Q-1 : ecran plein) ; son retrait, par le retour ou Echap, ferme le ViewModel. L epingle du point reste sur la carte au retour, tenue par la vue carte (E1)."
 ```
 
 ### Task E4 : Avertissement 4 sur 4 — l'encart renforcé (`BR-013`)
 
 **Agent :** mécanique pour le code ; constat d'écran : **commanditaire**.
-**Files:** créé `lib/features/restrictions/view/reinforced_warning_card.dart` et test miroir · modifiés `restrictions_panel.dart` et son test
+**Files:** créé `lib/features/restrictions/view/reinforced_warning_card.dart` et test miroir · modifiés ~~`restrictions_panel.dart`~~ `restrictions_screen.dart` et son test (écran plein, Q-1 de `C1`)
 
 > Dans sa tranche, **pas** sous `features/shared/` : un seul écran de ressource en T2 (conception § 7, YAGNI).
 
 **Signature** — `class ReinforcedWarningCard extends StatelessWidget { const ReinforcedWarningCard({required this.onConsultDecrees, super.key}); }` — surface **verrouillée en liste blanche** : aucun paramètre de repli, de fermeture ni de masquage. Textes **importés** de `warning_texts.dart` (`reinforcedWarningHeadline`, `reinforcedWarningBody`, `reinforcedWarningActionLabel`), jamais écrits dans le widget ; adresse `restrictionsPublicSiteUrl` visible et sélectionnable.
 
 **Cas de test**
-- **Premier contenu** du panneau dans **les cinq** états visibles — `EnCours` (avant toute réponse), `ZonesTrouvees`, `AucuneZone`, les trois `EnEchec` : assertion sur l'**ordre** (arbre et parcours sémantique), pas sur la présence seule ; le badge vient **après** lui.
-- Retirer l'encart du panneau → test rouge : c'est ce qui empêche de livrer l'écran sans lui.
+- **Premier contenu** du ~~panneau~~ **écran** (`RestrictionsScreen`, Q-1) dans **les ~~cinq~~ six** états visibles — `EnCours` (avant toute réponse), `ZonesTrouvees`, `AucuneZone`, les trois `EnEchec`, **`RestrictionsNonObtenues`** (`V1b`) : assertion sur l'**ordre** (arbre et parcours sémantique), pas sur la présence seule ; le badge vient **après** lui.
+- Retirer l'encart de l'~~panneau~~ écran → test rouge : c'est ce qui empêche de livrer l'écran sans lui.
 - Surface publique : les paramètres du constructeur sont exactement `onConsultDecrees` et `key` ; l'encart n'est ni dans un `ExpansionTile`, ni dans un `Dismissible`.
-- Défilement : comportement arbitré en `C1` (épinglé, ou premier élément), vérifié après défilement du contenu.
+- Défilement : comportement arbitré en `C1` ~~(épinglé, ou premier élément)~~ — **Q-4 (a)** : titre (`reinforcedWarningHeadline`) et action **épinglés**, toujours visibles après défilement du contenu ; corps et adresse du site public en **premier élément** du défilement ; à 800 × 700 et 200 %, la partie épinglée laisse **au moins la moitié** de la hauteur utile, sinon **arrêt et question**. La surface se dédouble (tête épinglée, corps) : le verrou « aucun paramètre de repli, de fermeture ni de masquage » vaut pour les deux (conception § 4).
 - Région d'alerte (`Semantics(liveRegion: true)`, comme `InitialWarningView`) annoncée **avant** tout autre contenu.
-- L'action appelle `onConsultDecrees` ; elle reste disponible en `RestrictionsEnEchec` (Gherkin « quand la source ne répond pas »).
+- L'action appelle `onConsultDecrees` ; elle reste disponible en `RestrictionsEnEchec` **et en `RestrictionsNonObtenues`** (Gherkin « quand la source ne répond pas »).
 - 200 % de police : non tronqué ; `grep -n "NE FONDEZ" lib/features` → **vide** (texte importé).
 
-- [ ] **Étape 1** — tests rouges, dont l'ordre ; **Étape 2** — implémenter, brancher en tête du panneau ; **Étape 3** — critère de fin, commit.
+- [ ] **Étape 1** — tests rouges, dont l'ordre ; **Étape 2** — implémenter, brancher en tête de l'~~panneau~~ écran ; **Étape 3** — critère de fin, commit.
 - [ ] **Étape 4 — constat d'écran : commanditaire.**
 
 ```bash
@@ -645,6 +722,12 @@ git commit -m "feat(avertissement): 4 sur 4 — encart renforce en tete de l ecr
 - **Verrou de version (Q8)** : `warning_texts_version_test.dart` vert **sans modification** ; `initialWarningBody` ne contient pas le libellé du lien ; `warningTextVersion` inchangée (décision 3).
 - 200 % : l'écran défile ; `vocabulary_test.dart` et confinement verts.
 
+> **Arbitré en `C1`** (Q-8 (a), 2026-09-29) : contenu du § 8 de la conception, écran plein, lien « D'où vient cette donnée ? » dans la fenêtre « ⚠ Avertissement », « Relire le détail des sources » dans le modal. **Deux mentions de licence restent à vérifier par appel réel** (conception § 8, « À valider ») : étape 0 ci-dessous. **Files** en plus, étape 0 seulement : `docs/sources/vigieau.md`, `docs/sources/hubeau-hydrometrie.md`, `docs/01-analyse.md` (§ 7).
+
+- [ ] **Étape 0 — vérifier par appel réel les deux licences, avant d'écrire un texte** (politesse de capture, ≤ 1 requête/s ; chaque URL consultée recopiée, réponse datée) :
+  - (a) **VigiEau** : licence de la donnée servie **par l'API** — aujourd'hui relevée pour le jeu data.gouv associé seulement (`ADR-004` l. 30), dépôt de code **sans** fichier de licence, et `info` du schéma **sans** champ `license` dans `swagger_2026-09-27.json`. Relire le schéma servi en direct, puis la mention de licence du site public `https://vigieau.gouv.fr/` et du jeu data.gouv (URL relevées, pas supposées).
+  - (b) **Hub'Eau** : **version** de la Licence Ouverte Etalab couvrant les API — « version non précisée » aux CGU consultées (`01-analyse.md § 7`, `hubeau-hydrometrie.md` l. 5-6, *non vérifié*).
+  - Attendu : **inconnu**. Consigner le constat dans `vigieau.md` et `hubeau-hydrometrie.md` (et `01-analyse.md § 7` si la version est trouvée). **Si l'une reste sans réponse : arrêt et question fermée** au commanditaire sur le libellé à écrire à l'écran (recommandation, alors : la licence **sans** numéro de version, et la mention « Non vérifié » en `P3`) — aucun numéro de version écrit de mémoire.
 - [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
 
 ```bash
@@ -669,7 +752,7 @@ git commit -m "feat(avertissement): ecran D ou vient cette donnee, et le lien du
 **Agent :** mécanique.
 **Files:** modifiés `docs/tracabilite.md`, `test/project/tracabilite_test.dart`
 
-- `US-07`, `US-08`, `US-09`, `UC-002`, `BR-013` → ✅ T2 avec leurs fichiers de test **existants** (panneau, encart, ViewModel, source, mapper, équivalence) ; `BR-011` cite aussi `zones_mapper_test.dart` ; `US-01` cite `data_sources_view_test.dart`.
+- `US-07`, `US-08`, `US-09`, `UC-002`, `BR-013` → ✅ T2 avec leurs fichiers de test **existants** (~~panneau~~ écran, encart, ViewModel, source, mapper, équivalence) ; `BR-011` cite aussi `zones_mapper_test.dart` ; `US-01` cite `data_sources_view_test.dart`.
 - Le test : les exceptions « sans fichier de test accepté » de `US-07/08/09` et `BR-013` **disparaissent** — ils doivent maintenant citer des fichiers qui existent.
 - [ ] Rouge, puis écrire, puis critère de fin, commit (`docs: tracabilite de T2`).
 
@@ -734,7 +817,7 @@ Attendu : construction réussie **avec la bibliothèque de `B2`** ; puis les con
 **Files:** `CHANGELOG.md`, `test/project/changelog_test.dart`
 
 - [ ] **Étape 1** — test rouge : `## [0.3.0]` daté, sans « à publier ».
-- [ ] **Étape 2** — dater ; `### Constaté à l'exécution` (constats de `P1` et `P2` un par un, poids, hors réseau) ; `### Non vérifié` : `O1`–`O3`, `O4` s'il n'a pas été capturé, `O6`–`O7`, `O11` ; `A⏸3` et `A⏸5` (publication), `A⏸4` et `T2-K4` selon les décisions 1 et 2 ; iOS jamais compilé ; aucun percentile ; aucune échelle 3 sur la carte.
+- [ ] **Étape 2** — dater ; `### Constaté à l'exécution` (constats de `P1` et `P2` un par un, poids, hors réseau) ; `### Non vérifié` : `O1`–`O3`, `O4` s'il n'a pas été capturé, `O6`–`O7`, `O11` ; `A⏸3` et `A⏸5` (publication), `A⏸4` ~~et `T2-K4` selon les décisions 1 et 2~~ (décision 2 ; `T2-K4` est une tâche du plan depuis l'arbitrage de la décision 1) ; les licences de `S1` étape 0 restées sans réponse ; iOS jamais compilé ; aucun percentile ; aucune échelle 3 sur la carte.
 - [ ] **Étape 3** — critère de fin, commit. **Tag `v0.3.0` seulement sur demande explicite ; ne rien pousser.** La mise en production reste une décision du commanditaire : les quatre avertissements sont posés, la publication Android (`A⏸3`) ne l'est pas.
 
 ---
@@ -747,7 +830,7 @@ Chacune est une **question fermée** ; la recommandation est appliquée dans le 
 
 | # | Question | Recommandation | Alternatives écartées |
 |---|---|---|---|
-| 1 | **Cibles de 48 dp (`T2-K4`)** — identifiant propre : `A⏸5` désigne la publication d'une préversion (plan T0, `project-state.md`) ; Android devient une cible de porte ; `04-ui.md § 3` demande 48 dp, T1 tient 44 pt (`minimumTapTarget`, `lib/features/shared/tap_target.dart`). **Non appliquée tant que non arbitrée.** | **(a) porter la constante unique à 48** sur toutes les plateformes : elle satisfait les deux normes, `K1` l'a posée unique pour cela ; si les tests de disposition de `K3` à 800 × 700 rougissent, arrêt et question. Si retenue : une tâche `T2-K4` s'insère avant `E2` | (b) 48 sur Android seul : une branche de plateforme dans `shared/` pour 4 dp ; (c) reporter hors T2, écart écrit dans « Non vérifié » : l'écran à conséquence juridique partirait sous la norme de la plateforme tactile |
+| 1 | **Cibles de 48 dp (`T2-K4`)** — identifiant propre : `A⏸5` désigne la publication d'une préversion (plan T0, `project-state.md`) ; Android devient une cible de porte ; `04-ui.md § 3` demande 48 dp, T1 tient 44 pt (`minimumTapTarget`, `lib/features/shared/tap_target.dart`). ~~**Non appliquée tant que non arbitrée.**~~ Arbitrée (a) le 2026-09-27 ; **tâche `T2-K4` insérée avant `E2`** le 2026-09-29 (Lot 4 bis). | **(a) porter la constante unique à 48** sur toutes les plateformes : elle satisfait les deux normes, `K1` l'a posée unique pour cela ; si les tests de disposition de `K3` à 800 × 700 rougissent, arrêt et question. Si retenue : une tâche `T2-K4` s'insère avant `E2` | (b) 48 sur Android seul : une branche de plateforme dans `shared/` pour 4 dp ; (c) reporter hors T2, écart écrit dans « Non vérifié » : l'écran à conséquence juridique partirait sous la norme de la plateforme tactile |
 | 2 | **Appareil réel (`A⏸4`)** dans la porte de T2 ? | **Non** : Q10-B nomme l'émulateur (`flutter run -d emulator-5554`) ; `A⏸4` reste ⏸, écrit dans « Non vérifié » | L'inclure : aucun appareil n'est connu sur le poste ; la porte dépendrait d'un matériel non identifié |
 | 3 | **`warningTextVersion`** à l'ajout du lien « Relire le détail des sources » (Q8) | **Inchangée** : le verrou couvre le texte **acquitté** ; un lien de navigation n'en fait pas partie (arbitrage du 2026-09-22 sur la portée du verrou) | Changer la version : tous les usagers réacquitteraient un texte identique |
 | 4 | **Emplacement de l'écran des sources** | **`lib/features/shared/`** : deux consommateurs, dont `WarningWindow` déjà dans `shared/` (amendement d'`ADR-014`, 2026-09-18). ⚠️ **Amende la conception § 7** (« rien ne s'ajoute à `features/shared/` en T2 », écrit pour l'encart renforcé, qui reste dans sa tranche) ; `X3` aligne la conception | Une tranche `features/data_sources/` : rappels à faire traverser la carte, deux fiches et le modal depuis `main.dart` |
@@ -769,12 +852,13 @@ Chacune est une **question fermée** ; la recommandation est appliquée dans le 
 | **2 — Données** | `D1` → `D4` (4) | transport extrait, URI et mapper, source et équivalence AR-1, cache 6 h |
 | **3 — ViewModel** | `V1`, `B2` (2) | `RestrictionsViewModel` ; port d'ouverture de lien |
 | **4 — Conception** | `C1` (1) | écran, désignation, sources ; arbitrages du commanditaire |
-| **5 — Vues** | `E1` → `E4` (4) | désignation, écran, câblage, **encart renforcé** et constat Windows |
-| **6 — Sources** | `S1` (1) | « D'où vient cette donnée ? », lien du modal |
+| **4 bis — Amendements de `C1`** | `V1b`, `K4` (2) | état `RestrictionsNonObtenues` (Q-5d) ; cibles de 48 dp (décision 1) |
+| **5 — Vues** | `E1` → `E4` (4) | désignation, écran **plein**, câblage **par une route**, **encart renforcé** et constat Windows |
+| **6 — Sources** | `S1` (1) | licences vérifiées par appel réel, « D'où vient cette donnée ? », lien du modal |
 | **7 — Documentation** | `X1` → `X4` (4) | Gherkin, traçabilité, alignement, `0.3.0` ouverte |
 | **8 — Porte** | `P1` → `P3` (3) | Windows release, Android émulateur, `0.3.0` close |
 
-**25 tâches.** `T2-K4` (cibles de 48 dp) s'ajoute si la décision 1 retient (a) ou (b).
+~~**25 tâches.** `T2-K4` (cibles de 48 dp) s'ajoute si la décision 1 retient (a) ou (b).~~ → **27 tâches** (2026-09-29) : `T2-K4` (décision 1, arbitrée (a) le 2026-09-27) et `T2-V1b` (Q-5d de `C1`) s'ajoutent aux 25.
 
 ## Ordre d'exécution
 
@@ -787,9 +871,14 @@ graph LR
     V1 --> B2["B2<br/>port de lien"]
     B1 -->|"oui du commanditaire"| B2
     V1 --> C1["C1<br/>conception d ecran<br/>arbitrages"]
-    C1 --> E1["E1<br/>designation"]
+    C1 --> E1["E1<br/>designation<br/>+ epingle"]
+    C1 --> V1b["V1b<br/>RestrictionsNonObtenues"]
+    C1 --> K4["K4<br/>cibles de 48"]
+    B2 --> V1b
+    V1b --> E2
+    K4 --> E2
     B2 --> E2
-    E1 --> E2["E2<br/>ecran des restrictions"]
+    E1 --> E2["E2<br/>ecran plein<br/>des restrictions"]
     E2 --> E3["E3<br/>cablage"]
     E3 --> E4["E4<br/>encart renforce<br/>constat Windows"]
     E4 --> S1["S1<br/>sources + lien du modal"]
@@ -801,7 +890,7 @@ graph LR
     P2 --> P3
 ```
 
-`A1` et `B1` partent **tout de suite**, en parallèle du domaine : l'une révèle tôt une construction Android qui échoue, l'autre laisse au commanditaire le temps d'arbitrer. `D1` ne dépend d'aucun type du domaine et peut précéder `M1`. **`M2` avant tout autre fichier sous `lib/domain/restrictions/`** : c'est lui qui redéfinit le confinement que ce fichier casserait. **`C1` avant toute vue** : gestes, libellés et forme de l'écran y sont arbitrés. **`E4` avant tout constat d'écran de l'écran des restrictions.**
+`A1` et `B1` partent **tout de suite**, en parallèle du domaine : l'une révèle tôt une construction Android qui échoue, l'autre laisse au commanditaire le temps d'arbitrer. `D1` ne dépend d'aucun type du domaine et peut précéder `M1`. **`M2` avant tout autre fichier sous `lib/domain/restrictions/`** : c'est lui qui redéfinit le confinement que ce fichier casserait. **`C1` avant toute vue** : gestes, libellés et forme de l'écran y sont arbitrés. **`V1b` et `K4` avant `E2`** (ajout du 2026-09-29) : l'écran consomme le sixième état, et ses cibles mesurent 48 ; `V1b` après `B2`, qui a déjà modifié le même ViewModel et son test ; `K4` peut précéder `E1`, dont le bouton de désignation mesure `minimumTapTarget`. **`E4` avant tout constat d'écran de l'écran des restrictions.**
 
 ## Les choses à ne jamais faire dans ce plan
 
