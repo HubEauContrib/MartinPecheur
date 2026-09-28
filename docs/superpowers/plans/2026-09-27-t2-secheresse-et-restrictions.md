@@ -561,7 +561,7 @@ git commit -m "docs(restrictions): conception de l ecran des restrictions, de la
 - Le test « `switch` exhaustif sur `RestrictionsState`, sans `default` » gagne la branche `RestrictionsNonObtenues()` : sans elle, il ne compile pas.
 - `flutter test test/architecture` vert (`view-model-sans-widget`, `features-vers-data`).
 
-- [ ] **Étape 1** — réécrire les deux tests, ajouter les autres ; `flutter test test/features/restrictions/view_model` → rouge (recopier). **Étape 2** — implémenter. **Étape 3** — critère de fin (le nombre de tests croît : deux réécrits, au moins trois ajoutés), commit.
+- [x] **Étape 1** — réécrire les deux tests, ajouter les autres ; `flutter test test/features/restrictions/view_model` → rouge (recopier). **Étape 2** — implémenter. **Étape 3** — critère de fin (le nombre de tests croît : deux réécrits, au moins trois ajoutés), commit.
 
 ```bash
 git commit -m "feat(restrictions): etat RestrictionsNonObtenues pour un echec que la source n a pas leve (V1b de T2)" -m "Arbitrage Q-5d (a) de C1, qui revient sur celui de V1 du 2026-09-27 : une Exception ou une Error non nommee n est plus rangee dans RestrictionsEnEchec(SourceInjoignable), indiscernable d une vraie panne. L ecran pourra nommer la source quand elle n a pas repondu (BR-007) et rester neutre quand l echec n est peut-etre pas le sien. L Error reste remontee a FlutterError ; retry() reinterroge aussi depuis ce nouvel etat. Deux tests de V1 reecrits."
