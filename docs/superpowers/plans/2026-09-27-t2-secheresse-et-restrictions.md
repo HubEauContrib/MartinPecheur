@@ -577,8 +577,8 @@ git commit -m "feat(restrictions): etat RestrictionsNonObtenues pour un echec qu
 
 **Cas de test**
 - ~~`minimumTapTarget == 48` ; `grep -rn "44\.0\|= 44;" lib` → aucune cible tactile.~~ `minimumTapTargetFor` : android donne 48 ; windows, iOS, linux, macOS (et fuchsia) donnent 44. `minimumTapTarget` suit `defaultTargetPlatform`. Un widget réel (`WarningLink`) mesure au moins 48 sous android et 44 sous windows.
-- ~~Les tests qui affirment « 44 » passent à 48, libellé compris ; **aucun** seuil abaissé.~~ Sous `flutter test` la plateforme par défaut est **android** : les tests de disposition de Windows (`K3`, 800 × 700, `map_view_test.dart`), `fluidity_probe_panel_test.dart` et les goldens existants (dont `area_cluster_marker_golden_test.dart`) **fixent Windows** par `testWidgetsOnWindows` (`test/support/windows_platform.dart`) — seuls ceux qui en ont besoin ; aucun seuil abaissé.
-- Tests de disposition à **800 × 700** et goldens : verts **sans modification d'assertion** et **sans `--update-goldens`**. S'ils rougissent avec Windows fixé : arrêt et question.
+- ~~Les tests qui affirment « 44 » passent à 48, libellé compris ; **aucun** seuil abaissé.~~ Sous `flutter test` la plateforme par défaut est **android** : les tests de disposition de Windows (`K3`, ~~800 × 700~~ **800 × 740** depuis le 2026-09-29, `map_view_test.dart`), `fluidity_probe_panel_test.dart` et les goldens existants (dont `area_cluster_marker_golden_test.dart`) **fixent Windows** par `testWidgetsOnWindows` (`test/support/windows_platform.dart`) — seuls ceux qui en ont besoin ; aucun seuil abaissé.
+- Tests de disposition à ~~**800 × 700**~~ **800 × 740** (arbitrage du commanditaire du 2026-09-29 : à 800 × 700 le bouton de désignation de `E1` fait recouvrir la légende débit sur 30 px) et goldens : verts **sans modification d'assertion** et **sans `--update-goldens`**. S'ils rougissent avec Windows fixé : arrêt et question.
 - ~~Goldens dont la taille dérive de `minimumTapTarget` : régénération de ceux-là.~~ Aucun golden régénéré : à 44 sur Windows, leur taille ne change pas.
 
 - [x] **Étape 1** — test rouge sur la constante (`Expected: <48.0>  Actual: <44.0>`). **Étape 2** — `minimumTapTargetFor` et getter ; retrait des `const` ; plateforme Windows fixée dans les tests concernés ; test sur widget réel sous android. **Étape 3** — critère de fin (`flutter analyze` sans remarque, `flutter test` vert deux fois, `dart format` code 0), commit.
@@ -598,6 +598,8 @@ git commit -m "feat(ui): cible tactile de 48 sur Android, 44 ailleurs (K4 de T2)
 
 > **Arbitré en `C1`** (Q-2 (a), Q-2b (a), 2026-09-27 ; conception § 2) : **appui long** (`MapOptions.onLongPress`) au toucher ; **clic droit** (`onSecondaryTap`) et appui long à la souris ; **bouton** « Restrictions au centre de la carte », ~~48 × 48 dp~~ de la taille de `minimumTapTarget` (48 dp sur Android, 44 ailleurs, `K4` réarbitrée le 2026-09-29), dans la colonne des contrôles (`MapControls`), atteint par `Tab` dans l'ordre des contrôles, qui désigne le **centre de la caméra**. **Épingle** du point désigné : noire à halo blanc, hors de toute famille de formes d'échelle, inerte au pointeur, exclue de la tabulation, gardée par `_MapViewState` **jusqu'à la désignation suivante** — elle survit donc à la fermeture de l'écran des restrictions (`RestrictionsFermees` ne porte aucun point). Tap simple sur le fond de carte : **aucun** effet (désignation accidentelle écartée).
 
+> **Constat de `E1` (2026-09-29) :** à 800 × 700 le quatrième bouton fait recouvrir la légende de l'échelle débit sur 30 px (`Rect` légende `532,60 → 792,494`, contrôles `748,464 → 792,664`) ; le commanditaire a arbitré ~~800 × 700~~ **800 × 740** (`kMinWindowHeight` dans `windows/runner/win32_window.cpp`, tests `K3`, `windows_min_size_test.dart`). Le natif se constate en release par le commanditaire.
+
 **Signature** — `MapView({…, void Function(GeoPoint point)? onPointDesignated})` ; `MapControls` gagne un rappel optionnel pour le bouton de désignation (nom fixé à l'écriture du test), **bouton absent** quand `onPointDesignated` est nul.
 
 **Cas de test** (gestes ~~exacts : ceux de `C1`~~ arbitrés en `C1`, ci-dessus)
@@ -611,7 +613,7 @@ git commit -m "feat(ui): cible tactile de 48 sur Android, 44 ailleurs (K4 de T2)
 - Rappel `null` → gestes sans effet, sans erreur, **aucun** bouton de désignation.
 - `layers_test.dart` vert : la tranche carte ne nomme pas la tranche restrictions (`feature-vers-feature`).
 
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(map): designer un point sur la carte, rappel type sur GeoPoint" -m "Seule entree geographique des restrictions (Q1-A) : aucune localisation de l usager, aucune station associee a un arrete. La carte rend un GeoPoint du domaine a un rappel injecte ; elle ignore qui l ecoute. Arbitrage C1 (Q-2, Q-2b) : appui long et clic droit, bouton Restrictions au centre de la carte pour le clavier ; epingle tenue par l etat de la vue carte jusqu a la designation suivante, sans toucher MapViewModel."
@@ -688,7 +690,7 @@ git commit -m "feat(restrictions): cabler la source cachee, le ViewModel et l ec
 - **Premier contenu** du ~~panneau~~ **écran** (`RestrictionsScreen`, Q-1) dans **les ~~cinq~~ six** états visibles — `EnCours` (avant toute réponse), `ZonesTrouvees`, `AucuneZone`, les trois `EnEchec`, **`RestrictionsNonObtenues`** (`V1b`) : assertion sur l'**ordre** (arbre et parcours sémantique), pas sur la présence seule ; le badge vient **après** lui.
 - Retirer l'encart de l'~~panneau~~ écran → test rouge : c'est ce qui empêche de livrer l'écran sans lui.
 - Surface publique : les paramètres du constructeur sont exactement `onConsultDecrees` et `key` ; l'encart n'est ni dans un `ExpansionTile`, ni dans un `Dismissible`.
-- Défilement : comportement arbitré en `C1` ~~(épinglé, ou premier élément)~~ — **Q-4 (a)** : titre (`reinforcedWarningHeadline`) et action **épinglés**, toujours visibles après défilement du contenu ; corps et adresse du site public en **premier élément** du défilement ; à 800 × 700 et 200 %, la partie épinglée laisse **au moins la moitié** de la hauteur utile, sinon **arrêt et question**. La surface se dédouble (tête épinglée, corps) : le verrou « aucun paramètre de repli, de fermeture ni de masquage » vaut pour les deux (conception § 4).
+- Défilement : comportement arbitré en `C1` ~~(épinglé, ou premier élément)~~ — **Q-4 (a)** : titre (`reinforcedWarningHeadline`) et action **épinglés**, toujours visibles après défilement du contenu ; corps et adresse du site public en **premier élément** du défilement ; à ~~800 × 700~~ **800 × 740** (2026-09-29) et 200 %, la partie épinglée laisse **au moins la moitié** de la hauteur utile, sinon **arrêt et question**. La surface se dédouble (tête épinglée, corps) : le verrou « aucun paramètre de repli, de fermeture ni de masquage » vaut pour les deux (conception § 4).
 - Région d'alerte (`Semantics(liveRegion: true)`, comme `InitialWarningView`) annoncée **avant** tout autre contenu.
 - L'action appelle `onConsultDecrees` ; elle reste disponible en `RestrictionsEnEchec` **et en `RestrictionsNonObtenues`** (Gherkin « quand la source ne répond pas »).
 - 200 % de police : non tronqué ; `grep -n "NE FONDEZ" lib/features` → **vide** (texte importé).

@@ -102,6 +102,7 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
+import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
@@ -110,6 +111,7 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
+import 'package:martinpecheur/features/map/view/designated_point_pin.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
@@ -401,7 +403,8 @@ bool shouldRefreshOn(MapEvent event) =>
 /// la pastille tapée ; en production, il applique
 /// `MapViewModel.zoomTargetFor` à la caméra (`_MapViewState`) et **n'ouvre
 /// aucune fiche** — `onStationTap`/`onOndeTap` ne sont jamais atteints par ce
-/// tap (`BR-009`).
+/// tap (`BR-009`). [designatedPoint] pose l'épingle du point désigné
+/// (`E1` de T2), au-dessus de tout le reste.
 List<Widget> buildMapLayers({
   required MapScaleKind scale,
   required List<StationPoint> stations,
@@ -413,6 +416,7 @@ List<Widget> buildMapLayers({
   StationMapState Function(StationCode code) stateOf = _alwaysUnloaded,
   List<MapAreaCluster> clusters = const <MapAreaCluster>[],
   void Function(MapAreaCluster cluster)? onClusterSelect,
+  GeoPoint? designatedPoint,
 }) {
   final List<Widget> layers = <Widget>[
     TileLayer(
@@ -455,6 +459,13 @@ List<Widget> buildMapLayers({
 
   if (markers.isNotEmpty) {
     layers.add(MarkerLayer(markers: markers));
+  }
+
+  // L'épingle du point désigné (`E1` de T2) : dernière couche, au-dessus des
+  // marqueurs, et inerte ([DesignatedPointPin]).
+  final GeoPoint? pin = designatedPoint;
+  if (pin != null) {
+    layers.add(designatedPointLayer(pin));
   }
 
   return layers;
@@ -792,6 +803,7 @@ List<Widget> buildMapOverlays({
   required VoidCallback? onZoomIn,
   required VoidCallback? onZoomOut,
   required VoidCallback onRecenter,
+  VoidCallback? onDesignateCenter,
   MapErrorSource? errorSource,
   Widget? stationSheet,
   Widget? ondeSheet,
@@ -936,6 +948,7 @@ List<Widget> buildMapOverlays({
                 onZoomIn: onZoomIn,
                 onZoomOut: onZoomOut,
                 onRecenter: onRecenter,
+                onDesignateCenter: onDesignateCenter,
               ),
             ),
             const SizedBox(height: _overlayPadding),
@@ -1000,6 +1013,7 @@ class MapView extends StatefulWidget {
     this.stationSheet,
     this.ondeSheet,
     this.onCloseSheets,
+    this.onPointDesignated,
     super.key,
   }) : assert(
          (onStationTap == null) == (stationSheet == null),
@@ -1058,6 +1072,15 @@ class MapView extends StatefulWidget {
   /// aucune fiche n'est branchée, `Échap` n'a alors rien à fermer.
   final VoidCallback? onCloseSheets;
 
+  /// Appelé avec le lieu désigné (`E1` de T2, conception § 2) : un appui
+  /// long ou un clic droit sur la carte — le point que la caméra donne pour
+  /// la position du geste —, ou le bouton « Restrictions au centre de la
+  /// carte » — le centre de la caméra. Injecté par `main.dart`, qui le
+  /// branche sur la tranche restrictions : la carte ne la nomme pas
+  /// (`feature-vers-feature`). `null` : les gestes sont sans effet et le
+  /// bouton est absent.
+  final void Function(GeoPoint point)? onPointDesignated;
+
   @override
   State<MapView> createState() => _MapViewState();
 }
@@ -1100,6 +1123,8 @@ class _MapViewState extends State<MapView> {
     minZoom: minimumMapZoom,
     maxZoom: maximumMapZoom,
     onMapEvent: _handleMapEvent,
+    onLongPress: _handleLongPress,
+    onSecondaryTap: _handleSecondaryTap,
     interactionOptions: InteractionOptions(
       keyboardOptions: KeyboardOptions(
         enableArrowKeysPanning: false,
@@ -1112,6 +1137,40 @@ class _MapViewState extends State<MapView> {
       ),
     ),
   );
+
+  /// Le point désigné le plus récent (`E1` de T2, conception § 2, Q-2b (a)) :
+  /// tenu ICI, par la vue carte, jusqu'à la désignation suivante — la
+  /// carte connaît le point au moment même du geste, et l'état de l'écran
+  /// des restrictions n'en porte plus après sa fermeture. `null` avant toute
+  /// désignation.
+  GeoPoint? _designatedPoint;
+
+  /// Câblé à `MapOptions.onLongPress` — une référence de méthode, jamais une
+  /// fermeture (égalité de `MapOptions`, `NFR-01`).
+  void _handleLongPress(TapPosition position, LatLng point) =>
+      _designate(point);
+
+  /// Câblé à `MapOptions.onSecondaryTap` (clic droit) — même raison.
+  void _handleSecondaryTap(TapPosition position, LatLng point) =>
+      _designate(point);
+
+  /// Bouton « Restrictions au centre de la carte » : le centre de la caméra.
+  void _handleDesignateCenter() => _designate(_mapController.camera.center);
+
+  /// Sans rappel, aucune désignation : ni appel, ni épingle.
+  void _designate(LatLng point) {
+    final void Function(GeoPoint point)? callback = widget.onPointDesignated;
+    if (callback == null) {
+      return;
+    }
+
+    final GeoPoint designated = GeoPoint(
+      latitude: point.latitude,
+      longitude: point.longitude,
+    );
+    setState(() => _designatedPoint = designated);
+    callback(designated);
+  }
 
   @override
   void initState() {
@@ -1511,6 +1570,7 @@ class _MapViewState extends State<MapView> {
                               stateOf: widget.viewModel.stateOf,
                               clusters: clusters,
                               onClusterSelect: _handleClusterSelect,
+                              designatedPoint: _designatedPoint,
                             ),
                           ),
                         ),
@@ -1532,6 +1592,9 @@ class _MapViewState extends State<MapView> {
                           ? _handleZoomOut
                           : null,
                       onRecenter: _handleRecenter,
+                      onDesignateCenter: widget.onPointDesignated == null
+                          ? null
+                          : _handleDesignateCenter,
                       stationSheet: widget.stationSheet,
                       ondeSheet: widget.ondeSheet,
                     ),

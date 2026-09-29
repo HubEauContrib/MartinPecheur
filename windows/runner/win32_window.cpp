@@ -34,11 +34,17 @@ constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 // exterieure et zone cliente (voir le commentaire de WM_GETMINMAXINFO plus
 // bas, qui traite ce second sujet, distinct).
 //
+// kMinWindowHeight amendee une troisieme fois le 2026-09-29, arbitrage du
+// commanditaire : 700 -> 740. Raison : le quatrieme bouton de la colonne des
+// controles (designation d'un point, E1 de T2) fait recouvrir la legende de
+// l'echelle debit sur 30 px a 800 x 740 ; a 800 x 740 la disposition ne
+// change pas et rien ne se recouvre (voir map_view_test.dart, groupe K3).
+//
 // Exprimee en pixels LOGIQUES (96 DPI), mise a l'echelle du moniteur
 // courant avant d'etre posee dans MINMAXINFO - comme `Create` le fait deja
 // pour la taille demandee a la creation.
 constexpr int kMinWindowWidth = 800;
-constexpr int kMinWindowHeight = 700;
+constexpr int kMinWindowHeight = 740;
 
 /// Registry key for app theme preference.
 ///
@@ -244,7 +250,7 @@ Win32Window::MessageHandler(HWND hwnd,
       // kMinWindowHeight (decision 8) de ZONE CLIENTE : sous ce seuil, la
       // colonne "controle d'avertissement + legende" (04-ui.md section 3)
       // n'a plus la place de tenir sans chevauchement. La RAISON du chiffre
-      // 700 (au lieu de 600) est documentee au commentaire de
+      // 700 puis 740 (au lieu de 600) est documentee au commentaire de
       // kMinWindowHeight, plus haut dans ce fichier - c'est une mesure de
       // disposition (legende de l'echelle debit), sans rapport avec ce qui
       // suit.
@@ -254,7 +260,7 @@ Win32Window::MessageHandler(HWND hwnd,
       // EXTERIEURE (bordures et barre de titre comprises), pas la zone
       // cliente - c'est ce que documente MINMAXINFO cote Win32. Poser
       // directement kMinWindowWidth/kMinWindowHeight dedans laisserait donc
-      // une zone cliente PLUS PETITE que 800 x 700, quels que soient les
+      // une zone cliente PLUS PETITE que 800 x 740, quels que soient les
       // chiffres choisis pour ces constantes.
       //
       // AdjustWindowRectExForDpi (Win32, documentee :

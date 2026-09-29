@@ -1198,14 +1198,14 @@ void main() {
   // cas vivent dans `map_empty_states_test.dart`.
 
   group(
-    'buildMapOverlays — à la taille minimale de fenêtre Windows (800 × 700, '
-    'décision 8, K3, amendée le 2026-09-23 : 600 → 700)',
+    'buildMapOverlays — à la taille minimale de fenêtre Windows (800 × 740, '
+    'décision 8, K3, amendée le 2026-09-23 : 600 → 700 → 740, 2026-09-29)',
     () {
       /// Clé de la fiche de test, quand [pumpOverlaysAt] en reçoit une —
       /// une hauteur réaliste (320, proche des fiches réelles de
       /// `station_sheet`/`onde_sheet`, largement plus qu'un `SizedBox`
       /// symbolique) : c'est CETTE hauteur qui doit tenir sans recouvrir
-      /// les autres surcouches à 800 × 700 (relecture du coordinateur du
+      /// les autres surcouches à 800 × 740 (relecture du coordinateur du
       /// 2026-09-23).
       const Key ficheDeTestKey = Key('fiche-de-test-K3');
       const double hauteurFicheRealiste = 320;
@@ -1216,6 +1216,7 @@ void main() {
         required MapScaleKind scale,
         bool debugBanner = false,
         bool avecFiche = false,
+        bool avecDesignation = false,
       }) {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1.0;
@@ -1237,6 +1238,7 @@ void main() {
                   onZoomIn: () {},
                   onZoomOut: () {},
                   onRecenter: () {},
+                  onDesignateCenter: avecDesignation ? () {} : null,
                   stationSheet: avecFiche
                       ? Container(
                           key: ficheDeTestKey,
@@ -1286,14 +1288,25 @@ void main() {
         'IgnAttributionBadge': tester.getRect(find.byType(IgnAttributionBadge)),
       };
 
-      for (final MapScaleKind scale in MapScaleKind.values) {
+      for (final (bool, MapScaleKind) cas in <(bool, MapScaleKind)>[
+        for (final bool b in <bool>[false, true])
+          for (final MapScaleKind k in MapScaleKind.values) (b, k),
+      ]) {
+        final bool avecDesignation = cas.$1;
+        final MapScaleKind scale = cas.$2;
         testWidgetsOnWindows(
+          '${avecDesignation ? "[bouton de désignation] " : ""}'
           'échelle ${scale.name} : puces, légende, contrôles de zoom, '
           "contrôle d'avertissement et attribution IGN tiennent SANS se "
-          'recouvrir et sans déborder de 800 × 700',
+          'recouvrir et sans déborder de 800 × 740',
           (WidgetTester tester) async {
-            const Size taille = Size(800, 700);
-            await pumpOverlaysAt(tester, taille, scale: scale);
+            const Size taille = Size(800, 740);
+            await pumpOverlaysAt(
+              tester,
+              taille,
+              scale: scale,
+              avecDesignation: avecDesignation,
+            );
             await tester.pumpAndSettle();
 
             final Map<String, Rect> rects = rectsAt(tester);
@@ -1311,7 +1324,7 @@ void main() {
                   isFalse,
                   reason:
                       '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
-                      'à 800 × 700, échelle ${scale.name}',
+                      'à 800 × 740, échelle ${scale.name}',
                 );
               }
             }
@@ -1319,14 +1332,26 @@ void main() {
         );
       }
 
-      for (final MapScaleKind scale in MapScaleKind.values) {
+      for (final (bool, MapScaleKind) cas in <(bool, MapScaleKind)>[
+        for (final bool b in <bool>[false, true])
+          for (final MapScaleKind k in MapScaleKind.values) (b, k),
+      ]) {
+        final bool avecDesignation = cas.$1;
+        final MapScaleKind scale = cas.$2;
         testWidgetsOnWindows(
+          '${avecDesignation ? "[bouton de désignation] " : ""}'
           'échelle ${scale.name}, AVEC une fiche ouverte (hauteur réaliste, '
           '$hauteurFicheRealiste) : rien ne se recouvre, rien ne déborde de '
-          '800 × 700',
+          '800 × 740',
           (WidgetTester tester) async {
-            const Size taille = Size(800, 700);
-            await pumpOverlaysAt(tester, taille, scale: scale, avecFiche: true);
+            const Size taille = Size(800, 740);
+            await pumpOverlaysAt(
+              tester,
+              taille,
+              scale: scale,
+              avecFiche: true,
+              avecDesignation: avecDesignation,
+            );
             await tester.pumpAndSettle();
 
             final Map<String, Rect> rects = <String, Rect>{
@@ -1347,13 +1372,34 @@ void main() {
                   isFalse,
                   reason:
                       '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
-                      'à 800 × 700, échelle ${scale.name}, fiche ouverte',
+                      'à 800 × 740, échelle ${scale.name}, fiche ouverte',
                 );
               }
             }
           },
         );
       }
+
+      testWidgetsOnWindows(
+        "RAISON DE L'AMENDEMENT (2026-09-29) — échelle débit : à 800 × 700, "
+        'le bouton de désignation (E1 de T2) fait recouvrir la légende sur '
+        '30 px ; la décision 8 passe de 700 à 740 (voir le groupe ci-dessus, '
+        'vert à 740)',
+        (WidgetTester tester) async {
+          await pumpOverlaysAt(
+            tester,
+            const Size(800, 700),
+            scale: MapScaleKind.debit,
+            avecDesignation: true,
+          );
+          await tester.pumpAndSettle();
+
+          final Rect legende = tester.getRect(find.byType(MapLegend));
+          final Rect controles = tester.getRect(find.byType(MapControls));
+          expect(legende.overlaps(controles), isTrue);
+          expect(legende.intersect(controles).height, closeTo(30, 0.5));
+        },
+      );
 
       testWidgets(
         'RAISON DE L\'AMENDEMENT (2026-09-23) — échelle débit : à 800 × '
@@ -1393,18 +1439,18 @@ void main() {
 
       testWidgets(
         'point 44 — le libellé du contrôle « ⚠ Avertissement » N\'EST PAS '
-        'tronqué par la mise en page à 800 × 700 (04-ui.md § 3)',
+        'tronqué par la mise en page à 800 × 740 (04-ui.md § 3)',
         (WidgetTester tester) async {
           await pumpOverlaysAt(
             tester,
-            const Size(800, 700),
+            const Size(800, 740),
             scale: MapScaleKind.ecoulement,
           );
           await tester.pumpAndSettle();
 
           expect(find.text(warningLinkLabel), findsOneWidget);
           final Rect texte = tester.getRect(find.text(warningLinkLabel));
-          expectWithinScreen(texte, const Size(800, 700), 'warningLinkLabel');
+          expectWithinScreen(texte, const Size(800, 740), 'warningLinkLabel');
         },
       );
 

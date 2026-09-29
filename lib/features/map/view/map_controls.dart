@@ -43,14 +43,19 @@ const Key mapZoomOutButtonKey = Key('map-zoom-out');
 /// Clé du bouton de recentrage.
 const Key mapRecenterButtonKey = Key('map-recenter');
 
-/// Les trois boutons de pilotage de la caméra à la souris/au tactile : `+`,
-/// `−`, recentrage — chacun une cible tactile ≥ 44 × 44 pt, espacés d'au
+/// Clé du bouton « Restrictions au centre de la carte » (`E1` de T2).
+const Key mapDesignateCenterButtonKey = Key('map-designate-center');
+
+/// Les boutons de pilotage de la caméra à la souris/au tactile : `+`, `−`,
+/// recentrage, et — quand [onDesignateCenter] est fourni — la désignation du
+/// centre de la carte (`E1` de T2) — chacun une cible tactile ≥ 44 × 44 pt, espacés d'au
 /// moins 8 dp (`04-ui.md` § 3).
 class MapControls extends StatelessWidget {
   const MapControls({
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onRecenter,
+    this.onDesignateCenter,
     super.key,
   });
 
@@ -68,8 +73,16 @@ class MapControls extends StatelessWidget {
   /// courant.
   final VoidCallback onRecenter;
 
+  /// Appelé par le bouton « Restrictions au centre de la carte » (`E1` de
+  /// T2, conception § 2) : l'équivalent au clavier et au lecteur d'écran de
+  /// l'appui long. `null` : le bouton est ABSENT — aucune désignation
+  /// n'est branchée, un bouton mort serait pire qu'aucun bouton.
+  final VoidCallback? onDesignateCenter;
+
   @override
   Widget build(BuildContext context) {
+    final VoidCallback? designate = onDesignateCenter;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -94,6 +107,15 @@ class MapControls extends StatelessWidget {
           label: 'Recentrer la carte',
           onTap: onRecenter,
         ),
+        if (designate != null) ...<Widget>[
+          const SizedBox(height: mapControlsSpacing),
+          _MapControlButton(
+            semanticsKey: mapDesignateCenterButtonKey,
+            icon: Icons.pin_drop,
+            label: 'Restrictions au centre de la carte',
+            onTap: designate,
+          ),
+        ],
       ],
     );
   }

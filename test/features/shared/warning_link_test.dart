@@ -187,12 +187,12 @@ void main() {
     });
   });
 
-  group('WarningWindow — taille minimale de fenêtre Windows (800 × 700, '
+  group('WarningWindow — taille minimale de fenêtre Windows (800 × 740, '
       'décision 8 amendée le 2026-09-23, K3) à 200 % de police', () {
     testWidgets(
       'le texte défile au lieu d\'être tronqué, "Fermer" reste atteignable',
       (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(800, 700);
+        tester.view.physicalSize = const Size(800, 740);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
 

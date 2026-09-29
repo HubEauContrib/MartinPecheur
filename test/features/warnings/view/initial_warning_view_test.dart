@@ -331,11 +331,11 @@ void main() {
     );
 
     testWidgets(
-      "a la taille minimale de fenetre Windows (800 x 700, decision 8 "
+      "a la taille minimale de fenetre Windows (800 x 740, decision 8 "
       "amendee le 2026-09-23, K3) et 200% de police, le texte defile et "
       "reste atteignable jusqu'au bouton",
       (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(800, 700);
+        tester.view.physicalSize = const Size(800, 740);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
 
