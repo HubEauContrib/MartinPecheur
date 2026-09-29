@@ -25,7 +25,9 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/designated_point_pin.dart';
+import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -369,13 +371,160 @@ void main() {
       expect(designated, hasLength(2));
     });
 
-    testWidgetsOnWindows('44 pt de côté sous Windows', (
+    testWidgetsOnWindows('52 pt de haut, en bas au centre de la carte, hors '
+        'de la colonne des contrôles', (WidgetTester tester) async {
+      await pumpMap(tester);
+
+      final Rect bouton = tester.getRect(
+        find.byKey(mapDesignateCenterButtonKey),
+      );
+      expect(bouton.height, greaterThanOrEqualTo(52));
+      expect(bouton.center.dx, closeTo(400, 0.5));
+      expect(bouton.bottom, greaterThan(500));
+      expect(
+        find.descendant(
+          of: find.byType(MapControls),
+          matching: find.byKey(mapDesignateCenterButtonKey),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('Tab : atteint juste APRÈS +, − et recentrer, puis la carte '
+        'suit', (WidgetTester tester) async {
+      await pumpMap(tester);
+
+      final List<Finder> attendus = <Finder>[
+        find.byKey(mapZoomInButtonKey),
+        find.byKey(mapZoomOutButtonKey),
+        find.byKey(mapRecenterButtonKey),
+        find.byKey(mapDesignateCenterButtonKey),
+      ];
+      final List<int> vus = <int>[];
+      for (int i = 0; i < 14 && vus.length < attendus.length; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        for (int k = 0; k < attendus.length; k++) {
+          if (_focusedWithin(attendus[k]) && (vus.isEmpty || vus.last != k)) {
+            vus.add(k);
+          }
+        }
+      }
+      expect(vus, <int>[0, 1, 2, 3], reason: 'ordre des contrôles');
+
+      // Le prochain arrêt est la carte elle-même (`mapTraversalOrderCarte`),
+      // pas un contrôle ni la fiche.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_focusedWithin(find.byType(FlutterMap)), isTrue);
+      for (final Finder f in attendus) {
+        expect(_focusedWithin(f), isFalse);
+      }
+    });
+  });
+
+  group('bande du bouton : la carte garde ses gestes', () {
+    // Un point DANS la bande horizontale du bouton, mais hors du bouton et de
+    // son indice : le conteneur du bouton ne doit rien capter là.
+    Future<Offset> dansLaBande(WidgetTester tester) async {
+      final Rect bouton = tester.getRect(
+        find.byKey(mapDesignateCenterButtonKey),
+      );
+      final Rect indice = tester.getRect(find.byKey(mapDesignateCenterHintKey));
+      final Offset p = Offset(62, bouton.center.dy);
+      expect(bouton.contains(p), isFalse);
+      expect(indice.contains(p), isFalse);
+      return p;
+    }
+
+    testWidgets('appui long', (WidgetTester tester) async {
+      final List<GeoPoint> designated = await pumpMap(tester);
+      final Offset p = await dansLaBande(tester);
+
+      await tester.longPressAt(p);
+      await tester.pumpAndSettle();
+
+      expect(designated, hasLength(1));
+      _expectClose(designated.single, _pointAt(tester, p));
+    });
+
+    testWidgets('clic droit', (WidgetTester tester) async {
+      final List<GeoPoint> designated = await pumpMap(tester);
+      final Offset p = await dansLaBande(tester);
+
+      await tester.tapAt(p, buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+
+      expect(designated, hasLength(1));
+    });
+
+    testWidgets('glisser : la carte se déplace', (WidgetTester tester) async {
+      await pumpMap(tester);
+      final Offset p = await dansLaBande(tester);
+      final LatLng avant = _camera(tester).center;
+
+      await tester.dragFrom(p, const Offset(-30, 0));
+      await tester.pumpAndSettle();
+
+      expect(_camera(tester).center, isNot(avant));
+    });
+  });
+
+  group('bande du bouton : molette', () {
+    testWidgets('la molette zoome la carte au-dessus de la bande', (
+      WidgetTester tester,
+    ) async {
+      await pumpMap(tester);
+      final Rect bouton = tester.getRect(
+        find.byKey(mapDesignateCenterButtonKey),
+      );
+      final Offset p = Offset(62, bouton.center.dy);
+      final double avant = _camera(tester).zoom;
+
+      final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(pointer.hover(p));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, -100)));
+      await tester.pumpAndSettle();
+
+      expect(_camera(tester).zoom, isNot(avant));
+    });
+  });
+
+  group('indice et réticule', () {
+    testWidgets('présents avec le bouton, indice sous lui', (
       WidgetTester tester,
     ) async {
       await pumpMap(tester);
 
-      final Size size = tester.getSize(find.byKey(mapDesignateCenterButtonKey));
-      expect(size, const Size(44, 44));
+      expect(find.byKey(mapDesignateCenterHintKey), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byKey(mapDesignateCenterHintKey)).dy,
+        greaterThanOrEqualTo(
+          tester.getBottomLeft(find.byKey(mapDesignateCenterButtonKey)).dy,
+        ),
+      );
+      expect(find.byKey(mapCenterReticleKey), findsOneWidget);
+    });
+
+    testWidgets('le réticule est au centre EXACT de la carte, inerte', (
+      WidgetTester tester,
+    ) async {
+      final List<GeoPoint> designated = await pumpMap(tester);
+
+      final Offset carte = tester.getCenter(find.byType(FlutterMap));
+      expect(tester.getCenter(find.byKey(mapCenterReticleKey)), carte);
+      // Un appui long sur le réticule désigne le point de la carte dessous :
+      // il n'intercepte aucun geste.
+      await tester.longPressAt(carte);
+      await tester.pumpAndSettle();
+      expect(designated, hasLength(1));
+    });
+
+    testWidgets('absents quand le rappel est nul', (WidgetTester tester) async {
+      await pumpMap(tester, avecRappel: false);
+
+      expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
+      expect(find.byKey(mapCenterReticleKey), findsNothing);
     });
   });
 

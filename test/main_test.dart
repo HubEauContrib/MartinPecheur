@@ -33,7 +33,7 @@ import 'package:martinpecheur/domain/restrictions/zones_at_point.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
-import 'package:martinpecheur/features/map/view/map_controls.dart'
+import 'package:martinpecheur/features/map/view/designate_center_button.dart'
     show mapDesignateCenterButtonKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';

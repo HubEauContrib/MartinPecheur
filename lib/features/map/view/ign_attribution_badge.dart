@@ -6,6 +6,15 @@
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 
+/// Corps du texte de l'attribution, en points.
+const double ignAttributionFontSize = 11;
+
+/// Marge intérieure horizontale de chaque côté du texte.
+const double ignAttributionPaddingHorizontal = 6;
+
+/// Marge intérieure verticale de chaque côté du texte.
+const double ignAttributionPaddingVertical = 2;
+
 /// Bandeau d'attribution IGN Géoplateforme, exigé par la Licence Ouverte.
 /// Porte son propre fond opaque : un texte posé directement sur un fond de
 /// carte quelconque ne tient aucun contraste (`04-ui.md` § 3). Entièrement
@@ -21,8 +30,14 @@ class IgnAttributionBadge extends StatelessWidget {
         borderRadius: BorderRadius.all(Radius.circular(4)),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        child: Text(ignAttribution, style: TextStyle(fontSize: 11)),
+        padding: EdgeInsets.symmetric(
+          horizontal: ignAttributionPaddingHorizontal,
+          vertical: ignAttributionPaddingVertical,
+        ),
+        child: Text(
+          ignAttribution,
+          style: TextStyle(fontSize: ignAttributionFontSize),
+        ),
       ),
     );
   }

@@ -34,6 +34,7 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show initialWarningTitle, warningLinkLabel;
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
+import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
@@ -1286,6 +1287,12 @@ void main() {
         'MapScaleChips': tester.getRect(find.byType(MapScaleChips)),
         'MapControls': tester.getRect(find.byType(MapControls)),
         'IgnAttributionBadge': tester.getRect(find.byType(IgnAttributionBadge)),
+        // Le bouton de désignation ET son indice (canvas du 2026-09-29) :
+        // hors de la colonne des contrôles, en bas au centre.
+        if (find.byType(DesignateCenterControl).evaluate().isNotEmpty)
+          'DesignateCenterControl': tester.getRect(
+            find.byType(DesignateCenterControl),
+          ),
       };
 
       for (final (bool, MapScaleKind) cas in <(bool, MapScaleKind)>[
@@ -1380,11 +1387,143 @@ void main() {
         );
       }
 
+      // Petits écrans (canvas du 2026-09-29) : le bouton de désignation et
+      // son indice ne recouvrent ni les contrôles, ni l'attribution, ni la
+      // fiche, et ne débordent pas — police à 100 % comme à 200 %.
+      for (final (Size, double, bool) cas in <(Size, double, bool)>[
+        (const Size(800, 740), 1, false),
+        (const Size(800, 740), 2, false),
+        (const Size(390, 844), 1, false),
+        (const Size(390, 844), 2, false),
+        (const Size(360, 640), 1, false),
+        (const Size(360, 640), 2, false),
+        (const Size(390, 844), 1, true),
+        (const Size(800, 740), 1, true),
+      ]) {
+        testWidgets(
+          'bouton de désignation à ${cas.$1.width.toInt()} × '
+          '${cas.$1.height.toInt()}, police ${cas.$2 * 100} %'
+          '${cas.$3 ? ", fiche ouverte" : ""} : dans l’écran, disjoint '
+          'des contrôles, de l’attribution${cas.$3 ? " et de la fiche" : ""}',
+          (WidgetTester tester) async {
+            tester.platformDispatcher.textScaleFactorTestValue = cas.$2;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            // Aux largeurs de téléphone, des surcouches d'autres tranches
+            // (puces d'échelle, contrôle d'avertissement) débordent déjà —
+            // constat hors sujet, la mise en page mobile n'est pas conçue.
+            // On ne retient ICI que les erreurs du bouton de désignation
+            // et de son indice.
+            final List<FlutterErrorDetails> erreurs = <FlutterErrorDetails>[];
+            final void Function(FlutterErrorDetails)? avant =
+                FlutterError.onError;
+            FlutterError.onError = erreurs.add;
+            try {
+              await pumpOverlaysAt(
+                tester,
+                cas.$1,
+                scale: MapScaleKind.ecoulement,
+                avecDesignation: true,
+                avecFiche: cas.$3,
+              );
+              await tester.pumpAndSettle();
+            } finally {
+              FlutterError.onError = avant;
+            }
+
+            expect(
+              erreurs.where(
+                (FlutterErrorDetails d) =>
+                    d.toString().contains('designate_center_button.dart'),
+              ),
+              isEmpty,
+            );
+            // Partie VISIBLE : si le contenu dépasse la hauteur restante il
+            // défile dans un `ListView`, dont la fenêtre borne ce qu'on voit.
+            final Finder fenetre = find.ancestor(
+              of: find.byType(DesignateCenterControl),
+              matching: find.byType(ListView),
+            );
+            final Rect contenu = tester.getRect(
+              find.byType(DesignateCenterControl),
+            );
+            final Rect groupe = fenetre.evaluate().isEmpty
+                ? contenu
+                : contenu.intersect(tester.getRect(fenetre.first));
+            expectWithinScreen(groupe, cas.$1, 'DesignateCenterControl');
+            final Map<String, Rect> autres = <String, Rect>{
+              'MapControls': tester.getRect(find.byType(MapControls)),
+              'IgnAttributionBadge': tester.getRect(
+                find.byType(IgnAttributionBadge),
+              ),
+              if (cas.$3)
+                'StationSheet': tester.getRect(find.byKey(ficheDeTestKey)),
+            };
+            autres.forEach((String nom, Rect r) {
+              expect(
+                groupe.overlaps(r),
+                isFalse,
+                reason: 'DesignateCenterControl ($groupe) recouvre $nom ($r)',
+              );
+            });
+          },
+        );
+      }
+
+      testWidgets(
+        'le bouton de désignation est CENTRÉ horizontalement sur la carte '
+        '(sans fiche ouverte)',
+        (WidgetTester tester) async {
+          await pumpOverlaysAt(
+            tester,
+            const Size(800, 740),
+            scale: MapScaleKind.ecoulement,
+            avecDesignation: true,
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            tester.getCenter(find.byType(DesignateCenterControl)).dx,
+            closeTo(400, 0.5),
+          );
+        },
+      );
+
+      testWidgets(
+        'MapControls ne porte plus que +, − et recentrer : le bouton de '
+        'désignation n’est PAS dans la colonne',
+        (WidgetTester tester) async {
+          await pumpOverlaysAt(
+            tester,
+            const Size(800, 740),
+            scale: MapScaleKind.ecoulement,
+            avecDesignation: true,
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            find.descendant(
+              of: find.byType(MapControls),
+              matching: find.byKey(mapDesignateCenterButtonKey),
+            ),
+            findsNothing,
+          );
+          expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
+          expect(
+            tester.getSize(find.byType(MapControls)).height,
+            minimumTapTarget * 3 + 16,
+          );
+        },
+      );
+
       testWidgetsOnWindows(
-        "RAISON DE L'AMENDEMENT (2026-09-29) — échelle débit : à 800 × 700, "
-        'le bouton de désignation (E1 de T2) fait recouvrir la légende sur '
-        '30 px ; la décision 8 passe de 700 à 740 (voir le groupe ci-dessus, '
-        'vert à 740)',
+        "AMENDEMENT DU 2026-09-29 (bouton hors de la colonne) — échelle "
+        'débit : à 800 × 700, le bouton de désignation (E1 de T2) ne fait '
+        'plus recouvrir la légende par les contrôles. Avant, posé dans la '
+        'colonne, il les faisait se recouvrir sur 30 px (ce qui avait porté '
+        'la décision 8 de 700 à 740) ; il est désormais en bas au centre. '
+        'La décision 8 reste à 740, non révisée ici',
         (WidgetTester tester) async {
           await pumpOverlaysAt(
             tester,
@@ -1396,8 +1535,7 @@ void main() {
 
           final Rect legende = tester.getRect(find.byType(MapLegend));
           final Rect controles = tester.getRect(find.byType(MapControls));
-          expect(legende.overlaps(controles), isTrue);
-          expect(legende.intersect(controles).height, closeTo(30, 0.5));
+          expect(legende.overlaps(controles), isFalse);
         },
       );
 

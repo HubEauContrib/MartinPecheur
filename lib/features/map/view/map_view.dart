@@ -111,9 +111,11 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
+import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/designated_point_pin.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
@@ -273,6 +275,12 @@ const double mapTraversalOrderSheet = 3.5;
 
 /// Voir [mapTraversalOrderChips] — le dernier arrêt.
 const double mapTraversalOrderWarningLink = 4;
+
+/// Le bouton « Restrictions au centre de la carte » : juste APRÈS les
+/// contrôles de zoom et de recentrage ([mapTraversalOrderControls]), juste
+/// AVANT la carte (`04-ui.md` § 3 : « atteint par Tab dans l'ordre des
+/// contrôles »).
+const double mapTraversalOrderDesignate = 2.5;
 
 /// Centre initial de la carte : France métropolitaine.
 const double initialMapCenterLatitude = 46.6;
@@ -810,6 +818,17 @@ List<Widget> buildMapOverlays({
 }) {
   final Widget? sheet = stationSheet;
   final Widget? onde = ondeSheet;
+  final VoidCallback? designate = onDesignateCenter;
+  // Le bouton de désignation et son indice (canvas du 2026-09-29) : hors de
+  // la colonne des contrôles, en bas au centre — ou, fiche ouverte, AU-DESSUS
+  // de la fiche, dans sa colonne (aucune des deux ne recouvre l'autre).
+  final Widget? designation = designate == null
+      ? null
+      : FocusTraversalOrder(
+          order: const NumericFocusOrder(mapTraversalOrderDesignate),
+          child: DesignateCenterControl(onDesignate: designate),
+        );
+  final bool hasSheet = sheet != null || onde != null;
   final List<MapNotice> notices = mapNoticesFor(
     scale: scale,
     hasStations: stations.isNotEmpty,
@@ -820,6 +839,9 @@ List<Widget> buildMapOverlays({
   );
 
   return <Widget>[
+    // Le réticule, sous toutes les autres surcouches : au centre exact de la
+    // carte, là où le bouton désigne. Inerte.
+    if (designate != null) const Center(child: MapCenterReticle()),
     Align(
       alignment: Alignment.topRight,
       child: Padding(
@@ -880,7 +902,12 @@ List<Widget> buildMapOverlays({
         ),
       ),
     ),
-    if (sheet != null || onde != null)
+    if (designation != null && !hasSheet)
+      Align(
+        alignment: Alignment.bottomCenter,
+        child: _DesignationPlacement(child: designation),
+      ),
+    if (hasSheet)
       Align(
         alignment: Alignment.bottomLeft,
         child: Padding(
@@ -914,18 +941,28 @@ List<Widget> buildMapOverlays({
             // fixé — station au-dessus, ONDE en dessous — pour que
             // l'empilement soit une décision testée et non un hasard de
             // `Stack`.
-            child: FocusTraversalOrder(
-              order: const NumericFocusOrder(mapTraversalOrderSheet),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  ?sheet,
-                  if (sheet != null && onde != null)
-                    const SizedBox(height: _overlayPadding),
-                  ?onde,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                if (designation != null) ...<Widget>[
+                  designation,
+                  const SizedBox(height: _overlayPadding),
                 ],
-              ),
+                FocusTraversalOrder(
+                  order: const NumericFocusOrder(mapTraversalOrderSheet),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      ?sheet,
+                      if (sheet != null && onde != null)
+                        const SizedBox(height: _overlayPadding),
+                      ?onde,
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -948,7 +985,6 @@ List<Widget> buildMapOverlays({
                 onZoomIn: onZoomIn,
                 onZoomOut: onZoomOut,
                 onRecenter: onRecenter,
-                onDesignateCenter: onDesignateCenter,
               ),
             ),
             const SizedBox(height: _overlayPadding),
@@ -958,6 +994,77 @@ List<Widget> buildMapOverlays({
       ),
     ),
   ];
+}
+
+/// Largeur de contenu que le bouton de désignation réclame pour tenir sur
+/// une ligne à 100 % (icône, libellé gras, marges), en pixels logiques.
+const double _designationComfortWidth = 420;
+
+/// Pose le bouton de désignation en bas de la carte, sans fiche ouverte.
+///
+/// Assez large ([_designationComfortWidth] de contenu entre deux marges de
+/// [_sheetRightPadding]) : centré EXACTEMENT, marges symétriques — celle de
+/// droite dégage déjà la colonne des contrôles. Plus étroit : marge gauche
+/// réduite pour laisser au libellé la place de passer à la ligne sans casser
+/// un mot, marge droite inchangée (les contrôles restent dégagés).
+///
+/// La marge basse dégage l'attribution IGN, dont la hauteur suit la police
+/// (11 pt mis à l'échelle) et la largeur : elle est mesurée, pas estimée.
+class _DesignationPlacement extends StatelessWidget {
+  const _DesignationPlacement({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool roomy =
+            constraints.maxWidth >=
+            2 * _sheetRightPadding + _designationComfortWidth;
+        // Hauteur EXACTE de l'attribution : le même texte, la même police, la
+        // même échelle, sur la largeur qu'elle occupe (marge de 8 de chaque
+        // côté, plus la marge intérieure du bandeau) — pas une estimation.
+        final TextPainter attribution =
+            TextPainter(
+              text: TextSpan(
+                text: ignAttribution,
+                style: DefaultTextStyle.of(context).style
+                    .merge(const TextStyle(fontSize: 11)),
+              ),
+              textDirection: TextDirection.ltr,
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout(
+              maxWidth:
+                  constraints.maxWidth -
+                  2 * _overlayPadding -
+                  2 * ignAttributionPaddingHorizontal,
+            );
+        final double bottom =
+            _overlayPadding + attribution.height + 4 + _overlayPadding;
+        attribution.dispose();
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            roomy ? _sheetRightPadding : _overlayPadding,
+            _overlayPadding,
+            _sheetRightPadding,
+            bottom,
+          ),
+          // `ListView` à taille du contenu, plutôt qu'une `Column` nue : à
+          // 200 % de police sur un petit écran, libellé et indice peuvent
+          // dépasser la hauteur restante — ils défilent alors au lieu de
+          // déborder hors écran, comme la colonne de la légende plus haut
+          // dans ce fichier. Sans dépassement, rien ne défile et rien
+          // n'intercepte la molette ni le glisser de la carte.
+          child: ListView(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            children: <Widget>[Center(child: child)],
+          ),
+        );
+      },
+    );
+  }
 }
 
 // `buildMapScreen` (bandeau `W3` + menu `W3b`) est retirée par `W3c` : `_MapViewState.build` rend directement `mapAndOverlays`.
