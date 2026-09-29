@@ -21,6 +21,7 @@ import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
@@ -421,6 +422,49 @@ void main() {
         expect(_focusedWithin(f), isFalse);
       }
     });
+  });
+
+  group('production : fiches FERMÉES mais fournies (main.dart)', () {
+    // `main.dart` passe TOUJOURS `stationSheet` et `ondeSheet` (panneaux qui
+    // se rendent vides à l'état fermé) : la disposition ne doit pas en
+    // dépendre.
+    for (final Size taille in <Size>[
+      const Size(1920, 1032),
+      const Size(800, 740),
+    ]) {
+      testWidgets(
+        'à ${taille.width.toInt()} × ${taille.height.toInt()}, bouton ET '
+        'indice sont centrés sur la carte',
+        (WidgetTester tester) async {
+          tester.view.physicalSize = taille;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MapView(
+                viewModel: _viewModel(),
+                onPointDesignated: (GeoPoint _) {},
+                onStationTap: (StationCode _) {},
+                stationSheet: const SizedBox.shrink(),
+                onOndeTap: (OndePoint _) {},
+                ondeSheet: const SizedBox.shrink(),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final double centre = tester.getCenter(find.byType(FlutterMap)).dx;
+          expect(
+            tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
+            closeTo(centre, 1),
+          );
+          expect(
+            tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
+            closeTo(centre, 1),
+          );
+        },
+      );
+    }
   });
 
   group('bande du bouton : la carte garde ses gestes', () {

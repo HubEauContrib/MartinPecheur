@@ -16,6 +16,7 @@
 // permis : `test/architecture/layers_test.dart` (règle `features-vers-data`)
 // contraint `lib/`, pas `test/`.
 import 'dart:async' show Completer;
+import 'dart:ui' show Size;
 
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
@@ -34,7 +35,7 @@ import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart'
-    show mapDesignateCenterButtonKey;
+    show mapDesignateCenterButtonKey, mapDesignateCenterHintKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
@@ -315,6 +316,25 @@ void main() {
       await tester.tap(find.byKey(mapDesignateCenterButtonKey));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('composition reelle : le bouton et son indice sont centres '
+        'sur la carte (fiches fermees)', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1032);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _app(await acknowledged(), _restrictions(_PendingRestrictionSource())),
+      );
+
+      expect(
+        tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
+        closeTo(960, 1),
+      );
+      expect(
+        tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
+        closeTo(960, 1),
+      );
+    });
 
     testWidgets('designation : la route de l ecran est poussee et le '
         'ViewModel interroge le point designe', (WidgetTester tester) async {

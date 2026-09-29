@@ -1399,6 +1399,8 @@ void main() {
         (const Size(360, 640), 2, false),
         (const Size(390, 844), 1, true),
         (const Size(800, 740), 1, true),
+        (const Size(1920, 1032), 1, true),
+        (const Size(1920, 1032), 1, false),
       ]) {
         testWidgets(
           'bouton de désignation à ${cas.$1.width.toInt()} × '
@@ -1460,6 +1462,14 @@ void main() {
               if (cas.$3)
                 'StationSheet': tester.getRect(find.byKey(ficheDeTestKey)),
             };
+            // Assez large : centré sur la carte, fiche ouverte ou non.
+            if (cas.$1.width >= 540) {
+              expect(contenu.center.dx, closeTo(cas.$1.width / 2, 1));
+              expect(
+                tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
+                closeTo(cas.$1.width / 2, 1),
+              );
+            }
             autres.forEach((String nom, Rect r) {
               expect(
                 groupe.overlaps(r),
