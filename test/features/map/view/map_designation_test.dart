@@ -155,6 +155,7 @@ void main() {
     bool avecRappel = true,
     List<StationPoint> stations = const <StationPoint>[],
     List<StationCode>? stationTaps,
+    bool fichesFermees = false,
   }) async {
     final List<GeoPoint> designated = <GeoPoint>[];
     tester.view.physicalSize = const Size(800, 700);
@@ -166,8 +167,14 @@ void main() {
         home: MapView(
           viewModel: viewModel,
           onPointDesignated: avecRappel ? designated.add : null,
-          onStationTap: stationTaps?.add,
-          stationSheet: stationTaps == null ? null : const SizedBox.shrink(),
+          onStationTap: fichesFermees ? (StationCode _) {} : stationTaps?.add,
+          stationSheet: (stationTaps == null && !fichesFermees)
+              ? null
+              : const SizedBox.shrink(),
+          // Comme `main.dart` : les deux panneaux fournis, vides à l'état
+          // fermé.
+          onOndeTap: fichesFermees ? (OndePoint _) {} : null,
+          ondeSheet: fichesFermees ? const SizedBox.shrink() : null,
         ),
       ),
     );
@@ -532,6 +539,80 @@ void main() {
 
       expect(_camera(tester).zoom, isNot(avant));
     });
+  });
+
+  group('fiches fermées fournies (main.dart) : gestes hors du bouton', () {
+    // (a) dans la bande, hors bouton et indice ; (b) à gauche AU-DESSUS de la
+    // bande. Verrous : la carte doit recevoir les gestes dans les deux cas.
+    for (final (String, Offset Function(Rect)) zone
+        in <(String, Offset Function(Rect))>[
+          ('dans la bande', (Rect b) => Offset(62, b.center.dy)),
+          ('au-dessus de la bande', (Rect b) => Offset(62, b.top - 24)),
+        ]) {
+      Future<Offset> point(WidgetTester tester) async {
+        final Rect bouton = tester.getRect(
+          find.byKey(mapDesignateCenterButtonKey),
+        );
+        final Offset p = zone.$2(bouton);
+        expect(bouton.contains(p), isFalse);
+        expect(
+          tester.getRect(find.byKey(mapDesignateCenterHintKey)).contains(p),
+          isFalse,
+        );
+        return p;
+      }
+
+      testWidgets('${zone.$1} : appui long', (WidgetTester tester) async {
+        final List<GeoPoint> designated = await pumpMap(
+          tester,
+          fichesFermees: true,
+        );
+        final Offset p = await point(tester);
+
+        await tester.longPressAt(p);
+        await tester.pumpAndSettle();
+
+        expect(designated, hasLength(1));
+        _expectClose(designated.single, _pointAt(tester, p));
+      });
+
+      testWidgets('${zone.$1} : clic droit', (WidgetTester tester) async {
+        final List<GeoPoint> designated = await pumpMap(
+          tester,
+          fichesFermees: true,
+        );
+        final Offset p = await point(tester);
+
+        await tester.tapAt(p, buttons: kSecondaryButton);
+        await tester.pumpAndSettle();
+
+        expect(designated, hasLength(1));
+      });
+
+      testWidgets('${zone.$1} : glisser', (WidgetTester tester) async {
+        await pumpMap(tester, fichesFermees: true);
+        final Offset p = await point(tester);
+        final LatLng avant = _camera(tester).center;
+
+        await tester.dragFrom(p, const Offset(-30, 0));
+        await tester.pumpAndSettle();
+
+        expect(_camera(tester).center, isNot(avant));
+      });
+
+      testWidgets('${zone.$1} : molette', (WidgetTester tester) async {
+        await pumpMap(tester, fichesFermees: true);
+        final Offset p = await point(tester);
+        final double avant = _camera(tester).zoom;
+
+        final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(pointer.hover(p));
+        await tester.sendEventToBinding(pointer.scroll(const Offset(0, -100)));
+        await tester.pumpAndSettle();
+
+        expect(_camera(tester).zoom, isNot(avant));
+      });
+    }
   });
 
   group('indice et réticule', () {
