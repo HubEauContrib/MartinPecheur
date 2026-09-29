@@ -263,6 +263,16 @@ K-3 : **aux quatre points, un seul arrêté et un seul arrêté-cadre** pour tou
 - Une zone **sans** `document` porte, dans son propre bloc, la phrase « Le texte de l'arrêté n'est pas accessible… » (§ 5.2).
 - Aucun titre ne date l'arrêté (« Arrêté du 24/07 » du croquis) : la source ne transmet **pas** la date de l'arrêté, seulement ses dates de validité.
 
+⚠️ **Amendement du 2026-09-29 (arbitrage du commanditaire, canvas de design)** : la section prend la forme de **cartes**, un document par carte (bordure 1 px `#C9CFC4`, rayon 12, fond blanc, sans bordure colorée). Textes, sans rien retirer de ce qui précède (dédoublonnage par adresse exacte, ordre restrictions puis cadres, adresse brute) :
+- en-tête de section : « Arrêtés » puis « N documents pour ce point » (« 1 document pour ce point ») ;
+- tête de carte : icône dans une pastille (document pour l'arrêté de restriction, article sur fond neutre pour l'arrêté-cadre), « Arrêté de restriction » ou « Arrêté-cadre » et, pour l'arrêté de restriction seulement, « Du JJ/MM/AAAA au JJ/MM/AAAA » (ou « Depuis le JJ/MM/AAAA » si aucune date de fin) **uniquement si toutes ses zones partagent les mêmes dates** — sinon aucune ligne de date ;
+- « S'applique à N zones » (« S'applique à 1 zone »), puis une ligne par zone : badge, titre « type — nom » à l'identique, niveau en gras **à côté** (jamais sur la teinte, Q-7) ; ce libellé remplace « S'applique à : a ; b ; c » ;
+- arrêté-cadre dont l'ensemble de zones est exactement celui d'un arrêté de restriction affiché : « S'applique aux N mêmes zones » (« S'applique à la même zone »), sans liste ; sinon la liste, comme la restriction ;
+- adresse non ouvrable : « Cette adresse ne peut pas être ouverte depuis l'application. » au-dessus du bloc d'adresse, à la place du bouton ;
+- bouton pleine largeur « Ouvrir l'arrêté » (plein, `#0B5E86`, texte blanc) ou « Ouvrir l'arrêté-cadre » (contour noir de 1,5 px), icône d'ouverture à droite, puis « PDF · s'ouvre hors de l'application » si le chemin de l'adresse finit par `.pdf` (casse ignorée), sinon « S'ouvre hors de l'application » ;
+- adresse : bloc « Adresse du document » (`#4A5259` sur `#F3F4F1`, 7,2:1) puis l'adresse brute, entière, sélectionnable, à chasse fixe (BR-014) ;
+- lien qui ne s'est pas ouvert : le texte de C1, inchangé, en encart orange (`#FFF4E0`, bordure `#B36B00`) **sous** le bloc d'adresse.
+
 | Alternative | Pourquoi écartée |
 |---|---|
 | Répéter les adresses sous chaque zone | six adresses identiques à l'Ain, en Corse et à Paris ; à 200 %, plusieurs écrans de défilement pour une information unique |

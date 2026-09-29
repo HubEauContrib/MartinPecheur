@@ -47,6 +47,7 @@ import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.dart';
 import 'package:martinpecheur/features/restrictions/view/reinforced_warning_card.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
+import 'package:martinpecheur/features/shared/action_color.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Titre de l'ecran (Q-1 de C1).
@@ -61,6 +62,14 @@ const String restrictionsNoDecreeMeaningText =
 /// Cle du choix du profil [profile] — pour mesurer sa cible.
 Key restrictionsProfileChoiceKey(UserProfile profile) =>
     ValueKey<String>('restrictions-profile-${profile.name}');
+
+/// Cle de la carte du document d'adresse [raw] et de role [framework] — le
+/// role fait partie de la cle : une meme adresse peut etre a la fois arrete de
+/// restriction et arrete-cadre (Q-6 dedoublonne par role).
+Key restrictionsDecreeCardKey(String raw, {required bool framework}) =>
+    ValueKey<String>(
+      'restrictions-decree-${framework ? 'cadre' : 'restriction'}-$raw',
+    );
 
 /// « Point désigné : 46,20000° N, 5,22600° E » — virgule decimale, cinq
 /// decimales pour l'affichage seul (la requete garde le point exact), `S` et
@@ -267,9 +276,16 @@ class RestrictionsScreen extends StatelessWidget {
       ],
       if (decrees.isNotEmpty) ...<Widget>[
         const _SectionTitle('Arrêtés'),
+        Text(
+          decrees.length == 1
+              ? '1 document pour ce point'
+              : '${decrees.length} documents pour ce point',
+        ),
+        const SizedBox(height: 16),
         for (final _DecreeEntry entry in decrees)
           _DecreeBlock(
             entry: entry,
+            sameZonesAsDecree: _isSameZonesAsDecree(entry, decrees),
             unopenedLink: unopenedLink,
             onOpenDocument: onOpenDocument,
           ),
@@ -686,14 +702,70 @@ List<_DecreeEntry> _decreeEntries(List<AlertZone> zones) {
   return <_DecreeEntry>[...decrees.values, ...frameworks.values];
 }
 
+/// Vrai si [entry] est un arrete-cadre dont l'ensemble de zones est EXACTEMENT
+/// celui d'un arrete de restriction affiche : la liste serait alors une
+/// repetition, la carte dit « mêmes zones ».
+bool _isSameZonesAsDecree(_DecreeEntry entry, List<_DecreeEntry> all) {
+  if (!entry.isFramework) {
+    return false;
+  }
+  return all.any(
+    (_DecreeEntry other) =>
+        !other.isFramework &&
+        other.zones.length == entry.zones.length &&
+        entry.zones.every(
+          (AlertZone zone) =>
+              other.zones.any((AlertZone o) => identical(o, zone)),
+        ),
+  );
+}
+
+/// La ligne de dates d'un arrete de restriction, ou `null` : les dates de
+/// validite ne s'affichent que si TOUTES ses zones les partagent (rien n'est
+/// choisi ni invente a la place d'un desaccord de la source).
+String? _validityLine(List<AlertZone> zones) {
+  final RestrictionDecree first = zones.first.decree;
+  final bool shared = zones.every(
+    (AlertZone zone) =>
+        zone.decree.validFrom == first.validFrom &&
+        zone.decree.validUntil == first.validUntil,
+  );
+  if (!shared) {
+    return null;
+  }
+  final DateTime? until = first.validUntil;
+  return until == null
+      ? 'Depuis le ${formatCalendarDate(first.validFrom)}'
+      : 'Du ${formatCalendarDate(first.validFrom)} au '
+            '${formatCalendarDate(until)}';
+}
+
+/// Vrai si le CHEMIN de l'adresse se termine par `.pdf` (casse ignoree).
+bool _isPdfAddress(String raw) {
+  final String path = Uri.tryParse(raw)?.path ?? raw;
+  return path.toLowerCase().endsWith('.pdf');
+}
+
+const Color _cardBorderColor = Color(0xFFC9CFC4);
+const Color _ruleColor = Color(0xFFE3E6DF);
+const Color _neutralTileColor = Color(0xFFF3F4F1);
+const Color _primaryTileColor = Color(0xFFE6F0F5);
+
+/// Gris du libelle « Adresse du document » : 7,2:1 sur [_neutralTileColor].
+const Color _addressLabelColor = Color(0xFF4A5259);
+
+/// Une carte par document : tete, zones concernees, action d'ouverture,
+/// adresse brute (BR-014) et avis de lien non ouvert.
 class _DecreeBlock extends StatelessWidget {
   const _DecreeBlock({
     required this.entry,
+    required this.sameZonesAsDecree,
     required this.unopenedLink,
     required this.onOpenDocument,
   });
 
   final _DecreeEntry entry;
+  final bool sameZonesAsDecree;
   final String? unopenedLink;
   final ValueChanged<DocumentLink>? onOpenDocument;
 
@@ -701,50 +773,285 @@ class _DecreeBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final ValueChanged<DocumentLink>? onOpenDocument = this.onOpenDocument;
     final bool openable = entry.link.openableUri != null;
+    final bool framework = entry.isFramework;
+    final String? secondary = framework ? null : _validityLine(entry.zones);
+    final int zoneCount = entry.zones.length;
+
     return Padding(
+      key: restrictionsDecreeCardKey(entry.link.raw, framework: framework),
       padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            entry.isFramework ? 'Arrêté-cadre' : 'Arrêté de restriction',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          Text("S'applique à : ${entry.zones.map(_zoneTitle).join(' ; ')}"),
-          // L'adresse brute, telle que recue (BR-014), selectionnable : la
-          // copie se fait par selection (Q9-A).
-          SelectableText(entry.link.raw),
-          if (unopenedLink == entry.link.raw) const _UnopenedLinkNotice(),
-          if (!openable)
-            const Text(
-              "Cette adresse ne peut pas être ouverte depuis l'application.",
-            )
-          else if (onOpenDocument != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: _ActionButton(
-                label: entry.isFramework
-                    ? "Ouvrir l'arrêté-cadre"
-                    : "Ouvrir l'arrêté",
-                onPressed: () => onOpenDocument(entry.link),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: _cardBorderColor),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  ExcludeSemantics(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: framework
+                            ? _neutralTileColor
+                            : _primaryTileColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SizedBox.square(
+                        dimension: 40,
+                        child: Icon(
+                          framework
+                              ? Icons.article_outlined
+                              : Icons.description_outlined,
+                          color: framework
+                              ? droughtLevelLabelColor
+                              : primaryActionColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          framework ? 'Arrêté-cadre' : 'Arrêté de restriction',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        if (secondary != null) Text(secondary),
+                        if (framework && sameZonesAsDecree)
+                          Text(
+                            zoneCount == 1
+                                ? "S'applique à la même zone"
+                                : "S'applique aux $zoneCount mêmes zones",
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
-        ],
+              if (!(framework && sameZonesAsDecree)) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(
+                  zoneCount == 1
+                      ? "S'applique à 1 zone"
+                      : "S'applique à $zoneCount zones",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                for (int i = 0; i < zoneCount; i++)
+                  _DecreeZoneRow(zone: entry.zones[i], first: i == 0),
+              ],
+              const SizedBox(height: 16),
+              if (!openable)
+                const Text(
+                  'Cette adresse ne peut pas être ouverte depuis '
+                  "l'application.",
+                )
+              else if (onOpenDocument != null) ...<Widget>[
+                _OpenDocumentButton(
+                  label: framework
+                      ? "Ouvrir l'arrêté-cadre"
+                      : "Ouvrir l'arrêté",
+                  filled: !framework,
+                  onPressed: () => onOpenDocument(entry.link),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isPdfAddress(entry.link.raw)
+                      ? "PDF · s'ouvre hors de l'application"
+                      : "S'ouvre hors de l'application",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+              const SizedBox(height: 12),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: _neutralTileColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'Adresse du document',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: _addressLabelColor,
+                        ),
+                      ),
+                      // L'adresse brute, telle que recue (BR-014),
+                      // selectionnable : la copie se fait par selection
+                      // (Q9-A).
+                      SelectableText(
+                        entry.link.raw,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontFamilyFallback: <String>['Consolas', 'Courier'],
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (unopenedLink == entry.link.raw) ...<Widget>[
+                const SizedBox(height: 8),
+                const _UnopenedLinkNotice(),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
+/// Une zone de la liste « S'applique à » : badge, titre, niveau a cote
+/// (jamais sur la teinte, Q-7). Noms rendus a l'identique (BR-014).
+class _DecreeZoneRow extends StatelessWidget {
+  const _DecreeZoneRow({required this.zone, required this.first});
+
+  final AlertZone zone;
+  final bool first;
+
+  @override
+  Widget build(BuildContext context) {
+    final String title = _zoneTitle(zone);
+    final String level = droughtSeverityLabel(zone.severity);
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 8),
+      decoration: first
+          ? null
+          : const BoxDecoration(
+              border: Border(top: BorderSide(color: _ruleColor)),
+            ),
+      child: Semantics(
+        container: true,
+        label: '$title, niveau de gravité : $level',
+        excludeSemantics: true,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            DroughtSeverityBadge(severity: zone.severity),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 2,
+                children: <Widget>[
+                  Text(title),
+                  Text(
+                    level,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// « Ouvrir l'arrêté » (plein, bleu d'action) ou « Ouvrir l'arrêté-cadre »
+/// (contour noir) : pleine largeur, cible tactile minimale (K4), densite
+/// standard sans quoi Windows la reduirait.
+class _OpenDocumentButton extends StatelessWidget {
+  const _OpenDocumentButton({
+    required this.label,
+    required this.filled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool filled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Size size = Size(double.infinity, minimumTapTarget);
+    final OutlinedBorder shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    );
+    final Widget content = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        Flexible(child: Text(label, textAlign: TextAlign.center)),
+        const SizedBox(width: 8),
+        const Icon(Icons.open_in_new, size: 18),
+      ],
+    );
+    if (filled) {
+      return FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          minimumSize: size,
+          visualDensity: VisualDensity.standard,
+          backgroundColor: primaryActionColor,
+          foregroundColor: onPrimaryActionColor,
+          shape: shape,
+        ),
+        child: content,
+      );
+    }
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: size,
+        visualDensity: VisualDensity.standard,
+        foregroundColor: droughtLevelLabelColor,
+        side: const BorderSide(color: droughtLevelLabelColor, width: 1.5),
+        shape: shape,
+      ),
+      child: content,
+    );
+  }
+}
+
 /// Sous une adresse qui ne s'est pas ouverte : rien ne dit que le document
-/// existe (`UC-002 A6`).
+/// existe (`UC-002 A6`). Encart orange, l'icone n'est pas annoncee.
 class _UnopenedLinkNotice extends StatelessWidget {
   const _UnopenedLinkNotice();
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      "Ce lien n'a pas pu être ouvert depuis l'application. Son adresse "
-      'reste affichée ci-dessus.',
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E0),
+        border: Border.all(color: const Color(0xFFB36B00)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            ExcludeSemantics(child: Icon(Icons.info_outline, size: 20)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "Ce lien n'a pas pu être ouvert depuis l'application. Son "
+                'adresse reste affichée ci-dessus.',
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

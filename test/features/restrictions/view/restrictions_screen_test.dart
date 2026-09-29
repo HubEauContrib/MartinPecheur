@@ -29,6 +29,7 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 
 import '../../../support/windows_platform.dart';
 import '../zones_samples.dart';
+import 'drought_severity_badge_test.dart' show contrastRatio;
 
 /// Heure de Paris en ete : les captures du 2026-09-27 sont en UTC+2.
 Duration _paris(DateTime _) => const Duration(hours: 2);
@@ -225,11 +226,11 @@ void main() {
       );
       final double sou = _top(
         tester,
-        find.text('Eaux souterraines — Dombes - Certines - Nord'),
+        find.text('Eaux souterraines — Dombes - Certines - Nord').first,
       );
       final double aep = _top(
         tester,
-        find.text('Eau potable — Rivières de Bresse'),
+        find.text('Eau potable — Rivières de Bresse').first,
       );
       expect(sup, lessThan(supName));
       expect(supName, lessThan(autres));
@@ -250,14 +251,17 @@ void main() {
 
       // Un badge par niveau de zone, plus quatre par échelle : une échelle
       // par zone, jamais une échelle commune.
-      expect(find.byType(DroughtSeverityBadge), findsNWidgets(3 + 3 * 4));
+      // Plus un par zone de la liste « S'applique à » de l'arrêté.
+      expect(find.byType(DroughtSeverityBadge), findsNWidgets(3 + 3 * 4 + 3));
       expect(find.text('Échelle :'), findsNWidgets(3));
       expect(find.text('Alerte ← cette zone'), findsNWidgets(2));
       expect(find.text('Vigilance ← cette zone'), findsOneWidget);
       expect(find.text('Alerte renforcée'), findsNWidgets(3));
       expect(find.text('Crise'), findsNWidgets(3));
-      expect(find.text('Vigilance'), findsNWidgets(2));
-      expect(find.text('Alerte'), findsOneWidget);
+      // Niveaux nus : un par échelle, plus un par ligne de la liste de
+      // l'arrêté (le niveau à côté du badge, Q-7).
+      expect(find.text('Vigilance'), findsNWidgets(3));
+      expect(find.text('Alerte'), findsNWidgets(3));
     });
 
     testWidgets('le libellé est posé à côté du badge, jamais dans le badge '
@@ -337,7 +341,7 @@ void main() {
       );
       expect(
         find.text('Type de zone non renseigné — Rivières de Bresse'),
-        findsOneWidget,
+        findsNWidgets(2), // bloc de la zone + liste de l'arrêté
       );
       expect(find.textContaining('XYZ'), findsNothing);
     });
@@ -497,7 +501,7 @@ void main() {
       // zones).
       final double groupSup = _top(
         tester,
-        find.text('Eaux superficielles — Rivières de Bresse'),
+        find.text('Eaux superficielles — Rivières de Bresse').last,
       );
       final double groupSou = _top(
         tester,
@@ -603,14 +607,25 @@ void main() {
         find.widgetWithText(SelectableText, frameworkUrlAin),
         findsOneWidget,
       );
-      expect(
-        find.text(
-          "S'applique à : Eaux superficielles — Rivières de Bresse ; Eaux "
-          'souterraines — Dombes - Certines - Nord ; Eau potable — Rivières '
-          'de Bresse',
-        ),
-        findsNWidgets(2),
-      );
+      // Les trois zones citées à l'identique, une fois chacune, dans la
+      // carte de l'arrêté de restriction ; l'arrêté-cadre a les mêmes.
+      expect(find.text("S'applique à 3 zones"), findsOneWidget);
+      expect(find.text("S'applique aux 3 mêmes zones"), findsOneWidget);
+      for (final String title in <String>[
+        'Eaux superficielles — Rivières de Bresse',
+        'Eaux souterraines — Dombes - Certines - Nord',
+        'Eau potable — Rivières de Bresse',
+      ]) {
+        expect(
+          find.descendant(
+            of: find.byKey(
+              restrictionsDecreeCardKey(decreeUrlAin, framework: false),
+            ),
+            matching: find.text(title),
+          ),
+          findsOneWidget,
+        );
+      }
       expect(find.textContaining('Arrêté du'), findsNothing);
 
       await tester.ensureVisible(find.text("Ouvrir l'arrêté"));
@@ -633,14 +648,14 @@ void main() {
         find.widgetWithText(SelectableText, decreeUrlParis),
         findsOneWidget,
       );
-      expect(
-        find.text(
-          "S'applique à : Eaux superficielles — Bassins de la Marne et de la "
-          'Seine ; Eaux souterraines — Bassins de la Marne et de la Seine ; '
-          'Eau potable — Bassins de la Marne et de la Seine',
-        ),
-        findsNWidgets(2),
-      );
+      expect(find.text("S'applique à 3 zones"), findsOneWidget);
+      for (final String title in <String>[
+        'Eaux superficielles — Bassins de la Marne et de la Seine',
+        'Eaux souterraines — Bassins de la Marne et de la Seine',
+        'Eau potable — Bassins de la Marne et de la Seine',
+      ]) {
+        expect(find.text(title), findsWidgets);
+      }
     });
 
     testWidgets('deux adresses différentes -> deux entrées', (
@@ -731,6 +746,448 @@ void main() {
       await _pump(tester, ZonesTrouvees(zonesAin()));
       expect(find.text("Ouvrir l'arrêté"), findsNothing);
       expect(find.widgetWithText(SelectableText, decreeUrlAin), findsOneWidget);
+    });
+  });
+
+  // Section « Arrêtés » en cartes (arbitrage du commanditaire du 2026-09-29,
+  // canvas de design) : amendement de la conception T2 § 6.
+  group('arrêtés en cartes (amendement du 2026-09-29)', () {
+    /// Une zone de l'Ain dont [decree] est remplacé — un champ change.
+    AlertZone withDecree(AlertZone zone, RestrictionDecree decree) => AlertZone(
+      name: zone.name,
+      kind: zone.kind,
+      severity: zone.severity,
+      decree: decree,
+      usages: zone.usages,
+    );
+
+    Finder card(String raw, {bool framework = false}) =>
+        find.byKey(restrictionsDecreeCardKey(raw, framework: framework));
+
+    Finder within(String raw, Finder matching) => find.descendant(
+      of: card(raw, framework: raw == frameworkUrlAin),
+      matching: matching,
+    );
+
+    testWidgets('en-tête : titre gardé et « N documents pour ce point »', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      expect(find.text('Arrêtés'), findsOneWidget);
+      expect(find.text('2 documents pour ce point'), findsOneWidget);
+      expect(
+        _top(tester, find.text('Arrêtés')),
+        lessThan(_top(tester, find.text('2 documents pour ce point'))),
+      );
+    });
+
+    testWidgets('en-tête au singulier : « 1 document pour ce point »', (
+      WidgetTester tester,
+    ) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[ainSupSansDateDeFin()])),
+      );
+      expect(find.text('1 document pour ce point'), findsOneWidget);
+      expect(find.text('2 documents pour ce point'), findsNothing);
+    });
+
+    testWidgets('chaque document est une carte : bordure 1 px #C9CFC4, rayon '
+        '12, fond blanc, sans bordure gauche colorée', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      for (final String raw in <String>[decreeUrlAin, frameworkUrlAin]) {
+        final DecoratedBox box = tester.widget<DecoratedBox>(
+          find
+              .descendant(
+                of: card(raw, framework: raw == frameworkUrlAin),
+                matching: find.byType(DecoratedBox),
+              )
+              .first,
+        );
+        final BoxDecoration decoration = box.decoration as BoxDecoration;
+        expect(decoration.color, Colors.white);
+        expect(decoration.borderRadius, BorderRadius.circular(12));
+        expect(decoration.border, Border.all(color: const Color(0xFFC9CFC4)));
+      }
+    });
+
+    testWidgets('tête : icônes distinctes, titre en gras', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      expect(
+        within(decreeUrlAin, find.byIcon(Icons.description_outlined)),
+        findsOneWidget,
+      );
+      expect(
+        within(frameworkUrlAin, find.byIcon(Icons.article_outlined)),
+        findsOneWidget,
+      );
+      final Text title = tester.widget<Text>(
+        within(decreeUrlAin, find.text('Arrêté de restriction')),
+      );
+      expect(title.style?.fontWeight, FontWeight.bold);
+    });
+
+    testWidgets('dates identiques pour toutes les zones : « Du … au … »', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      expect(
+        within(decreeUrlAin, find.text('Du 20/08/2026 au 31/10/2026')),
+        findsOneWidget,
+      );
+      // Pas de ligne de dates sur l'arrêté-cadre.
+      expect(within(frameworkUrlAin, find.textContaining('Du ')), findsNothing);
+    });
+
+    testWidgets('date de fin nulle pour toutes les zones : « Depuis le … »', (
+      WidgetTester tester,
+    ) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[ainSupSansDateDeFin()])),
+      );
+      expect(find.text('Depuis le 20/08/2026'), findsOneWidget);
+      expect(find.textContaining('Du 20'), findsNothing);
+    });
+
+    testWidgets('dates différentes entre zones : aucune ligne de date', (
+      WidgetTester tester,
+    ) async {
+      final AlertZone other = withDecree(
+        ainSou(),
+        RestrictionDecree(
+          validFrom: DateTime.utc(2026, 8, 20),
+          validUntil: DateTime.utc(2026, 11, 15),
+          document: const DocumentLink(decreeUrlAin),
+        ),
+      );
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[ainSup(), other])),
+      );
+      expect(find.textContaining('Du 20/08/2026'), findsNothing);
+      expect(find.textContaining('Depuis le'), findsNothing);
+      expect(find.text("S'applique à 2 zones"), findsOneWidget);
+    });
+
+    testWidgets('même adresse pour l arrêté et pour le cadre : deux cartes, '
+        'clés distinctes, aucune exception', (WidgetTester tester) async {
+      const String shared = 'https://example.org/commun.pdf';
+      await _pump(
+        tester,
+        ZonesTrouvees(
+          zonesAinWith(<AlertZone>[
+            withDecree(
+              ainSup(),
+              RestrictionDecree(
+                validFrom: DateTime.utc(2026, 8, 20),
+                validUntil: DateTime.utc(2026, 10, 31),
+                document: const DocumentLink(shared),
+                frameworkDocument: const DocumentLink(shared),
+              ),
+            ),
+          ]),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('Arrêté de restriction'), findsOneWidget);
+      expect(find.text('Arrêté-cadre'), findsOneWidget);
+      expect(
+        find.byKey(restrictionsDecreeCardKey(shared, framework: false)),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(restrictionsDecreeCardKey(shared, framework: true)),
+        findsOneWidget,
+      );
+    });
+
+    // Verrou (passe d'emblée) : un désaccord entre zones, y compris fin
+    // nulle contre fin datée, n'affiche aucune date.
+    testWidgets('une zone à fin nulle, l autre à fin datée : aucune ligne de '
+        'dates', (WidgetTester tester) async {
+      final AlertZone open = withDecree(
+        ainSou(),
+        RestrictionDecree(
+          validFrom: DateTime.utc(2026, 8, 20),
+          document: const DocumentLink(decreeUrlAin),
+        ),
+      );
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[ainSup(), open])),
+      );
+      expect(find.textContaining('Du 20/08/2026'), findsNothing);
+      expect(find.textContaining('Depuis le'), findsNothing);
+    });
+
+    testWidgets(
+      "une zone : « à 1 zone » et, sur le cadre, « à la même zone » sans liste",
+      (WidgetTester tester) async {
+        await _pump(tester, ZonesTrouvees(zonesAinWith(<AlertZone>[ainSup()])));
+        expect(
+          within(decreeUrlAin, find.text("S'applique à 1 zone")),
+          findsOneWidget,
+        );
+        expect(
+          within(frameworkUrlAin, find.text("S'applique à la même zone")),
+          findsOneWidget,
+        );
+        expect(
+          within(frameworkUrlAin, find.byType(DroughtSeverityBadge)),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets('arrêté-cadre dont les zones diffèrent de celles de '
+        'l\'arrêté : la liste, comme la restriction', (
+      WidgetTester tester,
+    ) async {
+      // ainSou : même arrêté, aucun arrêté-cadre -> le cadre ne couvre que
+      // ainSup.
+      final AlertZone withoutFramework = withDecree(
+        ainSou(),
+        RestrictionDecree(
+          validFrom: DateTime.utc(2026, 8, 20),
+          validUntil: DateTime.utc(2026, 10, 31),
+          document: const DocumentLink(decreeUrlAin),
+        ),
+      );
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[ainSup(), withoutFramework])),
+      );
+      expect(find.textContaining('mêmes zones'), findsNothing);
+      expect(find.textContaining('la même zone'), findsNothing);
+      expect(
+        within(frameworkUrlAin, find.text("S'applique à 1 zone")),
+        findsOneWidget,
+      );
+      expect(
+        within(
+          frameworkUrlAin,
+          find.text('Eaux superficielles — Rivières de Bresse'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('liste : une ligne par zone, badge, titre et niveau en gras '
+        'à côté, noms à l\'identique', (WidgetTester tester) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      expect(
+        within(decreeUrlAin, find.byType(DroughtSeverityBadge)),
+        findsNWidgets(3),
+      );
+      // Dernière ligne (eau potable, alerte) : titre court, tient à côté.
+      final Finder level = within(decreeUrlAin, find.text('Alerte')).last;
+      expect(find.text('Vigilance'), findsWidgets);
+      expect(tester.widget<Text>(level).style?.fontWeight, FontWeight.bold);
+      // Le niveau est à côté du titre de sa zone (même ligne), jamais dans
+      // le badge.
+      final Finder title = within(
+        decreeUrlAin,
+        find.text('Eau potable — Rivières de Bresse'),
+      );
+      expect(
+        (tester.getTopLeft(level).dy - tester.getTopLeft(title).dy).abs(),
+        lessThan(2),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(DroughtSeverityBadge),
+          matching: find.byType(Text),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('lecteur d écran : « titre, niveau de gravité : niveau » par '
+        'ligne de zone', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      expect(
+        find.bySemanticsLabel(
+          'Eaux souterraines — Dombes - Certines - Nord, niveau de gravité : '
+          'Vigilance',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(
+          'Eau potable — Rivières de Bresse, niveau de gravité : Alerte',
+        ),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
+
+    testWidgets('bouton principal : plein, #0B5E86, texte blanc, pleine '
+        'largeur, icône d ouverture à droite', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        onOpenDocument: (DocumentLink _) {},
+      );
+      final Finder button = within(
+        decreeUrlAin,
+        find.widgetWithText(FilledButton, "Ouvrir l'arrêté"),
+      );
+      expect(button, findsOneWidget);
+      final ButtonStyle style = tester.widget<FilledButton>(button).style!;
+      expect(
+        style.backgroundColor?.resolve(<WidgetState>{}),
+        const Color(0xFF0B5E86),
+      );
+      expect(
+        style.foregroundColor?.resolve(<WidgetState>{}),
+        const Color(0xFFFFFFFF),
+      );
+      expect(
+        within(decreeUrlAin, find.byIcon(Icons.open_in_new)),
+        findsOneWidget,
+      );
+      // Pleine largeur de la carte (moins son remplissage de 16 + 16).
+      expect(
+        tester.getSize(button).width,
+        closeTo(tester.getSize(card(decreeUrlAin)).width - 32, 1),
+      );
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('arrêté-cadre : bouton à contour noir de 1,5 px', (
+      WidgetTester tester,
+    ) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        onOpenDocument: (DocumentLink _) {},
+      );
+      final OutlinedButton button = tester.widget<OutlinedButton>(
+        within(
+          frameworkUrlAin,
+          find.widgetWithText(OutlinedButton, "Ouvrir l'arrêté-cadre"),
+        ),
+      );
+      final BorderSide? side = button.style?.side?.resolve(<WidgetState>{});
+      expect(side?.color, const Color(0xFF000000));
+      expect(side?.width, 1.5);
+    });
+
+    testWidgets('mention sous le bouton : PDF si le chemin finit par .pdf '
+        '(casse ignorée), sinon sans « PDF »', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        onOpenDocument: (DocumentLink _) {},
+      );
+      expect(
+        find.text("PDF · s'ouvre hors de l'application"),
+        findsNWidgets(2),
+      );
+
+      AlertZone at(String url) => withDecree(
+        ainSup(),
+        RestrictionDecree(
+          validFrom: DateTime.utc(2026, 8, 20),
+          validUntil: DateTime.utc(2026, 10, 31),
+          document: DocumentLink(url),
+          frameworkDocument: const DocumentLink(
+            'https://example.org/CADRE.PDF?x=1',
+          ),
+        ),
+      );
+      await _pump(
+        tester,
+        ZonesTrouvees(
+          zonesAinWith(<AlertZone>[at('https://example.org/arrete')]),
+        ),
+        onOpenDocument: (DocumentLink _) {},
+      );
+      expect(find.text("S'ouvre hors de l'application"), findsOneWidget);
+      // .PDF en majuscules, avec requête : le chemin finit par .pdf.
+      expect(find.text("PDF · s'ouvre hors de l'application"), findsOneWidget);
+    });
+
+    testWidgets('sans onOpenDocument ou adresse non ouvrable : aucune mention '
+        'd ouverture', (WidgetTester tester) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      expect(find.textContaining("hors de l'application"), findsNothing);
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[ainSupAdresseNonOuvrable()])),
+        onOpenDocument: (DocumentLink _) {},
+      );
+      expect(find.textContaining("hors de l'application"), findsNothing);
+    });
+
+    testWidgets('adresse : bloc « Adresse du document », entière, brute, '
+        'sélectionnable, à chasse fixe', (WidgetTester tester) async {
+      await _pump(tester, ZonesTrouvees(zonesParis()));
+      expect(find.text('Adresse du document'), findsNWidgets(2));
+      final Finder address = within(
+        decreeUrlParis,
+        find.byType(SelectableText),
+      );
+      expect(address, findsOneWidget);
+      final SelectableText text = tester.widget<SelectableText>(address);
+      // BR-014 : jamais réparée, jamais coupée.
+      expect(text.data, decreeUrlParis);
+      expect(text.style?.fontFamily, 'monospace');
+      expect(tester.takeException(), isNull);
+    });
+
+    test('libellé « Adresse du document » : au moins 4,5:1 sur #F3F4F1', () {
+      expect(
+        contrastRatio(const Color(0xFF4A5259), const Color(0xFFF3F4F1)),
+        greaterThanOrEqualTo(4.5),
+      );
+    });
+
+    testWidgets('lien non ouvert : encart orange sous le bloc d adresse, icône '
+        'hors de la sémantique', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        onOpenDocument: (DocumentLink _) {},
+        unopenedLink: decreeUrlAin,
+      );
+      final Finder notice = within(
+        decreeUrlAin,
+        find.textContaining("Ce lien n'a pas pu être ouvert"),
+      );
+      expect(notice, findsOneWidget);
+      expect(
+        _top(tester, notice),
+        greaterThan(
+          _top(tester, within(decreeUrlAin, find.byType(SelectableText))),
+        ),
+      );
+      final DecoratedBox box = tester.widget<DecoratedBox>(
+        find.ancestor(of: notice, matching: find.byType(DecoratedBox)).first,
+      );
+      final BoxDecoration decoration = box.decoration as BoxDecoration;
+      expect(decoration.color, const Color(0xFFFFF4E0));
+      expect(decoration.border, Border.all(color: const Color(0xFFB36B00)));
+      expect(
+        find.ancestor(
+          of: within(decreeUrlAin, find.byIcon(Icons.info_outline)),
+          matching: find.byType(ExcludeSemantics),
+        ),
+        findsWidgets,
+      );
+      // Pas d'encart sur la carte dont le lien s'est ouvert.
+      expect(
+        within(frameworkUrlAin, find.textContaining("Ce lien n'a pas")),
+        findsNothing,
+      );
+      handle.dispose();
     });
   });
 
@@ -865,7 +1322,7 @@ void main() {
       );
       for (final Finder finder in <Finder>[
         find.byType(BackButton),
-        find.widgetWithText(OutlinedButton, "Ouvrir l'arrêté"),
+        find.widgetWithText(FilledButton, "Ouvrir l'arrêté"),
         find.widgetWithText(OutlinedButton, "Ouvrir l'arrêté-cadre"),
       ]) {
         final Size size = tester.getSize(finder);
@@ -1256,12 +1713,25 @@ void main() {
               ZonesTrouvees(zonesAin()),
               profile: UserProfile.particulier,
               onOpenDocument: (DocumentLink _) {},
+              unopenedLink: decreeUrlAin,
             ),
           ),
         ),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+
+      // La section « Arrêtés » : adresse, mention et avis atteignables.
+      for (final Finder finder in <Finder>[
+        find.text('Adresse du document').first,
+        find.text("PDF · s'ouvre hors de l'application").first,
+        find.textContaining("Ce lien n'a pas pu être ouvert"),
+      ]) {
+        await tester.ensureVisible(finder);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(finder).right, lessThanOrEqualTo(window.width));
+        expect(tester.takeException(), isNull);
+      }
 
       for (final RenderParagraph paragraph
           in tester.allRenderObjects.whereType<RenderParagraph>()) {
