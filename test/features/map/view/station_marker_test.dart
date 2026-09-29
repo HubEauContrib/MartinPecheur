@@ -12,12 +12,16 @@
 // - la pastille reste une forme DESSINEE, jamais un glyphe de police : au
 //   zoom national les 4 150 points sont tous peints, et un glyphe couterait
 //   une passe de texte par marqueur.
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
+
+import '../../../support/marker_pixels.dart';
 
 /// Les six etats que `StationMapState` peut prendre. Six, et non les cinq du
 /// tableau de U2 : `EnEchec` existe dans le domaine depuis V2 et doit, lui
@@ -84,6 +88,142 @@ void main() {
     test('la zone de tap vaut 44 pt et reste plus grande que la pastille', () {
       expect(minimumTapTargetFor(TargetPlatform.windows), 44.0);
       expect(stationMarkerSize, lessThan(minimumTapTarget));
+    });
+
+    test('un marqueur de la carte mesure 26 px, le compact 12 px, le liseré '
+        '2 px (canvas de design du 2026-09-29, option A)', () {
+      expect(stationMarkerSize, 26.0);
+      expect(compactMarkerSize, 12.0);
+      expect(markerDetachmentWidth, 2.0);
+      expect(compactMarkerSize, lessThan(stationMarkerSize));
+      // La zone de tap n'a pas bougé : elle reste plus grande que le
+      // marqueur agrandi, sur toutes les plateformes.
+      expect(
+        stationMarkerSize,
+        lessThan(minimumTapTargetFor(TargetPlatform.android)),
+      );
+    });
+  });
+
+  group('liseré blanc de détachement', () {
+    testWidgets('a 26 px, chaque etat a un pixel blanc juste hors du contour '
+        'noir (bas de la boite, hors du contour)', (WidgetTester tester) async {
+      const int side = 26;
+      for (final StationMapState state in tousLesEtats) {
+        final ByteData data = await renderMarker(
+          tester,
+          StationMarkerPainter.forState(state, detached: true),
+          side,
+        );
+
+        expect(
+          looksWhite(pixelOf(data, side, side ~/ 2, side - 2)),
+          isTrue,
+          reason: 'liseré absent pour $state',
+        );
+      }
+    });
+
+    testWidgets('a 12 px (compact), aucun liseré : le bord reste le fond', (
+      WidgetTester tester,
+    ) async {
+      const int side = 12;
+      for (final StationMapState state in tousLesEtats) {
+        final ByteData data = await renderMarker(
+          tester,
+          StationMarkerPainter.forState(state),
+          side,
+        );
+
+        expect(
+          looksWhite(pixelOf(data, side, side ~/ 2, side - 1)),
+          isFalse,
+          reason: 'liseré inattendu pour $state',
+        );
+      }
+    });
+
+    testWidgets('◇ : le liseré fait 2 px PERPENDICULAIREMENT au milieu d un '
+        'flanc oblique, contour noir juste apres', (WidgetTester tester) async {
+      const int side = 26;
+      final ByteData data = await renderMarker(
+        tester,
+        StationMarkerPainter.forState(const NonChargee(), detached: true),
+        side,
+      );
+
+      // Flanc haut-droit : la droite y = x - 13. Distances perpendiculaires
+      // des centres de pixel au bord de la boite : (18,6) 0,7 · (18,7) 1,4 ·
+      // (17,8) 2,8.
+      expect(looksWhite(pixelOf(data, side, 18, 6), minChannel: 0x99), isTrue);
+      expect(looksWhite(pixelOf(data, side, 18, 7), minChannel: 0x99), isTrue);
+      expect(looksBlack(pixelOf(data, side, 17, 8)), isTrue);
+    });
+
+    testWidgets('rien ne sort de la boite de 26 px, pointes comprises', (
+      WidgetTester tester,
+    ) async {
+      const int side = 26;
+      const int margin = 8;
+      for (final StationMapState state in tousLesEtats) {
+        final ByteData data = await renderMarkerInMargin(
+          tester,
+          StationMarkerPainter.forState(state, detached: true),
+          side,
+          margin,
+        );
+
+        expect(
+          paintsOutsideBox(data, side, margin),
+          isFalse,
+          reason: 'debordement pour $state',
+        );
+      }
+    });
+
+    test('la fabrique ne pose pas de liseré par defaut', () {
+      expect(
+        StationMarkerPainter.forState(const NonChargee()).detached,
+        isFalse,
+      );
+    });
+
+    testWidgets('le widget de carte est detache a 26 px, le compact non a '
+        '12 px', (WidgetTester tester) async {
+      await _pumpDot(tester, const Chargee(Freshness.fraiche));
+      expect(_paintedBy(tester).detached, isTrue);
+      expect(
+        tester
+            .widget<CustomPaint>(
+              find.descendant(
+                of: find.byType(StationMarkerDot),
+                matching: find.byType(CustomPaint),
+              ),
+            )
+            .size,
+        const Size.square(stationMarkerSize),
+      );
+
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: SizedBox(
+              width: compactMarkerSize,
+              height: compactMarkerSize,
+              child: StationMarkerDot(state: NonChargee(), compact: true),
+            ),
+          ),
+        ),
+      );
+      final CustomPaint compact = tester.widget<CustomPaint>(
+        find.descendant(
+          of: find.byType(StationMarkerDot),
+          matching: find.byType(CustomPaint),
+        ),
+      );
+      expect(compact.size, const Size.square(compactMarkerSize));
+      expect((compact.painter! as StationMarkerPainter).detached, isFalse);
     });
   });
 
@@ -224,7 +364,10 @@ void main() {
       for (final StationMapState state in tousLesEtats) {
         await _pumpDot(tester, state);
 
-        expect(_paintedBy(tester), StationMarkerPainter.forState(state));
+        expect(
+          _paintedBy(tester),
+          StationMarkerPainter.forState(state, detached: true),
+        );
       }
     });
 

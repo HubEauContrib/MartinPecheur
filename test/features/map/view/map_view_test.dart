@@ -473,12 +473,12 @@ void main() {
           tester.getSize(find.byType(StationMarkerDot)),
           const Size(stationMarkerSize, stationMarkerSize),
         );
-        // Centrée, et pas seulement de la bonne taille : (44 − 12) / 2 = 16 de
+        // Centrée, et pas seulement de la bonne taille : (44 − 26) / 2 = 9 de
         // marge de chaque côté. Le `SizedBox` de test est posé en haut à
         // gauche, l'origine de la pastille est donc directement comparable.
         expect(
           tester.getTopLeft(find.byType(StationMarkerDot)),
-          const Offset(16, 16),
+          const Offset(9, 9),
         );
       },
     );

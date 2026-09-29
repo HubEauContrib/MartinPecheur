@@ -8,9 +8,9 @@
 // pas de la pastille.
 //
 // ⚠️ [AreaClusterMarker] mesure déjà [areaClusterMarkerSize] (44 px) — bien
-// plus que les 12 px d'une pastille de station ou d'un marqueur ONDE. Il ne
+// plus que les 26 px d'une pastille de station ou d'un marqueur ONDE. Il ne
 // subit donc PAS le `Transform.scale` de [caseAgrandie] (qui fixerait sa
-// boîte à [stationMarkerSize], 12 px, et le tronquerait) : ces images
+// boîte à [stationMarkerSize], 26 px, et la mettrait à l'échelle 2 ×) : ces images
 // posent la pastille dans une case de [coteDUneCase] à sa taille RÉELLE,
 // exactement le rendu de la carte.
 //

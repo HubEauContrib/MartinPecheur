@@ -17,7 +17,8 @@
 // commanditaire et donnera peut-être un rendu propre à `Inconnu`, c'est
 // cette image-là qui tombera et forcera à regarder.
 //
-// Les marqueurs sont agrandis 4 × ; la taille de la carte reste 12 px. Les
+// Les marqueurs sont agrandis 2 × ; la taille de la carte est 26 px (liseré
+// blanc compris). Les
 // images sont plateforme-dépendantes. Voir `golden_harness.dart`.
 
 import 'package:flutter/widgets.dart';

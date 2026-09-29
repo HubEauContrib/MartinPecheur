@@ -17,6 +17,8 @@ import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
+import 'package:martinpecheur/features/map/view/onde_marker.dart';
+import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 
@@ -155,6 +157,30 @@ void main() {
       expect(taille.width, greaterThanOrEqualTo(areaClusterMarkerSize));
       expect(taille.height, greaterThanOrEqualTo(areaClusterMarkerSize));
       expect(areaClusterMarkerSize, greaterThanOrEqualTo(44.0));
+    });
+
+    testWidgets('le symbole reste compact : 12 px, sans liseré', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: AreaClusterMarker(cluster: _centreValDeLoireAssec()),
+          ),
+        ),
+      );
+
+      final CustomPaint symbole = tester.widget<CustomPaint>(
+        find.descendant(
+          of: find.byType(AreaClusterMarker),
+          matching: find.byWidgetPredicate(
+            (Widget w) => w is CustomPaint && w.painter is OndeMarkerPainter,
+          ),
+        ),
+      );
+      expect(symbole.size, const Size.square(compactMarkerSize));
+      expect((symbole.painter! as OndeMarkerPainter).detached, isFalse);
     });
 
     testWidgets('porte un seul nœud Semantics, préfixé par l\'échelle', (

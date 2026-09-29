@@ -50,11 +50,13 @@
 // ## Les marqueurs sont AGRANDIS, et ce n'est pas la taille de la carte
 //
 // ⚠️ À l'écran, une pastille et un marqueur ONDE mesurent
-// [stationMarkerSize] — **12 px logiques** ; c'est la taille que la carte
-// peint, et la seule (`station_marker.dart`, `onde_marker.dart`). Ni
-// `StationMarkerDot` ni `OndeMarkerShape` n'acceptent de taille : le
-// `CustomPaint` qu'ils montent est fixé à 12 px. Les images de référence les
-// rendent donc à travers un `Transform.scale` de
+// [stationMarkerSize] — **26 px logiques**, liseré blanc de détachement
+// compris (canvas de design du 2026-09-29, option A) ; c'est la taille que la
+// carte peint (`station_marker.dart`, `onde_marker.dart`). Ni
+// `StationMarkerDot` ni `OndeMarkerShape` n'acceptent de taille libre : le
+// `CustomPaint` qu'ils montent est fixé à 26 px (12 en mode `compact`, celui
+// de la légende, qui n'a pas d'image de référence ici). Les images de
+// référence les rendent donc à travers un `Transform.scale` de
 // [facteurDAgrandissement] — une mise à l'échelle du **canevas**, donc des
 // tracés eux-mêmes, jamais un agrandissement d'image : le résultat reste net
 // et strictement proportionnel à ce que la carte dessine. Un défaut visible
@@ -81,12 +83,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 
 /// Agrandissement appliqué aux marqueurs dans les images de référence.
-/// Quatre fois 12 px font 48 px : assez pour qu'un halo de 2 px (8 px une
-/// fois agrandi) et un contour pointillé se voient à l'œil nu sur l'image.
-const double facteurDAgrandissement = 4;
+/// Deux fois 26 px font 52 px : assez pour qu'un halo de 2 px (4 px une fois
+/// agrandi), le liseré blanc et un contour pointillé se voient à l'œil nu.
+const double facteurDAgrandissement = 2;
 
-/// Côté d'une case, en pixels logiques : les 48 px du marqueur agrandi, plus
-/// 8 px de marge de chaque côté pour que le halo ne touche pas le bord.
+/// Côté d'une case, en pixels logiques : les 52 px du marqueur agrandi, plus
+/// 6 px de marge de chaque côté pour que le liseré ne touche pas le bord.
 const double coteDUneCase = 64;
 
 /// La zone effectivement capturée. `RepaintBoundary` isole une couche de

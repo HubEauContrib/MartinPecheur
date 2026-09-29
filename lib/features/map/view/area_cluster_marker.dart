@@ -33,9 +33,11 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Côté d'une pastille de zone, en pixels logiques. Contrairement à
-/// [stationMarkerSize] (12 px, une pastille de station), celle-ci PORTE à la
+/// [stationMarkerSize] (26 px, un marqueur de station), celle-ci PORTE à la
 /// fois le rendu et la cible tactile : elle affiche un compte lisible, elle
-/// ne peut donc pas rester minuscule comme un simple point. `04-ui.md § 3`
+/// ne peut donc pas rester minuscule comme un simple point ; son symbole,
+/// lui, reste à [compactMarkerSize] (12 px), sans liseré : le compte occupe
+/// le reste de la pastille. `04-ui.md § 3`
 /// fixe le plancher tactile à 44 pt (48 dp sur Android) ; c'est aussi la taille retenue ici pour
 /// que le symbole ET le compte restent lisibles. Alias de [minimumTapTarget]
 /// (`K1`) : plus recopiée, gardée sous ce nom pour ses appelants existants.
@@ -86,14 +88,14 @@ String _debitClusterLabel(MapAreaCluster cluster) {
 /// [StationMarkerDot] — voir l'en-tête du fichier.
 Widget _symbolFor(MapAreaCluster cluster) => switch (cluster.scale) {
   MapScaleKind.ecoulement => CustomPaint(
-    size: const Size.square(stationMarkerSize),
+    size: const Size.square(compactMarkerSize),
     painter: OndeMarkerPainter.forCategory(
       category: cluster.severest!,
       age: cluster.severestAge!,
     ),
   ),
   MapScaleKind.debit => CustomPaint(
-    size: const Size.square(stationMarkerSize),
+    size: const Size.square(compactMarkerSize),
     // `NonChargee` est l'état qui rend, chez `StationMarkerPainter`, le
     // losange creux à contour continu — le rendu « neutre » du plan
     // (`fillOpacity: 0`, `#767676`). Aucune nouvelle forme, aucune teinte.
