@@ -68,4 +68,28 @@ String formatCalendarDate(DateTime date) {
   return '${_twoDigits(utc.day)}/${_twoDigits(utc.month)}/${utc.year}';
 }
 
+/// Formate la DATE CALENDAIRE [date] en toutes lettres, `'20 août 2026'` :
+/// jour sans zéro initial, mois en minuscules — la forme que lit un lecteur
+/// d'écran (conception T2 § 7, badge de gravité). Même règle que
+/// [formatCalendarDate] : composantes lues en UTC, AUCUNE conversion.
+String formatLongCalendarDate(DateTime date) {
+  final DateTime utc = date.toUtc();
+  return '${utc.day} ${_frenchMonths[utc.month - 1]} ${utc.year}';
+}
+
+const List<String> _frenchMonths = <String>[
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+];
+
 String _twoDigits(int value) => value.toString().padLeft(2, '0');

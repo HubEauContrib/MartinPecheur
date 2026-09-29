@@ -31,4 +31,13 @@ void main() {
       'entreprise',
     ]);
   });
+
+  test('userProfileLabel — libelles de C1 (Q-5b), mot pour mot', () {
+    expect(UserProfile.values.map(userProfileLabel), <String>[
+      'Particulier',
+      'Exploitation',
+      'Collectivité',
+      'Entreprise',
+    ]);
+  });
 }

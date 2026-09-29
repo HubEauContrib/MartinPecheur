@@ -652,7 +652,7 @@ git commit -m "feat(map): designer un point sur la carte, rappel type sur GeoPoi
 - `Échap` → la route est retirée (`maybePop`).
 - `vocabulary_test.dart` vert ; `vigieauLabelExceptions` **reste vide** (les mots du préfet arrivent à l'exécution, aucun littéral).
 
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin (2026-09-29, relecture appliquée), commit : **à faire par la boucle principale**.
 
 ```bash
 git commit -m "feat(restrictions): l ecran des zones, niveaux dates et usages cites" -m "Toutes les zones du point, eaux superficielles d abord, chacune avec son niveau, sa date de debut de validite a cote (BR-001) et sa position sur l echelle complete ; un niveau inconnu ne prend la teinte d aucun niveau connu (BR-011). Les usages n apparaissent qu apres un choix explicite du profil ; les mots du prefet sont reproduits a l identique et attribues (BR-014). Aucune zone n est jamais un etat neutre (BR-007). L emplacement de tete attend l encart renforce (E4)."
@@ -762,12 +762,13 @@ git commit -m "feat(avertissement): ecran D ou vient cette donnee, et le lien du
 ### Task X3 : Aligner les documents sur le code
 
 **Agent :** mécanique, relu par un second agent.
-**Files:** modifiés `docs/use-cases/UC-002-consulter-les-restrictions.md`, `docs/br/BR-011-nomenclature-tolerante-a-l-inconnu.md`, `docs/03-conception.md`, `docs/context-map.md`, `docs/glossary.md`, `docs/domain-model.md` (relecture), `docs/sources/vigieau.md`, `docs/superpowers/specs/2026-09-27-modele-restrictions-t2-design.md` (§ 7), `docs/project-state.md`, `docs/README.md`, `CLAUDE.md`
+**Files:** modifiés `docs/use-cases/UC-002-consulter-les-restrictions.md`, `docs/br/BR-011-nomenclature-tolerante-a-l-inconnu.md`, `docs/03-conception.md`, `docs/context-map.md`, `docs/glossary.md`, `docs/domain-model.md` (relecture), `docs/sources/vigieau.md`, `docs/superpowers/specs/2026-09-27-modele-restrictions-t2-design.md` (§ 7), `docs/project-state.md`, `docs/README.md`, `CLAUDE.md`, `docs/04-ui.md` (§ 3)
 
 - **`UC-002`** : précondition sans position (Q1-A) ; étape 2 — toutes les zones, `SUP` d'abord ; étape 4 — le profil filtre une réponse reçue, **aucun appel** ; `A2` — échec nommé et lien vers le site public, repli différé ; `A4` — `vigilance` observé ; `A5` — réponse de session datée ; diagramme redessiné (conception § 9).
 - **`BR-011`** : dernier invariant — une rupture de structure donne `ReponseIllisible` (AR-2), le repli est différé.
 - **`03-conception.md`** l. 46, 81, 98-99, 185 ; **`context-map.md`** l. 86 ; **`glossary.md`** : « zone d'alerte », « type de zone », « profil d'usager », « arrêté-cadre », « point désigné » ; **`vigieau.md`** : « ADR-004 (à amender) » → amendé ; **conception des restrictions § 7** (ligne `shared-sans-tranche`) : l'écran des sources entre dans `features/shared/` par la décision 4, l'encart renforcé reste dans sa tranche.
 - **`project-state.md`** : T2 en cours, points 35 et 38 clos (vérifier), nouvelles lignes pour ce qui reste ouvert ; **`README.md`** : ce plan et la spec de `C1` indexés ; **`CLAUDE.md`** : ligne T2, stack (bibliothèque de lien), disposition (`domain/restrictions`, `domain/links`, `data/links`, `features/restrictions`), nombre de tests.
+- **`04-ui.md § 3`** (ligne « Badges de gravité ») : documenter deux choix de dessin de `E2` que ni le § 2 ni la conception ne fixaient — les **hachures d'Alerte renforcée sont noires** (sur `#D55E00`) ; le badge **« Non renseigné »** est un rond au fond de l'écran, **anneau pointillé `#767676`** à l'intérieur du contour noir de 2 px (`lib/features/restrictions/view/drought_severity_badge.dart`, relecture de `E2` du 2026-09-29).
 - [ ] Écrire ; `flutter test test/project` vert ; critère de fin, commit (`docs: aligner UC-002, BR-011, conception, glossaire et etat sur T2`).
 
 ### Task X4 : Ouvrir la version `0.3.0`

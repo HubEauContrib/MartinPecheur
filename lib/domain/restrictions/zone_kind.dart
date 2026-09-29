@@ -7,9 +7,9 @@
 // brute recue (BR-011). Il ne s'appelle pas `Inconnu`, deja pris par
 // `flow_category.dart`.
 //
-// Aucun libelle ici : ils sont fixes par la conception d'ecran (C1 de T2),
-// puis ajoutes a cote de la nomenclature, sur le modele de
-// `droughtSeverityLabel`.
+// Les libelles sont ceux de la conception d'ecran (C1 de T2, Q-5a, arbitre
+// le 2026-09-27), ajoutes par E2 a cote de la nomenclature, sur le modele de
+// `droughtSeverityLabel` : `zoneKindLabel`.
 
 /// Type de ressource en eau que couvre une zone d'alerte.
 sealed class ZoneKind {
@@ -68,3 +68,16 @@ final class TypeZoneInconnu extends ZoneKind {
   @override
   String toString() => 'TypeZoneInconnu($rawValue)';
 }
+
+/// Libelle affichable d'un [ZoneKind] — le SEUL du projet (Q-5a de C1).
+/// Un type inconnu rend un libelle fixe : sa valeur brute n'est jamais
+/// affichee (BR-011).
+///
+/// `switch` exhaustif : une branche ajoutee sans libelle ici est une erreur
+/// de compilation (BR-011), pas un oubli silencieux a l'ecran.
+String zoneKindLabel(ZoneKind kind) => switch (kind) {
+  EauxSuperficielles() => 'Eaux superficielles',
+  EauxSouterraines() => 'Eaux souterraines',
+  EauPotable() => 'Eau potable',
+  TypeZoneInconnu() => 'Type de zone non renseigné',
+};

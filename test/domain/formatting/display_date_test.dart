@@ -102,4 +102,49 @@ void main() {
       expect(formatCalendarDate(local), '25/08/2026');
     });
   });
+
+  group('formatLongCalendarDate — date calendaire en toutes lettres, pour le '
+      'lecteur d ecran (conception T2 § 7)', () {
+    test('2026-08-20 (UTC) → 20 août 2026', () {
+      expect(formatLongCalendarDate(DateTime.utc(2026, 8, 20)), '20 août 2026');
+    });
+
+    test('jour sans zéro initial', () {
+      expect(
+        formatLongCalendarDate(DateTime.utc(2026, 9, 1)),
+        '1 septembre 2026',
+      );
+    });
+
+    test('les douze mois, en minuscules et accentués', () {
+      expect(
+        <String>[
+          for (int month = 1; month <= 12; month++)
+            formatLongCalendarDate(DateTime.utc(2026, month, 15)),
+        ],
+        <String>[
+          '15 janvier 2026',
+          '15 février 2026',
+          '15 mars 2026',
+          '15 avril 2026',
+          '15 mai 2026',
+          '15 juin 2026',
+          '15 juillet 2026',
+          '15 août 2026',
+          '15 septembre 2026',
+          '15 octobre 2026',
+          '15 novembre 2026',
+          '15 décembre 2026',
+        ],
+      );
+    });
+
+    test(
+      'jamais convertie : la même date passée en local reste le 25 août',
+      () {
+        final DateTime local = DateTime.utc(2026, 8, 25).toLocal();
+        expect(formatLongCalendarDate(local), '25 août 2026');
+      },
+    );
+  });
 }

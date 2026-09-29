@@ -1,7 +1,7 @@
 // Verrouille la nomenclature des types de zone d'alerte : trois types connus
 // (eaux superficielles, eaux souterraines, eau potable) et une branche
-// inconnue qui porte la valeur brute (BR-011). Aucun libelle ici : ils sont
-// fixes par la conception d'ecran (C1) et ajoutes par E2.
+// inconnue qui porte la valeur brute (BR-011). Libelles fixes par la
+// conception d'ecran (C1, Q-5a) et ajoutes par E2 : `zoneKindLabel`.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -65,11 +65,33 @@ void main() {
     expect(_exhaustive(const TypeZoneInconnu(null)), 'inconnu');
   });
 
-  test('aucun libelle ni rang expose ici (libelles : C1 puis E2)', () {
+  group('zoneKindLabel — libelles de C1 (Q-5a), mot pour mot', () {
+    test('les trois types connus', () {
+      expect(zoneKindLabel(const EauxSuperficielles()), 'Eaux superficielles');
+      expect(zoneKindLabel(const EauxSouterraines()), 'Eaux souterraines');
+      expect(zoneKindLabel(const EauPotable()), 'Eau potable');
+    });
+
+    test('type inconnu : libelle fixe, la valeur brute n est pas affichee', () {
+      expect(
+        zoneKindLabel(const TypeZoneInconnu('XYZ')),
+        'Type de zone non renseigné',
+      );
+      expect(
+        zoneKindLabel(const TypeZoneInconnu(null)),
+        'Type de zone non renseigné',
+      );
+      expect(
+        zoneKindLabel(const TypeZoneInconnu('XYZ')),
+        isNot(contains('XYZ')),
+      );
+    });
+  });
+
+  test('aucun rang expose ici', () {
     final String source = File('lib/domain/restrictions/zone_kind.dart')
         .readAsStringSync();
 
-    expect(source, isNot(contains('zoneKindLabel')));
     expect(
       source,
       isNot(matches(RegExp(r'compareTo|Comparable|\brank|\bindex\b'))),

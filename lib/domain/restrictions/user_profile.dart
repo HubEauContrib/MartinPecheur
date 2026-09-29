@@ -9,3 +9,12 @@
 
 /// Profil de l'usager, dans l'ordre d'`UC-002`, etape 4.
 enum UserProfile { particulier, exploitation, collectivite, entreprise }
+
+/// Libelle affichable d'un [UserProfile] — le SEUL du projet (Q-5b de C1,
+/// arbitre le 2026-09-27 ; `O9` clos). `switch` exhaustif.
+String userProfileLabel(UserProfile profile) => switch (profile) {
+  UserProfile.particulier => 'Particulier',
+  UserProfile.exploitation => 'Exploitation',
+  UserProfile.collectivite => 'Collectivité',
+  UserProfile.entreprise => 'Entreprise',
+};
