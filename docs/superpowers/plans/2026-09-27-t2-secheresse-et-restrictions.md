@@ -671,7 +671,7 @@ git commit -m "feat(restrictions): l ecran des zones, niveaux dates et usages ci
 - Deux désignations successives (retour entre les deux) → **une** route à la fois, l'état est celui du second point.
 - `restriction_source_test.dart` vert : `main.dart` est le seul fichier hors module à nommer `VigieauRestrictionSource`.
 
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — câbler ; **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — câbler ; **Étape 3** — critère de fin, commit.
 
 ```bash
 git commit -m "feat(restrictions): cabler la source cachee, le ViewModel et l ecran dans la racine" -m "Seul main.dart nomme l implementation VigiEau, comme il nomme les depots Hub Eau. L ecran des restrictions est une route poussee a la designation (arbitrage C1, Q-1 : ecran plein) ; son retrait, par le retour ou Echap, ferme le ViewModel. L epingle du point reste sur la carte au retour, tenue par la vue carte (E1)."

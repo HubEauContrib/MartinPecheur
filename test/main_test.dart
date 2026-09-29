@@ -15,20 +15,31 @@
 // ⚠️ Ce fichier importe `lib/data/…` (les dépôts vides ci-dessous). C'est
 // permis : `test/architecture/layers_test.dart` (règle `features-vers-data`)
 // contraint `lib/`, pas `test/`.
+import 'dart:async' show Completer;
+
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
+import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
+import 'package:martinpecheur/domain/links/external_link_opener.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
+import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
+import 'package:martinpecheur/domain/restrictions/zones_at_point.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/map/view/map_controls.dart'
+    show mapDesignateCenterButtonKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
+import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
+import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 import 'package:martinpecheur/features/warnings/view/initial_warning_view.dart';
 import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.dart';
@@ -117,8 +128,38 @@ final class _AcknowledgementRepositoryDouble
   }
 }
 
-MartinPecheurApp _app(WarningsViewModel warningsViewModel) => MartinPecheurApp(
+/// Source de restrictions dont chaque reponse est tenue par un `Completer` :
+/// un test decide quand (et si) la reponse arrive.
+final class _PendingRestrictionSource implements RestrictionSource {
+  final List<GeoPoint> requested = <GeoPoint>[];
+  final List<Completer<ZonesAtPoint>> completers = <Completer<ZonesAtPoint>>[];
+
+  @override
+  Future<ZonesAtPoint> zonesAt(GeoPoint point) {
+    requested.add(point);
+    final Completer<ZonesAtPoint> completer = Completer<ZonesAtPoint>();
+    completers.add(completer);
+    return completer.future;
+  }
+}
+
+final class _NeverOpensLinks implements ExternalLinkOpener {
+  @override
+  Future<bool> open(Uri uri) async => false;
+}
+
+RestrictionsViewModel _restrictions([RestrictionSource? source]) =>
+    RestrictionsViewModel(
+      source: source ?? _PendingRestrictionSource(),
+      links: _NeverOpensLinks(),
+    );
+
+MartinPecheurApp _app(
+  WarningsViewModel warningsViewModel, [
+  RestrictionsViewModel? restrictionsViewModel,
+]) => MartinPecheurApp(
   warningsViewModel: warningsViewModel,
+  restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
   mapViewModel: MapViewModel(
     stationPoints: _EmptyStationPointRepository(),
     observations: _EmptyHydroObservationRepository(),
@@ -257,4 +298,136 @@ void main() {
       expect(find.byType(MapView), findsNothing);
     },
   );
+
+  group('ecran des restrictions (E3)', () {
+    Future<WarningsViewModel> acknowledged() async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      return viewModel;
+    }
+
+    Future<void> designate(WidgetTester tester) async {
+      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('designation : la route de l ecran est poussee et le '
+        'ViewModel interroge le point designe', (WidgetTester tester) async {
+      final _PendingRestrictionSource source = _PendingRestrictionSource();
+      final RestrictionsViewModel restrictions = _restrictions(source);
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+      expect(find.byType(RestrictionsScreen), findsNothing);
+
+      await designate(tester);
+
+      expect(find.byType(RestrictionsScreen), findsOneWidget);
+      expect(source.requested, hasLength(1));
+      expect(restrictions.state, isA<RestrictionsEnCours>());
+    });
+
+    testWidgets('bouton de retour : route retiree, ViewModel ferme, carte '
+        'de nouveau visible', (WidgetTester tester) async {
+      final RestrictionsViewModel restrictions = _restrictions();
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+      await designate(tester);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RestrictionsScreen), findsNothing);
+      expect(restrictions.state, isA<RestrictionsFermees>());
+      expect(find.byType(MapView), findsOneWidget);
+    });
+
+    testWidgets('Echap : route retiree, ViewModel ferme', (
+      WidgetTester tester,
+    ) async {
+      final RestrictionsViewModel restrictions = _restrictions();
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+      await designate(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RestrictionsScreen), findsNothing);
+      expect(restrictions.state, isA<RestrictionsFermees>());
+    });
+
+    testWidgets('retour pendant un chargement : la reponse tardive laisse '
+        'le ViewModel ferme', (WidgetTester tester) async {
+      final _PendingRestrictionSource source = _PendingRestrictionSource();
+      final RestrictionsViewModel restrictions = _restrictions(source);
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+      await designate(tester);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      source.completers.single.complete(
+        ZonesAtPoint(
+          point: source.requested.single,
+          retrievedAt: DateTime.utc(2026, 9, 27, 11, 25),
+          zones: const [],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(restrictions.state, isA<RestrictionsFermees>());
+    });
+
+    testWidgets('deux designations sans retour : une seule route, etat du '
+        'second point, un retour ramene a la carte ViewModel ferme', (
+      WidgetTester tester,
+    ) async {
+      final _PendingRestrictionSource source = _PendingRestrictionSource();
+      final RestrictionsViewModel restrictions = _restrictions(source);
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+
+      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+      await tester.pump();
+      // La route couvre deja la carte : le second geste (appui long, clic
+      // droit) arrive par le rappel de la carte, sans retour entre les deux.
+      tester
+          .widget<MapView>(find.byType(MapView, skipOffstage: false))
+          .onPointDesignated!(GeoPoint(latitude: 45, longitude: 3));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RestrictionsScreen), findsOneWidget);
+      expect(source.requested, hasLength(2));
+      final RestrictionsState state = restrictions.state;
+      expect(state, isA<RestrictionsEnCours>());
+      expect((state as RestrictionsEnCours).point, source.requested.last);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(RestrictionsScreen), findsNothing);
+      expect(find.byType(MapView), findsOneWidget);
+      expect(restrictions.state, isA<RestrictionsFermees>());
+    });
+
+    testWidgets('re-designation apres retour : une seule route, l etat '
+        'est celui du second point', (WidgetTester tester) async {
+      final _PendingRestrictionSource source = _PendingRestrictionSource();
+      final RestrictionsViewModel restrictions = _restrictions(source);
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+
+      await designate(tester);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await designate(tester);
+
+      expect(find.byType(RestrictionsScreen), findsOneWidget);
+      expect(source.requested, hasLength(2));
+      final RestrictionsState state = restrictions.state;
+      expect(state, isA<RestrictionsEnCours>());
+      expect((state as RestrictionsEnCours).point, source.requested.last);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(RestrictionsScreen), findsNothing);
+    });
+  });
 }
