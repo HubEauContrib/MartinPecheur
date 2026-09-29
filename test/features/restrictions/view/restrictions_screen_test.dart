@@ -5,8 +5,11 @@
 // arretes dedoublonnes (Q-6), badge a cote de son libelle (Q-7).
 //
 // Les zones viennent de `zones_samples.dart` (valeurs recopiees des
-// fixtures) : ce test ne lit jamais `lib/data/`. L'encart renforce est la
-// tache E4 : il n'est pas verifie ici.
+// fixtures) : ce test ne lit jamais `lib/data/`. L'encart renforce (E4) est
+// verrouille ici par son ordre et sa tenue au defilement ; sa surface l'est
+// dans `reinforced_warning_card_test.dart`.
+
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -17,7 +20,9 @@ import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
+import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.dart';
+import 'package:martinpecheur/features/restrictions/view/reinforced_warning_card.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
@@ -38,6 +43,7 @@ Widget _screen(
   ValueChanged<UserProfile>? onChooseProfile,
   VoidCallback? onRetry,
   ValueChanged<DocumentLink>? onOpenDocument,
+  VoidCallback? onOpenPublicSite,
   String? unopenedLink,
 }) => RestrictionsScreen(
   state: state,
@@ -45,6 +51,7 @@ Widget _screen(
   onChooseProfile: onChooseProfile ?? (UserProfile _) {},
   onRetry: onRetry ?? () {},
   onOpenDocument: onOpenDocument,
+  onOpenPublicSite: onOpenPublicSite ?? () {},
   unopenedLink: unopenedLink,
   utcOffsetOf: _paris,
 );
@@ -56,6 +63,7 @@ Future<void> _pump(
   ValueChanged<UserProfile>? onChooseProfile,
   VoidCallback? onRetry,
   ValueChanged<DocumentLink>? onOpenDocument,
+  VoidCallback? onOpenPublicSite,
   String? unopenedLink,
 }) async {
   await tester.pumpWidget(
@@ -66,10 +74,13 @@ Future<void> _pump(
         onChooseProfile: onChooseProfile,
         onRetry: onRetry,
         onOpenDocument: onOpenDocument,
+        onOpenPublicSite: onOpenPublicSite,
         unopenedLink: unopenedLink,
       ),
     ),
   );
+  // La disposition de l'encart (épinglé ou non) se décide au passage suivant.
+  await tester.pump();
 }
 
 /// Ordonnee du haut de [finder] — l'ordre du § 3 se lit de haut en bas
@@ -897,6 +908,337 @@ void main() {
       await tester.pumpAndSettle();
       scrollable = tester.state(_mainScrollable);
       expect(scrollable.position.pixels, 0);
+    });
+  });
+
+  group('encart renforcé (E4, BR-013, Q-4 (a))', () {
+    final Finder headline = find.textContaining(reinforcedWarningHeadline);
+    final Finder action = find.text(reinforcedWarningActionLabel);
+    final Finder body = find.text(reinforcedWarningBody);
+
+    final Map<String, RestrictionsState> states = <String, RestrictionsState>{
+      'RestrictionsEnCours': RestrictionsEnCours(pointAin()),
+      'ZonesTrouvees': ZonesTrouvees(zonesAin()),
+      'AucuneZone': AucuneZone(
+        point: pointGuyane(),
+        retrievedAt: retrievedAtGuyane,
+      ),
+      'EnEchec SourceInjoignable': RestrictionsEnEchec(
+        point: pointAin(),
+        cause: const SourceInjoignable('timeout'),
+      ),
+      'EnEchec ReponseIllisible': RestrictionsEnEchec(
+        point: pointAin(),
+        cause: const ReponseIllisible('json'),
+      ),
+      'EnEchec RequeteRefusee': RestrictionsEnEchec(
+        point: pointAin(),
+        cause: const RequeteRefusee(statusCode: 409, diagnostic: 'x'),
+      ),
+      'RestrictionsNonObtenues': RestrictionsNonObtenues(pointAin()),
+    };
+
+    for (final MapEntry<String, RestrictionsState> entry in states.entries) {
+      testWidgets('${entry.key} : titre, action puis corps, avant tout '
+          'contenu, après la barre de titre', (WidgetTester tester) async {
+        await _pump(tester, entry.value);
+        expect(headline, findsOneWidget);
+        expect(action, findsOneWidget);
+        expect(body, findsOneWidget);
+        expect(
+          find.text(restrictionsPublicSiteUrl, findRichText: true),
+          findsWidgets,
+        );
+
+        final double titleBar = _top(
+          tester,
+          find.text(restrictionsScreenTitle),
+        );
+        final double firstContent = _top(
+          tester,
+          find.textContaining('Point désigné'),
+        );
+        expect(titleBar, lessThan(_top(tester, headline)));
+        expect(_top(tester, headline), lessThan(_top(tester, action)));
+        expect(_top(tester, action), lessThan(_top(tester, body)));
+        expect(_top(tester, body), lessThan(firstContent));
+        // Le badge vient après l'encart.
+        for (final Element badge
+            in find.byType(DroughtSeverityBadge).evaluate()) {
+          expect(
+            tester.getTopLeft(find.byWidget(badge.widget).first).dy,
+            greaterThan(_top(tester, body)),
+          );
+        }
+      });
+
+      testWidgets('${entry.key} : l action ouvre le site public', (
+        WidgetTester tester,
+      ) async {
+        int opened = 0;
+        await _pump(tester, entry.value, onOpenPublicSite: () => opened++);
+        await tester.tap(action);
+        expect(opened, 1);
+      });
+    }
+
+    testWidgets('sémantique : titre, action puis corps, dans cet ordre', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      final SemanticsNode header = tester.getSemantics(
+        find.byKey(reinforcedWarningHeaderKey),
+      );
+      final SemanticsNode bodyNode = tester.getSemantics(
+        find.byKey(reinforcedWarningBodyKey),
+      );
+      expect(header.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+      expect(bodyNode.getSemanticsData().flagsCollection.isLiveRegion, isFalse);
+      expect(header.label, contains(reinforcedWarningHeadline));
+
+      // Ordre de parcours : l'encart précède le contenu de l'état.
+      final List<String> order = <String>[];
+      void visit(SemanticsNode node) {
+        order.add(node.label);
+        node.visitChildren((SemanticsNode child) {
+          visit(child);
+          return true;
+        });
+      }
+
+      visit(tester.getSemantics(find.byType(Scaffold).first));
+      final int headerAt = order.indexWhere(
+        (String l) => l.contains(reinforcedWarningHeadline),
+      );
+      final int bodyAt = order.indexWhere(
+        (String l) => l.contains(reinforcedWarningBody),
+      );
+      final int pointAt = order.indexWhere(
+        (String l) => l.contains('Point désigné'),
+      );
+      expect(headerAt, greaterThanOrEqualTo(0));
+      expect(headerAt, lessThan(bodyAt));
+      expect(bodyAt, lessThan(pointAt));
+      handle.dispose();
+    });
+
+    testWidgets('titre et action restent visibles après défilement, le corps '
+        'sort', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        profile: UserProfile.particulier,
+      );
+      final double headlineBefore = _top(tester, headline);
+      final double actionBefore = _top(tester, action);
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -3000),
+      );
+      await tester.pumpAndSettle();
+      expect(_top(tester, headline), headlineBefore);
+      expect(_top(tester, action), actionBefore);
+      expect(
+        tester.getRect(body).bottom,
+        lessThan(tester.getRect(action).bottom),
+      );
+    });
+
+    testWidgets('aucun repli : ni ExpansionTile, ni Dismissible', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      expect(find.byType(ExpansionTile), findsNothing);
+      expect(find.byType(Dismissible), findsNothing);
+    });
+
+    test('aucun texte de l encart dans lib/features', () {
+      for (final FileSystemEntity file in Directory(
+        'lib/features',
+      ).listSync(recursive: true)) {
+        if (file is File && file.path.endsWith('.dart')) {
+          expect(
+            file.readAsStringSync(),
+            isNot(contains('NE FONDEZ')),
+            reason: file.path,
+          );
+        }
+      }
+    });
+
+    // Q-4 amendé (2026-09-29) : la tête (titre, action) est épinglée tant
+    // qu'elle prend au plus la moitié de la hauteur utile (sous la barre de
+    // titre) ; sinon tout l'encart est le premier élément du défilement.
+    // [expectPinned] : `true`, `false`, ou `null` = « épinglée si elle tient ».
+    Future<void> checkLayout(
+      WidgetTester tester,
+      Size window, {
+      required double scale,
+      required bool? expectPinned,
+    }) async {
+      tester.view.physicalSize = window;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      for (final RestrictionsState state in states.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: _screen(state),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        // Aucun débordement (RenderFlex overflowed) à aucune taille.
+        expect(tester.takeException(), isNull, reason: '$state');
+
+        final double barBottom = tester
+            .getRect(
+              find
+                  .ancestor(
+                    of: find.text(restrictionsScreenTitle),
+                    matching: find.byType(Material),
+                  )
+                  .first,
+            )
+            .bottom;
+        final double usable = window.height - barBottom;
+        final Rect header = tester.getRect(
+          find.byKey(reinforcedWarningHeaderKey),
+        );
+        final bool inScroll = find
+            .descendant(
+              of: find.byType(SingleChildScrollView),
+              matching: find.byKey(reinforcedWarningHeaderKey),
+            )
+            .evaluate()
+            .isNotEmpty;
+        final bool fits = header.height * 2 <= usable;
+        debugPrint(
+          'E4 mesure ${window.width.toInt()}x${window.height.toInt()} '
+          '${(scale * 100).toInt()}% utile=${usable.toStringAsFixed(1)} '
+          'tete=${header.height.toStringAsFixed(1)} '
+          'ratio=${(header.height / usable).toStringAsFixed(3)} '
+          'epinglee=${!inScroll}',
+        );
+        expect(!inScroll, expectPinned ?? fits, reason: '$state');
+        if (!inScroll) {
+          expect(header.height, lessThanOrEqualTo(usable / 2));
+        } else {
+          // Tout l'encart en tête du défilement, au-dessus du contenu.
+          expect(_top(tester, headline), lessThan(_top(tester, action)));
+          expect(_top(tester, action), lessThan(_top(tester, body)));
+          expect(
+            _top(tester, body),
+            lessThan(_top(tester, find.textContaining('Point désigné'))),
+          );
+          // Il défile avec le contenu.
+          final ScrollableState scrollable = tester.state(_mainScrollable);
+          expect(scrollable.position.maxScrollExtent, greaterThan(0));
+        }
+      }
+    }
+
+    testWidgetsOnWindows('200 % : tête épinglée, <= moitié, 800 x 740', (
+      WidgetTester tester,
+    ) async {
+      await checkLayout(
+        tester,
+        const Size(800, 740),
+        scale: 2,
+        expectPinned: true,
+      );
+    });
+
+    // Ne dépendent pas de l'hôte : plateforme par défaut.
+    testWidgets('200 % : rien d épinglé, encart en tête du défilement, '
+        '360 x 640', (WidgetTester tester) async {
+      await checkLayout(
+        tester,
+        const Size(360, 640),
+        scale: 2,
+        expectPinned: false,
+      );
+    });
+
+    testWidgets('100 % : tête épinglée si elle tient, 360 x 640', (
+      WidgetTester tester,
+    ) async {
+      await checkLayout(
+        tester,
+        const Size(360, 640),
+        scale: 1,
+        expectPinned: true,
+      );
+    });
+
+    testWidgets('le facteur de police change sans reconstruire l écran : la '
+        'tête passe de épinglée à défilée', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final ValueNotifier<double> scale = ValueNotifier<double>(1);
+      addTearDown(scale.dispose);
+      // Même instance d'écran : seul le MediaQuery change au-dessus.
+      final Widget screen = _screen(ZonesTrouvees(zonesAin()));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ValueListenableBuilder<double>(
+            valueListenable: scale,
+            child: screen,
+            builder: (BuildContext context, double value, Widget? child) =>
+                MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(value)),
+                  child: child!,
+                ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final Finder headerInScroll = find.descendant(
+        of: find.byType(SingleChildScrollView),
+        matching: find.byKey(reinforcedWarningHeaderKey),
+      );
+      expect(headerInScroll, findsNothing);
+
+      scale.value = 2;
+      await tester.pumpAndSettle();
+      expect(headerInScroll, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('lien du site public non ouvert : avis sous le corps, une '
+        'fois, dans chaque état', (WidgetTester tester) async {
+      for (final RestrictionsState state in states.values) {
+        await _pump(tester, state, unopenedLink: restrictionsPublicSiteUrl);
+        expect(
+          find.textContaining("Ce lien n'a pas pu être ouvert"),
+          findsOneWidget,
+          reason: '$state',
+        );
+        expect(
+          _top(tester, find.textContaining("Ce lien n'a pas pu être ouvert")),
+          greaterThan(_top(tester, body)),
+        );
+        await _pump(tester, state);
+        expect(
+          find.textContaining("Ce lien n'a pas pu être ouvert"),
+          findsNothing,
+          reason: '$state',
+        );
+      }
+    });
+
+    testWidgets('200 % : tête épinglée, <= moitié, téléphone 411 x 891', (
+      WidgetTester tester,
+    ) async {
+      await checkLayout(
+        tester,
+        const Size(411, 891),
+        scale: 2,
+        expectPinned: true,
+      );
     });
   });
 

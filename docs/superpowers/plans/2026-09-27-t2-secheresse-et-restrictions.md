@@ -695,7 +695,8 @@ git commit -m "feat(restrictions): cabler la source cachee, le ViewModel et l ec
 - L'action appelle `onConsultDecrees` ; elle reste disponible en `RestrictionsEnEchec` **et en `RestrictionsNonObtenues`** (Gherkin « quand la source ne répond pas »).
 - 200 % de police : non tronqué ; `grep -n "NE FONDEZ" lib/features` → **vide** (texte importé).
 
-- [ ] **Étape 1** — tests rouges, dont l'ordre ; **Étape 2** — implémenter, brancher en tête de l'~~panneau~~ écran ; **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges, dont l'ordre ; **Étape 2** — implémenter, brancher en tête de l'~~panneau~~ écran ; ~~**Étape 3** — critère de fin, commit.~~ *(codé le 2026-09-29 ; critère de fin vert ; commit non fait par l'agent.)* *Note du 2026-09-29 (arbitrage du commanditaire) : Q-4 amendé — tête épinglée tant qu'elle prend au plus la moitié de la hauteur utile, sinon tout l'encart est le premier élément du défilement ; voir conception § 4.*
+- [ ] **Étape 3** — commit (à faire).
 - [ ] **Étape 4 — constat d'écran : commanditaire.**
 
 ```bash

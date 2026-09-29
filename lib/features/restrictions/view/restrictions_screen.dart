@@ -24,10 +24,12 @@
 //   (`AlertZone.usagesFor`). La vue dedoublonne seulement l'AFFICHAGE des
 //   arretes (Q-6).
 //
-// ⚠️ L'emplacement de tete — sous la barre de titre, puis premier element
-// du defilement — est RESERVE a l'encart renforce (E4, Q-4). Rien ne l'y
-// remplace en attendant : aucune mise en production n'a lieu avant E4
-// (`BR-012`, `BR-013`).
+// ENCART RENFORCE (E4, Q-4 (a) amende le 2026-09-29, `BR-013`) : tete
+// epinglee (titre, action) sous la barre de titre tant qu'elle prend au plus
+// la moitie de la hauteur utile, corps et adresse en premier element du
+// defilement ; sinon tout l'encart est le premier element du defilement.
+// Dans TOUS les etats. `reinforced_warning_card.dart` porte les
+// deux morceaux.
 
 import 'dart:async' show unawaited;
 
@@ -43,6 +45,7 @@ import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/restrictions/zones_at_point.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.dart';
+import 'package:martinpecheur/features/restrictions/view/reinforced_warning_card.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
@@ -79,8 +82,8 @@ class RestrictionsScreen extends StatelessWidget {
     required this.profile,
     required this.onChooseProfile,
     required this.onRetry,
+    required this.onOpenPublicSite,
     this.onOpenDocument,
-    this.onOpenPublicSite,
     this.unopenedLink,
     this.utcOffsetOf = systemUtcOffsetOf,
     super.key,
@@ -104,9 +107,10 @@ class RestrictionsScreen extends StatelessWidget {
   /// aucune action d'ouverture, l'adresse reste visible et selectionnable.
   final ValueChanged<DocumentLink>? onOpenDocument;
 
-  /// Ouvre le site public de la source. Consomme par l'action de l'encart
-  /// renforce (E4) ; aucun controle de E2 ne l'appelle.
-  final VoidCallback? onOpenPublicSite;
+  /// Ouvre le site public de la source, hors de l'application : l'action de
+  /// l'encart renforce (E4). Obligatoire — l'encart n'a pas de forme sans
+  /// son action.
+  final VoidCallback onOpenPublicSite;
 
   /// Adresse brute du dernier lien qui n'a pas pu s'ouvrir (`UC-002 A6`).
   final String? unopenedLink;
@@ -135,17 +139,27 @@ class RestrictionsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   const _TitleBar(),
-                  // E4 : tete epinglee de l'encart renforce (Q-4), ici.
+                  // Encart renforce (E4, Q-4 amende le 2026-09-29) : tete
+                  // epinglee tant qu'elle tient dans la moitie de la hauteur
+                  // utile, sinon tout l'encart defile en tete.
                   Expanded(
-                    child: SingleChildScrollView(
+                    child: _EncartArea(
+                      header: ReinforcedWarningHeader(
+                        onConsultDecrees: onOpenPublicSite,
+                      ),
                       // Une cle par point : a chaque nouveau point, le
                       // defilement repart EN HAUT (conception T2 § 4).
-                      key: ValueKey<GeoPoint?>(point),
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _content(),
-                      ),
+                      scrollKey: ValueKey<GeoPoint?>(point),
+                      children: <Widget>[
+                        const ReinforcedWarningBody(),
+                        // Lien du site public non ouvert (UC-002 A6) :
+                        // dans TOUS les etats, sous le corps de l'encart
+                        // dont l'action l'ouvre.
+                        if (unopenedLink == restrictionsPublicSiteUrl)
+                          const _UnopenedLinkNotice(),
+                        const SizedBox(height: 16),
+                        ..._content(),
+                      ],
                     ),
                   ),
                 ],
@@ -225,7 +239,6 @@ class RestrictionsScreen extends StatelessWidget {
       "Les arrêtés en vigueur restent consultables à l'adresse "
       '$restrictionsPublicSiteUrl',
     ),
-    if (unopenedLink == restrictionsPublicSiteUrl) const _UnopenedLinkNotice(),
     const SizedBox(height: 16),
     _ActionButton(label: 'Réessayer', onPressed: onRetry),
   ];
@@ -300,6 +313,140 @@ class RestrictionsScreen extends StatelessWidget {
           _UsageGroup(zone: zone, profile: profile),
       ],
     ];
+  }
+}
+
+/// La zone sous la barre de titre : l'encart renforce et le contenu.
+///
+/// Disposition decidee sur la MESURE, sans seuil en pixels : la tete
+/// (titre et action) est epinglee tant que sa hauteur reelle est au plus la
+/// moitie de la hauteur utile de la zone ; sinon tout l'encart est le premier
+/// element du defilement. La tete est rendue a la meme largeur dans les deux
+/// dispositions (hors du remplissage du defilement), donc sa mesure est la
+/// meme : pas d'oscillation. Le premier passage est toujours en defilement
+/// (jamais de debordement), l'epinglage vient au passage suivant.
+class _EncartArea extends StatefulWidget {
+  const _EncartArea({
+    required this.header,
+    required this.scrollKey,
+    required this.children,
+  });
+
+  final Widget header;
+  final Key scrollKey;
+  final List<Widget> children;
+
+  @override
+  State<_EncartArea> createState() => _EncartAreaState();
+}
+
+class _EncartAreaState extends State<_EncartArea> {
+  final GlobalKey _headerKey = GlobalKey();
+  bool _pinned = false;
+
+  /// Derniere taille de la zone vue par le `LayoutBuilder`.
+  double? _usableHeight;
+  double? _usableWidth;
+  TextScaler? _scaler;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Le facteur de police change la hauteur de la tete sans changer les
+    // contraintes : on relance la decision, sans compter sur un autre widget
+    // (la barre de titre) pour reconstruire cette zone.
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+    if (_scaler != null && _scaler != scaler) {
+      // Une police plus grande peut faire deborder la tete epinglee : on
+      // repasse SYNCHRONEMENT en defilement (jamais de debordement), puis la
+      // decision post-rendu re-epingle si elle tient.
+      _pinned = false;
+    }
+    _scaler = scaler;
+    final double? usable = _usableHeight;
+    if (usable != null) {
+      _decide(usable);
+    }
+  }
+
+  void _decide(double usableHeight) {
+    WidgetsBinding.instance.addPostFrameCallback((Duration _) {
+      if (!mounted) {
+        return;
+      }
+      final RenderObject? box = _headerKey.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) {
+        return;
+      }
+      final bool fits = box.size.height * 2 <= usableHeight;
+      if (fits != _pinned) {
+        // Bascule de disposition (redimensionnement de fenetre, changement
+        // de police) : le defilement est reconstruit a un autre endroit de
+        // l'arbre, donc sa POSITION et le FOCUS clavier qu'il porte sont
+        // perdus. Assume : la bascule est rare, et le defilement repart en
+        // haut, ou l'encart est visible. Aucune `GlobalKey` ne conserve
+        // cet etat (la cle de mesure ne porte que la tete).
+        setState(() => _pinned = fits);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double? lastHeight = _usableHeight;
+        final double? lastWidth = _usableWidth;
+        if (_pinned &&
+            ((lastHeight != null && constraints.maxHeight < lastHeight) ||
+                (lastWidth != null && constraints.maxWidth < lastWidth))) {
+          // Zone plus petite : la tete epinglee pourrait deborder ; meme
+          // repli synchrone en defilement, puis nouvelle decision.
+          _pinned = false;
+        }
+        _usableHeight = constraints.maxHeight;
+        _usableWidth = constraints.maxWidth;
+        _decide(constraints.maxHeight);
+        final Widget header = KeyedSubtree(
+          key: _headerKey,
+          child: widget.header,
+        );
+        if (_pinned) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              header,
+              Expanded(
+                child: SingleChildScrollView(
+                  key: widget.scrollKey,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: widget.children,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        return SingleChildScrollView(
+          key: widget.scrollKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              header,
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: widget.children,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
