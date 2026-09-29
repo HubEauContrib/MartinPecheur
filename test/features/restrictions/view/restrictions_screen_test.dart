@@ -212,7 +212,10 @@ void main() {
       await _pump(tester, ZonesTrouvees(zonesAin()));
 
       final double sup = _top(tester, find.text('Eaux superficielles'));
-      final double supName = _top(tester, find.text('Rivières de Bresse'));
+      final double supName = _top(
+        tester,
+        find.text('Rivières de Bresse').first,
+      );
       final double autres = _top(
         tester,
         find.text('Autres zones au même point'),
@@ -224,14 +227,9 @@ void main() {
           'a son niveau et ses usages.',
         ),
       );
-      final double sou = _top(
-        tester,
-        find.text('Eaux souterraines — Dombes - Certines - Nord').first,
-      );
-      final double aep = _top(
-        tester,
-        find.text('Eau potable — Rivières de Bresse').first,
-      );
+      // Les autres zones : surtitre du type en majuscules, puis le nom.
+      final double sou = _top(tester, find.text('EAUX SOUTERRAINES'));
+      final double aep = _top(tester, find.text('EAU POTABLE'));
       expect(sup, lessThan(supName));
       expect(supName, lessThan(autres));
       expect(autres, lessThan(phrase));
@@ -253,15 +251,14 @@ void main() {
       // par zone, jamais une échelle commune.
       // Plus un par zone de la liste « S'applique à » de l'arrêté.
       expect(find.byType(DroughtSeverityBadge), findsNWidgets(3 + 3 * 4 + 3));
-      expect(find.text('Échelle :'), findsNWidgets(3));
-      expect(find.text('Alerte ← cette zone'), findsNWidgets(2));
-      expect(find.text('Vigilance ← cette zone'), findsOneWidget);
+      expect(find.text('Échelle'), findsNWidgets(3));
+      expect(find.text('← cette zone'), findsNWidgets(3));
       expect(find.text('Alerte renforcée'), findsNWidgets(3));
       expect(find.text('Crise'), findsNWidgets(3));
       // Niveaux nus : un par échelle, plus un par ligne de la liste de
       // l'arrêté (le niveau à côté du badge, Q-7).
-      expect(find.text('Vigilance'), findsNWidgets(3));
-      expect(find.text('Alerte'), findsNWidgets(3));
+      expect(find.text('Vigilance'), findsNWidgets(4));
+      expect(find.text('Alerte'), findsNWidgets(5));
     });
 
     testWidgets('le libellé est posé à côté du badge, jamais dans le badge '
@@ -339,9 +336,12 @@ void main() {
         tester,
         ZonesTrouvees(zonesAinWith(<AlertZone>[ainSup(), ainTypeInconnu()])),
       );
+      // Surtitre de la carte, puis titre « type — nom » de la liste de
+      // l'arrêté.
+      expect(find.text('TYPE DE ZONE NON RENSEIGNÉ'), findsOneWidget);
       expect(
         find.text('Type de zone non renseigné — Rivières de Bresse'),
-        findsNWidgets(2), // bloc de la zone + liste de l'arrêté
+        findsOneWidget,
       );
       expect(find.textContaining('XYZ'), findsNothing);
     });
@@ -380,10 +380,7 @@ void main() {
         ZonesTrouvees(zonesAin()),
         profile: UserProfile.particulier,
       );
-      final double lastZone = _top(
-        tester,
-        find.text('Eau potable — Rivières de Bresse').first,
-      );
+      final double lastZone = _top(tester, find.text('EAU POTABLE'));
       final double decrees = _top(tester, find.text('Arrêtés'));
       final double profile = _top(tester, find.text("Profil d'usager"));
       final double usages = _top(
@@ -1191,6 +1188,476 @@ void main() {
     });
   });
 
+  // Haut de l'écran et zones en cartes (arbitrage du commanditaire du
+  // 2026-09-29, planche « Écran des restrictions — zones proposées »).
+  group('haut de l écran et zones en cartes (amendement du 2026-09-29)', () {
+    Future<void> at(
+      WidgetTester tester,
+      Size window,
+      RestrictionsState state, {
+      double scale = 1,
+      UserProfile? profile,
+    }) async {
+      tester.view.physicalSize = window;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: _screen(state, profile: profile),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Finder zoneCard(int index) => find.byKey(restrictionsZoneCardKey(index));
+    Finder inCard(int index, Finder matching) =>
+        find.descendant(of: zoneCard(index), matching: matching);
+    Finder inScale(int index, Finder matching) => find.descendant(
+      of: find.byKey(restrictionsScaleKey(index)),
+      matching: matching,
+    );
+    TextStyle? styleOf(WidgetTester tester, Finder finder) =>
+        tester.widget<Text>(finder).style;
+
+    // --- 1. colonne de lecture ------------------------------------------
+
+    testWidgets('1280 de large : contenu limité à 760 px, centré ; barre de '
+        'titre pleine largeur', (WidgetTester tester) async {
+      await at(
+        tester,
+        const Size(1280, 900),
+        ZonesTrouvees(zonesAin()),
+        profile: UserProfile.particulier,
+      );
+      for (final Finder finder in <Finder>[
+        zoneCard(0),
+        find.byKey(restrictionsDecreeCardKey(decreeUrlAin, framework: false)),
+        find.byKey(restrictionsPointBannerKey),
+      ]) {
+        final Rect rect = tester.getRect(finder);
+        expect(rect.width, closeTo(760, 0.5));
+        expect(rect.center.dx, closeTo(640, 0.5));
+      }
+      final Rect bar = tester.getRect(
+        find
+            .ancestor(
+              of: find.text(restrictionsScreenTitle),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(bar.width, 1280);
+    });
+
+    testWidgets('sous 792 de large : padding de 16, comportement inchangé', (
+      WidgetTester tester,
+    ) async {
+      await at(tester, const Size(500, 900), ZonesTrouvees(zonesAin()));
+      final Rect rect = tester.getRect(zoneCard(0));
+      expect(rect.left, 16);
+      expect(rect.right, 484);
+    });
+
+    // --- 2. tête de l'encart ---------------------------------------------
+
+    testWidgets('tête de l encart : titre et bouton sur UNE ligne à 1280, '
+        'dans la colonne de 760', (WidgetTester tester) async {
+      // La police des tests (Ahem) fait 14 px par caractère : à 100 % le
+      // titre seul remplit la colonne de 760. Un facteur de 0,6 rend les
+      // largeurs d'une vraie police et laisse voir la mise sur une ligne.
+      await at(
+        tester,
+        const Size(1280, 900),
+        ZonesTrouvees(zonesAin()),
+        scale: 0.6,
+      );
+      final Rect title = tester.getRect(
+        find.textContaining(reinforcedWarningHeadline),
+      );
+      final Rect button = tester.getRect(
+        find.widgetWithText(OutlinedButton, reinforcedWarningActionLabel),
+      );
+      expect(button.left, greaterThan(title.right));
+      expect((button.center.dy - title.center.dy).abs(), lessThan(6));
+      expect(title.left, greaterThanOrEqualTo(260));
+      expect(button.right, lessThanOrEqualTo(1020.5));
+    });
+
+    testWidgets('tête de l encart : empilés à 390', (
+      WidgetTester tester,
+    ) async {
+      await at(tester, const Size(390, 844), ZonesTrouvees(zonesAin()));
+      final Rect title = tester.getRect(
+        find.textContaining(reinforcedWarningHeadline),
+      );
+      final Rect button = tester.getRect(
+        find.widgetWithText(OutlinedButton, reinforcedWarningActionLabel),
+      );
+      expect(button.top, greaterThanOrEqualTo(title.bottom));
+    });
+
+    testWidgets('tête de l encart : filet de 1 px #C9CFC4 dessous', (
+      WidgetTester tester,
+    ) async {
+      await at(tester, const Size(1280, 900), ZonesTrouvees(zonesAin()));
+      final Iterable<BoxDecoration> decorations = tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byKey(reinforcedWarningHeaderKey),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((DecoratedBox box) => box.decoration)
+          .whereType<BoxDecoration>();
+      expect(
+        decorations.any(
+          (BoxDecoration d) =>
+              d.border ==
+              const Border(bottom: BorderSide(color: Color(0xFFC9CFC4))),
+        ),
+        isTrue,
+      );
+    });
+
+    // --- 3. bandeau du point ---------------------------------------------
+
+    final Map<String, (RestrictionsState, bool)> banners =
+        <String, (RestrictionsState, bool)>{
+          'RestrictionsEnCours': (RestrictionsEnCours(pointAin()), false),
+          'ZonesTrouvees': (ZonesTrouvees(zonesAin()), true),
+          'AucuneZone': (
+            AucuneZone(point: pointGuyane(), retrievedAt: retrievedAtGuyane),
+            true,
+          ),
+          'RestrictionsEnEchec': (
+            RestrictionsEnEchec(
+              point: pointAin(),
+              cause: const SourceInjoignable('timeout'),
+            ),
+            false,
+          ),
+          'RestrictionsNonObtenues': (
+            RestrictionsNonObtenues(pointAin()),
+            false,
+          ),
+        };
+    for (final MapEntry<String, (RestrictionsState, bool)> entry
+        in banners.entries) {
+      testWidgets('bandeau du point (${entry.key}) : fond #F3F4F1, rayon 10, '
+          'point en gras, icône hors sémantique'
+          '${entry.value.$2 ? ', date dessous' : ', sans date'}', (
+        WidgetTester tester,
+      ) async {
+        await _pump(tester, entry.value.$1);
+        final Finder banner = find.byKey(restrictionsPointBannerKey);
+        expect(banner, findsOneWidget);
+        final BoxDecoration decoration =
+            tester
+                    .widget<DecoratedBox>(
+                      find
+                          .descendant(
+                            of: banner,
+                            matching: find.byType(DecoratedBox),
+                          )
+                          .first,
+                    )
+                    .decoration
+                as BoxDecoration;
+        expect(decoration.color, const Color(0xFFF3F4F1));
+        expect(decoration.borderRadius, BorderRadius.circular(10));
+
+        final Finder point = find.descendant(
+          of: banner,
+          matching: find.textContaining('Point désigné'),
+        );
+        expect(point, findsOneWidget);
+        expect(styleOf(tester, point)?.fontWeight, FontWeight.bold);
+        expect(
+          find.ancestor(
+            of: find.descendant(
+              of: banner,
+              matching: find.byIcon(Icons.gps_fixed),
+            ),
+            matching: find.byType(ExcludeSemantics),
+          ),
+          findsWidgets,
+        );
+        final Finder date = find.descendant(
+          of: banner,
+          matching: find.textContaining('Réponse de VigiEau obtenue le'),
+        );
+        if (entry.value.$2) {
+          expect(date, findsOneWidget);
+          expect(styleOf(tester, date)?.color, const Color(0xFF3A4148));
+          expect(styleOf(tester, date)?.fontSize, 14);
+          expect(_top(tester, date), greaterThan(_top(tester, point)));
+        } else {
+          expect(date, findsNothing);
+        }
+      });
+    }
+
+    // --- 4. carte de zone --------------------------------------------------
+
+    testWidgets('carte de zone : bordure 1 #C9CFC4, rayon 12, padding 18, '
+        'badge de 48 en tête', (WidgetTester tester) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      final BoxDecoration decoration =
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(
+                          of: zoneCard(0),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(decoration.border, Border.all(color: const Color(0xFFC9CFC4)));
+      expect(decoration.borderRadius, BorderRadius.circular(12));
+      expect(
+        tester
+            .widget<Padding>(
+              find
+                  .descendant(of: zoneCard(0), matching: find.byType(Padding))
+                  .first,
+            )
+            .padding,
+        const EdgeInsets.all(18),
+      );
+      final Finder badge = inCard(0, find.byType(DroughtSeverityBadge)).first;
+      expect(tester.getSize(badge), const Size.square(48));
+    });
+
+    testWidgets('zone d eaux superficielles : le nom en titre 18 gras, pas de '
+        'surtitre', (WidgetTester tester) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      final Finder name = inCard(0, find.text('Rivières de Bresse'));
+      expect(name, findsOneWidget);
+      expect(styleOf(tester, name)?.fontSize, 18);
+      expect(styleOf(tester, name)?.fontWeight, FontWeight.bold);
+      expect(inCard(0, find.text('EAUX SUPERFICIELLES')), findsNothing);
+    });
+
+    testWidgets('autre zone : surtitre du type (13 gras #4A5259, majuscules) '
+        'puis le nom en titre', (WidgetTester tester) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      final Finder tag = inCard(1, find.text('EAUX SOUTERRAINES'));
+      expect(tag, findsOneWidget);
+      expect(styleOf(tester, tag)?.fontSize, 13);
+      expect(styleOf(tester, tag)?.fontWeight, FontWeight.bold);
+      expect(styleOf(tester, tag)?.color, const Color(0xFF4A5259));
+      final Finder name = inCard(1, find.text('Dombes - Certines - Nord'));
+      expect(styleOf(tester, name)?.fontSize, 18);
+      expect(_top(tester, name), greaterThan(_top(tester, tag)));
+      expect(inCard(2, find.text('EAU POTABLE')), findsOneWidget);
+    });
+
+    testWidgets('lecteur d écran : « type — nom » annoncé, jamais le surtitre '
+        'seul', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      for (final int index in <int>[0, 1, 2]) {
+        expect(
+          find.descendant(
+            of: zoneCard(index),
+            matching: find.bySemanticsLabel(
+              RegExp(
+                r'^(Eaux superficielles|Eaux souterraines|Eau potable) — ',
+              ),
+            ),
+          ),
+          findsOneWidget,
+          reason: 'zone $index',
+        );
+      }
+      expect(
+        find.bySemanticsLabel('Eaux souterraines — Dombes - Certines - Nord'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('EAUX SOUTERRAINES'), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('niveau daté 20 gras, fin en 14 #3A4148', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      final Finder level = inCard(
+        0,
+        find.text('Alerte · depuis le 20/08/2026'),
+      );
+      expect(styleOf(tester, level)?.fontSize, 20);
+      expect(styleOf(tester, level)?.fontWeight, FontWeight.bold);
+      final Finder until = inCard(0, find.text("jusqu'au 31/10/2026"));
+      expect(styleOf(tester, until)?.fontSize, 14);
+      expect(styleOf(tester, until)?.color, const Color(0xFF3A4148));
+    });
+
+    // --- 5. échelle en bande -------------------------------------------------
+
+    testWidgets('échelle : surtitre « Échelle » sans deux-points, quatre '
+        'niveaux, la case de la zone marquée', (WidgetTester tester) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+      expect(find.text('Échelle :'), findsNothing);
+      expect(inScale(1, find.text('Échelle')), findsOneWidget);
+      for (final String label in <String>[
+        'Vigilance',
+        'Alerte',
+        'Alerte renforcée',
+        'Crise',
+      ]) {
+        expect(inScale(1, find.text(label)), findsOneWidget);
+      }
+      expect(inScale(1, find.byType(DroughtSeverityBadge)), findsNWidgets(4));
+      // Zone de vigilance : seule sa case porte « ← cette zone ».
+      expect(inScale(1, find.text('← cette zone')), findsOneWidget);
+      expect(
+        styleOf(tester, inScale(1, find.text('Vigilance')))?.fontWeight,
+        FontWeight.bold,
+      );
+      expect(
+        styleOf(tester, inScale(1, find.text('Alerte')))?.fontWeight,
+        isNot(FontWeight.bold),
+      );
+      expect(
+        styleOf(tester, inScale(1, find.text('← cette zone')))?.fontSize,
+        12,
+      );
+      final BoxDecoration marked =
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .ancestor(
+                          of: inScale(1, find.text('← cette zone')),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(marked.color, const Color(0xFFF3F4F1));
+      expect(
+        marked.border,
+        Border.all(color: const Color(0xFF141A1F), width: 2),
+      );
+      expect(marked.borderRadius, BorderRadius.circular(8));
+      final BoxDecoration plain =
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .ancestor(
+                          of: inScale(1, find.text('Alerte')),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(plain.border, Border.all(color: const Color(0xFFE3E6DF)));
+    });
+
+    testWidgets('gravité inconnue : aucune case marquée (BR-011)', (
+      WidgetTester tester,
+    ) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[ainSupGraviteInconnue()])),
+      );
+      expect(inScale(0, find.text('Échelle')), findsOneWidget);
+      expect(inScale(0, find.byType(DroughtSeverityBadge)), findsNWidgets(4));
+      expect(inScale(0, find.text('← cette zone')), findsNothing);
+    });
+
+    testWidgets('grille de 4 colonnes quand le contenu est large', (
+      WidgetTester tester,
+    ) async {
+      await at(tester, const Size(1280, 900), ZonesTrouvees(zonesAin()));
+      final List<double> tops = <double>[
+        for (final String l in <String>[
+          'Vigilance',
+          'Alerte',
+          'Alerte renforcée',
+          'Crise',
+        ])
+          tester.getTopLeft(inScale(0, find.text(l))).dy,
+      ];
+      for (final double top in tops) {
+        expect(top, closeTo(tops.first, 2));
+      }
+    });
+
+    testWidgets('grille de 2 colonnes sous 480 de contenu', (
+      WidgetTester tester,
+    ) async {
+      await at(tester, const Size(390, 844), ZonesTrouvees(zonesAin()));
+      double top(String l) => tester.getTopLeft(inScale(0, find.text(l))).dy;
+      expect(top('Alerte'), closeTo(top('Vigilance'), 2));
+      expect(top('Crise'), closeTo(top('Alerte renforcée'), 2));
+      expect(top('Alerte renforcée'), greaterThan(top('Vigilance') + 10));
+    });
+
+    // --- 6. titres de section ------------------------------------------------
+
+    testWidgets('titres de section en 19 gras', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        profile: UserProfile.particulier,
+      );
+      for (final String title in <String>[
+        'Eaux superficielles',
+        'Autres zones au même point',
+        'Arrêtés',
+        "Profil d'usager",
+      ]) {
+        expect(styleOf(tester, find.text(title))?.fontSize, 19, reason: title);
+        expect(
+          styleOf(tester, find.text(title))?.fontWeight,
+          FontWeight.bold,
+          reason: title,
+        );
+      }
+    });
+
+    // --- 7. 200 % ------------------------------------------------------------
+
+    for (final Size window in const <Size>[
+      Size(360, 640),
+      Size(390, 844),
+      Size(800, 740),
+    ]) {
+      testWidgets(
+        '200 % à ${window.width.toInt()} x ${window.height.toInt()} : '
+        'zones et échelles sans exception de rendu',
+        (WidgetTester tester) async {
+          await at(
+            tester,
+            window,
+            ZonesTrouvees(
+              zonesAinWith(<AlertZone>[
+                ainSup(),
+                ainSou(),
+                ainAep(),
+                ainSupGraviteInconnue(),
+              ]),
+            ),
+            scale: 2,
+          );
+          expect(tester.takeException(), isNull);
+          // Atteignable : la dernière échelle défile en vue, sans exception.
+          await tester.ensureVisible(inScale(3, find.text('Crise')));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  });
+
   group('aucune zone (UC-002 A3, BR-007)', () {
     testWidgets(
       'les deux phrases, la date de récupération, ni badge ni profil',
@@ -1699,7 +2166,7 @@ void main() {
     });
   });
 
-  group('typographie dynamique : 200 %, rien n est tronqué', () {
+  group('typographie dynamique : 200 %, sans exception de rendu, contenu atteignable', () {
     Future<void> check(WidgetTester tester, Size window) async {
       tester.view.physicalSize = window;
       tester.view.devicePixelRatio = 1.0;
@@ -1731,15 +2198,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.getRect(finder).right, lessThanOrEqualTo(window.width));
         expect(tester.takeException(), isNull);
-      }
-
-      for (final RenderParagraph paragraph
-          in tester.allRenderObjects.whereType<RenderParagraph>()) {
-        expect(
-          paragraph.didExceedMaxLines,
-          isFalse,
-          reason: paragraph.text.toPlainText(),
-        );
       }
 
       final ScrollableState scrollable = tester.state(_mainScrollable);

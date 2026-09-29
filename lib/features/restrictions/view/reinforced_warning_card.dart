@@ -23,6 +23,13 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+/// Largeur de la colonne de lecture (contenu, hors remplissage) : partagee
+/// par le contenu defilant de l'ecran et l'interieur de la tete epinglee.
+const double readingColumnWidth = 760;
+
+/// Remplissage lateral de la colonne de lecture.
+const double readingColumnGutter = 16;
+
 /// Cle de la region d'alerte de la tete epinglee — pour les tests.
 const Key reinforcedWarningHeaderKey = ValueKey<String>(
   'reinforced-warning-header',
@@ -49,46 +56,77 @@ class ReinforcedWarningHeader extends StatelessWidget {
       liveRegion: true,
       child: Material(
         color: droughtScreenBackground,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              // L'icone est en ligne avec le titre : a 200 % elle ne prend
-              // pas de colonne entiere (critere de la moitie, Q-4).
-              Text.rich(
-                TextSpan(
-                  children: <InlineSpan>[
-                    const WidgetSpan(
-                      alignment: PlaceholderAlignment.middle,
-                      child: ExcludeSemantics(
-                        child: Icon(
-                          Icons.warning_amber_rounded,
-                          color: droughtLevelLabelColor,
-                        ),
-                      ),
+        // Filet sous la tete, sur toute la largeur de la fenetre.
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFC9CFC4))),
+          ),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              // Meme colonne de lecture que le contenu.
+              const double full = readingColumnWidth + 2 * readingColumnGutter;
+              final double width = constraints.maxWidth < full
+                  ? constraints.maxWidth
+                  : full;
+              return Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: width,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      readingColumnGutter,
+                      8,
+                      readingColumnGutter,
+                      8,
                     ),
-                    const TextSpan(text: ' '),
-                    const TextSpan(text: reinforcedWarningHeadline),
-                  ],
+                    // Titre a gauche, action a droite quand ca tient ; sinon
+                    // empiles (`Wrap` passe l'action a la ligne).
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 16,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        // L'icone est en ligne avec le titre : a 200 % elle
+                        // ne prend pas de colonne entiere (critere de la
+                        // moitie, Q-4).
+                        Text.rich(
+                          TextSpan(
+                            children: <InlineSpan>[
+                              const WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: ExcludeSemantics(
+                                  child: Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: droughtLevelLabelColor,
+                                  ),
+                                ),
+                              ),
+                              const TextSpan(text: ' '),
+                              const TextSpan(text: reinforcedWarningHeadline),
+                            ],
+                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: droughtLevelLabelColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        OutlinedButton(
+                          onPressed: onConsultDecrees,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: Size.square(minimumTapTarget),
+                            visualDensity: VisualDensity.standard,
+                            foregroundColor: droughtLevelLabelColor,
+                          ),
+                          child: const Text(reinforcedWarningActionLabel),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: droughtLevelLabelColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: onConsultDecrees,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: Size.square(minimumTapTarget),
-                  visualDensity: VisualDensity.standard,
-                  foregroundColor: droughtLevelLabelColor,
-                ),
-                child: const Text(reinforcedWarningActionLabel),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),

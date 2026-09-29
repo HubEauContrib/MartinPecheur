@@ -33,6 +33,12 @@
 
 import 'dart:async' show unawaited;
 
+import 'package:flutter/gestures.dart'
+    show
+        GestureBinding,
+        PointerDeviceKind,
+        PointerScrollEvent,
+        PointerSignalEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:martinpecheur/domain/formatting/display_date.dart';
@@ -70,6 +76,20 @@ Key restrictionsDecreeCardKey(String raw, {required bool framework}) =>
     ValueKey<String>(
       'restrictions-decree-${framework ? 'cadre' : 'restriction'}-$raw',
     );
+
+/// Cle de la carte de la zone d'index [index] (ordre d'affichage) — pour les
+/// tests.
+Key restrictionsZoneCardKey(int index) =>
+    ValueKey<String>('restrictions-zone-$index');
+
+/// Cle de l'echelle en bande de la zone d'index [index].
+Key restrictionsScaleKey(int index) =>
+    ValueKey<String>('restrictions-scale-$index');
+
+/// Cle du bandeau du point designe (et de la date de reponse).
+const Key restrictionsPointBannerKey = ValueKey<String>(
+  'restrictions-point-banner',
+);
 
 /// « Point désigné : 46,20000° N, 5,22600° E » — virgule decimale, cinq
 /// decimales pour l'affichage seul (la requete garde le point exact), `S` et
@@ -144,34 +164,39 @@ class RestrictionsScreen extends StatelessWidget {
           body: SafeArea(
             child: DefaultTextStyle.merge(
               style: const TextStyle(color: droughtLevelLabelColor),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  const _TitleBar(),
-                  // Encart renforce (E4, Q-4 amende le 2026-09-29) : tete
-                  // epinglee tant qu'elle tient dans la moitie de la hauteur
-                  // utile, sinon tout l'encart defile en tete.
-                  Expanded(
-                    child: _EncartArea(
-                      header: ReinforcedWarningHeader(
-                        onConsultDecrees: onOpenPublicSite,
+              // La molette posee sur la barre de titre ou sur la tete
+              // epinglee de l'encart — hors du defilement — fait defiler
+              // l'ecran (constat du 2026-09-29 : bande morte sous la barre).
+              child: _WheelScrollsScreen(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    const _TitleBar(),
+                    // Encart renforce (E4, Q-4 amende le 2026-09-29) : tete
+                    // epinglee tant qu'elle tient dans la moitie de la hauteur
+                    // utile, sinon tout l'encart defile en tete.
+                    Expanded(
+                      child: _EncartArea(
+                        header: ReinforcedWarningHeader(
+                          onConsultDecrees: onOpenPublicSite,
+                        ),
+                        // Une cle par point : a chaque nouveau point, le
+                        // defilement repart EN HAUT (conception T2 § 4).
+                        scrollKey: ValueKey<GeoPoint?>(point),
+                        children: <Widget>[
+                          const ReinforcedWarningBody(),
+                          // Lien du site public non ouvert (UC-002 A6) :
+                          // dans TOUS les etats, sous le corps de l'encart
+                          // dont l'action l'ouvre.
+                          if (unopenedLink == restrictionsPublicSiteUrl)
+                            const _UnopenedLinkNotice(),
+                          const SizedBox(height: 16),
+                          ..._content(),
+                        ],
                       ),
-                      // Une cle par point : a chaque nouveau point, le
-                      // defilement repart EN HAUT (conception T2 § 4).
-                      scrollKey: ValueKey<GeoPoint?>(point),
-                      children: <Widget>[
-                        const ReinforcedWarningBody(),
-                        // Lien du site public non ouvert (UC-002 A6) :
-                        // dans TOUS les etats, sous le corps de l'encart
-                        // dont l'action l'ouvre.
-                        if (unopenedLink == restrictionsPublicSiteUrl)
-                          const _UnopenedLinkNotice(),
-                        const SizedBox(height: 16),
-                        ..._content(),
-                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -185,19 +210,23 @@ class RestrictionsScreen extends StatelessWidget {
     return switch (state) {
       RestrictionsFermees() => const <Widget>[],
       RestrictionsEnCours(:final GeoPoint point) => <Widget>[
-        Text(formatDesignatedPoint(point)),
+        _PointBanner(point: formatDesignatedPoint(point)),
         const SizedBox(height: 16),
         const Text("Recherche des zones d'alerte pour ce point…"),
       ],
       ZonesTrouvees(:final ZonesAtPoint zones) => <Widget>[
-        Text(formatDesignatedPoint(zones.point)),
-        _retrievedAt(zones.retrievedAt),
+        _PointBanner(
+          point: formatDesignatedPoint(zones.point),
+          retrievedAt: _retrievedAt(zones.retrievedAt),
+        ),
         ..._zonesContent(zones),
       ],
       AucuneZone(:final GeoPoint point, :final DateTime retrievedAt) =>
         <Widget>[
-          Text(formatDesignatedPoint(point)),
-          _retrievedAt(retrievedAt),
+          _PointBanner(
+            point: formatDesignatedPoint(point),
+            retrievedAt: _retrievedAt(retrievedAt),
+          ),
           const SizedBox(height: 16),
           const Text(
             '$restrictionsSourceName ne renvoie aucune zone '
@@ -220,10 +249,9 @@ class RestrictionsScreen extends StatelessWidget {
     };
   }
 
-  Widget _retrievedAt(DateTime retrievedAt) => Text(
-    'Réponse de $restrictionsSourceName obtenue le '
-    '${formatLocalDateTime(retrievedAt, offsetOf: utcOffsetOf)}',
-  );
+  String _retrievedAt(DateTime retrievedAt) =>
+      'Réponse de $restrictionsSourceName obtenue le '
+      '${formatLocalDateTime(retrievedAt, offsetOf: utcOffsetOf)}';
 
   /// Textes du § 5.3, une cause par branche (`switch` exhaustif).
   static String _failureText(RestrictionLookupFailure cause) => switch (cause) {
@@ -240,7 +268,7 @@ class RestrictionsScreen extends StatelessWidget {
   };
 
   List<Widget> _failure(GeoPoint point, String text) => <Widget>[
-    Text(formatDesignatedPoint(point)),
+    _PointBanner(point: formatDesignatedPoint(point)),
     const SizedBox(height: 16),
     Text(text),
     const SizedBox(height: 8),
@@ -262,8 +290,8 @@ class RestrictionsScreen extends StatelessWidget {
     return <Widget>[
       if (surface.isNotEmpty) ...<Widget>[
         _SectionTitle(zoneKindLabel(const EauxSuperficielles())),
-        for (final AlertZone zone in surface)
-          _ZoneBlock(zone: zone, title: zone.name),
+        for (int i = 0; i < surface.length; i++)
+          _ZoneCard(zone: surface[i], index: i),
       ],
       if (others.isNotEmpty) ...<Widget>[
         const _SectionTitle('Autres zones au même point'),
@@ -271,8 +299,8 @@ class RestrictionsScreen extends StatelessWidget {
           "Le point désigné se trouve aussi dans ces zones d'alerte. Chacune "
           'a son niveau et ses usages.',
         ),
-        for (final AlertZone zone in others)
-          _ZoneBlock(zone: zone, title: _zoneTitle(zone)),
+        for (int i = 0; i < others.length; i++)
+          _ZoneCard(zone: others[i], index: surface.length + i),
       ],
       if (decrees.isNotEmpty) ...<Widget>[
         const _SectionTitle('Arrêtés'),
@@ -409,6 +437,19 @@ class _EncartAreaState extends State<_EncartArea> {
 
   @override
   Widget build(BuildContext context) {
+    // Sur desktop, Flutter ne fait pas glisser un defilement a la souris :
+    // l'usager arrive d'une carte ou glisser deplace la vue. Ici, glisser
+    // fait defiler ; la barre de defilement est toujours visible (la page
+    // defile, cela se voit), la barre automatique est retiree pour ne pas
+    // la doubler.
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context)
+          .copyWith(dragDevices: _screenDragDevices, scrollbars: false),
+      child: _layout(),
+    );
+  }
+
+  Widget _layout() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double? lastHeight = _usableHeight;
@@ -433,32 +474,121 @@ class _EncartAreaState extends State<_EncartArea> {
             children: <Widget>[
               header,
               Expanded(
-                child: SingleChildScrollView(
-                  key: widget.scrollKey,
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: widget.children,
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    key: widget.scrollKey,
+                    // Le defilement de la route : `PageUp`/`PageDown` (et
+                    // `Ctrl`+fleches) le trouvent depuis le focus de l'ecran,
+                    // qui n'est pas dans le defilement. Sur mobile, c'etait
+                    // deja le cas par defaut.
+                    primary: true,
+                    child: _ReadingColumn(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: widget.children,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
           );
         }
-        return SingleChildScrollView(
-          key: widget.scrollKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              header,
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: widget.children,
+        return Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            key: widget.scrollKey,
+            primary: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                header,
+                _ReadingColumn(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: widget.children,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Les appareils qui font glisser le defilement de l'ecran : ceux de Flutter
+/// par defaut, SANS la souris — a la souris un glisser demarre a 1 px, et un
+/// clic un peu tremble sur un choix de profil ou un bouton serait perdu. La
+/// souris defile a la molette, a la barre et au clavier.
+const Set<PointerDeviceKind> _screenDragDevices = <PointerDeviceKind>{
+  PointerDeviceKind.touch,
+  PointerDeviceKind.stylus,
+  PointerDeviceKind.invertedStylus,
+  PointerDeviceKind.trackpad,
+  PointerDeviceKind.unknown,
+};
+
+/// Fait defiler l'ecran a la molette posee HORS du defilement (barre de
+/// titre, tete epinglee). Au-dessus du defilement, c'est lui qui prend
+/// l'evenement : il s'inscrit le premier aupres du `pointerSignalResolver`,
+/// et seule la premiere inscription est servie.
+class _WheelScrollsScreen extends StatelessWidget {
+  const _WheelScrollsScreen({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerSignal: (PointerSignalEvent event) {
+        if (event is! PointerScrollEvent) {
+          return;
+        }
+        final ScrollController? controller = PrimaryScrollController.maybeOf(
+          context,
+        );
+        if (controller == null || controller.positions.length != 1) {
+          return;
+        }
+        GestureBinding.instance.pointerSignalResolver.register(event, (
+          PointerSignalEvent resolved,
+        ) {
+          if (resolved is PointerScrollEvent &&
+              controller.positions.length == 1) {
+            controller.position.pointerScroll(resolved.scrollDelta.dy);
+          }
+        });
+      },
+      child: child,
+    );
+  }
+}
+
+/// Le contenu defilant : colonne de [readingColumnWidth] centree quand la
+/// fenetre est plus large, sinon toute la largeur, remplissage de 16 dans les
+/// deux cas. Le defilement, lui, garde la pleine largeur (sa barre reste au
+/// bord de la fenetre).
+class _ReadingColumn extends StatelessWidget {
+  const _ReadingColumn({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        const double full = readingColumnWidth + 2 * readingColumnGutter;
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: constraints.maxWidth < full ? constraints.maxWidth : full,
+            child: Padding(
+              padding: const EdgeInsets.all(readingColumnGutter),
+              child: child,
+            ),
           ),
         );
       },
@@ -537,7 +667,7 @@ class _SectionTitle extends StatelessWidget {
         header: true,
         child: Text(
           text,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
         ),
       ),
     );
@@ -578,86 +708,314 @@ class _DatedLevelRow extends StatelessWidget {
   }
 }
 
-/// Une zone : titre, niveau date, date de fin, phrase de `BR-007` si la
-/// gravite est inconnue, echelle complete marquee, et la phrase d'une zone
-/// sans arrete.
-class _ZoneBlock extends StatelessWidget {
-  const _ZoneBlock({required this.zone, required this.title});
+/// Gris des textes secondaires des cartes de zone (14 sur fond blanc, 8,7:1).
+const Color _secondaryTextColor = Color(0xFF3A4148);
 
-  final AlertZone zone;
-  final String title;
+/// Le bandeau du point designe : viseur, point en gras, et — quand l'etat en
+/// porte une — la date de reponse dessous.
+class _PointBanner extends StatelessWidget {
+  const _PointBanner({required this.point, this.retrievedAt});
+
+  final String point;
+
+  /// La date de reponse de la source, ou `null` (chargement, echecs).
+  final String? retrievedAt;
 
   @override
   Widget build(BuildContext context) {
-    final DateTime? validUntil = zone.decree.validUntil;
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          _DatedLevelRow(zone: zone),
-          Text(
-            validUntil == null
-                ? 'Date de fin non transmise par la source.'
-                : "jusqu'au ${formatCalendarDate(validUntil)}",
+    final String? retrievedAt = this.retrievedAt;
+    return SizedBox(
+      key: restrictionsPointBannerKey,
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _neutralTileColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const ExcludeSemantics(child: Icon(Icons.gps_fixed, size: 22)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      point,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    if (retrievedAt != null)
+                      Text(
+                        retrievedAt,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: _secondaryTextColor,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          if (zone.severity is GraviteInconnue)
-            const Text(restrictionsNoDecreeMeaningText),
-          const SizedBox(height: 4),
-          _SeverityScale(marked: zone.severity),
-          if (zone.decree.document == null)
-            const Text(
-              "Le texte de l'arrêté n'est pas accessible depuis "
-              "l'application : la source n'en transmet pas l'adresse.",
-            ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// L'echelle complete, une par zone (jamais une echelle commune, conception
-/// T2 § 3), la ligne de la zone marquee. Une gravite inconnue n'y a aucune
-/// position (BR-011).
-class _SeverityScale extends StatelessWidget {
-  const _SeverityScale({required this.marked});
+/// Le niveau date en grand, sans badge (le badge est en tete de carte) :
+/// meme semantique que [_DatedLevelRow].
+class _DatedLevelText extends StatelessWidget {
+  const _DatedLevelText({required this.zone});
 
+  final AlertZone zone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label:
+          'Niveau de gravité : ${droughtSeverityLabel(zone.severity)}, '
+          'depuis le ${formatLongCalendarDate(zone.decree.validFrom)}',
+      excludeSemantics: true,
+      child: Text(
+        _datedLevel(zone),
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+/// Une zone, en carte : badge de 48, [surtitre du type pour une autre zone
+/// que les eaux superficielles], nom, niveau date, date de fin ; puis la
+/// phrase de `BR-007` si la gravite est inconnue, l'echelle en bande, et la
+/// phrase d'une zone sans arrete.
+class _ZoneCard extends StatelessWidget {
+  const _ZoneCard({required this.zone, required this.index});
+
+  final AlertZone zone;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final DateTime? validUntil = zone.decree.validUntil;
+    final bool showKind = zone.kind is! EauxSuperficielles;
+    return Padding(
+      key: restrictionsZoneCardKey(index),
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: _cardBorderColor),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  DroughtSeverityBadge(severity: zone.severity, size: 48),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        // « type — nom » annonce en entier, jamais le
+                        // surtitre seul (les mots du prefet a l'identique,
+                        // BR-014).
+                        Semantics(
+                          container: true,
+                          label: _zoneTitle(zone),
+                          excludeSemantics: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              if (showKind)
+                                Text(
+                                  zoneKindLabel(zone.kind).toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: _addressLabelColor,
+                                  ),
+                                ),
+                              Text(
+                                zone.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        _DatedLevelText(zone: zone),
+                        Text(
+                          validUntil == null
+                              ? 'Date de fin non transmise par la source.'
+                              : "jusqu'au ${formatCalendarDate(validUntil)}",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: _secondaryTextColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (zone.severity is GraviteInconnue) ...<Widget>[
+                const SizedBox(height: 12),
+                const Text(restrictionsNoDecreeMeaningText),
+              ],
+              const SizedBox(height: 16),
+              _SeverityScale(index: index, marked: zone.severity),
+              if (zone.decree.document == null) ...<Widget>[
+                const SizedBox(height: 12),
+                const Text(
+                  "Le texte de l'arrêté n'est pas accessible depuis "
+                  "l'application : la source n'en transmet pas l'adresse.",
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Largeurs de contenu (NON agrandi : largeur divisee par le facteur de
+/// police) sous lesquelles l'echelle passe a une, puis a deux colonnes.
+const double _scaleOneColumnBelow = 300;
+const double _scaleTwoColumnsBelow = 480;
+
+/// L'echelle complete, en bande, une par zone (jamais une echelle commune,
+/// conception T2 § 3) : quatre cases cote a cote, deux colonnes sous
+/// [_scaleTwoColumnsBelow] de contenu, une sous [_scaleOneColumnBelow]. La case de la zone est marquee. Une
+/// gravite inconnue n'y a aucune case (BR-011).
+///
+/// La largeur est comptee HORS agrandissement de police : a 200 %, un contenu
+/// de 730 px se lit comme 365 et prend deux colonnes ; un telephone (contenu
+/// sous 300 px non agrandi) prend une colonne. Sans cela, un libelle comme
+/// « Vigilance » ou « renforcée » serait coupe au milieu du mot (verrouille
+/// avec la vraie police par `restrictions_scale_text_test.dart`).
+class _SeverityScale extends StatelessWidget {
+  const _SeverityScale({required this.index, required this.marked});
+
+  final int index;
   final DroughtSeverity marked;
 
   @override
   Widget build(BuildContext context) {
+    // Facteur mesure sur 14 px : un facteur non lineaire (Android 14) n'est
+    // pas `scale(1)`.
+    final double textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     return Column(
+      key: restrictionsScaleKey(index),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text('Échelle :'),
-        for (final DroughtSeverity level in droughtSeverityScale)
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 2),
-            child: Row(
+        const Text(
+          'Échelle',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: _addressLabelColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            const double gap = 6;
+            final double unscaled =
+                constraints.maxWidth / (textScale < 1 ? 1 : textScale);
+            final int columns = unscaled < _scaleOneColumnBelow
+                ? 1
+                : unscaled < _scaleTwoColumnsBelow
+                ? 2
+                : 4;
+            final double width =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
               children: <Widget>[
-                DroughtSeverityBadge(severity: level),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: level == marked
-                      // La fleche serait lue telle quelle : la ligne marquee
-                      // est annoncee « …, niveau de cette zone ».
-                      ? Semantics(
-                          label:
-                              '${droughtSeverityLabel(level)}, niveau de '
-                              'cette zone',
-                          excludeSemantics: true,
-                          child: Text(
-                            '${droughtSeverityLabel(level)} ← cette zone',
-                          ),
-                        )
-                      : Text(droughtSeverityLabel(level)),
-                ),
+                for (final DroughtSeverity level in droughtSeverityScale)
+                  SizedBox(
+                    width: width,
+                    child: _ScaleCase(level: level, isMarked: level == marked),
+                  ),
               ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Une case de l'echelle : badge de 22 et libelle a cote (jamais sur la
+/// teinte, Q-7). Marquee : bordure de 2, fond neutre, libelle en gras et
+/// « ← cette zone » dessous, annoncee « …, niveau de cette zone ».
+class _ScaleCase extends StatelessWidget {
+  const _ScaleCase({required this.level, required this.isMarked});
+
+  final DroughtSeverity level;
+  final bool isMarked;
+
+  @override
+  Widget build(BuildContext context) {
+    final String label = droughtSeverityLabel(level);
+    final Widget row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        DroughtSeverityBadge(severity: level, size: 22),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isMarked ? FontWeight.bold : null,
             ),
           ),
+        ),
       ],
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isMarked ? _neutralTileColor : null,
+        border: isMarked
+            ? Border.all(color: const Color(0xFF141A1F), width: 2)
+            : Border.all(color: _ruleColor),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: isMarked
+            // La fleche serait lue telle quelle : la case marquee est
+            // annoncee « …, niveau de cette zone ».
+            ? Semantics(
+                label: '$label, niveau de cette zone',
+                excludeSemantics: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    row,
+                    const SizedBox(height: 2),
+                    const Text('← cette zone', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              )
+            : row,
+      ),
     );
   }
 }

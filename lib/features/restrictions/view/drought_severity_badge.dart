@@ -148,15 +148,26 @@ const double droughtBadgeSize = 28;
 /// Le badge d'un niveau de gravite secheresse : forme, teinte, motif et
 /// glyphe, sans libelle ni semantique (le libelle est pose a cote).
 class DroughtSeverityBadge extends StatelessWidget {
-  const DroughtSeverityBadge({required this.severity, super.key});
+  const DroughtSeverityBadge({
+    required this.severity,
+    this.size = droughtBadgeSize,
+    super.key,
+  });
 
   final DroughtSeverity severity;
+
+  /// Cote affiche. Le dessin est fait a la taille REELLE : la forme, le
+  /// glyphe, les hachures et les points suivent [size], mais le contour
+  /// ([droughtBadgeContourWidth]) et le liseré de Crise
+  /// ([droughtBadgeInnerBorderWidth]) gardent leur epaisseur fixe (regle du
+  /// halo, `04-ui.md` § 3). A [droughtBadgeSize], rendu inchange.
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return ExcludeSemantics(
       child: SizedBox.square(
-        dimension: droughtBadgeSize,
+        dimension: size,
         child: CustomPaint(
           painter: _DroughtBadgePainter(droughtBadgeStyle(severity)),
         ),
@@ -176,6 +187,8 @@ class _DroughtBadgePainter extends CustomPainter {
     // son epaisseur a chaque bord.
     const double half = droughtBadgeContourWidth / 2;
     final Rect box = (Offset.zero & size).deflate(half);
+    // Facteur des elements qui suivent la taille (hachures, points).
+    final double k = size.width / droughtBadgeSize;
     final Path outline = _shapePath(style.shape, box);
 
     final Paint contour = Paint()
@@ -188,7 +201,7 @@ class _DroughtBadgePainter extends CustomPainter {
         canvas.drawPath(outline, Paint()..color = style.tint);
       case DroughtBadgePattern.hatched:
         canvas.drawPath(outline, Paint()..color = style.tint);
-        _hatch(canvas, outline, box);
+        _hatch(canvas, outline, box, k);
       case DroughtBadgePattern.doubleBorder:
         canvas.drawPath(outline, Paint()..color = style.tint);
         // Filet interieur blanc de 1 px, a 1 px de teinte du contour.
@@ -206,7 +219,7 @@ class _DroughtBadgePainter extends CustomPainter {
       case DroughtBadgePattern.dotted:
         // ◌ : rond vide, fond de l'ecran, anneau pointille dans la teinte.
         canvas.drawPath(outline, Paint()..color = droughtScreenBackground);
-        _dottedRing(canvas, box.deflate(3));
+        _dottedRing(canvas, box.deflate(3 * k), k);
     }
     canvas.drawPath(outline, contour);
 
@@ -246,14 +259,14 @@ class _DroughtBadgePainter extends CustomPainter {
     }
   }
 
-  static void _hatch(Canvas canvas, Path clip, Rect box) {
+  static void _hatch(Canvas canvas, Path clip, Rect box, double k) {
     canvas
       ..save()
       ..clipPath(clip);
     final Paint line = Paint()
       ..color = _black
-      ..strokeWidth = 1;
-    for (double x = box.left - box.height; x < box.right; x += 4) {
+      ..strokeWidth = k;
+    for (double x = box.left - box.height; x < box.right; x += 4 * k) {
       canvas.drawLine(
         Offset(x, box.bottom),
         Offset(x + box.height, box.top),
@@ -263,7 +276,7 @@ class _DroughtBadgePainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _dottedRing(Canvas canvas, Rect box) {
+  void _dottedRing(Canvas canvas, Rect box, double k) {
     final Paint dot = Paint()..color = style.tint;
     const int dots = 12;
     final double radius = box.shortestSide / 2;
@@ -271,7 +284,7 @@ class _DroughtBadgePainter extends CustomPainter {
       final double angle = i * 2 * math.pi / dots;
       canvas.drawCircle(
         box.center + Offset(radius * math.cos(angle), radius * math.sin(angle)),
-        1.5,
+        1.5 * k,
         dot,
       );
     }
