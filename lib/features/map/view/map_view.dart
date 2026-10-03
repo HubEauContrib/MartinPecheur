@@ -750,25 +750,41 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 /// de carte — même esprit que [buildMapLayers], et pour la même raison :
 /// l'environnement de test refuse le chargement de tuiles.
 ///
-/// Dans l'ordre :
+/// Le HAUT de la carte a deux dispositions, choisies sur la largeur dont elle
+/// dispose ([_wideLayoutMinWidth], 600 px) — mêmes pièces, même ordre de
+/// tabulation :
+/// - **à partir de 600 px** : deux colonnes. À droite, le contrôle
+///   d'avertissement puis la légende ; à gauche, les puces puis les avis, dont
+///   la marge droite réserve toute la place de la légende ;
+/// - **en deçà de 600 px** (téléphone, constat du 2026-09-29) : UNE colonne
+///   alignée à droite ([_CompactTopOverlays]) — avertissement, puces, avis,
+///   puis légende. Les avis passent avant la légende (arbitrage du
+///   commanditaire du 2026-10-03, révisé le jour même) : la légende n'est
+///   repoussée que pendant qu'un avis s'affiche, un écart à `BR-008`
+///   (« toujours visible ») accepté par le commanditaire.
+///
+/// Dans l'ordre d'empilement :
 /// 1. **le contrôle d'avertissement, toujours** ([WarningLink], en haut à
-///    droite, au-dessus de la légende, `W3c`) — remplace le bouton de menu
-///    (`W3b`) et le bandeau permanent (`W3`), tous deux retirés par
-///    l'arbitrage du commanditaire du 2026-09-23 ;
-/// 1bis. **la légende, toujours** (`MapLegend`, sous le contrôle, dans
-///    la même colonne — jamais recouverte, par construction) — `BR-008` en
-///    fait une pièce obligatoire : les trois échelles du produit réutilisent
-///    les mêmes teintes, et c'est elle qui nomme celle qui est active. Elle
-///    est rendue quel que soit [error] : une carte en panne reste une carte
-///    qu'on lit ;
-/// 2. les **puces de bascule d'échelle** ([MapScaleChips]), toujours, en
-///    haut à gauche — y compris en erreur : une carte en panne reste une
-///    carte dont on change l'échelle (`BR-007`, `UC-001 A6`) ;
+///    droite, `W3c`) — remplace le bouton de menu (`W3b`) et le bandeau
+///    permanent (`W3`), tous deux retirés par l'arbitrage du commanditaire du
+///    2026-09-23 ;
+/// 1bis. **la légende, toujours** (`MapLegend`, jamais recouverte par une
+///    autre pièce du haut, par construction : elle est dans la même colonne
+///    que le contrôle, ou sous les avis en disposition compacte) — `BR-008`
+///    en fait une pièce obligatoire : les trois échelles du produit
+///    réutilisent les mêmes teintes, et c'est elle qui nomme celle qui est
+///    active. Elle est rendue quel que soit [error] : une carte en panne reste
+///    une carte qu'on lit. En disposition compacte, un avis affiché la
+///    repousse vers le bas de la colonne (écart à `BR-008` accepté) ;
+/// 2. les **puces de bascule d'échelle** ([MapScaleChips]), toujours — y
+///    compris en erreur : une carte en panne reste une carte dont on change
+///    l'échelle (`BR-007`, `UC-001 A6`) ;
 /// 3. les **avis** — absence, hors couverture, panne, lignes illisibles —,
 ///    décidés par [mapNoticesFor] (`BR-007` : jamais une carte muette, jamais
-///    un état par défaut). Posés **sous** les puces, dans la même colonne :
-///    la largeur de cette colonne est bornée, elle réserve toute la place de
-///    la légende et n'empiète jamais dessus ;
+///    un état par défaut). Posés **sous** les puces en disposition large, dans
+///    la même colonne : sa largeur est bornée, elle réserve toute la place de
+///    la légende et n'empiète jamais dessus ; **sous les puces et au-dessus
+///    de la légende** en disposition compacte ;
 /// 4. les **panneaux de fiche** — station ([stationSheet]) et point ONDE
 ///    ([ondeSheet]) —, chacun s'il est fourni, en bas à gauche et dans cet
 ///    ordre. Les deux dépendent d'échelles différentes et ne sont jamais
@@ -836,70 +852,110 @@ List<Widget> buildMapOverlays({
     errorSource: errorSource,
     ondeUnreadableRows: ondeUnreadableRows,
   );
+  // Les pièces du haut de la carte, construites UNE fois pour les deux
+  // dispositions ci-dessous : leurs ordres de tabulation (`K2`) ne peuvent
+  // donc pas diverger d'une disposition à l'autre. Les avis portent leur
+  // marge haute.
+  const Widget warningLink = FocusTraversalOrder(
+    order: NumericFocusOrder(mapTraversalOrderWarningLink),
+    child: WarningLink(),
+  );
+  final Widget chips = FocusTraversalOrder(
+    order: const NumericFocusOrder(mapTraversalOrderChips),
+    child: MapScaleChips(scale: scale, onSelect: onSelect),
+  );
+  final Widget legend = MapLegend(scale: scale);
+  final List<Widget> noticeWidgets = <Widget>[
+    for (final MapNotice notice in notices)
+      Padding(
+        padding: const EdgeInsets.only(top: _overlayPadding),
+        child: buildMapNotice(notice, onWiden: onWiden),
+      ),
+  ];
 
   return <Widget>[
     // Le réticule, sous toutes les autres surcouches : au centre exact de la
     // carte, là où le bouton désigne. Inerte.
     if (designate != null) const Center(child: MapCenterReticle()),
-    Align(
-      alignment: Alignment.topRight,
-      child: Padding(
-        padding: const EdgeInsets.all(_overlayPadding),
-        // Une colonne, comme celle des puces à gauche : le contrôle
-        // d'avertissement et la légende ne peuvent alors PAS se chevaucher,
-        // par construction (`W3c`). `SingleChildScrollView` plutôt qu'un
-        // `Column` nu : sur une hauteur d'écran courte (paysage, écran
-        // divisé), le contrôle ET la légende « écoulement » (six niveaux)
-        // peuvent dépasser l'espace vertical restant — un défilement local
-        // vaut mieux qu'un `RenderFlex` débordant hors écran, jamais
-        // constaté par l'usager.
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              const FocusTraversalOrder(
-                order: NumericFocusOrder(mapTraversalOrderWarningLink),
-                child: WarningLink(),
-              ),
-              const SizedBox(height: _overlayPadding),
-              MapLegend(scale: scale),
-            ],
-          ),
-        ),
-      ),
-    ),
-    Align(
-      alignment: Alignment.topLeft,
-      child: Padding(
-        // La marge de droite réserve toute la place de la légende, plus les
-        // deux marges qui l'encadrent : ni les puces ni le bandeau ne
-        // peuvent passer dessous (`BR-008`).
-        padding: const EdgeInsets.fromLTRB(
-          _overlayPadding,
-          _overlayPadding,
-          legendMaxWidth + 2 * _overlayPadding,
-          _overlayPadding,
-        ),
-        // Une colonne, et non deux `Align` superposés : le bandeau d'erreur
-        // se pose SOUS les puces plutôt que par-dessus, quelle que soit la
-        // hauteur qu'il prend en enveloppant son texte.
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    // Les surcouches du HAUT ont deux dispositions, choisies sur la largeur
+    // dont la carte dispose ([_wideLayoutMinWidth], 600 px).
+    //
+    // Aux largeurs de téléphone (constat du 2026-09-29), réserver la place
+    // de la légende à droite des puces ne laissait à celles-ci que 76 px à
+    // 360 de large : chaque libellé s'y repliait lettre par lettre et la
+    // colonne débordait de plusieurs milliers de pixels à 200 %. En deçà de
+    // [_wideLayoutMinWidth], les surcouches du haut forment donc UNE
+    // seule colonne ([_CompactTopOverlays]), alignée à droite :
+    // avertissement, puces, avis, puis légende — les avis AVANT la légende :
+    // posée avant eux, la légende chassait l'avis sous le bouton de
+    // désignation ou hors de l'écran dès 100 % sur 360 × 640 (mesuré le
+    // 2026-10-03). Elle n'est donc repoussée que pendant qu'un avis
+    // s'affiche : un écart à `BR-008` (« toujours visible »), accepté par le
+    // commanditaire le 2026-10-03. À partir de [_wideLayoutMinWidth], deux
+    // colonnes : avertissement et légende à droite, puces et avis à gauche.
+    LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        if (constraints.maxWidth < _wideLayoutMinWidth) {
+          return _CompactTopOverlays(
+            warningLink: warningLink,
+            chips: chips,
+            legend: legend,
+            notices: noticeWidgets,
+          );
+        }
+        return Stack(
           children: <Widget>[
-            FocusTraversalOrder(
-              order: const NumericFocusOrder(mapTraversalOrderChips),
-              child: MapScaleChips(scale: scale, onSelect: onSelect),
-            ),
-            for (final MapNotice notice in notices)
-              Padding(
-                padding: const EdgeInsets.only(top: _overlayPadding),
-                child: buildMapNotice(notice, onWiden: onWiden),
+            Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(_overlayPadding),
+                // Une colonne, comme celle des puces à gauche : le contrôle
+                // d'avertissement et la légende ne peuvent alors PAS se
+                // chevaucher, par construction (`W3c`).
+                // `SingleChildScrollView` plutôt qu'un `Column` nu : sur une
+                // hauteur d'écran courte (paysage, écran divisé), le contrôle
+                // ET la légende « écoulement » (six niveaux) peuvent dépasser
+                // l'espace vertical restant — un défilement local vaut mieux
+                // qu'un `RenderFlex` débordant hors écran, jamais constaté par
+                // l'usager.
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      warningLink,
+                      const SizedBox(height: _overlayPadding),
+                      legend,
+                    ],
+                  ),
+                ),
               ),
+            ),
+            Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                // La marge de droite réserve toute la place de la légende,
+                // plus les deux marges qui l'encadrent : ni les puces ni le
+                // bandeau ne peuvent passer dessous (`BR-008`).
+                padding: const EdgeInsets.fromLTRB(
+                  _overlayPadding,
+                  _overlayPadding,
+                  legendMaxWidth + 2 * _overlayPadding,
+                  _overlayPadding,
+                ),
+                // Une colonne, et non deux `Align` superposés : le bandeau
+                // d'erreur se pose SOUS les puces plutôt que par-dessus, quelle
+                // que soit la hauteur qu'il prend en enveloppant son texte.
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[chips, ...noticeWidgets],
+                ),
+              ),
+            ),
           ],
-        ),
-      ),
+        );
+      },
     ),
     // Le BAS de la carte, pleine largeur : la zone des fiches (alignée à
     // gauche) AU-DESSUS de la bande du bouton de désignation (centrée). La
@@ -998,6 +1054,79 @@ List<Widget> buildMapOverlays({
       ),
     ),
   ];
+}
+
+/// Largeur à partir de laquelle (BORNE INCLUSE) les surcouches du haut de la
+/// carte reprennent leur disposition large, en deux colonnes, en pixels
+/// logiques. En deçà (moins de 600), elles passent en une seule colonne
+/// ([_CompactTopOverlays]). C'est la limite de la classe de fenêtre
+/// « compacte » de Material 3 (moins de 600 dp : un téléphone en portrait) ;
+/// à partir de là, les puces gardent au moins 316 px à côté de la place
+/// réservée à la légende.
+const double _wideLayoutMinWidth = 600;
+
+/// Les surcouches du haut de la carte sur une largeur compacte : le contrôle
+/// d'avertissement, les puces d'échelle, les avis, puis la légende, dans UNE
+/// colonne alignée à droite — même bord que le contrôle et la légende en
+/// disposition large. Les avis précèdent la légende (arbitrage du
+/// commanditaire du 2026-10-03) : posée avant eux, elle les chassait sous le
+/// bouton de désignation ou hors de l'écran. La légende n'est donc repoussée
+/// que pendant qu'un avis s'affiche, un écart à `BR-008` accepté par le
+/// commanditaire. Aucune pièce ne réserve la place d'une autre : chacune
+/// prend la largeur de l'écran s'il le faut, et rien n'est tronqué
+/// (`04-ui.md` § 3).
+///
+/// `SingleChildScrollView` pour la même raison qu'en disposition large : dès
+/// que son contenu dépasse la hauteur de l'écran — à 200 %, mais aussi dès
+/// 100 % sur l'échelle débit, dont la légende porte un paragraphe (`BR-003`) —,
+/// la colonne défile.
+/// Sa fenêtre ne capte les gestes que SUR ses enfants
+/// (`HitTestBehavior.deferToChild`, et non le `opaque` par défaut) : tap,
+/// glisser et molette posés ailleurs dans sa boîte — par exemple sur la carte
+/// visible à gauche du contrôle d'avertissement — atteignent la carte
+/// dessous. Les pièces sont construites par [buildMapOverlays], qui les
+/// partage avec la disposition large.
+class _CompactTopOverlays extends StatelessWidget {
+  const _CompactTopOverlays({
+    required this.warningLink,
+    required this.chips,
+    required this.legend,
+    required this.notices,
+  });
+
+  final Widget warningLink;
+  final Widget chips;
+  final Widget legend;
+
+  /// Les avis, chacun avec sa marge haute.
+  final List<Widget> notices;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topRight,
+      child: Padding(
+        padding: const EdgeInsets.all(_overlayPadding),
+        child: SingleChildScrollView(
+          hitTestBehavior: HitTestBehavior.deferToChild,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              warningLink,
+              const SizedBox(height: _overlayPadding),
+              chips,
+              // Chaque avis porte sa marge haute ; la marge avant la légende
+              // est la même, avec ou sans avis.
+              ...notices,
+              const SizedBox(height: _overlayPadding),
+              legend,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Largeur de contenu que le bouton de désignation réclame pour tenir sur

@@ -106,11 +106,17 @@ class WarningLink extends StatelessWidget {
                   children: <Widget>[
                     Icon(Icons.warning_amber_rounded),
                     SizedBox(width: 4),
-                    Text(
-                      warningLinkLabel,
-                      style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.w600,
+                    // `Flexible` : à 200 % sur une largeur de téléphone
+                    // (constat du 2026-09-29), le libellé dépassait la place
+                    // restante et la `Row` débordait. Il passe désormais à
+                    // la ligne, entier — jamais tronqué (`04-ui.md` § 3).
+                    Flexible(
+                      child: Text(
+                        warningLinkLabel,
+                        style: TextStyle(
+                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],

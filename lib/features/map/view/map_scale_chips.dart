@@ -17,8 +17,9 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
-/// Les puces de bascule d'échelle, en haut à gauche de la carte : une par
-/// valeur de [MapScaleKind], celle de [scale] marquée active.
+/// Les puces de bascule d'échelle, en haut de la carte : une par valeur de
+/// [MapScaleKind], celle de [scale] marquée active. À gauche à partir de
+/// 600 px de large, dans la colonne de droite en deçà (`buildMapOverlays`).
 class MapScaleChips extends StatelessWidget {
   const MapScaleChips({required this.scale, required this.onSelect, super.key});
 

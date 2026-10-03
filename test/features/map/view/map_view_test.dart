@@ -1412,35 +1412,19 @@ void main() {
             addTearDown(
               tester.platformDispatcher.clearTextScaleFactorTestValue,
             );
-            // Aux largeurs de téléphone, des surcouches d'autres tranches
-            // (puces d'échelle, contrôle d'avertissement) débordent déjà —
-            // constat hors sujet, la mise en page mobile n'est pas conçue.
-            // On ne retient ICI que les erreurs du bouton de désignation
-            // et de son indice.
-            final List<FlutterErrorDetails> erreurs = <FlutterErrorDetails>[];
-            final void Function(FlutterErrorDetails)? avant =
-                FlutterError.onError;
-            FlutterError.onError = erreurs.add;
-            try {
-              await pumpOverlaysAt(
-                tester,
-                cas.$1,
-                scale: MapScaleKind.ecoulement,
-                avecDesignation: true,
-                avecFiche: cas.$3,
-              );
-              await tester.pumpAndSettle();
-            } finally {
-              FlutterError.onError = avant;
-            }
-
-            expect(
-              erreurs.where(
-                (FlutterErrorDetails d) =>
-                    d.toString().contains('designate_center_button.dart'),
-              ),
-              isEmpty,
+            await pumpOverlaysAt(
+              tester,
+              cas.$1,
+              scale: MapScaleKind.ecoulement,
+              avecDesignation: true,
+              avecFiche: cas.$3,
             );
+            await tester.pumpAndSettle();
+
+            // Aucune erreur de rendu, d'AUCUNE surcouche : les débordements
+            // des puces et du contrôle d'avertissement aux largeurs de
+            // téléphone sont corrigés (`map_overlays_phone_test.dart`).
+            expect(tester.takeException(), isNull);
             // Partie VISIBLE : si le contenu dépasse la hauteur restante il
             // défile dans un `ListView`, dont la fenêtre borne ce qu'on voit.
             final Finder fenetre = find.ancestor(
