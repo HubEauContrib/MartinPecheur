@@ -16,6 +16,8 @@
 | **T1** | Carte, fiches, modal et contrôle « ⚠ Avertissement » (carte et chaque fiche, il remplace bandeau et encart daté le 2026-09-23, `W3c`) — encart renforcé (`BR-013`) en T2 | ✅ **clos le 2026-09-27** — `v0.2.0` (tag sur `a664783`, PR #14 fusionnée sur `dev`), **42 tâches sur 42**, porte franchie sur Windows — plan révisé le 2026-09-22 (**42 tâches actives**). **Lots 1 à 5 clos** : lot 1 (données), lots 2 (`V1`→`V4`) et 3 (`U1`→`U6`) le 2026-09-14, **lot 3 constaté à l'écran sur Windows le 2026-09-22** ; lot 4 (`W1`→`W5`, `W2b`, `W3b`, `W3c`, `H1`) et `H2` clos le 2026-09-23, `W3c` constaté à l'écran, PR #12 fusionnée sur `dev` (`5f02d3e`) ; lot 4 bis (`Z1`→`Z4`, `ADR-015`) clos le 2026-09-23, `Z4` constatée à l'écran ; lot 5 (`K1`→`K3`) clos le 2026-09-23, `K2` et `K3` constatées à l'écran **en release**. **Lot 6 clos le 2026-09-27** : `X1`, `X2`, `X4`, `X5` faites ; `X3` mesurée par le commanditaire en `--profile` — `NFR-01` **tenu** sur les trois gestes, `NV-W6` clos sans anti-rebond (`docs/nfr.md`). **Lot 7** : `P1` faite le 2026-09-27 — **porte de T1 franchie sur Windows** (exécutable `0.2.0` hors Flutter, 33 Mo, cinq constats d'écran, hors réseau). `P2` : version datée et taguée `v0.2.0` le 2026-09-27 |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 |
 | **T3** | Favoris, filtres, fraîcheur | 🔄 |
+| **T4** | Crues : lire la vigilance publiée par Vigicrues, sur la carte (quatrième lecture) et dans une fiche tronçon | 🔄 **prévue le 2026-10-03** (arbitrage du commanditaire), **après T3**, non cadrée en détail — 💭 **aucun fait Vigicrues n'est vérifié par appel réel** ; nouvelle source, ADR à écrire. Cadrage : `docs/superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md` |
+| **T5** | Être prévenu : avis sur les lieux suivis (vigilance crues, gravité sécheresse), sans serveur ni compte | 🔄 **prévue le 2026-10-03**, **après T4**, non cadrée en détail — dépend des favoris de T3 et d'un moteur de stockage structuré ; 💭 notifications en tâche de fond **jamais essayées**, sur aucune cible |
 
 **Android réactivé le 2026-09-18** — l'arbitrage du 2026-09-12 qui le différait « jusqu'à nouvel ordre » est **levé par le commanditaire** (amendement d'`ADR-013`).
 
@@ -25,7 +27,7 @@
 
 Windows reste la **première cible construite** ; iOS est configuré et **jamais compilé** (aucun hôte macOS).
 
-Le cadrage produit est terminé et vérifié — il ne dépend pas de la technologie. **L'implémentation a son socle** (T0), et T1 s'est ouvert par le réusinage d'architecture (fait et relu) ; les écrans de T1 — carte, fiches, avertissements — sont écrits dessus.
+Le cadrage produit **de T0 à T3** est terminé et vérifié — il ne dépend pas de la technologie. T4 et T5, prévues le 2026-10-03, ne sont **pas cadrées en détail**. **L'implémentation a son socle** (T0), et T1 s'est ouvert par le réusinage d'architecture (fait et relu) ; les écrans de T1 — carte, fiches, avertissements — sont écrits dessus.
 
 ---
 

@@ -123,6 +123,16 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 
 Compte utilisateur · notifications push · prévision ou modélisation hydrologique · qualité de l'eau · backend · alertes personnalisées · saisie d'observations par les usagers.
 
+> ⚠️ **Amendé le 2026-10-03 (arbitrage du commanditaire).** « Alertes personnalisées » quitte
+> cette liste pour la tranche **T5** : des avis sur les lieux suivis, portés au besoin par des
+> **notifications locales**, sans serveur ni compte. « Notifications push » **y reste** au sens
+> d'un envoi par serveur, puisque « backend » y reste. « Prévision ou modélisation
+> hydrologique » **y reste** aussi : la tranche **T4** relaie la vigilance crues publiée par
+> Vigicrues, citée et attribuée, sans rien prévoir ni déduire d'un débit. « Compte utilisateur »
+> y reste.
+> 🔄 Tranches prévues, non cadrées en détail :
+> [`superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md`](superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md).
+
 ## 4. Cas limites
 
 | Situation | Détection | Comportement |
