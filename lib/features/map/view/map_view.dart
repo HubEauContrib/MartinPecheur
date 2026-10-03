@@ -780,7 +780,9 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    repousse vers le bas de la colonne (écart à `BR-008` accepté) ;
 /// 2. les **puces de bascule d'échelle** ([MapScaleChips]), toujours — y
 ///    compris en erreur : une carte en panne reste une carte dont on change
-///    l'échelle (`BR-007`, `UC-001 A6`) ;
+///    l'échelle (`BR-007`, `UC-001 A6`) — suivies, quand
+///    [onToggleDesignationMode] est fourni, du choix « Restrictions »
+///    (`E5` de T2) ;
 /// 3. les **avis** — absence, hors couverture, panne, lignes illisibles —,
 ///    décidés par [mapNoticesFor] (`BR-007` : jamais une carte muette, jamais
 ///    un état par défaut). Posés **sous** les puces en disposition large, dans
@@ -797,6 +799,14 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    reste la dernière chose qu'un empilement pourrait masquer ;
 /// 6. l'**attribution IGN**, toujours, tout en bas à droite — une condition
 ///    d'usage de la Licence Ouverte, jamais une finition (`04-ui.md` § 3).
+///
+/// [onToggleDesignationMode] (`E5` de T2, arbitrage du 2026-10-03) est
+/// appelé par un tap sur le choix « Restrictions » — en production,
+/// `MapViewModel.toggleDesignationMode` ; `null` : aucune désignation n'est
+/// câblée, la puce est absente. [onDesignateCenter] n'est non nul que
+/// **dans le mode** : c'est lui qui fait exister le bouton, son indice et le
+/// réticule, et la puce s'allume sur ce même fait
+/// (`designationMode: onDesignateCenter != null`) — aucun second état ici.
 ///
 /// [onSelect] est appelé avec l'échelle demandée par un tap de puce — en
 /// production, `MapViewModel.selectScale`. [onWiden] l'est par l'action
@@ -830,6 +840,7 @@ List<Widget> buildMapOverlays({
   required VoidCallback? onZoomOut,
   required VoidCallback onRecenter,
   VoidCallback? onDesignateCenter,
+  VoidCallback? onToggleDesignationMode,
   MapErrorSource? errorSource,
   Widget? stationSheet,
   Widget? ondeSheet,
@@ -864,7 +875,12 @@ List<Widget> buildMapOverlays({
   );
   final Widget chips = FocusTraversalOrder(
     order: const NumericFocusOrder(mapTraversalOrderChips),
-    child: MapScaleChips(scale: scale, onSelect: onSelect),
+    child: MapScaleChips(
+      scale: scale,
+      onSelect: onSelect,
+      designationMode: designate != null,
+      onToggleDesignationMode: onToggleDesignationMode,
+    ),
   );
   final Widget legend = MapLegend(scale: scale);
   final List<Widget> noticeWidgets = <Widget>[
@@ -895,6 +911,7 @@ List<Widget> buildMapOverlays({
     // s'affiche : un écart à `BR-008` (« toujours visible »), accepté par le
     // commanditaire le 2026-10-03. À partir de [_wideLayoutMinWidth], deux
     // colonnes : avertissement et légende à droite, puces et avis à gauche.
+    // Chacune défile quand elle dépasse la hauteur, comme la colonne compacte.
     LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         if (constraints.maxWidth < _wideLayoutMinWidth) {
@@ -948,10 +965,23 @@ List<Widget> buildMapOverlays({
                 // Une colonne, et non deux `Align` superposés : le bandeau
                 // d'erreur se pose SOUS les puces plutôt que par-dessus, quelle
                 // que soit la hauteur qu'il prend en enveloppant son texte.
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[chips, ...noticeWidgets],
+                //
+                // `SingleChildScrollView`, comme la colonne de droite et la
+                // colonne compacte : avec la troisième puce (`E5`), à 200 % et
+                // un avis d'absence, puces et avis dépassaient la hauteur de
+                // 800 × 740 de 50 px (constat du 2026-10-03) — le défaut,
+                // antérieur, déjà mesuré à 600 × 360. La colonne défile donc.
+                // Sa fenêtre ne capte les gestes que SUR ses enfants
+                // (`HitTestBehavior.deferToChild`, et non le `opaque` par
+                // défaut) : tap, glisser et molette posés ailleurs dans sa
+                // boîte atteignent la carte dessous.
+                child: SingleChildScrollView(
+                  hitTestBehavior: HitTestBehavior.deferToChild,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[chips, ...noticeWidgets],
+                  ),
                 ),
               ),
             ),
@@ -1316,11 +1346,14 @@ class MapView extends StatefulWidget {
 
   /// Appelé avec le lieu désigné (`E1` de T2, conception § 2) : un appui
   /// long ou un clic droit sur la carte — le point que la caméra donne pour
-  /// la position du geste —, ou le bouton « Restrictions au centre de la
-  /// carte » — le centre de la caméra. Injecté par `main.dart`, qui le
-  /// branche sur la tranche restrictions : la carte ne la nomme pas
-  /// (`feature-vers-feature`). `null` : les gestes sont sans effet et le
-  /// bouton est absent.
+  /// la position du geste, **hors mode comme en mode** —, ou le bouton
+  /// « Restrictions au centre de la carte » — le centre de la caméra, qui
+  /// n'existe que dans le mode de désignation (`E5`,
+  /// `MapViewModel.designationMode`, allumé par le choix « Restrictions » du
+  /// sélecteur). Injecté par `main.dart`, qui le branche sur la tranche
+  /// restrictions : la carte ne la nomme pas (`feature-vers-feature`).
+  /// `null` : les gestes sont sans effet, et ni la puce « Restrictions » ni
+  /// le bouton n'existent.
   final void Function(GeoPoint point)? onPointDesignated;
 
   @override
@@ -1834,9 +1867,14 @@ class _MapViewState extends State<MapView> {
                           ? _handleZoomOut
                           : null,
                       onRecenter: _handleRecenter,
-                      onDesignateCenter: widget.onPointDesignated == null
+                      onDesignateCenter:
+                          widget.onPointDesignated != null &&
+                              widget.viewModel.designationMode
+                          ? _handleDesignateCenter
+                          : null,
+                      onToggleDesignationMode: widget.onPointDesignated == null
                           ? null
-                          : _handleDesignateCenter,
+                          : widget.viewModel.toggleDesignationMode,
                       stationSheet: widget.stationSheet,
                       ondeSheet: widget.ondeSheet,
                     ),

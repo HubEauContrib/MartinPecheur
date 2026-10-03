@@ -20,7 +20,10 @@
 // - à 100 %, sans avis, la légende « écoulement » est entière et libre de
 //   toute autre surcouche ;
 // - à 200 %, faire défiler la colonne amène le bord bas de la légende dans la
-//   fenêtre.
+//   fenêtre ;
+// - en disposition LARGE, à 600 × 360 (téléphone en paysage), aucune erreur de
+//   rendu : la colonne gauche (puces et avis) défile au lieu de déborder, et
+//   l'avis s'atteint en la faisant défiler (corrigé par `E5`, le 2026-10-03).
 //
 // Ils ne prouvent PAS que tout ce que la colonne porte est visible ou
 // atteignable à tout moment. Les tests « CONSTAT » verrouillent des faits
@@ -37,10 +40,7 @@
 //   fenêtre elle passe sous le bouton de désignation ; à 360 × 640, ce bouton
 //   recouvre aussi le contrôle d'avertissement et les puces (leur centre
 //   n'est pas atteignable) ;
-// - une fiche de 320 px recouvre une partie des surcouches du haut ;
-// - en disposition LARGE, à 600 × 360 (téléphone en paysage), la colonne
-//   gauche (puces et avis) déborde par le bas : défaut antérieur à la colonne
-//   compacte, non corrigé.
+// - une fiche de 320 px recouvre une partie des surcouches du haut.
 //
 // Toutes les mesures viennent de la POLICE DE TEST de Flutter, où chaque glyphe
 // est un carré d'un em : plus large qu'une police d'appareil. Les pixels et
@@ -740,38 +740,54 @@ void main() {
   });
 
   // ---------------------------------------------------------------------
-  // Disposition LARGE, téléphone en paysage : défaut antérieur, non corrigé
+  // Disposition LARGE, téléphone en paysage : la colonne gauche défile
   // ---------------------------------------------------------------------
   testWidgets(
-    'CONSTAT — disposition LARGE à 600 × 360 (téléphone en paysage), police '
-    '100 %, avis affiché : la colonne gauche (puces et avis) déborde de 21 px '
-    'par le bas — défaut antérieur à la colonne compacte, non corrigé',
+    'à 600 × 360 (disposition LARGE, téléphone en paysage), police 100 %, avis '
+    'affiché : aucune erreur de rendu, et l’avis s’atteint en faisant défiler '
+    'la colonne gauche',
     (WidgetTester tester) async {
       const Size taille = Size(600, 360);
-      final List<FlutterErrorDetails> erreurs = await pumpOverlays(
-        tester,
-        taille,
-        scale: MapScaleKind.ecoulement,
-        attendErreurs: true,
+      // `pumpOverlays` affirme l'absence de toute erreur de rendu. Avant `E5`,
+      // la colonne gauche (puces et avis) débordait de 21 px par le bas : un
+      // défaut antérieur à la colonne compacte, que la troisième puce a
+      // amené à la taille minimale de fenêtre Windows (constat du 2026-10-03).
+      await pumpOverlays(tester, taille, scale: MapScaleKind.ecoulement);
+
+      // En disposition large il y a DEUX défilements (gauche et droite) : on
+      // prend celui qui porte les puces.
+      final Rect colonne = tester.getRect(
+        find.ancestor(
+          of: find.byType(MapScaleChips),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      final Finder lAvis = avis(MapScaleKind.ecoulement);
+      final Rect repos = rectOf(tester, lAvis);
+      // Le contenu dépasse la fenêtre : sans défilement, l'avis est coupé.
+      expect(
+        repos.bottom,
+        greaterThan(colonne.bottom),
+        reason: 'avis=$repos, fenêtre=$colonne',
       );
 
-      // ⚠️ FAIT CONSTATÉ, pas un invariant voulu. À partir de 600 px de
-      // large, la colonne gauche n'est pas défilante : quand la hauteur
-      // manque, elle déborde. Elle ne passe pas par la colonne compacte, que
-      // ce changement n'a pas touchée.
-      expect(erreurs, hasLength(1));
-      expect('${erreurs.single}', contains('map_view.dart'));
-      final RegExpMatch? m = RegExp(
-        r'overflowed by ([0-9.]+) pixels on the bottom',
-      ).firstMatch(erreurs.single.exceptionAsString());
-      expect(m, isNotNull, reason: erreurs.single.exceptionAsString());
-      // Le débordement est exactement celui de la colonne gauche : le bas de
-      // l'avis, plus la marge de 8 px, moins la hauteur de l'écran.
-      final Rect lAvis = rectOf(tester, avis(MapScaleKind.ecoulement));
+      // Le doigt fait défiler la colonne depuis le bout droit de la puce
+      // « débit » ; il perd `kDragSlopDefault` avant que la colonne ne suive.
+      final Rect puce = rectOf(
+        tester,
+        find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+      );
+      await tester.dragFrom(
+        Offset(puce.right - 12, puce.center.dy),
+        Offset(0, -(repos.bottom - colonne.bottom + kDragSlopDefault)),
+      );
+      await tester.pumpAndSettle();
+
+      final Rect atteint = rectOf(tester, lAvis);
       expect(
-        double.parse(m!.group(1)!),
-        closeTo(lAvis.bottom + 8 - taille.height, 0.5),
-        reason: 'avis=$lAvis',
+        colonne.top <= atteint.top && atteint.bottom <= colonne.bottom,
+        isTrue,
+        reason: 'avis=$atteint, fenêtre=$colonne',
       );
     },
   );

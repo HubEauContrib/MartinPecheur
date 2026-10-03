@@ -18,7 +18,7 @@
 import 'dart:async' show Completer;
 import 'dart:ui' show Size;
 
-import 'package:flutter/material.dart' show Checkbox;
+import 'package:flutter/material.dart' show Checkbox, Semantics, ValueKey;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -37,7 +37,12 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart'
     show mapDesignateCenterButtonKey, mapDesignateCenterHintKey;
+import 'package:martinpecheur/features/map/view/map_center_reticle.dart'
+    show mapCenterReticleKey;
+import 'package:martinpecheur/features/map/view/map_scale_chips.dart'
+    show mapDesignationChipKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
@@ -422,19 +427,46 @@ void main() {
       return viewModel;
     }
 
-    Future<void> designate(WidgetTester tester) async {
+    /// Désigne le centre de la carte par le bouton, que le choix
+    /// « Restrictions » du sélecteur fait apparaître (`E5`). [allumer] faux :
+    /// le mode est DÉJÀ actif (retour d'une désignation) — rappuyer sur la
+    /// puce l'éteindrait.
+    Future<void> designate(WidgetTester tester, {bool allumer = true}) async {
+      if (allumer) {
+        await tester.tap(find.byKey(mapDesignationChipKey));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.byKey(mapDesignateCenterButtonKey));
       await tester.pumpAndSettle();
     }
 
-    testWidgets('composition reelle : le bouton et son indice sont centres '
-        'sur la carte (fiches fermees)', (WidgetTester tester) async {
+    bool echelleSelectionnee(WidgetTester tester, MapScaleKind kind) => tester
+        .widget<Semantics>(find.byKey(ValueKey<MapScaleKind>(kind)))
+        .properties
+        .selected!;
+
+    testWidgets('composition reelle, au lancement : la puce Restrictions est '
+        'la, ni bouton, ni indice, ni reticule', (WidgetTester tester) async {
+      await tester.pumpWidget(_app(await acknowledged()));
+
+      expect(find.byKey(mapDesignationChipKey), findsOneWidget);
+      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+      expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
+      expect(find.byKey(mapCenterReticleKey), findsNothing);
+    });
+
+    testWidgets('composition reelle : apres la puce, le bouton et son indice '
+        'sont centres sur la carte (fiches fermees)', (
+      WidgetTester tester,
+    ) async {
       tester.view.physicalSize = const Size(1920, 1032);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         _app(await acknowledged(), _restrictions(_PendingRestrictionSource())),
       );
+      await tester.tap(find.byKey(mapDesignationChipKey));
+      await tester.pumpAndSettle();
 
       expect(
         tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
@@ -517,6 +549,8 @@ void main() {
       final RestrictionsViewModel restrictions = _restrictions(source);
       await tester.pumpWidget(_app(await acknowledged(), restrictions));
 
+      await tester.tap(find.byKey(mapDesignationChipKey));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(mapDesignateCenterButtonKey));
       await tester.pump();
       // La route couvre deja la carte : le second geste (appui long, clic
@@ -547,7 +581,9 @@ void main() {
       await designate(tester);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      await designate(tester);
+      // Le mode est resté actif au retour : le bouton est là, sans rappuyer
+      // sur la puce.
+      await designate(tester, allumer: false);
 
       expect(find.byType(RestrictionsScreen), findsOneWidget);
       expect(source.requested, hasLength(2));
@@ -558,6 +594,50 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(find.byType(RestrictionsScreen), findsNothing);
+    });
+
+    testWidgets('au retour de l ecran des restrictions, le mode est toujours '
+        'actif (bouton present) et l echelle inchangee (E5)', (
+      WidgetTester tester,
+    ) async {
+      final RestrictionsViewModel restrictions = _restrictions();
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+      expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
+
+      await designate(tester);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RestrictionsScreen), findsNothing);
+      expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
+      expect(find.byKey(mapCenterReticleKey), findsOneWidget);
+      expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
+      expect(echelleSelectionnee(tester, MapScaleKind.debit), isFalse);
+    });
+
+    testWidgets('une designation par appui long, hors mode, ouvre l ecran et '
+        'laisse le mode eteint au retour (E5)', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1032);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final _PendingRestrictionSource source = _PendingRestrictionSource();
+      final RestrictionsViewModel restrictions = _restrictions(source);
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+
+      await tester.longPressAt(const Offset(1200, 500));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RestrictionsScreen), findsOneWidget);
+      expect(source.requested, hasLength(1));
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RestrictionsScreen), findsNothing);
+      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+      expect(find.byKey(mapCenterReticleKey), findsNothing);
+      expect(find.byKey(mapDesignationChipKey), findsOneWidget);
     });
   });
 }

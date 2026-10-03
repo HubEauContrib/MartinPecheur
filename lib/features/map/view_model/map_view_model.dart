@@ -515,6 +515,25 @@ final class MapViewModel extends ChangeNotifier {
   /// L'écoulement est active par défaut (`UC-001 § 3`).
   MapScaleKind get scale => _scale;
 
+  bool _designationMode = false;
+
+  /// Le **mode de désignation** (`E5` de T2, arbitrage du commanditaire du
+  /// 2026-10-03) : vrai quand le choix « Restrictions » du sélecteur est
+  /// allumé. Un interrupteur **indépendant** de [scale] — ce n'est pas une
+  /// troisième échelle de marqueurs : l'échelle choisie reste affichée,
+  /// marqueurs et légende (`BR-008`, aucun écart). Faux au départ ; il ne
+  /// change que par [toggleDesignationMode].
+  bool get designationMode => _designationMode;
+
+  /// Allume ou éteint le mode de désignation, et notifie une fois. Ne touche
+  /// ni [scale], ni les stations, ni les observations, ni les clusters, et
+  /// n'appelle aucun dépôt : c'est un état de la tranche carte, pas une
+  /// lecture. [selectScale] ne le modifie pas non plus.
+  void toggleDesignationMode() {
+    _designationMode = !_designationMode;
+    notifyListeners();
+  }
+
   final Map<StationCode, StationMapState> _states =
       <StationCode, StationMapState>{};
 

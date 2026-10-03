@@ -6,6 +6,10 @@
 // l'indice du geste équivalent (appui long au toucher, clic droit à la
 // souris).
 //
+// Il n'existe que dans le MODE de désignation (`E5`, 2026-10-03) : le choix
+// « Restrictions » du sélecteur (`map_scale_chips.dart`) le fait apparaître,
+// avec son indice et le réticule, et le retire. Il n'est plus permanent.
+//
 // Comme [MapControls], c'est un widget de CONTENU pur : il ne connaît ni la
 // caméra ni le ViewModel. `_MapViewState` construit le rappel.
 

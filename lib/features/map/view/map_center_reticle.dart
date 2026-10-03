@@ -6,6 +6,9 @@
 // Ce n'est PAS une forme d'échelle d'état (`04-ui.md` § 2) : ni rond plein, ni
 // triangle, ni carré, ni losange. Inerte : hors pointeur, hors sémantique,
 // hors tabulation.
+//
+// N'existe que dans le MODE de désignation (`E5`, 2026-10-03) : le choix
+// « Restrictions » du sélecteur le fait apparaître avec le bouton.
 
 import 'package:flutter/material.dart';
 

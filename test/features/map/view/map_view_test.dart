@@ -10,6 +10,7 @@
 // Le chargement lui-même n'est plus ici : il appartient au ViewModel
 // (`test/features/map/view_model/map_view_model_test.dart`), qui le teste
 // sans monter aucun widget (R3, arbitrage 2026-09-13).
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -1239,6 +1240,11 @@ void main() {
                   onZoomIn: () {},
                   onZoomOut: () {},
                   onRecenter: () {},
+                  // E5 : la puce « Restrictions » est TOUJOURS fournie
+                  // (désignation câblée) ; `avecDesignation` dit si le mode
+                  // est actif, donc si le bouton, l'indice et le réticule
+                  // existent.
+                  onToggleDesignationMode: () {},
                   onDesignateCenter: avecDesignation ? () {} : null,
                   stationSheet: avecFiche
                       ? Container(
@@ -1302,7 +1308,7 @@ void main() {
         final bool avecDesignation = cas.$1;
         final MapScaleKind scale = cas.$2;
         testWidgetsOnWindows(
-          '${avecDesignation ? "[bouton de désignation] " : ""}'
+          '${avecDesignation ? "[en mode Restrictions] " : "[hors mode] "}'
           'échelle ${scale.name} : puces, légende, contrôles de zoom, '
           "contrôle d'avertissement et attribution IGN tiennent SANS se "
           'recouvrir et sans déborder de 800 × 740',
@@ -1316,6 +1322,12 @@ void main() {
             );
             await tester.pumpAndSettle();
 
+            // La troisième puce est là dans les deux modes (E5).
+            expect(find.byKey(mapDesignationChipKey), findsOneWidget);
+            expect(
+              find.byType(DesignateCenterControl).evaluate().isNotEmpty,
+              avecDesignation,
+            );
             final Map<String, Rect> rects = rectsAt(tester);
             rects.forEach(
               (String nom, Rect rect) => expectWithinScreen(rect, taille, nom),
@@ -1346,7 +1358,7 @@ void main() {
         final bool avecDesignation = cas.$1;
         final MapScaleKind scale = cas.$2;
         testWidgetsOnWindows(
-          '${avecDesignation ? "[bouton de désignation] " : ""}'
+          '${avecDesignation ? "[en mode Restrictions] " : "[hors mode] "}'
           'échelle ${scale.name}, AVEC une fiche ouverte (hauteur réaliste, '
           '$hauteurFicheRealiste) : rien ne se recouvre, rien ne déborde de '
           '800 × 740',
@@ -1361,6 +1373,7 @@ void main() {
             );
             await tester.pumpAndSettle();
 
+            expect(find.byKey(mapDesignationChipKey), findsOneWidget);
             final Map<String, Rect> rects = <String, Rect>{
               ...rectsAt(tester),
               'StationSheet': tester.getRect(find.byKey(ficheDeTestKey)),
@@ -1642,6 +1655,199 @@ void main() {
       );
     },
   );
+
+  // La colonne GAUCHE de la disposition large (puces d'échelle puis avis)
+  // défile quand elle dépasse la hauteur, comme la colonne de droite et la
+  // colonne compacte : avec la troisième puce (E5), à 200 % et un avis
+  // d'absence, elle débordait de 50 px à 800 × 740 (constat du 2026-10-03).
+  group('buildMapOverlays — colonne gauche de la disposition large, 800 × 740, '
+      'un avis affiché (E5)', () {
+    const Size taille = Size(800, 740);
+    const Key carteKey = Key('carte-de-test-colonne-gauche');
+
+    Future<void> pumpLarge(
+      WidgetTester tester, {
+      double textScale = 1,
+      VoidCallback? onCarteTap,
+      VoidCallback? onCarteMolette,
+      VoidCallback? onCarteGlisser,
+      VoidCallback? onWiden,
+      bool enMode = false,
+    }) async {
+      tester.view.physicalSize = taille;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = textScale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            body: Stack(
+              children: <Widget>[
+                // La « carte » : compte les gestes qui lui parviennent.
+                Positioned.fill(
+                  child: Listener(
+                    onPointerSignal: (PointerSignalEvent _) =>
+                        onCarteMolette?.call(),
+                    child: GestureDetector(
+                      key: carteKey,
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onCarteTap,
+                      onPanUpdate: (DragUpdateDetails _) =>
+                          onCarteGlisser?.call(),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ),
+                ...buildMapOverlays(
+                  scale: MapScaleKind.ecoulement,
+                  onSelect: (MapScaleKind kind) {},
+                  onWiden: onWiden ?? () {},
+                  error: null,
+                  stations: const <StationPoint>[],
+                  ondeObservations: const <OndeStationCode, OndeObservation>{},
+                  ondeUnreadableRows: 0,
+                  onZoomIn: () {},
+                  onZoomOut: () {},
+                  onRecenter: () {},
+                  onToggleDesignationMode: () {},
+                  onDesignateCenter: enMode ? () {} : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    /// La fenêtre de la colonne gauche : le défilement qui porte les puces.
+    Finder colonneGauche() => find.ancestor(
+      of: find.byType(MapScaleChips),
+      matching: find.byType(SingleChildScrollView),
+    );
+
+    /// Un point DANS la fenêtre de la colonne gauche, hors de tout enfant :
+    /// l'interstice de 8 px entre les puces et l'avis, sur toute la largeur de
+    /// la colonne. De la carte visible, au sens de l'usager.
+    Offset pointHorsEnfants(WidgetTester tester) {
+      final Rect fenetre = tester.getRect(colonneGauche());
+      final Rect puces = tester.getRect(find.byType(MapScaleChips));
+      final Rect avis = tester.getRect(find.byType(NoDataInAreaNotice));
+      final Offset p = Offset(fenetre.center.dx, (puces.bottom + avis.top) / 2);
+      expect(fenetre.contains(p), isTrue, reason: '$p hors de $fenetre');
+      expect(puces.contains(p), isFalse, reason: '$p dans les puces $puces');
+      expect(avis.contains(p), isFalse, reason: '$p dans l’avis $avis');
+      return p;
+    }
+
+    testWidgets('un tap posé hors des enfants de la colonne gauche atteint la '
+        'carte', (WidgetTester tester) async {
+      int taps = 0;
+      await pumpLarge(tester, onCarteTap: () => taps++);
+      expect(tester.takeException(), isNull);
+
+      await tester.tapAt(pointHorsEnfants(tester));
+      await tester.pump();
+
+      expect(taps, 1);
+    });
+
+    testWidgets('un glisser posé hors des enfants de la colonne gauche atteint '
+        'la carte', (WidgetTester tester) async {
+      int glissers = 0;
+      await pumpLarge(tester, onCarteGlisser: () => glissers++);
+      expect(tester.takeException(), isNull);
+
+      await tester.dragFrom(pointHorsEnfants(tester), const Offset(0, 80));
+      await tester.pump();
+
+      expect(glissers, greaterThan(0));
+    });
+
+    testWidgets('un cran de molette posé hors des enfants de la colonne '
+        'gauche atteint la carte', (WidgetTester tester) async {
+      int crans = 0;
+      await pumpLarge(tester, onCarteMolette: () => crans++);
+      expect(tester.takeException(), isNull);
+      final Offset p = pointHorsEnfants(tester);
+
+      final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(souris.hover(p));
+      await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
+      await tester.pump();
+
+      expect(crans, 1);
+    });
+
+    testWidgets('à 200 %, aucune erreur de rendu : la colonne défile au lieu '
+        'de déborder, et l’action de l’avis s’atteint en la faisant défiler', (
+      WidgetTester tester,
+    ) async {
+      int elargir = 0;
+      // Hors mode : la hauteur de la colonne gauche (trois puces et avis) est
+      // la même dans les deux modes ; le bouton de désignation, lui, ne la
+      // concerne pas — son recouvrement est à mesurer en `E5b`.
+      await pumpLarge(tester, textScale: 2, onWiden: () => elargir++);
+
+      // Avant la correction : « A RenderFlex overflowed by 50 pixels on the
+      // bottom », la colonne gauche étant plus haute que l'écran.
+      expect(tester.takeException(), isNull);
+
+      final Rect fenetre = tester.getRect(colonneGauche());
+      final Finder action = find.text(widenSearchLabel);
+      final Rect repos = tester.getRect(action);
+      // Le contenu dépasse la fenêtre : sans défilement, l'action est coupée.
+      expect(
+        repos.bottom,
+        greaterThan(fenetre.bottom),
+        reason: 'action=$repos, fenêtre=$fenetre',
+      );
+      expect(action.hitTestable().evaluate(), isEmpty);
+
+      // Le doigt fait défiler la colonne depuis la puce « débit » (le bord
+      // droit, hors de la zone d'un éventuel recouvrement) ; il perd
+      // `kDragSlopDefault` avant que la colonne ne suive.
+      final Rect puce = tester.getRect(
+        find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+      );
+      await tester.dragFrom(
+        Offset(puce.right - 12, puce.center.dy),
+        Offset(0, -(repos.bottom - fenetre.bottom + 8 + kDragSlopDefault)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+
+      // Le défilement a amené l'action DANS la fenêtre de la colonne.
+      final Rect bouton = tester.getRect(find.byKey(widenSearchKey));
+      expect(
+        fenetre.top <= bouton.top && bouton.bottom <= fenetre.bottom,
+        isTrue,
+        reason: 'action=$bouton, fenêtre=$fenetre',
+      );
+      // ⚠️ FAIT MESURÉ en police de test, pas un invariant voulu : à 200 %, le
+      // bandeau d'attribution IGN (pleine largeur, 66 px de haut) recouvre le
+      // bas du bouton, comme les surcouches du bas recouvrent la colonne
+      // compacte (`map_overlays_phone_test.dart`). Ce recouvrement est
+      // antérieur à `E5` et distinct du débordement corrigé ici ; `E5b` le
+      // remesure. On touche donc le bouton sur sa bande libre, au-dessus de
+      // l'attribution.
+      final Rect attribution = tester.getRect(find.byType(IgnAttributionBadge));
+      expect(
+        attribution.top,
+        greaterThan(bouton.top),
+        reason: 'attribution=$attribution, action=$bouton',
+      );
+      await tester.tapAt(
+        Offset(bouton.center.dx, (bouton.top + attribution.top) / 2),
+      );
+      await tester.pump();
+      expect(elargir, 1);
+    });
+  });
 
   group(
     'shouldRefreshOn — décide si un événement déclenche une requête d\'emprise',
