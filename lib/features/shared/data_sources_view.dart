@@ -46,6 +46,7 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
+import 'package:martinpecheur/features/shared/screen_layout.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Introduction : `BR-001`, chaque valeur porte sa date et sa source.
@@ -98,27 +99,11 @@ const String dataSourcesRestrictionsText =
 /// Section du fond de carte, première ligne.
 const String dataSourcesIgnText = 'Fond de carte : plan IGN.';
 
-/// Section du fond de carte, seconde ligne : l'attribution exigée par la
-/// Licence Ouverte, la MÊME que celle de la carte (`ignAttribution`,
-/// `lib/features/map/view/ign_tile_template.dart`). Cette tranche ne pouvant
-/// pas importer la tranche carte (`shared-sans-tranche`), elle la recompose
-/// du nom partagé [ignSourceName] ; un test les lie au caractère près.
-const String dataSourcesIgnAttribution = '© $ignSourceName — Licence Ouverte';
-
 /// Limite `L-06` (`02-specifications.md`), la seule des limites générales
 /// que garde cet écran : aucune de ces données ne reflète les barrages.
 const String dataSourcesDamsLimitText =
     'Aucune de ces données ne reflète les lâchers ni les manœuvres de '
     'barrages.';
-
-/// Largeur de lecture : au-delà, le texte reste en colonne centrée plutôt
-/// que de courir sur toute la fenêtre. Même mesure que la colonne de l'écran
-/// des restrictions (`readingColumnWidth`), dont cette tranche ne peut pas
-/// importer la constante.
-const double _readingWidth = 760;
-
-/// Marge de la colonne de lecture.
-const double _gutter = 16;
 
 /// Ouvre [DataSourcesView] par-dessus l'écran courant.
 void _openDataSources(BuildContext context) {
@@ -206,30 +191,36 @@ class DataSourcesView extends StatelessWidget {
         autofocus: true,
         child: Scaffold(
           body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                const _TitleBar(),
-                // Une seule barre de défilement, toujours visible (la page
-                // défile, cela se voit — constat du 2026-09-29 sur l'écran
-                // des restrictions) ; l'automatique du bureau est retirée
-                // pour ne pas la doubler. `primary: true` : `PageUp`,
-                // `PageDown` et les flèches trouvent le défilement de la
-                // route depuis le focus de l'écran.
-                Expanded(
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context)
-                        .copyWith(scrollbars: false),
-                    child: const Scrollbar(
-                      thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        primary: true,
-                        child: _ReadingColumn(),
+            // La molette posée sur la barre de titre, hors du défilement,
+            // fait défiler l'écran (constat du 2026-09-29 sur l'écran des
+            // restrictions : bande morte sous le bord haut de la fenêtre).
+            child: WheelScrollsScreen(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const _TitleBar(),
+                  // Une seule barre de défilement, toujours visible (la page
+                  // défile, cela se voit — constat du 2026-09-29 sur l'écran
+                  // des restrictions) ; l'automatique du bureau est retirée
+                  // pour ne pas la doubler. `primary: true` : `PageUp`,
+                  // `PageDown` et `Ctrl`+flèche trouvent le défilement de la
+                  // route depuis le focus de l'écran (une flèche seule suit
+                  // le parcours du focus et ne défile pas).
+                  Expanded(
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context)
+                          .copyWith(scrollbars: false),
+                      child: const Scrollbar(
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          primary: true,
+                          child: _ReadingColumn(),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -238,9 +229,9 @@ class DataSourcesView extends StatelessWidget {
   }
 }
 
-/// Le contenu : colonne de [_readingWidth] centrée quand la fenêtre est plus
-/// large, sinon toute la largeur ; remplissage de [_gutter] dans les deux
-/// cas. Le défilement garde, lui, la pleine largeur.
+/// Le contenu : colonne de [readingColumnWidth] centrée quand la fenêtre est
+/// plus large, sinon toute la largeur ; remplissage de [readingColumnGutter]
+/// dans les deux cas. Le défilement garde, lui, la pleine largeur.
 class _ReadingColumn extends StatelessWidget {
   const _ReadingColumn();
 
@@ -250,10 +241,10 @@ class _ReadingColumn extends StatelessWidget {
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(
-          maxWidth: _readingWidth + 2 * _gutter,
+          maxWidth: readingColumnWidth + 2 * readingColumnGutter,
         ),
         child: const Padding(
-          padding: EdgeInsets.all(_gutter),
+          padding: EdgeInsets.all(readingColumnGutter),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -281,7 +272,7 @@ class _ReadingColumn extends StatelessWidget {
                 title: ignSourceName,
                 paragraphs: <Widget>[
                   Text(dataSourcesIgnText),
-                  Text(dataSourcesIgnAttribution),
+                  Text(ignAttribution),
                 ],
               ),
               SizedBox(height: 24),

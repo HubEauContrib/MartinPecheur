@@ -53,10 +53,16 @@ const String restrictionsSourceName = 'VigiEau';
 const String restrictionsPublicSiteUrl = 'https://vigieau.gouv.fr/';
 
 /// Nom affiché du fond de carte, rendu par l'écran « D'où vient cette
-/// donnée ? » (T2, `S1`). L'attribution de la carte
-/// (`ignAttribution`, `lib/features/map/view/ign_tile_template.dart`) le
-/// RÉUTILISE au lieu de le recopier : un concept, un mot (`glossary.md`).
-/// Il vit ici, et non dans la tranche carte, parce que `features/shared/`
-/// — où vit l'écran des sources — n'importe aucune tranche
-/// (`shared-sans-tranche`, `test/architecture/layers_test.dart`).
+/// donnée ? » (T2, `S1`). [ignAttribution] le RÉUTILISE au lieu de le
+/// recopier : un concept, un mot (`glossary.md`). Il vit ici, et non dans la
+/// tranche carte, parce que `features/shared/` — où vit l'écran des sources —
+/// n'importe aucune tranche (`shared-sans-tranche`,
+/// `test/architecture/layers_test.dart`).
 const String ignSourceName = 'IGN Géoplateforme';
+
+/// Attribution exigée par la Licence Ouverte pour le fond de carte — UNE
+/// seule définition, lue par la carte (`ign_attribution_badge.dart`,
+/// `map_view.dart`) et par l'écran « D'où vient cette donnée ? »
+/// (`lib/features/shared/data_sources_view.dart`) : jamais une chaîne
+/// recopiée dans un widget.
+const String ignAttribution = '© $ignSourceName — Licence Ouverte';

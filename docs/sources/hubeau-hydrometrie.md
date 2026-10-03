@@ -3,15 +3,23 @@
 Base URL : `https://hubeau.eaufrance.fr/api/v2/hydrometrie` · `api_version` **2.0.1**
 (relevée le 2026-09-13, présente dans chaque réponse) · aucune authentification ·
 Licence Ouverte Etalab, **citation de l'auteur obligatoire** ; **version de la licence non
-écrite** sur 8 pages (dont les CGU, l'accueil, les mentions légales, les deux pages d'API, la FAQ
-et « à propos ») ni sur 2 schémas, consultés le 2026-10-03 : CGU
-`https://hubeau.eaufrance.fr/page/conditions-generales` → « licence ouverte Etalab », sans « 1.0 »
-ni « 2.0 » ; `https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs` → `"license": {}` ;
-`https://hubeau.eaufrance.fr/api/v1/ecoulement/api-docs` → `info` sans licence. Le lien des CGU
-mène aujourd'hui à une page « Licence Ouverte 2.0 » de data.gouv, ce qui ne prouve pas la
-version visée : aucun numéro n'est écrit à l'écran. Rôle : débit, hauteur, historique journalier,
-référentiel des stations. Décision liée : `ADR-001` — cibler exclusivement la v2, la v1 est
-arrêtée depuis le 05/05/2025 (`403` constaté lors du cadrage, `C-01` ; non revérifié
+écrite** sur les **7 pages** et les **2 schémas** relevés le 2026-10-03 (19:41 à 19:43 UTC), tous
+en HTTP 200 : `https://hubeau.eaufrance.fr/` (19:41:59), `…/page/conditions-generales` (19:42:04),
+`…/mentions-legales-credits` (19:42:05), `…/page/api-hydrometrie` (19:42:10),
+`…/page/api-ecoulement` (19:42:14), `…/page/FAQ` (19:42:17), `…/page/a-propos` (19:42:24) ;
+schémas `…/api/v2/hydrometrie/api-docs` (19:42:26) et `…/api/v1/ecoulement/api-docs` (19:42:38).
+Adresses prises sur la page d'accueil, pas devinées. Seules les conditions générales parlent
+de licence : « La réutilisation des Jeux de données est régie par la licence ouverte Etalab »
+(avec le lien `https://www.etalab.gouv.fr/licence-ouverte-open-licence`) et, § 5.1.4, « Les
+contenus proposés par l'Éditeur sont sous Licence Ouverte » — jamais de « 1.0 » ni de « 2.0 ».
+Les six autres pages ne contiennent ni « licence » ni « etalab ». Schéma hydrométrie v2 :
+`"license": {}` ; schéma écoulement v1 : `info` limité à titre et version, sans licence. Le lien
+des conditions générales aboutit aujourd'hui (`curl -L`, HTTP 200, 19:42:53 UTC) à
+`https://www.data.gouv.fr/pages/legal/licences/etalab-2.0`, la page « Licence Ouverte 2.0 » de
+data.gouv : cela ne prouve pas la version visée par Hub'Eau, qui n'écrit aucun numéro à l'écran.
+
+Rôle : débit, hauteur, historique journalier, référentiel des stations. Décision liée :
+`ADR-001` — cibler exclusivement la v2, la v1 est arrêtée depuis le 05/05/2025 (`403` constaté lors du cadrage, `C-01` ; non revérifié
 aujourd'hui).
 
 ## Endpoints

@@ -311,18 +311,13 @@ void main() {
   // `MartinPecheurApp` : un `MaterialApp` de banc ne prouverait pas que le
   // `Navigator` est trouve ici.
   group("ecran des sources (S1) — composition reelle", () {
-    Future<_AcknowledgementRepositoryDouble> pumpUnacknowledged(
-      WidgetTester tester,
-    ) async {
-      final _AcknowledgementRepositoryDouble repository =
-          _AcknowledgementRepositoryDouble();
+    Future<void> pumpUnacknowledged(WidgetTester tester) async {
       final WarningsViewModel viewModel = WarningsViewModel(
-        acknowledgements: repository,
+        acknowledgements: _AcknowledgementRepositoryDouble(),
         currentWarningVersion: warningTextVersion,
       );
       await viewModel.load();
       await tester.pumpWidget(_app(viewModel));
-      return repository;
     }
 
     testWidgets('modal : le lien ouvre l ecran, rien n est acquitte, la '

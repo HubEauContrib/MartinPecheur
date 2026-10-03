@@ -36,6 +36,14 @@ void main() {
       expect(ignSourceName, 'IGN Géoplateforme');
     });
 
+    test("ignAttribution est inchangée au caractère près, et nomme la source "
+        'par ignSourceName — la seule définition, lue par la carte et par '
+        "l'écran des sources", () {
+      expect(ignAttribution, '© IGN Géoplateforme — Licence Ouverte');
+      expect(ignAttribution, contains(ignSourceName));
+      expect(ignAttribution, contains('Licence Ouverte'));
+    });
+
     test('les quatre noms de source sont distincts', () {
       expect(<String>{
         hydrometrieSourceName,

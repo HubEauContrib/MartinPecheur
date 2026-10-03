@@ -2,7 +2,7 @@
 
 Base URL : `https://data.geopf.fr/wmts` · WMTS 1.0.0, KVP · aucune authentification ·
 Licence Ouverte — **attribution obligatoire** (`ignAttribution`,
-`lib/features/map/ign_tile_template.dart`). Rôle : fond de plan (`LAYER=`
+`lib/domain/sources/source_names.dart`). Rôle : fond de plan (`LAYER=`
 `GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2`), jeu `TILEMATRIXSET=PM` (Pseudo-Mercator, le seul
 adressable en `{z}/{x}/{y}`).
 
@@ -17,7 +17,7 @@ adressable en `{z}/{x}/{y}`).
   `ignMaxNativeZoom = 18` reste un choix de charge, pas une limite constatée — à revoir
   en T1.
 - Intervertir `TILECOL` et `TILEROW` transpose la carte **sans erreur** — aucune tuile
-  manquante, panne silencieuse que seul un test attrape (`lib/features/map/ign_tile_template.dart`).
+  manquante, panne silencieuse que seul un test attrape (`lib/features/map/view/ign_tile_template.dart`).
 
 ## Comportement du client
 

@@ -4,7 +4,8 @@
 // changement de comportement : seuls les imports des appelants changent.
 
 import 'package:flutter/material.dart';
-import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart'
+    show ignAttribution;
 
 /// Corps du texte de l'attribution, en points.
 const double ignAttributionFontSize = 11;

@@ -13,6 +13,7 @@
 //
 // Ce fichier verrouille aussi `DataSourcesLink`, le lien partage par le modal
 // du premier lancement et par la fenetre d'avertissement.
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -21,8 +22,6 @@ import 'package:martinpecheur/data/restrictions/cached_restriction_source.dart'
     show restrictionsCacheTtl;
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
-import 'package:martinpecheur/features/map/view/ign_tile_template.dart'
-    show ignAttribution;
 import 'package:martinpecheur/features/shared/data_sources_view.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
@@ -172,7 +171,8 @@ void main() {
         ),
       );
       // Hub'Eau : « Licence Ouverte Etalab », jamais de numero de version
-      // (aucun n'est ecrit sur ses 8 pages et ses 2 schemas).
+      // (aucun n'est ecrit sur les 7 pages et les 2 schemas releves le
+      // 2026-10-03, `docs/sources/hubeau-hydrometrie.md`).
       expect(dataSourcesHydrometrieText, contains('Licence Ouverte Etalab,'));
       expect(dataSourcesOndeText, endsWith('Licence Ouverte Etalab.'));
       for (final String text in <String>[
@@ -190,11 +190,6 @@ void main() {
         dataSourcesRestrictionsText,
         contains('gardée ${restrictionsCacheTtl.inHours} heures'),
       );
-    });
-
-    test("l'attribution du fond de carte est celle de la carte, au "
-        'caractere pres (un concept, un mot)', () {
-      expect(dataSourcesIgnAttribution, ignAttribution);
     });
 
     testWidgets("l'adresse du site public est un texte selectionnable, "
@@ -335,6 +330,55 @@ void main() {
     });
   });
 
+  group('DataSourcesView — molette', () {
+    // Meme defaut que sur l'ecran des restrictions (constat du 2026-09-29) :
+    // la molette posee sur la barre de titre, hors du defilement, ne faisait
+    // rien — une bande morte sous le bord haut de la fenetre.
+    Future<void> wheel(WidgetTester tester, Offset at, double dy) async {
+      final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(pointer.hover(at));
+      await tester.sendEventToBinding(pointer.scroll(Offset(0, dy)));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgetsOnWindows('un cran sur la barre de titre fait defiler le '
+        'contenu, dans les deux sens', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      final ScrollableState scrollable = tester.state(
+        find.byType(Scrollable).first,
+      );
+      expect(scrollable.position.maxScrollExtent, greaterThan(100));
+      final Offset title = tester.getCenter(find.text(dataSourcesTitle));
+
+      await wheel(tester, title, 100);
+      expect(scrollable.position.pixels, 100);
+
+      await wheel(tester, title, -100);
+      expect(scrollable.position.pixels, 0);
+    });
+
+    testWidgetsOnWindows('un cran sur le contenu fait toujours defiler', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      final ScrollableState scrollable = tester.state(
+        find.byType(Scrollable).first,
+      );
+
+      await wheel(tester, const Offset(400, 250), 100);
+
+      expect(scrollable.position.pixels, 100);
+    });
+  });
+
   group('DataSourcesView — cibles et defilement (04-ui.md § 3)', () {
     Future<void> checkBackTarget(WidgetTester tester) async {
       await tester.pumpWidget(_app());
@@ -370,6 +414,22 @@ void main() {
         tester.view.physicalSize = window.size;
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
+        // Etendue defilable a 100 % : le repere. A 200 % le texte occupe plus
+        // de place, l'etendue grandit — sans quoi l'echelle n'aurait pas ete
+        // appliquee et la verification ne dirait rien de 200 %.
+        await tester.pumpWidget(_app());
+        await tester.pumpAndSettle();
+        final double extentAt100 = tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .maxScrollExtent;
+        // Hauteur du dernier texte a 100 % : l'etendue seule grandirait aussi
+        // si la barre de titre grossissait pendant que le contenu ignore
+        // l'echelle. C'est le texte LU qui doit avoir grandi.
+        final double lastTextHeightAt100 = tester
+            .getSize(find.text(_dams))
+            .height;
+        await tester.pumpWidget(const SizedBox());
         await tester.pumpWidget(
           MediaQuery(
             data: const MediaQueryData(textScaler: TextScaler.linear(2)),
@@ -382,7 +442,11 @@ void main() {
         final ScrollableState scrollable = tester.state(
           find.byType(Scrollable).first,
         );
-        expect(scrollable.position.maxScrollExtent, greaterThan(0));
+        expect(scrollable.position.maxScrollExtent, greaterThan(extentAt100));
+        expect(
+          tester.getSize(find.text(_dams)).height,
+          greaterThan(lastTextHeightAt100),
+        );
 
         await tester.ensureVisible(find.text(_dams));
         await tester.pumpAndSettle();

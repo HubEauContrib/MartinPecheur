@@ -160,17 +160,20 @@ chaque zone (45 usages sur `SOU`, 27 sur `SUP`, 19 sur `AEP`, sans profil). `Q5`
 seul) omettrait donc silencieusement des zones actives d'un autre type, avec un niveau parfois
 plus sévère.
 
-### `VG-12` — quelle licence couvre la donnée ? — constaté le 2026-10-03 (16:38 à 16:42 UTC)
+### `VG-12` — quelle licence couvre la donnée ? — constaté le 2026-10-03
 
 **Pour le site et le jeu data.gouv : Licence Ouverte 2.0. Pour la donnée servie par l'API : non
-établie.** Tous les appels ci-dessous : HTTP 200.
+établie.** Chaque ligne donne son URL, son code HTTP et son heure UTC ; une ligne sans appel HTTP
+le dit.
 
-| Où | Constat |
-|---|---|
-| Schéma `https://api.vigieau.beta.gouv.fr/swagger-json` | `info` = titre, description, version `0.1`, `contact` vide ; **aucun** champ `license`, **aucun** `termsOfService` |
-| Jeu `https://www.data.gouv.fr/api/1/datasets/donnee-secheresse-vigieau/` | `"license": "lov2"` ; `https://www.data.gouv.fr/api/1/datasets/licenses/` : `lov2` = « Licence Ouverte / Open Licence version 2.0 » |
-| Site `https://vigieau.gouv.fr/` | le pied de page rendu dit que les contenus du site sont proposés sous « licence etalab-2.0 » (valeur par défaut du gabarit de pied de page ; le site l'affiche) ; la page des mentions légales ne dit rien de la licence |
-| Dépôt de code de l'API (`github.com/MTES-MCT/vigieau-api`) | le README ne dit rien de la licence ; sans fichier de licence au 2026-09-27 (`ADR-004`, l. 30), non revérifié aujourd'hui |
+| Où | Relevé | Constat |
+|---|---|---|
+| Schéma `https://api.vigieau.beta.gouv.fr/swagger-json` | HTTP 200, 16:42 UTC (orchestrateur) | `info` = titre, description, version `0.1`, `contact` vide ; **aucun** champ `license`, **aucun** `termsOfService` |
+| Jeu `https://www.data.gouv.fr/api/1/datasets/donnee-secheresse-vigieau/` | HTTP 200, 16:42 UTC (orchestrateur) | `"license": "lov2"` |
+| `https://www.data.gouv.fr/api/1/datasets/licenses/` | HTTP 200, 19:43 UTC | `lov2` = « Licence Ouverte / Open Licence version 2.0 » (`alternate_titles` dont `etalab-2.0`) |
+| Site public `https://vigieau.gouv.fr/` | page rendue par un navigateur, ~16:41 UTC — **pas d'appel HTTP relevé** | le pied de page dit « licence etalab-2.0 » (retrouvé comme valeur par défaut du gabarit de pied de page dans le script d'entrée du site) |
+| README du dépôt `https://api.github.com/repos/MTES-MCT/vigieau-api/readme` | HTTP 200, 19:42 UTC | 6 750 caractères décodés, sections « API Sécheresse », « Pré-requis », « Utilisation », « API » : **aucune** occurrence de « licence », « license » ni « etalab » |
+| Dépôt `https://api.github.com/repos/MTES-MCT/vigieau-api/license` | **HTTP 404**, 19:43 UTC | pas de fichier de licence reconnu par GitHub (`ADR-004` l. 31 : « sans fichier LICENSE », non daté) |
 
 Conséquence pour l'écran « D'où vient cette donnée ? » (`T2-S1`, arbitrage du commanditaire du
 2026-10-03) : il écrit « Le site VigiEau et son jeu de données publié sur data.gouv.fr sont sous

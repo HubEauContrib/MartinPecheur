@@ -108,6 +108,8 @@ import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart'
+    show ignAttribution;
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';

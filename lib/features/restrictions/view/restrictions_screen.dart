@@ -33,12 +33,7 @@
 
 import 'dart:async' show unawaited;
 
-import 'package:flutter/gestures.dart'
-    show
-        GestureBinding,
-        PointerDeviceKind,
-        PointerScrollEvent,
-        PointerSignalEvent;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:martinpecheur/domain/formatting/display_date.dart';
@@ -54,6 +49,7 @@ import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.
 import 'package:martinpecheur/features/restrictions/view/reinforced_warning_card.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/shared/action_color.dart';
+import 'package:martinpecheur/features/shared/screen_layout.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Titre de l'ecran (Q-1 de C1).
@@ -167,7 +163,7 @@ class RestrictionsScreen extends StatelessWidget {
               // La molette posee sur la barre de titre ou sur la tete
               // epinglee de l'encart — hors du defilement — fait defiler
               // l'ecran (constat du 2026-09-29 : bande morte sous la barre).
-              child: _WheelScrollsScreen(
+              child: WheelScrollsScreen(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
@@ -530,42 +526,6 @@ const Set<PointerDeviceKind> _screenDragDevices = <PointerDeviceKind>{
   PointerDeviceKind.trackpad,
   PointerDeviceKind.unknown,
 };
-
-/// Fait defiler l'ecran a la molette posee HORS du defilement (barre de
-/// titre, tete epinglee). Au-dessus du defilement, c'est lui qui prend
-/// l'evenement : il s'inscrit le premier aupres du `pointerSignalResolver`,
-/// et seule la premiere inscription est servie.
-class _WheelScrollsScreen extends StatelessWidget {
-  const _WheelScrollsScreen({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      onPointerSignal: (PointerSignalEvent event) {
-        if (event is! PointerScrollEvent) {
-          return;
-        }
-        final ScrollController? controller = PrimaryScrollController.maybeOf(
-          context,
-        );
-        if (controller == null || controller.positions.length != 1) {
-          return;
-        }
-        GestureBinding.instance.pointerSignalResolver.register(event, (
-          PointerSignalEvent resolved,
-        ) {
-          if (resolved is PointerScrollEvent &&
-              controller.positions.length == 1) {
-            controller.position.pointerScroll(resolved.scrollDelta.dy);
-          }
-        });
-      },
-      child: child,
-    );
-  }
-}
 
 /// Le contenu defilant : colonne de [readingColumnWidth] centree quand la
 /// fenetre est plus large, sinon toute la largeur, remplissage de 16 dans les

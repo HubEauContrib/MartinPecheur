@@ -21,14 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.dart';
+import 'package:martinpecheur/features/shared/screen_layout.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
-
-/// Largeur de la colonne de lecture (contenu, hors remplissage) : partagee
-/// par le contenu defilant de l'ecran et l'interieur de la tete epinglee.
-const double readingColumnWidth = 760;
-
-/// Remplissage lateral de la colonne de lecture.
-const double readingColumnGutter = 16;
 
 /// Cle de la region d'alerte de la tete epinglee — pour les tests.
 const Key reinforcedWarningHeaderKey = ValueKey<String>(
