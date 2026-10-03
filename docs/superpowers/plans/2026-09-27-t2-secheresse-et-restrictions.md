@@ -696,7 +696,7 @@ git commit -m "feat(restrictions): cabler la source cachee, le ViewModel et l ec
 - 200 % de police : non tronqué ; `grep -n "NE FONDEZ" lib/features` → **vide** (texte importé).
 
 - [x] **Étape 1** — tests rouges, dont l'ordre ; **Étape 2** — implémenter, brancher en tête de l'~~panneau~~ écran ; ~~**Étape 3** — critère de fin, commit.~~ *(codé le 2026-09-29 ; critère de fin vert ; commit non fait par l'agent.)* *Note du 2026-09-29 (arbitrage du commanditaire) : Q-4 amendé — tête épinglée tant qu'elle prend au plus la moitié de la hauteur utile, sinon tout l'encart est le premier élément du défilement ; voir conception § 4.*
-- [ ] **Étape 3** — commit (à faire).
+- [x] **Étape 3** — commit : `bbdfdc1` (case cochée le 2026-10-03, le commit existait).
 - [ ] **Étape 4 — constat d'écran : commanditaire.**
 
 ```bash
@@ -728,11 +728,11 @@ git commit -m "feat(avertissement): 4 sur 4 — encart renforce en tete de l ecr
 
 > **Arbitré en `C1`** (Q-8 (a), 2026-09-29) : contenu du § 8 de la conception, écran plein, lien « D'où vient cette donnée ? » dans la fenêtre « ⚠ Avertissement », « Relire le détail des sources » dans le modal. **Deux mentions de licence restent à vérifier par appel réel** (conception § 8, « À valider ») : étape 0 ci-dessous. **Files** en plus, étape 0 seulement : `docs/sources/vigieau.md`, `docs/sources/hubeau-hydrometrie.md`, `docs/01-analyse.md` (§ 7).
 
-- [ ] **Étape 0 — vérifier par appel réel les deux licences, avant d'écrire un texte** (politesse de capture, ≤ 1 requête/s ; chaque URL consultée recopiée, réponse datée) :
+- [x] **Étape 0 — vérifier par appel réel les deux licences, avant d'écrire un texte** (politesse de capture, ≤ 1 requête/s ; chaque URL consultée recopiée, réponse datée) :
   - (a) **VigiEau** : licence de la donnée servie **par l'API** — aujourd'hui relevée pour le jeu data.gouv associé seulement (`ADR-004` l. 30), dépôt de code **sans** fichier de licence, et `info` du schéma **sans** champ `license` dans `swagger_2026-09-27.json`. Relire le schéma servi en direct, puis la mention de licence du site public `https://vigieau.gouv.fr/` et du jeu data.gouv (URL relevées, pas supposées).
   - (b) **Hub'Eau** : **version** de la Licence Ouverte Etalab couvrant les API — « version non précisée » aux CGU consultées (`01-analyse.md § 7`, `hubeau-hydrometrie.md` l. 5-6, *non vérifié*).
   - Attendu : **inconnu**. Consigner le constat dans `vigieau.md` et `hubeau-hydrometrie.md` (et `01-analyse.md § 7` si la version est trouvée). **Si l'une reste sans réponse : arrêt et question fermée** au commanditaire sur le libellé à écrire à l'écran (recommandation, alors : la licence **sans** numéro de version, et la mention « Non vérifié » en `P3`) — aucun numéro de version écrit de mémoire.
-- [ ] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit.
+- [x] **Étape 1** — tests rouges ; **Étape 2** — implémenter ; **Étape 3** — critère de fin, commit. *(2026-10-03 — étape 0 : les deux mentions restent **non établies** par appel réel — l'API VigiEau ne déclare aucune licence, Hub'Eau n'écrit aucune version ; le commanditaire a arbitré le libellé le jour même : « Le site VigiEau et son jeu de données publié sur data.gouv.fr sont sous Licence Ouverte 2.0. », Hub'Eau inchangé, sans numéro. Relevé : `docs/sources/vigieau.md`, `docs/sources/hubeau-hydrometrie.md`, `docs/01-analyse.md` § 7. L'adresse du site est un texte sélectionnable, pas un lien. Critère de fin : 1 814 tests verts. **Non relu par un second agent** à la date du commit ; rien n'est constaté à l'écran.)*
 
 ```bash
 git commit -m "feat(avertissement): ecran D ou vient cette donnee, et le lien du modal retabli" -m "BR-012 : le lien Relire le detail des sources revient avec son ecran (arbitrage du 2026-09-22, point 38 clos), reduit aux sources livrees (Q8-A) : aucune limite de percentile tant qu aucun percentile n est affiche. Un lien de navigation n est pas du texte acquitte : warningTextVersion ne change pas, et le verrou passe sans une ligne changee. Accessible ensuite depuis la fenetre Avertissement, sur la carte et chaque fiche."

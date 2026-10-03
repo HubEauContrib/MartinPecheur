@@ -32,12 +32,17 @@ void main() {
       expect(restrictionsPublicSiteUrl, isNot(contains('www.')));
     });
 
-    test('les trois noms de source sont distincts', () {
+    test('ignSourceName nomme le fond de carte IGN Géoplateforme (T2, S1)', () {
+      expect(ignSourceName, 'IGN Géoplateforme');
+    });
+
+    test('les quatre noms de source sont distincts', () {
       expect(<String>{
         hydrometrieSourceName,
         ondeSourceName,
         restrictionsSourceName,
-      }, hasLength(3));
+        ignSourceName,
+      }, hasLength(4));
     });
   });
 }

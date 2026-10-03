@@ -3,6 +3,8 @@
 // TILECOL et TILEROW produit une carte qui s'affiche, transposée : seul un
 // test qui distingue x et y à l'exécution attrape la panne.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart'
+    show ignSourceName;
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart'
     show ignMaxNativeZoom;
@@ -65,6 +67,12 @@ void main() {
     test("l'attribution porte IGN et la mention Licence Ouverte", () {
       expect(ignAttribution, contains('IGN'));
       expect(ignAttribution, contains('Licence Ouverte'));
+    });
+
+    test("l'attribution est inchangée au caractère près, et nomme la source "
+        'par ignSourceName — un concept, un mot (T2, S1)', () {
+      expect(ignAttribution, '© IGN Géoplateforme — Licence Ouverte');
+      expect(ignAttribution, contains(ignSourceName));
     });
 
     test("l'agent utilisateur nomme l'application appelante (C-12)", () {

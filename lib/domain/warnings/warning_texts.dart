@@ -28,10 +28,11 @@
 //   « Filtres · Avertissement initial » (« Des informations, / pas une
 //   autorisation », rejointes sur une seule ligne).
 //
-// ⚠️ Le lien « Relire le détail des sources » (`04-ui.md § 1`, wireframe) est
-// RETIRÉ du modal en T1 (arbitrage du commanditaire, 2026-09-22) : l'écran
-// « D'où vient cette donnée ? » portera son propre lien plus tard. Aucune
-// constante ne le représente plus ici.
+// ⚠️ Le lien « Relire le détail des sources » (`04-ui.md § 1`, wireframe) a
+// été RETIRÉ du modal en T1 (arbitrage du commanditaire, 2026-09-22), faute
+// d'écran à ouvrir. Il revient en T2 (`S1`) avec l'écran « D'où vient cette
+// donnée ? » : [initialWarningSourcesLinkLabel] et [dataSourcesTitle], plus
+// bas, HORS verrou de version.
 
 import 'package:martinpecheur/domain/formatting/display_date.dart';
 
@@ -81,6 +82,27 @@ const String initialWarningWriteFailedText =
 // lecteur disparaissent aussi. À leur place : un seul contrôle, sur la carte
 // ET en tête de chaque fiche — voir la section `W3c` plus bas.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Tâche `S1` (T2) — l'écran « D'où vient cette donnée ? » et son accès
+// (arbitrage du commanditaire Q-8 (a), 2026-09-29, conception T2 § 8). ⚠️
+// HORS VERROU DE VERSION : un lien de navigation n'est pas le texte que
+// l'usager acquitte. `warningTextVersion` ne change pas, et
+// `test/project/warning_texts_version_test.dart` passe sans une ligne
+// changée ; ces deux libellés ont leur propre test,
+// `test/domain/warnings/warning_texts_test.dart`. `initialWarningBody` n'en
+// contient aucun.
+// ---------------------------------------------------------------------------
+
+/// Libellé du lien du modal du premier lancement vers l'écran des sources
+/// (`04-ui.md § 1`, wireframe « Filtres · Avertissement initial »). L'actionner
+/// n'acquitte RIEN (`BR-012`) : l'usager revient au modal, case inchangée.
+const String initialWarningSourcesLinkLabel = 'Relire le détail des sources';
+
+/// Titre de l'écran des sources — et libellé du lien qui y mène depuis la
+/// fenêtre « ⚠ Avertissement » de la carte et des fiches (le libellé que
+/// cherche le Gherkin du complément `US-01`).
+const String dataSourcesTitle = "D'où vient cette donnée ?";
 
 /// Libellé de fermeture d'une fenêtre ou d'une feuille en LECTURE SEULE —
 /// jamais un acquittement (`BR-012` ne s'applique qu'au bouton du modal

@@ -16,6 +16,9 @@
 // `package:latlong2`. Le module qui construit le `TileLayer` (features/map)
 // lit ces constantes ; il ne les recopie jamais.
 
+import 'package:martinpecheur/domain/sources/source_names.dart'
+    show ignSourceName;
+
 /// Gabarit d'URL des tuiles IGN Géoplateforme, en WMTS KVP. `{z}`, `{x}` et
 /// `{y}` sont substitués par l'appelant (`flutter_map` ou un test).
 /// `TILECOL={x}` et `TILEROW={y}` : les intervertir transpose la carte sans
@@ -30,8 +33,10 @@ const String ignTileUrlTemplate =
 const int ignTileDimension = 256;
 
 /// Attribution exigée par la Licence Ouverte — une constante du module,
-/// jamais une chaîne recopiée dans un widget.
-const String ignAttribution = '© IGN Géoplateforme — Licence Ouverte';
+/// jamais une chaîne recopiée dans un widget. Le nom de la source est
+/// [ignSourceName] (`lib/domain/sources/source_names.dart`, T2 `S1`) : la
+/// carte et l'écran « D'où vient cette donnée ? » partagent un seul mot.
+const String ignAttribution = '© $ignSourceName — Licence Ouverte';
 
 /// Agent utilisateur nommant l'appelant auprès du serveur de tuiles (C-12).
 const String ignUserAgentPackageName = 'fr.martinpecheur.app';

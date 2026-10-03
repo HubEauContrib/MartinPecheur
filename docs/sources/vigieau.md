@@ -3,7 +3,8 @@
 Base URL `https://api.vigieau.beta.gouv.fr/api` · Swagger à la **racine**, pas sous `/api` :
 `https://api.vigieau.beta.gouv.fr/swagger-json` (`/api/swagger-json` et `/api/api-docs`
 répondent `404`) · `version` **`0.1`** (relevée le 2026-09-27, identique au 2026-07-30) · aucune
-authentification · Licence Ouverte 2.0. Rôle : niveau de gravité sécheresse et usages restreints
+authentification · licence : **Licence Ouverte 2.0** pour le site et le jeu data.gouv, **non établie**
+pour la donnée servie par l'API (`VG-12`, constaté le 2026-10-03). Rôle : niveau de gravité sécheresse et usages restreints
 par zone d'alerte, au point désigné. Décision liée : `ADR-004` (à amender, Q3 du cadrage T2).
 
 ⚠️ **API en version `0.1`, deux mois séparent cette capture de la précédente** (`C-16`) : ce qui
@@ -159,6 +160,22 @@ chaque zone (45 usages sur `SOU`, 27 sur `SUP`, 19 sur `AEP`, sans profil). `Q5`
 seul) omettrait donc silencieusement des zones actives d'un autre type, avec un niveau parfois
 plus sévère.
 
+### `VG-12` — quelle licence couvre la donnée ? — constaté le 2026-10-03 (16:38 à 16:42 UTC)
+
+**Pour le site et le jeu data.gouv : Licence Ouverte 2.0. Pour la donnée servie par l'API : non
+établie.** Tous les appels ci-dessous : HTTP 200.
+
+| Où | Constat |
+|---|---|
+| Schéma `https://api.vigieau.beta.gouv.fr/swagger-json` | `info` = titre, description, version `0.1`, `contact` vide ; **aucun** champ `license`, **aucun** `termsOfService` |
+| Jeu `https://www.data.gouv.fr/api/1/datasets/donnee-secheresse-vigieau/` | `"license": "lov2"` ; `https://www.data.gouv.fr/api/1/datasets/licenses/` : `lov2` = « Licence Ouverte / Open Licence version 2.0 » |
+| Site `https://vigieau.gouv.fr/` | le pied de page rendu dit que les contenus du site sont proposés sous « licence etalab-2.0 » (valeur par défaut du gabarit de pied de page ; le site l'affiche) ; la page des mentions légales ne dit rien de la licence |
+| Dépôt de code de l'API (`github.com/MTES-MCT/vigieau-api`) | le README ne dit rien de la licence ; sans fichier de licence au 2026-09-27 (`ADR-004`, l. 30), non revérifié aujourd'hui |
+
+Conséquence pour l'écran « D'où vient cette donnée ? » (`T2-S1`, arbitrage du commanditaire du
+2026-10-03) : il écrit « Le site VigiEau et son jeu de données publié sur data.gouv.fr sont sous
+Licence Ouverte 2.0. » — jamais que la donnée de l'API l'est.
+
 ## Écarts avec ce qui était écrit le 2026-07-30 (`ADR-004`, `01-analyse.md § 3.1`)
 
 | Écrit le 2026-07-30 | Constaté le 2026-09-27 |
@@ -172,6 +189,9 @@ plus sévère.
 
 ## Non vérifié
 
+- **La licence de la donnée servie par l'API** (`VG-12`, 2026-10-03) : ni le schéma, ni le README
+  du dépôt de code ne la disent ; seuls le site et le jeu data.gouv associé la portent
+  (Licence Ouverte 2.0).
 - **La fenêtre exacte de `X-RateLimit-Reset`** (valeur `1` vue une fois, unité non déterminée).
 - **`429` et `5xx`** : jamais provoqués, comportement du client à cet égard non observable
   aujourd'hui.

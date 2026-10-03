@@ -18,6 +18,7 @@
 import 'dart:async' show Completer;
 import 'dart:ui' show Size;
 
+import 'package:flutter/material.dart' show Checkbox;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -41,6 +42,9 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
+import 'package:martinpecheur/features/shared/data_sources_view.dart';
+import 'package:martinpecheur/features/shared/warning_link.dart'
+    show warningLinkKey, warningWindowRegionKey, warningWindowSourcesLinkKey;
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 import 'package:martinpecheur/features/warnings/view/initial_warning_view.dart';
 import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.dart';
@@ -299,6 +303,117 @@ void main() {
       expect(find.byType(MapView), findsNothing);
     },
   );
+
+  // `S1` (T2) : l'ecran « D'ou vient cette donnee ? » est une route poussee
+  // par `Navigator.of(context)` — depuis le modal du premier lancement, qui
+  // est le `home` de l'application, puis depuis la fenetre d'avertissement,
+  // une route de dialogue. Ces tests passent par la VRAIE composition de
+  // `MartinPecheurApp` : un `MaterialApp` de banc ne prouverait pas que le
+  // `Navigator` est trouve ici.
+  group("ecran des sources (S1) — composition reelle", () {
+    Future<_AcknowledgementRepositoryDouble> pumpUnacknowledged(
+      WidgetTester tester,
+    ) async {
+      final _AcknowledgementRepositoryDouble repository =
+          _AcknowledgementRepositoryDouble();
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: repository,
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      await tester.pumpWidget(_app(viewModel));
+      return repository;
+    }
+
+    testWidgets('modal : le lien ouvre l ecran, rien n est acquitte, la '
+        'carte n est toujours pas construite', (WidgetTester tester) async {
+      await pumpUnacknowledged(tester);
+
+      await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DataSourcesView), findsOneWidget);
+      expect(find.text(dataSourcesTitle), findsOneWidget);
+      // Ni visible NI cachee sous la route : la carte n'existe pas.
+      expect(find.byType(MapView, skipOffstage: false), findsNothing);
+    });
+
+    for (final bool checked in <bool>[false, true]) {
+      testWidgets('modal, case ${checked ? 'cochee' : 'decochee'} : le retour '
+          'rend le modal tel qu il etait laisse, toujours bloquant', (
+        WidgetTester tester,
+      ) async {
+        await pumpUnacknowledged(tester);
+        if (checked) {
+          await tester.tap(find.byKey(initialWarningCheckboxKey));
+          await tester.pump();
+        }
+
+        await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+        await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DataSourcesView), findsNothing);
+        expect(find.byType(InitialWarningView), findsOneWidget);
+        expect(find.byType(MapView, skipOffstage: false), findsNothing);
+        expect(
+          tester.widget<Checkbox>(find.byKey(initialWarningCheckboxKey)).value,
+          checked,
+        );
+      });
+    }
+
+    testWidgets('apres acquittement : la fenetre d avertissement de la carte '
+        'porte le lien, qui ouvre l ecran', (WidgetTester tester) async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      await tester.pumpWidget(_app(viewModel));
+
+      await tester.tap(find.byKey(warningLinkKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DataSourcesView), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(DataSourcesView), findsNothing);
+      expect(find.byKey(warningWindowRegionKey), findsOneWidget);
+    });
+
+    testWidgets('de bout en bout : relire les sources depuis le modal, '
+        'acquitter, puis les relire depuis la carte', (
+      WidgetTester tester,
+    ) async {
+      await pumpUnacknowledged(tester);
+
+      await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(initialWarningCheckboxKey));
+      await tester.pump();
+      await tester.tap(find.byKey(initialWarningButtonKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(MapView), findsOneWidget);
+
+      await tester.tap(find.byKey(warningLinkKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DataSourcesView), findsOneWidget);
+    });
+  });
 
   group('ecran des restrictions (E3)', () {
     Future<WarningsViewModel> acknowledged() async {

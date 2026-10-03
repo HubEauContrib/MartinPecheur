@@ -96,8 +96,8 @@
 
 ## 7. Licence et attribution
 
-Hub'Eau : **Licence Ouverte Etalab** (version non précisée sur la page des CGU — *non vérifié*), réutilisation commerciale autorisée, **citation de l'auteur obligatoire**.
-VigiEau / data.gouv : **Licence Ouverte 2.0**.
+Hub'Eau : **Licence Ouverte Etalab** — **version non écrite** sur les 8 pages et les 2 schémas consultés le 2026-10-03 (CGU `https://hubeau.eaufrance.fr/page/conditions-generales` : « licence ouverte Etalab » sans numéro ; schémas `https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs` et `https://hubeau.eaufrance.fr/api/v1/ecoulement/api-docs` sans licence, voir `docs/sources/hubeau-hydrometrie.md`), réutilisation commerciale autorisée, **citation de l'auteur obligatoire**. Aucun numéro de version n'est écrit à l'écran.
+VigiEau : le **site** (`https://vigieau.gouv.fr/`, pied de page : « licence etalab-2.0 ») et le **jeu data.gouv** `donnee-secheresse-vigieau` (`"license": "lov2"`, « Licence Ouverte / Open Licence version 2.0 ») sont sous **Licence Ouverte 2.0** ; la licence de la donnée servie **par l'API** n'est **pas établie** (schéma `https://api.vigieau.beta.gouv.fr/swagger-json` : aucun champ `license` ni `termsOfService` ; constaté le 2026-10-03, `docs/sources/vigieau.md`, `VG-12`). L'écran l'écrit pour le site et le jeu de données, pas pour l'API (arbitrage du commanditaire, 2026-10-03).
 → Écran « À propos » avec attribution explicite des deux sources, plus celle du fond de carte.
 
 ## 8. Fond de carte IGN — vérifié à l'exécution

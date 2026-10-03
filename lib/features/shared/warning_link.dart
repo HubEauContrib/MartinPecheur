@@ -26,6 +26,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/shared/data_sources_view.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
@@ -46,6 +47,9 @@ const Key warningWindowCloseButtonKey = Key('warning-window-close');
 
 /// Clé du texte propre à l'écran, quand [WarningLink.extraText] est fourni.
 const Key warningWindowExtraTextKey = Key('warning-window-extra-text');
+
+/// Clé du lien « D'où vient cette donnée ? » de la fenêtre (T2, `S1`).
+const Key warningWindowSourcesLinkKey = Key('warning-window-sources-link');
 
 /// Le contrôle d'avertissement (`W3c`) : une icône et [warningLinkLabel],
 /// cible tactile ≥ 44 pt (48 dp sur Android), atteignable et activable au clavier (Tab puis
@@ -144,7 +148,8 @@ class WarningLink extends StatelessWidget {
 ///
 /// [extraText], quand il est fourni, est rendu SOUS [initialWarningBody] :
 /// c'est la phrase propre à l'écran qui a ouvert cette fenêtre — jamais un
-/// texte nouveau, jamais recalculé ici.
+/// texte nouveau, jamais recalculé ici. Sous les deux, le lien
+/// [DataSourcesLink] vers l'écran « D'où vient cette donnée ? » (`S1`).
 class WarningWindow extends StatelessWidget {
   const WarningWindow({this.extraText, super.key});
 
@@ -175,7 +180,16 @@ class WarningWindow extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(extra, key: warningWindowExtraTextKey),
                 ],
-                const SizedBox(height: 24),
+                // Le lien vers l'écran des sources (T2, `S1`, Q-8 (a)) : le
+                // libellé que cherche le Gherkin du complément `US-01`,
+                // [dataSourcesTitle]. L'écran se pose PAR-DESSUS cette
+                // fenêtre, qui est retrouvée telle quelle au retour.
+                const SizedBox(height: 8),
+                const DataSourcesLink(
+                  key: warningWindowSourcesLinkKey,
+                  label: dataSourcesTitle,
+                ),
+                const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
                   child: _CloseAction(

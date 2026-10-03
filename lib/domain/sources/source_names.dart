@@ -24,6 +24,10 @@
 // interdit ici : `restrictionsPublicSiteUrl` est le site public, pas l'hôte
 // d'API.
 //
+// Les QUATRE noms sont lus par l'écran « D'où vient cette donnée ? »
+// (`lib/features/shared/data_sources_view.dart`, T2 `S1`) : ni lui ni les
+// autres lecteurs n'en recopient la chaîne.
+//
 // ⚠️ Ce fichier vit sous `lib/domain/` : aucun `package:flutter`, aucune
 // dépendance d'infrastructure (`test/architecture/domain_isolation_test.dart`).
 
@@ -47,3 +51,12 @@ const String restrictionsSourceName = 'VigiEau';
 /// `www.` : jamais vérifié autrement que par appel réel
 /// (`docs/sources/vigieau.md`).
 const String restrictionsPublicSiteUrl = 'https://vigieau.gouv.fr/';
+
+/// Nom affiché du fond de carte, rendu par l'écran « D'où vient cette
+/// donnée ? » (T2, `S1`). L'attribution de la carte
+/// (`ignAttribution`, `lib/features/map/view/ign_tile_template.dart`) le
+/// RÉUTILISE au lieu de le recopier : un concept, un mot (`glossary.md`).
+/// Il vit ici, et non dans la tranche carte, parce que `features/shared/`
+/// — où vit l'écran des sources — n'importe aucune tranche
+/// (`shared-sans-tranche`, `test/architecture/layers_test.dart`).
+const String ignSourceName = 'IGN Géoplateforme';
