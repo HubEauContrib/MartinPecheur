@@ -740,6 +740,70 @@ git commit -m "feat(avertissement): ecran D ou vient cette donnee, et le lien du
 
 ---
 
+## Lot 6 bis — Le choix « Restrictions » du sélecteur (ajouté le 2026-10-03)
+
+> Deux tâches **après `S1`, avant le lot 7**, nées de l'arbitrage du 2026-10-03 (`04-ui.md` § 1, amendement « canvas de design ergonomie échelles, restrictions et fiches », et § 3, ligne « Désignation d'un point (T2) » ; `project-state.md`, « Arbitrages récents »). `E5` porte le comportement, `E5b` refait les mesures. Hors périmètre, **non arbitré** : légende attachée sous le sélecteur, fiches hiérarchisées, panneau latéral.
+>
+> **Arbitrages du 2026-10-03.** (1) **Commanditaire, question fermée** : « Restrictions » est un **interrupteur indépendant** des deux puces d'échelle — la puce de l'échelle reste allumée, « Restrictions » s'allume en plus ; on quitte le mode en rappuyant dessus ; changer d'échelle ne le quitte pas. Écarté : un choix exclusif à trois (second signe « affichée » à inventer, échelle impossible à changer sans perdre le réticule). (2) **Boucle principale, à confirmer au constat d'écran** : au retour de l'écran des restrictions, le mode **reste actif** — il ne change que par sa puce (`BR-008` : le changement est explicite) ; aucun code n'est nécessaire. (3) **Boucle principale** : en mode, à 360 × 640 et 200 %, ce que le bouton recouvre est **remesuré et verrouillé en CONSTAT, non corrigé**, avec une règle d'arrêt (`E5b`).
+
+### Task E5 : Le choix « Restrictions » remplace le bouton permanent
+
+**Agent :** mécanique, relu par un second agent.
+**Files:** modifiés `lib/features/map/view_model/map_view_model.dart`, `lib/features/map/view/map_scale_chips.dart`, `lib/features/map/view/map_view.dart` (`buildMapOverlays`, `_MapViewState.build`, doc de `MapView.onPointDesignated`), en-têtes de `lib/features/map/view/designate_center_button.dart` et `map_center_reticle.dart` (commentaires seulement) · tests modifiés `test/features/map/view_model/map_view_model_test.dart`, `test/features/map/view/map_scale_chips_test.dart`, `test/features/map/view/map_designation_test.dart`, `test/features/map/view/map_view_test.dart` (groupe « taille minimale 800 × 740 »), `test/main_test.dart` · docs `docs/04-ui.md` (§ 1, amendement « canvas de design » : 🔄 → ✅ codé `E5` ; § 3, ligne « Désignation d'un point »), `docs/project-state.md` (ligne du 2026-10-03) · **non modifiés** : `lib/main.dart`, `lib/features/map/view_model/map_scale.dart` et son test, `test/features/map/view/map_overlays_phone_test.dart` (tâche `E5b`), `test/features/map/view/map_keyboard_test.dart`
+
+> **Pourquoi pas une troisième valeur de `MapScaleKind`** : ce choix est « un mode de désignation, pas une troisième échelle de marqueurs » ; la dernière échelle choisie reste affichée, marqueurs et légende (`BR-008`, aucun écart). `map_scale_test.dart` verrouille déjà `[ecoulement, debit]`. **Pourquoi `main.dart` ne bouge pas** : la carte reçoit toujours le même rappel `onPointDesignated` ; le mode est un état de la tranche carte.
+
+**Signatures**
+- `MapViewModel` : `bool get designationMode` (faux au départ) ; `void toggleDesignationMode()` — inverse, notifie **une** fois. Aucun import ajouté.
+- `map_scale_chips.dart` : `const Key mapDesignationChipKey = Key('map-designation-chip');` · `const String designationChipLabel = 'Restrictions';` · `MapScaleChips({required scale, required onSelect, bool designationMode = false, VoidCallback? onToggleDesignationMode, super.key})` — troisième puce **absente** quand `onToggleDesignationMode` est nul ; même pilule, même cible (`minimumTapTarget`), même `KeyboardFocusRing` que les deux autres ; `Semantics(key: mapDesignationChipKey, button: true, toggled: designationMode, label: designationChipLabel, excludeSemantics: true, onTap:)`.
+- `buildMapOverlays({…, VoidCallback? onDesignateCenter, VoidCallback? onToggleDesignationMode, …})` : **un** paramètre de plus. `onDesignateCenter` non nul ⇔ le mode est actif : bouton, indice et réticule suivent, **code de rendu inchangé** ; la puce reçoit `designationMode: onDesignateCenter != null`.
+- `_MapViewState.build` : `onDesignateCenter: widget.onPointDesignated != null && widget.viewModel.designationMode ? _handleDesignateCenter : null` ; `onToggleDesignationMode: widget.onPointDesignated == null ? null : widget.viewModel.toggleDesignationMode` (référence de méthode).
+
+**Invariants :** `toggleDesignationMode` ne modifie pas `scale`, n'appelle **aucun** dépôt, ne touche ni `stations`, ni `ondeObservations`, ni `clusters` ; `selectScale` ne modifie pas `designationMode` ; `MapOptions` reste la même instance (références de méthode, `NFR-01`) ; `onLongPress` et `onSecondaryTap` ne lisent pas le mode ; aucune constante d'ordre de tabulation ajoutée ni changée ; `view_model/` n'importe aucun widget.
+
+**Cas de test**
+- *ViewModel* — `designationMode` est faux au départ ; `toggleDesignationMode()` le passe à vrai puis à faux, **une** notification par appel ; `scale` inchangée sur les deux échelles ; dépôts à compteur : **aucun** appel de plus ; `selectScale(debit)` en mode laisse `designationMode` vrai et bascule l'échelle comme avant.
+- *Puces* — sans rappel : exactement deux puces (tests existants inchangés) ; avec rappel : troisième puce, libellé exact « Restrictions », après les deux autres ; `toggled` suit `designationMode`, **jamais** `selected` ; la puce de l'échelle active reste `selected` **dans les deux modes** ; tap, Entrée, Espace et action sémantique appellent le rappel une fois ; ≥ `minimumTapTarget` dans les deux dimensions ; à 200 % le libellé n'est pas tronqué.
+- *Hors mode, désignation câblée* (`map_designation_test.dart`) — `mapDesignateCenterButtonKey`, `mapDesignateCenterHintKey`, `mapCenterReticleKey` : `findsNothing` ; la puce est là ; **appui long et clic droit désignent quand même**, une fois, au bon `GeoPoint`, et posent l'épingle ; Tab passe de « recentrer » à la carte sans arrêt intermédiaire.
+- *En mode* — un tap sur la puce fait apparaître bouton, indice et réticule (au centre exact, inerte) ; marqueurs et légende de l'échelle en cours **toujours rendus** (`MapLegend` présent, même `scale` ; un marqueur de station au zoom 9 reste tapable et ouvre sa fiche) ; un second tap les retire ; changer d'échelle en mode garde bouton et réticule ; Tab : Écoulement → Débit → Restrictions → +, −, recentrer → bouton → carte → « ⚠ Avertissement ». Les groupes existants « bouton », « indice et réticule », « gestes hors du bouton », « épingle… puis le bouton » passent **en mode** (`pumpMap(…, enMode: true)` par `viewModel.toggleDesignationMode()`), assertions inchangées.
+- *Rappel nul* — ni puce, ni bouton, ni indice, ni réticule ; gestes sans effet, sans erreur (test existant étendu à la puce).
+- *800 × 740, Windows fixé* (`map_view_test.dart`) — la matrice `avecDesignation` devient hors mode / en mode, **puce présente dans les deux** : rien ne se recouvre, rien ne déborde, pour les deux échelles, avec et sans fiche. ⚠️ En police de test la troisième puce passe à la ligne (516 px disponibles, calculé, non mesuré) : **si une assertion existante rougit, arrêt et question** — aucun seuil abaissé.
+- *Racine de composition* (`test/main_test.dart`) — au lancement : puce présente, ni bouton ni réticule ; l'assistant `designate` tape la puce puis le bouton ; « bouton et indice centrés » après la puce ; **au retour de l'écran des restrictions le mode est toujours actif** (bouton présent) et l'échelle est inchangée ; une désignation par appui long hors mode ouvre l'écran et laisse le mode éteint au retour.
+- `flutter test test/architecture` vert (`view-model-sans-widget`, `feature-vers-feature`) ; `map_overlays_phone_test.dart` vert **sans modification**.
+
+- [ ] **Étape 1** — tests rouges, ViewModel d'abord (`flutter test test/features/map/view_model` → rouge, recopier), puis puces, puis vue. **Étape 2** — implémenter dans l'ordre `view_model/` → `view/`. **Étape 3** — amender `04-ui.md` et `project-state.md` (✅ codé `E5`, « mesures refaites en `E5b` »), critère de fin (recopier le nombre de tests, il croît), commit par liste de chemins.
+
+```bash
+git commit -m "feat(map): choix Restrictions dans le selecteur, bouton, indice et reticule seulement dans ce mode (E5 de T2)" -m "Arbitrage du commanditaire du 2026-10-03 : le bouton permanent Restrictions au centre de la carte est remplace par un troisieme choix du selecteur, interrupteur independant des deux echelles. C est un mode de designation, pas une echelle : MapScaleKind garde ses deux valeurs, la derniere echelle choisie reste affichee avec ses marqueurs et sa legende (BR-008, aucun ecart). L etat vit dans MapViewModel (designationMode, toggleDesignationMode), la vue ne fait que le traduire en rappel (ADR-014). Appui long et clic droit designent toujours, hors mode comme en mode. Sans designation cablee, ni puce ni bouton. main.dart inchange. Les mesures de recouvrement aux largeurs de telephone sont refaites en E5b."
+```
+
+### Task E5b : Refaire les mesures des surcouches aux largeurs de téléphone
+
+**Agent :** raisonnement (des faits mesurés à réécrire, aucun seuil à inventer), relu par un second agent.
+**Files:** modifiés `test/features/map/view/map_overlays_phone_test.dart`, `docs/04-ui.md` (§ 1, paragraphe « Mesuré en test » de l'amendement « surcouches du haut », et note « À refaire au moment de coder »), `docs/project-state.md` (ligne du 2026-10-03 sur les surcouches) · **aucun fichier sous `lib/`**
+
+> `pumpOverlays` gagne `bool enMode = false` : la puce est **toujours** fournie (`onToggleDesignationMode: () {}`), le bouton seulement en mode. Chaque cas existant est rejoué **hors mode** ; les cas qui nomment le bouton sont rejoués **en mode**. Un CONSTAT reste un fait mesuré en police de test, pas une promesse : on recopie ce que la mesure donne, on ne corrige rien dans `lib/`.
+
+**Cas de test**
+- **Invariant nouveau (`BR-012`)** — hors mode, à 360 × 640 et 390 × 844, à 100 % et 200 %, pour les deux échelles, avec et sans avis : le **centre** du contrôle « ⚠ Avertissement » et celui des **trois** puces sont atteignables. Ce n'est **pas** un CONSTAT : s'il rougit, **arrêt et question**.
+- « aucune erreur de rendu, avertissement et puces entiers dans l'écran » : la boucle couvre la puce « Restrictions » (clé `mapDesignationChipKey`), hors mode et en mode.
+- « ordre de la colonne » : avertissement, puces (trois), avis, légende — inchangé.
+- « Tab » : hors mode, puces (3) → contrôles de zoom → contrôle d'avertissement ; en mode, le bouton s'intercale après les contrôles.
+- « AVEC un avis : l'avis est entier, libre de toute surcouche du bas, action atteignable » et « SANS avis : la légende écoulement entière et libre » : rejoués hors mode **et** en mode avec la troisième puce ; **s'ils rougissent, arrêt et question** (ce sont des invariants, pas des CONSTAT ; l'écart à `BR-008` accepté le 2026-10-03 ne couvre que « repoussée sous un avis »).
+- **CONSTAT remesurés** (intitulés et valeurs réécrits d'après la mesure, jamais d'après le calcul) : légende « débit » sans avis ; légende repoussée sous l'avis ; 200 % au repos et après défilement ; avis à 200 % ; fiche de 320 px. Hors mode, `DesignateCenterControl` sort des ensembles attendus ; en mode, il y reste.
+- **CONSTAT en mode (arbitrage 3)** — à 360 × 640 et 200 % : ce que le bouton recouvre parmi le contrôle d'avertissement et les trois puces. ⚠️ **Si aucun point de la puce « Restrictions » n'est atteignable au toucher** (mode sans sortie tactile) : **arrêt et question**.
+- CONSTAT « disposition LARGE à 600 × 360 » : remesuré avec trois puces.
+
+- [ ] **Étape 1** — ajouter `enMode`, lancer `flutter test test/features/map/view/map_overlays_phone_test.dart`, **recopier chaque écart** (attendu / mesuré). **Étape 2** — réécrire intitulés, valeurs et ensembles d'après la mesure ; écrire l'invariant `BR-012`. **Étape 3** — réécrire le paragraphe « Mesuré en test » de `04-ui.md` § 1 (hors mode, puis en mode ; rappeler « police de test, constat sur appareil dû »), retirer « Rien n'a été remesuré », aligner `project-state.md` ; critère de fin, commit.
+
+```bash
+git commit -m "test(map): mesures des surcouches aux largeurs de telephone refaites avec le choix Restrictions, hors mode et en mode (E5b de T2)" -m "Suite de E5. Hors mode le bouton de designation n existe plus : le centre du controle Avertissement et des trois puces est atteignable a 360 x 640 et 390 x 844, a 100 et 200 pour cent, verrouille en invariant (BR-012) et non plus en CONSTAT. La troisieme puce allonge la colonne : les CONSTAT sont remesures, valeurs recopiees de la mesure. En mode, le recouvrement par le bouton a 200 pour cent reste un CONSTAT, non corrige (arbitrage du 2026-10-03). Police de test : mesures de test, pas constats d ecran. 04-ui.md paragraphe 1 et project-state.md alignes. Aucun fichier sous lib."
+```
+
+> **Conséquences pour la suite.** `X3` aligne aussi la conception `2026-09-27-ecran-restrictions-t2-design.md` § 2 et `UC-002` (entrée par le choix « Restrictions », puis le bouton) ; `X4` cite le choix dans « Ajouté » de `0.3.0`. **Constats d'écran dus par le commanditaire après `E5b`** (ils remplacent le point (1) de l'étape 4 de `E4`, et s'ajoutent au constat (3) de `P1` et de `P2`) : (1) au lancement, trois puces, ni bouton ni réticule ; un appui sur « Restrictions » fait apparaître bouton, indice et réticule, marqueurs et légende de l'échelle en cours toujours là ; les trois puces tiennent-elles sur une ligne à 800 × 740 en police réelle ? (2) deux puces allumées se lisent-elles sans ambiguïté ? (3) Narrateur : « Restrictions, bouton, activé / désactivé » ; (4) clic droit et appui long hors mode ouvrent toujours l'écran ; (5) au retour, mode et échelle tels que laissés ; (6) Android : mêmes points à largeur de téléphone, et à 200 % le contrôle « ⚠ Avertissement » atteignable hors mode, puis ce que le bouton recouvre en mode.
+
+---
+
 ## Lot 7 — Documentation
 
 ### Task X1 : Les critères d'acceptation en Gherkin
@@ -860,10 +924,11 @@ Chacune est une **question fermée** ; la recommandation est appliquée dans le 
 | **4 bis — Amendements de `C1`** | `V1b`, `K4` (2) | état `RestrictionsNonObtenues` (Q-5d) ; cibles de 48 dp (décision 1) |
 | **5 — Vues** | `E1` → `E4` (4) | désignation, écran **plein**, câblage **par une route**, **encart renforcé** et constat Windows |
 | **6 — Sources** | `S1` (1) | licences vérifiées par appel réel, « D'où vient cette donnée ? », lien du modal |
+| **6 bis — Choix « Restrictions »** | `E5`, `E5b` (2) | interrupteur du sélecteur à la place du bouton permanent ; mesures téléphone refaites (ajouté le 2026-10-03) |
 | **7 — Documentation** | `X1` → `X4` (4) | Gherkin, traçabilité, alignement, `0.3.0` ouverte |
 | **8 — Porte** | `P1` → `P3` (3) | Windows release, Android émulateur, `0.3.0` close |
 
-~~**25 tâches.** `T2-K4` (cibles de 48 dp) s'ajoute si la décision 1 retient (a) ou (b).~~ → **27 tâches** (2026-09-29) : `T2-K4` (décision 1, arbitrée (a) le 2026-09-27) et `T2-V1b` (Q-5d de `C1`) s'ajoutent aux 25.
+~~**25 tâches.** `T2-K4` (cibles de 48 dp) s'ajoute si la décision 1 retient (a) ou (b).~~ → ~~**27 tâches** (2026-09-29)~~ : `T2-K4` (décision 1, arbitrée (a) le 2026-09-27) et `T2-V1b` (Q-5d de `C1`) s'ajoutent aux 25. → **29 tâches** (2026-10-03) : `E5` et `E5b` (lot 6 bis, arbitrage du 2026-10-03) s'ajoutent aux 27.
 
 ## Ordre d'exécution
 
@@ -887,7 +952,9 @@ graph LR
     E2 --> E3["E3<br/>cablage"]
     E3 --> E4["E4<br/>encart renforce<br/>constat Windows"]
     E4 --> S1["S1<br/>sources + lien du modal"]
-    S1 --> X["Lot 7 — X1 → X4"]
+    S1 --> E5["E5<br/>choix Restrictions"]
+    E5 --> E5b["E5b<br/>mesures telephone"]
+    E5b --> X["Lot 7 — X1 → X4"]
     X --> P1["P1<br/>Windows release"]
     A1 --> P2
     X --> P2["P2<br/>Android emulateur"]
