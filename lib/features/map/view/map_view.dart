@@ -1175,6 +1175,14 @@ const double _designationComfortWidth = 420;
 ///
 /// La marge basse dégage l'attribution IGN, dont la hauteur suit la police
 /// (11 pt mis à l'échelle) et la largeur : elle est mesurée, pas estimée.
+///
+/// La bande ne capte les gestes que SUR le bouton et son indice
+/// (`HitTestBehavior.deferToChild`, et non l'`opaque` d'un `ListView`) : un
+/// tap, un appui long, un clic droit, un glisser ou un cran de molette posés
+/// dans la bande, à côté de la pilule, atteignent la carte dessous ; la bande
+/// ne recouvre plus non plus ce qui est sous elle, l'action d'un avis par
+/// exemple. Elle défile toujours quand son contenu dépasse la hauteur
+/// restante, mais en glissant depuis le bouton ou l'indice.
 class _DesignationPlacement extends StatelessWidget {
   const _DesignationPlacement({required this.child});
 
@@ -1219,11 +1227,16 @@ class _DesignationPlacement extends StatelessWidget {
           // 200 % de police sur un petit écran, libellé et indice peuvent
           // dépasser la hauteur restante — ils défilent alors au lieu de
           // déborder hors écran, comme la colonne de la légende plus haut
-          // dans ce fichier. Sans dépassement, rien ne défile et rien
-          // n'intercepte la molette ni le glisser de la carte.
+          // dans ce fichier.
+          //
+          // `deferToChild`, et non l'`opaque` par défaut d'un `Scrollable` :
+          // opaque, la bande entière — plus large que la pilule — captait les
+          // gestes de la carte, même sans rien à défiler. Ici elle ne reçoit
+          // un geste que là où le bouton ou l'indice est touché.
           child: ListView(
             shrinkWrap: true,
             padding: EdgeInsets.zero,
+            hitTestBehavior: HitTestBehavior.deferToChild,
             children: <Widget>[Center(child: child)],
           ),
         );

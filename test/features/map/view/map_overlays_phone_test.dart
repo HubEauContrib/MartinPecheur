@@ -64,6 +64,9 @@
 //   il ne recouvre ni le contrôle d'avertissement ni les puces, et la puce
 //   « Restrictions » est atteignable sur toute sa surface (mesuré) — mais plus
 //   sur une fenêtre plus courte ;
+// - EN MODE, la bande du bouton ne capte les gestes que sur la pilule et son
+//   indice (invariant : elle était opaque sur toute sa boîte, défaut relevé
+//   pendant `E5b`, corrigé le 2026-10-04) ;
 // - EN MODE, l'avis recouvre le réticule de désignation dans la plupart des
 //   cas de carte vide ;
 // - une fiche de 320 px recouvre une partie des surcouches du haut ;
@@ -237,6 +240,13 @@ Map<String, Finder> _lesTroisPuces() => <String, Finder>{
   'puce ${MapScaleKind.debit.name}': _puceEchelle(MapScaleKind.debit),
   'puce Restrictions': _puceRestrictions(),
 };
+
+/// La bande du bouton de désignation : le `ListView` de `_DesignationPlacement`,
+/// seul `ListView` au-dessus du bouton. EN MODE seulement.
+Finder _bande() => find.ancestor(
+  of: find.byType(DesignateCenterControl),
+  matching: find.byType(ListView),
+);
 
 /// Le nombre de rangées que prennent les trois puces : leurs hauts distincts.
 int _rangeesDePuces(WidgetTester tester) {
@@ -1228,16 +1238,18 @@ void main() {
   //   lignes, et recouvrait le bas de l'action de 54 px : un artefact de la
   //   police, mesure du 2026-10-04 ; `map_view_test.dart`, qui mesure en
   //   police de test, ne l'a pas encore repris.)
-  // - À 600 × 360, 100 %, « écoulement », EN MODE, la BANDE du bouton de
-  //   désignation recouvre l'action de l'avis, et il n'y a rien à défiler :
-  //   l'action n'est pas atteignable. Hors mode elle l'est. La bande (un
-  //   `ListView` opaque : 64 à 536 de large) déborde la pilule et son indice
-  //   (134,5 à 465,5) : c'est elle qui reçoit le geste au centre de l'action
-  //   (89,8), à gauche de la pilule.
+  // - À 600 × 360, 100 %, « écoulement », EN MODE : la pilule du bouton
+  //   (134,5 à 465,5 de large) recouvre le bord droit de l'action de l'avis
+  //   (x de 134,5 à 159,6, y de 236 à 264) mais pas son centre (89,8, à
+  //   44,7 px de la pilule) : l'action est atteignable, comme hors mode. Avant
+  //   la correction de la bande (2026-10-04), la bande — un `ListView` opaque
+  //   de 64 à 536 de large, plus large que la pilule et son indice — recevait
+  //   le geste au centre de l'action, qui n'était pas atteignable : c'est la
+  //   seule entrée de ce fichier que la correction a changée.
   for (final (Size, double, MapScaleKind, bool, bool, double) cas
       in <(Size, double, MapScaleKind, bool, bool, double)>[
         (const Size(600, 360), 1, MapScaleKind.ecoulement, false, true, 0),
-        (const Size(600, 360), 1, MapScaleKind.ecoulement, true, false, 0),
+        (const Size(600, 360), 1, MapScaleKind.ecoulement, true, true, 0),
         (const Size(600, 360), 1, MapScaleKind.debit, false, true, 0),
         (const Size(600, 360), 1, MapScaleKind.debit, true, true, 0),
         (const Size(600, 360), 2, MapScaleKind.ecoulement, false, false, 23),
@@ -1675,6 +1687,135 @@ void main() {
       }
     }
   }
+
+  // ---------------------------------------------------------------------
+  // EN MODE : la bande du bouton ne capte les gestes que sur ses enfants
+  // ---------------------------------------------------------------------
+  // La bande (le `ListView` de `_DesignationPlacement`) est plus large que la
+  // pilule et son indice : à 800 × 740, 100 %, elle va de 64 à 736 quand la
+  // pilule va de 234,5 à 565,5. Opaque (le défaut d'un `Scrollable`), elle
+  // captait les gestes de la carte sur toute cette largeur. Défaut relevé
+  // pendant `E5b`, corrigé le 2026-10-04 par `deferToChild`.
+  for (final Size taille in <Size>[
+    const Size(800, 740),
+    const Size(600, 360),
+    const Size(800, 700),
+  ]) {
+    testWidgets(
+      'EN MODE, à ${_nom(taille, 1, MapScaleKind.ecoulement)} : un tap, un '
+      'glisser et un cran de molette posés dans la bande, hors de la pilule et '
+      'de l’indice, atteignent la carte',
+      (WidgetTester tester) async {
+        int taps = 0;
+        int glissers = 0;
+        int crans = 0;
+        await _pumpOverlays(
+          tester,
+          taille,
+          scale: MapScaleKind.ecoulement,
+          enMode: true,
+          avecAvis: false,
+          onCarteTap: () => taps++,
+          onCarteGlisser: () => glissers++,
+          onCarteMolette: () => crans++,
+        );
+
+        // Un point calculé depuis les rectangles mesurés : sur la rangée de la
+        // pilule, à mi-chemin entre le bord gauche de la bande et celui de la
+        // pilule. Les garde-fous disent s'il retombait hors de la bande ou
+        // dans la pilule.
+        final Rect bande = _rectOf(tester, _bande());
+        final Rect pilule = _rectOf(
+          tester,
+          find.byKey(mapDesignateCenterButtonKey),
+        );
+        final Offset p = Offset(
+          (bande.left + pilule.left) / 2,
+          pilule.center.dy,
+        );
+        expect(
+          bande.contains(p) && p.dx > bande.left,
+          isTrue,
+          reason: 'le point $p doit être DANS la bande $bande',
+        );
+        expect(pilule.contains(p), isFalse, reason: 'pilule=$pilule');
+
+        await tester.tapAt(p);
+        await tester.pump();
+        expect(taps, 1, reason: 'tap en $p, bande=$bande, pilule=$pilule');
+
+        await tester.dragFrom(p, const Offset(0, -30));
+        await tester.pump();
+        expect(glissers, greaterThan(0), reason: 'glisser en $p');
+
+        final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(souris.hover(p));
+        await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
+        await tester.pump();
+        expect(crans, 1, reason: 'molette en $p');
+      },
+    );
+  }
+
+  // Le bouton lui-même marche toujours : quand le contenu de la bande dépasse
+  // la hauteur restante — 360 × 300, 200 % : la bande (206 px) ne contient pas
+  // le bouton et son indice (259 px) —, elle défile, et on la fait défiler en
+  // glissant DEPUIS LA PILULE (`deferToChild` : la pilule est un enfant). Le
+  // glisser ne va pas à la carte. Un seul cas, volontairement : la bande ne
+  // déborde qu'aux largeurs de téléphone, où la pilule la remplit toute ; à
+  // 800 de large le contenu (121 px à 200 %) tient dans toute fenêtre où les
+  // contrôles du bas, eux, tiennent. Tap, Entrée et Espace sur la pilule sont
+  // verrouillés dans `map_designation_test.dart`.
+  testWidgets(
+    'EN MODE, à ${_nom(const Size(360, 300), 2, MapScaleKind.ecoulement)} : la '
+    'bande déborde et défile quand on glisse depuis la pilule, sans que le '
+    'glisser atteigne la carte',
+    (WidgetTester tester) async {
+      int glissers = 0;
+      await _pumpOverlays(
+        tester,
+        const Size(360, 300),
+        textScale: 2,
+        scale: MapScaleKind.ecoulement,
+        enMode: true,
+        avecAvis: false,
+        onCarteGlisser: () => glissers++,
+      );
+
+      final Rect bande = _rectOf(tester, _bande());
+      final Finder controle = find.byType(DesignateCenterControl);
+      final Rect avant = _rectOf(tester, controle);
+      expect(
+        avant.height,
+        greaterThan(bande.height),
+        reason: 'la bande doit déborder : bande=$bande, contenu=$avant',
+      );
+      final Rect pilule = _rectOf(
+        tester,
+        find.byKey(mapDesignateCenterButtonKey),
+      );
+      expect(
+        bande.contains(pilule.center),
+        isTrue,
+        reason: 'le centre de la pilule doit être dans la bande',
+      );
+
+      await tester.dragFrom(pilule.center, const Offset(0, -30));
+      await tester.pumpAndSettle();
+
+      final Rect apres = _rectOf(tester, controle);
+      expect(
+        apres.top,
+        lessThan(avant.top),
+        reason: 'la bande n’a pas défilé : avant=$avant, après=$apres',
+      );
+      expect(
+        glissers,
+        0,
+        reason: 'le glisser sur la pilule a atteint la carte',
+      );
+    },
+  );
 
   // `(taille, part de la puce « Restrictions » atteignable, son centre est
   // atteignable)`, EN MODE, à 200 %. Plus la fenêtre est courte, plus le bouton

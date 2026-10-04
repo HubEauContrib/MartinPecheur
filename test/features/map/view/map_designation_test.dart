@@ -132,6 +132,45 @@ void _expectClose(GeoPoint actual, GeoPoint expected) {
   expect(actual.longitude, closeTo(expected.longitude, 1e-6));
 }
 
+/// La bande du bouton : la boîte du `ListView` de `_DesignationPlacement`,
+/// seul `ListView` au-dessus du bouton. C'est elle, et non la pilule, qui
+/// capte les gestes quand son `hitTestBehavior` est opaque.
+Rect _bande(WidgetTester tester) => tester.getRect(
+  find.ancestor(
+    of: find.byKey(mapDesignateCenterButtonKey),
+    matching: find.byType(ListView),
+  ),
+);
+
+/// Un point DANS la bande du bouton, sur la rangée de la pilule, à mi-chemin
+/// entre le bord gauche de la bande et celui de la pilule — donc hors de la
+/// pilule et de l'indice. Calculé depuis les rectangles mesurés, jamais par
+/// une constante : il ne peut pas retomber hors de la bande, où la carte reçoit
+/// les gestes de toute façon et où le test ne prouverait plus rien. Les
+/// garde-fous le disent.
+Offset _pointDansLaBande(WidgetTester tester) {
+  final Rect bande = _bande(tester);
+  final Rect bouton = tester.getRect(find.byKey(mapDesignateCenterButtonKey));
+  final Rect indice = tester.getRect(find.byKey(mapDesignateCenterHintKey));
+  final Offset p = Offset((bande.left + bouton.left) / 2, bouton.center.dy);
+  expect(
+    bande.contains(p) && p.dx > bande.left,
+    isTrue,
+    reason: 'le point $p doit être DANS la bande $bande, pas sur son bord',
+  );
+  expect(
+    bouton.contains(p),
+    isFalse,
+    reason: 'le point $p est dans la pilule $bouton',
+  );
+  expect(
+    indice.contains(p),
+    isFalse,
+    reason: 'le point $p est dans l’indice $indice',
+  );
+  return p;
+}
+
 bool _focusedWithin(Finder ancestor) {
   final BuildContext? focused = FocusManager.instance.primaryFocus?.context;
   if (focused == null) {
@@ -769,17 +808,12 @@ void main() {
 
   group('bande du bouton : la carte garde ses gestes', () {
     // Un point DANS la bande horizontale du bouton, mais hors du bouton et de
-    // son indice : le conteneur du bouton ne doit rien capter là.
-    Future<Offset> dansLaBande(WidgetTester tester) async {
-      final Rect bouton = tester.getRect(
-        find.byKey(mapDesignateCenterButtonKey),
-      );
-      final Rect indice = tester.getRect(find.byKey(mapDesignateCenterHintKey));
-      final Offset p = Offset(62, bouton.center.dy);
-      expect(bouton.contains(p), isFalse);
-      expect(indice.contains(p), isFalse);
-      return p;
-    }
+    // son indice : le conteneur du bouton ne doit rien capter là. Le point est
+    // calculé depuis la bande mesurée (`_pointDansLaBande`), pas par une
+    // constante : à x = 62 il tombait à 2 px HORS de la bande, et le défaut
+    // — une bande opaque — passait inaperçu.
+    Future<Offset> dansLaBande(WidgetTester tester) async =>
+        _pointDansLaBande(tester);
 
     testWidgets('appui long', (WidgetTester tester) async {
       final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
@@ -815,14 +849,11 @@ void main() {
   });
 
   group('bande du bouton : molette', () {
-    testWidgets('la molette zoome la carte au-dessus de la bande', (
+    testWidgets('la molette zoome la carte dans la bande, hors du bouton', (
       WidgetTester tester,
     ) async {
       await pumpMap(tester, enMode: true);
-      final Rect bouton = tester.getRect(
-        find.byKey(mapDesignateCenterButtonKey),
-      );
-      final Offset p = Offset(62, bouton.center.dy);
+      final Offset p = _pointDansLaBande(tester);
       final double avant = _camera(tester).zoom;
 
       final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
@@ -835,18 +866,26 @@ void main() {
   });
 
   group('fiches fermées fournies (main.dart) : gestes hors du bouton', () {
-    // (a) dans la bande, hors bouton et indice ; (b) à gauche AU-DESSUS de la
-    // bande. Verrous : la carte doit recevoir les gestes dans les deux cas.
-    for (final (String, Offset Function(Rect)) zone
-        in <(String, Offset Function(Rect))>[
-          ('dans la bande', (Rect b) => Offset(62, b.center.dy)),
-          ('au-dessus de la bande', (Rect b) => Offset(62, b.top - 24)),
+    // (a) dans la bande, hors bouton et indice — le point est calculé depuis
+    // la bande mesurée, il ne peut pas retomber hors d'elle ; (b) à gauche
+    // AU-DESSUS de la bande. Verrous : la carte doit recevoir les gestes dans
+    // les deux cas.
+    for (final (String, Offset Function(WidgetTester)) zone
+        in <(String, Offset Function(WidgetTester))>[
+          ('dans la bande', _pointDansLaBande),
+          (
+            'au-dessus de la bande',
+            (WidgetTester t) => Offset(
+              62,
+              t.getRect(find.byKey(mapDesignateCenterButtonKey)).top - 24,
+            ),
+          ),
         ]) {
       Future<Offset> point(WidgetTester tester) async {
         final Rect bouton = tester.getRect(
           find.byKey(mapDesignateCenterButtonKey),
         );
-        final Offset p = zone.$2(bouton);
+        final Offset p = zone.$2(tester);
         expect(bouton.contains(p), isFalse);
         expect(
           tester.getRect(find.byKey(mapDesignateCenterHintKey)).contains(p),
