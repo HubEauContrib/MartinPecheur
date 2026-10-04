@@ -843,7 +843,7 @@ git commit -m "test(map): mesures des surcouches aux largeurs de telephone refai
 
 - `## [0.3.0] — à publier` : « Ajouté » (restrictions au point désigné, encart renforcé, écran des sources, lien du modal), « Non vérifié » **non vide**.
 - Le test : `pubspec.yaml porte version: 0.3.0+3` ; section `0.3.0` unique, avec « Non vérifié » ; les assertions de `0.2.0` restent (version close).
-- [ ] Rouge, puis écrire, puis critère de fin, commit (`docs: ouvrir la version 0.3.0`).
+- [x] Rouge, puis écrire, puis critère de fin, commit (`docs: ouvrir la version 0.3.0`). *(2026-10-04 — `## [0.3.0] — à publier` dans `CHANGELOG.md`, `pubspec.yaml` en `0.3.0+3`, **2 132 tests verts**. « Modifié » et « Corrigé » ne gardent que ce qui change par rapport à `0.2.0` publiée. « Non vérifié » : aucun écran de T2 constaté hormis la molette de l'écran des restrictions, aucune construction Windows de `0.3.0`, fluidité non remesurée depuis le redessin des marqueurs, mesures de téléphone en Roboto, licences, quatre décisions de la boucle principale à confirmer. **Android** : aucune construction consignée ; un APK de débogage de `0.2.0` du 2026-09-27 est présent sur un poste, question posée au commanditaire. Relu par un second agent, onze corrections appliquées. 24 tâches closes sur 29 ; restent `A1`, le constat de `E4`, `P1` à `P3`.)*
 
 ---
 

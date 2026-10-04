@@ -11,6 +11,183 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [0.3.0] — à publier
+
+Troisième tranche (T2) : la sécheresse et les restrictions, lues sur VigiEau
+au point que l'usager désigne sur la carte. **Version ouverte, pas
+publiée** : le code est écrit et vérifié par `flutter test`, mais aucun
+exécutable de `0.3.0` n'est construit, aucune construction Android n'est
+consignée ni constatée à l'écran (voir « Non vérifié »), et **aucun écran de
+T2 n'est constaté par le commanditaire** (une seule exception, datée dans
+« Non vérifié »). La porte de la version (exécutable Windows lancé hors
+outil, constat Android) reste à passer (`P1`, `P2`). Les quatre
+avertissements sont posés dans le code ; la mise en production reste une
+décision du commanditaire, et la publication Android (`A⏸3`) n'est pas
+faite. « Modifié » et « Corrigé » ne décrivent que ce qui change par rapport
+à `0.2.0` publiée : les corrections faites pendant la tranche sur du code
+jamais publié (le bouton de désignation, les écrans de T2) n'y figurent pas.
+
+### Ajouté
+
+- Écran « Sécheresse et restrictions » (`US-07`, `UC-002`), ouvert par la
+  désignation d'un point : il nomme le point, la source VigiEau et la date
+  de la réponse obtenue, puis liste **toutes** les zones d'alerte du point —
+  eaux superficielles d'abord, puis eaux souterraines, eau potable et type
+  de zone non renseigné —, chacune en carte, sur une colonne de lecture de
+  760 px, avec son niveau de gravité (vigilance, alerte, alerte renforcée,
+  crise, ou « Non renseigné » quand la source n'en donne pas ou en donne un
+  que l'application ne connaît pas, `BR-011`) en badge de forme et de teinte
+  accompagné de son libellé, daté du début de validité de son arrêté. Aucune
+  zone n'est écartée ni résumée en « la » zone du point (`BR-007`), aucune
+  n'est comparée à une autre.
+- Usages restreints selon le profil d'usager (particulier, exploitation,
+  collectivité, entreprise) : **aucun profil n'est présélectionné**, les
+  usages n'apparaissent qu'après le choix, cités tels que transmis par
+  VigiEau, l'écran rappelant que seul l'arrêté fait foi (`BR-014`). Le choix
+  est gardé pour la session. Un seul appel par point : changer de profil n'en
+  refait pas.
+- Arrêtés (`US-08`) : une carte par arrêté, dédoublonnés par adresse, avec
+  les zones qu'il régit ; ses dates de validité ne s'affichent que si toutes
+  ses zones les partagent, et jamais pour l'arrêté-cadre. « Ouvrir
+  l'arrêté » et « Ouvrir l'arrêté-cadre » ouvrent le document **hors de
+  l'application**, l'adresse restant toujours affichée, même si l'ouverture
+  échoue.
+- Couleur des actions principales (« Ouvrir l'arrêté », « Restrictions au
+  centre de la carte ») : `#0B5E86`, texte blanc dessus. Rapport de contraste
+  calculé de 7,0957:1 (formule WCAG, recalculé le 2026-10-04) ; seul le seuil
+  de 7:1 est verrouillé par test.
+- Absence et échec nommés (`BR-007`) : phrase d'absence quand VigiEau ne
+  renvoie aucune zone ; source injoignable, requête refusée, réponse
+  illisible et échec imprévu distingués, sans jamais afficher un niveau
+  inventé. Une réponse obtenue est gardée en mémoire le temps de la session
+  et affichée avec sa date de récupération ; au-delà de six heures elle est
+  servie datée pendant qu'elle est redemandée. Rien ne survit à un
+  relancement.
+- Encart renforcé, quatrième avertissement (`US-09`, `BR-013`), en tête de
+  l'écran des restrictions dans tous ses états — avant même la réponse, et
+  quand la source ne répond pas — : non repliable, déclaré région d'alerte,
+  avec l'action « Consulter les arrêtés en vigueur » qui ouvre le site public
+  de VigiEau hors de l'application.
+- Écran « D'où vient cette donnée ? » (`US-01`, `BR-012`) : les quatre
+  sources nommées (Hub'Eau hydrométrie, Hub'Eau écoulement ONDE, VigiEau,
+  IGN Géoplateforme), leurs licences telles que relevées, leurs limites.
+  Accessible depuis la fenêtre « ⚠ Avertissement » de la carte et de chaque
+  fiche ; le lien « Relire le détail des sources », retiré en `0.2.0`, revient
+  dans le modal du premier lancement et ouvre cet écran **sans acquitter** :
+  la version du texte acquitté ne change pas, personne n'est réinterrogé.
+- Choix « Restrictions » dans le sélecteur de la carte, à côté des deux
+  échelles : un interrupteur indépendant, l'échelle choisie reste affichée
+  avec ses marqueurs et sa légende (`BR-008`). Actif, il fait apparaître le
+  bouton « Restrictions au centre de la carte », son indice de geste et un
+  réticule au centre de la carte ; inactif, ni bouton ni réticule.
+- Désignation d'un point : appui long (toucher) ou clic droit (souris), dans
+  les deux modes, ou bouton, qui désigne le centre de la carte. Une épingle
+  marque le point jusqu'à la désignation suivante.
+- Dépendance ajoutée : `url_launcher` 6.3.2 (BSD-3-Clause, Windows et
+  Android, relevée sur pub.dev le 2026-09-27), derrière un port du domaine ;
+  le manifeste Android déclare la requête de visualisation en `https`.
+- Documentation : faits VigiEau relevés par appel réel le 2026-09-27 et seize
+  réponses gardées en fixtures datées (`docs/sources/vigieau.md`, `VG-01` à
+  `VG-11`, puis `VG-12` le 2026-10-03), modèle du domaine, conception de
+  l'écran, 27 scénarios Gherkin (`restrictions.feature`), matrice de
+  traçabilité de T2.
+
+### Modifié
+
+- Marqueurs de carte à 26 px avec un liseré blanc de 2 px (refonte visuelle
+  du 2026-09-29, option A d'un canvas de design).
+- Aux largeurs de téléphone (moins de 600 px), le contrôle
+  « ⚠ Avertissement », les puces, l'avis d'absence ou de panne et la légende
+  forment une seule colonne alignée à droite et défilante ; le libellé du
+  contrôle se replie. La légende n'est repoussée sous l'avis que pendant
+  qu'un avis s'affiche : écart à `BR-008` accepté le 2026-10-03.
+- La colonne gauche de la disposition large défile quand la hauteur manque,
+  sans capter les gestes hors de ses enfants.
+- Cibles tactiles de 48 sur Android, 44 ailleurs (`T2-K4`) : ce que `0.2.0`
+  listait comme non vérifié est codé, **pas constaté**.
+- Fenêtre Windows : zone cliente minimale portée de 800 × 700 à 800 × 740.
+
+### Corrigé
+
+- Aux largeurs de téléphone, les puces d'échelle et le libellé du contrôle
+  « ⚠ Avertissement » débordaient de l'écran (mesuré en test, sur le code de
+  `0.2.0`) : voir la colonne unique de « Modifié ».
+
+### Non vérifié
+
+- **Aucun écran de T2 n'est constaté par le commanditaire** : ni l'écran des
+  restrictions, ni l'encart renforcé, ni l'écran « D'où vient cette
+  donnée ? » et ses deux liens, ni le choix « Restrictions », son bouton, son
+  réticule et l'épingle, ni la taille minimale de fenêtre de 800 × 740, ni
+  les zones et les arrêtés en cartes. Seule exception : le défilement à la
+  molette de l'écran des restrictions, constaté résolu le 2026-09-29. Le
+  reste est vérifié par `flutter test`, pas à l'écran.
+- **Aucune construction Windows de `0.3.0`** : pas d'exécutable de release
+  lancé hors Flutter avec le code de T2 ; poids (`NFR-06`) et tenue hors
+  réseau (`NFR-03`) non constatés pour T2.
+- **Fluidité de la carte (`NFR-01`)** : la seule mesure date du 2026-09-27
+  (Windows, `--profile`, `docs/nfr.md`) ; les marqueurs de carte ont été
+  redessinés le 2026-09-29 (`c53c5d4`) et la fluidité n'a **pas été
+  remesurée depuis**.
+- **Android** : aucune construction n'est consignée ni constatée à l'écran.
+  Un APK de débogage de `0.2.0` (`versionCode 2`) daté du 2026-09-27 est
+  présent sur un poste, avec des traces de construction du 2026-09-29 sans
+  APK ; qui l'a lancé, et ce qui a été vu, n'est écrit nulle part — question
+  posée au commanditaire le 2026-10-04. Rien n'est donc constaté pour T2 sur
+  Android (`A1`, `P2` dues) : ni la bibliothèque d'ouverture de lien, ni les
+  cibles de 48 dp, ni l'appui long au toucher. Aucun appareil réel (`A⏸4`).
+  La **publication** Android reste différée : signature (`A⏸3`) et
+  préversion (`A⏸5`).
+- **iOS** n'a jamais été compilé, faute d'hôte macOS.
+- **Mesures aux largeurs de téléphone** (360 × 640 et 390 × 844, polices à
+  100 et 200 %) faites en test, avec la police Roboto de Flutter, celle
+  d'Android ; Windows rend en Segoe UI, **non mesurée**. Recouvrements
+  mesurés et non corrigés : en mode « Restrictions » et à 200 %, le bouton
+  recouvre l'action de l'avis ; en mode, l'avis recouvre le réticule (dès
+  100 % à 360 × 640) ; sur fenêtre courte à 200 %, le bouton recouvre la
+  puce « Restrictions », seule sortie du mode.
+- **Ouverture de lien jamais éprouvée sur une cible** : aucun arrêté et
+  aucun site public n'a été ouvert. Seuls deux PDF (un arrêté et un
+  arrêté-cadre d'Ariège) ont reçu une requête d'en-tête, le 2026-09-27 : ils
+  répondent `200`, `application/pdf`.
+- **Aucune annonce au lecteur d'écran constatée** : ni la région d'alerte de
+  l'encart renforcé, ni le bouton « Restrictions », ni les badges. Le bouton
+  de retour des écrans pleins est vraisemblablement annoncé « Back » : aucune
+  localisation française n'est configurée (relevé dans le code, non constaté
+  au Narrateur).
+- **Licences** : la licence de la donnée servie par l'API des restrictions
+  n'est **pas établie** — l'API n'en déclare aucune (relevé du 2026-10-03) ;
+  seuls le site VigiEau et son jeu de données publié sur data.gouv.fr sont
+  sous Licence Ouverte 2.0, et l'écran des sources l'écrit ainsi. Pour
+  Hub'Eau, la version de la Licence Ouverte n'est écrite nulle part :
+  « Licence Ouverte Etalab », sans numéro.
+- **API VigiEau** (version `0.1`, sans SLA) : faits relevés par appel réel
+  sur quelques points seulement (Ain, Paris, Corse, Ariège, Guyane, un point
+  en mer). `alerte_renforcee` n'a jamais été rendu par `/zones` à un point
+  précis (cherché, non trouvé) : ce niveau n'est couvert que par une valeur
+  dans le test du mapper. Un `409` par `lat`/`lon` jamais provoqué (vu
+  seulement par `commune`) ; `429` et `5xx` jamais provoqués ; fenêtre exacte
+  de `X-RateLimit-Reset` non déterminée (valeur `1` vue une fois, unité non
+  déterminée) ; deux zones du même type au même point exact jamais
+  rencontrées ; outre-mer autres que la Guyane non interrogés par point ; un
+  arrêté expiré encore rendu : non vérifié, l'écran affiche les dates et ne
+  filtre rien.
+- **Aucun percentile** (`ADR-003`, hors T2) et **aucune échelle
+  « sécheresse » sur la carte** : un niveau de gravité ne se lit que sur
+  l'écran des restrictions, jamais en marqueurs. Hors périmètre de T2, non
+  livrés : position de l'appareil, repli data.gouv, conservation des
+  restrictions au-delà de la session.
+- **Quatre décisions de la boucle principale, non confirmées par le
+  commanditaire** : le mode « Restrictions » reste actif au retour de
+  l'écran des restrictions ; la colonne gauche de la disposition large
+  défile ; l'adresse du site public est un texte sélectionnable, non un
+  lien, sur l'écran des sources ; les mesures de téléphone se font en
+  Roboto.
+- Les 27 scénarios de `restrictions.feature` sont lus et vérifiés en
+  structure par test, **jamais exécutés** ; certaines phrases d'écran qu'ils
+  citent ne sont liées au code par aucun test (`docs/project-state.md`,
+  point 53).
+
 ## [0.2.0] — 2026-09-27
 
 Deuxième tranche (T1) : la carte devient consultable — fiches, écoulement
