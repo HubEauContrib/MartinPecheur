@@ -1,15 +1,24 @@
 Fonctionnalité: Les quatre emplacements de l'avertissement
   # Critères d'acceptation en Gherkin — spécification lisible, aucun
-  # framework BDD en T1 (décision 6 du plan). Vérifié par
+  # framework BDD (décision 6 du plan T1, décision 9 du plan T2). Vérifié par
   # test/project/acceptance_features_test.dart : chaque Scénario cite une
-  # règle métier qui existe réellement sous docs/br/.
+  # règle métier qui existe réellement sous docs/br/. Les libellés d'écran
+  # que le code porte dans une constante (bouton d'acquittement, lien du
+  # modal vers les sources, titre de l'écran des sources, contrôle
+  # d'avertissement, titre de l'encart renforcé) sont lus dans ce code : si
+  # l'un d'eux change, le test rougit. Les autres phrases citées n'ont pas de
+  # verrou.
   #
   # Sources : docs/04-ui.md § 5 (tel qu'amendé le 2026-09-23, W3c),
   # docs/use-cases/UC-006-acquitter-l-avertissement-initial.md, BR-012,
-  # BR-001. L'emplacement 4 (encart renforcé sur écran de ressource ou de
-  # sécheresse) n'a volontairement aucun scénario ici : il est reporté en
-  # T2 (décision 11 de la révision du plan du 2026-09-22) — aucun écran de
-  # T1 ne présente la disponibilité de la ressource.
+  # BR-001. Le quatrième emplacement (encart renforcé de l'écran des
+  # restrictions, BR-013) a son scénario depuis T2 : il était reporté en T2
+  # faute d'écran de ressource en T1 (décision 11 de la révision du plan du
+  # 2026-09-22). Le détail de ses comportements — défilement, états,
+  # lecteur d'écran — est dans restrictions.feature. Le détail des sources
+  # (« Relire le détail des sources », « D'où vient cette donnée ? ») complète
+  # US-01 et BR-012 depuis T2 (conception de l'écran des restrictions § 8,
+  # arbitrage Q-8 du commanditaire).
   En tant qu'usager de l'application
   Je veux être averti des limites des données à chaque endroit où elles comptent
   Afin de ne jamais confondre une information indicative avec une autorisation
@@ -43,3 +52,21 @@ Fonctionnalité: Les quatre emplacements de l'avertissement
     Quand l'usager ouvre le contrôle « ⚠ Avertissement » en tête de cette fiche
     Alors la fenêtre n'affiche que le texte général du modal initial
     Et aucune phrase datée n'y figure, faute de date à donner (BR-001)
+
+  Scénario: Le quatrième emplacement est un encart renforcé, affiché d'emblée sur l'écran des restrictions
+    Étant donné un usager qui désigne un point sur la carte
+    Quand l'écran « Sécheresse et restrictions » s'affiche
+    Alors l'encart renforcé « NE FONDEZ AUCUNE DÉCISION SUR CET ÉCRAN » est le premier contenu sous la barre de titre, affiché d'emblée et non repliable
+    Et, à la différence du contrôle « ⚠ Avertissement » des emplacements 2 et 3, il ne s'ouvre pas à la demande et n'exige aucun acquittement : ni case à cocher, ni bouton « J'ai compris ces limites » (BR-013)
+
+  Scénario: Le modal initial propose de relire le détail des sources, sans rien acquitter
+    Étant donné un usager face à l'écran d'avertissement du premier lancement, sa case cochée ou non
+    Quand il actionne « Relire le détail des sources », lit l'écran « D'où vient cette donnée ? », puis revient au modal par le bouton de retour ou par Échap
+    Alors il a lu les sources et leurs limites sans avoir acquitté : aucun acquittement n'est enregistré
+    Et il retrouve le modal tel qu'il l'a laissé, sa case dans l'état où il l'a laissée, la carte restant fermée tant qu'il n'a pas actionné « J'ai compris ces limites » (BR-012)
+
+  Scénario: Le détail des sources reste accessible après l'acquittement
+    Étant donné un usager qui a acquitté l'avertissement initial
+    Quand il ouvre le contrôle « ⚠ Avertissement » de la carte, ou celui d'une fiche, puis le lien « D'où vient cette donnée ? » de la fenêtre
+    Alors l'écran « D'où vient cette donnée ? » s'ouvre par-dessus la fenêtre
+    Et le retour ramène à la fenêtre d'avertissement, telle qu'elle était (BR-012)

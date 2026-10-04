@@ -813,7 +813,7 @@ git commit -m "test(map): mesures des surcouches aux largeurs de telephone refai
 
 - `restrictions.feature` : les scénarios `US-09`, `US-07`, `US-08` du cadrage § 4, **formulations d'écran ajustées aux arbitrages de `C1`**, chacun citant son `BR` ; `avertissements.feature` gagne les deux scénarios du complément `US-01`/`BR-012` et le quatrième emplacement de `04-ui.md § 5`.
 - Le test : `restrictions.feature` ajouté à la liste des fichiers ; **« aucun .feature ne décrit BR-013 » remplacé** par « `restrictions.feature` cite `BR-013`, `BR-007`, `BR-011`, `BR-014` » ; le scénario par emplacement couvre les quatre.
-- [ ] Rouge, puis écrire, puis critère de fin, commit (`docs(restrictions): criteres d acceptation de T2 en Gherkin`).
+- [x] Rouge, puis écrire, puis critère de fin, commit (`docs(restrictions): criteres d acceptation de T2 en Gherkin`). *(2026-10-04 — `restrictions.feature` : 27 scénarios, dont un plan à quatre exemples pour les causes d'échec ; `avertissements.feature` : trois scénarios ajoutés. Formulations alignées sur ce qui est codé (désignation par le choix « Restrictions », `E5`). Le test verrouille 24 libellés portés par une constante ; les autres phrases d'écran citées ont été comparées au code à l'écriture, **sans verrou**. Relu par un second agent, corrections appliquées. Rien n'est constaté à l'écran.)*
 
 ### Task X2 : La matrice de traçabilité
 
