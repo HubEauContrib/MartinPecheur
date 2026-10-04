@@ -16,16 +16,18 @@ observable n'y figure pas.
 Troisième tranche (T2) : la sécheresse et les restrictions, lues sur VigiEau
 au point que l'usager désigne sur la carte. **Version ouverte, pas
 publiée** : le code est écrit et vérifié par `flutter test`, mais aucun
-exécutable de `0.3.0` n'est construit, aucune construction Android n'est
-consignée ni constatée à l'écran (voir « Non vérifié »), et **aucun écran de
-T2 n'est constaté par le commanditaire** (une seule exception, datée dans
-« Non vérifié »). La porte de la version (exécutable Windows lancé hors
-outil, constat Android) reste à passer (`P1`, `P2`). Les quatre
-avertissements sont posés dans le code ; la mise en production reste une
-décision du commanditaire, et la publication Android (`A⏸3`) n'est pas
-faite. « Modifié » et « Corrigé » ne décrivent que ce qui change par rapport
-à `0.2.0` publiée : les corrections faites pendant la tranche sur du code
-jamais publié (le bouton de désignation, les écrans de T2) n'y figurent pas.
+exécutable de release de `0.3.0` n'est construit, aucune construction Android
+n'est consignée ni constatée à l'écran (voir « Non vérifié »), et **les
+écrans de T2 ne sont constatés qu'en partie** : par le commanditaire, en
+débogage sur Windows, le 2026-10-04 (détail dans « Non vérifié »). Aucun ne
+l'est sur l'exécutable de release ni sur Android. La porte de la version
+(exécutable Windows lancé hors outil, constat Android) reste à passer (`P1`,
+`P2`). Les quatre avertissements sont posés dans le code ; la mise en
+production reste une décision du commanditaire, et la publication Android
+(`A⏸3`) n'est pas faite. « Modifié » et « Corrigé » ne décrivent que ce qui
+change par rapport à `0.2.0` publiée : les corrections faites pendant la
+tranche sur du code jamais publié (le bouton de désignation, les écrans de
+T2) n'y figurent pas.
 
 ### Ajouté
 
@@ -115,16 +117,29 @@ jamais publié (le bouton de désignation, les écrans de T2) n'y figurent pas.
 
 ### Non vérifié
 
-- **Aucun écran de T2 n'est constaté par le commanditaire** : ni l'écran des
-  restrictions, ni l'encart renforcé, ni l'écran « D'où vient cette
-  donnée ? » et ses deux liens, ni le choix « Restrictions », son bouton, son
-  réticule et l'épingle, ni la taille minimale de fenêtre de 800 × 740, ni
-  les zones et les arrêtés en cartes. Seule exception : le défilement à la
-  molette de l'écran des restrictions, constaté résolu le 2026-09-29. Le
-  reste est vérifié par `flutter test`, pas à l'écran.
-- **Aucune construction Windows de `0.3.0`** : pas d'exécutable de release
-  lancé hors Flutter avec le code de T2 ; poids (`NFR-06`) et tenue hors
-  réseau (`NFR-03`) non constatés pour T2.
+- **Les écrans de T2 ne sont constatés qu'en partie** : par le commanditaire,
+  en débogage (`flutter run -d windows`), sur Windows, le 2026-10-04. Vu : au
+  lancement, trois puces, ni bouton ni réticule ; un appui sur
+  « Restrictions » fait apparaître le bouton, son indice et le réticule,
+  marqueurs et légende restant ; le bouton, un appui long ou un clic droit
+  ouvrent l'écran « Sécheresse et restrictions », l'encart renforcé en
+  tête ; « ⚠ Avertissement » mène à « D'où vient cette donnée ? », où la
+  molette posée sur la barre de titre fait défiler ; les zones sont datées,
+  eaux superficielles d'abord ; l'adresse de l'arrêté est lisible. **Non
+  constaté** : aucun profil présélectionné, puis les usages cités après le
+  choix ; un point en mer et sa phrase d'absence ; l'encart « non
+  repliable » (aucun moyen de le replier) ; le mode « Restrictions » conservé
+  au retour de l'écran des restrictions. Le constat ne dit rien non plus de
+  l'épingle du point désigné, de la taille minimale de fenêtre de 800 × 740,
+  de la présentation des zones et des arrêtés en cartes, ni du lien
+  « Relire le détail des sources » depuis le modal. Déjà consigné avant ce
+  constat : le défilement à la molette de l'écran des restrictions, constaté
+  résolu le 2026-09-29. Rien n'est constaté sur l'exécutable de release
+  (`P1`) ni sur Android (`P2`). Le reste est vérifié par `flutter test`, pas
+  à l'écran.
+- **Aucune construction Windows de release de `0.3.0`** : pas d'exécutable
+  de release lancé hors Flutter avec le code de T2 ; poids (`NFR-06`) et
+  tenue hors réseau (`NFR-03`) non constatés pour T2.
 - **Fluidité de la carte (`NFR-01`)** : la seule mesure date du 2026-09-27
   (Windows, `--profile`, `docs/nfr.md`) ; les marqueurs de carte ont été
   redessinés le 2026-09-29 (`c53c5d4`) et la fluidité n'a **pas été

@@ -1,6 +1,6 @@
 # UC-002 — Consulter les restrictions applicables à mon usage
 
-- **Statut :** Accepté — ✅ **livré en T2 au point désigné** (vérifié par test, **jamais constaté à l'écran** : `P1` et `P2` du plan de T2 sont dus)
+- **Statut :** Accepté — ✅ **livré en T2 au point désigné** (vérifié par test ; ~~jamais constaté à l'écran~~ **constaté en partie le 2026-10-04, par le commanditaire, en débogage sur Windows** (`project-state.md`, point 48) ; **rien en release ni sur Android** : `P1` et `P2` du plan de T2 sont dus)
 - **Date :** 2026-07-30 · **aligné sur le code le 2026-10-04** (`X3` de T2) : un passage dont le sens change est barré, daté par cette ligne, et son remplaçant est écrit à côté ; l'ancien diagramme, trop long pour être barré, est remplacé par une phrase qui dit ce qu'il montrait (sous le nouveau diagramme). Les étapes **4 (profil), 5 et 6 gardent leur numéro d'origine** : le code (`lib/domain/restrictions/user_profile.dart`), un test (`user_profile_test.dart`) et les conceptions de T2 citent « `UC-002`, étape 4 » pour le profil
 - **Contexte borné :** Restrictions
 - **Acteur principal :** Agriculteur / irrigant (P2) · **Acteurs secondaires :** Élu (P5), VigiEau, ~~cache local~~ cache de session (en mémoire, perdu au relancement : T2, 2026-10-04)

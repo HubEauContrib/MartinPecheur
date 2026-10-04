@@ -206,18 +206,33 @@ void main() {
     });
 
     test('le chapeau de 0.3.0 dit qu elle est ouverte, qu aucune construction '
-        'Android n est consignee ni constatee et qu aucun ecran de T2 n est '
-        'constate', () {
+        'Android n est consignee ni constatee et que les ecrans de T2 ne sont '
+        'constates qu en partie, en debogage sur Windows', () {
       final String section = section030();
       final String chapeau = section.substring(0, section.indexOf('\n### '));
+      final String chapeauNormalise = chapeau.replaceAll(RegExp(r'\s+'), ' ');
       expect(chapeau, contains('Version ouverte, pas'));
       expect(
-        chapeau.replaceAll(RegExp(r'\s+'), ' '),
+        chapeauNormalise,
         contains("aucune construction Android n'est consignée ni constatée"),
       );
+      expect(chapeauNormalise, contains("ne sont constatés qu'en partie"));
+      expect(chapeauNormalise, contains('en débogage sur Windows'));
+      expect(chapeauNormalise, contains('2026-10-04'));
+      // Un executable de debogage de 0.3.0 existe (constat du 2026-10-04) :
+      // c'est l'executable de release qui n'est pas construit.
+      expect(chapeauNormalise, contains('aucun exécutable de release'));
       expect(
-        chapeau.replaceAll(RegExp(r'\s+'), ' '),
-        contains("aucun écran de T2 n'est constaté"),
+        chapeauNormalise,
+        isNot(
+          matches(
+            RegExp(
+              r"aucun écran de T2 n'(est|a été) constaté",
+              caseSensitive: false,
+            ),
+          ),
+        ),
+        reason: 'le constat partiel du 2026-10-04 a rendu cette phrase fausse',
       );
     });
 
@@ -231,17 +246,60 @@ void main() {
         isNotEmpty,
         reason: 'une section Non verifie vide ferait croire a un produit fini',
       );
-      // Aucun ecran de T2 n'est constate, une seule exception, datee. La
-      // negation est exigee : une puce « tous les ecrans sont constates »
-      // contiendrait encore le mot « constate ».
-      expect(nonVerifie, contains("Aucun écran de T2 n'est constaté"));
+      // Les ecrans de T2 ne sont constates qu'en partie : en debogage, sur
+      // Windows, le 2026-10-04. Ce qui manque est nomme, et rien n'est
+      // constate sur l'executable de release. Les negations sont exigees :
+      // une puce « tous les ecrans sont constates » contiendrait encore le
+      // mot « constate ».
+      // La puce du constat partiel, seule : « --profile », « un point en
+      // mer », « au retour » et « 2026-10-04 » existent aussi dans d'autres
+      // puces, et ne prouveraient rien sur le texte de celle-ci.
+      final String puceConstat = nonVerifie
+          .split('\n- ')
+          .map((String p) => p.replaceAll(RegExp(r'\s+'), ' '))
+          .firstWhere(
+            (String p) => p.contains("ne sont constatés qu'en partie"),
+            orElse: () => '',
+          );
+      expect(puceConstat, isNotEmpty);
+      final int debutManque = puceConstat.indexOf('**Non constaté**');
+      expect(debutManque, isNot(-1));
+      final String vu = puceConstat.substring(0, debutManque);
+      final String manque = puceConstat.substring(debutManque);
+      expect(vu, contains('en débogage'));
+      expect(vu, contains('2026-10-04'));
+      // Ce qui manque est dit manquant, pas range parmi ce qui a ete vu.
+      expect(manque, contains('profil'));
+      expect(manque, contains('point en mer'));
+      expect(manque, contains('non repliable'));
+      expect(manque, contains('au retour'));
+      expect(
+        manque,
+        contains("Rien n'est constaté sur l'exécutable de release"),
+      );
+      expect(
+        nonVerifie.replaceAll(RegExp(r'\s+'), ' '),
+        isNot(
+          matches(
+            RegExp(
+              r"aucun écran de T2 n'(est|a été) constaté",
+              caseSensitive: false,
+            ),
+          ),
+        ),
+      );
       expect(nonVerifie, isNot(contains('Tous les écrans')));
       expect(
         nonVerifie,
         contains('2026-09-29'),
-        reason: 'le seul constat d ecran de T2 : la molette, le 2026-09-29',
+        reason: 'le defilement a la molette, constate le 2026-09-29',
       );
-      // Rien n'est construit, et la trace d'Android est dite, pas supposee.
+      // Aucune construction de release, et la trace d'Android est dite, pas
+      // supposee : un executable de debogage a ete lance le 2026-10-04.
+      expect(
+        nonVerifie.replaceAll(RegExp(r'\s+'), ' '),
+        contains('Aucune construction Windows de release'),
+      );
       expect(nonVerifie, contains('Windows'));
       expect(nonVerifie, contains('Android'));
       expect(
