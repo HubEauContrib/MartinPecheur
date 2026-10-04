@@ -822,7 +822,7 @@ git commit -m "test(map): mesures des surcouches aux largeurs de telephone refai
 
 - `US-07`, `US-08`, `US-09`, `UC-002`, `BR-013` → ✅ T2 avec leurs fichiers de test **existants** (~~panneau~~ écran, encart, ViewModel, source, mapper, équivalence) ; `BR-011` cite aussi `zones_mapper_test.dart` ; `US-01` cite `data_sources_view_test.dart`.
 - Le test : les exceptions « sans fichier de test accepté » de `US-07/08/09` et `BR-013` **disparaissent** — ils doivent maintenant citer des fichiers qui existent.
-- [ ] Rouge, puis écrire, puis critère de fin, commit (`docs: tracabilite de T2`).
+- [x] Rouge, puis écrire, puis critère de fin, commit (`docs: tracabilite de T2`). *(2026-10-04 — `US-07`, `US-08`, `US-09`, `UC-002` et `BR-013` passent à ✅ T2, chacune avec des fichiers de test qui existent ; ce qui n'est pas livré est dit ligne par ligne (`UC-002 A2`, position, échelle sécheresse sur la carte, conservation au-delà de la session). Le test vérifie désormais l'existence des fichiers cités dans les **trois** tableaux — il ne lisait qu'une colonne — et exige 🔄 sur `US-10` et `UC-005` tant qu'elles sont partielles. `map_overlays_phone_test.dart` est cité sous `US-02`, pas sous `BR-012`, dont le texte ne couvre que le modal. Relu par un second agent, approuvé, corrections mineures appliquées.)*
 
 ### Task X3 : Aligner les documents sur le code
 

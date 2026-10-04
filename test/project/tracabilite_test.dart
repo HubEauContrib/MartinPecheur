@@ -11,6 +11,14 @@
 //
 // Colonnes attendues dans le tableau markdown : US · BR · UC · Fichier de
 // test · Tranche · État.
+//
+// `Task X2` du plan T2 (2026-10-04) : T2 livre la couverture de US-07, US-08,
+// US-09, UC-002 et BR-013. Les exceptions « sans fichier de test accepté »
+// qu'avait la matrice de T1 pour ces lignes DISPARAISSENT : chacune doit
+// maintenant porter un état ✅ T2 et citer des fichiers qui existent. Le
+// test n'admet plus aucun 🔄 sur ces cinq lignes — une partie non livrée
+// s'écrit en toutes lettres dans la cellule, jamais sous la marque d'un
+// acquis.
 
 import 'dart:io';
 
@@ -62,19 +70,102 @@ const List<String> _usMustAttendues = <String>[
   'US-10',
 ];
 
-/// US Must dont l'état attendu est un report explicite (T2, sécheresse) :
-/// la matrice les cite avec un état, jamais avec une ligne vide, et le test
-/// n'exige pas de fichier de test en face.
-const List<String> _usSansFichierDeTestAccepte = <String>[
+/// Les cinq lignes dont T2 livre la couverture (`Task X2` du plan T2) :
+/// l'écran des restrictions (US-07, US-08, UC-002) et son encart renforcé
+/// (US-09, BR-013). Elles portaient 🔄 T2, sans fichier de test accepté ; elles
+/// portent désormais ✅ T2 et citent des fichiers qui existent.
+const List<String> _lignesLivreesEnT2 = <String>[
   'US-07',
   'US-08',
   'US-09',
+  'UC-002',
+  'BR-013',
 ];
 
-/// `BR-013` (encart renforcé) porte l'état 🔄 T2 (décision 11, révision du
-/// 2026-09-22) : accepté dans la matrice sans fichier de test, comme les
-/// user stories de sécheresse.
-const String _brSansFichierDeTestAccepte = 'BR-013';
+const String _ecranRestrictions =
+    'test/features/restrictions/view/restrictions_screen_test.dart';
+const String _viewModelRestrictions =
+    'test/features/restrictions/view_model/restrictions_view_model_test.dart';
+const String _sourceVigieau =
+    'test/data/restrictions/vigieau_restriction_source_test.dart';
+const String _mapperZones = 'test/data/restrictions/zones_mapper_test.dart';
+const String _equivalenceProfil =
+    'test/data/restrictions/profile_filter_equivalence_test.dart';
+const String _encartRenforce =
+    'test/features/restrictions/view/reinforced_warning_card_test.dart';
+const String _ouvreurDeLien =
+    'test/data/links/url_launcher_external_link_opener_test.dart';
+const String _designationCarte =
+    'test/features/map/view/map_designation_test.dart';
+const String _puceRestrictions =
+    'test/features/map/view/map_scale_chips_test.dart';
+const String _surcouchesTelephone =
+    'test/features/map/view/map_overlays_phone_test.dart';
+const String _profilUsager = 'test/domain/restrictions/user_profile_test.dart';
+const String _boutonDesignation =
+    'test/features/map/view/designate_center_button_test.dart';
+const String _echelleEnBande =
+    'test/features/restrictions/view/restrictions_scale_text_test.dart';
+
+/// Les deux lignes que T2 ne livre PAS : la carte hors ligne (`US-10`,
+/// `UC-005`) n'est couverte qu'en partie (le cache de tuiles de `flutter_map`
+/// sur les zones déjà parcourues). Sans ce garde-fou, rien n'interdit de les
+/// passer à ✅ : les exceptions de T1 qui les protégeaient ont disparu avec
+/// `Task X2`. Elles gardent 🔄 tant que la persistance de `DerniereVueCarte`,
+/// le bandeau « Mode hors-ligne » et le téléchargement explicite d'une zone
+/// (`UC-005` flux nominal, étapes 1, 4 et 6) ne sont pas livrés ET couverts
+/// par un test — ce qui exige le moteur de stockage structuré qu'`ADR-011`
+/// laisse ouvert (T3). Le jour où ils le sont, ce test et cette liste se
+/// retirent ensemble, dans le commit qui passe les deux lignes à ✅.
+const List<String> _lignesPartielles = <String>['US-10', 'UC-005'];
+
+/// Les fichiers qu'une ligne DOIT citer parce que T2 les a écrits pour elle
+/// (`Task X2` du plan T2 : « écran, encart, ViewModel, source, mapper,
+/// équivalence » ; `BR-011` cite aussi le mapper ; `US-01` cite l'écran des
+/// sources) ou parce qu'un ajout de T2 touche la règle (le choix
+/// « Restrictions » du sélecteur de la carte, `E5` et `E5b`). Le test ne juge
+/// pas la justesse de l'intention : il refuse qu'une ligne en omette un.
+const Map<String, List<String>> _citationsExigees = <String, List<String>>{
+  'US-01': <String>['test/features/shared/data_sources_view_test.dart'],
+  'US-02': <String>[_surcouchesTelephone],
+  'US-07': <String>[
+    _ecranRestrictions,
+    _viewModelRestrictions,
+    _sourceVigieau,
+    _mapperZones,
+    _equivalenceProfil,
+    _designationCarte,
+    _boutonDesignation,
+    _profilUsager,
+    _echelleEnBande,
+  ],
+  'US-08': <String>[_ecranRestrictions, _viewModelRestrictions, _ouvreurDeLien],
+  'US-09': <String>[_encartRenforce, _ecranRestrictions],
+  'UC-002': <String>[
+    _ecranRestrictions,
+    _viewModelRestrictions,
+    _sourceVigieau,
+    _mapperZones,
+    _equivalenceProfil,
+    _designationCarte,
+    _boutonDesignation,
+  ],
+  'BR-008': <String>[
+    _puceRestrictions,
+    _designationCarte,
+    _surcouchesTelephone,
+  ],
+  'BR-011': <String>[_mapperZones],
+  'BR-012': <String>[
+    'test/features/shared/data_sources_view_test.dart',
+    'test/main_test.dart',
+  ],
+  'BR-013': <String>[
+    _encartRenforce,
+    _ecranRestrictions,
+    'test/domain/warnings/warning_texts_test.dart',
+  ],
+};
 
 /// Repère de ligne de tableau markdown : une cellule non vide entre deux
 /// `|`, en excluant les séparateurs `---`.
@@ -109,6 +200,32 @@ List<List<String>> _lignesDuTableau(String contenu) {
   }
   return lignes;
 }
+
+/// La ligne dont la première cellule est exactement [id] (« US-07 »,
+/// « BR-013 », « UC-002 »), ou `null` : l'en-tête d'un tableau de BR ou d'UC
+/// n'a pas de première cellule de cette forme.
+List<String>? _ligneDe(List<List<String>> lignes, String id) {
+  for (final List<String> ligne in lignes) {
+    if (ligne.isNotEmpty && ligne.first == id) {
+      return ligne;
+    }
+  }
+  return null;
+}
+
+/// La cellule « Fichier de test » d'une ligne : quatrième colonne du tableau
+/// des US (US · BR · UC · Fichier de test · Tranche · État), deuxième de ceux
+/// des BR et des UC (identifiant · Fichier de test · Tranche · État).
+String _celluleFichier(String id, List<String> ligne) {
+  final int colonne = id.startsWith('US-') ? 3 : 1;
+  return ligne.length > colonne ? ligne[colonne] : '';
+}
+
+/// Les chemins `….dart` écrits entre accents graves dans [cellule].
+Set<String> _cheminsDart(String cellule) => <String>{
+  for (final RegExpMatch m in RegExp(r'`([^`]+\.dart)`').allMatches(cellule))
+    m.group(1)!,
+};
 
 bool _fichierBrExiste(String code) {
   final String numero = code.replaceFirst('BR-', '');
@@ -195,67 +312,105 @@ void main() {
         }
       });
     }
-
-    test('US-07, US-08 et US-09 (sécheresse) portent un état 🔄 T2, sans '
-        'fichier de test exigé', () {
-      for (final String us in _usSansFichierDeTestAccepte) {
-        final List<String> ligne = lignes.firstWhere(
-          (List<String> l) => l.isNotEmpty && l.first.contains(us),
-          orElse: () => <String>[],
-        );
-        expect(
-          ligne,
-          isNotEmpty,
-          reason: '$us doit avoir une ligne dans la matrice',
-        );
-        final String etat = ligne.last;
-        expect(
-          etat.contains('T2') && etat.contains('🔄'),
-          isTrue,
-          reason:
-              '$us (sécheresse) doit porter l\'état 🔄 T2 — pas encore '
-              'couverte, la matrice ne le prétend pas : "$etat"',
-        );
-      }
-    });
   });
 
-  test('BR-013 porte l\'état 🔄 T2, accepté sans fichier de test '
-      '(décision 11, révision du 2026-09-22)', () {
+  group('Les lignes dont T2 livre la couverture (Task X2 du plan T2)', () {
     final List<List<String>> lignes = _lignesDuTableau(contenu);
-    final Iterable<List<String>> lignesDeBr013 = lignes.where(
-      (List<String> l) =>
-          l.any((String c) => c.contains(_brSansFichierDeTestAccepte)),
-    );
-    expect(
-      lignesDeBr013.isNotEmpty,
-      isTrue,
-      reason: 'BR-013 doit apparaître dans la matrice',
-    );
-    for (final List<String> ligne in lignesDeBr013) {
-      final String etat = ligne.last;
-      expect(
-        etat.contains('T2') && etat.contains('🔄'),
-        isTrue,
-        reason: 'BR-013 doit porter l\'état 🔄 T2 : "$etat"',
+
+    for (final String id in _lignesLivreesEnT2) {
+      test('$id porte l\'état ✅ T2, sans 🔄, et cite au moins un fichier '
+          'de test', () {
+        final List<String>? ligne = _ligneDe(lignes, id);
+        expect(ligne, isNotNull, reason: '$id doit avoir une ligne');
+        final String etat = ligne!.last;
+        expect(
+          etat.contains('✅') && etat.contains('T2'),
+          isTrue,
+          reason: '$id doit porter l\'état ✅ T2 : "$etat"',
+        );
+        expect(
+          etat.contains('🔄'),
+          isFalse,
+          reason:
+              '$id ne compte aucun 🔄 comme un acquis : une partie non '
+              'livrée s\'écrit en toutes lettres : "$etat"',
+        );
+        expect(
+          _cheminsDart(_celluleFichier(id, ligne)),
+          isNotEmpty,
+          reason:
+              '$id doit citer au moins un fichier de test : plus aucune '
+              'exception « sans fichier de test accepté »',
+        );
+      });
+    }
+  });
+
+  group('Les lignes que T2 ne livre pas gardent 🔄 (US-10, UC-005)', () {
+    final List<List<String>> lignes = _lignesDuTableau(contenu);
+
+    for (final String id in _lignesPartielles) {
+      test('$id reste 🔄, jamais ✅, tant que la carte hors ligne n\'est '
+          'couverte qu\'en partie', () {
+        final List<String>? ligne = _ligneDe(lignes, id);
+        expect(ligne, isNotNull, reason: '$id doit avoir une ligne');
+        final String etat = ligne!.last;
+        expect(
+          etat.contains('🔄'),
+          isTrue,
+          reason:
+              '$id est partiel : seul le cache de tuiles est livré. Il '
+              'garde 🔄 jusqu\'à la persistance de DerniereVueCarte, au '
+              'bandeau hors-ligne et au téléchargement de zone : "$etat"',
+        );
+        expect(
+          etat.contains('✅'),
+          isFalse,
+          reason: '$id ne compte pas un acquis partiel comme un ✅ : "$etat"',
+        );
+      });
+    }
+  });
+
+  group('Les lignes touchées par T2 citent les fichiers qui les éprouvent', () {
+    final List<List<String>> lignes = _lignesDuTableau(contenu);
+
+    for (final MapEntry<String, List<String>> exigence
+        in _citationsExigees.entries) {
+      test(
+        '${exigence.key} cite ${exigence.value.length} fichier(s) de T2',
+        () {
+          final List<String>? ligne = _ligneDe(lignes, exigence.key);
+          expect(
+            ligne,
+            isNotNull,
+            reason: '${exigence.key} doit avoir une ligne',
+          );
+          final Set<String> cites = _cheminsDart(
+            _celluleFichier(exigence.key, ligne!),
+          );
+          for (final String chemin in exigence.value) {
+            expect(
+              cites,
+              contains(chemin),
+              reason: '${exigence.key} doit citer $chemin',
+            );
+          }
+        },
       );
     }
   });
 
   group('Chaque fichier de test cité existe réellement sur le disque', () {
     final List<List<String>> lignes = _lignesDuTableau(contenu);
-    final int indexColonneFichier = 3; // US, BR, UC, Fichier de test, ...
 
+    // Toute cellule de toute ligne : la colonne « Fichier de test » est la
+    // quatrième du tableau des US, mais la deuxième de ceux des BR et des UC.
+    // Ne lire que la quatrième laissait ces deux tableaux sans contrôle.
     final Set<String> cheminsCites = <String>{};
     for (final List<String> ligne in lignes) {
-      if (ligne.length <= indexColonneFichier) {
-        continue;
-      }
-      final String cellule = ligne[indexColonneFichier];
-      for (final RegExpMatch m in RegExp(
-        r'`([^`]+\.dart)`',
-      ).allMatches(cellule)) {
-        cheminsCites.add(m.group(1)!);
+      for (final String cellule in ligne) {
+        cheminsCites.addAll(_cheminsDart(cellule));
       }
     }
 
