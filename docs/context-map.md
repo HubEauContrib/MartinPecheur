@@ -29,7 +29,7 @@ flowchart TB
     HE1 --> REF
     HE1 --> ECO
     VE --> RES
-    DG -.repli.-> RES
+    DG -. "repli différé (T2, Q3-B)" .-> RES
     IGN --> CAR
     ASSET --> HYD
 
@@ -50,7 +50,7 @@ flowchart TB
 | `Referentiel` → `Carte` | Fournisseur | Position et identité des points. Quasi-statique |
 | `Hydrometrie` → `Carte` | Fournisseur | Échelle 2 (niveau de débit) |
 | `Ecoulement` → `Carte` | Fournisseur | Échelle 1 (écoulement) |
-| `Restrictions` → `Carte` | Fournisseur | Échelle 3 (sévérité sécheresse) |
+| `Restrictions` → `Carte` | Fournisseur | Échelle 3 (sévérité sécheresse) — 🔄 **non livrée sur la carte en T2** (Q6-A) : T2 livre un écran distinct, atteint par la désignation d'un point, et la carte ne connaît pas la tranche `restrictions` (un rappel injecté par `main.dart`) |
 | `Avertissement` → tous | **Transverse, non négociable** | Aucun écran ne s'affranchit de `BR-012` / `BR-013` |
 | Asset percentiles → `Hydrometrie` | Fournisseur, lecture seule | Généré hors application (`ADR-003`) |
 
@@ -83,7 +83,7 @@ Trois conséquences sur la carte des contextes :
 
 | Source | Protection | Motif |
 |---|---|---|
-| VigiEau | **`RestrictionSource`**, deux implémentations | API en version `0.1` sur `beta.gouv.fr`, rupture possible sans préavis (`ADR-004`) |
+| VigiEau | **`RestrictionSource`**, ~~deux implémentations~~ **une implémentation en T2** (`VigieauRestrictionSource`, sous `lib/data/restrictions/`) ; le repli sur l'export data.gouv est **différé** (Q3-B, 2026-09-27) | API en version `0.1` sur `beta.gouv.fr`, rupture possible sans préavis (`ADR-004`). Le contrat est déclaré **dans le domaine** (`lib/domain/restrictions/`) : un ViewModel ne peut pas importer `data/` |
 | Hub'Eau | Mappers dédiés par endpoint | Unités trompeuses, nomenclatures incomplètes, doublons site/station (`BR-002`, `BR-011`) |
 | Toutes | `BR-011` — branche par défaut obligatoire | Sources publiques sans engagement de stabilité |
 

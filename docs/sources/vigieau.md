@@ -5,7 +5,7 @@ Base URL `https://api.vigieau.beta.gouv.fr/api` · Swagger à la **racine**, pas
 répondent `404`) · `version` **`0.1`** (relevée le 2026-09-27, identique au 2026-07-30) · aucune
 authentification · licence : **Licence Ouverte 2.0** pour le site et le jeu data.gouv, **non établie**
 pour la donnée servie par l'API (`VG-12`, constaté le 2026-10-03). Rôle : niveau de gravité sécheresse et usages restreints
-par zone d'alerte, au point désigné. Décision liée : `ADR-004` (à amender, Q3 du cadrage T2).
+par zone d'alerte, au point désigné. Décision liée : `ADR-004` (~~à amender, Q3 du cadrage T2~~ **amendé le 2026-09-27** : appel unique sans `profil`, toutes les zones gardées, repli data.gouv **différé** — Q3-B et Q5-B arbitrés par le commanditaire ce jour-là ; implémenté par `VigieauRestrictionSource`, `lib/data/restrictions/`).
 
 ⚠️ **API en version `0.1`, deux mois séparent cette capture de la précédente** (`C-16`) : ce qui
 suit reconfirme, précise ou contredit `ADR-004`/`01-analyse.md § 3.1` du 2026-07-30 — jamais une

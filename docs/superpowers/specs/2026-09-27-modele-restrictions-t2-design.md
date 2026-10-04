@@ -1,6 +1,6 @@
 # Modèle du domaine « restrictions » — T2
 
-**Date :** 2026-09-27 · **Auteur :** `harold` (architecture) · **Statut :** 🔄 **décidé, rien n'est codé**. Les trois questions de la première version sont **arbitrées par le commanditaire le 2026-09-27** (voir « Arbitrages ») · **Dépend de :** [cadrage T2 arbitré](2026-09-27-cadrage-t2-design.md) (§ 6, Q1 à Q10), [`docs/sources/vigieau.md`](../../sources/vigieau.md) et les 16 fixtures de `test/fixtures/vigieau/` (capturées le 2026-09-27), [`ADR-004`](../../adr/ADR-004-integration-vigieau.md) amendé le même jour, [`ADR-014`](../../adr/ADR-014-feature-first-mvvm.md).
+**Date :** 2026-09-27 · **Auteur :** `harold` (architecture) · **Statut :** ~~🔄 **décidé, rien n'est codé**~~ ✅ **codé le 2026-09-27** (tâches `M1` → `M4`, `D1` → `D4`, `V1`, `B2` du plan de T2 ; vérifié par test, **jamais constaté à l'écran** — note du 2026-10-04, `X3`). Les trois questions de la première version sont **arbitrées par le commanditaire le 2026-09-27** (voir « Arbitrages ») · **Dépend de :** [cadrage T2 arbitré](2026-09-27-cadrage-t2-design.md) (§ 6, Q1 à Q10), [`docs/sources/vigieau.md`](../../sources/vigieau.md) et les 16 fixtures de `test/fixtures/vigieau/` (capturées le 2026-09-27), [`ADR-004`](../../adr/ADR-004-integration-vigieau.md) amendé le même jour, [`ADR-014`](../../adr/ADR-014-feature-first-mvvm.md).
 
 > Ce document décide de la **forme** du modèle, du contrat et de l'emplacement des fichiers. Il ne fixe ni les textes d'écran, ni la disposition, ni le découpage en tâches. Toute affirmation sur VigiEau renvoie à une fixture nommée ; ce qui n'est vu dans aucune fixture est dit tel quel (§ 9).
 
@@ -441,7 +441,7 @@ final class RestrictionsViewModel extends ChangeNotifier {
 - **Les usages ne s'exposent qu'une fois un profil choisi.** La vue lit `zone.usagesFor(profile!)` seulement si `profile != null` (scénario « Aucun profil n'est présupposé »).
 - **Une réponse périmée ne remplace pas un point plus récent.** Si l'usager désigne un nouveau point pendant un chargement, la réponse du premier est ignorée (jeton de requête, comme les fiches).
 - **L'encart renforcé n'est pas un état.** Il est affiché d'emblée et dans tous les états, même `RestrictionsEnCours` et `RestrictionsEnEchec` (`BR-013`, US-09). Le ViewModel n'a rien à en dire.
-- 🔄 **Ouverture d'un lien (US-08) : dépend de Q9.** La bibliothèque n'est pas encore vérifiée sur pub.dev. La forme retenue est un **port** déclaré dans le domaine (par exemple `ExternalLinkOpener.open(Uri) → Future<bool>`), implémenté sous `lib/data/` autour de la bibliothèque, injecté au ViewModel par `main.dart`. Ainsi l'échec d'ouverture (`UC-002 A6`) est un état testable sans rendu, et aucune tranche n'importe la bibliothèque. Le détail sera arrêté avec l'arbitrage de la bibliothèque.
+- ~~🔄~~ ✅ **Ouverture d'un lien (US-08) : fait par `B2`** (2026-09-27, `c6f0f4e`) — `url_launcher` 6.3.2, accepté par le commanditaire après relevé sur pub.dev (`B-01`). ~~Dépend de Q9. La bibliothèque n'est pas encore vérifiée sur pub.dev.~~ La forme retenue est un **port** déclaré dans le domaine (par exemple `ExternalLinkOpener.open(Uri) → Future<bool>`), implémenté sous `lib/data/` autour de la bibliothèque, injecté au ViewModel par `main.dart`. Ainsi l'échec d'ouverture (`UC-002 A6`) est un état testable sans rendu, et aucune tranche n'importe la bibliothèque. Le détail sera arrêté avec l'arbitrage de la bibliothèque.
 
 ## 7. Conformité à l'architecture
 
@@ -454,7 +454,7 @@ final class RestrictionsViewModel extends ChangeNotifier {
 | `view-model-sans-widget` | `RestrictionsViewModel` n'importe que `foundation.dart` et le domaine |
 | `feature-vers-feature` | la carte ne nomme pas la tranche restrictions : rappel injecté (§ 4.1) |
 | `features-vers-data` | la tranche dépend de l'interface `RestrictionSource`, dans le domaine. Seul `main.dart` nomme `VigieauRestrictionSource` |
-| `shared-sans-tranche` | rien ne s'ajoute à `features/shared/` en T2 : l'encart renforcé n'a qu'un écran, il reste dans sa tranche (YAGNI). Il passera dans `shared/` au deuxième écran de ressource |
+| `shared-sans-tranche` | ~~rien ne s'ajoute à `features/shared/` en T2 : l'encart renforcé n'a qu'un écran, il reste dans sa tranche (YAGNI). Il passera dans `shared/` au deuxième écran de ressource~~ **Amendé le 2026-10-04 (`X3`, d'après la décision 4 du plan de T2, arbitrée le 2026-09-27) : l'écran « D'où vient cette donnée ? » entre dans `features/shared/`** (`data_sources_view.dart`, tâche `S1`), parce qu'il a deux consommateurs — le modal du premier lancement (tranche `warnings`) et la fenêtre « ⚠ Avertissement » (`WarningWindow`, déjà dans `shared/`). **L'encart renforcé, lui, reste dans sa tranche** (`lib/features/restrictions/view/reinforced_warning_card.dart`, un seul écran de ressource : YAGNI inchangé). La règle `shared-sans-tranche` n'a pas changé : `shared/` n'importe aucune tranche, ce qui a imposé de faire passer `ignAttribution` et `ignSourceName` de la tranche carte à `lib/domain/sources/source_names.dart` |
 | `features-sans-fichier-a-plat` | tout vit sous `features/restrictions/{view,view_model}/` |
 
 **Deux autres tests passeraient au rouge au premier fichier écrit, et doivent évoluer dans la même tâche :**
@@ -522,6 +522,8 @@ final class RestrictionsViewModel extends ChangeNotifier {
 - `project-state.md` : point 35.
 - `glossary.md` : « zone d'alerte », « type de zone », « profil d'usager ».
 - `domain-model.md` : au commit du code.
+
+> **Note du 2026-10-04 (`X3` de T2).** Tous les documents de cette liste ont été relus contre le code et alignés dans le commit de `X3` ; `domain-model.md` décrivait déjà les types de T2 depuis le commit de chacun (son retard sur T1, lui, est relevé dans son en-tête).
 
 ## 10. Tests prescrits (pour le plan de T2)
 

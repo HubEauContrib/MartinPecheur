@@ -1,9 +1,22 @@
 # Modèle de domaine
 
-**Statut** : Accepté · **2026-09-13**
+**Statut** : Accepté · **2026-09-13** · relu contre le code le **2026-10-04** (`X3` de T2)
 
-**Portée** : ce document décrit ce qui est **écrit** sous `lib/domain/` à la fin de T0 (D7
-compris) — pas une cible, un état. Le vocabulaire suit `docs/glossary.md`.
+**Portée** : ce document décrit ce qui est **écrit** sous `lib/domain/` — à la fin de T0 (D7
+compris), complété par T1 pour `OndePoint` et `AdministrativeArea`, puis par T2 (contexte
+Restrictions, `GeoPoint`, port d'ouverture de lien) — pas une cible, un état. Le vocabulaire suit
+`docs/glossary.md`.
+
+⚠️ **Relevé du 2026-10-04 (`X3` de T2) : le document est en retard sur T1.** Écrits sous
+`lib/domain/` et **absents** d'ici : `OndeStationCode`, `OndeObservation`,
+`OndeObservationRepository`, `OndeSweep`, `CampaignAge`, `StationMapState` (et ses branches
+`NonChargee`, `Chargee`, `SansDonnee`, `EnEchec`), les branches de `FlowCategory` autres que
+`NonObserve` et `Inconnu` (`Ecoulement`, `EcoulementFaible`, `EcoulementNonVisible`, `Assec`),
+`AreaCluster`, `AreaClustering`, `AreaLevel`, `AcknowledgementRepository`, `SheetWarningKind`, les
+formateurs de date (`display_date.dart`), les noms de source (`source_names.dart`), les textes
+d'avertissement (`warning_texts.dart`) et le rang de sévérité de `flow_severity.dart` (`BR-009`).
+`test/project/domain_model_doc_test.dart` ne verrouille que la liste `typesDuDomaine`, qui ne les
+contient pas : ce retard ne rougit rien. Il est **à rattraper**, il n'est pas rattrapé ici.
 
 ⚠️ Ce document décrit le **code**, pas la persistance. `docs/03-conception.md § 3` nomme une
 table `ObservationHydro` portant `ValeurM3S` ; le code porte `HydroObservation` et
@@ -50,11 +63,14 @@ Contexte Restrictions (`lib/domain/restrictions/`, T2) :
   branche inconnue ; `droughtSeverityLabel` est le seul libellé de l'échelle (« Non renseigné »
   pour l'inconnue). **Aucun rang de sévérité** : T2 ne compare jamais deux zones (YAGNI).
 - `ZoneKind` — sealed : `EauxSuperficielles` (`SUP`), `EauxSouterraines` (`SOU`), `EauPotable`
-  (`AEP`), branche par défaut **`TypeZoneInconnu`**, porteuse de la valeur brute. Libellés
-  fixés par la conception d'écran, pas ici.
+  (`AEP`), branche par défaut **`TypeZoneInconnu`**, porteuse de la valeur brute. `zoneKindLabel`
+  est le seul libellé du type (« Eaux superficielles », « Eaux souterraines », « Eau potable »,
+  « Type de zone non renseigné » — la valeur brute n'est jamais affichée), posé par `E2` d'après
+  la conception d'écran (Q-5a, arbitré le 2026-09-27).
 - `UserProfile` — `enum` fermé (`particulier`, `exploitation`, `collectivite`, `entreprise`, ordre
   d'`UC-002`), **sans** branche inconnue : le profil est choisi par l'usager, jamais reçu d'une
-  API — ce n'est pas un écart à `BR-011`.
+  API — ce n'est pas un écart à `BR-011`. `userProfileLabel` est le seul libellé (« Particulier »,
+  « Exploitation », « Collectivité », « Entreprise », Q-5b, arbitré le 2026-09-27).
 
 Les branches inconnues s'appellent `GraviteInconnue` et `TypeZoneInconnu`, et non `Inconnu`,
 déjà pris par `FlowCategory` : deux classes homonymes rendraient ambigu tout fichier qui importe
