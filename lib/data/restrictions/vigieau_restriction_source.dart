@@ -7,22 +7,31 @@
 // - `JsonHttpStatusFailure` : `isRetryable(statusCode)` (429/5xx, rejeux
 //   epuises) → `SourceInjoignable` — la source n'a pas su repondre du tout ;
 //   tout autre statut (400, 409…) → `RequeteRefusee(statusCode)` — la
-//   source A repondu, mais a refuse ce point ;
-// - `JsonHttpNetworkFailure` (panne reseau ou TLS) → `SourceInjoignable` ;
+//   source A repondu, mais a refuse ce point. Le corps d'un echec, meme s'il
+//   n'est pas de l'UTF-8 valide, ne change rien a cette distinction : il est
+//   decode avec tolerance (`allowMalformed`) par `JsonHttpClient`, c'est un
+//   diagnostic ;
+// - `JsonHttpNetworkFailure` (panne reseau ou TLS, reponse corrompue pendant
+//   le transfert, delai d'attente d'une tentative depasse — apres rejeux)
+//   → `SourceInjoignable` ;
 // - `JsonHttpUnreadableBody` (succes HTTP, corps non JSON) → `ReponseIllisible` ;
 // - `ReponseIllisible` du mapper (racine non tableau, champ obligatoire
-//   absent ou mal type, AR-2) → propagee telle quelle ;
-// - `FormatException` BRUTE : `JsonHttpStatusFailure.body` decode le corps
-//   en UTF-8 explicite (`utf8.decode(response.bodyBytes)`) au moment ou il
-//   est construit, hors de toute boucle `try`/`catch` de `JsonHttpClient`
-//   (D1) — un corps d'echec qui n'est pas de l'UTF-8 valide fait donc
-//   s'echapper une `FormatException` NUE de `getJson`. Elle est rattrapee
-//   ici comme une reponse illisible : c'est une exception de decodage, au
-//   meme titre qu'un corps de succes non JSON.
+//   absent ou mal type, AR-2) → propagee telle quelle, sans clause : ce
+//   n'est aucun des types attrapes ici.
 //
-// Rien ne s'echappe sous un autre type (conception T2 § 3) : les cinq
-// branches ci-dessus couvrent tout ce que `JsonHttpClient.getJson` et
-// `mapZones` peuvent lever.
+// Aucune `Exception` levee par un transport `package:http` ne s'echappe sous
+// un autre type (conception T2 § 3). `getJson` attrape tout ce qui sort de
+// `Client.get` : `ClientException`, `IOException` (une panne TLS, que
+// `IOClient` n'enveloppe pas), `FormatException` (corps `gzip` corrompu,
+// redirection mal formee — levees par le transport avant qu'aucune
+// `http.Response` ne soit rendue) et `TimeoutException` (delai d'attente
+// depasse) ; il decode le corps d'un echec avec tolerance (`allowMalformed`),
+// de sorte que seul un corps de succes illisible devient `JsonHttpUnreadableBody`.
+// `zonesUri` ne leve rien (`GeoPoint` valide ses coordonnees a la construction)
+// et `mapZones` ne leve que `ReponseIllisible`. Restent des `Error`, jamais
+// attrapees ici : `ArgumentError` sur une redirection vers un schema non HTTP ou
+// sans hote, ou sur un statut inferieur a 100 ; le ViewModel les recoit par sa
+// clause `on Error`.
 import 'package:martinpecheur/data/http/http_status.dart';
 import 'package:martinpecheur/data/http/json_http_client.dart';
 import 'package:martinpecheur/data/restrictions/vigieau_uris.dart';
@@ -48,8 +57,6 @@ final class VigieauRestrictionSource implements RestrictionSource {
     try {
       final Object? json = await _client.getJson(zonesUri(point));
       return mapZones(json, point: point, retrievedAt: _now().toUtc());
-    } on ReponseIllisible {
-      rethrow;
     } on JsonHttpStatusFailure catch (echec) {
       if (isRetryable(echec.statusCode)) {
         throw SourceInjoignable(echec.message);
@@ -62,8 +69,6 @@ final class VigieauRestrictionSource implements RestrictionSource {
       throw SourceInjoignable(echec.message);
     } on JsonHttpUnreadableBody catch (echec) {
       throw ReponseIllisible(echec.message);
-    } on FormatException catch (erreur) {
-      throw ReponseIllisible('$erreur');
     }
   }
 }

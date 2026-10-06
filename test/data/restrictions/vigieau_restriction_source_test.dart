@@ -3,6 +3,7 @@
 // `retrievedAt` depuis une horloge injectee. Aucun appel reel :
 // `http.testing.MockClient` sert les corps des fixtures reelles de
 // `test/fixtures/vigieau/`.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -26,12 +27,14 @@ VigieauRestrictionSource _sourceSur(
   http.Client mock, {
   DateTime Function()? now,
   List<Duration>? attentes,
+  Duration? requestTimeout,
 }) {
   return VigieauRestrictionSource(
     client: JsonHttpClient(
       httpClient: mock,
       jitter: () => 0,
       sleep: (Duration duree) async => attentes?.add(duree),
+      requestTimeout: requestTimeout ?? defaultRequestTimeout,
     ),
     now: now ?? () => _retrievedAt,
   );
@@ -208,6 +211,47 @@ void main() {
         throwsA(isA<SourceInjoignable>()),
       );
     });
+
+    test('source qui ne repond jamais : le delai d attente de chaque tentative '
+        'est une panne rejouable, SourceInjoignable apres rejeux, la requete '
+        'ne reste pas sans fin', () async {
+      int tentatives = 0;
+      final http.Client mock = MockClient((http.Request request) {
+        tentatives++;
+        return Completer<http.Response>().future;
+      });
+
+      await expectLater(
+        _sourceSur(
+          mock,
+          requestTimeout: const Duration(milliseconds: 20),
+        ).zonesAt(_point),
+        throwsA(
+          isA<SourceInjoignable>().having(
+            (SourceInjoignable echec) => echec.diagnostic,
+            'diagnostic',
+            'délai d\'attente de 20 ms dépassé',
+          ),
+        ),
+      );
+      expect(tentatives, 4);
+    });
+
+    test('FormatException levee par le transport (gzip corrompu, redirection '
+        'mal formee) : SourceInjoignable apres rejeux, jamais une '
+        'FormatException nue', () async {
+      int tentatives = 0;
+      final http.Client mock = MockClient((http.Request request) async {
+        tentatives++;
+        throw const FormatException('Filter error, bad data');
+      });
+
+      await expectLater(
+        _sourceSur(mock).zonesAt(_point),
+        throwsA(isA<SourceInjoignable>()),
+      );
+      expect(tentatives, 4);
+    });
   });
 
   group('VigieauRestrictionSource.zonesAt — ReponseIllisible', () {
@@ -236,16 +280,73 @@ void main() {
       expect(tentatives, 4);
     });
 
-    test('corps d echec non UTF-8 : FormatException brute de JsonHttpClient '
-        '(D1) rattrapee en ReponseIllisible', () async {
+    test('200 dont les octets ne sont pas de l UTF-8 : le decodage de succes '
+        'est strict, ReponseIllisible apres rejeux', () async {
+      int tentatives = 0;
       final http.Client mock = MockClient((http.Request request) async {
-        return http.Response.bytes(<int>[0xFF, 0xFE, 0xFD], 400);
+        tentatives++;
+        // `["\xFF"]` : un tableau JSON valide une fois l octet FF decode avec
+        // tolerance (en caractere de remplacement U+FFFD) — seul un decodage
+        // strict le refuse. Des octets qui ne sont pas du JSON meme toleres
+        // (FF FE FD) ne distingueraient pas les deux decodages. Le
+        // diagnostic et les quatre tentatives disent que le refus vient du
+        // transport (corps illisible, rejouable), pas du mapper : decode avec
+        // tolerance, ce serait un tableau d une chaine, refuse ensuite par le
+        // mapper, sans rejeu.
+        return http.Response.bytes(<int>[0x5B, 0x22, 0xFF, 0x22, 0x5D], 200);
       });
 
       await expectLater(
         _sourceSur(mock).zonesAt(_point),
-        throwsA(isA<ReponseIllisible>()),
+        throwsA(
+          isA<ReponseIllisible>().having(
+            (ReponseIllisible echec) => echec.diagnostic,
+            'diagnostic',
+            startsWith('corps illisible (statut 200) : '),
+          ),
+        ),
       );
+      expect(tentatives, 4);
+    });
+  });
+
+  group('VigieauRestrictionSource.zonesAt — corps d echec non UTF-8', () {
+    test('400 et octets FF FE FD : RequeteRefusee(400), aucun rejeu — le '
+        'corps d echec n est qu un diagnostic, il ne rend pas la reponse '
+        'illisible', () async {
+      int tentatives = 0;
+      final List<Duration> attentes = <Duration>[];
+      final http.Client mock = MockClient((http.Request request) async {
+        tentatives++;
+        return http.Response.bytes(<int>[0xFF, 0xFE, 0xFD], 400);
+      });
+
+      await expectLater(
+        _sourceSur(mock, attentes: attentes).zonesAt(_point),
+        throwsA(
+          isA<RequeteRefusee>().having(
+            (RequeteRefusee echec) => echec.statusCode,
+            'statusCode',
+            400,
+          ),
+        ),
+      );
+      expect(tentatives, 1);
+      expect(attentes, isEmpty);
+    });
+
+    test('503 et octets FF FE FD : rejoue, puis SourceInjoignable', () async {
+      int tentatives = 0;
+      final http.Client mock = MockClient((http.Request request) async {
+        tentatives++;
+        return http.Response.bytes(<int>[0xFF, 0xFE, 0xFD], 503);
+      });
+
+      await expectLater(
+        _sourceSur(mock).zonesAt(_point),
+        throwsA(isA<SourceInjoignable>()),
+      );
+      expect(tentatives, 4);
     });
   });
 }

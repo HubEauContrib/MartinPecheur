@@ -2,7 +2,8 @@
 // v2 et écoulement ONDE v1 (`lib/data/http/onde_uris.dart`) : il prend
 // n'importe quelle URI du même hôte et exige une racine JSON **objet**.
 // Le rejeu (429/5xx, `isRetryable`), l'acceptation de 200 et 206
-// (`isSuccess`, C-06), le décodage UTF-8 explicite, l'attente et la gigue
+// (`isSuccess`, C-06), le décodage UTF-8 explicite, le délai d'attente de
+// chaque tentative (10 s, non surchargeable ici), l'attente et la gigue
 // injectées vivent dans le transport qu'il délègue,
 // `lib/data/http/json_http_client.dart` (extrait en D1 de T2) — la seule
 // boucle de rejeu du produit. Recréer un second client, pour ONDE ou une
@@ -22,8 +23,9 @@
 // code site à huit (C-05).
 //
 // Les trois pannes que le transport distingue par type — statut HTTP hors
-// succès, panne réseau (TLS comprise), corps illisible malgré un succès —
-// arrivent ici en [JsonHttpFailure] et repartent en [HubEauFailure], dont le
+// succès, panne réseau (TLS, réponse corrompue pendant le transfert et délai
+// d'attente dépassé compris), corps illisible malgré un succès — arrivent ici
+// en [JsonHttpFailure] et repartent en [HubEauFailure], dont le
 // [HubEauFailure.message] recopie mot pour mot celui du transport : le
 // contrat de ce client n'a pas bougé à l'extraction. Une racine JSON qui
 // n'est pas un objet (un tableau par exemple) échoue immédiatement, sans
@@ -108,8 +110,9 @@ Uri _uri(String path, Map<String, String> queryParameters) {
 
 /// Échec de [HubEauClient.getJson], une fois toutes les tentatives
 /// épuisées (ou immédiatement, pour une panne non rejouable). [message]
-/// distingue la cause : un statut (`statut 400 …`), une panne réseau, ou un
-/// corps illisible.
+/// distingue la cause : un statut (`statut 400 …`), une panne réseau (`panne
+/// réseau : …`, `réponse corrompue pendant le transfert : …`, `délai
+/// d'attente de 10 s dépassé`), ou un corps illisible.
 final class HubEauFailure implements Exception {
   const HubEauFailure(this.message);
 
@@ -153,11 +156,13 @@ final class HubEauClient {
   /// Rejoue sur 429 et 5xx (`isRetryable`, C-12), sur une panne réseau
   /// (`http.ClientException`), sur une panne TLS qui traverse `IOClient`
   /// sans être enveloppée (`HandshakeException`/`TlsException`, `on
-  /// IOException`) et sur un corps illisible malgré un statut de succès.
-  /// Échoue immédiatement, sans attente, sur un statut non rejouable, sur
-  /// un corps JSON qui n'est pas un objet, ou sur un client déjà fermé
-  /// (`ClientException` dont le message contient « already closed ») :
-  /// aucune attente ne le rouvrira.
+  /// IOException`), sur une `FormatException` levée par le transport (corps
+  /// `gzip` corrompu, redirection mal formée), sur une tentative qui dépasse
+  /// le délai d'attente du transport (10 s, `defaultRequestTimeout`) et sur
+  /// un corps illisible malgré un statut de succès. Échoue immédiatement,
+  /// sans attente, sur un statut non rejouable, sur un corps JSON qui n'est
+  /// pas un objet, ou sur un client déjà fermé (`ClientException` dont le
+  /// message contient « already closed ») : aucune attente ne le rouvrira.
   Future<Map<String, dynamic>> getJson(Uri uri) async {
     final Object? decoded;
     try {

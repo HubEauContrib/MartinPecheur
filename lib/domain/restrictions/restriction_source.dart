@@ -54,8 +54,10 @@ sealed class RestrictionLookupFailure implements Exception {
   final String diagnostic;
 }
 
-/// La source n'a pas repondu : panne reseau ou TLS, ou `429`/`5xx`
-/// persistant apres les rejeux du transport partage.
+/// La source n'a pas repondu de facon exploitable : panne reseau ou TLS,
+/// reponse corrompue pendant le transfert, delai d'attente depasse, ou
+/// `429`/`5xx` persistant — dans tous les cas apres les rejeux du transport
+/// partage.
 final class SourceInjoignable extends RestrictionLookupFailure {
   const SourceInjoignable(super.diagnostic);
 
