@@ -62,8 +62,9 @@
 //   faisaient dix requêtes et reconstruisaient dix fois les 4 150 marqueurs.
 //   `onPositionChanged` n'est plus câblé du tout : la requête part sur
 //   [_handleMapEvent], câblé à `MapOptions.onMapEvent`, uniquement pour les
-//   événements de **fin** de geste — voir [shouldRefreshOn]. La marge
-//   proportionnelle
+//   événements de **fin** de geste — sauf le changement de taille de la
+//   carte, qui ne fait que rejouer la contrainte de caméra ; voir
+//   [shouldRefreshOn]. La marge proportionnelle
 //   `defaultViewportMargin` (`lib/domain/geo/viewport_filter.dart`) couvre le
 //   déplacement entre-temps.
 //
@@ -1622,8 +1623,9 @@ class _MapViewState extends State<MapView> {
   ///   `constrain` rend `null`, `moveRaw` rend `false` — le recalage est
   ///   refusé, sans exception, la caméra reste telle quelle.
   ///
-  /// Le `MapEventMove` que ce déplacement émet à son tour ([shouldRefreshOn]
-  /// répond `false`) ne rappelle pas ce handler : pas de boucle.
+  /// Le `MapEventMove` que ce déplacement émet à son tour repasse par
+  /// [_handleMapEvent], qui l'ignore — ce n'est pas un changement de taille,
+  /// et [shouldRefreshOn] répond `false` : pas de boucle.
   void _reapplyCameraConstraint() {
     final MapCamera camera = _mapController.camera;
     _afterCameraMove(_mapController.move(camera.center, camera.zoom));
