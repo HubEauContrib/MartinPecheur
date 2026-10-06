@@ -27,10 +27,13 @@ final class DocumentLink {
   /// ou `https` avec un hote — un chemin relatif, un autre schema (`ftp:`,
   /// `javascript:`), une forme sans hote (`https:foo`) ou une chaine vide
   /// ne proposent aucune action d'ouverture, mais [raw] reste affiche
-  /// (`UC-002 A6`).
+  /// (`UC-002 A6`). Un fragment (`…/arrete.pdf#page=3`) ne rend pas le lien
+  /// inouvrable : le schema et l'hote suffisent a le dire absolu. Le
+  /// `isAbsolute` d'`Uri` exige aussi l'absence de fragment, et n'est donc
+  /// pas le critere.
   Uri? get openableUri {
     final Uri? parsed = Uri.tryParse(raw);
-    if (parsed == null || !parsed.isAbsolute) {
+    if (parsed == null) {
       return null;
     }
     if (parsed.scheme != 'http' && parsed.scheme != 'https') {

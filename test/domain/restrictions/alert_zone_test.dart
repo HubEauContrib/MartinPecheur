@@ -51,6 +51,22 @@ void main() {
       expect(const DocumentLink('https:foo').openableUri, isNull);
     });
 
+    test('une URL https avec fragment (#page=3) reste ouvrable : '
+        '`Uri.isAbsolute` refuse tout fragment, ce n est pas le critere', () {
+      const DocumentLink lien = DocumentLink(
+        'https://exemple.gouv.fr/arrete.pdf#page=3',
+      );
+
+      expect(lien.openableUri, isNotNull);
+      expect(lien.openableUri!.fragment, 'page=3');
+      expect(lien.openableUri!.host, 'exemple.gouv.fr');
+    });
+
+    test('une reference relative au schema (//hote/a.pdf) n est pas '
+        'ouvrable', () {
+      expect(const DocumentLink('//exemple.test/a.pdf').openableUri, isNull);
+    });
+
     test('lien de Paris : raw inchange, rien n est decode ni repare', () {
       const String brut =
           'https://regleau.s3.gra.perf.cloud.ovh.net/arrete-restriction/'
