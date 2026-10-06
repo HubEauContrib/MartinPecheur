@@ -407,14 +407,130 @@ void main() {
       expect(validFrom, DateTime.utc(2026, 9, 21));
     });
 
-    test('un decalage explicite est converti en UTC', () {
-      expect(
-        _mapAriegeVariant(
-          (Map<String, dynamic> zone) =>
-              _arrete(zone)['dateDebutValidite'] = '2026-09-21T02:00:00+02:00',
-        ).zones[1].decree.validFrom,
-        DateTime.utc(2026, 9, 21),
+    // Les cas ci-dessous sont des chaines ECRITES dans le test : aucune
+    // reponse reelle de VigiEau n'a jamais porte un decalage explicite (la
+    // seule forme constatee est `...Z`, `test/fixtures/CAPTURES.md`). Une
+    // date de validite est une date calendaire : on la garde TELLE QU'ECRITE,
+    // jamais convertie de fuseau (conception T2 § 2.5, arbitrage du
+    // 2026-10-06). `DateTime.parse` accepte, en suffixe de fuseau, `Z`/`z`
+    // ou un decalage signe `±HH`, `±HHMM`, `±HH:MM`, chacun eventuellement
+    // precede d'une espace (SDK, `date_time.dart`).
+    DateTime validFromWrittenAs(Object? written) => _mapAriegeVariant(
+      (Map<String, dynamic> zone) =>
+          _arrete(zone)['dateDebutValidite'] = written,
+    ).zones[1].decree.validFrom;
+
+    test('un decalage positif garde la date ecrite : minuit +02:00 reste le '
+        '20, pas le 19', () {
+      final DateTime validFrom = validFromWrittenAs(
+        '2026-08-20T00:00:00+02:00',
       );
+
+      expect(validFrom, DateTime.utc(2026, 8, 20));
+      expect(validFrom.isUtc, isTrue);
+    });
+
+    test('un decalage explicite ne decale pas l heure : 02:00 +02:00 reste '
+        '02:00', () {
+      expect(
+        validFromWrittenAs('2026-08-20T02:00:00+02:00'),
+        DateTime.utc(2026, 8, 20, 2),
+      );
+    });
+
+    test('un decalage negatif garde la date ecrite : 23:30 -05:00 reste le '
+        '20, pas le 21', () {
+      final DateTime validFrom = validFromWrittenAs(
+        '2026-08-20T23:30:00-05:00',
+      );
+
+      expect(validFrom, DateTime.utc(2026, 8, 20, 23, 30));
+      expect(validFrom.isUtc, isTrue);
+    });
+
+    test('toutes les ecritures de decalage que DateTime.parse accepte gardent '
+        'les composantes de la chaine', () {
+      final Map<String, DateTime> written = <String, DateTime>{
+        '2026-08-20T00:00:00+0200': DateTime.utc(2026, 8, 20),
+        '2026-08-20T00:00:00+02': DateTime.utc(2026, 8, 20),
+        '2026-08-20T00:00:00 +02:00': DateTime.utc(2026, 8, 20),
+        '2026-08-20T00:00:00+05:30': DateTime.utc(2026, 8, 20),
+        '2026-08-20T00:00:00+00:00': DateTime.utc(2026, 8, 20),
+        '2026-08-20T23:30:00-0500': DateTime.utc(2026, 8, 20, 23, 30),
+        '2026-08-20T23:30:00-05': DateTime.utc(2026, 8, 20, 23, 30),
+        '2026-08-20T23:30:00 -05:00': DateTime.utc(2026, 8, 20, 23, 30),
+        '2026-08-20 02:00:00+02:00': DateTime.utc(2026, 8, 20, 2),
+        '2026-08-20T02:00+02:00': DateTime.utc(2026, 8, 20, 2),
+        '2026-08-20T02+02:00': DateTime.utc(2026, 8, 20, 2),
+        '20260820T020000+0200': DateTime.utc(2026, 8, 20, 2),
+        '2026-08-20T02:00:00.123+02:00': DateTime.utc(
+          2026,
+          8,
+          20,
+          2,
+          0,
+          0,
+          123,
+        ),
+      };
+      for (final MapEntry<String, DateTime> entry in written.entries) {
+        expect(validFromWrittenAs(entry.key), entry.value, reason: entry.key);
+      }
+    });
+
+    test('la forme en Z, la seule constatee dans une reponse reelle, garde '
+        'ses composantes', () {
+      final Map<String, DateTime> written = <String, DateTime>{
+        '2026-08-20T00:00:00.000Z': DateTime.utc(2026, 8, 20),
+        '2026-08-20T00:00:00Z': DateTime.utc(2026, 8, 20),
+        '2026-08-20T00:00:00z': DateTime.utc(2026, 8, 20),
+        '2026-08-20T00:00:00 Z': DateTime.utc(2026, 8, 20),
+        '2026-08-20T23:30:00Z': DateTime.utc(2026, 8, 20, 23, 30),
+      };
+      for (final MapEntry<String, DateTime> entry in written.entries) {
+        final DateTime validFrom = validFromWrittenAs(entry.key);
+
+        expect(validFrom, entry.value, reason: entry.key);
+        expect(validFrom.isUtc, isTrue, reason: entry.key);
+      }
+    });
+
+    test('une date sans fuseau, avec ou sans heure, garde ses composantes', () {
+      final Map<String, DateTime> written = <String, DateTime>{
+        '2026-08-20': DateTime.utc(2026, 8, 20),
+        '20260820': DateTime.utc(2026, 8, 20),
+        '2026-08-20T00:00:00': DateTime.utc(2026, 8, 20),
+        '2026-08-20T23:30:00': DateTime.utc(2026, 8, 20, 23, 30),
+        '2026-08-20 23:30': DateTime.utc(2026, 8, 20, 23, 30),
+      };
+      for (final MapEntry<String, DateTime> entry in written.entries) {
+        final DateTime validFrom = validFromWrittenAs(entry.key);
+
+        expect(validFrom, entry.value, reason: entry.key);
+        expect(validFrom.isUtc, isTrue, reason: entry.key);
+      }
+    });
+
+    test('dateFinValidite suit la meme regle que dateDebutValidite', () {
+      final DateTime? validUntil = _mapAriegeVariant(
+        (Map<String, dynamic> zone) =>
+            _arrete(zone)['dateFinValidite'] = '2026-10-31T00:00:00+02:00',
+      ).zones[1].decree.validUntil;
+
+      expect(validUntil, DateTime.utc(2026, 10, 31));
+    });
+
+    test('une chaine qui n est pas une date reste illisible, decalage '
+        'compris', () {
+      for (final String written in <String>[
+        'pas une date',
+        '',
+        '2026-08-20+02:00', // un fuseau sans heure : refuse par DateTime.parse
+        '2026-08-20T00:00:00+2:00',
+        '2026-08-20T00:00:00+02:00 pas une date',
+      ]) {
+        expect(() => validFromWrittenAs(written), _illisible, reason: written);
+      }
     });
   });
 

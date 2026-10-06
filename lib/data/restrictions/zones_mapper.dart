@@ -24,7 +24,8 @@
 // - chaine → nomenclature (`trim` + minuscules pour la gravite, `trim` +
 //   majuscules pour le type ; valeur brute gardee dans la branche inconnue) ;
 // - quatre booleens → `Set<UserProfile>` ;
-// - ISO 8601 → `DateTime` UTC ;
+// - ISO 8601 → `DateTime` UTC, composantes gardees telles qu'ecrites (le
+//   fuseau n'est jamais applique : une date de validite est calendaire) ;
 // - lien vide → `null` ;
 // - `\r\n` → `\n` dans `nom`, `thematique` et `description`. AUCUN `trim` des
 //   textes : ce sont les mots du prefet, cites (BR-014) — espaces de fin et
@@ -176,32 +177,59 @@ bool _flag(Map<String, Object?> object, String key, String path) {
   return value;
 }
 
-/// Date ISO 8601, rendue en UTC. Absente ou `null` : `null`. Une date sans
-/// fuseau est lue comme deja en UTC, jamais en heure locale du poste : les
-/// dates de validite sont des dates calendaires (conception T2 § 2.5).
+/// Les trois parties d'une date ISO 8601 que `DateTime.parse` accepte (SDK,
+/// `date_time.dart`) : la date, l'heure facultative (separee par `T` ou une
+/// espace), puis le suffixe de fuseau facultatif — `Z`/`z` ou un decalage
+/// signe `±HH`, `±HHMM`, `±HH:MM`, chacun eventuellement precede d'une
+/// espace. Ne sert qu'a SEPARER le suffixe d'une chaine que le SDK a deja
+/// reconnue comme date : la validite reste jugee par `DateTime.tryParse`.
+final RegExp _isoDate = RegExp(
+  r'^(?<date>[+-]?\d{4,6}-?\d\d-?\d\d)'
+  r'(?<time>[ T]\d\d(?::?\d\d(?::?\d\d(?:[.,]\d+)?)?)?)?'
+  r'(?<zone> ?[zZ]| ?[-+]\d\d(?::?\d\d)?)?$',
+);
+
+/// Date ISO 8601, gardee TELLE QU'ECRITE et rendue en UTC. Absente ou `null` :
+/// `null`.
+///
+/// Une date de validite est une date calendaire (conception T2 § 2.5,
+/// arbitrage du 2026-10-06) : le suffixe de fuseau (`Z`, ou un decalage
+/// comme `+02:00`) est lu pour savoir que la chaine est valide, jamais
+/// APPLIQUE. `2026-08-20T00:00:00+02:00` rend `2026-08-20 00:00 UTC`, pas
+/// l'instant UTC equivalent (`2026-08-19 22:00`) qui ferait afficher « depuis
+/// le 19 » un arrete du 20. Une date sans fuseau est lue de la meme facon :
+/// jamais en heure locale du poste. Seule la forme en `Z` a ete constatee
+/// dans une reponse reelle ; les decalages sont une tolerance, non constatee.
 DateTime? _optionalDate(Map<String, Object?> object, String key, String path) {
   final Object? value = object[key];
   if (value == null) {
     return null;
   }
-  final DateTime? parsed = value is String ? DateTime.tryParse(value) : null;
-  if (parsed == null) {
+  final DateTime? written = value is String ? _writtenDate(value) : null;
+  if (written == null) {
     throw ReponseIllisible(
       '$path.$key : une date ISO 8601 est attendue, recu ${_describe(value)}',
     );
   }
-  if (parsed.isUtc) {
-    return parsed;
+  return written;
+}
+
+/// Les composantes de [text], en UTC, sans appliquer son fuseau ; `null` si
+/// le SDK ne reconnait pas [text] comme une date ISO 8601. Une date sans heure
+/// vaut minuit : `Z` est ajoute a une chaine deja ecartee du fuseau, de sorte
+/// que le SDK rende des composantes UTC exactes, sans passer par l'heure
+/// locale du poste (un changement d'heure y creuserait un trou).
+DateTime? _writtenDate(String text) {
+  if (DateTime.tryParse(text) == null) {
+    return null;
   }
-  return DateTime.utc(
-    parsed.year,
-    parsed.month,
-    parsed.day,
-    parsed.hour,
-    parsed.minute,
-    parsed.second,
-    parsed.millisecond,
-    parsed.microsecond,
+  final RegExpMatch? parts = _isoDate.firstMatch(text);
+  if (parts == null) {
+    return null;
+  }
+  return DateTime.tryParse(
+    '${parts.namedGroup('date')}'
+    '${parts.namedGroup('time') ?? 'T00'}Z',
   );
 }
 
