@@ -852,6 +852,7 @@ void main() {
             profile: null,
             onChooseProfile: chosen.add,
             onRetry: () {},
+            onOpenDocument: (DocumentLink _, LinkTarget _) {},
             onOpenPublicSite: () {},
             utcOffsetOf: (DateTime _) => const Duration(hours: 2),
           ),

@@ -56,7 +56,9 @@ Widget _screen(
   profile: profile,
   onChooseProfile: onChooseProfile ?? (UserProfile _) {},
   onRetry: onRetry ?? () {},
-  onOpenDocument: onOpenDocument,
+  // Obligatoire, comme dans la composition réelle (`lib/main.dart`) : un
+  // test qui ne s'y intéresse pas reçoit un rappel sans effet.
+  onOpenDocument: onOpenDocument ?? (DocumentLink _, LinkTarget _) {},
   onOpenPublicSite: onOpenPublicSite ?? () {},
   unopenedLink: unopenedLink,
   utcOffsetOf: _paris,
@@ -991,14 +993,6 @@ void main() {
         ),
       );
     });
-
-    testWidgets('sans onOpenDocument : aucune action d ouverture', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, ZonesTrouvees(zonesAin()));
-      expect(find.text("Ouvrir l'arrêté"), findsNothing);
-      expect(find.widgetWithText(SelectableText, decreeUrlAin), findsOneWidget);
-    });
   });
 
   // Section « Arrêtés » en cartes (arbitrage du commanditaire du 2026-09-29,
@@ -1421,14 +1415,12 @@ void main() {
       expect(find.text("PDF · s'ouvre hors de l'application"), findsOneWidget);
     });
 
-    testWidgets('sans onOpenDocument ou adresse non ouvrable : aucune mention '
-        'd ouverture', (WidgetTester tester) async {
-      await _pump(tester, ZonesTrouvees(zonesAin()));
-      expect(find.textContaining("hors de l'application"), findsNothing);
+    testWidgets('adresse non ouvrable : aucune mention d ouverture', (
+      WidgetTester tester,
+    ) async {
       await _pump(
         tester,
         ZonesTrouvees(zonesAinWith(<AlertZone>[ainSupAdresseNonOuvrable()])),
-        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       expect(find.textContaining("hors de l'application"), findsNothing);
     });

@@ -115,8 +115,8 @@ class RestrictionsScreen extends StatelessWidget {
     required this.profile,
     required this.onChooseProfile,
     required this.onRetry,
+    required this.onOpenDocument,
     required this.onOpenPublicSite,
-    this.onOpenDocument,
     this.unopenedLink,
     this.utcOffsetOf = systemUtcOffsetOf,
     super.key,
@@ -136,9 +136,10 @@ class RestrictionsScreen extends StatelessWidget {
   /// Appele par « Réessayer » — branche sur `RestrictionsViewModel.retry`.
   final VoidCallback onRetry;
 
-  /// Appele par « Ouvrir l'arrêté » / « Ouvrir l'arrêté-cadre ». Nul :
-  /// aucune action d'ouverture, l'adresse reste visible et selectionnable.
-  final void Function(DocumentLink link, LinkTarget target)? onOpenDocument;
+  /// Appele par « Ouvrir l'arrêté » / « Ouvrir l'arrêté-cadre » — branche
+  /// sur `RestrictionsViewModel.openDocument`. Obligatoire : une adresse
+  /// ouvrable a toujours son action d'ouverture.
+  final void Function(DocumentLink link, LinkTarget target) onOpenDocument;
 
   /// Ouvre le site public de la source, hors de l'application : l'action de
   /// l'encart renforce (E4). Obligatoire — l'encart n'a pas de forme sans
@@ -1149,12 +1150,10 @@ class _DecreeBlock extends StatelessWidget {
   final _DecreeEntry entry;
   final bool sameZonesAsDecree;
   final UnopenedLink? unopenedLink;
-  final void Function(DocumentLink link, LinkTarget target)? onOpenDocument;
+  final void Function(DocumentLink link, LinkTarget target) onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
-    final void Function(DocumentLink link, LinkTarget target)? onOpenDocument =
-        this.onOpenDocument;
     final bool openable = entry.link.openableUri != null;
     final bool framework = entry.isFramework;
     final LinkTarget target = framework
@@ -1239,7 +1238,7 @@ class _DecreeBlock extends StatelessWidget {
                   'Cette adresse ne peut pas être ouverte depuis '
                   "l'application.",
                 )
-              else if (onOpenDocument != null) ...<Widget>[
+              else ...<Widget>[
                 _OpenDocumentButton(
                   label: framework
                       ? "Ouvrir l'arrêté-cadre"
