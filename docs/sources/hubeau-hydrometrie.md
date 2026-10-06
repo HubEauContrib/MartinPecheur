@@ -67,9 +67,15 @@ répond ni ne coupe (mesuré contre un serveur local, `docs/project-state.md`, p
 n'ait pas encore répondu ou qu'il cale en plein corps (contre un serveur local muet, les quatre
 connexions des tentatives abandonnées sont fermées). **Reste non annulée : la phase de connexion**
 (DNS, connexion TCP, poignée de main TLS ; constaté pour la poignée de main TLS contre un serveur
-local, lu dans le paquet pour le DNS et la connexion TCP, `docs/project-state.md`, point 57). Le
+local, lu dans le paquet pour le DNS et la connexion TCP, `docs/project-state.md`, point 57). **Pas
+davantage annulée : une redirection suivie vers une autre origine** (autre hôte, autre port ou autre
+schéma), tant que les en-têtes de la réponse redirigée ne sont pas arrivés : l'annulation détruit la
+connexion d'origine, laisse ouverte celle de la redirection, et peut faire échouer une autre requête
+en vol qui réutilisait la connexion d'origine (constaté contre deux serveurs locaux le 2026-10-06,
+`83dac21` ; jamais sur Hub'Eau, et aucune des sources appelées ne redirige à ce jour). Le
 délai de 10 s est **trop court pour le balayage ONDE national** mesuré à 10,26 s le 2026-10-06
-(`docs/sources/onde.md`, `T-17`) : question ouverte, point 59.
+(`docs/sources/onde.md`, `T-17`) : question ouverte, point 59 ; latence d'un appel unique du
+référentiel : `T-18`, plus bas.
 
 ```mermaid
 sequenceDiagram
@@ -295,6 +301,19 @@ Réponses brutes (petites) archivées hors dépôt :
 `q02_bbox_sort_desc.json`, `q02_bbox_sort_asc.json`, `q03_sans_fields.json`,
 `q03_avec_fields.json`, `q04_latence.txt`, `entetes.txt` — dossier scratchpad de la session,
 pas dans le dépôt.
+
+## Constaté le 2026-10-06
+
+`T-18` **Latence d'un appel unique** — rapportée par un relecteur le 2026-10-06 à 15:40 UTC : **un seul
+appel réel, depuis ce poste, sans suivre les redirections ; non rejoué par la boucle principale**.
+Adresse telle que le relecteur l'a rapportée (le chemin, sous la base
+`https://hubeau.eaufrance.fr/api/v2/hydrometrie`) : `referentiel/stations?size=1` → **206**, réponse
+directe, **7,33 s**. Aucune redirection sur cet appel. Un appel, un jour, un poste : ni médiane ni
+dispersion ; la requête ne porte que sur une station (`size=1`). Le délai d'attente d'une tentative est
+de **10 s** et, depuis `9f81d8c`, le client ferme la connexion à 10 s au lieu de la laisser finir : cet
+appel a duré 7,33 s, à 2,67 s du délai. La question du délai pour Hub'Eau reste ouverte (point 59 de
+`docs/project-state.md`), non tranchée ici. Les deux autres appels de `T-18` (VigiEau, écoulement
+ONDE) : `docs/sources/onde.md`.
 
 ## Non vérifié
 

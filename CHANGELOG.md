@@ -120,8 +120,10 @@ T2) n'y figurent pas.
   échoue désormais. Une tentative qui dépasse son délai est **annulée** : le
   client ferme sa connexion, que le serveur n'ait pas encore répondu ou qu'il
   cale en plein corps ; la phase de connexion (DNS, connexion TCP, poignée de
-  main TLS) n'est pas annulée. Établi contre un serveur local, jamais sur une
-  API réelle.
+  main TLS) n'est pas annulée, pas plus qu'une redirection suivie vers une
+  autre origine (autre hôte, autre port ou autre schéma) tant que les
+  en-têtes de la réponse redirigée ne sont pas arrivés. Établi contre un
+  serveur local, jamais sur une API réelle.
 - Surcouches de la carte (colonnes gauche et droite, colonne unique des
   largeurs de téléphone, bande du bouton de désignation) : plus de barre de
   défilement de bureau ; quand l'une déborde, elle défile à la molette posée
@@ -283,11 +285,19 @@ T2) n'y figurent pas.
   par un test de caractérisation de `flutter_map` 8.3.2, le recalage au
   redimensionnement étant alors refusé de même, sans exception), et, pendant
   un redimensionnement continu de la fenêtre AU bord du monde, la carte se
-  recharge à chaque trame, sans anti-rebond (écrit par l'auteur du correctif,
-  non mesuré) ; la phase de connexion d'une tentative d'appel (DNS, connexion
-  TCP, poignée de main TLS) n'est pas annulée au délai de 10 s, seule la suite
-  l'est (constaté pour la poignée de main TLS contre un serveur local, lu dans
-  le paquet `http` pour le DNS et la connexion TCP) ; le délai de 10 s est
+  recharge à chaque pas, sans anti-rebond (mesuré par un relecteur dans une
+  copie : dix pas de hauteur, dix chargements ; seuls garde-fous, le refus
+  d'une emprise identique et le jeton de génération ; n'arrive qu'au bord du
+  monde, hors de France) ; la phase de connexion d'une tentative d'appel (DNS,
+  connexion TCP, poignée de main TLS) n'est pas annulée au délai de 10 s, seule
+  la suite l'est (constaté pour la poignée de main TLS contre un serveur local,
+  lu dans le paquet `http` pour le DNS et la connexion TCP), pas davantage une
+  redirection suivie vers une autre origine (autre hôte, autre port ou autre
+  schéma) tant que les en-têtes de la réponse redirigée ne sont pas arrivés :
+  l'annulation détruit la connexion d'origine, laisse ouverte celle de la
+  redirection et peut faire échouer une autre requête en vol qui réutilisait
+  la connexion d'origine (constaté contre deux serveurs locaux le 2026-10-06 ;
+  aucune des sources appelées ne redirige à ce jour) ; le délai de 10 s est
   trop court pour le balayage ONDE national, mesuré à 10,26 s le 2026-10-06
   (`docs/sources/onde.md`, `T-17` ; un échantillon, un jour, un poste) : un
   passage à 30 s pour Hub'Eau, arbitré par le commanditaire, a été retiré à sa

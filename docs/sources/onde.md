@@ -214,6 +214,26 @@ l'un des deux.
   commanditaire le même jour puis codé, a été **retiré à sa demande** avant tout commit : la
   question reste ouverte.
 
+- `T-18` **Latence d'appels uniques, rapportée par un relecteur** — le 2026-10-06 à 15:40 UTC, **un
+  appel réel par adresse, depuis ce poste, sans suivre les redirections** ; **non rejoués par la boucle
+  principale** ; adresses telles que le relecteur les a rapportées (le chemin, sous la base de chaque
+  API) :
+
+  | API (base) et chemin rapporté | Statut | Durée |
+  |---|---|---|
+  | hydrométrie v2 (`https://hubeau.eaufrance.fr/api/v2/hydrometrie`), `referentiel/stations?size=1` | **206**, réponse directe | **7,33 s** |
+  | VigiEau (`https://api.vigieau.beta.gouv.fr/api`), `zones?lat=48.8566&lon=2.3522` | **200**, réponse directe | **0,12 s** |
+  | écoulement v1 (`https://hubeau.eaufrance.fr/api/v1/ecoulement`), `stations?size=1` | **aucune réponse** | **aucune réponse en 20 s** |
+
+  Aucune redirection sur ces appels. Un appel par adresse, un jour, un poste : ni médiane ni
+  dispersion, et la cause de l'absence de réponse de l'écoulement (charge, limitation, panne
+  passagère) **n'est pas établie** — comme pour les quatre appels de `T-17`. ⚠️ Le délai d'attente
+  d'une tentative est de **10 s** partout (`defaultRequestTimeout`), et depuis `9f81d8c` le client
+  **ferme la connexion** à 10 s au lieu de la laisser finir : la question du délai pour Hub'Eau reste
+  ouverte (`docs/project-state.md`, point 59), non tranchée ici. La ligne VigiEau est consignée ici pour
+  la comparaison ; `docs/sources/vigieau.md` n'est pas modifiée. L'appel hydrométrie est aussi dans
+  `docs/sources/hubeau-hydrometrie.md`.
+
 ## Non vérifié
 
 - **Pourquoi les codes à espaces de bord ne se retrouvent pas** (`T-14 b`) : `" O968 5312 "`
