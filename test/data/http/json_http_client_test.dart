@@ -12,6 +12,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:http/testing.dart';
 import 'package:martinpecheur/data/http/json_http_client.dart';
 import 'package:martinpecheur/data/http/retry.dart';
@@ -495,6 +496,29 @@ void main() {
       expect(appels, 2);
     });
 
+    test('l\'exception d\'annulation tardive d\'une tentative abandonnée est '
+        'ignorée elle aussi, sans erreur non gérée', () async {
+      int appels = 0;
+      final Completer<http.Response> tardive = Completer<http.Response>();
+      final http.Client mock = MockClient((http.Request request) {
+        appels++;
+        if (appels == 1) {
+          return tardive.future;
+        }
+        return Future<http.Response>.value(http.Response('{"ok":true}', 200));
+      });
+
+      final Object? corps = await clientSur(
+        mock,
+        requestTimeout: delaiCourt,
+      ).getJson(cible);
+      tardive.completeError(http.RequestAbortedException(cible));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(corps, <String, Object>{'ok': true});
+      expect(appels, 2);
+    });
+
     test('une réponse qui arrive avant le délai n\'est pas touchée, et le '
         'minuteur ne reste pas pendant', () async {
       final List<_Minuteur> minuteurs = <_Minuteur>[];
@@ -561,6 +585,285 @@ void main() {
         List<Duration>.filled(4, const Duration(seconds: 10)),
       );
     });
+  });
+
+  group('JsonHttpClient.getJson — annulation de la tentative abandonnée', () {
+    const Duration delaiCourt = Duration(milliseconds: 20);
+
+    Future<http.StreamedResponse> pendue() =>
+        Completer<http.StreamedResponse>().future;
+
+    Future<http.StreamedResponse> reponseSaine() =>
+        Future<http.StreamedResponse>.value(
+          http.StreamedResponse(
+            Stream<List<int>>.value(utf8.encode('{"ok":true}')),
+            200,
+          ),
+        );
+
+    test('chaque tentative dépassée déclenche l\'annulation de CETTE '
+        'tentative : requête GET annulable, en-tête Accept', () async {
+      final _ClientObservateur client = _ClientObservateur(
+        (int tentative, http.BaseRequest requete) => pendue(),
+      );
+
+      await expectLater(
+        clientSur(client, requestTimeout: delaiCourt).getJson(cible),
+        throwsA(
+          isA<JsonHttpNetworkFailure>().having(
+            (JsonHttpNetworkFailure echec) => echec.message,
+            'message',
+            'délai d\'attente de 20 ms dépassé',
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(client.requetes, hasLength(4));
+      expect(client.annulees, <bool>[true, true, true, true]);
+      for (final http.BaseRequest requete in client.requetes) {
+        expect(requete, isA<http.Abortable>());
+        expect(requete.method, 'GET');
+        expect(requete.url, cible);
+        expect(requete.headers['Accept'], 'application/json');
+      }
+    });
+
+    test('première tentative pendue, seconde saine : seule la première est '
+        'annulée, la seconde ne l\'est jamais', () async {
+      final _ClientObservateur client = _ClientObservateur(
+        (int tentative, http.BaseRequest requete) =>
+            tentative == 0 ? pendue() : reponseSaine(),
+      );
+
+      final Object? corps = await clientSur(
+        client,
+        requestTimeout: delaiCourt,
+      ).getJson(cible);
+      // Plus long que le délai : une annulation tardive de la tentative saine
+      // serait vue ici.
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(corps, <String, Object>{'ok': true});
+      expect(client.annulees, <bool>[true, false]);
+    });
+
+    test('une réponse arrivée dans le délai n\'est jamais annulée', () async {
+      final _ClientObservateur client = _ClientObservateur(
+        (int tentative, http.BaseRequest requete) => reponseSaine(),
+      );
+
+      final Object? corps = await clientSur(
+        client,
+        requestTimeout: delaiCourt,
+      ).getJson(cible);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(corps, <String, Object>{'ok': true});
+      expect(client.annulees, <bool>[false]);
+    });
+
+    test('un client qui annule en rejetant l\'envoi : l\'échec reste le '
+        'délai dépassé, l\'exception d\'annulation ne fuit pas', () async {
+      int injectees = 0;
+      final _ClientObservateur client = _ClientObservateur((
+        int tentative,
+        http.BaseRequest requete,
+      ) {
+        final Completer<http.StreamedResponse> envoi =
+            Completer<http.StreamedResponse>();
+        if (requete case http.Abortable(:final abortTrigger?)) {
+          unawaited(
+            abortTrigger.then((_) {
+              injectees++;
+              envoi.completeError(http.RequestAbortedException(requete.url));
+            }),
+          );
+        }
+        return envoi.future;
+      });
+
+      await expectLater(
+        clientSur(client, requestTimeout: delaiCourt).getJson(cible),
+        throwsA(
+          isA<JsonHttpNetworkFailure>().having(
+            (JsonHttpNetworkFailure echec) => echec.message,
+            'message',
+            'délai d\'attente de 20 ms dépassé',
+          ),
+        ),
+      );
+      // Laisse l'exception d'annulation atteindre ses écouteurs : une erreur
+      // non gérée ferait échouer ce test (zone d'erreur du test).
+      await Future<void>.delayed(Duration.zero);
+
+      expect(injectees, 4);
+      expect(client.requetes, hasLength(4));
+    });
+
+    test('un client qui annule en injectant l\'exception dans le corps : '
+        'l\'échec reste le délai dépassé, l\'exception ne fuit pas', () async {
+      int injectees = 0;
+      final _ClientObservateur client = _ClientObservateur((
+        int tentative,
+        http.BaseRequest requete,
+      ) {
+        final StreamController<List<int>> corps = StreamController<List<int>>();
+        if (requete case http.Abortable(:final abortTrigger?)) {
+          unawaited(
+            abortTrigger.then((_) {
+              injectees++;
+              corps.addError(http.RequestAbortedException(requete.url));
+              unawaited(corps.close());
+            }),
+          );
+        }
+        return Future<http.StreamedResponse>.value(
+          http.StreamedResponse(corps.stream, 200),
+        );
+      });
+
+      await expectLater(
+        clientSur(client, requestTimeout: delaiCourt).getJson(cible),
+        throwsA(
+          isA<JsonHttpNetworkFailure>().having(
+            (JsonHttpNetworkFailure echec) => echec.message,
+            'message',
+            'délai d\'attente de 20 ms dépassé',
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(injectees, 4);
+      expect(client.requetes, hasLength(4));
+    });
+  });
+
+  group('JsonHttpClient.getJson — annulation sur un vrai IOClient, contre un '
+      'serveur local (aucune API réelle)', () {
+    // Délai assez long pour que la requête atteigne le serveur avant d'être
+    // abandonnée, même sur un poste chargé ; quatre tentatives : ~1,2 s.
+    const Duration delaiIo = Duration(milliseconds: 300);
+    // Serveur TCP brut et non `HttpServer` : `HttpServer` ne retire pas de
+    // `connectionsInfo()` une connexion que le client a fermée tant que sa
+    // requête n'a pas reçu de réponse (constaté : le compte reste à 4 alors
+    // que le client a bien envoyé quatre FIN), donc il ne « constate » rien.
+    // Un socket brut voit la fermeture (FIN, ou RST si des octets restaient
+    // à lire côté client).
+    late _ServeurTcp serveur;
+    late IOClient ioClient;
+    late Uri url;
+
+    Future<void> demarrer({List<int>? reponse}) async {
+      serveur = await _ServeurTcp.demarrer(reponse: reponse);
+      ioClient = IOClient();
+      url = Uri.parse('http://127.0.0.1:${serveur.port}/ressource');
+    }
+
+    tearDown(() async {
+      ioClient.close();
+      await serveur.arreter();
+    });
+
+    /// Attend que le serveur ait vu [attendues] connexions fermées par le
+    /// client, dans la limite de [delai] : le client ferme ses sockets de
+    /// façon asynchrone, après le retour de `getJson`.
+    Future<void> attendreFermetures(
+      int attendues, {
+      Duration delai = const Duration(seconds: 3),
+    }) async {
+      final Stopwatch chrono = Stopwatch()..start();
+      while (serveur.fermeesParLeClient < attendues && chrono.elapsed < delai) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+
+    test(
+      'un serveur qui accepte et ne répond jamais : les quatre '
+      'connexions des tentatives abandonnées sont fermées par le client',
+      () async {
+        await demarrer();
+
+        await expectLater(
+          clientSur(ioClient, requestTimeout: delaiIo).getJson(url),
+          throwsA(
+            isA<JsonHttpNetworkFailure>().having(
+              (JsonHttpNetworkFailure echec) => echec.message,
+              'message',
+              'délai d\'attente de 300 ms dépassé',
+            ),
+          ),
+        );
+        await attendreFermetures(4);
+
+        expect(serveur.requetesLues, 4);
+        expect(
+          serveur.fermeesParLeClient,
+          4,
+          reason: 'une tentative abandonnée doit fermer sa connexion',
+        );
+      },
+    );
+
+    test('un serveur qui envoie les en-têtes puis cale en plein corps : les '
+        'connexions sont fermées elles aussi', () async {
+      await demarrer(
+        reponse: ascii.encode(
+          'HTTP/1.1 200 OK\r\n'
+          'Content-Type: application/json\r\n'
+          'Content-Length: 1000\r\n'
+          '\r\n'
+          '[',
+        ),
+      );
+
+      await expectLater(
+        clientSur(ioClient, requestTimeout: delaiIo).getJson(url),
+        throwsA(
+          isA<JsonHttpNetworkFailure>().having(
+            (JsonHttpNetworkFailure echec) => echec.message,
+            'message',
+            'délai d\'attente de 300 ms dépassé',
+          ),
+        ),
+      );
+      await attendreFermetures(4);
+
+      expect(serveur.requetesLues, 4);
+      expect(
+        serveur.fermeesParLeClient,
+        4,
+        reason: 'la lecture du corps abandonnée doit fermer la connexion',
+      );
+    });
+
+    test(
+      'un serveur qui répond dans le délai : le JSON est rendu après une '
+      'seule requête, et la connexion n\'est pas fermée par le client',
+      () async {
+        await demarrer(
+          reponse: ascii.encode(
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Type: application/json\r\n'
+            'Content-Length: 11\r\n'
+            '\r\n'
+            '{"ok":true}',
+          ),
+        );
+
+        final Object? corps = await clientSur(
+          ioClient,
+          requestTimeout: delaiIo,
+        ).getJson(url);
+        // Plus long que le délai : une annulation tardive serait vue ici.
+        await Future<void>.delayed(delaiIo * 2);
+
+        expect(corps, <String, Object>{'ok': true});
+        expect(serveur.requetesLues, 1);
+        expect(serveur.fermeesParLeClient, 0);
+      },
+    );
   });
 
   group('JsonHttpClient.getJson — corps illisible', () {
@@ -725,6 +1028,105 @@ void main() {
       expect(porteurs, <String>['json_http_client.dart']);
     });
   });
+}
+
+/// Client HTTP factice qui OBSERVE l'annulation : il garde chaque requête
+/// reçue, note pour chacune si son `abortTrigger` s'est complété ([annulees],
+/// dans l'ordre des tentatives), et laisse [_comportement] décider de la
+/// réponse — pendue, saine, ou qui réagit à l'annulation comme `IOClient`.
+final class _ClientObservateur extends http.BaseClient {
+  _ClientObservateur(this._comportement);
+
+  final Future<http.StreamedResponse> Function(
+    int tentative,
+    http.BaseRequest requete,
+  )
+  _comportement;
+
+  final List<http.BaseRequest> requetes = <http.BaseRequest>[];
+  final List<bool> annulees = <bool>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    final int tentative = requetes.length;
+    requetes.add(request);
+    annulees.add(false);
+    if (request case http.Abortable(:final abortTrigger?)) {
+      unawaited(
+        abortTrigger.then((_) {
+          annulees[tentative] = true;
+        }),
+      );
+    }
+    return _comportement(tentative, request);
+  }
+}
+
+/// Serveur TCP local (`loopbackIPv4`, port éphémère — aucune API réelle) qui
+/// lit la première requête de chaque connexion, y répond par [reponse] si elle
+/// est fournie (octets HTTP bruts, envoyés tels quels) et sinon ne répond
+/// jamais, et compte les connexions que le client ferme.
+final class _ServeurTcp {
+  _ServeurTcp._(this._serveur, this._reponse);
+
+  static Future<_ServeurTcp> demarrer({List<int>? reponse}) async {
+    final ServerSocket serveur = await ServerSocket.bind(
+      InternetAddress.loopbackIPv4,
+      0,
+    );
+    final _ServeurTcp ici = _ServeurTcp._(serveur, reponse);
+    serveur.listen(ici._accepter);
+    return ici;
+  }
+
+  final ServerSocket _serveur;
+  final List<int>? _reponse;
+  final List<Socket> _sockets = <Socket>[];
+
+  /// Connexions dont le client a envoyé une requête.
+  int requetesLues = 0;
+
+  /// Connexions que le client a fermées (FIN) ou rompues (RST).
+  int fermeesParLeClient = 0;
+
+  int get port => _serveur.port;
+
+  void _accepter(Socket socket) {
+    _sockets.add(socket);
+    // Une écriture vers un client déjà parti échoue sur `done` : sans
+    // gestionnaire, l'erreur serait non gérée.
+    unawaited(socket.done.then((_) {}, onError: (Object _) {}));
+    bool requeteLue = false;
+    socket.listen(
+      (List<int> octets) {
+        if (requeteLue) {
+          return;
+        }
+        requeteLue = true;
+        requetesLues++;
+        final List<int>? reponse = _reponse;
+        if (reponse != null) {
+          socket.add(reponse);
+        }
+      },
+      onDone: () {
+        fermeesParLeClient++;
+        socket.destroy();
+      },
+      onError: (Object _) {
+        fermeesParLeClient++;
+        socket.destroy();
+      },
+      cancelOnError: true,
+    );
+  }
+
+  Future<void> arreter() async {
+    for (final Socket socket in _sockets) {
+      socket.destroy();
+    }
+    await _serveur.close();
+  }
 }
 
 /// Client HTTP qui compte les appels à [close], pour prouver que

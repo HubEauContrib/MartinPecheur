@@ -15,6 +15,30 @@
 // (10 s, surchargeable au constructeur) : sans borne, un serveur qui accepte
 // la connexion et ne répond pas ferait attendre `getJson` sans fin.
 //
+// Une tentative qui dépasse son délai est **annulée**, pas seulement
+// abandonnée : la requête part en `AbortableRequest` (`Client.send`,
+// `package:http` 1.6.0, `abortable.dart`) et son `abortTrigger` est complété
+// au dépassement, avant l'attente de rejeu — sinon chaque appel laissait
+// jusqu'à quatre connexions ouvertes sur un serveur lent, à rebours de NFR-07
+// (charge sur les sources publiques). `IOClient` ferme alors la connexion :
+// avant la réponse, il avorte la requête (`HttpClientRequest.abort`) ; pendant
+// la lecture du corps, il injecte `RequestAbortedException` dans le flux et
+// annule l'abonnement à la réponse (`io_client.dart`). Constaté contre un
+// serveur TCP local le 2026-10-06 : les quatre connexions sont fermées, dans
+// les deux cas. Ce qui n'est **pas** annulé : la phase de connexion (DNS,
+// connexion TCP, poignée de main TLS). `IOClient.send` n'enregistre
+// l'`abortTrigger` qu'**après** `openUrl`, donc une tentative abandonnée
+// pendant cette phase garde sa connexion en cours jusqu'à ce que le système ou
+// le serveur la termine ; elle est avortée dès que `openUrl` rend la main (lu
+// dans le code, non mesuré). Constaté pour la poignée de main TLS seule
+// (serveur local qui accepte et ne répond pas à `https://` : connexion
+// toujours ouverte deux secondes après l'annulation, `HandshakeException` à la
+// coupure du serveur) ; lu dans le code, non mesuré, pour le DNS et la
+// connexion TCP. `http.Client()`, tel que `main.dart` le construit, ne règle
+// aucun `connectionTimeout`. `MockClient` n'observe pas `abortTrigger` :
+// `Future.timeout` reste nécessaire pour rendre la main à l'appelant avec lui,
+// et avec tout client qui n'annule pas.
+//
 // Trois pannes sont distinguées **par type**, parce que trois causes
 // différentes appellent trois diagnostics différents, et qu'un appelant doit
 // pouvoir distinguer une requête refusée d'une source injoignable sans
@@ -134,8 +158,8 @@ final class JsonHttpUnreadableBody extends JsonHttpFailure {
 }
 
 /// Durée maximale d'**une tentative** (envoi, réponse et lecture du corps
-/// comprises), avant qu'elle soit abandonnée et rejouée comme une panne
-/// réseau : 10 s. Arbitrage du commanditaire du 2026-10-06 : sans borne, un
+/// comprises), avant qu'elle soit annulée et rejouée comme une panne réseau :
+/// 10 s. Arbitrage du commanditaire du 2026-10-06 : sans borne, un
 /// serveur qui accepte la connexion et ne répond pas laisse `getJson` — et
 /// l'écran qui l'attend — sans fin, sans bouton « Réessayer ». Surchargeable
 /// au constructeur de [JsonHttpClient], pour les tests. Avec quatre tentatives
@@ -196,7 +220,7 @@ final class JsonHttpClient {
   final int maxAttempts;
 
   /// Durée maximale d'une tentative, corps lu compris. Au-delà, la tentative
-  /// est abandonnée et rejouée comme une panne réseau
+  /// est annulée et rejouée comme une panne réseau
   /// ([JsonHttpNetworkFailure]).
   final Duration requestTimeout;
 
@@ -214,11 +238,14 @@ final class JsonHttpClient {
   /// non rejouable ou sur un client déjà fermé (`ClientException` dont le
   /// message contient « already closed ») : aucune attente ne le rouvrira.
   ///
-  /// Une tentative abandonnée au délai n'est pas annulée : `Client.get`
-  /// n'offre aucune annulation (`AbortableRequest`, par `Client.send`, le
-  /// permettrait ; non retenu). Sa connexion reste ouverte jusqu'à ce que le
-  /// serveur réponde ou coupe — sans fin s'il ne fait ni l'un ni l'autre — et
-  /// son résultat ou son erreur tardifs sont ignorés (`Future.timeout`).
+  /// Une tentative qui dépasse [requestTimeout] est annulée
+  /// (`AbortableRequest.abortTrigger`, par `Client.send`) avant l'attente de
+  /// rejeu : `IOClient` ferme sa connexion, que le serveur n'ait pas encore
+  /// répondu ou qu'il cale en plein corps. Son résultat ou son erreur tardifs
+  /// — dont l'exception d'annulation — sont ignorés (`Future.timeout`), sans
+  /// erreur non gérée. Une réponse arrivée dans le délai n'est jamais annulée.
+  /// La phase de connexion (DNS, TCP, poignée de main TLS) n'est pas
+  /// interruptible : voir l'en-tête de ce fichier.
   ///
   /// Toute panne attrapée ici sort en [JsonHttpFailure]
   /// ([JsonHttpNetworkFailure], [JsonHttpStatusFailure],
@@ -228,12 +255,7 @@ final class JsonHttpClient {
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        final http.Response response = await _httpClient
-            .get(
-              uri,
-              headers: const <String, String>{'Accept': 'application/json'},
-            )
-            .timeout(requestTimeout);
+        final http.Response response = await _fetchWithin(uri);
 
         if (isSuccess(response.statusCode)) {
           try {
@@ -296,6 +318,37 @@ final class JsonHttpClient {
     }
 
     throw lastFailure!;
+  }
+
+  /// Une tentative : requête `GET` annulable, corps lu, le tout borné à
+  /// [requestTimeout]. Au dépassement, l'annulation est déclenchée **avant**
+  /// que l'échec ne remonte, donc avant la tentative suivante.
+  ///
+  /// `Future.timeout` reste nécessaire : il rend la main à l'appelant même
+  /// d'un client qui n'observe pas `abortTrigger` (`MockClient`, par
+  /// exemple, ne l'observe pas). Une erreur qui arrive tard sur le futur
+  /// abandonné — l'exception d'annulation que `IOClient` injecte dans
+  /// l'envoi ou dans le corps — n'est jamais non gérée : `Future.timeout`
+  /// s'abonne au futur d'origine avec un gestionnaire d'erreur
+  /// (`future_impl.dart`, SDK 3.13.3), et l'ignore une fois le délai écoulé.
+  Future<http.Response> _fetchWithin(Uri uri) {
+    final Completer<void> cancellation = Completer<void>();
+    return _fetch(uri, cancellation.future).timeout(
+      requestTimeout,
+      onTimeout: () {
+        cancellation.complete();
+        throw TimeoutException('Future not completed', requestTimeout);
+      },
+    );
+  }
+
+  Future<http.Response> _fetch(Uri uri, Future<void> abortTrigger) async {
+    final http.AbortableRequest request = http.AbortableRequest(
+      'GET',
+      uri,
+      abortTrigger: abortTrigger,
+    )..headers['Accept'] = 'application/json';
+    return http.Response.fromStream(await _httpClient.send(request));
   }
 
   Future<void> _waitBeforeNextAttempt(int attempt) async {
