@@ -96,10 +96,11 @@ final class RestrictionsEnEchec extends RestrictionsState {
 }
 
 /// L'interrogation du point [point] a echoue pour une raison que la source
-/// n'a PAS levee (une `Exception` ou une `Error` imprevue) : la vue ne peut
-/// pas affirmer que la source est en cause, donc ne la nomme pas (Q-5d de C1,
-/// conception T2 § 5.4). Aucun autre champ : le diagnostic n'a pas de
-/// porteur ici, une `Error` est remontee a `FlutterError.reportError`.
+/// n'a PAS levee (une `Exception`, une `Error` ou tout autre objet leve
+/// imprevu) : la vue ne peut pas affirmer que la source est en cause, donc ne
+/// la nomme pas (Q-5d de C1, conception T2 § 5.4). Aucun autre champ : le
+/// diagnostic n'a pas de porteur ici, une `Error` est remontee a
+/// `FlutterError.reportError`.
 final class RestrictionsNonObtenues extends RestrictionsState {
   const RestrictionsNonObtenues(this.point);
 
@@ -168,10 +169,6 @@ final class RestrictionsViewModel extends ChangeNotifier {
       _emit(generation, ZonesTrouvees(zones));
     } on RestrictionLookupFailure catch (failure) {
       _emit(generation, RestrictionsEnEchec(point: point, cause: failure));
-    } on Exception {
-      // Un echec que la source n'a pas nomme n'est pas une panne de la
-      // source : etat distinct (Q-5d de C1), rien n'est remonte.
-      _emit(generation, RestrictionsNonObtenues(point));
     } on Error catch (error, stackTrace) {
       // Une `Error` signale un bug (assertion, etat incoherent) : meme etat
       // neutre a l'ecran, mais l'erreur est signalee au canal de diagnostic
@@ -184,6 +181,14 @@ final class RestrictionsViewModel extends ChangeNotifier {
           library: 'restrictions',
         ),
       );
+    } on Object {
+      // Tout le reste : une `Exception` que la source n'a pas nommee (pas une
+      // panne de la source : etat distinct, Q-5d de C1), ou un objet qui
+      // n'est ni l'une ni l'autre — Dart permet `throw 'texte'`. Aucun
+      // n'echappe : l'ecran ne reste jamais en `RestrictionsEnCours` sans
+      // fin. Rien n'est remonte. Cette clause suit `on Error` : l'ordre
+      // compte, `Error` est un `Object`.
+      _emit(generation, RestrictionsNonObtenues(point));
     }
   }
 
@@ -247,15 +252,14 @@ final class RestrictionsViewModel extends ChangeNotifier {
 
   /// Demande l'ouverture de [uri] au port ; [raw] devient [unopenedLink] si
   /// elle n'aboutit pas. Rien ne fuit : une `Exception` est un echec
-  /// d'ouverture, une `Error` aussi, mais signalee au canal de diagnostic de
-  /// Flutter (meme regle que [open], arbitrage du 2026-09-27).
+  /// d'ouverture, tout autre objet leve aussi, et une `Error` de meme, mais
+  /// signalee au canal de diagnostic de Flutter (meme regle que [open],
+  /// arbitrage du 2026-09-27).
   Future<void> _openLink(Uri uri, String raw) async {
     final int generation = _generation;
     bool opened;
     try {
       opened = await _links.open(uri);
-    } on Exception {
-      opened = false;
     } on Error catch (error, stackTrace) {
       opened = false;
       FlutterError.reportError(
@@ -265,6 +269,10 @@ final class RestrictionsViewModel extends ChangeNotifier {
           library: 'restrictions',
         ),
       );
+    } on Object {
+      // `Exception`, ou tout objet leve qui n'est pas une `Error` : un echec
+      // d'ouverture, rien d'autre. Apres `on Error`, dont l'ordre compte.
+      opened = false;
     }
     _setUnopenedLink(generation, opened ? null : raw);
   }

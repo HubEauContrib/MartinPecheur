@@ -280,6 +280,25 @@ void main() {
     expect(reported, isEmpty);
   });
 
+  test('un objet leve qui n est ni une Exception ni une Error (Dart permet '
+      "`throw 'texte'`) -> RestrictionsNonObtenues(point), jamais "
+      'RestrictionsEnCours sans fin', () async {
+    source.answer = (GeoPoint point) => throw 'texte leve';
+    final RestrictionsViewModel viewModel = RestrictionsViewModel(
+      source: source,
+      links: links,
+    );
+    addTearDown(viewModel.dispose);
+
+    await viewModel.open(_pointAin());
+
+    final RestrictionsState state = viewModel.state;
+    expect(state, isNot(isA<RestrictionsEnCours>()));
+    expect(state, isNot(isA<RestrictionsEnEchec>()));
+    expect(state, isA<RestrictionsNonObtenues>());
+    expect((state as RestrictionsNonObtenues).point, _pointAin());
+  });
+
   test('retry() depuis RestrictionsNonObtenues(p) -> EnCours(p) puis le '
       'resultat', () async {
     int attempt = 0;
@@ -704,6 +723,16 @@ void main() {
       expect(vm.unopenedLink, arrete);
       expect(reported, hasLength(1));
       expect(reported.single.exception, isA<StateError>());
+    });
+
+    test('ouvreur qui leve un objet ni Exception ni Error (une String) -> '
+        'unopenedLink == raw, aucune exception propagee', () async {
+      links.failure = 'texte leve';
+      final RestrictionsViewModel vm = viewModel();
+
+      await expectLater(vm.openDocument(const DocumentLink(arrete)), completes);
+
+      expect(vm.unopenedLink, arrete);
     });
 
     test('ouvreur qui rend true -> unopenedLink == null', () async {
