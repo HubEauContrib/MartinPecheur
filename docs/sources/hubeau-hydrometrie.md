@@ -51,6 +51,18 @@ en-tête `Content-Type`. Une panne TLS (`HandshakeException`/`TlsException`) tra
 un client déjà fermé (`ClientException` « already closed ») ne l'est pas. Les tentatives
 épuisées (`maxAttempts`, 4 par défaut) lèvent `HubEauFailure`.
 
+**Depuis le 2026-10-06** (revue de la PR #17, `7a19141`, arbitrage du commanditaire) : chaque
+tentative est bornée à **10 s** et un dépassement est rejoué comme une panne réseau — sans borne, un
+serveur qui accepte la connexion sans répondre laissait l'appelant sans fin ; pire cas avant l'échec
+avec quatre tentatives : 43,5 à 47 s, et un serveur lent mais vivant, qui répondrait en plus de 10 s,
+échoue. Le décodage UTF-8 strict ne vaut plus que pour un corps de **succès** ; le corps d'un
+**échec** HTTP, simple diagnostic, est décodé avec tolérance (`allowMalformed`) : un `503` non UTF-8 est
+rejoué, un `400` non UTF-8 reste refusé, et aucune `FormatException` nue ne sort du client. Une
+`FormatException` levée par le transport lui-même (corps `gzip` corrompu, redirection mal formée) est
+rejouée comme une panne réseau. Établi par exécution contre un serveur local, **jamais sur Hub'Eau** ;
+une tentative abandonnée au délai n'est pas annulée, sa connexion reste ouverte tant que le serveur ne
+répond ni ne coupe (mesuré contre un serveur local, `docs/project-state.md`, point 57).
+
 ```mermaid
 sequenceDiagram
     participant Écran as Dépôt appelant

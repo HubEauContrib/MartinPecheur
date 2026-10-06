@@ -41,7 +41,11 @@ T2) n'y figurent pas.
   que l'application ne connaît pas, `BR-011`) en badge de forme et de teinte
   accompagné de son libellé, daté du début de validité de son arrêté. Aucune
   zone n'est écartée ni résumée en « la » zone du point (`BR-007`), aucune
-  n'est comparée à une autre.
+  n'est comparée à une autre. Sans zone d'eaux superficielles (cas jamais
+  constaté par appel réel), l'écran le dit d'abord, ajoute la phrase de
+  `BR-007`, puis présente toutes les zones sous « Zones d'alerte à ce
+  point » ; il tait ces deux phrases quand une zone est de type non reconnu,
+  l'application ne sachant pas si elle est d'eaux superficielles (`BR-011`).
 - Usages restreints selon le profil d'usager (particulier, exploitation,
   collectivité, entreprise) : **aucun profil n'est présélectionné**, les
   usages n'apparaissent qu'après le choix, cités tels que transmis par
@@ -91,7 +95,7 @@ T2) n'y figurent pas.
 - Documentation : faits VigiEau relevés par appel réel le 2026-09-27 et seize
   réponses gardées en fixtures datées (`docs/sources/vigieau.md`, `VG-01` à
   `VG-11`, puis `VG-12` le 2026-10-03), modèle du domaine, conception de
-  l'écran, 27 scénarios Gherkin (`restrictions.feature`), matrice de
+  l'écran, 29 scénarios Gherkin (`restrictions.feature`), matrice de
   traçabilité de T2.
 
 ### Modifié
@@ -108,12 +112,37 @@ T2) n'y figurent pas.
 - Cibles tactiles de 48 sur Android, 44 ailleurs (`T2-K4`) : ce que `0.2.0`
   listait comme non vérifié est codé, **pas constaté**.
 - Fenêtre Windows : zone cliente minimale portée de 800 × 700 à 800 × 740.
+- Hub'Eau et VigiEau : chaque tentative d'appel est bornée à **10 s** et
+  rejouée comme une panne réseau (arbitrage du commanditaire, 2026-10-06) ;
+  sans borne, un serveur qui acceptait la connexion sans répondre laissait
+  l'écran en attente sans fin. Pire cas avant l'échec, avec quatre tentatives :
+  43,5 à 47 s ; un serveur lent mais vivant, qui répondrait en plus de 10 s,
+  échoue désormais. Établi contre un serveur local, jamais sur une API réelle.
+- Surcouches de la carte (colonnes gauche et droite, colonne unique des
+  largeurs de téléphone, bande du bouton de désignation) : plus de barre de
+  défilement de bureau ; quand l'une déborde, elle défile à la molette posée
+  sur un de ses enfants et au clavier, sans indice visuel. La colonne de
+  droite (avertissement et légende) ne capte plus les gestes que sur ses
+  enfants. Vérifié par test, non constaté à l'écran.
 
 ### Corrigé
 
 - Aux largeurs de téléphone, les puces d'échelle et le libellé du contrôle
   « ⚠ Avertissement » débordaient de l'écran (mesuré en test, sur le code de
   `0.2.0`) : voir la colonne unique de « Modifié ».
+- Hub'Eau (lu dans le code de `0.2.0`) : le corps d'un échec HTTP qui n'était
+  pas de l'UTF-8 valide, ou une réponse corrompue pendant le transfert (corps
+  `gzip` invalide, redirection mal formée), faisait sortir une
+  `FormatException` nue du client au lieu d'un échec rejouable. Le corps d'un
+  échec est maintenant décodé avec tolérance (un `503` non UTF-8 est rejoué,
+  un `400` non UTF-8 reste refusé) et la `FormatException` du transport est
+  rejouée comme une panne réseau. Établi contre un serveur local, jamais sur
+  Hub'Eau.
+- Sur Windows, la colonne de droite de la carte (avertissement et légende),
+  dont le code de `0.2.0` était un défilement opaque, absorbait clic droit,
+  glisser et molette posés à gauche du contrôle d'avertissement (zone morte
+  de 121 px mesurée par test sur l'échelle débit à 100 %) : lu dans le code,
+  non constaté à l'écran.
 
 ### Non vérifié
 
@@ -186,7 +215,15 @@ T2) n'y figurent pas.
   déterminée) ; deux zones du même type au même point exact jamais
   rencontrées ; outre-mer autres que la Guyane non interrogés par point ; un
   arrêté expiré encore rendu : non vérifié, l'écran affiche les dates et ne
-  filtre rien.
+  filtre rien. Une date de validité écrite avec un décalage non nul n'a
+  jamais été vue (seule la forme en `Z` l'est) : le mapper la garde telle
+  qu'écrite, jamais convertie en UTC (arbitrage du 2026-10-06). Le `500` de
+  `/api/zones` que le schéma décrit comme déterministe (plusieurs zones de
+  même type au même point) est lu dans le schéma seul, jamais constaté par
+  appel réel : la source le range avec les `5xx` rejouables, et un
+  « Réessayer » échouerait toujours s'il existe. Le comportement du transport
+  sur un corps `gzip` corrompu, une redirection mal formée, un schéma non HTTP
+  ou un statut inférieur à 100 est établi contre un serveur local seulement.
 - **Aucun percentile** (`ADR-003`, hors T2) et **aucune échelle
   « sécheresse » sur la carte** : un niveau de gravité ne se lit que sur
   l'écran des restrictions, jamais en marqueurs. Hors périmètre de T2, non
@@ -198,10 +235,46 @@ T2) n'y figurent pas.
   défile ; l'adresse du site public est un texte sélectionnable, non un
   lien, sur l'écran des sources ; les mesures de téléphone se font en
   Roboto.
-- Les 27 scénarios de `restrictions.feature` sont lus et vérifiés en
+- Les 29 scénarios de `restrictions.feature` sont lus et vérifiés en
   structure par test, **jamais exécutés** ; certaines phrases d'écran qu'ils
   citent ne sont liées au code par aucun test (`docs/project-state.md`,
   point 53).
+- **Après la revue de la PR #17, traitée en grande partie le 2026-10-06 :
+  constats d'écran dus, aucun n'est fait.** Par le commanditaire, sur Windows :
+  un clic droit dans la bande du bouton de désignation, à côté du bouton ; un
+  clic droit à gauche de « ⚠ Avertissement » sur l'échelle débit ; à
+  800 × 740 et 200 %, la légende de l'échelle débit s'atteint-elle à la
+  molette, sans barre ; le retour de l'écran des restrictions (son contenu
+  reste pendant la sortie) ; redimensionner la fenêtre après avoir défilé ;
+  l'avis de lien non ouvert amené dans le champ. Tout cela est vérifié par
+  `flutter test` seulement.
+- **Segoe UI réelle n'est pas mesurée** : les verrous de gestes de la carte
+  sont rejoués en plateforme Windows, mais les largeurs y sont mesurées en
+  Roboto enregistrée sous le nom « Segoe UI », un substitut. L'annonce de
+  l'avis de lien non ouvert (région d'alerte) par le Narrateur n'est pas
+  constatée.
+- **Limites connues, non traitées** : la caméra de la carte n'est pas
+  contrainte au monde (les flèches Haut et Bas poussent le centre hors carte ;
+  entre 85,05° et 90° le point désigné n'est pas celui sous le réticule ; la
+  latitude désignée est seulement bornée à [-90, 90] pour ne plus lever ;
+  défaut antérieur à la branche) ; une tentative d'appel abandonnée au délai
+  de 10 s n'est pas annulée, sa connexion reste ouverte tant que le serveur ne
+  répond ni ne coupe ; « Réessayer » n'apparaît qu'après 43,5 à 47 s si la
+  source ne répond pas ; un second échec d'ouverture du même lien ne ramène pas
+  l'avis dans le champ ; si l'arrêté et l'arrêté-cadre d'une zone ont la même
+  adresse (cas absent des onze fixtures), le défilement suit le mauvais avis ;
+  la carte d'un arrêté-cadre écrit « S'applique à la même zone » sans dire
+  laquelle quand il y a deux arrêtés de restriction. Les autres constats de la
+  revue (dédoublonnage des arrêtés et règle des dates décidés dans la vue,
+  doublons de code) : `docs/project-state.md`, point 57.
+- **Cinq décisions de la boucle principale du 2026-10-06, non confirmées par
+  le commanditaire** : une réponse corrompue pendant le transfert est une
+  source injoignable rejouable, non plus une réponse illisible ; l'avis de
+  lien non ouvert est une région d'alerte pour l'arrêté **et** le site public ;
+  les surcouches de la carte n'ont plus de barre de défilement de bureau ; la
+  latitude désignée est bornée plutôt que la caméra contrainte ; les phrases
+  « sans zone d'eaux superficielles » sont écrites en place dans la vue, sans
+  constante liée au `.feature` (`docs/project-state.md`, point 58).
 
 ## [0.2.0] — 2026-09-27
 

@@ -12,7 +12,10 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
   # sont lus dans ce code : si l'un d'eux change, le test rougit. Les autres
   # phrases d'écran citées ici sont écrites en dur dans les vues
   # (restrictions_screen.dart) : elles ont été comparées au code à l'écriture
-  # (2026-10-04), rien ne les verrouille.
+  # (2026-10-04), rien ne les verrouille. Les phrases des deux scénarios
+  # « sans zone d'eaux superficielles », arbitrées par le commanditaire le
+  # 2026-10-06, ont été comparées de même au code du commit 576b98e
+  # (_zonesContent), sans verrou non plus.
   #
   # Sources : les scénarios de US-09, US-07 et US-08 du cadrage de T2
   # (docs/superpowers/specs/2026-09-27-cadrage-t2-design.md, § 4), dont les
@@ -133,6 +136,28 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
     Alors la zone « Eaux superficielles » vient en premier, puis « Autres zones au même point » présente « Eaux souterraines », puis « Eau potable »
     Et chaque zone porte son type, son nom, son niveau daté et son échelle, aucune n'étant écartée ni résumée par « la plus sévère » (BR-007)
 
+  Scénario: Sans zone d'eaux superficielles, l'écran le dit avant de présenter les autres zones
+    # Arbitrage du commanditaire du 2026-10-06 (cas jamais constaté par appel
+    # réel) : sans zone d'eaux superficielles, rien ne précède les autres
+    # zones, donc ni « Autres zones au même point » ni « aussi » ne tiennent.
+    # La phrase de BR-007 est la même que dans l'état « aucune zone ».
+    Étant donné un point désigné situé dans une zone de type « Eaux souterraines » et une zone de type « Eau potable », sans aucune zone de type « Eaux superficielles »
+    Quand l'écran s'affiche
+    Alors il affiche d'abord « VigiEau ne renvoie aucune zone d'alerte d'eaux superficielles pour ce point. », puis « Cela ne signifie pas qu'aucun arrêté ne s'applique : vérifiez auprès de votre préfecture. »
+    Et il affiche ensuite le titre « Zones d'alerte à ce point » et « Le point désigné se trouve dans ces zones d'alerte. Chacune a son niveau et ses usages. », puis les zones, « Eaux souterraines » avant « Eau potable »
+    Et ni « Autres zones au même point » ni « se trouve aussi dans ces zones d'alerte » n'y figurent : aucune zone d'eaux superficielles ne les précède (BR-007)
+
+  Scénario: Sans zone d'eaux superficielles et avec une zone de type inconnu, l'absence n'est pas affirmée
+    # Arbitrage du commanditaire du 2026-10-06 : l'application ne sait pas si
+    # une zone de type non reconnu est d'eaux superficielles. Elle ne dit
+    # donc pas que la source n'en renvoie aucune. Le titre et sa phrase
+    # restent, la zone est gardée.
+    Étant donné un point désigné situé dans une zone de type « Eaux souterraines » et une zone dont le type n'appartient à aucune valeur connue, sans aucune zone de type « Eaux superficielles »
+    Quand l'écran s'affiche
+    Alors il n'affiche ni « VigiEau ne renvoie aucune zone d'alerte d'eaux superficielles pour ce point. » ni « Cela ne signifie pas qu'aucun arrêté ne s'applique : vérifiez auprès de votre préfecture. »
+    Et il affiche le titre « Zones d'alerte à ce point » et « Le point désigné se trouve dans ces zones d'alerte. Chacune a son niveau et ses usages. », puis les deux zones, la seconde avec « Type de zone non renseigné » pour type
+    Et la valeur brute du type reçu n'est jamais affichée, et l'écran n'affirme rien de ce que la zone couvre (BR-011, BR-007)
+
   Scénario: Un niveau de gravité inconnu n'est jamais rabattu sur un niveau connu
     Étant donné une réponse dont le niveau de gravité n'appartient à aucune valeur connue
     Quand l'écran l'affiche
@@ -140,7 +165,10 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
     Et il ne lui attribue ni la teinte ni la forme d'un niveau connu, aucune case de l'échelle n'étant marquée « ← cette zone » (BR-011)
 
   Scénario: Un type de zone inconnu est gardé et signalé, jamais rabattu sur un type connu
-    Étant donné une zone dont le type n'appartient à aucune valeur connue
+    # Sous « Autres zones au même point » quand une zone d'eaux superficielles
+    # existe au même point ; sans elle, voir les deux scénarios précédents
+    # (arbitrage du 2026-10-06) : le titre devient « Zones d'alerte à ce point ».
+    Étant donné une zone dont le type n'appartient à aucune valeur connue, au même point qu'une zone de type « Eaux superficielles »
     Quand l'écran l'affiche
     Alors la zone est gardée sous « Autres zones au même point », avec « Type de zone non renseigné » pour type
     Et la valeur brute reçue n'est jamais affichée (BR-011)

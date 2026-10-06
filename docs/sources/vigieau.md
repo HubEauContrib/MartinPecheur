@@ -121,6 +121,14 @@ Aucun champ de date de mise à jour de la donnée n'existe sur `ZoneDto` ; `/dep
 revanche `availability.AEP.asOf` (ex. `"2026-09-27T00:44:28.228Z"`), une fraîcheur au niveau
 département, pour l'eau potable seulement.
 
+**Arbitrage du commanditaire du 2026-10-06 — une date écrite avec un décalage non nul.** Seule la
+forme en `Z` est constatée dans une réponse réelle ; un décalage (`2026-08-20T00:00:00+02:00`) n'a
+jamais été vu. Si la source en écrivait un, le mapper garde les composantes **telles qu'écrites** :
+`2026-08-20T00:00:00+02:00` donne le 20/08/2026, jamais l'instant UTC équivalent
+(`2026-08-19 22:00`), qui ferait afficher « depuis le 19 » un arrêté du 20. Une date de validité est
+une date calendaire (`bbfaa23`). Vérifié par test sur des chaînes écrites par les tests, pas sur une
+réponse de l'API.
+
 ### Site public — constaté le 2026-09-27 à 11:45 UTC
 
 `https://vigieau.gouv.fr/` → `200`, `text/html; charset=utf-8`. `https://www.vigieau.gouv.fr` → nom d'hôte **non résolu** : l'adresse sans `www` est la seule à utiliser pour le lien de repli et l'action de l'encart renforcé.
@@ -179,6 +187,16 @@ Conséquence pour l'écran « D'où vient cette donnée ? » (`T2-S1`, arbitrage
 2026-10-03) : il écrit « Le site VigiEau et son jeu de données publié sur data.gouv.fr sont sous
 Licence Ouverte 2.0. » — jamais que la donnée de l'API l'est.
 
+### `VG-13` — encodage de la réponse — constaté le 2026-10-06 à 10:05 UTC
+
+`GET https://api.vigieau.beta.gouv.fr/api/zones?lat=46.2052&lon=5.2255`, avec
+`Accept-Encoding: gzip` → `200`, `Content-Type: application/json; charset=utf-8`,
+**`Content-Encoding: gzip`**. Un seul appel, en-têtes seulement, aucune fixture gardée.
+Conséquence : `dart:io` demande `gzip` par défaut, donc toute réponse de production passe par son
+décodeur. Un flux corrompu y lève une `FormatException` **hors de toute réponse** (établi par
+exécution contre un serveur local, pas contre l'API) : `JsonHttpClient` la rend en panne de
+transport rejouable, et la source en `SourceInjoignable`.
+
 ## Écarts avec ce qui était écrit le 2026-07-30 (`ADR-004`, `01-analyse.md § 3.1`)
 
 | Écrit le 2026-07-30 | Constaté le 2026-09-27 |
@@ -200,6 +218,16 @@ Licence Ouverte 2.0. » — jamais que la donnée de l'API l'est.
   aujourd'hui.
 - **Deux zones du même type au même point exact (hors commune)** : non rencontré dans
   l'échantillon de quatre points ; le cas `409` n'a été observé que par `commune`.
+- **Un `500` qui ne serait pas une panne passagère** (relevé le 2026-10-06, d'après la revue de
+  code de la PR #17 du 2026-10-04) : le schéma capturé
+  (`test/fixtures/vigieau/swagger_2026-09-27.json`) décrit le `500` de `/api/zones` ainsi —
+  « Plusieurs zones de même type présentes, impossible de renvoyer des restrictions cohérentes. »
+  **Lu dans le schéma seul, jamais constaté par appel réel** : aucun point qui le provoque n'est
+  connu (ligne précédente). S'il existe, ce `500` se répéterait à chaque appel pour le même
+  point ; or `VigieauRestrictionSource` range tout `5xx` avec les statuts rejouables — quatre
+  tentatives, puis « VigiEau n'a pas répondu », et un « Réessayer » qui échouerait toujours.
+  **Rien n'est changé au code tant que le fait n'est pas constaté** ; s'il l'est, ce `500` se
+  reconnaît par son corps et se rend en refus non rejoué.
 - **Points DOM autres que la Guyane** (Guadeloupe, Martinique, La Réunion, Mayotte) et la Corse
   au-delà d'Ajaccio : vus seulement au niveau département dans `/departements`, aucun appel
   `lat`/`lon` dédié faute de budget — les niveaux de gravité de ces départements

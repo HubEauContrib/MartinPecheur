@@ -551,6 +551,8 @@ git commit -m "docs(restrictions): conception de l ecran des restrictions, de la
 
 **Invariants :** émis par les clauses `on Exception` **et** `on Error` d'`open`, jamais par `on RestrictionLookupFailure` ; la clause `on Error` garde son `FlutterError.reportError(…, library: 'restrictions')`, la clause `on Exception` ne remonte toujours rien ; `RestrictionsEnEchec` ne porte plus **que** des causes levées par la source ; domaine et `RestrictionLookupFailure` **inchangés** ; jeton `_generation` appliqué au nouvel état comme aux autres ; aucun widget importé.
 
+> **Note du 2026-10-06 (revue de la PR #17, `6d09fc8`) — il n'y a plus de clause `on Exception`.** Un objet levé qui n'est ni `Exception` ni `Error` (`throw 'texte'`) laissait l'écran en recherche sans fin. `open` attrape désormais `on RestrictionLookupFailure`, `on Error` (état neutre **et** `FlutterError.reportError`, inchangé), puis `on Object` (même état neutre, rien n'est remonté) ; l'ordre compte, `Error` étant un `Object`. Les invariants ci-dessus décrivent les cas, non les clauses.
+
 **Cas de test**
 - **Réécrit** — « un `StateError` (`Error`, non nommé) » → `RestrictionsNonObtenues` dont `point` est celui passé à `open` ; l'état n'est **pas** un `RestrictionsEnEchec` ; l'erreur remontée **une** fois à `FlutterError.onError`, même instance, `library == 'restrictions'`.
 - **Réécrit** — « une `Exception` ordinaire » → `RestrictionsNonObtenues(point)` ; **rien** remonté à `FlutterError.onError`.
@@ -634,6 +636,8 @@ git commit -m "feat(map): designer un point sur la carte, rappel type sur GeoPoi
 - `String zoneKindLabel(ZoneKind kind)` · `String userProfileLabel(UserProfile profile)` — `switch` exhaustifs, textes de `C1` : **Eaux superficielles**, **Eaux souterraines**, **Eau potable**, **Type de zone non renseigné** (valeur brute non affichée) · **Particulier**, **Exploitation**, **Collectivité**, **Entreprise** ; titre du choix « **Profil d'usager** »
 
 **Invariants :** les tests de vue ne lisent **pas** `lib/data/` : `zones_samples.dart` construit des `ZonesAtPoint` avec des valeurs **recopiées** des fixtures ; l'emplacement de tête ~~est réservé à l'encart (`E4`)~~ — **en-tête épinglé** sous la barre de titre, puis **premier élément** du défilement — est réservé à l'encart (`E4`, Q-4) ; le défilement revient **en haut** à chaque nouveau point.
+
+> **Note du 2026-10-06 (arbitrages du commanditaire, commit `576b98e`).** Le cas `ZonesTrouvees` ci-dessous décrit un point **avec** zone d'eaux superficielles. Sans elle, l'écran écrit « VigiEau ne renvoie aucune zone d'alerte d'eaux superficielles pour ce point. », puis la phrase de `BR-007`, puis le titre « Zones d'alerte à ce point » et « Le point désigné se trouve dans ces zones d'alerte. Chacune a son niveau et ses usages. » ; si une zone est de type non reconnu, les deux premières phrases sont tues (`BR-011`). Voir la note du § 3 de la conception d'écran.
 
 **Cas de test**
 - ~~`RestrictionsFermees` → rien~~ `RestrictionsFermees` → aucun contenu d'état (l'écran n'est pas censé être affiché, `E3`) ; `RestrictionsEnCours(p)` → point rappelé (« Point désigné : 46,20000° N, 5,22600° E » pour l'Ain), texte de chargement de `C1`, **aucun** badge ni niveau (`BR-007`).
@@ -850,6 +854,8 @@ git commit -m "test(map): mesures des surcouches aux largeurs de telephone refai
 ---
 
 ## Lot 8 — La porte de T2, sur Windows **et** Android (Q10-B)
+
+> **Note du 2026-10-06 — la porte se passe sur le sommet d'après la revue de la PR #17**, pas sur celui du 2026-10-04 (`ba5d079`, `6d0ddec`) où le constat d'écran partiel a été fait : la revue (postée le 2026-10-04) a été traitée en grande partie avant la porte, sur demande du commanditaire (`docs/project-state.md`, point 57). Les constats d'écran qu'elle a rendus dus (point 48) s'ajoutent aux sept de `P1`. Aucune tâche n'est close par ce traitement ; aucune case n'est cochée.
 
 ### Task P1 : L'exécutable Windows de `0.3.0`, lancé hors Flutter
 

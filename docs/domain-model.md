@@ -118,12 +118,15 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
 - `DocumentLink` — un lien vers un PDF (arrêté ou arrêté-cadre), affiché **tel que reçu**
   (`raw`), jamais décodé ni « réparé » (`BR-014`) : l'adresse de Paris contient
   `sign%C3%83%C2%A9` et le reste. `openableUri` rend une `Uri` seulement pour une URL absolue en
-  `http` ou `https` ; sinon `null` — le lien reste affiché, aucune action d'ouverture n'est
+  `http` ou `https` (schéma et hôte : un fragment, `…pdf#page=3`, ne la rend pas inouvrable,
+  `dd09e8f`, 2026-10-06) ; sinon `null` — le lien reste affiché, aucune action d'ouverture n'est
   proposée.
 - `RestrictionDecree` — l'arrêté d'une zone : `validFrom` (non optionnel, `BR-001`), `validUntil`
   (optionnel), `document` et `frameworkDocument` (`DocumentLink?`). Les deux dates sont des dates
   calendaires vues à minuit **UTC** ; un `DateTime` local à la construction lève une
-  `ArgumentError`.
+  `ArgumentError`. Le mapper garde les composantes d'une date écrite avec un décalage non nul telles
+  qu'écrites, sans la convertir (arbitrage du 2026-10-06, forme jamais constatée dans une réponse
+  réelle).
 - `RestrictedUsage` — un usage restreint, **cité tel quel** (`name`, `theme`, `description` :
   les mots du préfet, jamais reformulés — l'exception voulue à « aucune valeur brute d'API
   n'atteint la vue », qui vise les codes et les unités, pas une citation). `concernedProfiles`
@@ -153,8 +156,9 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
   rendue comme une valeur : `withCachePolicy` n'écrit en cache que ce que `load` rend, jamais ce
   qu'il lève — un échec rendu serait servi jusqu'à expiration de la clé. « Aucune zone » n'est pas
   un échec : `200 []` rend un `ZonesAtPoint` à `zones` vide (`BR-007`).
-  - `SourceInjoignable` — la source n'a pas répondu : panne réseau/TLS, ou `429`/`5xx` persistant
-    après les rejeux du transport partagé.
+  - `SourceInjoignable` — la source n'a pas répondu de façon exploitable : panne réseau/TLS, réponse
+    corrompue pendant le transfert, délai d'attente de 10 s par tentative dépassé, ou `429`/`5xx`
+    persistant — dans tous les cas après les rejeux du transport partagé (2026-10-06).
   - `RequeteRefusee` — la source a répondu mais a refusé ce point : `statusCode` porte le statut
     HTTP tel que reçu (`400`, `404`, `409`…).
   - `ReponseIllisible` — la réponse ne se laisse pas lire : corps non JSON, racine non tableau, ou

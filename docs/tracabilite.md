@@ -71,7 +71,12 @@ cellule ou en bas de page, jamais sous la marque ✅.
   l'exécutable de release ni sur Android (`P1` et `P2` du plan T2 sont dus) ; `launchUrl` n'est
   jamais appelé en vrai ; les mesures de recouvrement des surcouches de la carte
   (`test/features/map/view/map_overlays_phone_test.dart`) sont des mesures en police Roboto, pas des
-  constats d'écran, et Windows (Segoe UI) n'y est pas mesurée.
+  constats d'écran, et Windows (Segoe UI) n'y est pas mesurée. Depuis le 2026-10-06 (revue de la
+  PR #17), les verrous de gestes de la carte (`map_designation_test.dart`,
+  `map_overlays_phone_test.dart`) et ceux du défilement de l'écran des restrictions sont **rejoués en
+  plateforme Windows**, où la barre de défilement automatique du bureau change ce que reçoit la
+  carte ; leurs largeurs y sont mesurées en Roboto enregistrée sous le nom « Segoe UI », un substitut :
+  Segoe UI réelle n'est pas mesurée, et aucun de ces gestes n'est constaté à l'écran.
 - **BR-013 et US-09** : l'annonce de l'encart renforcé par un lecteur d'écran (Narrateur,
   TalkBack) n'est **pas constatée**. `test/features/restrictions/view/reinforced_warning_card_test.dart`
   ne vérifie que l'indicateur de région d'alerte (`isLiveRegion`) sur la tête et son absence sur le
