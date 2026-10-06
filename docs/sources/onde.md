@@ -193,6 +193,27 @@ l'un des deux.
   `code_region` `"24"`, `libelle_region` `"Centre-Val de Loire"`, `date_observation`
   `"2026-08-25"`, `code_ecoulement` `"3"`. Les treize champs sont acceptés et rendus.
 
+- `T-17` **Latence du balayage par emprise** — six appels réels le 2026-10-06 à partir de
+  14:11:00 UTC, un par seconde, `size=1000`, `date_observation_min=2026-05-01`, **sans `fields`**
+  (l'application en envoie treize : la mesure est donc un majorant grossier, pas celle de sa
+  requête) : `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?bbox=<ouest,sud,est,nord>&date_observation_min=2026-05-01&size=1000`.
+
+  | `bbox` | Statut | Durée totale | Premier octet | Octets |
+  |---|---|---|---|---|
+  | `-5.5,41.0,10.0,51.5` (France entière) | **206** | **10,26 s** | 10,20 s | 118 107 |
+  | `-5.5,41.0,10.0,51.5` (rejoué) | aucune réponse | coupé à 10,09 s | — | 0 |
+  | `-1.0,43.0,4.0,46.5` | aucune réponse | **plus de 60 s** (coupé) | — | 0 |
+  | `4.5,45.5,6.5,46.6` | aucune réponse | **plus de 60 s** (coupé) | — | 0 |
+  | `-5.5,47.0,-1.0,49.0` | aucune réponse | **plus de 60 s** (coupé) | — | 0 |
+  | `1.4,48.1,3.6,49.3` (Île-de-France) | **200** | **6,19 s** | 6,12 s | 60 006 |
+
+  Un seul échantillon, un seul jour, depuis un seul poste ; la cause des quatre appels sans réponse
+  (charge, limitation, panne passagère) **n'est pas établie**. ⚠️ Le délai d'attente d'une
+  tentative est de **10 s** pour Hub'Eau comme pour VigiEau (`defaultRequestTimeout`) : à 10 s, le
+  balayage national mesuré ici aurait été coupé. Un passage à 30 s pour Hub'Eau, arbitré par le
+  commanditaire le même jour puis codé, a été **retiré à sa demande** avant tout commit : la
+  question reste ouverte.
+
 ## Non vérifié
 
 - **Pourquoi les codes à espaces de bord ne se retrouvent pas** (`T-14 b`) : `" O968 5312 "`

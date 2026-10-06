@@ -35,10 +35,13 @@ constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 // bas, qui traite ce second sujet, distinct).
 //
 // kMinWindowHeight amendee une troisieme fois le 2026-09-29, arbitrage du
-// commanditaire : 700 -> 740. Raison : le quatrieme bouton de la colonne des
-// controles (designation d'un point, E1 de T2) fait recouvrir la legende de
-// l'echelle debit sur 30 px a 800 x 740 ; a 800 x 740 la disposition ne
-// change pas et rien ne se recouvre (voir map_view_test.dart, groupe K3).
+// commanditaire : 700 -> 740. Raison d'alors : un quatrieme bouton dans la
+// colonne des controles (designation d'un point, E1 de T2) faisait recouvrir
+// la legende de l'echelle debit sur 30 px a 800 x 700 ; a 800 x 740 rien ne
+// se recouvrait (voir map_view_test.dart, groupe K3). Ce bouton est sorti de
+// la colonne le meme jour, ce qui supprime ce recouvrement : 740 est GARDE
+// par le commanditaire parce qu'il sert aussi l'ecran des restrictions
+// (docs/project-state.md, point 45).
 //
 // Exprimee en pixels LOGIQUES (96 DPI), mise a l'echelle du moniteur
 // courant avant d'etre posee dans MINMAXINFO - comme `Create` le fait deja
