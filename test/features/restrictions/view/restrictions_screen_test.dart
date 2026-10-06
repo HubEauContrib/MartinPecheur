@@ -84,6 +84,14 @@ Future<void> _pump(
   await tester.pump();
 }
 
+/// `Maj`+`Tab` : parcours du focus en arriere.
+Future<void> _shiftTab(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pump();
+}
+
 /// Ordonnee du haut de [finder] — l'ordre du § 3 se lit de haut en bas
 /// (tout est construit : l'ecran defile une colonne, pas une liste
 /// paresseuse).
@@ -175,6 +183,94 @@ void main() {
     });
   });
 
+  // Constat D de la revue : l'ecran pose `Focus(autofocus: true)` pour que
+  // `Echap` et `PageDown` marchent des l'ouverture. Sans `skipTraversal`, ce
+  // noeud etait aussi un arret de tabulation sans aucun indicateur visible
+  // (`K2` : le focus est toujours visible).
+  group('focus clavier (K2)', () {
+    testWidgets('Tab : le noeud de l ecran n est jamais un arret, le parcours '
+        'boucle sur le bouton de retour', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        profile: UserProfile.particulier,
+        onOpenDocument: (DocumentLink _) {},
+      );
+      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
+      // L'autofocus reste : c'est lui qui porte `Echap` et `PageDown`.
+      expect(FocusManager.instance.primaryFocus, same(screen));
+
+      FocusNode? first;
+      bool looped = false;
+      for (int press = 1; press <= 300 && !looped; press++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final FocusNode? focused = FocusManager.instance.primaryFocus;
+        expect(focused, isNot(same(screen)), reason: 'Tab no $press');
+        if (first == null) {
+          first = focused;
+        } else {
+          looped = identical(focused, first);
+        }
+      }
+      expect(looped, isTrue);
+      expect(
+        first!.context!.findAncestorWidgetOfExactType<BackButton>(),
+        isNotNull,
+      );
+    });
+
+    testWidgets('Maj+Tab à l ouverture : le noeud de l écran n est jamais un '
+        'arrêt, le parcours en arrière boucle', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        profile: UserProfile.particulier,
+        onOpenDocument: (DocumentLink _) {},
+      );
+      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
+      expect(FocusManager.instance.primaryFocus, same(screen));
+
+      FocusNode? first;
+      bool looped = false;
+      for (int press = 1; press <= 300 && !looped; press++) {
+        await _shiftTab(tester);
+        final FocusNode? focused = FocusManager.instance.primaryFocus;
+        expect(focused, isNot(same(screen)), reason: 'Maj+Tab no $press');
+        if (first == null) {
+          first = focused;
+        } else {
+          looped = identical(focused, first);
+        }
+      }
+      expect(looped, isTrue);
+    });
+
+    testWidgets('Maj+Tab depuis le premier arrêt : le noeud de l écran n est '
+        'pas l arrêt précédent', (WidgetTester tester) async {
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAin()),
+        profile: UserProfile.particulier,
+        onOpenDocument: (DocumentLink _) {},
+      );
+      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final FocusNode? first = FocusManager.instance.primaryFocus;
+      expect(
+        first!.context!.findAncestorWidgetOfExactType<BackButton>(),
+        isNotNull,
+      );
+
+      await _shiftTab(tester);
+      final FocusNode? previous = FocusManager.instance.primaryFocus;
+      expect(previous, isNot(same(screen)));
+      expect(previous, isNot(same(first)));
+    });
+  });
+
   group('point interrogé et chargement', () {
     testWidgets('RestrictionsEnCours : point rappelé, texte de chargement, '
         'aucun badge ni niveau (BR-007)', (WidgetTester tester) async {
@@ -235,6 +331,156 @@ void main() {
       expect(autres, lessThan(phrase));
       expect(phrase, lessThan(sou));
       expect(sou, lessThan(aep));
+    });
+
+    // Arbitrages du commanditaire du 2026-10-06 : sans zone d'eaux
+    // superficielles, « Autres zones au même point » et « se trouve AUSSI »
+    // ne suivaient rien. Textes exacts : la phrase d'absence d'abord, suivie
+    // de la phrase de `BR-007` — celle de l'état « aucune zone », au même
+    // écart —, puis le titre « Zones d'alerte à ce point », sa phrase, les
+    // cartes.
+    const String absentSuperficielles =
+        "VigiEau ne renvoie aucune zone d'alerte d'eaux superficielles pour "
+        'ce point.';
+    const String phraseSansSuperficielles =
+        "Le point désigné se trouve dans ces zones d'alerte. Chacune a son "
+        'niveau et ses usages.';
+
+    testWidgets('aucune zone d\'eaux superficielles, une zone d\'eaux '
+        'souterraines : la phrase d\'absence, la phrase de BR-007, le titre '
+        '« Zones d\'alerte à ce point », sa phrase, puis la carte', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, ZonesTrouvees(zonesAinWith(<AlertZone>[ainSou()])));
+
+      // La phrase de `BR-007`, une seule fois : aucune carte ne la porte ici
+      // (la zone a un niveau connu).
+      expect(find.text(_brSept), findsOneWidget);
+
+      final double banner = _top(
+        tester,
+        find.byKey(restrictionsPointBannerKey),
+      );
+      final double absent = _top(tester, find.text(absentSuperficielles));
+      final double brSept = _top(tester, find.text(_brSept));
+      final double title = _top(tester, find.text("Zones d'alerte à ce point"));
+      final double phrase = _top(tester, find.text(phraseSansSuperficielles));
+      final double card = _top(tester, find.byKey(restrictionsZoneCardKey(0)));
+      expect(banner, lessThan(absent));
+      expect(absent, lessThan(brSept));
+      expect(brSept, lessThan(title));
+      expect(title, lessThan(phrase));
+      expect(phrase, lessThan(card));
+
+      // Même écart entre les deux phrases, et même écart sous le bandeau du
+      // point, que dans l'état « aucune zone », mesurés sur cet état.
+      final double gapBetween =
+          brSept - tester.getBottomLeft(find.text(absentSuperficielles)).dy;
+      final double gapUnderBanner =
+          absent -
+          tester.getBottomLeft(find.byKey(restrictionsPointBannerKey)).dy;
+      await _pump(
+        tester,
+        AucuneZone(point: pointAin(), retrievedAt: retrievedAtAin),
+      );
+      final Finder none = find.text(
+        "VigiEau ne renvoie aucune zone d'alerte pour ce point.",
+      );
+      expect(
+        gapBetween,
+        _top(tester, find.text(_brSept)) - tester.getBottomLeft(none).dy,
+      );
+      expect(
+        gapUnderBanner,
+        _top(tester, none) -
+            tester.getBottomLeft(find.byKey(restrictionsPointBannerKey)).dy,
+      );
+      await _pump(tester, ZonesTrouvees(zonesAinWith(<AlertZone>[ainSou()])));
+
+      // Ni le titre ni la phrase d'une zone qui SUIT d'autres zones.
+      expect(find.text('Autres zones au même point'), findsNothing);
+      expect(find.textContaining('aussi'), findsNothing);
+      expect(find.text('Eaux superficielles'), findsNothing);
+      // Une seule carte : celle de la zone d'eaux souterraines.
+      expect(find.byKey(restrictionsZoneCardKey(1)), findsNothing);
+      expect(find.text('EAUX SOUTERRAINES'), findsOneWidget);
+    });
+
+    // Arbitrage du commanditaire du 2026-10-06 (`BR-011`) : une zone de type
+    // non reconnu ne permet pas d'affirmer l'absence d'eaux superficielles —
+    // l'application ne sait pas ce qu'est cette zone. Dès qu'une des zones
+    // affichées est de type non reconnu, la phrase d'absence est tue, et avec
+    // elle la phrase de `BR-007` qui la suit. Le titre « Zones d'alerte à ce
+    // point » et sa phrase restent : ils sont vrais.
+    for (final (String cas, List<AlertZone> zones)
+        in <(String, List<AlertZone>)>[
+          (
+            'une seule zone, de type non reconnu',
+            <AlertZone>[ainTypeInconnu()],
+          ),
+          (
+            'une zone d\'eaux souterraines et une zone de type non reconnu',
+            <AlertZone>[ainSou(), ainTypeInconnu()],
+          ),
+        ]) {
+      testWidgets('$cas : ni phrase d\'absence d\'eaux superficielles ni '
+          'phrase de BR-007, mais le titre « Zones d\'alerte à ce point » et '
+          'sa phrase', (WidgetTester tester) async {
+        await _pump(tester, ZonesTrouvees(zonesAinWith(zones)));
+
+        // Rien n'affirme l'absence d'eaux superficielles, sous aucune forme.
+        expect(find.text(absentSuperficielles), findsNothing);
+        expect(find.textContaining('ne renvoie aucune zone'), findsNothing);
+        expect(find.text(_brSept), findsNothing);
+
+        // Le titre et sa phrase, puis les cartes — toutes les zones restent
+        // affichées, la zone de type non reconnu sous son libellé fixe.
+        final double banner = _top(
+          tester,
+          find.byKey(restrictionsPointBannerKey),
+        );
+        final double title = _top(
+          tester,
+          find.text("Zones d'alerte à ce point"),
+        );
+        final double phrase = _top(tester, find.text(phraseSansSuperficielles));
+        final double card = _top(
+          tester,
+          find.byKey(restrictionsZoneCardKey(0)),
+        );
+        expect(banner, lessThan(title));
+        expect(title, lessThan(phrase));
+        expect(phrase, lessThan(card));
+        for (int i = 0; i < zones.length; i++) {
+          expect(find.byKey(restrictionsZoneCardKey(i)), findsOneWidget);
+        }
+        expect(find.byKey(restrictionsZoneCardKey(zones.length)), findsNothing);
+        expect(find.text('TYPE DE ZONE NON RENSEIGNÉ'), findsOneWidget);
+
+        expect(find.text('Autres zones au même point'), findsNothing);
+        expect(find.textContaining('aussi'), findsNothing);
+        expect(find.text('Eaux superficielles'), findsNothing);
+      });
+    }
+
+    testWidgets('une zone d\'eaux superficielles : rien ne change (ni phrase '
+        'd\'absence, ni « Zones d\'alerte à ce point »)', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, ZonesTrouvees(zonesAin()));
+
+      expect(find.text('Eaux superficielles'), findsOneWidget);
+      expect(find.text('Autres zones au même point'), findsOneWidget);
+      expect(
+        find.text(
+          "Le point désigné se trouve aussi dans ces zones d'alerte. Chacune "
+          'a son niveau et ses usages.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(absentSuperficielles), findsNothing);
+      expect(find.text("Zones d'alerte à ce point"), findsNothing);
+      expect(find.text(phraseSansSuperficielles), findsNothing);
     });
 
     testWidgets('chaque zone : badge, libellé daté « depuis le » dans le même '
@@ -2152,6 +2398,34 @@ void main() {
           reason: '$state',
         );
       }
+    });
+
+    // Constat C de la revue : l'avis d'un lien qui ne s'est pas ouvert arrive
+    // apres une action de l'usager, comme la phrase d'echec d'ecriture du modal
+    // (`UC-006 A6`, `liveRegion`) : il est annonce.
+    testWidgets('avis de lien non ouvert : region d alerte annoncee, pour le '
+        'site public comme pour un arrete', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      for (final String address in <String>[
+        restrictionsPublicSiteUrl,
+        decreeUrlAin,
+      ]) {
+        await _pump(
+          tester,
+          ZonesTrouvees(zonesAin()),
+          onOpenDocument: (DocumentLink _) {},
+          unopenedLink: address,
+        );
+        final SemanticsNode notice = tester.getSemantics(
+          find.textContaining("Ce lien n'a pas pu être ouvert"),
+        );
+        expect(
+          notice.getSemanticsData().flagsCollection.isLiveRegion,
+          isTrue,
+          reason: address,
+        );
+      }
+      handle.dispose();
     });
 
     testWidgets('200 % : tête épinglée, <= moitié, téléphone 411 x 891', (

@@ -8,15 +8,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/restrictions/alert_zone.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/restrictions/view/reinforced_warning_card.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
+import 'package:martinpecheur/features/shared/screen_layout.dart';
 
 import '../../../support/windows_platform.dart';
 import '../zones_samples.dart';
 
 const Size _window = Size(1266, 741);
+
+/// Largeur de la colonne de lecture, remplissage compris : au-dela, la tete de
+/// l'encart et le contenu gardent cette largeur, centres.
+const double _readingColumn = readingColumnWidth + 2 * readingColumnGutter;
 
 Future<void> _pump(WidgetTester tester) async {
   tester.view.physicalSize = _window;
@@ -51,6 +57,18 @@ double _offset(WidgetTester tester) =>
 
 double _max(WidgetTester tester) =>
     tester.state<ScrollableState>(_mainScrollable).position.maxScrollExtent;
+
+/// Bas de la barre de titre : le haut de la zone ou la tete s'epingle.
+double _barBottom(WidgetTester tester) => tester
+    .getRect(
+      find
+          .ancestor(
+            of: find.text(restrictionsScreenTitle),
+            matching: find.byType(Material),
+          )
+          .first,
+    )
+    .bottom;
 
 bool _headerPinned() => find
     .descendant(
@@ -98,6 +116,471 @@ void main() {
         expect(_offset(tester), after);
       },
     );
+  });
+
+  // Constat B de la revue : un retrecissement de la fenetre fait repasser la
+  // tete epinglee en defilement (repli synchrone, jamais de debordement),
+  // puis la re-epingle apres rendu. Les deux dispositions n'avaient pas la
+  // meme racine : le defilement etait remplace deux fois, et sa position
+  // perdue, A CHAQUE image d'un retrecissement.
+  group('B : le defilement survit au retrecissement de la fenetre', () {
+    testWidgetsOnWindows('hauteur reduite pas a pas : la position est gardee', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester);
+      await _wheel(tester, const Offset(633, 500), 400);
+      expect(_max(tester), greaterThan(450));
+      expect(_offset(tester), 400);
+
+      for (int step = 1; step <= 10; step++) {
+        tester.view.physicalSize = Size(
+          _window.width,
+          _window.height - 3 * step,
+        );
+        await tester.pump();
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      expect(_headerPinned(), isTrue);
+      expect(_offset(tester), 400);
+    });
+
+    testWidgetsOnWindows('largeur reduite pas a pas : la position est gardee', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester);
+      await _wheel(tester, const Offset(633, 500), 400);
+      expect(_offset(tester), 400);
+
+      for (int step = 1; step <= 10; step++) {
+        tester.view.physicalSize = Size(
+          _window.width - 8 * step,
+          _window.height,
+        );
+        await tester.pump();
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      expect(_headerPinned(), isTrue);
+      expect(_offset(tester), 400);
+    });
+
+    testWidgetsOnWindows('fenetre trop basse pour epingler : tout defile, '
+        'puis la tete se re-epingle sans perdre la position', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester);
+      await _wheel(tester, const Offset(633, 500), 400);
+      expect(_offset(tester), 400);
+
+      // Assez bas pour que la tete (deux fois sa hauteur) ne tienne plus
+      // dans la zone sous la barre de titre.
+      final double headerHeight = tester
+          .getSize(find.byKey(reinforcedWarningHeaderKey))
+          .height;
+      tester.view.physicalSize = Size(_window.width, headerHeight * 2);
+      await tester.pumpAndSettle();
+      // Tete en defilement : meme defilement, meme position (la hauteur de
+      // la tete n'est plus retranchee de la fenetre, la position reste).
+      expect(_headerPinned(), isFalse);
+      expect(_offset(tester), 400);
+
+      tester.view.physicalSize = _window;
+      await tester.pumpAndSettle();
+      expect(_headerPinned(), isTrue);
+      expect(_offset(tester), 400);
+    });
+
+    // Constat de la relecture : tout retrecissement repliait la tete de facon
+    // synchrone. Ecran defile, elle partait hors champ le temps du geste
+    // (mesure a 400 : [-348, -256] sur l'image du redimensionnement). En
+    // hauteur seule la tete garde sa largeur, donc sa hauteur : elle reste
+    // epinglee sur TOUTES les images tant qu'elle tient.
+    testWidgetsOnWindows('hauteur reduite, ecran defile : a chaque image, y '
+        'compris celle du redimensionnement, la tete est sous la barre de '
+        'titre', (WidgetTester tester) async {
+      await _pump(tester);
+      await _wheel(tester, const Offset(633, 500), 400);
+      expect(_offset(tester), 400);
+      final double barBottom = _barBottom(tester);
+      final Finder header = find.byKey(reinforcedWarningHeaderKey);
+
+      for (int step = 1; step <= 20; step++) {
+        tester.view.physicalSize = Size(
+          _window.width,
+          _window.height - 7 * step,
+        );
+        // UN SEUL pump : l'image du redimensionnement elle-meme.
+        await tester.pump();
+        expect(_headerPinned(), isTrue, reason: 'image du pas $step');
+        expect(
+          tester.getTopLeft(header).dy,
+          closeTo(barBottom, 0.01),
+          reason: 'image du pas $step',
+        );
+        // Et l'image suivante, celle de la decision post-rendu.
+        await tester.pump();
+        expect(_headerPinned(), isTrue, reason: 'image suivante, pas $step');
+        expect(tester.getTopLeft(header).dy, closeTo(barBottom, 0.01));
+      }
+      expect(tester.takeException(), isNull);
+      expect(_offset(tester), 400);
+    });
+
+    // Le verrou de l'autre cote : une hauteur sous le double de la tete la
+    // replie TOUT DE SUITE (la tete epinglee deborderait), sans exception de
+    // debordement, puis la re-epingle quand la fenetre regrandit.
+    testWidgetsOnWindows('hauteur sous le double de la tete : repli '
+        'immediat, aucun debordement', (WidgetTester tester) async {
+      await _pump(tester);
+      await _wheel(tester, const Offset(633, 500), 400);
+      final double headerHeight = tester
+          .getSize(find.byKey(reinforcedWarningHeaderKey))
+          .height;
+
+      tester.view.physicalSize = Size(
+        _window.width,
+        _barBottom(tester) + headerHeight * 2 - 1,
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(_headerPinned(), isFalse);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(_headerPinned(), isFalse);
+      expect(_offset(tester), 400);
+
+      tester.view.physicalSize = _window;
+      await tester.pumpAndSettle();
+      expect(_headerPinned(), isTrue);
+      expect(_offset(tester), 400);
+    });
+
+    // De 1266 a 466, la fenetre traverse la colonne de lecture (792). SOUS
+    // elle, la tete peut grandir (son texte passe a la ligne) : le repli y
+    // reste synchrone, sans quoi elle deborderait. Image repliee peinte, puis
+    // re-epinglage : jamais d'exception de debordement, position gardee.
+    testWidgetsOnWindows('largeur reduite, ecran defile : aucun debordement '
+        'a aucune image, la position est gardee', (WidgetTester tester) async {
+      await _pump(tester);
+      await _wheel(tester, const Offset(633, 500), 400);
+      expect(_offset(tester), 400);
+
+      for (int step = 1; step <= 20; step++) {
+        tester.view.physicalSize = Size(
+          _window.width - 40 * step,
+          _window.height,
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull, reason: 'pas $step');
+        await tester.pump();
+        expect(tester.takeException(), isNull, reason: 'pas $step, suivante');
+      }
+      await tester.pumpAndSettle();
+
+      expect(_headerPinned(), isTrue);
+      expect(_offset(tester), 400);
+    });
+
+    // Constat de la seconde relecture : au-dessus de la colonne de lecture
+    // (`readingColumnWidth + 2 * readingColumnGutter`, 792), la tete a une
+    // largeur fixe, donc une hauteur fixe — et Windows impose 800 au minimum.
+    // Le repli en largeur n'y servait a rien : ecran defile a 400, largeur
+    // 1266 -> 1170 par pas de 8, la tete etait repliee a y = -348 sur chacune
+    // des douze images.
+    testWidgetsOnWindows('largeur reduite au-dessus de la colonne de lecture, '
+        'ecran defile : a chaque image, la tete est sous la barre de titre', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester);
+      await _wheel(tester, const Offset(633, 500), 400);
+      expect(_offset(tester), 400);
+      final double barBottom = _barBottom(tester);
+      final Finder header = find.byKey(reinforcedWarningHeaderKey);
+
+      // Par pas de 8 tant que la fenetre depasse la colonne de lecture, puis
+      // la largeur exacte de la colonne : la borne est incluse.
+      final List<double> widths = <double>[
+        for (double w = _window.width - 8; w > _readingColumn; w -= 8) w,
+        _readingColumn,
+      ];
+      expect(widths.length, greaterThan(12));
+      for (final double width in widths) {
+        tester.view.physicalSize = Size(width, _window.height);
+        // UN SEUL pump : l'image du redimensionnement elle-meme.
+        await tester.pump();
+        expect(
+          tester.getTopLeft(header).dy,
+          closeTo(barBottom, 0.01),
+          reason: 'largeur $width',
+        );
+        expect(_headerPinned(), isTrue, reason: 'largeur $width');
+      }
+      expect(tester.takeException(), isNull);
+      expect(_offset(tester), 400);
+    });
+
+    // Le verrou de l'autre cote : SOUS la colonne de lecture, la tete suit la
+    // largeur de la fenetre, son texte passe a la ligne et elle GRANDIT. Le
+    // repli joue des l'image du retrecissement, sans quoi la tete epinglee
+    // deborderait de la zone. Mesures (police de test) : a 780 de large la
+    // barre de titre fait 52 et la tete 92 ; a 200, 148 et 228. Fenetre haute
+    // de 348 : la zone utile passe de 296 a 200. Les garde-fous disent que le
+    // repli observe est bien celui de la LARGEUR — la tete, a sa hauteur
+    // memorisee (92), tient encore dans la moitie de la zone — et que la tete
+    // epinglee aurait deborde (228 > 200).
+    testWidgetsOnWindows('largeur reduite sous la colonne de lecture : repli '
+        'des la premiere image, aucun debordement', (
+      WidgetTester tester,
+    ) async {
+      const double height = 348;
+      tester.view.physicalSize = const Size(780, height);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RestrictionsScreen(
+            state: ZonesTrouvees(zonesAin()),
+            profile: UserProfile.particulier,
+            onChooseProfile: (UserProfile _) {},
+            onRetry: () {},
+            onOpenDocument: (DocumentLink _) {},
+            onOpenPublicSite: () {},
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(780, lessThan(_readingColumn));
+      expect(_headerPinned(), isTrue);
+      final Finder header = find.byKey(reinforcedWarningHeaderKey);
+      final double wideHeader = tester.getSize(header).height;
+
+      tester.view.physicalSize = const Size(200, height);
+      // UN SEUL pump : l'image du retrecissement elle-meme.
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(_headerPinned(), isFalse);
+
+      // Garde-fous, sur les mesures de cette image.
+      final double narrowZone = height - _barBottom(tester);
+      final double narrowHeader = tester.getSize(header).height;
+      expect(
+        wideHeader * 2,
+        lessThanOrEqualTo(narrowZone),
+        reason:
+            'le repli doit venir de la largeur, pas de la hauteur : tete '
+            '$wideHeader, zone $narrowZone',
+      );
+      expect(
+        narrowHeader,
+        greaterThan(narrowZone),
+        reason:
+            'la tete epinglee doit deborder de la zone : tete '
+            '$narrowHeader, zone $narrowZone',
+      );
+
+      // La decision apres rendu ne la re-epingle pas : elle ne tient pas.
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(_headerPinned(), isFalse);
+
+      // La fenetre regrandit : la tete se re-epingle.
+      tester.view.physicalSize = const Size(780, height);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(_headerPinned(), isTrue);
+    });
+  });
+
+  // Constat C de la revue : le bouton « Consulter les arretes en vigueur » est
+  // dans la tete epinglee, l'avis de son echec en tete du contenu defilant.
+  // Un usager descendu aux arretes ne le voyait pas : le bouton paraissait
+  // inerte. L'emplacement (sous le corps de l'encart, `UC-002 A6`) ne change
+  // pas : c'est le defilement qui va a l'avis, quand il apparait. Meme
+  // symptome pour l'avis d'un ARRETE non ouvert : il nait sous son bouton,
+  // hors de la zone visible quand le bouton est au bas de l'ecran.
+  group('C : l avis d un lien non ouvert est amene a l ecran', () {
+    final Finder notice = find.textContaining("Ce lien n'a pas pu être ouvert");
+
+    Widget screen({String? unopenedLink, double textScale = 1}) => MaterialApp(
+      home: Builder(
+        builder: (BuildContext context) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: RestrictionsScreen(
+            state: ZonesTrouvees(zonesAin()),
+            profile: UserProfile.particulier,
+            onChooseProfile: (UserProfile _) {},
+            onRetry: () {},
+            onOpenDocument: (DocumentLink _) {},
+            onOpenPublicSite: () {},
+            unopenedLink: unopenedLink,
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        ),
+      ),
+    );
+
+    Future<void> pumpAt(
+      WidgetTester tester,
+      Size window, {
+      double textScale = 1,
+    }) async {
+      tester.view.physicalSize = window;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(screen(textScale: textScale));
+      await tester.pumpAndSettle();
+    }
+
+    void expectNoticeInView(WidgetTester tester) {
+      expect(notice, findsOneWidget);
+      final Rect view = tester.getRect(_mainScrollable);
+      final Rect at = tester.getRect(notice);
+      expect(at.top, greaterThanOrEqualTo(view.top), reason: '$at / $view');
+      expect(at.bottom, lessThanOrEqualTo(view.bottom), reason: '$at / $view');
+    }
+
+    testWidgetsOnWindows('ecran descendu aux arretes : l avis, au-dessus de '
+        'la zone visible, y est amene', (WidgetTester tester) async {
+      await pumpAt(tester, _window);
+      tester
+          .state<ScrollableState>(_mainScrollable)
+          .position
+          .jumpTo(_max(tester));
+      await tester.pump();
+      expect(_offset(tester), greaterThan(300));
+      expect(notice, findsNothing);
+
+      await tester.pumpWidget(screen(unopenedLink: restrictionsPublicSiteUrl));
+      await tester.pumpAndSettle();
+
+      expectNoticeInView(tester);
+    });
+
+    testWidgetsOnWindows('ecran en haut, avis deja visible : le defilement '
+        'ne bouge pas', (WidgetTester tester) async {
+      await pumpAt(tester, _window);
+      expect(_offset(tester), 0);
+
+      await tester.pumpWidget(screen(unopenedLink: restrictionsPublicSiteUrl));
+      await tester.pumpAndSettle();
+
+      expectNoticeInView(tester);
+      expect(_offset(tester), 0);
+    });
+
+    testWidgetsOnWindows('telephone, en haut : l avis sous la ligne de '
+        'flottaison y est amene', (WidgetTester tester) async {
+      await pumpAt(tester, const Size(411, 420));
+      expect(_offset(tester), 0);
+
+      await tester.pumpWidget(screen(unopenedLink: restrictionsPublicSiteUrl));
+      await tester.pumpAndSettle();
+
+      expectNoticeInView(tester);
+    });
+
+    // Tete NON epinglee : une fenetre trop basse pour epingler (la tete est
+    // alors le premier element du defilement). Le test « telephone » ci-dessus
+    // tourne, lui, tete epinglee.
+    group('tete non epinglee (fenetre trop basse pour epingler)', () {
+      Future<void> pumpUnpinned(WidgetTester tester) async {
+        await pumpAt(tester, _window);
+        final double headerHeight = tester
+            .getSize(find.byKey(reinforcedWarningHeaderKey))
+            .height;
+        tester.view.physicalSize = Size(_window.width, headerHeight * 2);
+        await tester.pumpAndSettle();
+        expect(_headerPinned(), isFalse);
+      }
+
+      testWidgetsOnWindows('en haut, avis sous la ligne de flottaison : y '
+          'est amene', (WidgetTester tester) async {
+        await pumpUnpinned(tester);
+        expect(_offset(tester), 0);
+
+        await tester.pumpWidget(
+          screen(unopenedLink: restrictionsPublicSiteUrl),
+        );
+        await tester.pumpAndSettle();
+
+        expectNoticeInView(tester);
+      });
+
+      testWidgetsOnWindows('descendu, avis au-dessus de la zone visible : y '
+          'est amene', (WidgetTester tester) async {
+        await pumpUnpinned(tester);
+        tester
+            .state<ScrollableState>(_mainScrollable)
+            .position
+            .jumpTo(_max(tester));
+        await tester.pump();
+        expect(_offset(tester), greaterThan(300));
+
+        await tester.pumpWidget(
+          screen(unopenedLink: restrictionsPublicSiteUrl),
+        );
+        await tester.pumpAndSettle();
+
+        expectNoticeInView(tester);
+      });
+    });
+
+    testWidgetsOnWindows(
+      'arrete non ouvert, bouton au bas de la zone '
+      'visible : l avis, qui nait sous le bouton hors du champ, y est amene',
+      (WidgetTester tester) async {
+        await pumpAt(tester, _window);
+        final Finder button = find.text("Ouvrir l'arrêté");
+        await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
+        // Le bouton remonte jusqu'a 12 px du bas de la zone visible : l'avis,
+        // pose juste dessous, n'y tient pas.
+        final Rect view = tester.getRect(_mainScrollable);
+        final double wanted =
+            _offset(tester) +
+            tester.getRect(button).bottom -
+            (view.bottom - 12);
+        tester.state<ScrollableState>(_mainScrollable).position.jumpTo(wanted);
+        await tester.pump();
+        expect(_offset(tester), wanted);
+        final Rect buttonAt = tester.getRect(button);
+        expect(buttonAt.top, greaterThanOrEqualTo(view.top));
+        expect(buttonAt.bottom, lessThanOrEqualTo(view.bottom));
+        expect(notice, findsNothing);
+
+        await tester.pumpWidget(screen(unopenedLink: decreeUrlAin));
+        await tester.pumpAndSettle();
+
+        expectNoticeInView(tester);
+      },
+    );
+
+    testWidgetsOnWindows('avis plus haut que la zone visible (petit ecran, '
+        '200 %) : son DEBUT est dans le champ, pas sa fin', (
+      WidgetTester tester,
+    ) async {
+      const Size small = Size(411, 500);
+      await pumpAt(tester, small, textScale: 2);
+      await tester.pumpWidget(
+        screen(unopenedLink: restrictionsPublicSiteUrl, textScale: 2),
+      );
+      await tester.pumpAndSettle();
+
+      final Rect view = tester.getRect(_mainScrollable);
+      final Rect at = tester.getRect(notice);
+      expect(
+        at.height,
+        greaterThan(view.height),
+        reason: 'l avis doit etre plus haut que la zone : $at / $view',
+      );
+      expect(at.top, greaterThanOrEqualTo(view.top), reason: '$at / $view');
+      expect(at.top, lessThan(view.bottom), reason: '$at / $view');
+    });
   });
 
   group('H3 : la molette defile, ou que soit le pointeur', () {

@@ -67,6 +67,14 @@ const String _dams =
 
 Widget _app() => const MaterialApp(home: DataSourcesView());
 
+/// `Maj`+`Tab` : parcours du focus en arrière.
+Future<void> _shiftTab(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pump();
+}
+
 /// Tous les textes rendus sous l'ecran : `Text` et `SelectableText`.
 List<String> _renderedTexts(WidgetTester tester) {
   final Finder scope = find.byType(DataSourcesView);
@@ -302,6 +310,80 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(DataSourcesView), findsNothing);
+    });
+
+    // Constat D de la revue : `Focus(autofocus: true)` porte `Echap` et
+    // `PageDown` des l'ouverture ; sans `skipTraversal`, il etait aussi un
+    // arret de tabulation sans aucun indicateur visible (`K2`).
+    testWidgets('Tab : le noeud de l ecran n est jamais un arret, le parcours '
+        'boucle sur le bouton de retour', (WidgetTester tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
+      expect(FocusManager.instance.primaryFocus, same(screen));
+
+      FocusNode? first;
+      bool looped = false;
+      for (int press = 1; press <= 100 && !looped; press++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final FocusNode? focused = FocusManager.instance.primaryFocus;
+        expect(focused, isNot(same(screen)), reason: 'Tab no $press');
+        if (first == null) {
+          first = focused;
+        } else {
+          looped = identical(focused, first);
+        }
+      }
+      expect(looped, isTrue);
+      expect(
+        first!.context!.findAncestorWidgetOfExactType<BackButton>(),
+        isNotNull,
+      );
+    });
+
+    testWidgets('Maj+Tab à l\'ouverture : le nœud de l\'écran n\'est jamais un '
+        'arrêt, le parcours en arrière boucle', (WidgetTester tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
+      expect(FocusManager.instance.primaryFocus, same(screen));
+
+      FocusNode? first;
+      bool looped = false;
+      for (int press = 1; press <= 100 && !looped; press++) {
+        await _shiftTab(tester);
+        final FocusNode? focused = FocusManager.instance.primaryFocus;
+        expect(focused, isNot(same(screen)), reason: 'Maj+Tab no $press');
+        if (first == null) {
+          first = focused;
+        } else {
+          looped = identical(focused, first);
+        }
+      }
+      expect(looped, isTrue);
+    });
+
+    testWidgets('Maj+Tab depuis le premier arrêt : le nœud de l\'écran n\'est '
+        'pas l\'arrêt précédent', (WidgetTester tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final FocusNode? first = FocusManager.instance.primaryFocus;
+      expect(
+        first!.context!.findAncestorWidgetOfExactType<BackButton>(),
+        isNotNull,
+      );
+
+      // Le bouton de retour est le SEUL arrêt de cet écran : en arrière, le
+      // parcours reboucle sur lui, jamais sur le nœud de l'écran.
+      await _shiftTab(tester);
+      final FocusNode? previous = FocusManager.instance.primaryFocus;
+      expect(previous, isNot(same(screen)));
+      expect(previous, same(first));
     });
 
     // `PageDown` est une touche de defilement de Flutter sur Windows ; les

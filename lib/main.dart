@@ -308,34 +308,54 @@ class MartinPecheurApp extends StatelessWidget {
               if (screenOpen) {
                 return;
               }
+              // Ce que CETTE route affiche, retenu pour sa durée de vie : le
+              // futur de `push` se complète à l'appel de `pop`, avant
+              // l'animation de sortie. `close()` vide alors le ViewModel
+              // (verrou contre une réponse tardive) pendant que la route est
+              // encore à l'écran — elle garde, elle, ce qu'elle affichait.
+              // `leaving` est posé au retrait, juste avant `close()` : dès
+              // lors la route ne met plus rien à jour. La carte dessous reçoit
+              // les gestes pendant la sortie : une nouvelle désignation
+              // relance le ViewModel, et c'est la NOUVELLE route qui cherche —
+              // pas celle qui s'en va.
+              RestrictionsState shownState = restrictionsViewModel.state;
+              String? shownUnopenedLink = restrictionsViewModel.unopenedLink;
+              bool leaving = false;
               unawaited(
                 Navigator.of(context)
                     .push<void>(
                       MaterialPageRoute<void>(
                         builder: (BuildContext context) => ListenableBuilder(
                           listenable: restrictionsViewModel,
-                          builder: (BuildContext context, Widget? child) =>
-                              RestrictionsScreen(
-                                state: restrictionsViewModel.state,
-                                profile: restrictionsViewModel.profile,
-                                onChooseProfile:
-                                    restrictionsViewModel.chooseProfile,
-                                onRetry: () =>
-                                    unawaited(restrictionsViewModel.retry()),
-                                onOpenDocument: (DocumentLink link) =>
-                                    unawaited(
-                                      restrictionsViewModel.openDocument(link),
-                                    ),
-                                onOpenPublicSite: () => unawaited(
-                                  restrictionsViewModel.openPublicSite(),
-                                ),
-                                unopenedLink:
-                                    restrictionsViewModel.unopenedLink,
+                          builder: (BuildContext context, Widget? child) {
+                            if (!leaving) {
+                              shownState = restrictionsViewModel.state;
+                              shownUnopenedLink =
+                                  restrictionsViewModel.unopenedLink;
+                            }
+                            return RestrictionsScreen(
+                              state: shownState,
+                              profile: restrictionsViewModel.profile,
+                              onChooseProfile:
+                                  restrictionsViewModel.chooseProfile,
+                              onRetry: () =>
+                                  unawaited(restrictionsViewModel.retry()),
+                              onOpenDocument: (DocumentLink link) => unawaited(
+                                restrictionsViewModel.openDocument(link),
                               ),
+                              onOpenPublicSite: () => unawaited(
+                                restrictionsViewModel.openPublicSite(),
+                              ),
+                              unopenedLink: shownUnopenedLink,
+                            );
+                          },
                         ),
                       ),
                     )
-                    .then((_) => restrictionsViewModel.close()),
+                    .then((_) {
+                      leaving = true;
+                      restrictionsViewModel.close();
+                    }),
               );
             },
           );

@@ -187,8 +187,12 @@ class DataSourcesView extends StatelessWidget {
           unawaited(Navigator.maybePop(context));
         },
       },
+      // Le focus de l'écran sert `Échap` et `PageDown` dès l'ouverture ; il
+      // n'est pas un arrêt de tabulation : sans indicateur visible, ce serait
+      // un focus invisible (`K2`).
       child: Focus(
         autofocus: true,
+        skipTraversal: true,
         child: Scaffold(
           body: SafeArea(
             // La molette posée sur la barre de titre, hors du défilement,

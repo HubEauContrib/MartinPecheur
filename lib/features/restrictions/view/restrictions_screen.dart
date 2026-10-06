@@ -9,7 +9,13 @@
 // - ORDRE du § 3 (Q-3) : point designe, date de recuperation, zones d'eaux
 //   superficielles, « Autres zones au meme point », « Arretes » dedoublonnes
 //   par adresse exacte (Q-6), un seul choix de « Profil d'usager », puis les
-//   usages groupes par zone dans l'ordre des zones.
+//   usages groupes par zone dans l'ordre des zones. SANS zone d'eaux
+//   superficielles (arbitrages du commanditaire du 2026-10-06) : la phrase
+//   d'absence d'eaux superficielles d'abord, suivie de la phrase de `BR-007`
+//   — celle de l'etat « aucune zone » —, puis « Zones d'alerte a ce point »
+//   a la place de « Autres zones au meme point ». Des qu'une des zones
+//   affichees est de type non reconnu, la phrase d'absence et la phrase de
+//   `BR-007` sont tues (`BR-011`) : le titre et sa phrase restent.
 // - TEXTES des § 5.1 a 5.3, mot pour mot (Q-5a/b/c/e). Le nom de la source
 //   n'est JAMAIS ecrit ici : il vient de [restrictionsSourceName]
 //   (confinement, `test/data/restrictions/restriction_source_test.dart`). Un
@@ -19,10 +25,12 @@
 //   adresses d'arrete) sont rendus A L'IDENTIQUE et attribues (BR-014) :
 //   aucune reformulation, aucun `trim`. Le theme (`theme`) n'est pas affiche
 //   en T2 (Q-5e).
-// - Aucune decision ici : le ViewModel porte l'etat et le profil ; le
-//   domaine partitionne les zones (`ZonesAtPoint`) et filtre les usages
-//   (`AlertZone.usagesFor`). La vue dedoublonne seulement l'AFFICHAGE des
-//   arretes (Q-6).
+// - Le ViewModel porte l'etat et le profil ; le domaine partitionne les
+//   zones (`ZonesAtPoint`) et filtre les usages (`AlertZone.usagesFor`). La
+//   vue dedoublonne l'AFFICHAGE des arretes (Q-6) et, depuis le 2026-10-06,
+//   decide si l'absence d'eaux superficielles peut s'ecrire (aucune zone de
+//   type non reconnu, `_zonesContent`) : deux decisions qui vivraient mieux
+//   dans le domaine — ecart connu, `docs/project-state.md`, point 57.
 //
 // ENCART RENFORCE (E4, Q-4 (a) amende le 2026-09-29, `BR-013`) : tete
 // epinglee (titre, action) sous la barre de titre tant qu'elle prend au plus
@@ -33,7 +41,6 @@
 
 import 'dart:async' show unawaited;
 
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:martinpecheur/domain/formatting/display_date.dart';
@@ -55,8 +62,9 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 /// Titre de l'ecran (Q-1 de C1).
 const String restrictionsScreenTitle = 'Sécheresse et restrictions';
 
-/// Phrase de `BR-007`, telle quelle : apres « aucune zone » (`UC-002 A3`) et
-/// apres une gravite « Non renseigné » (Q-5c).
+/// Phrase de `BR-007`, telle quelle : apres « aucune zone » (`UC-002 A3`),
+/// apres la phrase d'absence de zone d'eaux superficielles (arbitrage du
+/// 2026-10-06) et apres une gravite « Non renseigné » (Q-5c).
 const String restrictionsNoDecreeMeaningText =
     "Cela ne signifie pas qu'aucun arrêté ne s'applique : vérifiez auprès de "
     'votre préfecture.';
@@ -153,8 +161,12 @@ class RestrictionsScreen extends StatelessWidget {
           unawaited(Navigator.maybePop(context));
         },
       },
+      // Le focus de l'ecran sert `Echap` et `PageDown` des l'ouverture ; il
+      // n'est pas un arret de tabulation : sans indicateur visible, ce serait
+      // un focus invisible (`K2`).
       child: Focus(
         autofocus: true,
+        skipTraversal: true,
         child: Scaffold(
           backgroundColor: droughtScreenBackground,
           body: SafeArea(
@@ -183,7 +195,11 @@ class RestrictionsScreen extends StatelessWidget {
                           const ReinforcedWarningBody(),
                           // Lien du site public non ouvert (UC-002 A6) :
                           // dans TOUS les etats, sous le corps de l'encart
-                          // dont l'action l'ouvre.
+                          // dont l'action l'ouvre. L'action est dans la tete
+                          // epinglee : a son apparition, l'avis amene le
+                          // defilement jusqu'a lui (voir `_UnopenedLinkNotice`),
+                          // sans quoi l'usager descendu aux arretes verrait un
+                          // bouton inerte.
                           if (unopenedLink == restrictionsPublicSiteUrl)
                             const _UnopenedLinkNotice(),
                           const SizedBox(height: 16),
@@ -283,18 +299,51 @@ class RestrictionsScreen extends StatelessWidget {
     final List<_DecreeEntry> decrees = _decreeEntries(ordered);
     final UserProfile? profile = this.profile;
 
+    // Sans zone d'eaux superficielles, rien ne precede les autres zones :
+    // « Autres zones » et « aussi » ne suivraient rien (arbitrage du
+    // 2026-10-06). La phrase d'absence vient d'abord, puis la phrase de
+    // `BR-007` : les deux phrases sont posees comme celles de `AucuneZone`,
+    // au meme ecart (arbitrage du 2026-10-06).
+    final bool noSurfaceZone = surface.isEmpty && others.isNotEmpty;
+    // L'absence d'eaux superficielles ne s'affirme que si TOUTES les zones
+    // affichees sont d'un type reconnu : d'une zone de type non reconnu,
+    // l'application ne sait pas ce qu'elle est (`BR-011`, arbitrage du
+    // 2026-10-06). La phrase d'absence est alors tue, et la phrase de
+    // `BR-007` avec elle ; le titre « Zones d'alerte a ce point » et sa
+    // phrase restent : ils sont vrais.
+    final bool surfaceAbsenceStated =
+        noSurfaceZone &&
+        !others.any((AlertZone zone) => zone.kind is TypeZoneInconnu);
+
     return <Widget>[
+      if (surfaceAbsenceStated) ...<Widget>[
+        const SizedBox(height: 16),
+        const Text(
+          '$restrictionsSourceName ne renvoie aucune zone '
+          "d'alerte d'eaux superficielles pour ce point.",
+        ),
+        const SizedBox(height: 8),
+        const Text(restrictionsNoDecreeMeaningText),
+      ],
       if (surface.isNotEmpty) ...<Widget>[
         _SectionTitle(zoneKindLabel(const EauxSuperficielles())),
         for (int i = 0; i < surface.length; i++)
           _ZoneCard(zone: surface[i], index: i),
       ],
       if (others.isNotEmpty) ...<Widget>[
-        const _SectionTitle('Autres zones au même point'),
-        const Text(
-          "Le point désigné se trouve aussi dans ces zones d'alerte. Chacune "
-          'a son niveau et ses usages.',
-        ),
+        if (noSurfaceZone) ...<Widget>[
+          const _SectionTitle("Zones d'alerte à ce point"),
+          const Text(
+            "Le point désigné se trouve dans ces zones d'alerte. Chacune a "
+            'son niveau et ses usages.',
+          ),
+        ] else ...<Widget>[
+          const _SectionTitle('Autres zones au même point'),
+          const Text(
+            "Le point désigné se trouve aussi dans ces zones d'alerte. Chacune "
+            'a son niveau et ses usages.',
+          ),
+        ],
         for (int i = 0; i < others.length; i++)
           _ZoneCard(zone: others[i], index: surface.length + i),
       ],
@@ -358,8 +407,9 @@ class RestrictionsScreen extends StatelessWidget {
 
 /// La zone sous la barre de titre : l'encart renforce et le contenu.
 ///
-/// Disposition decidee sur la MESURE, sans seuil en pixels : la tete
-/// (titre et action) est epinglee tant que sa hauteur reelle est au plus la
+/// Disposition decidee sur la MESURE, sans seuil en pixels (seul le repli
+/// synchrone de `_layout` connait la largeur de la colonne de lecture) : la
+/// tete (titre et action) est epinglee tant que sa hauteur reelle est au plus la
 /// moitie de la hauteur utile de la zone ; sinon tout l'encart est le premier
 /// element du defilement. La tete est rendue a la meme largeur dans les deux
 /// dispositions (hors du remplissage du defilement), donc sa mesure est la
@@ -388,6 +438,12 @@ class _EncartAreaState extends State<_EncartArea> {
   double? _usableHeight;
   double? _usableWidth;
   TextScaler? _scaler;
+
+  /// Derniere hauteur MESUREE de la tete (dans [_decide]) : a largeur
+  /// inchangee, ou tant que la zone garde au moins la largeur de la colonne
+  /// de lecture, un retrecissement ne la change pas, donc la zone dit
+  /// d'elle-meme, sans attendre le rendu, si la tete epinglee y tient.
+  double? _headerHeight;
 
   @override
   void didChangeDependencies() {
@@ -418,14 +474,13 @@ class _EncartAreaState extends State<_EncartArea> {
       if (box is! RenderBox || !box.hasSize) {
         return;
       }
+      _headerHeight = box.size.height;
       final bool fits = box.size.height * 2 <= usableHeight;
       if (fits != _pinned) {
         // Bascule de disposition (redimensionnement de fenetre, changement
-        // de police) : le defilement est reconstruit a un autre endroit de
-        // l'arbre, donc sa POSITION et le FOCUS clavier qu'il porte sont
-        // perdus. Assume : la bascule est rare, et le defilement repart en
-        // haut, ou l'encart est visible. Aucune `GlobalKey` ne conserve
-        // cet etat (la cle de mesure ne porte que la tete).
+        // de police) : seule la tete change de creneau (voir `_layout`). Le
+        // defilement garde sa place dans l'arbre : sa POSITION et le FOCUS
+        // clavier qu'il porte sont conserves.
         setState(() => _pinned = fits);
       }
     });
@@ -433,14 +488,14 @@ class _EncartAreaState extends State<_EncartArea> {
 
   @override
   Widget build(BuildContext context) {
-    // Sur desktop, Flutter ne fait pas glisser un defilement a la souris :
-    // l'usager arrive d'une carte ou glisser deplace la vue. Ici, glisser
-    // fait defiler ; la barre de defilement est toujours visible (la page
-    // defile, cela se voit), la barre automatique est retiree pour ne pas
-    // la doubler.
+    // La barre de defilement est toujours visible (la page defile, cela se
+    // voit) ; l'automatique du bureau est retiree pour ne pas la doubler. Le
+    // glisser garde le comportement par defaut de Flutter : au doigt et au
+    // pave tactile il fait defiler, a la souris non — un glisser y demarre a
+    // 1 px, et un clic un peu tremble sur un choix de profil ou un bouton
+    // serait perdu. La souris defile a la molette, a la barre et au clavier.
     return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context)
-          .copyWith(dragDevices: _screenDragDevices, scrollbars: false),
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
       child: _layout(),
     );
   }
@@ -448,13 +503,30 @@ class _EncartAreaState extends State<_EncartArea> {
   Widget _layout() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final double? lastHeight = _usableHeight;
         final double? lastWidth = _usableWidth;
+        final double? headerHeight = _headerHeight;
+        // Repli SYNCHRONE en defilement (jamais de debordement de la tete
+        // epinglee), puis nouvelle decision apres rendu — dans deux cas
+        // seulement :
+        // - la LARGEUR diminue SOUS la colonne de lecture : la tete suit
+        //   alors la largeur de la zone, son texte passe a la ligne, elle
+        //   peut GRANDIR, sa hauteur memorisee ne dit plus rien ;
+        // - la tete, a sa hauteur memorisee, ne tient plus dans la moitie de
+        //   la zone : l'epingler deborderait.
+        // Partout ailleurs la hauteur de la tete ne change pas : en hauteur
+        // seule elle garde sa largeur, et a partir de la colonne de lecture
+        // sa largeur est fixe (`ReinforcedWarningHeader` se borne a la meme
+        // colonne), quelle que soit celle de la fenetre. Tant qu'elle tient,
+        // elle reste donc epinglee sur TOUTES les images. Replier a chaque
+        // retrecissement la faisait partir hors champ, ecran defile, le
+        // temps du geste.
         if (_pinned &&
-            ((lastHeight != null && constraints.maxHeight < lastHeight) ||
-                (lastWidth != null && constraints.maxWidth < lastWidth))) {
-          // Zone plus petite : la tete epinglee pourrait deborder ; meme
-          // repli synchrone en defilement, puis nouvelle decision.
+            ((lastWidth != null &&
+                    constraints.maxWidth < lastWidth &&
+                    constraints.maxWidth <
+                        readingColumnWidth + 2 * readingColumnGutter) ||
+                (headerHeight != null &&
+                    headerHeight * 2 > constraints.maxHeight))) {
           _pinned = false;
         }
         _usableHeight = constraints.maxHeight;
@@ -464,68 +536,54 @@ class _EncartAreaState extends State<_EncartArea> {
           key: _headerKey,
           child: widget.header,
         );
-        if (_pinned) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              header,
-              Expanded(
-                child: Scrollbar(
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    key: widget.scrollKey,
-                    // Le defilement de la route : `PageUp`/`PageDown` (et
-                    // `Ctrl`+fleches) le trouvent depuis le focus de l'ecran,
-                    // qui n'est pas dans le defilement. Sur mobile, c'etait
-                    // deja le cas par defaut.
-                    primary: true,
-                    child: _ReadingColumn(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: widget.children,
+        // MEME arbre dans les deux dispositions : seule la tete change de
+        // creneau — sous la barre de titre, hors du defilement, quand elle
+        // est epinglee ; sinon en tete du defilement. Sa `GlobalKey` la
+        // deplace sans la reconstruire. Le defilement n'est jamais remplace :
+        // sa position, son focus et les selections qu'il porte survivent a
+        // un retrecissement de la fenetre. En hauteur, et en largeur a partir
+        // de la colonne de lecture, la tete reste epinglee tant qu'elle tient
+        // (voir ci-dessus). SOUS la colonne de lecture, tete epinglee, le
+        // repli synchrone reste a chaque retrecissement en largeur : UNE
+        // bascule par image — repli au rendu du retrecissement, puis
+        // epinglage apres rendu, a l'image suivante, si la tete tient encore
+        // — et l'image repliee EST peinte : ecran defile, la tete est hors
+        // champ pendant cette image.
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _pinned ? header : const SizedBox.shrink(),
+            Expanded(
+              child: Scrollbar(
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  key: widget.scrollKey,
+                  // Le defilement de la route : `PageUp`/`PageDown` (et
+                  // `Ctrl`+fleches) le trouvent depuis le focus de l'ecran,
+                  // qui n'est pas dans le defilement. Sur mobile, c'etait
+                  // deja le cas par defaut.
+                  primary: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      _pinned ? const SizedBox.shrink() : header,
+                      _ReadingColumn(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: widget.children,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          );
-        }
-        return Scrollbar(
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            key: widget.scrollKey,
-            primary: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                header,
-                _ReadingColumn(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: widget.children,
-                  ),
-                ),
-              ],
             ),
-          ),
+          ],
         );
       },
     );
   }
 }
-
-/// Les appareils qui font glisser le defilement de l'ecran : ceux de Flutter
-/// par defaut, SANS la souris — a la souris un glisser demarre a 1 px, et un
-/// clic un peu tremble sur un choix de profil ou un bouton serait perdu. La
-/// souris defile a la molette, a la barre et au clavier.
-const Set<PointerDeviceKind> _screenDragDevices = <PointerDeviceKind>{
-  PointerDeviceKind.touch,
-  PointerDeviceKind.stylus,
-  PointerDeviceKind.invertedStylus,
-  PointerDeviceKind.trackpad,
-  PointerDeviceKind.unknown,
-};
 
 /// Le contenu defilant : colonne de [readingColumnWidth] centree quand la
 /// fenetre est plus large, sinon toute la largeur, remplissage de 16 dans les
@@ -1342,32 +1400,75 @@ class _OpenDocumentButton extends StatelessWidget {
 }
 
 /// Sous une adresse qui ne s'est pas ouverte : rien ne dit que le document
-/// existe (`UC-002 A6`). Encart orange, l'icone n'est pas annoncee.
-class _UnopenedLinkNotice extends StatelessWidget {
+/// existe (`UC-002 A6`). Encart orange, l'icone n'est pas annoncee ; l'avis
+/// est une region d'alerte — il arrive apres une action de l'usager, comme la
+/// phrase d'echec d'ecriture du modal (`initial_warning_view.dart`).
+///
+/// A son apparition, l'avis amene le defilement qui le porte jusqu'a lui, UNE
+/// fois : l'action qui vient d'echouer (le bouton d'un arrete, l'action de
+/// l'encart) est ailleurs que l'avis, qui nait sous elle ou dans le contenu
+/// defilant, et peut naitre hors de la zone visible — le bouton paraitrait
+/// inerte. Au plus court : rien s'il est deja visible, vers le haut s'il est
+/// au-dessus de la zone visible, vers le bas s'il est dessous. Un deuxieme
+/// echec du meme lien ne le remonte pas : l'avis est deja la, le ViewModel ne
+/// notifie pas un changement nul.
+class _UnopenedLinkNotice extends StatefulWidget {
   const _UnopenedLinkNotice();
 
   @override
+  State<_UnopenedLinkNotice> createState() => _UnopenedLinkNoticeState();
+}
+
+class _UnopenedLinkNoticeState extends State<_UnopenedLinkNotice> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((Duration _) {
+      if (!mounted) {
+        return;
+      }
+      // Vers le bas d'abord (avis sous la zone visible : sa FIN y est alignee),
+      // vers le haut ensuite (avis plus haut que la zone visible : une fois sa
+      // fin alignee, son debut est au-dessus du champ, et c'est le DEBUT qui
+      // doit y etre). Chaque politique ne deplace que dans son sens : un avis
+      // deja visible ne bouge ni a l'une ni a l'autre.
+      Scrollable.ensureVisible(
+        context,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+      Scrollable.ensureVisible(
+        context,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF4E0),
-        border: Border.all(color: const Color(0xFFB36B00)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.all(10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            ExcludeSemantics(child: Icon(Icons.info_outline, size: 20)),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                "Ce lien n'a pas pu être ouvert depuis l'application. Son "
-                'adresse reste affichée ci-dessus.',
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF4E0),
+          border: Border.all(color: const Color(0xFFB36B00)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              ExcludeSemantics(child: Icon(Icons.info_outline, size: 20)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Ce lien n'a pas pu être ouvert depuis l'application. Son "
+                  'adresse reste affichée ci-dessus.',
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
