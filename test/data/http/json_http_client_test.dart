@@ -5,7 +5,9 @@
 // Aucun appel ne touche une API réelle : http.testing.MockClient sert des
 // réponses préparées, et l'attente entre tentatives est injectée pour ne
 // jamais dormir — delayForAttempt lui-même reste vérifié seul dans
-// retry_test.dart.
+// retry_test.dart. Une exception, le groupe du vrai IOClient (annulation de la
+// tentative abandonnée) : il ouvre un serveur TCP local à 127.0.0.1 (toujours
+// aucune API réelle) et attend un délai réel court (50 ms par tentative).
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -412,8 +414,8 @@ void main() {
     test('le corps qui ne finit jamais d\'arriver est borné lui aussi : 4 '
         'tentatives puis JsonHttpNetworkFailure', () async {
       // Les en-têtes arrivent (statut 200), le corps jamais : le flux reste
-      // ouvert. `Client.get` lit le corps avant de rendre sa réponse
-      // (`Response.fromStream`), donc le délai couvre aussi cette lecture.
+      // ouvert. `Response.fromStream` lit le corps avant de rendre la réponse
+      // à `getJson`, donc le délai couvre aussi cette lecture.
       int appels = 0;
       final List<StreamController<List<int>>> corps =
           <StreamController<List<int>>>[];
@@ -490,29 +492,6 @@ void main() {
       tardive.completeError(http.ClientException('réponse tardive'));
       // Laisse l'erreur tardive atteindre ses écouteurs : une erreur non
       // gérée ferait échouer ce test (zone d'erreur du test).
-      await Future<void>.delayed(Duration.zero);
-
-      expect(corps, <String, Object>{'ok': true});
-      expect(appels, 2);
-    });
-
-    test('l\'exception d\'annulation tardive d\'une tentative abandonnée est '
-        'ignorée elle aussi, sans erreur non gérée', () async {
-      int appels = 0;
-      final Completer<http.Response> tardive = Completer<http.Response>();
-      final http.Client mock = MockClient((http.Request request) {
-        appels++;
-        if (appels == 1) {
-          return tardive.future;
-        }
-        return Future<http.Response>.value(http.Response('{"ok":true}', 200));
-      });
-
-      final Object? corps = await clientSur(
-        mock,
-        requestTimeout: delaiCourt,
-      ).getJson(cible);
-      tardive.completeError(http.RequestAbortedException(cible));
       await Future<void>.delayed(Duration.zero);
 
       expect(corps, <String, Object>{'ok': true});
@@ -742,9 +721,10 @@ void main() {
 
   group('JsonHttpClient.getJson — annulation sur un vrai IOClient, contre un '
       'serveur local (aucune API réelle)', () {
-    // Délai assez long pour que la requête atteigne le serveur avant d'être
-    // abandonnée, même sur un poste chargé ; quatre tentatives : ~1,2 s.
-    const Duration delaiIo = Duration(milliseconds: 300);
+    // Délai réel court : le serveur est en boucle locale, donc la requête
+    // l'atteint bien avant l'abandon (vérifié à 2 ms : les quatre requêtes et
+    // les quatre fermetures sont encore vues) ; quatre tentatives : ~0,2 s.
+    const Duration delaiIo = Duration(milliseconds: 50);
     // Serveur TCP brut et non `HttpServer` : `HttpServer` ne retire pas de
     // `connectionsInfo()` une connexion que le client a fermée tant que sa
     // requête n'a pas reçu de réponse (constaté : le compte reste à 4 alors
@@ -755,16 +735,18 @@ void main() {
     late IOClient ioClient;
     late Uri url;
 
+    // Chaque ressource enregistre sa propre fermeture dès qu'elle existe : si
+    // `demarrer` échoue en route, seule la part déjà créée est libérée, et la
+    // cause de l'échec n'est pas masquée par un `LateInitializationError`.
+    // `addTearDown` rejoue en ordre inverse : le client se ferme avant le
+    // serveur.
     Future<void> demarrer({List<int>? reponse}) async {
       serveur = await _ServeurTcp.demarrer(reponse: reponse);
+      addTearDown(serveur.arreter);
       ioClient = IOClient();
+      addTearDown(ioClient.close);
       url = Uri.parse('http://127.0.0.1:${serveur.port}/ressource');
     }
-
-    tearDown(() async {
-      ioClient.close();
-      await serveur.arreter();
-    });
 
     /// Attend que le serveur ait vu [attendues] connexions fermées par le
     /// client, dans la limite de [delai] : le client ferme ses sockets de
@@ -791,7 +773,7 @@ void main() {
             isA<JsonHttpNetworkFailure>().having(
               (JsonHttpNetworkFailure echec) => echec.message,
               'message',
-              'délai d\'attente de 300 ms dépassé',
+              'délai d\'attente de 50 ms dépassé',
             ),
           ),
         );
@@ -824,7 +806,7 @@ void main() {
           isA<JsonHttpNetworkFailure>().having(
             (JsonHttpNetworkFailure echec) => echec.message,
             'message',
-            'délai d\'attente de 300 ms dépassé',
+            'délai d\'attente de 50 ms dépassé',
           ),
         ),
       );

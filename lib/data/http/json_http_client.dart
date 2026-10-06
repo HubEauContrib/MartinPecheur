@@ -20,24 +20,31 @@
 // `package:http` 1.6.0, `abortable.dart`) et son `abortTrigger` est complété
 // au dépassement, avant l'attente de rejeu — sinon chaque appel laissait
 // jusqu'à quatre connexions ouvertes sur un serveur lent, à rebours de NFR-07
-// (charge sur les sources publiques). `IOClient` ferme alors la connexion :
-// avant la réponse, il avorte la requête (`HttpClientRequest.abort`) ; pendant
-// la lecture du corps, il injecte `RequestAbortedException` dans le flux et
-// annule l'abonnement à la réponse (`io_client.dart`). Constaté contre un
-// serveur TCP local le 2026-10-06 : les quatre connexions sont fermées, dans
-// les deux cas. Ce qui n'est **pas** annulé : la phase de connexion (DNS,
-// connexion TCP, poignée de main TLS). `IOClient.send` n'enregistre
-// l'`abortTrigger` qu'**après** `openUrl`, donc une tentative abandonnée
-// pendant cette phase garde sa connexion en cours jusqu'à ce que le système ou
-// le serveur la termine ; elle est avortée dès que `openUrl` rend la main (lu
-// dans le code, non mesuré). Constaté pour la poignée de main TLS seule
-// (serveur local qui accepte et ne répond pas à `https://` : connexion
-// toujours ouverte deux secondes après l'annulation, `HandshakeException` à la
-// coupure du serveur) ; lu dans le code, non mesuré, pour le DNS et la
-// connexion TCP. `http.Client()`, tel que `main.dart` le construit, ne règle
-// aucun `connectionTimeout`. `MockClient` n'observe pas `abortTrigger` :
-// `Future.timeout` reste nécessaire pour rendre la main à l'appelant avec lui,
-// et avec tout client qui n'annule pas.
+// (charge sur les sources publiques). Dans les deux cas mesurés (serveur
+// muet ; en-têtes envoyés puis corps calé), `IOClient` ferme alors la
+// connexion : avant la réponse, il avorte la requête
+// (`HttpClientRequest.abort`) ; pendant la lecture du corps, il injecte
+// `RequestAbortedException` dans le flux et annule l'abonnement à la réponse
+// (`io_client.dart`). Constaté contre un serveur TCP local le 2026-10-06 : les
+// quatre connexions sont fermées, dans les deux cas. Ce qui n'est **pas**
+// annulé : la phase de connexion (DNS, connexion TCP, poignée de main TLS).
+// `IOClient.send` n'enregistre l'`abortTrigger` qu'**après** `openUrl`, donc
+// une tentative abandonnée pendant cette phase garde sa connexion en cours
+// jusqu'à ce que le système ou le serveur la termine ; elle est avortée dès
+// que `openUrl` rend la main (lu dans le code, non mesuré). Constaté pour la
+// poignée de main TLS seule (serveur local qui accepte et ne répond pas à
+// `https://` : connexion toujours ouverte deux secondes après l'annulation,
+// `HandshakeException` à la coupure du serveur) ; lu dans le code, non mesuré,
+// pour le DNS et la connexion TCP. `http.Client()`, tel que `main.dart` le
+// construit, ne règle aucun `connectionTimeout`. Pas davantage annulée : une
+// redirection suivie vers une autre origine (autre hôte, autre port ou autre
+// schéma), tant que les en-têtes de la réponse redirigée ne sont pas arrivés :
+// l'annulation détruit la connexion d'origine, laisse ouverte celle de la
+// redirection, et peut faire échouer une autre requête en vol qui réutilisait
+// la connexion d'origine. Constaté contre deux serveurs locaux le 2026-10-06 ;
+// aucune des sources appelées ne redirige à ce jour. `MockClient` n'observe
+// pas `abortTrigger` : `Future.timeout` reste nécessaire pour rendre la main à
+// l'appelant avec lui, et avec tout client qui n'annule pas.
 //
 // Trois pannes sont distinguées **par type**, parce que trois causes
 // différentes appellent trois diagnostics différents, et qu'un appelant doit
@@ -240,12 +247,18 @@ final class JsonHttpClient {
   ///
   /// Une tentative qui dépasse [requestTimeout] est annulée
   /// (`AbortableRequest.abortTrigger`, par `Client.send`) avant l'attente de
-  /// rejeu : `IOClient` ferme sa connexion, que le serveur n'ait pas encore
-  /// répondu ou qu'il cale en plein corps. Son résultat ou son erreur tardifs
-  /// — dont l'exception d'annulation — sont ignorés (`Future.timeout`), sans
-  /// erreur non gérée. Une réponse arrivée dans le délai n'est jamais annulée.
-  /// La phase de connexion (DNS, TCP, poignée de main TLS) n'est pas
-  /// interruptible : voir l'en-tête de ce fichier.
+  /// rejeu : dans les deux cas mesurés (serveur muet ; en-têtes envoyés puis
+  /// corps calé), `IOClient` ferme sa connexion. Son résultat ou son erreur
+  /// tardifs — dont l'exception d'annulation — sont ignorés (`Future.timeout`),
+  /// sans erreur non gérée. Une réponse arrivée dans le délai n'est jamais
+  /// annulée. La phase de connexion (DNS, TCP, poignée de main TLS) n'est pas
+  /// interrompue par l'annulation, pas plus qu'une redirection suivie vers une
+  /// autre origine (autre hôte, autre port ou autre schéma) tant que les
+  /// en-têtes de la réponse redirigée ne sont pas arrivés : l'annulation
+  /// détruit la connexion d'origine, laisse ouverte celle de la redirection, et
+  /// peut faire échouer une autre requête en vol qui réutilisait la connexion
+  /// d'origine. Constaté contre deux serveurs locaux le 2026-10-06 ; aucune des
+  /// sources appelées ne redirige à ce jour. Voir l'en-tête de ce fichier.
   ///
   /// Toute panne attrapée ici sort en [JsonHttpFailure]
   /// ([JsonHttpNetworkFailure], [JsonHttpStatusFailure],
@@ -294,13 +307,14 @@ final class JsonHttpClient {
         // et atterrit ici plutôt que dans le catch ci-dessus.
         lastFailure = JsonHttpNetworkFailure('panne réseau : $error');
       } on TimeoutException {
-        // `Future.timeout` ci-dessus : la tentative n'a pas abouti dans
-        // [requestTimeout]. Panne réseau rejouable, comme une coupure.
+        // `Future.timeout` de `_fetchWithin` : la tentative n'a pas abouti
+        // dans [requestTimeout]. Panne réseau rejouable, comme une coupure.
         lastFailure = JsonHttpNetworkFailure(
           "délai d'attente de ${_describeDuration(requestTimeout)} dépassé",
         );
       } on FormatException catch (error) {
-        // Une `FormatException` NUE qui sort de `get` vient du transport
+        // Une `FormatException` NUE qui sort de l'envoi (`send`) ou de la
+        // lecture du corps (`Response.fromStream`) vient du transport
         // lui-même, hors de toute réponse : `IOClient` ne convertit que
         // `SocketException` et `HttpException`. Deux cas établis par
         // exécution : un corps annoncé `Content-Encoding: gzip` mais

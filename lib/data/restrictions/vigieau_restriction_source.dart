@@ -21,7 +21,8 @@
 //
 // Aucune `Exception` levee par un transport `package:http` ne s'echappe sous
 // un autre type (conception T2 § 3). `getJson` attrape tout ce qui sort de
-// `Client.get` : `ClientException`, `IOException` (une panne TLS, que
+// l'envoi de la requete et de la lecture de son corps (`Client.send`,
+// `Response.fromStream`) : `ClientException`, `IOException` (une panne TLS, que
 // `IOClient` n'enveloppe pas), `FormatException` (corps `gzip` corrompu,
 // redirection mal formee — levees par le transport avant qu'aucune
 // `http.Response` ne soit rendue) et `TimeoutException` (delai d'attente
