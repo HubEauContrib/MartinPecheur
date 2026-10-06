@@ -95,7 +95,7 @@ T2) n'y figurent pas.
 - Documentation : faits VigiEau relevés par appel réel le 2026-09-27 et seize
   réponses gardées en fixtures datées (`docs/sources/vigieau.md`, `VG-01` à
   `VG-11`, puis `VG-12` le 2026-10-03), modèle du domaine, conception de
-  l'écran, 29 scénarios Gherkin (`restrictions.feature`), matrice de
+  l'écran, 30 scénarios Gherkin (`restrictions.feature`), matrice de
   traçabilité de T2.
 
 ### Modifié
@@ -254,7 +254,7 @@ T2) n'y figurent pas.
   défile ; l'adresse du site public est un texte sélectionnable, non un
   lien, sur l'écran des sources ; les mesures de téléphone se font en
   Roboto.
-- Les 29 scénarios de `restrictions.feature` sont lus et vérifiés en
+- Les 30 scénarios de `restrictions.feature` sont lus et vérifiés en
   structure par test, **jamais exécutés** ; certaines phrases d'écran qu'ils
   citent ne sont liées au code par aucun test (`docs/project-state.md`,
   point 53).

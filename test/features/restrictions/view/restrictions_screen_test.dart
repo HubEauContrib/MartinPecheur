@@ -1278,6 +1278,107 @@ void main() {
       );
     });
 
+    // Arbitrage du commanditaire du 2026-10-06 : le raccourci « mêmes zones »
+    // ne reste que si le point ne porte qu'UN SEUL arrêté de restriction ;
+    // avec plusieurs, on ne saurait pas « la même que laquelle ».
+    testWidgets(
+      'plusieurs arrêtés de restriction : le cadre d\'une zone, celle '
+      'd\'un de ces arrêtés, liste sa zone au lieu du raccourci',
+      (WidgetTester tester) async {
+        // Deux arrêtés de restriction (Ain, Ariège) ; le cadre de l'Ain ne
+        // couvre que ainSup, exactement la zone de l'arrêté de l'Ain.
+        await _pump(
+          tester,
+          ZonesTrouvees(zonesAinWith(<AlertZone>[ainSup(), ariegeSup()])),
+        );
+        expect(find.text('Arrêté de restriction'), findsNWidgets(2));
+        expect(find.textContaining('mêmes zones'), findsNothing);
+        expect(find.textContaining('la même zone'), findsNothing);
+        expect(
+          within(frameworkUrlAin, find.text("S'applique à 1 zone")),
+          findsOneWidget,
+        );
+        expect(
+          within(
+            frameworkUrlAin,
+            find.text('Eaux superficielles — Rivières de Bresse'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          within(frameworkUrlAin, find.byType(DroughtSeverityBadge)),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('plusieurs arrêtés de restriction : le cadre de deux zones, '
+        'celles d\'un de ces arrêtés, liste ses deux zones au lieu du '
+        'raccourci', (WidgetTester tester) async {
+      // Deux arrêtés de restriction (Ain, Ariège) ; le cadre de l'Ain couvre
+      // ainSup et ainSou, exactement les zones de l'arrêté de l'Ain.
+      await _pump(
+        tester,
+        ZonesTrouvees(
+          zonesAinWith(<AlertZone>[ainSup(), ainSou(), ariegeSup()]),
+        ),
+      );
+      expect(find.text('Arrêté de restriction'), findsNWidgets(2));
+      expect(find.textContaining('mêmes zones'), findsNothing);
+      expect(find.textContaining('la même zone'), findsNothing);
+      expect(
+        within(frameworkUrlAin, find.text("S'applique à 2 zones")),
+        findsOneWidget,
+      );
+      for (final String title in <String>[
+        'Eaux superficielles — Rivières de Bresse',
+        'Eaux souterraines — Dombes - Certines - Nord',
+      ]) {
+        expect(within(frameworkUrlAin, find.text(title)), findsOneWidget);
+      }
+      expect(
+        within(frameworkUrlAin, find.byType(DroughtSeverityBadge)),
+        findsNWidgets(2),
+      );
+    });
+
+    // Verrou de caractérisation (vert d'emblée) : aucun arrêté de restriction,
+    // un arrêté-cadre seul. Le raccourci n'a rien à répéter : la carte du
+    // cadre liste sa zone, et rien ne lève au rendu.
+    testWidgets('aucun arrêté de restriction, un arrêté-cadre seul : sa carte '
+        'liste sa zone, sans raccourci ni exception', (
+      WidgetTester tester,
+    ) async {
+      final AlertZone frameworkOnly = withDecree(
+        ainSup(),
+        RestrictionDecree(
+          validFrom: DateTime.utc(2026, 8, 20),
+          validUntil: DateTime.utc(2026, 10, 31),
+          frameworkDocument: const DocumentLink(frameworkUrlAin),
+        ),
+      );
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[frameworkOnly])),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('Arrêté de restriction'), findsNothing);
+      expect(find.text('1 document pour ce point'), findsOneWidget);
+      expect(find.textContaining('mêmes zones'), findsNothing);
+      expect(find.textContaining('la même zone'), findsNothing);
+      expect(
+        within(frameworkUrlAin, find.text("S'applique à 1 zone")),
+        findsOneWidget,
+      );
+      expect(
+        within(
+          frameworkUrlAin,
+          find.text('Eaux superficielles — Rivières de Bresse'),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('liste : une ligne par zone, badge, titre et niveau en gras '
         'à côté, noms à l\'identique', (WidgetTester tester) async {
       await _pump(tester, ZonesTrouvees(zonesAin()));

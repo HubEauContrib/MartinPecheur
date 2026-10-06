@@ -15,7 +15,11 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
   # (2026-10-04), rien ne les verrouille. Les phrases des deux scénarios
   # « sans zone d'eaux superficielles », arbitrées par le commanditaire le
   # 2026-10-06, ont été comparées de même au code du commit 576b98e
-  # (_zonesContent), sans verrou non plus.
+  # (_zonesContent), sans verrou non plus. Il en va de même du scénario « Avec
+  # plusieurs arrêtés de restriction », arbitré le même jour, comparé au code de
+  # _isSameZonesAsDecree (la décision) et de _DecreeBlock.build (les phrases
+  # citées) : restrictions_screen_test.dart verrouille l'écran, mais rien ne
+  # lie ce fichier-ci au code.
   #
   # Sources : les scénarios de US-09, US-07 et US-08 du cadrage de T2
   # (docs/superpowers/specs/2026-09-27-cadrage-t2-design.md, § 4), dont les
@@ -246,6 +250,13 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
     Alors le PDF s'ouvre hors de l'application, ce que dit la mention « PDF · s'ouvre hors de l'application » sous le bouton
     Et l'adresse du document reste lisible et sélectionnable à l'écran, telle que reçue
     Et l'arrêté-cadre s'ouvre de la même façon par « Ouvrir l'arrêté-cadre » (BR-013)
+
+  Scénario: Avec plusieurs arrêtés de restriction, l'arrêté-cadre liste ses zones
+    Étant donné un point sous deux arrêtés de restriction d'adresses différentes, et un arrêté-cadre d'une ou deux zones, exactement celles de l'un d'eux
+    Quand la section « Arrêtés » s'affiche
+    Alors la carte de cet arrêté-cadre dit « S'applique à 1 zone » ou « S'applique à 2 zones » selon son nombre de zones, puis liste ses zones une par une (arbitrage du commanditaire, 2026-10-06)
+    Et elle n'écrit ni « S'applique à la même zone » ni « S'applique aux 2 mêmes zones », qui ne diraient pas de quel arrêté de restriction il s'agit
+    Et chaque zone de la liste garde son nom tel que transmis par la source (BR-014)
 
   Scénario: Un lien qui ne s'ouvre pas est signalé sans prétendre qu'il existe
     Étant donné une adresse d'arrêté, ou celle du site public, que l'application n'a pas pu ouvrir
