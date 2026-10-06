@@ -100,7 +100,11 @@ import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart'
+    show minimumTapTarget;
 import 'package:martinpecheur/features/shared/warning_link.dart';
+
+import '../../../support/windows_platform.dart';
 
 /// Clé de la fiche de test : une hauteur réaliste de 320, comme
 /// `map_view_test.dart` (proche des fiches réelles de `station_sheet` et
@@ -116,7 +120,8 @@ const String _designation = 'DesignateCenterControl';
 const String _attribution = 'IgnAttributionBadge';
 
 /// Charge ROBOTO — toutes les graisses `Roboto-*.ttf` du SDK Flutter — sous la
-/// famille `Roboto`, celle que Material demande sur Android.
+/// famille `Roboto`, celle que Material demande sur Android, et enregistre les
+/// mêmes octets aussi sous « Segoe UI », en substitut.
 ///
 /// Le dossier est celui des polices du SDK, `bin/cache/artifacts/material_fonts`,
 /// trouvé par la variable d'environnement `FLUTTER_ROOT` que `flutter test`
@@ -166,13 +171,24 @@ Future<void> _chargerRoboto() async {
       'test.',
     );
   }
-  final FontLoader chargeur = FontLoader('Roboto');
-  for (final File police in polices) {
-    chargeur.addFont(
+  // Les mêmes octets sont chargés sous deux familles : « Roboto », celle que
+  // Material demande sur Android, et « Segoe UI », celle qu'il demande sur
+  // Windows (`Typography.material2021`, `blackRedmond`). Segoe UI n'est PAS
+  // chargée ici — la police de Windows n'est pas dans le SDK : les tests de la
+  // section « Windows » mesurent donc en Roboto, un SUBSTITUT de Segoe UI, pas
+  // sa mesure. Sans lui, Windows retomberait sur la police de test (un carré
+  // par glyphe) et chaque largeur de texte serait fausse.
+  final List<Future<ByteData>> octets = <Future<ByteData>>[
+    for (final File police in polices)
       Future<ByteData>.value(ByteData.sublistView(police.readAsBytesSync())),
-    );
+  ];
+  for (final String famille in <String>['Roboto', 'Segoe UI']) {
+    final FontLoader chargeur = FontLoader(famille);
+    for (final Future<ByteData> police in octets) {
+      chargeur.addFont(police);
+    }
+    await chargeur.load();
   }
-  await chargeur.load();
 }
 
 /// Une station et un point ONDE : ils ne servent qu'à ce que la carte ne soit
@@ -520,6 +536,67 @@ Future<void> _verifierColonneGauche(
   );
 }
 
+/// Un `testWidgets` posé sur une plateforme : Android, la plateforme par défaut
+/// de `flutter test`, ou Windows (`testWidgetsOnWindows`).
+typedef _Test = void Function(
+  String description,
+  Future<void> Function(WidgetTester tester) corps,
+);
+
+void _surAndroid(String d, Future<void> Function(WidgetTester tester) corps) =>
+    testWidgets(d, corps);
+
+void _surWindows(String d, Future<void> Function(WidgetTester tester) corps) =>
+    testWidgetsOnWindows(d, corps);
+
+/// EN MODE, à [taille], 100 % : un tap, un glisser et un cran de molette posés
+/// dans la bande du bouton de désignation, hors de la pilule et de l'indice,
+/// atteignent la carte. Partagé par la plateforme par défaut (Android) et par
+/// Windows, où une `Scrollbar` automatique entoure la bande.
+Future<void> _verifierBande(WidgetTester tester, Size taille) async {
+  int taps = 0;
+  int glissers = 0;
+  int crans = 0;
+  await _pumpOverlays(
+    tester,
+    taille,
+    scale: MapScaleKind.ecoulement,
+    enMode: true,
+    avecAvis: false,
+    onCarteTap: () => taps++,
+    onCarteGlisser: () => glissers++,
+    onCarteMolette: () => crans++,
+  );
+
+  // Un point calculé depuis les rectangles mesurés : sur la rangée de la
+  // pilule, à mi-chemin entre le bord gauche de la bande et celui de la
+  // pilule. Les garde-fous disent s'il retombait hors de la bande ou dans la
+  // pilule.
+  final Rect bande = _rectOf(tester, _bande());
+  final Rect pilule = _rectOf(tester, find.byKey(mapDesignateCenterButtonKey));
+  final Offset p = Offset((bande.left + pilule.left) / 2, pilule.center.dy);
+  expect(
+    bande.contains(p) && p.dx > bande.left,
+    isTrue,
+    reason: 'le point $p doit être DANS la bande $bande',
+  );
+  expect(pilule.contains(p), isFalse, reason: 'pilule=$pilule');
+
+  await tester.tapAt(p);
+  await tester.pump();
+  expect(taps, 1, reason: 'tap en $p, bande=$bande, pilule=$pilule');
+
+  await tester.dragFrom(p, const Offset(0, -30));
+  await tester.pump();
+  expect(glissers, greaterThan(0), reason: 'glisser en $p');
+
+  final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+  await tester.sendEventToBinding(souris.hover(p));
+  await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
+  await tester.pump();
+  expect(crans, 1, reason: 'molette en $p');
+}
+
 void main() {
   setUpAll(_chargerRoboto);
 
@@ -674,130 +751,146 @@ void main() {
   // ---------------------------------------------------------------------
   // Gestes rendus à la carte
   // ---------------------------------------------------------------------
-  for (final bool enMode in <bool>[false, true]) {
-    group('gestes — à 360 × 640, 100 %, échelle écoulement, un avis affiché, '
-        '${_mode(enMode)}', () {
-      /// Un point DANS la fenêtre de la colonne, à gauche du contrôle
-      /// d'avertissement, hors de tout enfant de la colonne : de la carte
-      /// visible, au sens de l'usager.
-      Offset pointALaGaucheDuLien(WidgetTester tester) {
-        final Rect colonne = _fenetre(tester);
-        final Rect lien = _rectOf(tester, find.byType(WarningLink));
-        final Offset p = Offset((colonne.left + lien.left) / 2, lien.center.dy);
-        expect(colonne.contains(p), isTrue, reason: '$p hors de $colonne');
-        for (final Finder enfant in <Finder>[
-          find.byType(WarningLink),
-          find.byType(MapScaleChips),
-          find.byType(MapLegend),
-          _avis(MapScaleKind.ecoulement),
-        ]) {
-          expect(
-            _rectOf(tester, enfant).contains(p),
-            isFalse,
-            reason: '$p tombe dans un enfant de la colonne',
+  // Les mêmes verrous, sur Android (la plateforme par défaut de `flutter test`)
+  // ET sur Windows : le bureau pose une `Scrollbar` automatique autour de
+  // chaque défilement vertical, dont le `MouseRegion` opaque absorbait le
+  // toucher sur toute la boîte de la colonne. Une fenêtre Windows ne descend
+  // pas sous 800 de large (`K3`) : la disposition compacte n'y est jamais
+  // montrée, mais la colonne compacte garde la même enveloppe que les deux
+  // colonnes larges.
+  for (final (String, _Test) plateforme in <(String, _Test)>[
+    ('', _surAndroid),
+    (' — Windows', _surWindows),
+  ]) {
+    final _Test test = plateforme.$2;
+    for (final bool enMode in <bool>[false, true]) {
+      group('gestes — à 360 × 640, 100 %, échelle écoulement, un avis affiché, '
+          '${_mode(enMode)}${plateforme.$1}', () {
+        /// Un point DANS la fenêtre de la colonne, à gauche du contrôle
+        /// d'avertissement, hors de tout enfant de la colonne : de la carte
+        /// visible, au sens de l'usager.
+        Offset pointALaGaucheDuLien(WidgetTester tester) {
+          final Rect colonne = _fenetre(tester);
+          final Rect lien = _rectOf(tester, find.byType(WarningLink));
+          final Offset p = Offset(
+            (colonne.left + lien.left) / 2,
+            lien.center.dy,
           );
+          expect(colonne.contains(p), isTrue, reason: '$p hors de $colonne');
+          for (final Finder enfant in <Finder>[
+            find.byType(WarningLink),
+            find.byType(MapScaleChips),
+            find.byType(MapLegend),
+            _avis(MapScaleKind.ecoulement),
+          ]) {
+            expect(
+              _rectOf(tester, enfant).contains(p),
+              isFalse,
+              reason: '$p tombe dans un enfant de la colonne',
+            );
+          }
+          return p;
         }
-        return p;
-      }
 
-      testWidgets('un tap hors des enfants de la colonne atteint la carte', (
-        WidgetTester tester,
-      ) async {
-        int taps = 0;
-        await _pumpOverlays(
-          tester,
-          _petit,
-          scale: MapScaleKind.ecoulement,
-          enMode: enMode,
-          onCarteTap: () => taps++,
-        );
+        test('un tap hors des enfants de la colonne atteint la carte', (
+          WidgetTester tester,
+        ) async {
+          int taps = 0;
+          await _pumpOverlays(
+            tester,
+            _petit,
+            scale: MapScaleKind.ecoulement,
+            enMode: enMode,
+            onCarteTap: () => taps++,
+          );
 
-        await tester.tapAt(pointALaGaucheDuLien(tester));
-        await tester.pump();
+          await tester.tapAt(pointALaGaucheDuLien(tester));
+          await tester.pump();
 
-        expect(taps, 1);
+          expect(taps, 1);
+        });
+
+        test('un cran de molette hors des enfants de la colonne atteint '
+            'la carte', (WidgetTester tester) async {
+          int crans = 0;
+          await _pumpOverlays(
+            tester,
+            _petit,
+            scale: MapScaleKind.ecoulement,
+            enMode: enMode,
+            onCarteMolette: () => crans++,
+          );
+          final Offset p = pointALaGaucheDuLien(tester);
+
+          final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+          await tester.sendEventToBinding(souris.hover(p));
+          await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
+          await tester.pump();
+
+          expect(crans, 1);
+        });
+
+        test('un glisser hors des enfants de la colonne atteint la '
+            'carte', (WidgetTester tester) async {
+          int glissers = 0;
+          await _pumpOverlays(
+            tester,
+            _petit,
+            scale: MapScaleKind.ecoulement,
+            enMode: enMode,
+            onCarteGlisser: () => glissers++,
+          );
+
+          await tester.dragFrom(
+            pointALaGaucheDuLien(tester),
+            const Offset(0, 80),
+          );
+          await tester.pump();
+
+          expect(glissers, greaterThan(0));
+        });
+
+        test('un tap sur une puce d’échelle atteint la puce, pas la '
+            'carte', (WidgetTester tester) async {
+          int taps = 0;
+          final List<MapScaleKind> choisies = <MapScaleKind>[];
+          await _pumpOverlays(
+            tester,
+            _petit,
+            scale: MapScaleKind.ecoulement,
+            enMode: enMode,
+            onCarteTap: () => taps++,
+            onSelect: choisies.add,
+          );
+
+          await tester.tap(_puceEchelle(MapScaleKind.debit));
+          await tester.pump();
+
+          expect(choisies, <MapScaleKind>[MapScaleKind.debit]);
+          expect(taps, 0);
+        });
+
+        test('un tap sur la puce « Restrictions » atteint la puce, pas '
+            'la carte', (WidgetTester tester) async {
+          int taps = 0;
+          int bascules = 0;
+          await _pumpOverlays(
+            tester,
+            _petit,
+            scale: MapScaleKind.ecoulement,
+            enMode: enMode,
+            onCarteTap: () => taps++,
+            onBasculerMode: () => bascules++,
+          );
+
+          await tester.tap(_puceRestrictions());
+          await tester.pump();
+
+          expect(bascules, 1);
+          expect(taps, 0);
+        });
       });
-
-      testWidgets('un cran de molette hors des enfants de la colonne atteint '
-          'la carte', (WidgetTester tester) async {
-        int crans = 0;
-        await _pumpOverlays(
-          tester,
-          _petit,
-          scale: MapScaleKind.ecoulement,
-          enMode: enMode,
-          onCarteMolette: () => crans++,
-        );
-        final Offset p = pointALaGaucheDuLien(tester);
-
-        final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
-        await tester.sendEventToBinding(souris.hover(p));
-        await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
-        await tester.pump();
-
-        expect(crans, 1);
-      });
-
-      testWidgets('un glisser hors des enfants de la colonne atteint la '
-          'carte', (WidgetTester tester) async {
-        int glissers = 0;
-        await _pumpOverlays(
-          tester,
-          _petit,
-          scale: MapScaleKind.ecoulement,
-          enMode: enMode,
-          onCarteGlisser: () => glissers++,
-        );
-
-        await tester.dragFrom(
-          pointALaGaucheDuLien(tester),
-          const Offset(0, 80),
-        );
-        await tester.pump();
-
-        expect(glissers, greaterThan(0));
-      });
-
-      testWidgets('un tap sur une puce d’échelle atteint la puce, pas la '
-          'carte', (WidgetTester tester) async {
-        int taps = 0;
-        final List<MapScaleKind> choisies = <MapScaleKind>[];
-        await _pumpOverlays(
-          tester,
-          _petit,
-          scale: MapScaleKind.ecoulement,
-          enMode: enMode,
-          onCarteTap: () => taps++,
-          onSelect: choisies.add,
-        );
-
-        await tester.tap(_puceEchelle(MapScaleKind.debit));
-        await tester.pump();
-
-        expect(choisies, <MapScaleKind>[MapScaleKind.debit]);
-        expect(taps, 0);
-      });
-
-      testWidgets('un tap sur la puce « Restrictions » atteint la puce, pas '
-          'la carte', (WidgetTester tester) async {
-        int taps = 0;
-        int bascules = 0;
-        await _pumpOverlays(
-          tester,
-          _petit,
-          scale: MapScaleKind.ecoulement,
-          enMode: enMode,
-          onCarteTap: () => taps++,
-          onBasculerMode: () => bascules++,
-        );
-
-        await tester.tap(_puceRestrictions());
-        await tester.pump();
-
-        expect(bascules, 1);
-        expect(taps, 0);
-      });
-    });
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -1705,55 +1798,7 @@ void main() {
       'EN MODE, à ${_nom(taille, 1, MapScaleKind.ecoulement)} : un tap, un '
       'glisser et un cran de molette posés dans la bande, hors de la pilule et '
       'de l’indice, atteignent la carte',
-      (WidgetTester tester) async {
-        int taps = 0;
-        int glissers = 0;
-        int crans = 0;
-        await _pumpOverlays(
-          tester,
-          taille,
-          scale: MapScaleKind.ecoulement,
-          enMode: true,
-          avecAvis: false,
-          onCarteTap: () => taps++,
-          onCarteGlisser: () => glissers++,
-          onCarteMolette: () => crans++,
-        );
-
-        // Un point calculé depuis les rectangles mesurés : sur la rangée de la
-        // pilule, à mi-chemin entre le bord gauche de la bande et celui de la
-        // pilule. Les garde-fous disent s'il retombait hors de la bande ou
-        // dans la pilule.
-        final Rect bande = _rectOf(tester, _bande());
-        final Rect pilule = _rectOf(
-          tester,
-          find.byKey(mapDesignateCenterButtonKey),
-        );
-        final Offset p = Offset(
-          (bande.left + pilule.left) / 2,
-          pilule.center.dy,
-        );
-        expect(
-          bande.contains(p) && p.dx > bande.left,
-          isTrue,
-          reason: 'le point $p doit être DANS la bande $bande',
-        );
-        expect(pilule.contains(p), isFalse, reason: 'pilule=$pilule');
-
-        await tester.tapAt(p);
-        await tester.pump();
-        expect(taps, 1, reason: 'tap en $p, bande=$bande, pilule=$pilule');
-
-        await tester.dragFrom(p, const Offset(0, -30));
-        await tester.pump();
-        expect(glissers, greaterThan(0), reason: 'glisser en $p');
-
-        final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
-        await tester.sendEventToBinding(souris.hover(p));
-        await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
-        await tester.pump();
-        expect(crans, 1, reason: 'molette en $p');
-      },
+      (WidgetTester tester) => _verifierBande(tester, taille),
     );
   }
 
@@ -2073,4 +2118,289 @@ void main() {
       );
     }
   }
+
+  // ---------------------------------------------------------------------
+  // WINDOWS, 800 × 740 : la première cible du produit
+  // ---------------------------------------------------------------------
+  // Les mêmes mesures qu'Android à 800 × 740 (la taille minimale de la
+  // fenêtre, `K3`), rejouées sur la plateforme Windows. Deux choses y
+  // changent, pas davantage :
+  // - la cible tactile : 44, non 48 (`minimumTapTarget`, `K4`) — d'où la
+  //   colonne des contrôles de zoom (44 de large), la marge droite que la
+  //   bande réserve (60, non 64) et la hauteur du contrôle d'avertissement et
+  //   des puces (44, non 48) ;
+  // - l'indice sous le bouton : « ou clic droit sur n'importe quel point de la
+  //   carte », plus long que « ou appui long sur n'importe quel point ».
+  //
+  // ⚠️ Segoe UI, la police de Windows, n'est pas chargée : ces tests mesurent
+  // en ROBOTO, substitut (voir [_chargerRoboto]). Les largeurs de texte — la
+  // pilule, l'indice, les puces, l'avis — sont celles de Roboto, pas de Segoe
+  // UI ; les bornes de la bande, elles, ne dépendent pas de la police.
+  group('Windows, 800 × 740 (Roboto pour Segoe UI)', () {
+    const Size taille = Size(800, 740);
+
+    testWidgetsOnWindows(
+      'la police de remplacement est chargée : « Avertissement » fait '
+      'environ 95 px (185 en police de test)',
+      (WidgetTester tester) async {
+        await _pumpOverlays(tester, taille, scale: MapScaleKind.ecoulement);
+
+        final double largeur = _rectOf(
+          tester,
+          find.text(warningLinkLabel),
+        ).width;
+        expect(largeur, inInclusiveRange(90, 100), reason: 'largeur=$largeur');
+      },
+    );
+
+    testWidgetsOnWindows(
+      'CONSTAT — EN MODE, la bande va de 60 à 740 (cible de 44) quand Android '
+      '(48) la donne de 64 à 736 ; la pilule va de 234,5 à 565,5',
+      (WidgetTester tester) async {
+        await _pumpOverlays(
+          tester,
+          taille,
+          scale: MapScaleKind.ecoulement,
+          enMode: true,
+          avecAvis: false,
+        );
+
+        expect(minimumTapTarget, 44);
+        final Rect bande = _rectOf(tester, _bande());
+        final Rect pilule = _rectOf(
+          tester,
+          find.byKey(mapDesignateCenterButtonKey),
+        );
+        final Rect indice = _rectOf(
+          tester,
+          find.byKey(mapDesignateCenterHintKey),
+        );
+        // La bande ne dépend pas de la police : marge de 8 + colonne des
+        // contrôles (44) + marge de 8 de chaque côté.
+        expect(bande.left, 60);
+        expect(bande.right, 740);
+        expect(bande.top, 616);
+        expect(bande.bottom, 704);
+        // La pilule et l'indice dépendent de la police (Roboto ici).
+        expect(pilule.left, closeTo(234.5, 0.1));
+        expect(pilule.right, closeTo(565.5, 0.1));
+        expect(indice.left, closeTo(238.3, 0.1));
+        expect(indice.right, closeTo(561.7, 0.1));
+        expect(pilule.left, greaterThan(bande.left));
+        expect(pilule.right, lessThan(bande.right));
+        expect(indice.bottom, lessThanOrEqualTo(bande.bottom));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'EN MODE : un tap, un glisser et un cran de molette posés dans la bande, '
+      'hors de la pilule et de l’indice, atteignent la carte',
+      (WidgetTester tester) => _verifierBande(tester, taille),
+    );
+
+    // La colonne DROITE (contrôle d'avertissement, légende) est large comme la
+    // légende. À l'échelle « débit », à 100 %, la légende (260 de large)
+    // dépasse le contrôle (139) : 121 px de la carte, à gauche du contrôle, sont
+    // dans la boîte de la colonne mais sur aucun de ses enfants (« écoulement »
+    // : 0 px, la légende et le contrôle ont la même largeur). Un geste posé là
+    // doit atteindre la carte : ni la `Scrollbar` automatique de Windows ni
+    // l'`opaque` par défaut du défilement ne doivent l'absorber.
+    group(
+      'colonne droite, échelle débit, 100 % : la carte garde ses gestes',
+      () {
+        Offset pointAGaucheDuLien(WidgetTester tester) {
+          final Rect colonne = tester.getRect(
+            find
+                .ancestor(
+                  of: find.byType(WarningLink),
+                  matching: find.byType(SingleChildScrollView),
+                )
+                .first,
+          );
+          final Rect lien = _rectOf(tester, find.byType(WarningLink));
+          expect(lien.left - colonne.left, closeTo(121, 0.5));
+          final Offset p = Offset(
+            (colonne.left + lien.left) / 2,
+            lien.center.dy,
+          );
+          expect(colonne.contains(p), isTrue, reason: '$p hors de $colonne');
+          expect(lien.contains(p), isFalse, reason: '$p dans le lien');
+          return p;
+        }
+
+        testWidgetsOnWindows('un tap à gauche du contrôle atteint la carte', (
+          WidgetTester tester,
+        ) async {
+          int taps = 0;
+          await _pumpOverlays(
+            tester,
+            taille,
+            scale: MapScaleKind.debit,
+            onCarteTap: () => taps++,
+          );
+
+          await tester.tapAt(pointAGaucheDuLien(tester));
+          await tester.pump();
+
+          expect(taps, 1);
+        });
+
+        testWidgetsOnWindows(
+          'un cran de molette à gauche du contrôle atteint la carte',
+          (WidgetTester tester) async {
+            int crans = 0;
+            await _pumpOverlays(
+              tester,
+              taille,
+              scale: MapScaleKind.debit,
+              onCarteMolette: () => crans++,
+            );
+            final Offset p = pointAGaucheDuLien(tester);
+
+            final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+            await tester.sendEventToBinding(souris.hover(p));
+            await tester.sendEventToBinding(
+              souris.scroll(const Offset(0, -100)),
+            );
+            await tester.pump();
+
+            expect(crans, 1);
+          },
+        );
+
+        testWidgetsOnWindows(
+          'un glisser à gauche du contrôle atteint la carte',
+          (WidgetTester tester) async {
+            int glissers = 0;
+            await _pumpOverlays(
+              tester,
+              taille,
+              scale: MapScaleKind.debit,
+              onCarteGlisser: () => glissers++,
+            );
+
+            await tester.dragFrom(
+              pointAGaucheDuLien(tester),
+              const Offset(0, 80),
+            );
+            await tester.pump();
+
+            expect(glissers, greaterThan(0));
+          },
+        );
+      },
+    );
+
+    // Les trois puces : une rangée à 100 %, deux à 200 %, comme sur Android.
+    for (final (double, int) cas in <(double, int)>[(1, 1), (2, 2)]) {
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        for (final bool enMode in <bool>[false, true]) {
+          testWidgetsOnWindows(
+            'à ${_nom(taille, cas.$1, scale)}, ${_mode(enMode)} : les trois '
+            'puces prennent ${cas.$2} rangée${cas.$2 > 1 ? 's' : ''}',
+            (WidgetTester tester) async {
+              await _pumpOverlays(
+                tester,
+                taille,
+                textScale: cas.$1,
+                scale: scale,
+                enMode: enMode,
+              );
+
+              expect(_rangeesDePuces(tester), cas.$2);
+            },
+          );
+        }
+      }
+    }
+
+    // La disposition large à 200 % : la colonne GAUCHE ne défile pas ; la
+    // colonne droite, elle, a de quoi défiler à 200 % sur l'échelle débit.
+    // L'action de l'avis est atteignable et l'attribution ne la recoupe pas —
+    // comme sur Android.
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      for (final bool enMode in <bool>[false, true]) {
+        testWidgetsOnWindows(
+          'CONSTAT — disposition LARGE à ${_nom(taille, 2, scale)}, '
+          '${_mode(enMode)}, avis affiché : l’action de l’avis est '
+          'atteignable, et l’attribution ne la recouvre pas',
+          (WidgetTester tester) async {
+            await _pumpOverlays(
+              tester,
+              taille,
+              textScale: 2,
+              scale: scale,
+              enMode: enMode,
+            );
+
+            final Rect colonne = _fenetre(tester);
+            final Rect avis = _rectOf(tester, _avis(scale));
+            expect(avis.bottom, lessThanOrEqualTo(colonne.bottom));
+            final Rect action = _rectOf(tester, find.byKey(widenSearchKey));
+            final Rect attribution = _rectOf(
+              tester,
+              find.byType(IgnAttributionBadge),
+            );
+            expect(_atteignable(find.byKey(widenSearchKey)), isTrue);
+            expect(attribution.overlaps(action), isFalse);
+          },
+        );
+      }
+    }
+
+    // L'avis recouvre le réticule de désignation EN MODE, carte vide : mêmes
+    // valeurs qu'Android (aucun recouvrement à 100 %, le centre du réticule
+    // sous l'avis à 200 %).
+    for (final (double, MapScaleKind, bool) cas
+        in <(double, MapScaleKind, bool)>[
+          (1, MapScaleKind.ecoulement, false),
+          (1, MapScaleKind.debit, false),
+          (2, MapScaleKind.ecoulement, true),
+          (2, MapScaleKind.debit, true),
+        ]) {
+      testWidgetsOnWindows(
+        'CONSTAT — EN MODE, carte vide, à ${_nom(taille, cas.$1, cas.$2)} : '
+        'l’avis ${cas.$3 ? 'recouvre, centre compris,' : 'ne recouvre pas'} '
+        'le réticule',
+        (WidgetTester tester) async {
+          await _pumpOverlays(
+            tester,
+            taille,
+            textScale: cas.$1,
+            scale: cas.$2,
+            enMode: true,
+          );
+
+          final Rect reticule = _rectOf(
+            tester,
+            find.byKey(mapCenterReticleKey),
+          );
+          final Rect? visible = _visible(tester, _avis(cas.$2));
+          expect(visible?.overlaps(reticule) ?? false, cas.$3);
+          expect(visible?.contains(reticule.center) ?? false, cas.$3);
+        },
+      );
+    }
+
+    // Aucune erreur de rendu, et le bas de l'avis dans la fenêtre de la
+    // colonne gauche, à 100 % comme à 200 %.
+    for (final double textScale in <double>[1, 2]) {
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        for (final bool enMode in <bool>[false, true]) {
+          testWidgetsOnWindows(
+            'disposition LARGE à ${_nom(taille, textScale, scale)}, '
+            '${_mode(enMode)}, avis affiché : aucune erreur de rendu, et le '
+            'bas de l’avis tient dans la fenêtre de la colonne gauche',
+            (WidgetTester tester) => _verifierColonneGauche(
+              tester,
+              taille,
+              textScale: textScale,
+              scale: scale,
+              enMode: enMode,
+            ),
+          );
+        }
+      }
+    }
+  });
 }

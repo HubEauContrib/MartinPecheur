@@ -127,6 +127,22 @@ Offset _pinTip(WidgetTester tester) {
   return Offset(glyph.center.dx, glyph.top + glyph.height * 22 / 24);
 }
 
+/// Un `testWidgets` posé sur une plateforme : les verrous de gestes ci-dessous
+/// sont rejoués sur Android (la plateforme par défaut de `flutter test`) ET sur
+/// Windows, la première cible du produit. Les deux n'ont pas le même
+/// comportement de défilement : `MaterialScrollBehavior` pose une `Scrollbar`
+/// automatique sur les défilements verticaux du bureau, pas sur ceux d'Android.
+typedef _Test = void Function(
+  String description,
+  Future<void> Function(WidgetTester tester) corps,
+);
+
+void _surAndroid(String d, Future<void> Function(WidgetTester tester) corps) =>
+    testWidgets(d, corps);
+
+void _surWindows(String d, Future<void> Function(WidgetTester tester) corps) =>
+    testWidgetsOnWindows(d, corps);
+
 void _expectClose(GeoPoint actual, GeoPoint expected) {
   expect(actual.latitude, closeTo(expected.latitude, 1e-6));
   expect(actual.longitude, closeTo(expected.longitude, 1e-6));
@@ -168,6 +184,69 @@ Offset _pointDansLaBande(WidgetTester tester) {
     isFalse,
     reason: 'le point $p est dans l’indice $indice',
   );
+  return p;
+}
+
+/// La fenêtre de la colonne DROITE de la disposition large : le
+/// `SingleChildScrollView` qui porte le contrôle d'avertissement et la légende.
+Rect _colonneDroite(WidgetTester tester) => tester.getRect(
+  find
+      .ancestor(
+        of: find.byType(WarningLink),
+        matching: find.byType(SingleChildScrollView),
+      )
+      .first,
+);
+
+/// Un point DANS la colonne droite, sur la rangée du contrôle d'avertissement,
+/// à mi-chemin entre le bord gauche de la colonne et celui du contrôle — donc
+/// hors du contrôle et de la légende : de la carte visible, au sens de
+/// l'usager. Calculé depuis les rectangles mesurés ; les garde-fous disent s'il
+/// retombait hors de la colonne ou dans l'un de ses enfants.
+Offset _pointAGaucheDuLien(WidgetTester tester) {
+  final Rect colonne = _colonneDroite(tester);
+  final Rect lien = tester.getRect(find.byType(WarningLink));
+  final Rect legende = tester.getRect(find.byType(MapLegend));
+  final Offset p = Offset((colonne.left + lien.left) / 2, lien.center.dy);
+  expect(
+    colonne.contains(p) && p.dx > colonne.left,
+    isTrue,
+    reason: 'le point $p doit être DANS la colonne $colonne, pas sur son bord',
+  );
+  expect(lien.contains(p), isFalse, reason: 'le point $p est dans le lien');
+  expect(
+    legende.contains(p),
+    isFalse,
+    reason: 'le point $p est dans la légende',
+  );
+  return p;
+}
+
+/// La fenêtre de la colonne GAUCHE de la disposition large : le
+/// `SingleChildScrollView` qui porte les puces d'échelle et les avis.
+Rect _colonneGauche(WidgetTester tester) => tester.getRect(
+  find
+      .ancestor(
+        of: find.byType(MapScaleChips),
+        matching: find.byType(SingleChildScrollView),
+      )
+      .first,
+);
+
+/// Un point DANS la colonne gauche, sur la rangée des puces, à mi-chemin entre
+/// le bord droit des puces et celui de la colonne — donc hors de tout enfant
+/// de la colonne. Les garde-fous disent s'il retombait hors de la colonne ou
+/// dans un enfant (cas où la colonne n'a pas de zone vide à cet endroit).
+Offset _pointADroiteDesPuces(WidgetTester tester) {
+  final Rect colonne = _colonneGauche(tester);
+  final Rect puces = tester.getRect(find.byType(MapScaleChips));
+  final Offset p = Offset((puces.right + colonne.right) / 2, puces.center.dy);
+  expect(
+    colonne.contains(p) && p.dx < colonne.right,
+    isTrue,
+    reason: 'le point $p doit être DANS la colonne $colonne, pas sur son bord',
+  );
+  expect(puces.contains(p), isFalse, reason: 'le point $p est dans les puces');
   return p;
 }
 
@@ -225,9 +304,10 @@ void main() {
     List<StationCode>? stationTaps,
     bool fichesFermees = false,
     bool enMode = false,
+    Size taille = const Size(800, 700),
   }) async {
     final List<GeoPoint> designated = <GeoPoint>[];
-    tester.view.physicalSize = const Size(800, 700);
+    tester.view.physicalSize = taille;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final MapViewModel viewModel = _viewModel(stations: stations);
@@ -806,101 +886,26 @@ void main() {
     }
   });
 
-  group('bande du bouton : la carte garde ses gestes', () {
-    // Un point DANS la bande horizontale du bouton, mais hors du bouton et de
-    // son indice : le conteneur du bouton ne doit rien capter là. Le point est
-    // calculé depuis la bande mesurée (`_pointDansLaBande`), pas par une
-    // constante : à x = 62 il tombait à 2 px HORS de la bande, et le défaut
-    // — une bande opaque — passait inaperçu.
-    Future<Offset> dansLaBande(WidgetTester tester) async =>
-        _pointDansLaBande(tester);
+  // Les verrous de gestes de la bande du bouton et des fiches fermées, posés
+  // sur une plateforme donnée. Sur Windows, la fenêtre mesure 800 × 740, sa
+  // taille minimale (`K3`) : c'est la plus petite fenêtre que le bureau montre.
+  void verrousDeGestes(String suffixe, _Test test, Size taille) {
+    group('bande du bouton : la carte garde ses gestes$suffixe', () {
+      // Un point DANS la bande horizontale du bouton, mais hors du bouton et
+      // de son indice : le conteneur du bouton ne doit rien capter là. Le
+      // point est calculé depuis la bande mesurée (`_pointDansLaBande`), pas
+      // par une constante : à x = 62 il tombait à 2 px HORS de la bande, et le
+      // défaut — une bande opaque — passait inaperçu.
+      Future<Offset> dansLaBande(WidgetTester tester) async =>
+          _pointDansLaBande(tester);
 
-    testWidgets('appui long', (WidgetTester tester) async {
-      final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
-      final Offset p = await dansLaBande(tester);
-
-      await tester.longPressAt(p);
-      await tester.pumpAndSettle();
-
-      expect(designated, hasLength(1));
-      _expectClose(designated.single, _pointAt(tester, p));
-    });
-
-    testWidgets('clic droit', (WidgetTester tester) async {
-      final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
-      final Offset p = await dansLaBande(tester);
-
-      await tester.tapAt(p, buttons: kSecondaryButton);
-      await tester.pumpAndSettle();
-
-      expect(designated, hasLength(1));
-    });
-
-    testWidgets('glisser : la carte se déplace', (WidgetTester tester) async {
-      await pumpMap(tester, enMode: true);
-      final Offset p = await dansLaBande(tester);
-      final LatLng avant = _camera(tester).center;
-
-      await tester.dragFrom(p, const Offset(-30, 0));
-      await tester.pumpAndSettle();
-
-      expect(_camera(tester).center, isNot(avant));
-    });
-  });
-
-  group('bande du bouton : molette', () {
-    testWidgets('la molette zoome la carte dans la bande, hors du bouton', (
-      WidgetTester tester,
-    ) async {
-      await pumpMap(tester, enMode: true);
-      final Offset p = _pointDansLaBande(tester);
-      final double avant = _camera(tester).zoom;
-
-      final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
-      await tester.sendEventToBinding(pointer.hover(p));
-      await tester.sendEventToBinding(pointer.scroll(const Offset(0, -100)));
-      await tester.pumpAndSettle();
-
-      expect(_camera(tester).zoom, isNot(avant));
-    });
-  });
-
-  group('fiches fermées fournies (main.dart) : gestes hors du bouton', () {
-    // (a) dans la bande, hors bouton et indice — le point est calculé depuis
-    // la bande mesurée, il ne peut pas retomber hors d'elle ; (b) à gauche
-    // AU-DESSUS de la bande. Verrous : la carte doit recevoir les gestes dans
-    // les deux cas.
-    for (final (String, Offset Function(WidgetTester)) zone
-        in <(String, Offset Function(WidgetTester))>[
-          ('dans la bande', _pointDansLaBande),
-          (
-            'au-dessus de la bande',
-            (WidgetTester t) => Offset(
-              62,
-              t.getRect(find.byKey(mapDesignateCenterButtonKey)).top - 24,
-            ),
-          ),
-        ]) {
-      Future<Offset> point(WidgetTester tester) async {
-        final Rect bouton = tester.getRect(
-          find.byKey(mapDesignateCenterButtonKey),
-        );
-        final Offset p = zone.$2(tester);
-        expect(bouton.contains(p), isFalse);
-        expect(
-          tester.getRect(find.byKey(mapDesignateCenterHintKey)).contains(p),
-          isFalse,
-        );
-        return p;
-      }
-
-      testWidgets('${zone.$1} : appui long', (WidgetTester tester) async {
+      test('appui long', (WidgetTester tester) async {
         final List<GeoPoint> designated = await pumpMap(
           tester,
-          fichesFermees: true,
           enMode: true,
+          taille: taille,
         );
-        final Offset p = await point(tester);
+        final Offset p = await dansLaBande(tester);
 
         await tester.longPressAt(p);
         await tester.pumpAndSettle();
@@ -909,13 +914,13 @@ void main() {
         _expectClose(designated.single, _pointAt(tester, p));
       });
 
-      testWidgets('${zone.$1} : clic droit', (WidgetTester tester) async {
+      test('clic droit', (WidgetTester tester) async {
         final List<GeoPoint> designated = await pumpMap(
           tester,
-          fichesFermees: true,
           enMode: true,
+          taille: taille,
         );
-        final Offset p = await point(tester);
+        final Offset p = await dansLaBande(tester);
 
         await tester.tapAt(p, buttons: kSecondaryButton);
         await tester.pumpAndSettle();
@@ -923,9 +928,9 @@ void main() {
         expect(designated, hasLength(1));
       });
 
-      testWidgets('${zone.$1} : glisser', (WidgetTester tester) async {
-        await pumpMap(tester, fichesFermees: true, enMode: true);
-        final Offset p = await point(tester);
+      test('glisser : la carte se déplace', (WidgetTester tester) async {
+        await pumpMap(tester, enMode: true, taille: taille);
+        final Offset p = await dansLaBande(tester);
         final LatLng avant = _camera(tester).center;
 
         await tester.dragFrom(p, const Offset(-30, 0));
@@ -933,10 +938,14 @@ void main() {
 
         expect(_camera(tester).center, isNot(avant));
       });
+    });
 
-      testWidgets('${zone.$1} : molette', (WidgetTester tester) async {
-        await pumpMap(tester, fichesFermees: true, enMode: true);
-        final Offset p = await point(tester);
+    group('bande du bouton : molette$suffixe', () {
+      test('la molette zoome la carte dans la bande, hors du bouton', (
+        WidgetTester tester,
+      ) async {
+        await pumpMap(tester, enMode: true, taille: taille);
+        final Offset p = _pointDansLaBande(tester);
         final double avant = _camera(tester).zoom;
 
         final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
@@ -946,8 +955,221 @@ void main() {
 
         expect(_camera(tester).zoom, isNot(avant));
       });
-    }
-  });
+    });
+
+    group('colonne droite (avertissement, légende) : la carte garde ses '
+        'gestes$suffixe', () {
+      // La colonne est large comme la légende ; le contrôle d'avertissement,
+      // plus étroit, laisse à sa gauche une zone qui est de la carte pour
+      // l'usager. Hors mode : la colonne ne dépend pas du mode.
+      test("clic droit à gauche du contrôle d'avertissement", (
+        WidgetTester tester,
+      ) async {
+        final List<GeoPoint> designated = await pumpMap(tester, taille: taille);
+        final Offset p = _pointAGaucheDuLien(tester);
+
+        await tester.tapAt(p, buttons: kSecondaryButton);
+        await tester.pumpAndSettle();
+
+        expect(designated, hasLength(1));
+        _expectClose(designated.single, _pointAt(tester, p));
+      });
+
+      test("appui long à gauche du contrôle d'avertissement", (
+        WidgetTester tester,
+      ) async {
+        final List<GeoPoint> designated = await pumpMap(tester, taille: taille);
+        final Offset p = _pointAGaucheDuLien(tester);
+
+        await tester.longPressAt(p);
+        await tester.pumpAndSettle();
+
+        expect(designated, hasLength(1));
+      });
+
+      test("glisser à gauche du contrôle d'avertissement : la carte se "
+          'déplace', (WidgetTester tester) async {
+        await pumpMap(tester, taille: taille);
+        final Offset p = _pointAGaucheDuLien(tester);
+        final LatLng avant = _camera(tester).center;
+
+        await tester.dragFrom(p, const Offset(-30, 0));
+        await tester.pumpAndSettle();
+
+        expect(_camera(tester).center, isNot(avant));
+      });
+
+      test("molette à gauche du contrôle d'avertissement : la carte zoome", (
+        WidgetTester tester,
+      ) async {
+        await pumpMap(tester, taille: taille);
+        final Offset p = _pointAGaucheDuLien(tester);
+        final double avant = _camera(tester).zoom;
+
+        final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(pointer.hover(p));
+        await tester.sendEventToBinding(pointer.scroll(const Offset(0, -100)));
+        await tester.pumpAndSettle();
+
+        expect(_camera(tester).zoom, isNot(avant));
+      });
+    });
+
+    group('colonne gauche (puces, avis) : la carte garde ses gestes$suffixe', () {
+      // Sans station, un avis d'absence est affiché sous les puces : la colonne
+      // est large comme l'avis, plus large que les puces, et laisse à droite
+      // des puces une zone qui est de la carte pour l'usager.
+      test('clic droit à droite des puces', (WidgetTester tester) async {
+        final List<GeoPoint> designated = await pumpMap(tester, taille: taille);
+        final Offset p = _pointADroiteDesPuces(tester);
+
+        await tester.tapAt(p, buttons: kSecondaryButton);
+        await tester.pumpAndSettle();
+
+        expect(designated, hasLength(1));
+        _expectClose(designated.single, _pointAt(tester, p));
+      });
+
+      test('appui long à droite des puces', (WidgetTester tester) async {
+        final List<GeoPoint> designated = await pumpMap(tester, taille: taille);
+        final Offset p = _pointADroiteDesPuces(tester);
+
+        await tester.longPressAt(p);
+        await tester.pumpAndSettle();
+
+        expect(designated, hasLength(1));
+      });
+
+      test('glisser à droite des puces : la carte se déplace', (
+        WidgetTester tester,
+      ) async {
+        await pumpMap(tester, taille: taille);
+        final Offset p = _pointADroiteDesPuces(tester);
+        final LatLng avant = _camera(tester).center;
+
+        await tester.dragFrom(p, const Offset(-30, 0));
+        await tester.pumpAndSettle();
+
+        expect(_camera(tester).center, isNot(avant));
+      });
+
+      test('molette à droite des puces : la carte zoome', (
+        WidgetTester tester,
+      ) async {
+        await pumpMap(tester, taille: taille);
+        final Offset p = _pointADroiteDesPuces(tester);
+        final double avant = _camera(tester).zoom;
+
+        final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(pointer.hover(p));
+        await tester.sendEventToBinding(pointer.scroll(const Offset(0, -100)));
+        await tester.pumpAndSettle();
+
+        expect(_camera(tester).zoom, isNot(avant));
+      });
+    });
+
+    group('fiches fermées fournies (main.dart) : gestes hors du bouton$suffixe', () {
+      // (a) dans la bande, hors bouton et indice — le point est calculé depuis
+      // la bande mesurée, il ne peut pas retomber hors d'elle ; (b) à gauche
+      // AU-DESSUS de la bande. Verrous : la carte doit recevoir les gestes dans
+      // les deux cas.
+      for (final (String, Offset Function(WidgetTester)) zone
+          in <(String, Offset Function(WidgetTester))>[
+            ('dans la bande', _pointDansLaBande),
+            (
+              'au-dessus de la bande',
+              (WidgetTester t) => Offset(
+                62,
+                t.getRect(find.byKey(mapDesignateCenterButtonKey)).top - 24,
+              ),
+            ),
+          ]) {
+        Future<Offset> point(WidgetTester tester) async {
+          final Rect bouton = tester.getRect(
+            find.byKey(mapDesignateCenterButtonKey),
+          );
+          final Offset p = zone.$2(tester);
+          expect(bouton.contains(p), isFalse);
+          expect(
+            tester.getRect(find.byKey(mapDesignateCenterHintKey)).contains(p),
+            isFalse,
+          );
+          return p;
+        }
+
+        test('${zone.$1} : appui long', (WidgetTester tester) async {
+          final List<GeoPoint> designated = await pumpMap(
+            tester,
+            fichesFermees: true,
+            enMode: true,
+            taille: taille,
+          );
+          final Offset p = await point(tester);
+
+          await tester.longPressAt(p);
+          await tester.pumpAndSettle();
+
+          expect(designated, hasLength(1));
+          _expectClose(designated.single, _pointAt(tester, p));
+        });
+
+        test('${zone.$1} : clic droit', (WidgetTester tester) async {
+          final List<GeoPoint> designated = await pumpMap(
+            tester,
+            fichesFermees: true,
+            enMode: true,
+            taille: taille,
+          );
+          final Offset p = await point(tester);
+
+          await tester.tapAt(p, buttons: kSecondaryButton);
+          await tester.pumpAndSettle();
+
+          expect(designated, hasLength(1));
+        });
+
+        test('${zone.$1} : glisser', (WidgetTester tester) async {
+          await pumpMap(
+            tester,
+            fichesFermees: true,
+            enMode: true,
+            taille: taille,
+          );
+          final Offset p = await point(tester);
+          final LatLng avant = _camera(tester).center;
+
+          await tester.dragFrom(p, const Offset(-30, 0));
+          await tester.pumpAndSettle();
+
+          expect(_camera(tester).center, isNot(avant));
+        });
+
+        test('${zone.$1} : molette', (WidgetTester tester) async {
+          await pumpMap(
+            tester,
+            fichesFermees: true,
+            enMode: true,
+            taille: taille,
+          );
+          final Offset p = await point(tester);
+          final double avant = _camera(tester).zoom;
+
+          final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+          await tester.sendEventToBinding(pointer.hover(p));
+          await tester.sendEventToBinding(
+            pointer.scroll(const Offset(0, -100)),
+          );
+          await tester.pumpAndSettle();
+
+          expect(_camera(tester).zoom, isNot(avant));
+        });
+      }
+    });
+  }
+
+  verrousDeGestes('', _surAndroid, const Size(800, 700));
+  verrousDeGestes(' — Windows', _surWindows, const Size(800, 740));
 
   group('indice et réticule', () {
     testWidgets('présents avec le bouton, indice sous lui', (
@@ -994,6 +1216,180 @@ void main() {
 
       expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
       expect(find.byKey(mapCenterReticleKey), findsNothing);
+    });
+  });
+
+  group('défilements de surcouche : aucun ne s’attache au '
+      'PrimaryScrollController de la route', () {
+    // Sur les plateformes mobiles, un défilement vertical sans contrôleur
+    // hérite du `PrimaryScrollController` de la route
+    // (`PrimaryScrollController.shouldInherit`, `SingleChildScrollView` et
+    // `ScrollView`). Les surcouches sont des défilements FRÈRES : ils s'y
+    // attachent ensemble, et `PageDown` (clavier matériel, focus sur la carte)
+    // lève « more than one ScrollPosition is attached » dans `ScrollAction`.
+    // `testWidgets` tourne en Android : c'est la plateforme concernée.
+    for (final (String, Size, bool) cas in <(String, Size, bool)>[
+      ('800 × 700, hors mode', const Size(800, 700), false),
+      ('800 × 700, en mode Restrictions', const Size(800, 700), true),
+      ('360 × 640, hors mode', const Size(360, 640), false),
+      ('360 × 640, en mode Restrictions', const Size(360, 640), true),
+    ]) {
+      testWidgets('${cas.$1} : aucune position attachée, PageDown depuis la '
+          'carte sans erreur', (WidgetTester tester) async {
+        await pumpMap(tester, enMode: cas.$3, taille: cas.$2);
+
+        final ScrollController primaire = PrimaryScrollController.of(
+          tester.element(find.byType(MapView)),
+        );
+        expect(
+          primaire.positions,
+          isEmpty,
+          reason:
+              'les surcouches ne doivent pas se brancher au contrôleur de '
+              'la route',
+        );
+
+        // Le focus sur la carte : hors de tout défilement de surcouche.
+        for (
+          int i = 0;
+          i < 20 && !_focusedWithin(find.byType(FlutterMap));
+          i++
+        ) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(_focusedWithin(find.byType(FlutterMap)), isTrue);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
+
+  group('coordonnées désignées : toujours dans les bornes de GeoPoint', () {
+    // `GeoPoint` lève une `ArgumentError` hors de [-90, 90] et [-180, 180].
+    // `flutter_map` 8.3.2 ne borne pas le centre de la caméra en latitude
+    // (`cameraConstraint` est `unconstrained()` par défaut). Hypothèse
+    // vérifiée, et écartée : un point tapé sur une réplique du monde,
+    // au-delà de l'antiméridien, la longitude rendue est toujours repliée
+    // dans [-180, 180]. Le bouton, l'appui long et le clic droit ne doivent
+    // jamais lever.
+    Future<void> versLeZoomMinimum(WidgetTester tester) async {
+      // Un `Tab` pour entrer sous le `Shortcuts` de la carte, puis `−` jusqu'au
+      // zoom minimal : à ce zoom, un cran de flèche vaut plusieurs degrés.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      for (int i = 0; i < 6 && _camera(tester).zoom > 4; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+        await tester.pumpAndSettle();
+      }
+      expect(_camera(tester).zoom, 4);
+    }
+
+    testWidgets("flèche Haut jusqu'au-delà de 90 degrés, puis le bouton : "
+        'désigne le pôle, sans lever', (WidgetTester tester) async {
+      final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
+      await versLeZoomMinimum(tester);
+
+      for (int i = 0; i < 80 && _camera(tester).center.latitude <= 90; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+      }
+      // Garde-fou : le centre de la caméra est bien hors de [-90, 90].
+      expect(
+        _camera(tester).center.latitude,
+        greaterThan(90),
+        reason: 'la flèche Haut devait pousser le centre au-delà de 90',
+      );
+
+      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(designated, hasLength(1));
+      expect(designated.single.latitude, 90);
+    });
+
+    testWidgets("flèche Bas jusqu'au-delà de -90 degrés, puis le bouton : "
+        'désigne le pôle sud, sans lever', (WidgetTester tester) async {
+      final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
+      await versLeZoomMinimum(tester);
+
+      for (int i = 0; i < 80 && _camera(tester).center.latitude >= -90; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+      }
+      expect(
+        _camera(tester).center.latitude,
+        lessThan(-90),
+        reason: 'la flèche Bas devait pousser le centre au-delà de -90',
+      );
+
+      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(designated, hasLength(1));
+      expect(designated.single.latitude, -90);
+    });
+
+    for (final (String, LogicalKeyboardKey) sens
+        in <(String, LogicalKeyboardKey)>[
+          ('Droite', LogicalKeyboardKey.arrowRight),
+          ('Gauche', LogicalKeyboardKey.arrowLeft),
+        ]) {
+      testWidgets('caractérisation flutter_map 8.3.2 : flèche ${sens.$1} '
+          'au-delà de ±180 degrés, puis le bouton : une longitude toujours '
+          'dans [-180, 180]', (WidgetTester tester) async {
+        final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
+        await versLeZoomMinimum(tester);
+
+        // Plus d'un tour de la carte : le centre passe l'antiméridien.
+        for (int i = 0; i < 60; i++) {
+          await tester.sendKeyEvent(sens.$2);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: 'cran $i');
+        }
+
+        expect(designated, hasLength(60));
+        for (final GeoPoint p in designated) {
+          expect(p.longitude, inInclusiveRange(-180, 180));
+        }
+      });
+    }
+
+    testWidgets("caractérisation flutter_map 8.3.2 : un appui long sur une "
+        "réplique du monde, au-delà de l'antiméridien : une longitude dans "
+        "[-180, 180], sans lever", (WidgetTester tester) async {
+      final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
+      await versLeZoomMinimum(tester);
+
+      // Le centre vers l'est jusqu'à 10 degrés de l'antiméridien au plus : le
+      // bord droit de la carte (à plus de 30 degrés du centre au zoom 4) est
+      // alors sur la réplique suivante du monde.
+      for (
+        int i = 0;
+        i < 80 && !(_camera(tester).center.longitude > 170);
+        i++
+      ) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+      }
+      expect(_camera(tester).center.longitude, greaterThan(170));
+
+      // `flutter_map` 8.3.2 borne (`_inclusiveLng`, `geo/crs.dart`) la
+      // longitude qu'il rend pour un point d'écran : elle ne dépasse pas 180.
+      await tester.longPressAt(const Offset(780, 250));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(designated, hasLength(1));
+      expect(designated.single.longitude, lessThan(0));
+      expect(designated.single.longitude, inInclusiveRange(-180, 180));
     });
   });
 

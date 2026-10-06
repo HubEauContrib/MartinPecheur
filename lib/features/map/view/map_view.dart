@@ -937,15 +937,37 @@ List<Widget> buildMapOverlays({
                 // l'espace vertical restant — un défilement local vaut mieux
                 // qu'un `RenderFlex` débordant hors écran, jamais constaté par
                 // l'usager.
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: <Widget>[
-                      warningLink,
-                      const SizedBox(height: _overlayPadding),
-                      legend,
-                    ],
+                //
+                // Sa fenêtre est large comme la légende, plus large que le
+                // contrôle d'avertissement : elle ne capte les gestes que SUR
+                // ses enfants (`HitTestBehavior.deferToChild`, et non le
+                // `opaque` par défaut), comme la colonne de gauche — tap,
+                // clic droit, glisser et molette posés à gauche du contrôle
+                // atteignent la carte dessous. `_WithoutScrollbar` y ajoute ce
+                // que `deferToChild` ne suffit pas à obtenir sur le bureau :
+                // sans la `Scrollbar` automatique de Windows, dont le
+                // `MouseRegion` opaque absorbe le toucher sur toute la boîte.
+                //
+                // `primary: false`, ici comme sur les trois autres défilements
+                // de surcouche : sur Android, un défilement vertical sans
+                // contrôleur s'attache au `PrimaryScrollController` de la
+                // route (`PrimaryScrollController.shouldInherit`). Les
+                // surcouches sont des défilements FRÈRES : plusieurs positions
+                // s'y attachent, et `PageDown` (clavier matériel, focus sur la
+                // carte) fait lever `ScrollAction`.
+                child: _WithoutScrollbar(
+                  child: SingleChildScrollView(
+                    primary: false,
+                    hitTestBehavior: HitTestBehavior.deferToChild,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        warningLink,
+                        const SizedBox(height: _overlayPadding),
+                        legend,
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -974,13 +996,17 @@ List<Widget> buildMapOverlays({
                 // Sa fenêtre ne capte les gestes que SUR ses enfants
                 // (`HitTestBehavior.deferToChild`, et non le `opaque` par
                 // défaut) : tap, glisser et molette posés ailleurs dans sa
-                // boîte atteignent la carte dessous.
-                child: SingleChildScrollView(
-                  hitTestBehavior: HitTestBehavior.deferToChild,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[chips, ...noticeWidgets],
+                // boîte atteignent la carte dessous — `_WithoutScrollbar`
+                // aussi, sur le bureau (voir la colonne de droite).
+                child: _WithoutScrollbar(
+                  child: SingleChildScrollView(
+                    primary: false,
+                    hitTestBehavior: HitTestBehavior.deferToChild,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[chips, ...noticeWidgets],
+                    ),
                   ),
                 ),
               ),
@@ -1139,24 +1165,57 @@ class _CompactTopOverlays extends StatelessWidget {
       alignment: Alignment.topRight,
       child: Padding(
         padding: const EdgeInsets.all(_overlayPadding),
-        child: SingleChildScrollView(
-          hitTestBehavior: HitTestBehavior.deferToChild,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              warningLink,
-              const SizedBox(height: _overlayPadding),
-              chips,
-              // Chaque avis porte sa marge haute ; la marge avant la légende
-              // est la même, avec ou sans avis.
-              ...notices,
-              const SizedBox(height: _overlayPadding),
-              legend,
-            ],
+        child: _WithoutScrollbar(
+          child: SingleChildScrollView(
+            primary: false,
+            hitTestBehavior: HitTestBehavior.deferToChild,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                warningLink,
+                const SizedBox(height: _overlayPadding),
+                chips,
+                // Chaque avis porte sa marge haute ; la marge avant la légende
+                // est la même, avec ou sans avis.
+                ...notices,
+                const SizedBox(height: _overlayPadding),
+                legend,
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Un défilement de surcouche sans la `Scrollbar` automatique du bureau.
+///
+/// Les surcouches de la carte défilent rarement (200 % de police, fenêtre
+/// courte) et ne ménagent des zones de la carte à l'usager que si leur boîte
+/// est transparente aux gestes (`HitTestBehavior.deferToChild`). Sur le
+/// bureau, `MaterialScrollBehavior.buildScrollbar` pose une `Scrollbar` autour
+/// de tout défilement vertical ; son `MouseRegion` est opaque sur toute la
+/// boîte et rend `deferToChild` sans effet. Même retrait que
+/// `lib/features/shared/data_sources_view.dart` (`scrollbars: false`).
+///
+/// Compromis assumé : quand une colonne de surcouche déborde (constaté par test
+/// à 800 × 740, 200 % de police, échelle débit : colonne droite), l'usager de
+/// bureau n'a plus de barre visible ; elle défile encore à la molette posée sur
+/// un de ses enfants et au clavier quand elle porte le focus, pas au glisser de
+/// la souris. Le `MouseRegion` de la barre ne peut pas être rendu transparent
+/// aux gestes.
+class _WithoutScrollbar extends StatelessWidget {
+  const _WithoutScrollbar({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      child: child,
     );
   }
 }
@@ -1176,13 +1235,18 @@ const double _designationComfortWidth = 420;
 /// La marge basse dégage l'attribution IGN, dont la hauteur suit la police
 /// (11 pt mis à l'échelle) et la largeur : elle est mesurée, pas estimée.
 ///
-/// La bande ne capte les gestes que SUR le bouton et son indice
-/// (`HitTestBehavior.deferToChild`, et non l'`opaque` d'un `ListView`) : un
-/// tap, un appui long, un clic droit, un glisser ou un cran de molette posés
-/// dans la bande, à côté de la pilule, atteignent la carte dessous ; la bande
-/// ne recouvre plus non plus ce qui est sous elle, l'action d'un avis par
+/// La bande ne capte les gestes que SUR le bouton et son indice : un tap, un
+/// appui long, un clic droit, un glisser ou un cran de molette posés dans la
+/// bande, à côté de la pilule, atteignent la carte dessous ; la bande ne
+/// recouvre plus non plus ce qui est sous elle, l'action d'un avis par
 /// exemple. Elle défile toujours quand son contenu dépasse la hauteur
 /// restante, mais en glissant depuis le bouton ou l'indice.
+///
+/// Deux conditions, toutes deux nécessaires :
+/// - `HitTestBehavior.deferToChild`, et non l'`opaque` d'un `ListView` : sans
+///   lui, la boîte du défilement elle-même est « touchée » ;
+/// - [_WithoutScrollbar] : voir sa documentation pour le détail de la cause
+///   et du compromis sur le bureau.
 class _DesignationPlacement extends StatelessWidget {
   const _DesignationPlacement({required this.child});
 
@@ -1203,7 +1267,7 @@ class _DesignationPlacement extends StatelessWidget {
               text: TextSpan(
                 text: ignAttribution,
                 style: DefaultTextStyle.of(context).style
-                    .merge(const TextStyle(fontSize: 11)),
+                    .merge(const TextStyle(fontSize: ignAttributionFontSize)),
               ),
               textDirection: TextDirection.ltr,
               textScaler: MediaQuery.textScalerOf(context),
@@ -1214,7 +1278,10 @@ class _DesignationPlacement extends StatelessWidget {
                   2 * ignAttributionPaddingHorizontal,
             );
         final double bottom =
-            _overlayPadding + attribution.height + 4 + _overlayPadding;
+            _overlayPadding +
+            attribution.height +
+            2 * ignAttributionPaddingVertical +
+            _overlayPadding;
         attribution.dispose();
         return Padding(
           padding: EdgeInsets.fromLTRB(
@@ -1233,11 +1300,21 @@ class _DesignationPlacement extends StatelessWidget {
           // opaque, la bande entière — plus large que la pilule — captait les
           // gestes de la carte, même sans rien à défiler. Ici elle ne reçoit
           // un geste que là où le bouton ou l'indice est touché.
-          child: ListView(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            hitTestBehavior: HitTestBehavior.deferToChild,
-            children: <Widget>[Center(child: child)],
+          //
+          // `_WithoutScrollbar` : voir la documentation de cette classe pour
+          // le détail de la cause et du compromis sur le bureau.
+          child: _WithoutScrollbar(
+            child: ListView(
+              shrinkWrap: true,
+              primary: false,
+              // `primary: false` retire aussi le `AlwaysScrollableScrollPhysics`
+              // qu'un `ListView` vertical sans contrôleur reçoit par défaut :
+              // une bande sans rien à défiler ne s'étire plus quand on glisse
+              // depuis la pilule.
+              padding: EdgeInsets.zero,
+              hitTestBehavior: HitTestBehavior.deferToChild,
+              children: <Widget>[Center(child: child)],
+            ),
           ),
         );
       },
@@ -1452,8 +1529,19 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
+    // `GeoPoint` lève hors de [-90, 90]. Le centre de la caméra n'est pas
+    // borné en latitude : `flutter_map` 8.3.2 n'applique aucune contrainte par
+    // défaut (`MapOptions.cameraConstraint` est `unconstrained()`) et
+    // `MapCamera.withPosition` n'enroule que la longitude ; la flèche Haut ou
+    // Bas ([_handlePan]) peut donc le pousser au-delà d'un pôle, et le bouton
+    // « Restrictions au centre de la carte » levait alors une `ArgumentError`.
+    // On borne ici pour ne plus lever. ⚠️ Cela traite le symptôme : la carte
+    // ne montre rien au-delà de 85,05° (projection), et entre 85,05° et 90° le
+    // point désigné n'est pas celui sous le réticule. La cause —
+    // [_handlePan] laisse le centre sortir du monde — est antérieure et reste à
+    // traiter (contrainte de caméra, à arbitrer).
     final GeoPoint designated = GeoPoint(
-      latitude: point.latitude,
+      latitude: point.latitude.clamp(-90.0, 90.0).toDouble(),
       longitude: point.longitude,
     );
     setState(() => _designatedPoint = designated);
