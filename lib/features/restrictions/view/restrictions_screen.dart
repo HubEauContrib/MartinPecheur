@@ -115,8 +115,8 @@ class RestrictionsScreen extends StatelessWidget {
     required this.profile,
     required this.onChooseProfile,
     required this.onRetry,
+    required this.onOpenDocument,
     required this.onOpenPublicSite,
-    this.onOpenDocument,
     this.unopenedLink,
     this.utcOffsetOf = systemUtcOffsetOf,
     super.key,
@@ -136,17 +136,18 @@ class RestrictionsScreen extends StatelessWidget {
   /// Appele par « Réessayer » — branche sur `RestrictionsViewModel.retry`.
   final VoidCallback onRetry;
 
-  /// Appele par « Ouvrir l'arrêté » / « Ouvrir l'arrêté-cadre ». Nul :
-  /// aucune action d'ouverture, l'adresse reste visible et selectionnable.
-  final ValueChanged<DocumentLink>? onOpenDocument;
+  /// Appele par « Ouvrir l'arrêté » / « Ouvrir l'arrêté-cadre » — branche
+  /// sur `RestrictionsViewModel.openDocument`. Obligatoire : une adresse
+  /// ouvrable a toujours son action d'ouverture.
+  final void Function(DocumentLink link, LinkTarget target) onOpenDocument;
 
   /// Ouvre le site public de la source, hors de l'application : l'action de
   /// l'encart renforce (E4). Obligatoire — l'encart n'a pas de forme sans
   /// son action.
   final VoidCallback onOpenPublicSite;
 
-  /// Adresse brute du dernier lien qui n'a pas pu s'ouvrir (`UC-002 A6`).
-  final String? unopenedLink;
+  /// Le dernier lien qui n'a pas pu s'ouvrir (`UC-002 A6`).
+  final UnopenedLink? unopenedLink;
 
   /// Decalage UTC → heure locale pour la date de recuperation (`H1`).
   final UtcOffsetOf utcOffsetOf;
@@ -200,8 +201,14 @@ class RestrictionsScreen extends StatelessWidget {
                           // defilement jusqu'a lui (voir `_UnopenedLinkNotice`),
                           // sans quoi l'usager descendu aux arretes verrait un
                           // bouton inerte.
-                          if (unopenedLink == restrictionsPublicSiteUrl)
-                            const _UnopenedLinkNotice(),
+                          if (unopenedLink case final UnopenedLink link
+                              when link.concerns(
+                                LinkTarget.publicSite,
+                                restrictionsPublicSiteUrl,
+                              ))
+                            _UnopenedLinkNotice(
+                              key: ValueKey<int>(link.failureNumber),
+                            ),
                           const SizedBox(height: 16),
                           ..._content(),
                         ],
@@ -1142,14 +1149,16 @@ class _DecreeBlock extends StatelessWidget {
 
   final _DecreeEntry entry;
   final bool sameZonesAsDecree;
-  final String? unopenedLink;
-  final ValueChanged<DocumentLink>? onOpenDocument;
+  final UnopenedLink? unopenedLink;
+  final void Function(DocumentLink link, LinkTarget target) onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
-    final ValueChanged<DocumentLink>? onOpenDocument = this.onOpenDocument;
     final bool openable = entry.link.openableUri != null;
     final bool framework = entry.isFramework;
+    final LinkTarget target = framework
+        ? LinkTarget.frameworkDecree
+        : LinkTarget.decree;
     final String? secondary = framework ? null : _validityLine(entry.zones);
     final int zoneCount = entry.zones.length;
 
@@ -1229,13 +1238,13 @@ class _DecreeBlock extends StatelessWidget {
                   'Cette adresse ne peut pas être ouverte depuis '
                   "l'application.",
                 )
-              else if (onOpenDocument != null) ...<Widget>[
+              else ...<Widget>[
                 _OpenDocumentButton(
                   label: framework
                       ? "Ouvrir l'arrêté-cadre"
                       : "Ouvrir l'arrêté",
                   filled: !framework,
-                  onPressed: () => onOpenDocument(entry.link),
+                  onPressed: () => onOpenDocument(entry.link, target),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1283,9 +1292,10 @@ class _DecreeBlock extends StatelessWidget {
                   ),
                 ),
               ),
-              if (unopenedLink == entry.link.raw) ...<Widget>[
+              if (unopenedLink case final UnopenedLink link
+                  when link.concerns(target, entry.link.raw)) ...<Widget>[
                 const SizedBox(height: 8),
-                const _UnopenedLinkNotice(),
+                _UnopenedLinkNotice(key: ValueKey<int>(link.failureNumber)),
               ],
             ],
           ),
@@ -1410,10 +1420,12 @@ class _OpenDocumentButton extends StatelessWidget {
 /// defilant, et peut naitre hors de la zone visible — le bouton paraitrait
 /// inerte. Au plus court : rien s'il est deja visible, vers le haut s'il est
 /// au-dessus de la zone visible, vers le bas s'il est dessous. Un deuxieme
-/// echec du meme lien ne le remonte pas : l'avis est deja la, le ViewModel ne
-/// notifie pas un changement nul.
+/// echec du meme lien le ramene de meme : le ViewModel numerote chaque echec,
+/// la vue prend ce numero pour cle de l'avis — un nouvel etat, donc un
+/// nouveau devoilement (l'usager qui redescend et rappuie sur le meme bouton
+/// ne le verrait pas bouger).
 class _UnopenedLinkNotice extends StatefulWidget {
-  const _UnopenedLinkNotice();
+  const _UnopenedLinkNotice({super.key});
 
   @override
   State<_UnopenedLinkNotice> createState() => _UnopenedLinkNoticeState();

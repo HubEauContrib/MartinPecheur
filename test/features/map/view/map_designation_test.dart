@@ -49,15 +49,22 @@ import 'package:martinpecheur/features/shared/warning_link.dart';
 import '../../../support/windows_platform.dart';
 
 final class _Stations implements StationPointRepository {
-  _Stations(this.points);
+  _Stations(this.points, {this.chargements});
 
   final List<StationPoint> points;
+
+  /// Les emprises demandées, dans l'ordre : un chargement par entrée. Sert à
+  /// prouver qu'un geste recharge — ou, pour `NFR-01`, ne recharge PAS.
+  final List<Bounds>? chargements;
 
   @override
   Future<List<StationPoint>> withinBounds(
     Bounds bounds, {
     double margin = defaultViewportMargin,
-  }) async => points;
+  }) async {
+    chargements?.add(bounds);
+    return points;
+  }
 
   @override
   Future<List<StationPoint>> all() async => points;
@@ -97,8 +104,9 @@ StationPoint _stationAuCentre() => StationPoint(
 
 MapViewModel _viewModel({
   List<StationPoint> stations = const <StationPoint>[],
+  List<Bounds>? chargements,
 }) => MapViewModel(
-  stationPoints: _Stations(stations),
+  stationPoints: _Stations(stations, chargements: chargements),
   observations: _NoHydro(),
   onde: _NoOnde(),
   delay: (Duration _) => Future<void>.value(),
@@ -307,12 +315,16 @@ void main() {
     bool fichesFermees = false,
     bool enMode = false,
     Size taille = const Size(800, 700),
+    List<Bounds>? chargements,
   }) async {
     final List<GeoPoint> designated = <GeoPoint>[];
     tester.view.physicalSize = taille;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final MapViewModel viewModel = _viewModel(stations: stations);
+    final MapViewModel viewModel = _viewModel(
+      stations: stations,
+      chargements: chargements,
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: MapView(
@@ -1464,7 +1476,8 @@ void main() {
     // `SphericalMercator.maxLatitude`) — et rend `null` (déplacement refusé)
     // quand le monde est plus bas que la fenêtre. `moveRaw` l'applique à tout
     // déplacement, zoom compris ; ni le redimensionnement ni la création de la
-    // caméra ne le font.
+    // caméra ne le font : la vue la rejoue elle-même après un changement de
+    // taille (groupe « redimensionner la fenêtre rejoue la contrainte »).
     const double bord = SphericalMercator.maxLatitude;
     const double tolerance = 1e-6;
 
@@ -1564,28 +1577,159 @@ void main() {
       expect(ecartAuHautDuMonde(_camera(tester)), greaterThan(100));
     });
 
-    testWidgets('caractérisation flutter_map 8.3.2 : agrandir la fenêtre '
-        'depuis la butée nord '
-        'laisse du vide au-dessus du monde jusqu\'au prochain déplacement, '
-        'que la contrainte corrige', (WidgetTester tester) async {
-      await pumpMap(tester);
-      await versLeZoomMinimum(tester);
-      await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
-      expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+    // `flutter_map` 8.3.2 n'applique la contrainte qu'aux déplacements
+    // (`moveRaw`, `rotateRaw`) : `setNonRotatedSizeWithoutEmittingEvent` change
+    // la taille de la caméra sans la rejouer, et l'événement
+    // `MapEventNonRotatedSizeChange` ne part qu'après le rendu. La vue le
+    // reçoit et rejoue la contrainte par un déplacement vers le centre et le
+    // zoom courants (`MapView._handleMapEvent`) : ce groupe verrouille le
+    // comportement voulu, pas celui du paquet.
+    group('redimensionner la fenêtre rejoue la contrainte', () {
+      Future<void> redimensionner(WidgetTester tester, Size taille) async {
+        tester.view.physicalSize = taille;
+        await tester.pumpAndSettle();
+      }
 
-      // `setNonRotatedSizeWithoutEmittingEvent` change la taille de la caméra
-      // sans passer par `moveRaw` : aucune contrainte n'est rejouée.
-      tester.view.physicalSize = const Size(800, 1032);
-      await tester.pumpAndSettle();
-      expect(
-        ecartAuHautDuMonde(_camera(tester)),
-        closeTo(-166, 1),
-        reason: 'la moitié des 332 px gagnés en hauteur est du vide en haut',
-      );
+      for (final (String, LogicalKeyboardKey) butee
+          in <(String, LogicalKeyboardKey)>[
+            ('nord', LogicalKeyboardKey.arrowUp),
+            ('sud', LogicalKeyboardKey.arrowDown),
+          ]) {
+        final bool nord = butee.$1 == 'nord';
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pumpAndSettle();
-      expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+        testWidgets('agrandir la fenêtre (700 → 1 032 px de haut) depuis la '
+            'butée ${butee.$1} : aucun vide au-delà du monde, et la carte '
+            'se recharge une fois sur la caméra recalée', (
+          WidgetTester tester,
+        ) async {
+          final List<Bounds> chargements = <Bounds>[];
+          await pumpMap(tester, chargements: chargements);
+          await versLeZoomMinimum(tester);
+          await appuyer(tester, butee.$2, 80);
+          // Prémisse : la butée est atteinte avant le redimensionnement.
+          expect(
+            nord
+                ? ecartAuHautDuMonde(_camera(tester))
+                : ecartAuBasDuMonde(_camera(tester)),
+            closeTo(0, tolerance),
+          );
+          final int avant = chargements.length;
+
+          await redimensionner(tester, const Size(800, 1032));
+
+          final MapCamera camera = _camera(tester);
+          expect(camera.size.height, 1032);
+          expect(
+            ecartAuHautDuMonde(camera),
+            nord ? closeTo(0, tolerance) : greaterThanOrEqualTo(-tolerance),
+            reason: 'la carte montre du vide au-dessus du monde',
+          );
+          expect(
+            ecartAuBasDuMonde(camera),
+            nord ? greaterThanOrEqualTo(-tolerance) : closeTo(0, tolerance),
+            reason: 'la carte montre du vide au-dessous du monde',
+          );
+          // Le recalage est un déplacement de caméra : le chemin existant
+          // (`_afterCameraMove`) recharge l'emprise résultante, une fois.
+          expect(chargements, hasLength(avant + 1));
+          final LatLngBounds visibles = camera.visibleBounds;
+          expect(
+            chargements.last,
+            Bounds(
+              west: visibles.west,
+              south: visibles.south,
+              east: visibles.east,
+              north: visibles.north,
+            ),
+          );
+        });
+      }
+
+      testWidgets('un appui long tout en haut de la carte agrandie, depuis la '
+          'butée nord, désigne un point du monde (latitude ≤ 85,06°)', (
+        WidgetTester tester,
+      ) async {
+        final List<GeoPoint> designated = await pumpMap(tester);
+        await versLeZoomMinimum(tester);
+        await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+        await redimensionner(tester, const Size(800, 1032));
+
+        await tester.longPressAt(const Offset(400, 3));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(designated, hasLength(1));
+        expect(designated.single.latitude, lessThanOrEqualTo(bord + 0.01));
+      });
+
+      for (final (String, Size) cas in <(String, Size)>[
+        ('800 × 1 032 (plus haute)', const Size(800, 1032)),
+        ('1 200 × 700 (plus large)', const Size(1200, 700)),
+        ('500 × 400 (plus petite)', const Size(500, 400)),
+      ]) {
+        testWidgets('${cas.$1}, depuis le centre de la France : la caméra ne '
+            'bouge pas et rien ne se recharge (aucun mouvement de caméra)', (
+          WidgetTester tester,
+        ) async {
+          final List<Bounds> chargements = <Bounds>[];
+          await pumpMap(tester, chargements: chargements);
+          final MapCamera avant = _camera(tester);
+          final int nombre = chargements.length;
+
+          await redimensionner(tester, cas.$2);
+
+          expect(_camera(tester).size, cas.$2);
+          expect(_camera(tester).center, avant.center);
+          expect(_camera(tester).zoom, avant.zoom);
+          expect(chargements, hasLength(nombre));
+        });
+      }
+
+      testWidgets('rétrécir la fenêtre (1 032 → 700 px de haut) depuis la '
+          'butée nord ne crée aucun vide : la caméra ne bouge pas, rien ne '
+          'se recharge', (WidgetTester tester) async {
+        final List<Bounds> chargements = <Bounds>[];
+        await pumpMap(
+          tester,
+          taille: const Size(800, 1032),
+          chargements: chargements,
+        );
+        await versLeZoomMinimum(tester);
+        await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+        expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+        final MapCamera avant = _camera(tester);
+        final int nombre = chargements.length;
+
+        await redimensionner(tester, const Size(800, 700));
+
+        final MapCamera camera = _camera(tester);
+        expect(camera.size.height, 700);
+        expect(camera.center, avant.center);
+        expect(ecartAuHautDuMonde(camera), greaterThanOrEqualTo(-tolerance));
+        expect(ecartAuBasDuMonde(camera), greaterThanOrEqualTo(-tolerance));
+        expect(chargements, hasLength(nombre));
+      });
+
+      testWidgets('une fenêtre qui devient plus haute que le monde au zoom 4 '
+          '(4 200 > 4 096 px) : le recalage est refusé, sans lever — la '
+          'caméra et le chargement restent tels quels', (
+        WidgetTester tester,
+      ) async {
+        final List<Bounds> chargements = <Bounds>[];
+        await pumpMap(tester, chargements: chargements);
+        await versLeZoomMinimum(tester);
+        await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+        final MapCamera avant = _camera(tester);
+        final int nombre = chargements.length;
+
+        await redimensionner(tester, const Size(800, 4200));
+
+        expect(tester.takeException(), isNull);
+        expect(_camera(tester).size.height, 4200);
+        expect(_camera(tester).center, avant.center);
+        expect(_camera(tester).zoom, 4);
+        expect(chargements, hasLength(nombre));
+      });
     });
 
     testWidgets('recentrer depuis la butée nord ramène à la caméra de '

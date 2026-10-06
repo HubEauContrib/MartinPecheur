@@ -107,6 +107,7 @@ Future<void> _pumpAt(WidgetTester tester, Size window, double scale) async {
           profile: null,
           onChooseProfile: (_) {},
           onRetry: () {},
+          onOpenDocument: (_, _) {},
           onOpenPublicSite: () {},
           utcOffsetOf: _paris,
         ),

@@ -69,15 +69,16 @@ final class CachedRestrictionSource implements RestrictionSource {
   /// [now] est résolu une seule fois ici (`now ?? DateTime.now`), comme
   /// `CachedOndeObservationRepository` : seule résolution d'horloge de ce
   /// fichier.
-  CachedRestrictionSource({
-    required this._inner,
-    DateTime Function()? now,
-    this._networkAvailable,
-  }) : _clock = now ?? DateTime.now;
+  ///
+  /// Pas de signal « réseau disponible » ici : rien ne le fournit (aucune
+  /// bibliothèque de connectivité, `main.dart` ne câble rien). Une entrée
+  /// périmée lance donc toujours son rafraîchissement ; hors réseau il
+  /// échoue, et la dernière valeur connue reste servie (`withCachePolicy`).
+  CachedRestrictionSource({required this._inner, DateTime Function()? now})
+    : _clock = now ?? DateTime.now;
 
   final RestrictionSource _inner;
   final DateTime Function() _clock;
-  final bool Function()? _networkAvailable;
 
   final Map<_PointKey, CachedValue<ZonesAtPoint>> _values =
       <_PointKey, CachedValue<ZonesAtPoint>>{};
@@ -100,7 +101,6 @@ final class CachedRestrictionSource implements RestrictionSource {
         },
         ttl: restrictionsCacheTtl,
         now: _clock,
-        networkAvailable: _networkAvailable,
       ),
     );
     return cachedRead();

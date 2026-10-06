@@ -62,8 +62,9 @@
 //   faisaient dix requêtes et reconstruisaient dix fois les 4 150 marqueurs.
 //   `onPositionChanged` n'est plus câblé du tout : la requête part sur
 //   [_handleMapEvent], câblé à `MapOptions.onMapEvent`, uniquement pour les
-//   événements de **fin** de geste — voir [shouldRefreshOn]. La marge
-//   proportionnelle
+//   événements de **fin** de geste — sauf le changement de taille de la
+//   carte, qui ne fait que rejouer la contrainte de caméra ; voir
+//   [shouldRefreshOn]. La marge proportionnelle
 //   `defaultViewportMargin` (`lib/domain/geo/viewport_filter.dart`) couvre le
 //   déplacement entre-temps.
 //
@@ -1492,11 +1493,15 @@ class _MapViewState extends State<MapView> {
   /// que la projection plafonne à 85,0511° (`crs.dart`). `moveRaw` et
   /// `rotateRaw` l'appliquent à tout déplacement, zoom et rotation. Deux
   /// limites, verrouillées par des tests de caractérisation :
-  /// - le redimensionnement ne passe pas par lui : agrandir la fenêtre depuis
-  ///   la butée laisse du vide au-delà du monde jusqu'au prochain déplacement ;
+  /// - le redimensionnement ne passe PAS par lui : `flutter_map` change la
+  ///   taille de la caméra sans rejouer la contrainte, et agrandir la fenêtre
+  ///   depuis la butée laisserait du vide au-delà du monde jusqu'au prochain
+  ///   déplacement. Ce fichier la rejoue donc lui-même, une fois la taille
+  ///   changée ([_reapplyCameraConstraint], sur `MapEventNonRotatedSizeChange`) ;
   /// - il REFUSE le déplacement quand le monde est plus bas que la fenêtre :
   ///   au zoom minimal 4 le monde fait 4 096 px de haut, plus que toute
-  ///   fenêtre éprouvée (1 032 px pour la plus haute).
+  ///   fenêtre éprouvée (1 032 px pour la plus haute). Le recalage est alors
+  ///   refusé de même, sans exception : la caméra reste telle quelle.
   late final MapOptions _mapOptions = MapOptions(
     initialCenter: const LatLng(
       initialMapCenterLatitude,
@@ -1573,7 +1578,17 @@ class _MapViewState extends State<MapView> {
   /// ViewModel ([MapViewModel.onGestureEnded], `H2`) : c'est lui qui décide
   /// de charger puis, le cas échéant, de précharger — l'enchaînement vivait
   /// ici, dans `_loadThenPreload`, et n'était couvert par aucun test.
+  ///
+  /// Seule exception : un changement de taille de la carte
+  /// (`MapEventNonRotatedSizeChange`) rejoue la contrainte de caméra
+  /// ([_reapplyCameraConstraint]) — il ne recharge rien lui-même, seul le
+  /// recalage éventuel qui en découle passe par [_afterCameraMove].
   void _handleMapEvent(MapEvent event) {
+    if (event is MapEventNonRotatedSizeChange) {
+      _reapplyCameraConstraint();
+      return;
+    }
+
     if (!shouldRefreshOn(event)) {
       return;
     }
@@ -1584,6 +1599,36 @@ class _MapViewState extends State<MapView> {
         zoom: event.camera.zoom,
       ),
     );
+  }
+
+  /// Rejoue la contrainte de caméra après un changement de taille de la
+  /// carte : `flutter_map` 8.3.2 ne l'applique qu'aux déplacements
+  /// (`moveRaw`, `rotateRaw`) — `setNonRotatedSizeWithoutEmittingEvent`
+  /// (`map_controller_impl.dart`) change la taille sans la rejouer, et
+  /// agrandir la fenêtre depuis la butée nord ou sud laissait du vide au-delà
+  /// du monde, où un appui long désignait une latitude hors de la projection.
+  ///
+  /// Appelée par [_handleMapEvent] sur `MapEventNonRotatedSizeChange`, que
+  /// `FlutterMap` émet dans un `addPostFrameCallback` (`map/widget.dart`,
+  /// `_updateAndEmitSizeIfConstraintsChanged`) : jamais pendant un `build` ni
+  /// une mise en page, donc sans risque pour l'appel au contrôleur. Un
+  /// déplacement vers le centre et le zoom COURANTS suffit : `moveRaw` rejoue
+  /// `cameraConstraint.constrain` sur la caméra à sa nouvelle taille, et
+  /// - la caméra est déjà dans le monde (la France est loin des pôles : la
+  ///   quasi-totalité des cas) : `moveRaw` rend `false` sans rien émettre ni
+  ///   changer — aucun rechargement (`NFR-01`), [_afterCameraMove] ne fait rien ;
+  /// - la contrainte ramène le centre : `true`, et [_afterCameraMove] recharge
+  ///   l'emprise résultante comme après tout déplacement de caméra ;
+  /// - le monde est plus bas que la fenêtre (au zoom 4, plus de 4 096 px) :
+  ///   `constrain` rend `null`, `moveRaw` rend `false` — le recalage est
+  ///   refusé, sans exception, la caméra reste telle quelle.
+  ///
+  /// Le `MapEventMove` que ce déplacement émet à son tour repasse par
+  /// [_handleMapEvent], qui l'ignore — ce n'est pas un changement de taille,
+  /// et [shouldRefreshOn] répond `false` : pas de boucle.
+  void _reapplyCameraConstraint() {
+    final MapCamera camera = _mapController.camera;
+    _afterCameraMove(_mapController.move(camera.center, camera.zoom));
   }
 
   /// « Élargir la recherche » : le ViewModel recharge une emprise deux fois

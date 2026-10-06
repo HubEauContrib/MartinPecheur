@@ -193,6 +193,47 @@ l'un des deux.
   `code_region` `"24"`, `libelle_region` `"Centre-Val de Loire"`, `date_observation`
   `"2026-08-25"`, `code_ecoulement` `"3"`. Les treize champs sont acceptés et rendus.
 
+- `T-17` **Latence du balayage par emprise** — six appels réels le 2026-10-06 à partir de
+  14:11:00 UTC, un par seconde, `size=1000`, `date_observation_min=2026-05-01`, **sans `fields`**
+  (l'application en envoie treize : la mesure est donc un majorant grossier, pas celle de sa
+  requête) : `https://hubeau.eaufrance.fr/api/v1/ecoulement/observations?bbox=<ouest,sud,est,nord>&date_observation_min=2026-05-01&size=1000`.
+
+  | `bbox` | Statut | Durée totale | Premier octet | Octets |
+  |---|---|---|---|---|
+  | `-5.5,41.0,10.0,51.5` (France entière) | **206** | **10,26 s** | 10,20 s | 118 107 |
+  | `-5.5,41.0,10.0,51.5` (rejoué) | aucune réponse | coupé à 10,09 s | — | 0 |
+  | `-1.0,43.0,4.0,46.5` | aucune réponse | **plus de 60 s** (coupé) | — | 0 |
+  | `4.5,45.5,6.5,46.6` | aucune réponse | **plus de 60 s** (coupé) | — | 0 |
+  | `-5.5,47.0,-1.0,49.0` | aucune réponse | **plus de 60 s** (coupé) | — | 0 |
+  | `1.4,48.1,3.6,49.3` (Île-de-France) | **200** | **6,19 s** | 6,12 s | 60 006 |
+
+  Un seul échantillon, un seul jour, depuis un seul poste ; la cause des quatre appels sans réponse
+  (charge, limitation, panne passagère) **n'est pas établie**. ⚠️ Le délai d'attente d'une
+  tentative est de **10 s** pour Hub'Eau comme pour VigiEau (`defaultRequestTimeout`) : à 10 s, le
+  balayage national mesuré ici aurait été coupé. Un passage à 30 s pour Hub'Eau, arbitré par le
+  commanditaire le même jour puis codé, a été **retiré à sa demande** avant tout commit : la
+  question reste ouverte.
+
+- `T-18` **Latence d'appels uniques, rapportée par un relecteur** — le 2026-10-06 à 15:40 UTC, **un
+  appel réel par adresse, depuis ce poste, sans suivre les redirections** ; **non rejoués par la boucle
+  principale** ; adresses telles que le relecteur les a rapportées (le chemin, sous la base de chaque
+  API) :
+
+  | API (base) et chemin rapporté | Statut | Durée |
+  |---|---|---|
+  | hydrométrie v2 (`https://hubeau.eaufrance.fr/api/v2/hydrometrie`), `referentiel/stations?size=1` | **206**, réponse directe | **7,33 s** |
+  | VigiEau (`https://api.vigieau.beta.gouv.fr/api`), `zones?lat=48.8566&lon=2.3522` | **200**, réponse directe | **0,12 s** |
+  | écoulement v1 (`https://hubeau.eaufrance.fr/api/v1/ecoulement`), `stations?size=1` | **aucune réponse** | **aucune réponse en 20 s** |
+
+  Aucune redirection sur ces appels. Un appel par adresse, un jour, un poste : ni médiane ni
+  dispersion, et la cause de l'absence de réponse de l'écoulement (charge, limitation, panne
+  passagère) **n'est pas établie** — comme pour les quatre appels de `T-17`. ⚠️ Le délai d'attente
+  d'une tentative est de **10 s** partout (`defaultRequestTimeout`), et depuis `9f81d8c` le client
+  **ferme la connexion** à 10 s au lieu de la laisser finir : la question du délai pour Hub'Eau reste
+  ouverte (`docs/project-state.md`, point 59), non tranchée ici. La ligne VigiEau est consignée ici pour
+  la comparaison ; `docs/sources/vigieau.md` n'est pas modifiée. L'appel hydrométrie est aussi dans
+  `docs/sources/hubeau-hydrometrie.md`.
+
 ## Non vérifié
 
 - **Pourquoi les codes à espaces de bord ne se retrouvent pas** (`T-14 b`) : `" O968 5312 "`
