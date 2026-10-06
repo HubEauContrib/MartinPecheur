@@ -470,6 +470,79 @@ void main() {
       });
     }
 
+    // Arbitrage du commanditaire du 2026-10-06 : quand le point n'a aucune zone
+    // d'eaux superficielles, que toutes ses zones sont d'un type reconnu et
+    // qu'une d'elles a un niveau non reconnu, la phrase de `BR-007` est écrite
+    // DEUX fois — sous la phrase d'absence, et dans la carte de cette zone —
+    // et les deux sont gardées. Test de caractérisation (vert d'emblée) : la
+    // preuve est la mutation de chacune des deux occurrences.
+    testWidgets('aucune zone d\'eaux superficielles et une zone de niveau non '
+        'reconnu : la phrase de BR-007 est écrite deux fois, les deux sont '
+        'gardées (arbitrage du 2026-10-06)', (WidgetTester tester) async {
+      // [ainAep] dont SEUL le niveau change : non reconnu (« Non renseigné »).
+      final AlertZone unknownLevel = AlertZone(
+        name: ainAep().name,
+        kind: ainAep().kind,
+        severity: const GraviteInconnue(null),
+        decree: ainAep().decree,
+        usages: ainAep().usages,
+      );
+      await _pump(
+        tester,
+        ZonesTrouvees(zonesAinWith(<AlertZone>[ainSou(), unknownLevel])),
+      );
+
+      // Aucune zone d'eaux superficielles, aucune zone de type non reconnu :
+      // la phrase d'absence est écrite.
+      expect(find.text(absentSuperficielles), findsOneWidget);
+
+      // Deux fois, ni plus ni moins.
+      final Finder brSept = find.text(_brSept);
+      expect(brSept, findsNWidgets(2));
+
+      // L'une DANS la carte de la zone au niveau non reconnu (index 1), et
+      // dans aucune autre carte.
+      expect(
+        find.descendant(
+          of: find.byKey(restrictionsZoneCardKey(1)),
+          matching: brSept,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(restrictionsZoneCardKey(0)),
+          matching: brSept,
+        ),
+        findsNothing,
+      );
+
+      // L'autre HORS de toute carte de zone, sous la phrase d'absence et avant
+      // le titre et les cartes (la première dans l'arbre, celle de
+      // `_zonesContent`).
+      final Finder outside = brSept.first;
+      for (final int index in <int>[0, 1]) {
+        expect(
+          find.ancestor(
+            of: outside,
+            matching: find.byKey(restrictionsZoneCardKey(index)),
+          ),
+          findsNothing,
+          reason: 'la première occurrence ne doit être dans aucune carte',
+        );
+      }
+      final double absent = _top(tester, find.text(absentSuperficielles));
+      final double outsideTop = _top(tester, outside);
+      final double title = _top(tester, find.text("Zones d'alerte à ce point"));
+      final double firstCard = _top(
+        tester,
+        find.byKey(restrictionsZoneCardKey(0)),
+      );
+      expect(absent, lessThan(outsideTop));
+      expect(outsideTop, lessThan(title));
+      expect(title, lessThan(firstCard));
+    });
+
     testWidgets('une zone d\'eaux superficielles : rien ne change (ni phrase '
         'd\'absence, ni « Zones d\'alerte à ce point »)', (
       WidgetTester tester,
