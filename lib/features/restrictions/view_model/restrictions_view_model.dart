@@ -24,12 +24,13 @@
 // L'encart renforce (BR-013) n'est PAS un etat : il est affiche d'emblee et
 // dans tous les etats par la vue elle-meme, ce ViewModel n'a rien a en dire.
 //
-// Les liens (T2, B2) — l'arrete en PDF et le site public de la source —
-// s'ouvrent hors de l'application par le port `ExternalLinkOpener`, injecte
-// par `main.dart` : aucune bibliotheque d'ouverture n'est importee ici. Un
-// lien qui ne s'ouvre pas n'est pas une exception : son adresse brute reste
-// dans [RestrictionsViewModel.unopenedLink] pour que la vue l'affiche
-// (`UC-002 A6`), sans pretendre que le document existe.
+// Les liens (T2, B2) — l'arrete en PDF, l'arrete-cadre et le site public de
+// la source — s'ouvrent hors de l'application par le port
+// `ExternalLinkOpener`, injecte par `main.dart` : aucune bibliotheque
+// d'ouverture n'est importee ici. Un lien qui ne s'ouvre pas n'est pas une
+// exception : [UnopenedLink] garde son adresse brute, sa cible et le numero de
+// l'echec dans [RestrictionsViewModel.unopenedLink], pour que la vue
+// l'affiche (`UC-002 A6`), sans pretendre que le document existe.
 
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, FlutterError, FlutterErrorDetails;
@@ -108,6 +109,36 @@ final class RestrictionsNonObtenues extends RestrictionsState {
   final GeoPoint point;
 }
 
+/// Ce que l'usager a demande d'ouvrir : le site public de la source, un arrete
+/// de restriction ou un arrete-cadre. Une adresse brute ne dit pas laquelle
+/// des trois : une zone peut citer la meme pour l'arrete et pour le cadre.
+enum LinkTarget { publicSite, decree, frameworkDecree }
+
+/// Le dernier lien qui n'a pas pu s'ouvrir (`UC-002 A6`) : son adresse BRUTE,
+/// ce que l'usager avait demande d'ouvrir, et le numero de l'echec.
+final class UnopenedLink {
+  const UnopenedLink({
+    required this.raw,
+    required this.target,
+    required this.failureNumber,
+  });
+
+  /// Adresse brute, telle que recue (`BR-014`).
+  final String raw;
+
+  /// Ce que l'usager avait demande d'ouvrir.
+  final LinkTarget target;
+
+  /// Numero de l'echec, croissant pour la vie du ViewModel.
+  final int failureNumber;
+
+  /// Vrai si ce lien est celui de [target] a l'adresse [raw] : la cible ET
+  /// l'adresse, car une zone peut citer la meme adresse pour son arrete et
+  /// pour son arrete-cadre.
+  bool concerns(LinkTarget target, String raw) =>
+      this.target == target && this.raw == raw;
+}
+
 /// ViewModel de l'ecran des restrictions : porte l'etat de l'ecran, le
 /// profil choisi pour la session, et le seul chemin par lequel l'un et
 /// l'autre changent.
@@ -118,12 +149,14 @@ final class RestrictionsViewModel extends ChangeNotifier {
 
   final ExternalLinkOpener _links;
 
-  String? _unopenedLink;
+  UnopenedLink? _unopenedLink;
 
-  /// Adresse BRUTE du dernier lien qui n'a pas pu s'ouvrir (`UC-002 A6`),
-  /// ou `null`. Remise a `null` par une ouverture reussie, par [open] et par
-  /// [close].
-  String? get unopenedLink => _unopenedLink;
+  /// Numero du dernier echec d'ouverture ; ne revient jamais a zero.
+  int _failureCount = 0;
+
+  /// Le dernier lien qui n'a pas pu s'ouvrir (`UC-002 A6`), ou `null`. Remis
+  /// a `null` par une ouverture reussie, par [open] et par [close].
+  UnopenedLink? get unopenedLink => _unopenedLink;
 
   RestrictionsState _state = const RestrictionsFermees();
 
@@ -231,16 +264,18 @@ final class RestrictionsViewModel extends ChangeNotifier {
     _emit(generation, const RestrictionsFermees());
   }
 
-  /// Ouvre hors de l'application le PDF [link]. Sans adresse ouvrable
-  /// (`DocumentLink.openableUri` nul), l'ouvreur n'est pas appele et
-  /// l'adresse brute devient [unopenedLink].
-  Future<void> openDocument(DocumentLink link) async {
+  /// Ouvre hors de l'application le PDF [link] : [target] dit s'il s'agit de
+  /// l'arrete ([LinkTarget.decree]) ou de l'arrete-cadre
+  /// ([LinkTarget.frameworkDecree]) — le site public a sa methode. Sans
+  /// adresse ouvrable (`DocumentLink.openableUri` nul), l'ouvreur n'est pas
+  /// appele et l'adresse brute devient [unopenedLink].
+  Future<void> openDocument(DocumentLink link, LinkTarget target) async {
     final Uri? uri = link.openableUri;
     if (uri == null) {
-      _setUnopenedLink(_generation, link.raw);
+      _recordFailure(_generation, link.raw, target);
       return;
     }
-    await _openLink(uri, link.raw);
+    await _openLink(uri, link.raw, target);
   }
 
   /// Ouvre hors de l'application le site public de la source des
@@ -248,14 +283,15 @@ final class RestrictionsViewModel extends ChangeNotifier {
   Future<void> openPublicSite() => _openLink(
     Uri.parse(restrictionsPublicSiteUrl),
     restrictionsPublicSiteUrl,
+    LinkTarget.publicSite,
   );
 
-  /// Demande l'ouverture de [uri] au port ; [raw] devient [unopenedLink] si
-  /// elle n'aboutit pas. Rien ne fuit : une `Exception` est un echec
-  /// d'ouverture, tout autre objet leve aussi, et une `Error` de meme, mais
-  /// signalee au canal de diagnostic de Flutter (meme regle que [open],
-  /// arbitrage du 2026-09-27).
-  Future<void> _openLink(Uri uri, String raw) async {
+  /// Demande l'ouverture de [uri] au port ; [raw] et [target] deviennent
+  /// [unopenedLink] si elle n'aboutit pas. Rien ne fuit : une `Exception` est
+  /// un echec d'ouverture, tout autre objet leve aussi, et une `Error` de
+  /// meme, mais signalee au canal de diagnostic de Flutter (meme regle que
+  /// [open], arbitrage du 2026-09-27).
+  Future<void> _openLink(Uri uri, String raw, LinkTarget target) async {
     final int generation = _generation;
     bool opened;
     try {
@@ -274,18 +310,45 @@ final class RestrictionsViewModel extends ChangeNotifier {
       // d'ouverture, rien d'autre. Apres `on Error`, dont l'ordre compte.
       opened = false;
     }
-    _setUnopenedLink(generation, opened ? null : raw);
-  }
-
-  /// Ecrit [next] dans [unopenedLink] si [generation] est toujours la
-  /// derniere (un [open] ou un [close] survenu entre-temps l'a remis a
-  /// `null`, une reponse tardive ne le reecrit pas) et que ce ViewModel
-  /// n'est pas dispose ; notifie seulement s'il change.
-  void _setUnopenedLink(int generation, String? next) {
-    if (_disposed || generation != _generation || _unopenedLink == next) {
+    if (opened) {
+      _clearUnopenedLink(generation, raw, target);
       return;
     }
-    _unopenedLink = next;
+    _recordFailure(generation, raw, target);
+  }
+
+  /// Retire [unopenedLink] si c'est celui du lien qui vient de s'ouvrir —
+  /// [target] a l'adresse [raw] : l'avis d'un AUTRE lien reste (une ouverture
+  /// lente qui aboutit apres l'echec d'un autre lien ne le rend pas ouvert,
+  /// pas plus que l'autre cible citant la meme adresse). Meme garde de
+  /// generation et de `dispose` que [_recordFailure].
+  void _clearUnopenedLink(int generation, String raw, LinkTarget target) {
+    final UnopenedLink? current = _unopenedLink;
+    if (_disposed ||
+        generation != _generation ||
+        current == null ||
+        !current.concerns(target, raw)) {
+      return;
+    }
+    _unopenedLink = null;
+    notifyListeners();
+  }
+
+  /// Note l'echec d'ouverture de [raw] pour [target] : [unopenedLink] devient
+  /// un nouvel etat, numerote, et ce ViewModel notifie A CHAQUE echec — meme
+  /// celui du lien deja en echec : la vue y reconnait un nouvel avis, a
+  /// amener dans le champ. Rien si [generation] n'est plus la derniere (un
+  /// [open] ou un [close] survenu entre-temps a remis l'avis a `null`, une
+  /// reponse tardive ne le reecrit pas) ou si ce ViewModel est dispose.
+  void _recordFailure(int generation, String raw, LinkTarget target) {
+    if (_disposed || generation != _generation) {
+      return;
+    }
+    _unopenedLink = UnopenedLink(
+      raw: raw,
+      target: target,
+      failureNumber: ++_failureCount,
+    );
     notifyListeners();
   }
 

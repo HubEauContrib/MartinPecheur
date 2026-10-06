@@ -319,7 +319,8 @@ class MartinPecheurApp extends StatelessWidget {
               // relance le ViewModel, et c'est la NOUVELLE route qui cherche —
               // pas celle qui s'en va.
               RestrictionsState shownState = restrictionsViewModel.state;
-              String? shownUnopenedLink = restrictionsViewModel.unopenedLink;
+              UnopenedLink? shownUnopenedLink =
+                  restrictionsViewModel.unopenedLink;
               bool leaving = false;
               unawaited(
                 Navigator.of(context)
@@ -340,9 +341,14 @@ class MartinPecheurApp extends StatelessWidget {
                                   restrictionsViewModel.chooseProfile,
                               onRetry: () =>
                                   unawaited(restrictionsViewModel.retry()),
-                              onOpenDocument: (DocumentLink link) => unawaited(
-                                restrictionsViewModel.openDocument(link),
-                              ),
+                              onOpenDocument:
+                                  (DocumentLink link, LinkTarget target) =>
+                                      unawaited(
+                                        restrictionsViewModel.openDocument(
+                                          link,
+                                          target,
+                                        ),
+                                      ),
                               onOpenPublicSite: () => unawaited(
                                 restrictionsViewModel.openPublicSite(),
                               ),

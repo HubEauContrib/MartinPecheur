@@ -675,17 +675,20 @@ void main() {
       int notifications = 0;
       vm.addListener(() => notifications++);
 
-      await vm.openDocument(const DocumentLink('arretes/relatif.pdf'));
+      await vm.openDocument(
+        const DocumentLink('arretes/relatif.pdf'),
+        LinkTarget.decree,
+      );
 
       expect(links.opened, isEmpty);
-      expect(vm.unopenedLink, 'arretes/relatif.pdf');
+      expect(vm.unopenedLink?.raw, 'arretes/relatif.pdf');
       expect(notifications, 1);
     });
 
     test('openDocument : l ouvreur recoit l Uri ouvrable, inchangee', () async {
       final RestrictionsViewModel vm = viewModel();
 
-      await vm.openDocument(const DocumentLink(arrete));
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
 
       expect(links.opened, <Uri>[Uri.parse(arrete)]);
     });
@@ -694,9 +697,9 @@ void main() {
       links.result = false;
       final RestrictionsViewModel vm = viewModel();
 
-      await vm.openDocument(const DocumentLink(arrete));
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
 
-      expect(vm.unopenedLink, arrete);
+      expect(vm.unopenedLink?.raw, arrete);
     });
 
     test('ouvreur qui leve une Exception -> unopenedLink == raw, aucune '
@@ -704,9 +707,12 @@ void main() {
       links.failure = Exception('plateforme indisponible');
       final RestrictionsViewModel vm = viewModel();
 
-      await expectLater(vm.openDocument(const DocumentLink(arrete)), completes);
+      await expectLater(
+        vm.openDocument(const DocumentLink(arrete), LinkTarget.decree),
+        completes,
+      );
 
-      expect(vm.unopenedLink, arrete);
+      expect(vm.unopenedLink?.raw, arrete);
     });
 
     test('ouvreur qui leve une Error -> unopenedLink == raw, erreur remontee '
@@ -718,9 +724,12 @@ void main() {
       links.failure = StateError('bug');
       final RestrictionsViewModel vm = viewModel();
 
-      await expectLater(vm.openDocument(const DocumentLink(arrete)), completes);
+      await expectLater(
+        vm.openDocument(const DocumentLink(arrete), LinkTarget.decree),
+        completes,
+      );
 
-      expect(vm.unopenedLink, arrete);
+      expect(vm.unopenedLink?.raw, arrete);
       expect(reported, hasLength(1));
       expect(reported.single.exception, isA<StateError>());
     });
@@ -730,19 +739,22 @@ void main() {
       links.failure = 'texte leve';
       final RestrictionsViewModel vm = viewModel();
 
-      await expectLater(vm.openDocument(const DocumentLink(arrete)), completes);
+      await expectLater(
+        vm.openDocument(const DocumentLink(arrete), LinkTarget.decree),
+        completes,
+      );
 
-      expect(vm.unopenedLink, arrete);
+      expect(vm.unopenedLink?.raw, arrete);
     });
 
     test('ouvreur qui rend true -> unopenedLink == null', () async {
       links.result = false;
       final RestrictionsViewModel vm = viewModel();
-      await vm.openDocument(const DocumentLink(arrete));
-      expect(vm.unopenedLink, arrete);
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
+      expect(vm.unopenedLink?.raw, arrete);
 
       links.result = true;
-      await vm.openDocument(const DocumentLink(arrete));
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
 
       expect(vm.unopenedLink, isNull);
     });
@@ -783,7 +795,7 @@ void main() {
 
         await vm.openPublicSite();
 
-        expect(vm.unopenedLink, restrictionsPublicSiteUrl);
+        expect(vm.unopenedLink?.raw, restrictionsPublicSiteUrl);
       },
     );
 
@@ -791,15 +803,114 @@ void main() {
       links.result = false;
       final RestrictionsViewModel vm = viewModel();
 
-      await vm.openDocument(const DocumentLink(arrete));
-      expect(vm.unopenedLink, arrete);
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
+      expect(vm.unopenedLink?.raw, arrete);
       await vm.open(_pointAin());
       expect(vm.unopenedLink, isNull);
 
-      await vm.openDocument(const DocumentLink(arrete));
-      expect(vm.unopenedLink, arrete);
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
+      expect(vm.unopenedLink?.raw, arrete);
       vm.close();
       expect(vm.unopenedLink, isNull);
+    });
+
+    // Defaut 1 : l'usager appuie sur « Ouvrir l'arrete » (lent a repondre),
+    // puis sur « Ouvrir l'arrete-cadre » (qui echoue aussitot) ; l'arrete
+    // aboutit apres coup et ne doit pas retirer l'avis du cadre.
+    test(
+      'une ouverture reussie ne retire pas l avis d un AUTRE lien',
+      () async {
+        const String cadre = 'https://example.org/arretes-cadres/2026.pdf';
+        final Completer<bool> slow = Completer<bool>();
+        links.answer = (Uri uri) =>
+            uri == Uri.parse(arrete) ? slow.future : Future<bool>.value(false);
+        final RestrictionsViewModel vm = viewModel();
+        int notifications = 0;
+        vm.addListener(() => notifications++);
+
+        final Future<void> decreeOpening = vm.openDocument(
+          const DocumentLink(arrete),
+          LinkTarget.decree,
+        );
+        await vm.openDocument(
+          const DocumentLink(cadre),
+          LinkTarget.frameworkDecree,
+        );
+        expect(vm.unopenedLink?.raw, cadre);
+        expect(notifications, 1);
+
+        slow.complete(true);
+        await decreeOpening;
+
+        expect(vm.unopenedLink?.raw, cadre);
+        expect(vm.unopenedLink?.target, LinkTarget.frameworkDecree);
+        expect(notifications, 1);
+      },
+    );
+
+    // Defaut 2 : l'usager redescend, rappuie sur le meme bouton, nouvel
+    // echec : rien ne bougeait, le bouton paraissait inerte.
+    test('chaque echec d ouverture notifie, meme pour le meme lien, et porte '
+        'un numero croissant', () async {
+      links.result = false;
+      final RestrictionsViewModel vm = viewModel();
+      int notifications = 0;
+      vm.addListener(() => notifications++);
+
+      await vm.openPublicSite();
+      final int first = vm.unopenedLink!.failureNumber;
+      await vm.openPublicSite();
+      final int second = vm.unopenedLink!.failureNumber;
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
+
+      expect(notifications, 4);
+      expect(second, greaterThan(first));
+      expect(vm.unopenedLink!.failureNumber, greaterThan(second + 1));
+    });
+
+    // Defaut 3 : une zone peut citer la meme adresse pour l'arrete et pour
+    // l'arrete-cadre. L'avis est celui de la CIBLE qui a echoue : la reussite
+    // de l'autre cible, a la meme adresse, ne le retire pas.
+    test('meme adresse pour l arrete et pour le cadre : l avis est celui de '
+        'la cible en echec, la reussite de l autre ne le retire pas', () async {
+      final RestrictionsViewModel vm = viewModel();
+
+      links.result = false;
+      await vm.openDocument(
+        const DocumentLink(arrete),
+        LinkTarget.frameworkDecree,
+      );
+      expect(vm.unopenedLink?.target, LinkTarget.frameworkDecree);
+
+      links.result = true;
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
+
+      expect(vm.unopenedLink?.raw, arrete);
+      expect(vm.unopenedLink?.target, LinkTarget.frameworkDecree);
+
+      // Et la reussite de la cible en echec, elle, le retire.
+      await vm.openDocument(
+        const DocumentLink(arrete),
+        LinkTarget.frameworkDecree,
+      );
+      expect(vm.unopenedLink, isNull);
+    });
+
+    test('UnopenedLink.concerns : la meme cible ET la meme adresse', () {
+      const UnopenedLink link = UnopenedLink(
+        raw: arrete,
+        target: LinkTarget.decree,
+        failureNumber: 3,
+      );
+
+      expect(link.concerns(LinkTarget.decree, arrete), isTrue);
+      expect(link.concerns(LinkTarget.frameworkDecree, arrete), isFalse);
+      expect(link.concerns(LinkTarget.publicSite, arrete), isFalse);
+      expect(
+        link.concerns(LinkTarget.decree, 'https://example.org/autre.pdf'),
+        isFalse,
+      );
     });
 
     test('un echec d ouverture arrive apres close() : unopenedLink reste '
@@ -808,7 +919,10 @@ void main() {
       links.answer = (Uri uri) => completer.future;
       final RestrictionsViewModel vm = viewModel();
 
-      final Future<void> opening = vm.openDocument(const DocumentLink(arrete));
+      final Future<void> opening = vm.openDocument(
+        const DocumentLink(arrete),
+        LinkTarget.decree,
+      );
       vm.close();
       completer.complete(false);
       await opening;
@@ -830,6 +944,7 @@ void main() {
 
         final Future<void> opening = vm.openDocument(
           const DocumentLink(arrete),
+          LinkTarget.decree,
         );
         vm.dispose();
         completer.complete(false);

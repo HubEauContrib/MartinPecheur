@@ -20,7 +20,14 @@ import 'dart:ui' show Rect, Size;
 
 import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart'
-    show Checkbox, ListView, Semantics, ValueKey;
+    show
+        Checkbox,
+        ListView,
+        Scrollable,
+        ScrollableState,
+        Semantics,
+        SingleChildScrollView,
+        ValueKey;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -640,7 +647,7 @@ void main() {
       // refuse, l'avis apparait.
       await tester.tap(find.text(reinforcedWarningActionLabel));
       await tester.pumpAndSettle();
-      expect(restrictions.unopenedLink, restrictionsPublicSiteUrl);
+      expect(restrictions.unopenedLink?.raw, restrictionsPublicSiteUrl);
       final Finder notice = find.textContaining(
         "Ce lien n'a pas pu être ouvert",
       );
@@ -656,6 +663,57 @@ void main() {
 
       await tester.pumpAndSettle();
       expect(find.byType(RestrictionsScreen), findsNothing);
+    });
+
+    // Defaut 2, par la composition reelle : l'usager redescend, rappuie sur
+    // l'action de l'encart, nouvel echec du meme lien ; l'avis revient dans
+    // le champ.
+    testWidgets('second echec du site public : l avis, sorti du champ, est '
+        'ramene dans le champ', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1266, 741);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final _PendingRestrictionSource source = _PendingRestrictionSource();
+      final RestrictionsViewModel restrictions = _restrictions(source);
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+      await designate(tester);
+      source.completers.single.complete(zonesAin());
+      await tester.pumpAndSettle();
+      final Finder notice = find.textContaining(
+        "Ce lien n'a pas pu être ouvert",
+      );
+      final Finder scrollable = find
+          .descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+
+      await tester.tap(find.text(reinforcedWarningActionLabel));
+      await tester.pumpAndSettle();
+      final int first = restrictions.unopenedLink!.failureNumber;
+      expect(notice, findsOneWidget);
+
+      tester
+          .state<ScrollableState>(scrollable)
+          .position
+          .jumpTo(
+            tester.state<ScrollableState>(scrollable).position.maxScrollExtent,
+          );
+      await tester.pump();
+      expect(
+        tester.getRect(notice).bottom,
+        lessThanOrEqualTo(tester.getRect(scrollable).top),
+      );
+
+      await tester.tap(find.text(reinforcedWarningActionLabel));
+      await tester.pumpAndSettle();
+
+      expect(restrictions.unopenedLink!.failureNumber, greaterThan(first));
+      final Rect at = tester.getRect(notice);
+      final Rect view = tester.getRect(scrollable);
+      expect(at.top, greaterThanOrEqualTo(view.top), reason: '$at / $view');
+      expect(at.bottom, lessThanOrEqualTo(view.bottom), reason: '$at / $view');
     });
 
     testWidgets('Echap : route retiree, ViewModel ferme', (

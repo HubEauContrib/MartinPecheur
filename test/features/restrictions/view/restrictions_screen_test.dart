@@ -19,6 +19,7 @@ import 'package:martinpecheur/domain/restrictions/alert_zone.dart';
 import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
+import 'package:martinpecheur/domain/restrictions/zones_at_point.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.dart';
@@ -34,6 +35,10 @@ import 'drought_severity_badge_test.dart' show contrastRatio;
 /// Heure de Paris en ete : les captures du 2026-09-27 sont en UTC+2.
 Duration _paris(DateTime _) => const Duration(hours: 2);
 
+/// Un lien qui ne s'est pas ouvert, tel que le ViewModel le porte.
+UnopenedLink _unopened(String raw, LinkTarget target, [int failure = 1]) =>
+    UnopenedLink(raw: raw, target: target, failureNumber: failure);
+
 const String _brSept =
     "Cela ne signifie pas qu'aucun arrêté ne s'applique : vérifiez auprès "
     'de votre préfecture.';
@@ -43,9 +48,9 @@ Widget _screen(
   UserProfile? profile,
   ValueChanged<UserProfile>? onChooseProfile,
   VoidCallback? onRetry,
-  ValueChanged<DocumentLink>? onOpenDocument,
+  void Function(DocumentLink link, LinkTarget target)? onOpenDocument,
   VoidCallback? onOpenPublicSite,
-  String? unopenedLink,
+  UnopenedLink? unopenedLink,
 }) => RestrictionsScreen(
   state: state,
   profile: profile,
@@ -63,9 +68,9 @@ Future<void> _pump(
   UserProfile? profile,
   ValueChanged<UserProfile>? onChooseProfile,
   VoidCallback? onRetry,
-  ValueChanged<DocumentLink>? onOpenDocument,
+  void Function(DocumentLink link, LinkTarget target)? onOpenDocument,
   VoidCallback? onOpenPublicSite,
-  String? unopenedLink,
+  UnopenedLink? unopenedLink,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -194,7 +199,7 @@ void main() {
         tester,
         ZonesTrouvees(zonesAin()),
         profile: UserProfile.particulier,
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
       // L'autofocus reste : c'est lui qui porte `Echap` et `PageDown`.
@@ -226,7 +231,7 @@ void main() {
         tester,
         ZonesTrouvees(zonesAin()),
         profile: UserProfile.particulier,
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
       expect(FocusManager.instance.primaryFocus, same(screen));
@@ -252,7 +257,7 @@ void main() {
         tester,
         ZonesTrouvees(zonesAin()),
         profile: UserProfile.particulier,
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
 
@@ -836,11 +841,13 @@ void main() {
   group('arrêtés (Q-6, UC-002 A6)', () {
     testWidgets('Ain : un arrêté et un arrêté-cadre, une fois chacun, les '
         'trois zones nommées', (WidgetTester tester) async {
-      final List<DocumentLink> opened = <DocumentLink>[];
+      final List<(DocumentLink, LinkTarget)> opened =
+          <(DocumentLink, LinkTarget)>[];
       await _pump(
         tester,
         ZonesTrouvees(zonesAin()),
-        onOpenDocument: opened.add,
+        onOpenDocument: (DocumentLink link, LinkTarget target) =>
+            opened.add((link, target)),
       );
 
       expect(find.text('Arrêté de restriction'), findsOneWidget);
@@ -877,9 +884,11 @@ void main() {
       await tester.ensureVisible(find.text("Ouvrir l'arrêté-cadre"));
       await tester.pumpAndSettle();
       await tester.tap(find.text("Ouvrir l'arrêté-cadre"));
-      expect(opened, const <DocumentLink>[
-        DocumentLink(decreeUrlAin),
-        DocumentLink(frameworkUrlAin),
+      // Chaque bouton transmet sa CIBLE avec l'adresse : l'arrete, puis le
+      // cadre.
+      expect(opened, const <(DocumentLink, LinkTarget)>[
+        (DocumentLink(decreeUrlAin), LinkTarget.decree),
+        (DocumentLink(frameworkUrlAin), LinkTarget.frameworkDecree),
       ]);
     });
 
@@ -918,7 +927,7 @@ void main() {
       await _pump(
         tester,
         ZonesTrouvees(zonesAinWith(<AlertZone>[ainSupAdresseNonOuvrable()])),
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       expect(
         find.widgetWithText(SelectableText, relativeDecreeUrl),
@@ -961,8 +970,8 @@ void main() {
       await _pump(
         tester,
         ZonesTrouvees(zonesAin()),
-        onOpenDocument: (DocumentLink _) {},
-        unopenedLink: decreeUrlAin,
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
+        unopenedLink: _unopened(decreeUrlAin, LinkTarget.decree),
       );
       final Finder phrase = find.text(
         "Ce lien n'a pas pu être ouvert depuis l'application. Son adresse "
@@ -1149,6 +1158,61 @@ void main() {
       );
     });
 
+    // Défaut 3 : l'avis est rattaché à la cible dont le bouton a été pressé,
+    // pas à l'adresse seule — une zone peut citer la même pour l'arrêté et
+    // pour le cadre.
+    testWidgets(
+      'même adresse pour l arrêté et pour le cadre : l avis n apparaît '
+      'que sous la carte dont le bouton a été pressé',
+      (WidgetTester tester) async {
+        const String shared = 'https://example.org/commun.pdf';
+        final ZonesAtPoint zones = zonesAinWith(<AlertZone>[
+          withDecree(
+            ainSup(),
+            RestrictionDecree(
+              validFrom: DateTime.utc(2026, 8, 20),
+              validUntil: DateTime.utc(2026, 10, 31),
+              document: const DocumentLink(shared),
+              frameworkDocument: const DocumentLink(shared),
+            ),
+          ),
+        ]);
+        final Finder notice = find.textContaining(
+          "Ce lien n'a pas pu être ouvert",
+        );
+
+        for (final (LinkTarget, bool) pressed in <(LinkTarget, bool)>[
+          (LinkTarget.decree, false),
+          (LinkTarget.frameworkDecree, true),
+        ]) {
+          await _pump(
+            tester,
+            ZonesTrouvees(zones),
+            onOpenDocument: (DocumentLink _, LinkTarget _) {},
+            unopenedLink: _unopened(shared, pressed.$1),
+          );
+
+          expect(notice, findsOneWidget, reason: '${pressed.$1}');
+          expect(
+            find.descendant(
+              of: card(shared, framework: pressed.$2),
+              matching: notice,
+            ),
+            findsOneWidget,
+            reason: '${pressed.$1} : sous la carte pressée',
+          );
+          expect(
+            find.descendant(
+              of: card(shared, framework: !pressed.$2),
+              matching: notice,
+            ),
+            findsNothing,
+            reason: '${pressed.$1} : jamais sous l autre carte',
+          );
+        }
+      },
+    );
+
     // Verrou (passe d'emblée) : un désaccord entre zones, y compris fin
     // nulle contre fin datée, n'affiche aucune date.
     testWidgets('une zone à fin nulle, l autre à fin datée : aucune ligne de '
@@ -1275,7 +1339,7 @@ void main() {
       await _pump(
         tester,
         ZonesTrouvees(zonesAin()),
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       final Finder button = within(
         decreeUrlAin,
@@ -1309,7 +1373,7 @@ void main() {
       await _pump(
         tester,
         ZonesTrouvees(zonesAin()),
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       final OutlinedButton button = tester.widget<OutlinedButton>(
         within(
@@ -1327,7 +1391,7 @@ void main() {
       await _pump(
         tester,
         ZonesTrouvees(zonesAin()),
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       expect(
         find.text("PDF · s'ouvre hors de l'application"),
@@ -1350,7 +1414,7 @@ void main() {
         ZonesTrouvees(
           zonesAinWith(<AlertZone>[at('https://example.org/arrete')]),
         ),
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       expect(find.text("S'ouvre hors de l'application"), findsOneWidget);
       // .PDF en majuscules, avec requête : le chemin finit par .pdf.
@@ -1364,7 +1428,7 @@ void main() {
       await _pump(
         tester,
         ZonesTrouvees(zonesAinWith(<AlertZone>[ainSupAdresseNonOuvrable()])),
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       expect(find.textContaining("hors de l'application"), findsNothing);
     });
@@ -1398,8 +1462,8 @@ void main() {
       await _pump(
         tester,
         ZonesTrouvees(zonesAin()),
-        onOpenDocument: (DocumentLink _) {},
-        unopenedLink: decreeUrlAin,
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
+        unopenedLink: _unopened(decreeUrlAin, LinkTarget.decree),
       );
       final Finder notice = within(
         decreeUrlAin,
@@ -2014,7 +2078,10 @@ void main() {
       await _pump(
         tester,
         RestrictionsNonObtenues(pointAin()),
-        unopenedLink: restrictionsPublicSiteUrl,
+        unopenedLink: _unopened(
+          restrictionsPublicSiteUrl,
+          LinkTarget.publicSite,
+        ),
       );
       expect(
         find.text(
@@ -2031,7 +2098,7 @@ void main() {
       await _pump(
         tester,
         ZonesTrouvees(zonesAin()),
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
       );
       for (final Finder finder in <Finder>[
         find.byType(BackButton),
@@ -2381,7 +2448,14 @@ void main() {
     testWidgets('lien du site public non ouvert : avis sous le corps, une '
         'fois, dans chaque état', (WidgetTester tester) async {
       for (final RestrictionsState state in states.values) {
-        await _pump(tester, state, unopenedLink: restrictionsPublicSiteUrl);
+        await _pump(
+          tester,
+          state,
+          unopenedLink: _unopened(
+            restrictionsPublicSiteUrl,
+            LinkTarget.publicSite,
+          ),
+        );
         expect(
           find.textContaining("Ce lien n'a pas pu être ouvert"),
           findsOneWidget,
@@ -2406,15 +2480,15 @@ void main() {
     testWidgets('avis de lien non ouvert : region d alerte annoncee, pour le '
         'site public comme pour un arrete', (WidgetTester tester) async {
       final SemanticsHandle handle = tester.ensureSemantics();
-      for (final String address in <String>[
-        restrictionsPublicSiteUrl,
-        decreeUrlAin,
+      for (final UnopenedLink link in <UnopenedLink>[
+        _unopened(restrictionsPublicSiteUrl, LinkTarget.publicSite),
+        _unopened(decreeUrlAin, LinkTarget.decree),
       ]) {
         await _pump(
           tester,
           ZonesTrouvees(zonesAin()),
-          onOpenDocument: (DocumentLink _) {},
-          unopenedLink: address,
+          onOpenDocument: (DocumentLink _, LinkTarget _) {},
+          unopenedLink: link,
         );
         final SemanticsNode notice = tester.getSemantics(
           find.textContaining("Ce lien n'a pas pu être ouvert"),
@@ -2422,7 +2496,7 @@ void main() {
         expect(
           notice.getSemanticsData().flagsCollection.isLiveRegion,
           isTrue,
-          reason: address,
+          reason: link.raw,
         );
       }
       handle.dispose();
@@ -2453,8 +2527,8 @@ void main() {
             child: _screen(
               ZonesTrouvees(zonesAin()),
               profile: UserProfile.particulier,
-              onOpenDocument: (DocumentLink _) {},
-              unopenedLink: decreeUrlAin,
+              onOpenDocument: (DocumentLink _, LinkTarget _) {},
+              unopenedLink: _unopened(decreeUrlAin, LinkTarget.decree),
             ),
           ),
         ),

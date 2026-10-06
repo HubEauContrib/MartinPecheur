@@ -20,6 +20,28 @@ import '../zones_samples.dart';
 
 const Size _window = Size(1266, 741);
 
+/// Le site public, puis l'arrete de l'Ain, qui ne se sont pas ouverts.
+const UnopenedLink _publicSiteFailure = UnopenedLink(
+  raw: restrictionsPublicSiteUrl,
+  target: LinkTarget.publicSite,
+  failureNumber: 1,
+);
+const UnopenedLink _publicSiteSecondFailure = UnopenedLink(
+  raw: restrictionsPublicSiteUrl,
+  target: LinkTarget.publicSite,
+  failureNumber: 2,
+);
+const UnopenedLink _decreeSecondFailure = UnopenedLink(
+  raw: decreeUrlAin,
+  target: LinkTarget.decree,
+  failureNumber: 2,
+);
+const UnopenedLink _decreeFailure = UnopenedLink(
+  raw: decreeUrlAin,
+  target: LinkTarget.decree,
+  failureNumber: 1,
+);
+
 /// Largeur de la colonne de lecture, remplissage compris : au-dela, la tete de
 /// l'encart et le contenu gardent cette largeur, centres.
 const double _readingColumn = readingColumnWidth + 2 * readingColumnGutter;
@@ -35,7 +57,7 @@ Future<void> _pump(WidgetTester tester) async {
         profile: UserProfile.particulier,
         onChooseProfile: (UserProfile _) {},
         onRetry: () {},
-        onOpenDocument: (DocumentLink _) {},
+        onOpenDocument: (DocumentLink _, LinkTarget _) {},
         onOpenPublicSite: () {},
         utcOffsetOf: (DateTime _) => const Duration(hours: 2),
       ),
@@ -346,7 +368,7 @@ void main() {
             profile: UserProfile.particulier,
             onChooseProfile: (UserProfile _) {},
             onRetry: () {},
-            onOpenDocument: (DocumentLink _) {},
+            onOpenDocument: (DocumentLink _, LinkTarget _) {},
             onOpenPublicSite: () {},
             utcOffsetOf: (DateTime _) => const Duration(hours: 2),
           ),
@@ -405,24 +427,25 @@ void main() {
   group('C : l avis d un lien non ouvert est amene a l ecran', () {
     final Finder notice = find.textContaining("Ce lien n'a pas pu être ouvert");
 
-    Widget screen({String? unopenedLink, double textScale = 1}) => MaterialApp(
-      home: Builder(
-        builder: (BuildContext context) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(textScale)),
-          child: RestrictionsScreen(
-            state: ZonesTrouvees(zonesAin()),
-            profile: UserProfile.particulier,
-            onChooseProfile: (UserProfile _) {},
-            onRetry: () {},
-            onOpenDocument: (DocumentLink _) {},
-            onOpenPublicSite: () {},
-            unopenedLink: unopenedLink,
-            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+    Widget screen({UnopenedLink? unopenedLink, double textScale = 1}) =>
+        MaterialApp(
+          home: Builder(
+            builder: (BuildContext context) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(textScale)),
+              child: RestrictionsScreen(
+                state: ZonesTrouvees(zonesAin()),
+                profile: UserProfile.particulier,
+                onChooseProfile: (UserProfile _) {},
+                onRetry: () {},
+                onOpenDocument: (DocumentLink _, LinkTarget _) {},
+                onOpenPublicSite: () {},
+                unopenedLink: unopenedLink,
+                utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+              ),
+            ),
           ),
-        ),
-      ),
-    );
+        );
 
     Future<void> pumpAt(
       WidgetTester tester,
@@ -455,7 +478,7 @@ void main() {
       expect(_offset(tester), greaterThan(300));
       expect(notice, findsNothing);
 
-      await tester.pumpWidget(screen(unopenedLink: restrictionsPublicSiteUrl));
+      await tester.pumpWidget(screen(unopenedLink: _publicSiteFailure));
       await tester.pumpAndSettle();
 
       expectNoticeInView(tester);
@@ -466,7 +489,7 @@ void main() {
       await pumpAt(tester, _window);
       expect(_offset(tester), 0);
 
-      await tester.pumpWidget(screen(unopenedLink: restrictionsPublicSiteUrl));
+      await tester.pumpWidget(screen(unopenedLink: _publicSiteFailure));
       await tester.pumpAndSettle();
 
       expectNoticeInView(tester);
@@ -478,11 +501,49 @@ void main() {
       await pumpAt(tester, const Size(411, 420));
       expect(_offset(tester), 0);
 
-      await tester.pumpWidget(screen(unopenedLink: restrictionsPublicSiteUrl));
+      await tester.pumpWidget(screen(unopenedLink: _publicSiteFailure));
       await tester.pumpAndSettle();
 
       expectNoticeInView(tester);
     });
+
+    // Defaut 2 : l'usager redescend, rappuie sur le meme bouton, nouvel echec
+    // du MEME lien. L'avis est deja a l'ecran : sans nouvel etat, il ne se
+    // devoile pas et le bouton paraitrait inerte. Le ViewModel numerote
+    // chaque echec ; ce numero est la cle de l'avis.
+    for (final (String, UnopenedLink, UnopenedLink) failures
+        in <(String, UnopenedLink, UnopenedLink)>[
+          ('site public', _publicSiteFailure, _publicSiteSecondFailure),
+          ('arrete', _decreeFailure, _decreeSecondFailure),
+        ]) {
+      testWidgetsOnWindows('second echec du meme lien (${failures.$1}) : '
+          'l avis, que l usager a quitte des yeux, est ramene dans le champ', (
+        WidgetTester tester,
+      ) async {
+        await pumpAt(tester, _window);
+        await tester.pumpWidget(screen(unopenedLink: failures.$2));
+        await tester.pumpAndSettle();
+        expectNoticeInView(tester);
+
+        // L'usager descend : l'avis sort du champ, le meme lien est rappuye.
+        tester
+            .state<ScrollableState>(_mainScrollable)
+            .position
+            .jumpTo(_max(tester));
+        await tester.pump();
+        final Rect view = tester.getRect(_mainScrollable);
+        expect(
+          tester.getRect(notice).bottom,
+          lessThanOrEqualTo(view.top),
+          reason: 'l avis doit etre sorti du champ avant le second echec',
+        );
+
+        await tester.pumpWidget(screen(unopenedLink: failures.$3));
+        await tester.pumpAndSettle();
+
+        expectNoticeInView(tester);
+      });
+    }
 
     // Tete NON epinglee : une fenetre trop basse pour epingler (la tete est
     // alors le premier element du defilement). Le test « telephone » ci-dessus
@@ -503,9 +564,7 @@ void main() {
         await pumpUnpinned(tester);
         expect(_offset(tester), 0);
 
-        await tester.pumpWidget(
-          screen(unopenedLink: restrictionsPublicSiteUrl),
-        );
+        await tester.pumpWidget(screen(unopenedLink: _publicSiteFailure));
         await tester.pumpAndSettle();
 
         expectNoticeInView(tester);
@@ -521,9 +580,7 @@ void main() {
         await tester.pump();
         expect(_offset(tester), greaterThan(300));
 
-        await tester.pumpWidget(
-          screen(unopenedLink: restrictionsPublicSiteUrl),
-        );
+        await tester.pumpWidget(screen(unopenedLink: _publicSiteFailure));
         await tester.pumpAndSettle();
 
         expectNoticeInView(tester);
@@ -553,7 +610,7 @@ void main() {
         expect(buttonAt.bottom, lessThanOrEqualTo(view.bottom));
         expect(notice, findsNothing);
 
-        await tester.pumpWidget(screen(unopenedLink: decreeUrlAin));
+        await tester.pumpWidget(screen(unopenedLink: _decreeFailure));
         await tester.pumpAndSettle();
 
         expectNoticeInView(tester);
@@ -567,7 +624,7 @@ void main() {
       const Size small = Size(411, 500);
       await pumpAt(tester, small, textScale: 2);
       await tester.pumpWidget(
-        screen(unopenedLink: restrictionsPublicSiteUrl, textScale: 2),
+        screen(unopenedLink: _publicSiteFailure, textScale: 2),
       );
       await tester.pumpAndSettle();
 
@@ -723,7 +780,7 @@ void main() {
               profile: UserProfile.particulier,
               onChooseProfile: (UserProfile _) {},
               onRetry: () {},
-              onOpenDocument: (DocumentLink _) {},
+              onOpenDocument: (DocumentLink _, LinkTarget _) {},
               onOpenPublicSite: () {},
               utcOffsetOf: (DateTime _) => const Duration(hours: 2),
             ),
