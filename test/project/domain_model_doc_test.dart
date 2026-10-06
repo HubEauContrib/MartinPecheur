@@ -10,10 +10,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Les dix-huit types du domaine, tels qu'ils existent sous lib/domain/ après
-/// le réusinage MVVM du 2026-09-13. `StationPoint` et `StationPointRepository`
+/// Les types du domaine, tels qu'ils existent sous lib/domain/ après le
+/// réusinage MVVM du 2026-09-13. `StationPoint` et `StationPointRepository`
 /// s'y ajoutent : ils étaient écrits sous lib/domain/ et absents du document,
-/// soit exactement le retard que ce test doit attraper.
+/// soit exactement le retard que ce test doit attraper. `GeoPoint` s'y ajoute
+/// à son tour (T2, M1), puis les trois nomenclatures des restrictions (T2, M2),
+/// puis la zone d'alerte, l'arrêté, l'usage cité et la réponse datée au
+/// point (T2, M3), puis le contrat `RestrictionSource` et son échec fermé à
+/// trois branches (T2, M4), puis le port d'ouverture de lien (T2, B2).
 const List<String> typesDuDomaine = <String>[
   'StationCode',
   'DepartementCode',
@@ -27,6 +31,23 @@ const List<String> typesDuDomaine = <String>[
   'FlowCategory',
   'Inconnu',
   'Bounds',
+  'GeoPoint',
+  'DroughtSeverity',
+  'GraviteInconnue',
+  'ZoneKind',
+  'TypeZoneInconnu',
+  'UserProfile',
+  'AlertZone',
+  'RestrictionDecree',
+  'DocumentLink',
+  'RestrictedUsage',
+  'ZonesAtPoint',
+  'RestrictionSource',
+  'RestrictionLookupFailure',
+  'SourceInjoignable',
+  'RequeteRefusee',
+  'ReponseIllisible',
+  'ExternalLinkOpener',
   'StationRepository',
   'HydroObservationRepository',
   'LitresPerSecond',
@@ -54,7 +75,7 @@ void main() {
       contenu = File('docs/domain-model.md').readAsStringSync();
     });
 
-    test('nomme les dix-huit types du domaine', () {
+    test('nomme les types du domaine', () {
       for (final String type in typesDuDomaine) {
         expect(
           contenu,

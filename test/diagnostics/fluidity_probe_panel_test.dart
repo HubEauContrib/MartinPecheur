@@ -6,7 +6,7 @@
 // (« RenderFlex … incoming width constraints are unbounded ») et s'étale
 // sur ~600 px en profile, recouvrant le contrôle d'avertissement et la
 // légende. Ce fichier monte le panneau dans le MÊME genre de `Stack` que
-// `map_view_test.dart` (groupe `800 × 700`, K3) : `buildMapOverlays` plus
+// `map_view_test.dart` (groupe `800 × 740`, K3) : `buildMapOverlays` plus
 // le panneau, à la taille minimale de fenêtre Windows, et vérifie qu'AUCUNE
 // exception n'est levée et qu'AUCUNE surcouche ne se recouvre.
 //
@@ -23,7 +23,7 @@
 //    survol/appui transparents) — l'`InkRipple` par défaut publie des
 //    trames que la sonde verrait sinon.
 // 3. le panneau redescend à `bottom: 32` : les trois lignes ET le rapport
-//    de `G2` doivent tenir SANS défilement à 800 × 700, et ne recouvrir NI
+//    de `G2` doivent tenir SANS défilement à 800 × 740, et ne recouvrir NI
 //    les avis de carte sous les puces (« ni station… », « Élargir la
 //    recherche ») NI aucune autre surcouche.
 import 'package:flutter/material.dart';
@@ -48,6 +48,8 @@ import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
+
+import '../support/windows_platform.dart';
 
 final class _EmptyStationPointRepository implements StationPointRepository {
   @override
@@ -146,18 +148,18 @@ void main() {
             isFalse,
             reason:
                 '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
-                'à 800 × 700',
+                'à 800 × 740',
           );
         }
       }
     }
 
-    testWidgets(
+    testWidgetsOnWindows(
       'panneau au repos : aucune exception, aucun recouvrement (puces, '
       "avis « ni station… », avertissement, légende, contrôles, "
       'attribution)',
       (WidgetTester tester) async {
-        const Size taille = Size(800, 700);
+        const Size taille = Size(800, 740);
         await pumpPanelWithOverlays(
           tester,
           taille,
@@ -176,12 +178,12 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'G2 mesuré ET son rapport affiché (le cas qui déborde le plus) : '
       'toujours aucun recouvrement, et le bas du rapport reste VISIBLE '
       'sans défilement',
       (WidgetTester tester) async {
-        const Size taille = Size(800, 700);
+        const Size taille = Size(800, 740);
         final _FakeRegistry registry = _FakeRegistry();
         final CountingStationPointRepository stationPoints =
             CountingStationPointRepository(_EmptyStationPointRepository());
@@ -309,7 +311,7 @@ void main() {
       'arrêter), la mention "à compter à la main" pour G2, et son échelle '
       '(écoulement, comme G1)',
       (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(800, 700);
+        tester.view.physicalSize = const Size(800, 740);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
 

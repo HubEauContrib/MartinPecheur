@@ -8,9 +8,9 @@
 // pas de la pastille.
 //
 // ⚠️ [AreaClusterMarker] mesure déjà [areaClusterMarkerSize] (44 px) — bien
-// plus que les 12 px d'une pastille de station ou d'un marqueur ONDE. Il ne
+// plus que les 26 px d'une pastille de station ou d'un marqueur ONDE. Il ne
 // subit donc PAS le `Transform.scale` de [caseAgrandie] (qui fixerait sa
-// boîte à [stationMarkerSize], 12 px, et le tronquerait) : ces images
+// boîte à [stationMarkerSize], 26 px, et la mettrait à l'échelle 2 ×) : ces images
 // posent la pastille dans une case de [coteDUneCase] à sa taille RÉELLE,
 // exactement le rendu de la carte.
 //
@@ -27,6 +27,7 @@ import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 
+import '../../support/windows_platform.dart';
 import 'golden_harness.dart';
 
 /// Une pastille dans une case de [coteDUneCase], à sa taille réelle — voir
@@ -38,7 +39,7 @@ Widget _case(MapAreaCluster cluster) => SizedBox(
 );
 
 void main() {
-  testWidgets(
+  testWidgetsOnWindows(
     'pastille régionale, échelle écoulement, Assec récent, compte 15',
     (WidgetTester tester) async {
       final MapAreaCluster centreValDeLoire = MapAreaCluster(
@@ -66,7 +67,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'pastille départementale, échelle débit, losange neutre, compte 28',
     (WidgetTester tester) async {
       final MapAreaCluster loirEtCher = MapAreaCluster(
@@ -91,27 +92,28 @@ void main() {
     },
   );
 
-  testWidgets('compte à trois chiffres (753, Occitanie) sans déborder', (
-    WidgetTester tester,
-  ) async {
-    final MapAreaCluster occitanie = MapAreaCluster(
-      scale: MapScaleKind.debit,
-      level: AreaLevel.region,
-      area: const AdministrativeArea(code: '76', label: 'OCCITANIE'),
-      latitude: 43.9,
-      longitude: 2.2,
-      count: 753,
-      bounds: Bounds(west: -2, south: 42, east: 5, north: 45),
-      severest: null,
-      severestAge: null,
-    );
+  testWidgetsOnWindows(
+    'compte à trois chiffres (753, Occitanie) sans déborder',
+    (WidgetTester tester) async {
+      final MapAreaCluster occitanie = MapAreaCluster(
+        scale: MapScaleKind.debit,
+        level: AreaLevel.region,
+        area: const AdministrativeArea(code: '76', label: 'OCCITANIE'),
+        latitude: 43.9,
+        longitude: 2.2,
+        count: 753,
+        bounds: Bounds(west: -2, south: 42, east: 5, north: 45),
+        severest: null,
+        severestAge: null,
+      );
 
-    await pompeLImage(
-      tester,
-      contenu: _case(occitanie),
-      taille: const Size(coteDUneCase, coteDUneCase),
-    );
+      await pompeLImage(
+        tester,
+        contenu: _case(occitanie),
+        taille: const Size(coteDUneCase, coteDUneCase),
+      );
 
-    await verifieLImage('area_cluster_marker_compte_trois_chiffres.png');
-  });
+      await verifieLImage('area_cluster_marker_compte_trois_chiffres.png');
+    },
+  );
 }

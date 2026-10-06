@@ -5,7 +5,7 @@
 // ⚠️ Cette tranche n'importe aucune autre tranche
 // (`test/architecture/layers_test.dart`, règle `feature-vers-feature`), mais
 // `features/shared/` lui reste ouverte (règle `shared-sans-tranche`) : la
-// cible tactile de 44 pt (`04-ui.md § 3`) vient donc de [minimumTapTarget]
+// cible tactile de 44 pt (48 dp sur Android) (`04-ui.md § 3`) vient donc de [minimumTapTarget]
 // (`K1`, `lib/features/shared/tap_target.dart`), plus recopiée localement
 // depuis la révision qui a posé cette constante unique.
 //
@@ -28,6 +28,7 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/shared/data_sources_view.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.dart';
 
@@ -44,6 +45,9 @@ const Key initialWarningButtonKey = Key('initial-warning-button');
 /// Clé de la phrase d'échec d'enregistrement, affichée sous le bouton
 /// (`UC-006 A6`, arbitrage du commanditaire du 2026-09-22).
 const Key initialWarningWriteFailedKey = Key('initial-warning-write-failed');
+
+/// Clé du lien « Relire le détail des sources » (T2, `S1`).
+const Key initialWarningSourcesLinkKey = Key('initial-warning-sources-link');
 
 /// L'écran bloquant du premier lancement (`UC-006`, `BR-012`) : aucune
 /// fonctionnalité de l'application n'est atteignable tant qu'il est monté —
@@ -90,7 +94,7 @@ final class InitialWarningView extends StatelessWidget {
                       onTap: () =>
                           viewModel.toggleCheckbox(!viewModel.checkboxChecked),
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(
+                        constraints: BoxConstraints(
                           minHeight: minimumTapTarget,
                         ),
                         child: Row(
@@ -121,7 +125,7 @@ final class InitialWarningView extends StatelessWidget {
                               }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(minimumTapTarget),
+                          minimumSize: Size.fromHeight(minimumTapTarget),
                         ),
                         child: const Text(initialWarningButtonLabel),
                       ),
@@ -136,9 +140,18 @@ final class InitialWarningView extends StatelessWidget {
                       ),
                     ],
                     // Le lien « Relire le détail des sources » (`04-ui.md
-                    // § 1`) est RETIRÉ ici : arbitrage du commanditaire du
-                    // 2026-09-22, `BR-012` reste satisfait sans lui — il
-                    // reviendra avec l'écran « D'où vient cette donnée ? ».
+                    // § 1`), retiré en T1 faute d'écran (arbitrage du
+                    // 2026-09-22), revient avec « D'où vient cette donnée ? »
+                    // (T2, `S1`). Il OUVRE l'écran par-dessus ce modal sans
+                    // rien acquitter : retour au modal, case comme laissée —
+                    // son état vit dans `WarningsViewModel`, pas dans ce
+                    // widget. Sous le bouton et sous la phrase d'échec
+                    // éventuelle, comme le wireframe.
+                    const SizedBox(height: 8),
+                    const DataSourcesLink(
+                      key: initialWarningSourcesLinkKey,
+                      label: initialWarningSourcesLinkLabel,
+                    ),
                   ],
                 ),
               ),

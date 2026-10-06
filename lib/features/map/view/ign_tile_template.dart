@@ -10,7 +10,9 @@
 // `minimumMapZoom`/`maximumMapZoom` — `MapViewModel` doit pouvoir les lire
 // sans importer un fichier de `features/map/view/`, même Dart pur. Ce
 // fichier-ci ne garde que le gabarit de tuiles proprement dit : URL, taille,
-// attribution, agent.
+// agent. L'attribution exigée par la Licence Ouverte (`ignAttribution`) vit
+// dans `lib/domain/sources/source_names.dart` (T2 `S1`) : la carte et l'écran
+// « D'où vient cette donnée ? » la lisent au même endroit.
 //
 // Dart pur : aucun `package:flutter`, `package:flutter_map` ni
 // `package:latlong2`. Le module qui construit le `TileLayer` (features/map)
@@ -28,10 +30,6 @@ const String ignTileUrlTemplate =
 /// Taille de tuile en pixels. Une valeur erronée décale le fond sans lever
 /// d'erreur.
 const int ignTileDimension = 256;
-
-/// Attribution exigée par la Licence Ouverte — une constante du module,
-/// jamais une chaîne recopiée dans un widget.
-const String ignAttribution = '© IGN Géoplateforme — Licence Ouverte';
 
 /// Agent utilisateur nommant l'appelant auprès du serveur de tuiles (C-12).
 const String ignUserAgentPackageName = 'fr.martinpecheur.app';

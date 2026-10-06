@@ -297,8 +297,8 @@ class _OndeRow extends StatelessWidget {
             width: minimumTapTarget / 2,
             child: Center(
               child: SizedBox(
-                width: stationMarkerSize,
-                height: stationMarkerSize,
+                width: compactMarkerSize,
+                height: compactMarkerSize,
                 // Âge `recente` et `observedAt` nul : une légende montre la
                 // teinte de la catégorie, jamais le gris de `BR-010` — qui
                 // dépend de la date d'une observation, et n'a pas de sens
@@ -308,6 +308,7 @@ class _OndeRow extends StatelessWidget {
                   category: category,
                   age: CampaignAge.recente,
                   observedAt: null,
+                  compact: true,
                 ),
               ),
             ),
@@ -345,9 +346,9 @@ class _DotRow extends StatelessWidget {
             width: minimumTapTarget / 2,
             child: Center(
               child: SizedBox(
-                width: stationMarkerSize,
-                height: stationMarkerSize,
-                child: StationMarkerDot(state: state),
+                width: compactMarkerSize,
+                height: compactMarkerSize,
+                child: StationMarkerDot(state: state, compact: true),
               ),
             ),
           ),

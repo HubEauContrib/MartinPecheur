@@ -339,7 +339,7 @@ class _WidenSearchAction extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onWiden,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
+          constraints: BoxConstraints(
             minWidth: minimumTapTarget,
             minHeight: minimumTapTarget,
           ),
@@ -347,7 +347,7 @@ class _WidenSearchAction extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: Colors.black),
-              borderRadius: const BorderRadius.all(
+              borderRadius: BorderRadius.all(
                 Radius.circular(minimumTapTarget / 2),
               ),
             ),

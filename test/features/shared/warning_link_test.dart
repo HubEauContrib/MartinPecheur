@@ -3,12 +3,15 @@
 // tactile ≥ 44 pt, atteignable et activable au clavier (Tab + Entrée),
 // action de tap exposée au lecteur d'écran, ouvre la fenêtre avec le texte
 // général du modal initial et, quand elle est fournie, la phrase propre à
-// l'écran appelant SOUS ce texte général.
+// l'écran appelant SOUS ce texte général. Depuis `S1` (T2), la fenêtre porte
+// aussi le lien « D'où vient cette donnée ? » vers l'écran des sources.
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/shared/data_sources_view.dart';
+import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 Widget _harness(Widget child) => MaterialApp(home: Scaffold(body: child));
@@ -187,12 +190,157 @@ void main() {
     });
   });
 
-  group('WarningWindow — taille minimale de fenêtre Windows (800 × 700, '
+  group("WarningWindow — lien « D'où vient cette donnée ? » (T2, S1)", () {
+    testWidgets(
+      "la fenêtre porte le lien libellé dataSourcesTitle, avec ou sans "
+      "phrase propre à l'écran",
+      (WidgetTester tester) async {
+        for (final String? extra in <String?>[null, 'Mesure brute du 27/08…']) {
+          await tester.pumpWidget(_harness(WarningLink(extraText: extra)));
+          await tester.tap(find.byKey(warningLinkKey));
+          await tester.pumpAndSettle();
+
+          expect(find.byKey(warningWindowSourcesLinkKey), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byKey(warningWindowSourcesLinkKey),
+              matching: find.text(dataSourcesTitle),
+            ),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.byKey(warningWindowCloseButtonKey));
+          await tester.pumpAndSettle();
+        }
+      },
+    );
+
+    testWidgets('le lien se lit sous le texte, au-dessus de « Fermer »', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        _harness(const WarningLink(extraText: 'Mesure brute du 27/08…')),
+      );
+      await tester.tap(find.byKey(warningLinkKey));
+      await tester.pumpAndSettle();
+
+      final double link = tester
+          .getTopLeft(find.byKey(warningWindowSourcesLinkKey))
+          .dy;
+      expect(
+        link,
+        greaterThan(
+          tester.getBottomLeft(find.byKey(warningWindowExtraTextKey)).dy - 1,
+        ),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(warningWindowCloseButtonKey)).dy,
+        greaterThan(
+          tester.getBottomLeft(find.byKey(warningWindowSourcesLinkKey)).dy - 1,
+        ),
+      );
+    });
+
+    testWidgets("le lien ouvre l'écran des sources, par-dessus la fenêtre", (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(_harness(const WarningLink()));
+      await tester.tap(find.byKey(warningLinkKey));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DataSourcesView), findsOneWidget);
+    });
+
+    testWidgets(
+      "le retour ramène à la fenêtre d'avertissement, telle qu'elle était : "
+      'texte et phrase propre inchangés',
+      (WidgetTester tester) async {
+        const String extra = 'Mesure brute du 27/08/2026 à 10:00…';
+        await tester.pumpWidget(_harness(const WarningLink(extraText: extra)));
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+        await tester.pumpAndSettle();
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DataSourcesView), findsNothing);
+        expect(find.byKey(warningWindowRegionKey), findsOneWidget);
+        expect(find.text(initialWarningBody), findsOneWidget);
+        expect(find.text(extra), findsOneWidget);
+      },
+    );
+
+    testWidgets("Échap referme d'abord l'écran des sources, puis la fenêtre", (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(_harness(const WarningLink()));
+      await tester.tap(find.byKey(warningLinkKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DataSourcesView), findsNothing);
+      expect(find.byKey(warningWindowRegionKey), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(warningWindowRegionKey), findsNothing);
+    });
+
+    testWidgets('le lien mesure au moins minimumTapTarget', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(_harness(const WarningLink()));
+      await tester.tap(find.byKey(warningLinkKey));
+      await tester.pumpAndSettle();
+
+      final Size size = tester.getSize(find.byKey(warningWindowSourcesLinkKey));
+      expect(size.width, greaterThanOrEqualTo(minimumTapTarget));
+      expect(size.height, greaterThanOrEqualTo(minimumTapTarget));
+    });
+
+    testWidgets(
+      'à 200 % de police, fenêtre Windows minimale : le lien défile, reste '
+      'atteignable et ouvre l\'écran',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 740);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: _harness(
+              const WarningLink(extraText: 'Mesure brute du 27/08/2026…'),
+            ),
+          ),
+        );
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(find.byKey(warningWindowSourcesLinkKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DataSourcesView), findsOneWidget);
+      },
+    );
+  });
+
+  group('WarningWindow — taille minimale de fenêtre Windows (800 × 740, '
       'décision 8 amendée le 2026-09-23, K3) à 200 % de police', () {
     testWidgets(
       'le texte défile au lieu d\'être tronqué, "Fermer" reste atteignable',
       (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(800, 700);
+        tester.view.physicalSize = const Size(800, 740);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
 
@@ -222,7 +370,30 @@ void main() {
   });
 
   group('WarningWindow — clavier et focus (relecture du 2026-09-23)', () {
-    testWidgets('Tab puis Entrée sur « Fermer » referme la fenêtre', (
+    // Depuis `S1`, le lien vers les sources précède « Fermer » dans l'ordre
+    // de lecture : il est le PREMIER arrêt de tabulation, « Fermer » le
+    // second. `skipOffstage: false` : un titre caché sous l'écran des sources
+    // ne doit pas passer pour une fenêtre fermée.
+    testWidgets('Tab puis Entrée sur le lien ouvre l\'écran des sources, '
+        'sans fermer la fenêtre', (WidgetTester tester) async {
+      await tester.pumpWidget(_harness(const WarningLink()));
+
+      await tester.tap(find.byKey(warningLinkKey));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DataSourcesView), findsOneWidget);
+      expect(
+        find.text(initialWarningTitle, skipOffstage: false),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Tab, Tab puis Entrée sur « Fermer » referme la fenêtre', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(_harness(const WarningLink()));
@@ -233,10 +404,13 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
 
-      expect(find.text(initialWarningTitle), findsNothing);
+      expect(find.byType(DataSourcesView), findsNothing);
+      expect(find.text(initialWarningTitle, skipOffstage: false), findsNothing);
     });
 
     testWidgets('Échap referme la fenêtre', (WidgetTester tester) async {

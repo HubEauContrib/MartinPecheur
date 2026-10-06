@@ -43,9 +43,10 @@ const Key mapZoomOutButtonKey = Key('map-zoom-out');
 /// Clé du bouton de recentrage.
 const Key mapRecenterButtonKey = Key('map-recenter');
 
-/// Les trois boutons de pilotage de la caméra à la souris/au tactile : `+`,
-/// `−`, recentrage — chacun une cible tactile ≥ 44 × 44 pt, espacés d'au
-/// moins 8 dp (`04-ui.md` § 3).
+/// Les boutons de pilotage de la caméra à la souris/au tactile : `+`, `−` et
+/// recentrage — chacun une cible tactile ≥ 44 × 44 pt, espacés d'au moins
+/// 8 dp (`04-ui.md` § 3). Le bouton « Restrictions au centre de la carte » en
+/// est sorti le 2026-09-29 (`designate_center_button.dart`).
 class MapControls extends StatelessWidget {
   const MapControls({
     required this.onZoomIn,

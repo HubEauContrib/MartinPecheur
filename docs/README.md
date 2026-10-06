@@ -18,8 +18,9 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application **F
 | [`use-cases/`](use-cases/) | **Use Cases** — scénarios acteur↔système, avec diagrammes mermaid | `UC-NNN-slug.md` |
 | [`adr/`](adr/) | **Architecture Decision Records** — décisions tranchées, avec alternatives écartées | `ADR-NNN-slug.md` |
 | [`superpowers/plans/`](superpowers/plans/) | Plans d'implémentation par tranche | `YYYY-MM-DD-slug.md` |
+| [`superpowers/specs/`](superpowers/specs/) | **Cadrages et conceptions** par tranche : ce qui est décidé avant le plan, avec ses arbitrages (index plus bas) | `YYYY-MM-DD-slug-design.md` |
 | [`sources/`](sources/) | **Fiches de sources de données** — faits vérifiés et datés, fixtures associées | `<source>.md` |
-| [`acceptance/`](acceptance/) | **Critères d'acceptation Gherkin** — spécification lisible, chaque `Scénario` cite une `BR-` qui existe sur le disque (`test/project/acceptance_features_test.dart`, `Task X1`) ; aucun framework BDD en T1 | `slug.feature` |
+| [`acceptance/`](acceptance/) | **Critères d'acceptation Gherkin** — spécification lisible, chaque `Scénario` cite une `BR-` qui existe sur le disque (`test/project/acceptance_features_test.dart`, `Task X1`) ; aucun framework BDD en T1 ni en T2. Cinq fichiers : les quatre de T1 et [`restrictions.feature`](acceptance/restrictions.feature) (T2, `X1`, 2026-10-04) | `slug.feature` |
 | [`glossary.md`](glossary.md) | **Langage omniprésent** — termes métier, ce qui est dit à l'usager, vocabulaire proscrit | — |
 | [`context-map.md`](context-map.md) | **Carte des contextes** — 6 contextes bornés et leurs sources externes | — |
 | [`domain-model.md`](domain-model.md) | **Modèle de domaine** — objets-valeur, entités, agrégats, ce que le domaine ne contient pas | — |
@@ -45,8 +46,25 @@ Les quatre livrables de cadrage, en tête de dossier :
 | Plan | Tranche | Statut |
 |---|---|---|
 | [`2026-09-13-t0-socle-flutter.md`](superpowers/plans/2026-09-13-t0-socle-flutter.md) | **T0** — socle Flutter, domaine, données, carte, porte Windows · § « Suite immédiate » : réusinage MVVM `R1`–`R6` | ✅ clos le 2026-09-13, **31 tâches sur 31**, `v0.1.0`, 248 tests verts · les 5 tâches Android (hors décompte) ne sont plus toutes ⏸ depuis la levée du 2026-09-18 : `A⏸1` ✅, `A⏸2` 🔄, `A⏸3`→`A⏸5` ⏸ |
-| [`2026-09-13-t1-fiche-station-et-avertissements.md`](superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md) | **T1** — fiche station, écoulement ONDE, les quatre avertissements, clavier/souris, porte `0.2.0` | 🔄 en cours sur `feat/t1-mvvm-fiche-station` — **lots 1 à 3 clos** (2026-09-14, 18 tâches sur 33), lot 4 débloqué par les arbitrages du 2026-09-18 ; statuts à jour dans [`project-state.md`](project-state.md) |
+| [`2026-09-13-t1-fiche-station-et-avertissements.md`](superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md) | **T1** — fiche station, écoulement ONDE, les quatre avertissements, clavier/souris, porte `0.2.0` | ~~🔄 en cours sur `feat/t1-mvvm-fiche-station` — lots 1 à 3 clos (2026-09-14, 18 tâches sur 33), lot 4 débloqué par les arbitrages du 2026-09-18~~ ✅ **clos le 2026-09-27** — **42 tâches sur 42**, `v0.2.0` (tag sur `a664783`, PR #14 fusionnée sur `dev`) ; statuts à jour dans [`project-state.md`](project-state.md) |
+| [`2026-09-27-t2-secheresse-et-restrictions.md`](superpowers/plans/2026-09-27-t2-secheresse-et-restrictions.md) | **T2** — sécheresse et restrictions (VigiEau) : domaine, données, ViewModel, écran des restrictions, encart renforcé, écran des sources, choix « Restrictions » du sélecteur, documentation, porte Windows **et** Android | 🔄 **en cours** sur `feat/t2-domaine` (poussée sur `origin`, non fusionnée sur `dev`, PR #17 en brouillon) — **24 tâches closes sur 29** au 2026-10-04, après `X4` ; `E4` est codée (`bbdfdc1`) mais son constat d'écran n'est fait que pour quatre points sur six, le deuxième avec une réserve (par le commanditaire, le 2026-10-04, en débogage sur Windows), elle reste ouverte et n'est pas comptée ; restent `A1`, les deux constats manquants de `E4`, la réserve de son point 2 et la porte `P1` à `P3` ; la version `0.3.0` est **ouverte** (`X4`), non publiée. ✅ codé et vérifié par test (2 292 tests au 2026-10-06, après la contrainte de caméra de la carte ; 2 274 plus tôt le même jour, après le traitement de la revue de la PR #17 ; 2 132 le 2026-10-04 avec `X4`, 2 126 avec `X3`, 2 125 au sommet), **la revue de la PR #17 (postée le 2026-10-04) est traitée en grande partie, ses sept commits poussés sur `origin` le 2026-10-06 (six à 12:41, un à 13:28) (`origin/feat/t2-domaine` au sommet `454935e`), la caméra de la carte étant contrainte au monde l'après-midi, `acb83f3`, poussé le 2026-10-06 à 14:20** (`project-state.md`, point 57), **les écrans de T2 ne sont constatés qu'en partie** — par le commanditaire, en débogage, sur Windows, le 2026-10-04 ; rien en release ni sur Android ; statuts à jour dans [`project-state.md`](project-state.md) |
 | [`2026-08-24-porte-spike-flutter.md`](superpowers/plans/2026-08-24-porte-spike-flutter.md) | Porte de spike `F1`–`F3` | ✅ franchie le 2026-09-12 sur Windows — `spike/porte_flutter/COMPTE-RENDU.md` |
+
+## Cadrages et conceptions par tranche
+
+Les documents de [`superpowers/specs/`](superpowers/specs/), dans l'ordre. Un cadrage dit **quoi** et
+arbitre ; une conception dit **comment** et arbitre aussi. Chacun porte, en tête, son statut et la date
+de ses arbitrages ; le plan correspondant est ci-dessus.
+
+| Document | Contenu |
+|---|---|
+| [`2026-08-18-test-appareil-reel-m4-m5-design.md`](superpowers/specs/2026-08-18-test-appareil-reel-m4-m5-design.md) | Usage d'un Android personnel pour trancher `M4` et `M5` de T0 |
+| [`2026-08-24-bascule-flutter-trois-cibles-design.md`](superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md) | Bascule Flutter, Android, iOS et Windows, conditionnée à la porte de spike |
+| [`2026-09-22-revision-plan-t1-design.md`](superpowers/specs/2026-09-22-revision-plan-t1-design.md) | Révision du plan de T1 (`BR-013` reporté en T2, `H1`, `H2`) |
+| [`2026-09-27-cadrage-t2-design.md`](superpowers/specs/2026-09-27-cadrage-t2-design.md) | **T2** — cadrage produit (`eva`) : Q1 à Q10, arbitrés le 2026-09-27 |
+| [`2026-09-27-modele-restrictions-t2-design.md`](superpowers/specs/2026-09-27-modele-restrictions-t2-design.md) | **T2** — modèle du domaine « restrictions », contrat `RestrictionSource`, emplacement des fichiers (`harold`) |
+| [`2026-09-27-ecran-restrictions-t2-design.md`](superpowers/specs/2026-09-27-ecran-restrictions-t2-design.md) | **T2** — écran des restrictions, désignation d'un point, écran « D'où vient cette donnée ? » (`C1`, arbitrages Q-1 à Q-8) |
+| [`2026-10-03-cadrage-t4-t5-crues-design.md`](superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md) | **T4** (crues, vigilance Vigicrues) et **T5** (être prévenu), prévues après T3 — non cadrées en détail |
 
 ## Index des décisions
 
@@ -55,7 +73,7 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-001](adr/ADR-001-api-hydrometrie-v2.md) | Cibler l'API hydrométrie **v2** — la v1 est arrêtée | Accepté |
 | [ADR-002](adr/ADR-002-qualification-du-debit.md) | Ne jamais qualifier un débit de « suffisant » | Accepté ⚠️ |
 | [ADR-003](adr/ADR-003-reference-percentiles-en-asset.md) | Percentiles pré-calculés dans un asset embarqué | Accepté |
-| [ADR-004](adr/ADR-004-integration-vigieau.md) | VigiEau derrière une abstraction, avec repli | Accepté ⚠️ |
+| [ADR-004](adr/ADR-004-integration-vigieau.md) | VigiEau derrière une abstraction, ~~avec repli~~ repli data.gouv **différé** (amendé le 2026-09-27) | Accepté ⚠️ — **en partie arbitré le 2026-09-27** (chemin nominal, `SUP` d'abord, appel unique, confinement) ; ses autres choix restent tranchés par défaut |
 | [ADR-005](adr/ADR-005-stack-maui-blazor-hybrid.md) | ~~.NET MAUI Blazor Hybrid + MapLibre GL JS~~ | **Remplacé par ADR-010** |
 | [ADR-006](adr/ADR-006-onde-quatre-categories.md) | ONDE en 4 catégories d'affichage | Accepté ⚠️ |
 | [ADR-007](adr/ADR-007-ecarter-qualite-eau.md) | Écarter la qualité de l'eau de la v1 | Accepté |
@@ -66,7 +84,7 @@ Les quatre livrables de cadrage, en tête de dossier :
 | [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — le téléchargement de packs plante en natif | **D exécutée** (le plantage se reproduit sur `arm64` réel), **E épuisée** ; question déplacée, non tranchée (`ADR-013`) ; le `Must` hors-ligne de `UC-005` reste non livré |
 | [ADR-013](adr/ADR-013-bascule-flutter-cible-windows.md) | **Bascule Flutter, Windows première cible** construite | Accepté — arbitrage du 2026-09-12, écrit a posteriori le 2026-09-13 |
 | [ADR-014](adr/ADR-014-feature-first-mvvm.md) | **Feature-first + MVVM** (`ChangeNotifier`), à la place du CQRS léger | Accepté — arbitrage du commanditaire du 2026-09-13 |
-| [ADR-015](adr/ADR-015-regroupement-par-zone-administrative.md) | **Regroupement par zone administrative** sous le zoom 9 (région, puis département), `F2c` au-delà | Accepté — arbitrage du commanditaire du 2026-09-22 · 🔄 pas encore codé (lot 4 bis de T1, `Z2`→`Z4`) |
+| [ADR-015](adr/ADR-015-regroupement-par-zone-administrative.md) | **Regroupement par zone administrative** sous le zoom 9 (région, puis département), `F2c` au-delà | Accepté — arbitrage du commanditaire du 2026-09-22 · ~~🔄 pas encore codé (lot 4 bis de T1, `Z2`→`Z4`)~~ ✅ codé (`Z2`→`Z4`) et constaté à l'écran sur Windows le 2026-09-23 |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».

@@ -43,5 +43,14 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Ouverture de l'arrete et du site public hors de l'application (T2, B2).
+             D'apres le README de url_launcher 6.3.2 (section « Configuration > Android ») :
+             <queries> n'est exige que pour canLaunchUrl, que ce code n'appelle pas ;
+             launchUrl seul rend false si aucune application ne repond. Declare par
+             prudence (releve B-01 du 2026-09-27), https seul : les liens VigiEau le sont. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>

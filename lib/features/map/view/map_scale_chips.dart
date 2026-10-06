@@ -17,10 +17,33 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
-/// Les puces de bascule d'échelle, en haut à gauche de la carte : une par
-/// valeur de [MapScaleKind], celle de [scale] marquée active.
+/// La clé du choix « Restrictions » (`E5` de T2) : posée sur son nœud
+/// sémantique, donc sur la boîte entière — celle que les tests tapent et
+/// mesurent, comme `ValueKey<MapScaleKind>` pour les deux échelles.
+const Key mapDesignationChipKey = Key('map-designation-chip');
+
+/// Le libellé du choix « Restrictions » — celui de l'écran des restrictions
+/// et du bouton qu'il fait apparaître.
+const String designationChipLabel = 'Restrictions';
+
+/// Les puces du sélecteur, en haut de la carte : une par valeur de
+/// [MapScaleKind], celle de [scale] marquée active, puis — si
+/// [onToggleDesignationMode] est fourni — le choix « Restrictions ». À
+/// gauche à partir de 600 px de large, dans la colonne de droite en deçà
+/// (`buildMapOverlays`).
+///
+/// ⚠️ « Restrictions » n'est **pas** une troisième échelle (`E5`, arbitrage
+/// du commanditaire du 2026-10-03) : c'est un interrupteur **indépendant**
+/// des deux autres. La puce de l'échelle reste allumée, « Restrictions »
+/// s'allume en plus ; elle porte `toggled`, jamais `selected`.
 class MapScaleChips extends StatelessWidget {
-  const MapScaleChips({required this.scale, required this.onSelect, super.key});
+  const MapScaleChips({
+    required this.scale,
+    required this.onSelect,
+    this.designationMode = false,
+    this.onToggleDesignationMode,
+    super.key,
+  });
 
   /// L'échelle active, lue sur `MapViewModel.scale`.
   final MapScaleKind scale;
@@ -28,6 +51,16 @@ class MapScaleChips extends StatelessWidget {
   /// Appelé avec l'échelle demandée. En production,
   /// `MapViewModel.selectScale`.
   final void Function(MapScaleKind kind) onSelect;
+
+  /// Le mode de désignation est-il actif ? Lu sur
+  /// `MapViewModel.designationMode`. Sans effet quand
+  /// [onToggleDesignationMode] est nul : la puce est alors absente.
+  final bool designationMode;
+
+  /// Appelé par un tap sur « Restrictions ». En production,
+  /// `MapViewModel.toggleDesignationMode`. `null` : aucune désignation n'est
+  /// câblée, la troisième puce est **absente** — jamais une puce morte.
+  final VoidCallback? onToggleDesignationMode;
 
   @override
   Widget build(BuildContext context) {
@@ -41,15 +74,26 @@ class MapScaleChips extends StatelessWidget {
     // est, à l'intérieur de chaque puce, le `ConstrainedBox(minWidth: 44)`
     // — un plancher, pas un plafond — et le retour à la ligne du `Text`,
     // qu'aucune contrainte de hauteur ne bride.
+    final VoidCallback? toggleDesignation = onToggleDesignationMode;
     return Wrap(
       spacing: _overlayPadding,
       runSpacing: _overlayPadding,
       children: <Widget>[
         for (final MapScaleKind kind in MapScaleKind.values)
-          _MapScaleChip(
-            kind: kind,
+          _Chip(
+            semanticsKey: ValueKey<MapScaleKind>(kind),
+            label: mapScaleLabel(kind),
+            lit: kind == scale,
             selected: kind == scale,
-            onSelect: onSelect,
+            onActivate: () => onSelect(kind),
+          ),
+        if (toggleDesignation != null)
+          _Chip(
+            semanticsKey: mapDesignationChipKey,
+            label: designationChipLabel,
+            lit: designationMode,
+            toggled: designationMode,
+            onActivate: toggleDesignation,
           ),
       ],
     );
@@ -60,63 +104,82 @@ class MapScaleChips extends StatelessWidget {
 /// Material pour deux raisons, dans cet ordre :
 /// 1. la **cible tactile** de 44 pt (`04-ui.md` § 3) est ici une contrainte
 ///    explicite, pas la densité que le thème veut bien accorder ;
-/// 2. l'état sélectionné est porté par `Semantics(selected:)` **en plus** du
-///    rendu : « aucune information n'est portée par la seule couleur »
+/// 2. l'état allumé est porté par `Semantics` **en plus** du rendu :
+///    « aucune information n'est portée par la seule couleur »
 ///    (`04-ui.md` § 3) vaut aussi pour un contrôle.
+///
+/// Les trois puces partagent cette seule pilule. Une échelle porte
+/// `selected` ; le choix « Restrictions » porte `toggled` (un interrupteur,
+/// pas un choix exclusif) — l'un ou l'autre, jamais les deux.
 ///
 /// ⚠️ Le noir et le blanc employés ici ne codent **aucun état de l'eau** :
 /// `04-ui.md` § 2 ne régit que les teintes d'état, et une puce de filtre
 /// n'en est pas une.
-class _MapScaleChip extends StatelessWidget {
-  const _MapScaleChip({
-    required this.kind,
-    required this.selected,
-    required this.onSelect,
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.semanticsKey,
+    required this.label,
+    required this.lit,
+    required this.onActivate,
+    this.selected,
+    this.toggled,
   });
 
-  final MapScaleKind kind;
-  final bool selected;
-  final void Function(MapScaleKind kind) onSelect;
+  final Key semanticsKey;
+  final String label;
+
+  /// Rendu allumé (fond noir, texte blanc) — pour `selected` comme pour
+  /// `toggled`.
+  final bool lit;
+
+  /// `Semantics(selected:)` d'une échelle ; `null` pour « Restrictions ».
+  final bool? selected;
+
+  /// `Semantics(toggled:)` de « Restrictions » ; `null` pour une échelle.
+  final bool? toggled;
+
+  final VoidCallback onActivate;
 
   @override
   Widget build(BuildContext context) {
     // `KeyboardFocusRing` (`K2`) : la puce n'était, avant cette tâche,
     // atteignable qu'à la souris — un `GestureDetector` nu ne participe à
     // aucun ordre de tabulation. « Tout ce qui se fait à la souris se fait
-    // au clavier » (`04-ui.md § 3`) : Entrée/Espace appellent [onSelect],
+    // au clavier » (`04-ui.md § 3`) : Entrée/Espace appellent [onActivate],
     // exactement comme le tap. Posé SOUS `Semantics`, comme `WarningLink` :
     // la clé reste la racine du sous-arbre où le focus se trouve.
     return Semantics(
       // La clé est posée sur le nœud sémantique, donc sur la boîte
       // entière : c'est elle que les tests tapent et mesurent.
-      key: ValueKey<MapScaleKind>(kind),
+      key: semanticsKey,
       button: true,
       selected: selected,
-      label: mapScaleLabel(kind),
+      toggled: toggled,
+      label: label,
       // Le libellé est déjà annoncé ici ; sans cette exclusion le `Text`
       // intérieur en ferait un second nœud.
       excludeSemantics: true,
       // Sans ce rappel, `excludeSemantics` masque l'action de tap que le
       // geste porterait sinon lui-même : un double-tap au lecteur d'écran
       // n'activerait plus rien (relecture du 2026-09-23).
-      onTap: () => onSelect(kind),
+      onTap: onActivate,
       child: KeyboardFocusRing(
-        onActivate: () => onSelect(kind),
+        onActivate: onActivate,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => onSelect(kind),
+          onTap: onActivate,
           child: ConstrainedBox(
-            // 44 × 44 pt au minimum (`04-ui.md` § 3). La puce s'élargit avec
+            // 44 × 44 pt (48 dp sur Android) au minimum (`04-ui.md` § 3). La puce s'élargit avec
             // son texte, elle ne rétrécit jamais en deçà.
-            constraints: const BoxConstraints(
+            constraints: BoxConstraints(
               minWidth: minimumTapTarget,
               minHeight: minimumTapTarget,
             ),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: selected ? Colors.black : Colors.white,
+                color: lit ? Colors.black : Colors.white,
                 border: Border.all(color: Colors.black),
-                borderRadius: const BorderRadius.all(
+                borderRadius: BorderRadius.all(
                   Radius.circular(minimumTapTarget / 2),
                 ),
               ),
@@ -132,11 +195,11 @@ class _MapScaleChip extends StatelessWidget {
                   widthFactor: 1,
                   heightFactor: 1,
                   child: Text(
-                    mapScaleLabel(kind),
+                    label,
                     style: TextStyle(
                       fontSize: _chipFontSize,
-                      color: selected ? Colors.white : Colors.black,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                      color: lit ? Colors.white : Colors.black,
+                      fontWeight: lit ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                 ),

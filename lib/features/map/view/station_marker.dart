@@ -22,7 +22,7 @@
 // | `NonChargee` | creux | continu | **aucun** |
 // | `EnEchec` | creux | pointillé | « Donnée indisponible pour le moment. » |
 //
-// Le libellé n'est **pas dessiné** dans les 12 px de la pastille : il est
+// Le libellé n'est **pas dessiné** dans la pastille : il est
 // porté par `Semantics`, pour le lecteur d'écran (`04-ui.md` § 3). La forme
 // et le motif portent l'information visuelle.
 //
@@ -40,8 +40,9 @@
 // 1. au zoom national les 4 150 stations sont TOUTES peintes (`F2c`, aucun
 //    clustering) ; un glyphe coûterait une passe de mise en page de texte
 //    par marqueur, là où une forme dessinée coûte quatre segments (`NFR-01`) ;
-// 2. à 12 px de côté, un « ? » n'atteindrait aucun des seuils de lisibilité
-//    de `04-ui.md` § 3 — il serait un pâté, pas une information.
+// 2. à 12 px de côté (taille compacte), un « ? » n'atteindrait aucun des
+//    seuils de lisibilité de `04-ui.md` § 3 — il serait un pâté, pas une
+//    information.
 // Le « ? » reste écrit **dans la légende** (`map_legend.dart`), rendue une
 // seule fois par écran : c'est là que la forme de `04-ui.md` est montrée en
 // entier, et c'est la légende que l'usager lit pour interpréter un marqueur
@@ -106,13 +107,30 @@ const Color _stationMarkerHalo = Color(0xFF000000);
 /// § 3. Jamais atténuée, quel que soit l'état.
 const double stationMarkerBorderWidth = 2;
 
-/// Taille d'une pastille de station, en pixels logiques. Volontairement
-/// petite : ce n'est **pas** la cible tactile — celle-ci vaut
-/// [minimumTapTarget] (`lib/features/shared/tap_target.dart`), et la
-/// pastille est centrée dedans. Quatre mille cent cinquante pastilles de
-/// 44 px couvriraient la France d'un aplat ; c'est la zone de tap,
-/// invisible, qui porte l'exigence d'accessibilité.
-const double stationMarkerSize = 12;
+/// Taille d'un marqueur individuel de la carte (station ou point ONDE), en
+/// pixels logiques : la boîte de 26 px, liseré de détachement compris
+/// (arbitrage du commanditaire du 2026-09-29, canvas de design, option A —
+/// `04-ui.md` § 3). Ce n'est **pas** la cible tactile — celle-ci vaut
+/// [minimumTapTarget] (`lib/features/shared/tap_target.dart`), et le marqueur
+/// est centré dedans : la zone de tap, invisible, porte l'exigence
+/// d'accessibilité et reste inchangée.
+const double stationMarkerSize = 26;
+
+/// Taille **compacte** d'un symbole, en pixels logiques : celle de la légende
+/// (`map_legend.dart`, logée dans `minimumTapTarget / 2`) et du symbole DANS
+/// une pastille de zone (`area_cluster_marker.dart`, 44 px qui portent aussi
+/// le compte). Il n'y a pas la place d'y mettre [stationMarkerSize] — d'où
+/// une constante distincte, définie ici une seule fois. À cette taille le
+/// symbole n'a pas de liseré de détachement (voir `detached` des peintres).
+const double compactMarkerSize = 12;
+
+/// Épaisseur du liseré blanc de détachement, en pixels logiques : posé à
+/// l'extérieur du contour noir, il détache le marqueur du fond de carte.
+const double markerDetachmentWidth = 2;
+
+/// Couleur du liseré de détachement : blanc plein (l'opacité de 0,85 admise
+/// par l'arbitrage n'est pas retenue — un blanc plein se teste au pixel).
+const Color markerDetachmentColor = Color(0xFFFFFFFF);
 
 // L'alias `stationMarkerTapTarget` (`K1`) est retiré (YAGNI, relecture du
 // coordinateur du 2026-09-23) : tous les appelants lisent directement
@@ -148,6 +166,13 @@ final Paint _haloPaint = Paint()
   ..style = PaintingStyle.stroke
   ..strokeWidth = stationMarkerBorderWidth;
 
+/// Le liseré de détachement : identique pour les six états, construit une
+/// fois (voir l'en-tête de ce fichier).
+final Paint _detachmentPaint = Paint()
+  ..color = markerDetachmentColor
+  ..style = PaintingStyle.stroke
+  ..strokeWidth = markerDetachmentWidth;
+
 /// Le remplissage plein, celui d'une observation fraîche ou ancienne.
 final Paint _opaqueFillPaint = Paint()
   ..color = indetermineGrey
@@ -179,7 +204,7 @@ Paint _fillPaintFor(double opacity) {
 
 /// Le tracé d'une pastille pour une taille donnée : le losange fermé, et sa
 /// version découpée en tirets. Ne dépend NI de l'état NI de l'opacité —
-/// seulement de `size`, qui vaut [stationMarkerSize] partout dans le projet.
+/// seulement de `size` et de la présence du liseré.
 ///
 /// Les deux champs sont `final` et **ne sont jamais modifiés après
 /// construction** — pas d'`@immutable` pour autant : un `Path` reste
@@ -187,9 +212,35 @@ Paint _fillPaintFor(double opacity) {
 /// tenir. C'est la discipline de ce fichier qui garantit l'invariant, et lui
 /// seul lit ces tracés.
 class _MarkerGeometry {
-  _MarkerGeometry(Size size)
-    : diamond = _diamondPath(size),
-      dashes = _dashedPath(size);
+  _MarkerGeometry(Size size, {required bool detached})
+    : this._(size, _contourVertices(size, detached: detached), detached);
+
+  _MarkerGeometry._(Size size, List<Offset> contour, bool detached)
+    : diamond = Path()..addPolygon(contour, true),
+      dashes = _dashedPath(contour),
+      detachment = detached
+          ? (Path()..addPolygon(_detachmentVertices(size), true))
+          : null;
+
+  /// Les sommets du contour noir. Compact : le trait est centré sur le tracé,
+  /// rentré d'un demi-halo le long des axes (rendu historique, inchangé).
+  /// Avec liseré : le losange de la boîte est rentré de **2 px
+  /// perpendiculairement à chaque côté** (le liseré) puis d'un demi-halo, ce
+  /// qui met le contour noir à 2 px du liseré quel que soit l'angle du côté —
+  /// un retrait le long des axes en donnerait 1,4 sur un flanc à 45°.
+  static List<Offset> _contourVertices(Size size, {required bool detached}) =>
+      detached
+      ? insetConvexPolygon(
+          _vertices(size, 0),
+          markerDetachmentWidth + stationMarkerBorderWidth / 2,
+        )
+      : _vertices(size, stationMarkerBorderWidth / 2);
+
+  /// Les sommets du trait du liseré : sa ligne médiane, à 1 px du bord de la
+  /// boîte perpendiculairement. Ses pointes en onglet tombent alors sur les
+  /// sommets du losange de la boîte, jamais au-delà.
+  static List<Offset> _detachmentVertices(Size size) =>
+      insetConvexPolygon(_vertices(size, 0), markerDetachmentWidth / 2);
 
   /// Le losange fermé : rempli, ou tracé d'un trait continu.
   final Path diamond;
@@ -199,11 +250,14 @@ class _MarkerGeometry {
   /// par tiret.
   final Path dashes;
 
-  /// Les quatre sommets, dans le sens horaire depuis le haut. Le halo est
-  /// centré sur le tracé : la moitié déborderait hors de la boîte sans cette
-  /// marge, et le losange serait rogné.
-  static List<Offset> _vertices(Size size) {
-    const double inset = stationMarkerBorderWidth / 2;
+  /// Le losange du liseré de détachement, au ras de la boîte ; nul sans
+  /// liseré.
+  final Path? detachment;
+
+  /// Les quatre sommets, dans le sens horaire depuis le haut, rentrés de
+  /// [inset]. Le halo est centré sur le tracé : la moitié déborderait hors de
+  /// la boîte sans cette marge, et le losange serait rogné.
+  static List<Offset> _vertices(Size size, double inset) {
     final double middleX = size.width / 2;
     final double middleY = size.height / 2;
     return <Offset>[
@@ -214,14 +268,10 @@ class _MarkerGeometry {
     ];
   }
 
-  static Path _diamondPath(Size size) =>
-      Path()..addPolygon(_vertices(size), true);
-
   /// Découpe les quatre côtés en tirets. Écrit à la main plutôt qu'avec
   /// `Path.computeMetrics` : sur quatre segments droits, l'interpolation
   /// linéaire suffit — et le résultat est calculé UNE fois par taille.
-  static Path _dashedPath(Size size) {
-    final List<Offset> vertices = _vertices(size);
+  static Path _dashedPath(List<Offset> vertices) {
     final Path path = Path();
 
     for (int index = 0; index < vertices.length; index++) {
@@ -251,16 +301,59 @@ class _MarkerGeometry {
   }
 }
 
-/// Les géométries déjà calculées, par taille. En pratique **une seule
-/// entrée** : toutes les pastilles du projet mesurent [stationMarkerSize].
-/// Une `Map` plutôt qu'un champ unique pour qu'une pastille d'une autre
-/// taille — un test, une légende un jour plus grande — ne fasse pas
-/// recalculer la géométrie de toutes les autres à chaque trame.
-final Map<Size, _MarkerGeometry> _geometries = <Size, _MarkerGeometry>{};
+/// Les géométries déjà calculées, par taille et par présence du liseré. En
+/// pratique **deux entrées** : les marqueurs de la carte ([stationMarkerSize],
+/// avec liseré) et les symboles compacts ([compactMarkerSize], sans). Une
+/// `Map` plutôt qu'un champ unique pour qu'un marqueur d'une autre taille ne
+/// fasse pas recalculer la géométrie de tous les autres à chaque trame.
+final Map<(Size, bool), _MarkerGeometry> _geometries =
+    <(Size, bool), _MarkerGeometry>{};
 
 /// La géométrie de [size], calculée au premier besoin puis réutilisée.
-_MarkerGeometry _geometryFor(Size size) =>
-    _geometries.putIfAbsent(size, () => _MarkerGeometry(size));
+_MarkerGeometry _geometryFor(Size size, {required bool detached}) =>
+    _geometries.putIfAbsent((
+      size,
+      detached,
+    ), () => _MarkerGeometry(size, detached: detached));
+
+/// [vertices], polygone convexe, rentré de [distance] **perpendiculairement à
+/// chaque côté** : chaque sommet glisse le long de la bissectrice pour que les
+/// deux côtés qu'il joint restent à [distance] de leur position d'origine.
+/// Sert à poser le contour noir et le liseré à des épaisseurs réelles sur les
+/// côtés obliques (◇, ▲), là où un retrait le long des axes en donnerait
+/// moins ou plus selon l'angle. Les sommets rendus sont ceux du polygone
+/// décalé : un trait à jointure en onglet posé dessus ne déborde pas du
+/// polygone d'origine.
+List<Offset> insetConvexPolygon(List<Offset> vertices, double distance) {
+  Offset centroid = Offset.zero;
+  for (final Offset vertex in vertices) {
+    centroid += vertex;
+  }
+  centroid = centroid / vertices.length.toDouble();
+
+  /// Normale unitaire, tournée vers l'intérieur, du côté [from] → [to].
+  Offset inwardNormal(Offset from, Offset to) {
+    final Offset direction = (to - from) / (to - from).distance;
+    final Offset normal = Offset(-direction.dy, direction.dx);
+    final Offset toCentre = centroid - from;
+    return normal.dx * toCentre.dx + normal.dy * toCentre.dy >= 0
+        ? normal
+        : -normal;
+  }
+
+  final List<Offset> inset = <Offset>[];
+  for (int index = 0; index < vertices.length; index++) {
+    final Offset previous =
+        vertices[(index + vertices.length - 1) % vertices.length];
+    final Offset current = vertices[index];
+    final Offset next = vertices[(index + 1) % vertices.length];
+    final Offset before = inwardNormal(previous, current);
+    final Offset after = inwardNormal(current, next);
+    final double cosine = before.dx * after.dx + before.dy * after.dy;
+    inset.add(current + (before + after) * (distance / (1 + cosine)));
+  }
+  return inset;
+}
 
 /// Style du contour d'une pastille. Deux valeurs, et elles suffisent : le
 /// pointillé dit « rien à montrer ici », le continu dit « une forme pleine
@@ -276,7 +369,9 @@ enum StationMarkerOutline {
 
 /// Peint le losange d'une station : un remplissage [indetermineGrey] à
 /// [fillOpacity], et un halo de [stationMarkerBorderWidth] px en
-/// [stationMarkerHalo], continu ou pointillé selon [outline].
+/// [stationMarkerHalo], continu ou pointillé selon [outline]. Si [detached],
+/// un liseré blanc de [markerDetachmentWidth] px entoure le halo, dans la
+/// même boîte (le losange est alors plus petit d'autant de chaque côté).
 ///
 /// Le losange (◇) est la forme de l'état « Indéterminé » de l'échelle 2
 /// (`04-ui.md` § 2). Il est **dessiné**, quatre segments et un remplissage,
@@ -286,12 +381,27 @@ class StationMarkerPainter extends CustomPainter {
   const StationMarkerPainter({
     required this.fillOpacity,
     required this.outline,
+    this.detached = false,
   });
 
-  /// Le rendu de [state]. `switch` exhaustif sur une `sealed class`
-  /// (`BR-011`) : un état ajouté au domaine sans branche ici est une erreur
+  /// Le rendu de [state]. [detached] : voir [StationMarkerPainter]. `switch`
+  /// exhaustif sur une `sealed class` (`BR-011`) : un état ajouté au domaine sans branche ici est une erreur
   /// de compilation, jamais un marqueur muet à l'écran.
-  factory StationMarkerPainter.forState(StationMapState state) =>
+  factory StationMarkerPainter.forState(
+    StationMapState state, {
+    bool detached = false,
+  }) {
+    final StationMarkerPainter base = _baseFor(state);
+    return detached
+        ? StationMarkerPainter(
+            fillOpacity: base.fillOpacity,
+            outline: base.outline,
+            detached: true,
+          )
+        : base;
+  }
+
+  static StationMarkerPainter _baseFor(StationMapState state) =>
       switch (state) {
         Chargee(freshness: Freshness.fraiche) => const StationMarkerPainter(
           fillOpacity: 1,
@@ -327,13 +437,23 @@ class StationMarkerPainter extends CustomPainter {
   /// Style du halo.
   final StationMarkerOutline outline;
 
-  /// Deux appels de dessin au plus, et **aucune allocation** : géométrie et
+  /// Vrai pour un marqueur de la carte : un liseré blanc de
+  /// [markerDetachmentWidth] px entoure le halo. Faux pour les symboles
+  /// compacts (légende, pastille de zone).
+  final bool detached;
+
+  /// Trois appels de dessin au plus, et **aucune allocation** : géométrie et
   /// `Paint` sont mis en cache hors de cette méthode (voir l'en-tête de ce
   /// fichier). C'est ce qui rend tenable de peindre 4 150 pastilles à chaque
   /// trame d'un déplacement (`NFR-01`).
   @override
   void paint(Canvas canvas, Size size) {
-    final _MarkerGeometry geometry = _geometryFor(size);
+    final _MarkerGeometry geometry = _geometryFor(size, detached: detached);
+
+    final Path? detachment = geometry.detachment;
+    if (detachment != null) {
+      canvas.drawPath(detachment, _detachmentPaint);
+    }
 
     if (fillOpacity > 0) {
       canvas.drawPath(geometry.diamond, _fillPaintFor(fillOpacity));
@@ -354,19 +474,29 @@ class StationMarkerPainter extends CustomPainter {
   bool operator ==(Object other) =>
       other is StationMarkerPainter &&
       other.fillOpacity == fillOpacity &&
-      other.outline == outline;
+      other.outline == outline &&
+      other.detached == detached;
 
   @override
-  int get hashCode => Object.hash(fillOpacity, outline);
+  int get hashCode => Object.hash(fillOpacity, outline, detached);
 }
 
 /// Pastille d'une station sur la carte, à l'échelle « débit ».
 ///
 /// Une forme **dessinée** ([StationMarkerPainter]), jamais un glyphe de
-/// police, et un libellé porté par `Semantics` plutôt que peint dans les
-/// 12 px du losange. Le détail des choix est en tête de ce fichier.
+/// police, et un libellé porté par `Semantics` plutôt que peint dans le
+/// losange. Le détail des choix est en tête de ce fichier.
 class StationMarkerDot extends StatelessWidget {
-  const StationMarkerDot({required this.state, super.key});
+  /// [compact] : le symbole de la légende (12 px, sans liseré) plutôt que le
+  /// marqueur de la carte ([stationMarkerSize], avec liseré).
+  const StationMarkerDot({
+    required this.state,
+    this.compact = false,
+    super.key,
+  });
+
+  /// Symbole compact ([compactMarkerSize], sans liseré) : légende seulement.
+  final bool compact;
 
   /// L'état d'affichage de la station, tel que le ViewModel le rend
   /// (`MapViewModel.stateOf`).
@@ -383,12 +513,12 @@ class StationMarkerDot extends StatelessWidget {
       // Taille explicite : sans elle, `CustomPaint` peint dans la boîte que
       // son parent lui accorde — `Size.zero` là où ce parent lui laisse des
       // contraintes lâches, donc une pastille invisible. Les appelants du
-      // projet posent tous un `SizedBox` de [stationMarkerSize] autour ; la
+      // projet posent tous un `SizedBox` de la même taille autour ; la
       // taille est répétée ici pour que la pastille soit juste TOUTE SEULE,
       // et non par la grâce de son parent.
       child: CustomPaint(
-        size: const Size.square(stationMarkerSize),
-        painter: StationMarkerPainter.forState(state),
+        size: Size.square(compact ? compactMarkerSize : stationMarkerSize),
+        painter: StationMarkerPainter.forState(state, detached: !compact),
       ),
     );
   }

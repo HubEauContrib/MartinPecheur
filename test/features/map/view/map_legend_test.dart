@@ -72,6 +72,40 @@ List<String> _texts(WidgetTester tester) => tester
     .toList();
 
 void main() {
+  group('symboles compacts (canvas de design du 2026-09-29)', () {
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      testWidgets('legende $scale : symboles a 12 px, sans liseré', (
+        WidgetTester tester,
+      ) async {
+        await _pumpLegend(tester, scale);
+
+        final List<CustomPaint> symboles = tester
+            .widgetList<CustomPaint>(
+              find.descendant(
+                of: find.byType(MapLegend),
+                matching: find.byWidgetPredicate(
+                  (Widget w) =>
+                      w is CustomPaint &&
+                      (w.painter is StationMarkerPainter ||
+                          w.painter is OndeMarkerPainter),
+                ),
+              ),
+            )
+            .toList();
+
+        expect(symboles, isNotEmpty);
+        for (final CustomPaint symbole in symboles) {
+          expect(symbole.size, const Size.square(compactMarkerSize));
+          final Object? painter = symbole.painter;
+          final bool detached = painter is StationMarkerPainter
+              ? painter.detached
+              : (painter! as OndeMarkerPainter).detached;
+          expect(detached, isFalse);
+        }
+      });
+    }
+  });
+
   group('legende de l echelle « debit »', () {
     testWidgets('nomme son echelle avec le libelle de 04-ui.md', (
       WidgetTester tester,

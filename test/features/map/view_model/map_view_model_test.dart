@@ -616,6 +616,88 @@ void main() {
     });
   });
 
+  group('mode de designation (E5 de T2, arbitrage du 2026-10-03)', () {
+    test('designationMode est faux au depart', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      expect(viewModel.designationMode, isFalse);
+    });
+
+    test('toggleDesignationMode passe a vrai puis a faux, UNE notification '
+        'par appel', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      viewModel.toggleDesignationMode();
+      expect(viewModel.designationMode, isTrue);
+      expect(notifications, 1);
+
+      viewModel.toggleDesignationMode();
+      expect(viewModel.designationMode, isFalse);
+      expect(notifications, 2);
+    });
+
+    test("toggleDesignationMode ne change pas l'echelle, sur les deux "
+        'echelles', () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      viewModel.toggleDesignationMode();
+      expect(viewModel.scale, MapScaleKind.ecoulement);
+      viewModel.toggleDesignationMode();
+      expect(viewModel.scale, MapScaleKind.ecoulement);
+
+      viewModel.selectScale(MapScaleKind.debit);
+      viewModel.toggleDesignationMode();
+      expect(viewModel.scale, MapScaleKind.debit);
+      viewModel.toggleDesignationMode();
+      expect(viewModel.scale, MapScaleKind.debit);
+    });
+
+    test("toggleDesignationMode n'appelle aucun depot et ne touche ni les "
+        'stations, ni les observations ONDE, ni les clusters', () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(_loireBounds());
+      final int stationCalls = repository.calls;
+      final int allCalls = repository.allCalls;
+      final int ondeCalls = onde.boundsCalls;
+      final int hydroCalls = observations.requests.length;
+      final List<StationPoint> stations = viewModel.stations;
+
+      viewModel.toggleDesignationMode();
+      viewModel.toggleDesignationMode();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.calls, stationCalls);
+      expect(repository.allCalls, allCalls);
+      expect(onde.boundsCalls, ondeCalls);
+      expect(observations.requests, hasLength(hydroCalls));
+      expect(viewModel.stations, stations);
+      expect(viewModel.ondeObservations, isEmpty);
+      expect(viewModel.clusters, isEmpty);
+    });
+
+    test('selectScale(debit) en mode laisse designationMode vrai et bascule '
+        "l'echelle comme avant", () {
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.toggleDesignationMode();
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      viewModel.selectScale(MapScaleKind.debit);
+
+      expect(viewModel.scale, MapScaleKind.debit);
+      expect(viewModel.designationMode, isTrue);
+      expect(notifications, 1);
+    });
+  });
+
   group('etat par station (BR-007)', () {
     test('une station jamais chargee porte NonChargee, jamais SansDonnee '
         "— un ecran en cours de chargement n'affiche pas d'etat par "

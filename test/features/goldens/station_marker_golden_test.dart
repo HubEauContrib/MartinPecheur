@@ -18,7 +18,8 @@
 // niveaux de gris, où les **six** états sont montrés côte à côte : c'est là
 // que son identité de rendu avec `SansDonnee` se constate.
 //
-// Les marqueurs sont agrandis 4 × ; la taille de la carte reste 12 px. Les
+// Les marqueurs sont agrandis 2 × ; la taille de la carte est 26 px (liseré
+// blanc compris). Les
 // images sont plateforme-dépendantes. Voir `golden_harness.dart`.
 
 import 'package:flutter/widgets.dart';

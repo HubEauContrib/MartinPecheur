@@ -20,6 +20,8 @@
 // DESSINEE (aucun glyphe), que le halo fait 2 px et que les motifs different
 // reellement l'un de l'autre. Le rendu lui-meme — l'aspect — est l'affaire
 // des goldens de `U5`.
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -29,6 +31,9 @@ import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
+
+import '../../../support/marker_pixels.dart';
+import '../../../support/windows_platform.dart';
 
 /// Les cinq mots proscrits pour qualifier un debit (BR-003, `glossary.md`).
 const List<String> bannedWords = <String>[
@@ -95,7 +100,7 @@ List<_RecordedDraw> _paint(FlowCategory category, CampaignAge age) {
   OndeMarkerPainter.forCategory(
     category: category,
     age: age,
-  ).paint(canvas, const Size.square(stationMarkerSize));
+  ).paint(canvas, const Size.square(compactMarkerSize));
   return canvas.draws;
 }
 
@@ -564,6 +569,178 @@ void main() {
     });
   });
 
+  group('liseré blanc de détachement', () {
+    testWidgets('a 26 px, chaque forme a un pixel blanc juste hors du contour '
+        'noir (bas de la boite, hors du contour)', (WidgetTester tester) async {
+      const int side = 26;
+      for (final FlowCategory category in allCategories) {
+        final ByteData data = await renderMarker(
+          tester,
+          OndeMarkerPainter.forCategory(
+            category: category,
+            age: CampaignAge.recente,
+            detached: true,
+          ),
+          side,
+        );
+
+        expect(
+          looksWhite(pixelOf(data, side, side ~/ 2, side - 2)),
+          isTrue,
+          reason: 'liseré absent pour $category',
+        );
+      }
+    });
+
+    testWidgets('a 12 px (compact), aucun liseré : le bord reste le fond', (
+      WidgetTester tester,
+    ) async {
+      const int side = 12;
+      for (final FlowCategory category in allCategories) {
+        final ByteData data = await renderMarker(
+          tester,
+          OndeMarkerPainter.forCategory(
+            category: category,
+            age: CampaignAge.recente,
+          ),
+          side,
+        );
+
+        expect(
+          looksWhite(pixelOf(data, side, side ~/ 2, side - 1)),
+          isFalse,
+          reason: 'liseré inattendu pour $category',
+        );
+      }
+    });
+
+    testWidgets('le widget de carte est detache a 26 px, le compact non a '
+        '12 px', (WidgetTester tester) async {
+      CustomPaint painted() => tester.widget<CustomPaint>(
+        find.descendant(
+          of: find.byType(OndeMarkerShape),
+          matching: find.byType(CustomPaint),
+        ),
+      );
+
+      await _pumpShape(
+        tester,
+        category: const Assec(),
+        age: CampaignAge.recente,
+        observedAt: null,
+      );
+      expect(painted().size, const Size.square(stationMarkerSize));
+      expect((painted().painter! as OndeMarkerPainter).detached, isTrue);
+
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: SizedBox(
+              width: compactMarkerSize,
+              height: compactMarkerSize,
+              child: OndeMarkerShape(
+                category: Assec(),
+                age: CampaignAge.recente,
+                observedAt: null,
+                compact: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(painted().size, const Size.square(compactMarkerSize));
+      expect((painted().painter! as OndeMarkerPainter).detached, isFalse);
+    });
+  });
+
+  group('liseré de détachement — géométrie sur les côtés obliques', () {
+    testWidgets('▲ : le liseré fait 2 px PERPENDICULAIREMENT au milieu du '
+        'flanc droit, contour noir juste apres', (WidgetTester tester) async {
+      const int side = 26;
+      final ByteData data = await renderMarker(
+        tester,
+        OndeMarkerPainter.forCategory(
+          category: const EcoulementNonVisible(),
+          age: CampaignAge.recente,
+          detached: true,
+        ),
+        side,
+      );
+
+      // Flanc droit : de (13,0) a (26,26). Distances perpendiculaires des
+      // centres de pixel au bord de la boite : (18,12) 0,7 · (17,12) 1,6 ·
+      // (16,12) 2,5.
+      expect(looksWhite(pixelOf(data, side, 18, 12), minChannel: 0x99), isTrue);
+      expect(looksWhite(pixelOf(data, side, 17, 12), minChannel: 0x99), isTrue);
+      expect(looksBlack(pixelOf(data, side, 16, 12), maxChannel: 0x80), isTrue);
+    });
+
+    testWidgets('◌ pointille : le liseré reste continu dans un TROU du '
+        'pointille', (WidgetTester tester) async {
+      const int side = 26;
+      final ByteData data = await renderMarker(
+        tester,
+        OndeMarkerPainter.forCategory(
+          category: const NonObserve(),
+          age: CampaignAge.recente,
+          detached: true,
+        ),
+        side,
+      );
+
+      int trous = 0;
+      for (double angle = 0; angle < 6.283; angle += 0.02) {
+        int at(double radius) => pixelOf(
+          data,
+          side,
+          (13 + radius * math.cos(angle)).floor(),
+          (13 + radius * math.sin(angle)).floor(),
+        );
+        // Rayon 10 : le trace noir. Un pixel encore magenta y est un trou.
+        final int trace = at(10);
+        final bool trou =
+            ((trace >> 16) & 0xFF) > 0xC0 &&
+            ((trace >> 8) & 0xFF) < 0x40 &&
+            (trace & 0xFF) > 0xC0;
+        if (trou) {
+          trous++;
+          expect(
+            looksWhite(at(12), minChannel: 0x99),
+            isTrue,
+            reason: 'liseré interrompu a l angle $angle',
+          );
+        }
+      }
+      expect(trous, greaterThan(0), reason: 'aucun trou trouve : test vide');
+    });
+
+    testWidgets('rien ne sort de la boite de 26 px, pointes comprises', (
+      WidgetTester tester,
+    ) async {
+      const int side = 26;
+      const int margin = 8;
+      for (final FlowCategory category in allCategories) {
+        final ByteData data = await renderMarkerInMargin(
+          tester,
+          OndeMarkerPainter.forCategory(
+            category: category,
+            age: CampaignAge.recente,
+            detached: true,
+          ),
+          side,
+          margin,
+        );
+
+        expect(
+          paintsOutsideBox(data, side, margin),
+          isFalse,
+          reason: 'debordement pour $category',
+        );
+      }
+    });
+  });
+
   group('OndeMarkerShape — le widget', () {
     testWidgets('dessine sa forme, jamais un glyphe de police', (
       WidgetTester tester,
@@ -598,22 +775,26 @@ void main() {
       );
     });
 
-    testWidgets('mesure stationMarkerSize — 12 px, la taille VISUELLE, pas '
-        'la cible tactile', (WidgetTester tester) async {
-      await _pumpShape(
-        tester,
-        category: const Assec(),
-        age: CampaignAge.recente,
-        observedAt: null,
-      );
+    testWidgetsOnWindows(
+      'mesure stationMarkerSize — 26 px, la taille VISUELLE, pas '
+      'la cible tactile',
+      (WidgetTester tester) async {
+        await _pumpShape(
+          tester,
+          category: const Assec(),
+          age: CampaignAge.recente,
+          observedAt: null,
+        );
 
-      expect(
-        tester.getSize(find.byType(OndeMarkerShape)),
-        const Size(stationMarkerSize, stationMarkerSize),
-      );
-      expect(stationMarkerSize, 12);
-      expect(minimumTapTarget, 44);
-    });
+        expect(
+          tester.getSize(find.byType(OndeMarkerShape)),
+          const Size(stationMarkerSize, stationMarkerSize),
+        );
+        expect(stationMarkerSize, 26);
+        expect(compactMarkerSize, 12);
+        expect(minimumTapTarget, 44);
+      },
+    );
 
     testWidgets('porte son PROPRE libelle semantique : c est ce qui rend la '
         'forme annoncable telle quelle en legende', (

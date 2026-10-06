@@ -48,7 +48,7 @@ aux deux.
 
 **Zéro bibliothèque de gestion d'état** : `ChangeNotifier` et `ListenableBuilder` sont dans Flutter. **Aucune couche de cas d'usage** non plus — le guide l'annonce optionnelle, et aucun des six cas d'usage n'orchestre encore deux dépôts ; elle se réintroduirait **entre** ViewModel et dépôt, sans rien défaire.
 
-Tranches **présentes dans le code** (✅, 2026-09-23) : `features/{map,station_sheet,onde_sheet,warnings}`, plus `features/shared/` — widgets communs à plusieurs tranches, n'important aucune tranche (règle `shared-sans-tranche`, amendement d'[`ADR-014`](adr/ADR-014-feature-first-mvvm.md) du 2026-09-18). Tranches **prévues** : 🔄 `features/restrictions` (T2), 🔄 `features/{favorites,settings}` (T3). `data/` et `domain/` restent partagés.
+Tranches **présentes dans le code** (✅, 2026-10-04) : `features/{map,station_sheet,onde_sheet,warnings,restrictions}` — `restrictions` livrée par T2 (`RestrictionsViewModel`, l'écran plein, l'encart renforcé, le badge de gravité ; vérifiée par test ; ~~jamais constatée à l'écran~~ constatée en partie le 2026-10-04, par le commanditaire, en débogage sur Windows (`project-state.md`, point 48), rien en release ni sur Android) —, plus `features/shared/` — widgets communs à plusieurs tranches, n'important aucune tranche (règle `shared-sans-tranche`, amendement d'[`ADR-014`](adr/ADR-014-feature-first-mvvm.md) du 2026-09-18), qui porte aussi, depuis T2, l'écran « D'où vient cette donnée ? » (`data_sources_view.dart`, deux consommateurs : le modal et la fenêtre « ⚠ Avertissement »). Tranches **prévues** : ~~🔄 `features/restrictions` (T2),~~ 🔄 `features/{favorites,settings}` (T3). `data/` et `domain/` restent partagés.
 
 ```mermaid
 flowchart LR
@@ -78,7 +78,7 @@ flowchart LR
 
 **Le sens des dépendances est verrouillé par un test**, pas seulement écrit : `data/` n'importe jamais `features/`, `domain/` n'importe aucune infrastructure, et un `view_model` n'importe ni `material.dart` ni `widgets.dart`.
 
-**Isolation du risque VigiEau** : une seule interface `RestrictionSource`, deux implémentations (API, puis export data.gouv en repli). Une rupture de l'API `0.1` n'impacte qu'une classe.
+**Isolation du risque VigiEau** : une seule interface `RestrictionSource`, déclarée dans le domaine (`lib/domain/restrictions/`), et ~~deux implémentations (API, puis export data.gouv en repli)~~ **une implémentation en T2** : `VigieauRestrictionSource` (`lib/data/restrictions/`), décorée par `CachedRestrictionSource` (cache de session, 6 h) et posée sur le transport HTTP partagé `JsonHttpClient`, extrait de `HubEauClient`. Le repli sur l'export data.gouv est **différé** (Q3-B, arbitré le 2026-09-27, `ADR-004` amendé) : il ne s'écrira que sur une rupture constatée. Une rupture de l'API `0.1` n'impacte qu'un module, `lib/data/restrictions/`.
 
 ## 3. Modèle de données local
 
@@ -95,12 +95,14 @@ flowchart LR
 | `PointOnde` | `CodeStation` (PK), `LibelleStation`, `Latitude`, `Longitude`, `CodeDepartement` (idx), `LibelleCoursEau` | → `Departement` |
 | `CampagneOnde` | `CodeCampagne` (PK), `DateCampagne`, `TypeCampagne` (minuscules) | — |
 | `ObservationOnde` | `Id` (PK), `CodeStation` (idx), `CodeCampagne` (idx), `CodeEcoulement` (**string**), `LibelleEcoulement`, `Categorie` (`Normal`\|`Faible`\|`NonVisible`\|`Assec`\|`NonObserve`), `DateObservation` | → `PointOnde`, `CampagneOnde` — **échelle 1** |
-| `ZoneRestriction` | `IdZone` (PK), `CodeDepartement` (idx), `Nom`, `TypeZone` (`SUP`\|`SOU`\|`AEP`), `NiveauGravite`, `DateDebut`, `DateFin`, `UrlArrete`, `UrlArreteCadre` | **échelle 3** — filtrée sur `SUP` pour l'usage rivière |
-| `UsageRestreint` | `Id` (PK), `IdZone` (idx), `Nom`, `Thematique`, `Description`, `ConcerneParticulier`, `ConcerneExploitation`, `ConcerneCollectivite`, `ConcerneEntreprise` | → `ZoneRestriction` |
+| 💭 `ZoneRestriction` | `IdZone` (PK), `CodeDepartement` (idx), `Nom`, `TypeZone` (`SUP`\|`SOU`\|`AEP`), `NiveauGravite`, `DateDebut`, `DateFin`, `UrlArrete`, `UrlArreteCadre` | **échelle 3** — ~~filtrée sur `SUP` pour l'usage rivière~~ schéma de stockage **non retenu en T2** : aucune persistance, voir la note sous ce tableau |
+| 💭 `UsageRestreint` | `Id` (PK), `IdZone` (idx), `Nom`, `Thematique`, `Description`, `ConcerneParticulier`, `ConcerneExploitation`, `ConcerneCollectivite`, `ConcerneEntreprise` | → `ZoneRestriction` — idem |
 | `Favori` | `CodeEntite` (PK), `TypeEntite`, `DateAjout` | Polymorphe |
 | `CacheMeta` | `CleCache` (PK), `TypeDonnee`, `DateRecuperation`, `TtlSecondes`, `TailleOctets` | Pilote la purge |
 | `DerniereVueCarte` | `Id` (PK, unique), `BboxMinLat/Lon`, `BboxMaxLat/Lon`, `Zoom`, `DateSnapshot` | Ancre du hors-ligne |
 | `TuilePack` | `Id` (PK), `BboxRef`, `ZoomMin`, `ZoomMax`, `CheminFichier`, `DateTelechargement` | Fichiers hors base |
+
+> **Note du 2026-10-04 (`X3` de T2) — les deux lignes 💭 ci-dessus ne sont pas celles du code.** T2 ne persiste rien : la réponse de VigiEau est un instantané daté tenu **en mémoire** (cache de session, perdu au relancement), jamais une table. Le modèle réellement écrit est celui de `lib/domain/restrictions/` — `ZonesAtPoint` (le point, la date de récupération, **toutes** les zones, sans filtre sur `SUP`), `AlertZone`, `RestrictionDecree`, `DocumentLink`, `RestrictedUsage`, `DroughtSeverity`, `ZoneKind`, `UserProfile` — décrit par [`domain-model.md`](domain-model.md). Il n'a **ni `IdZone` ni `CodeDepartement`** (`code` vaut `null` sur une zone et se partage entre types : il n'aurait rien identifié), et la partition « eaux superficielles d'abord, autres zones ensuite » vit dans le domaine (`ZonesAtPoint.surfaceWaterZones` / `otherZones`). Le schéma de stockage ci-dessus ne servira que si un moteur structuré est tranché ([`ADR-011`](adr/ADR-011-stockage-local.md)).
 
 ## 4. Cache et rafraîchissement
 
@@ -113,7 +115,7 @@ flowchart LR
 | `observations_tr` | **20 min** | Cache affiché immédiatement, rafraîchissement en tâche de fond si TTL dépassé **et** réseau disponible | Dernière valeur toujours conservée |
 | `obs_elab` (courbe) | 12 h | À la demande à l'ouverture de la fiche | LRU par (station, fenêtre) |
 | Campagnes ONDE | **30 j en saison (mai-sept), 90 j hors saison** | Vérification d'une nouvelle campagne au lancement | 2 dernières campagnes conservées |
-| Zones de restriction | **6 h** | SWR + badge horodaté | Remplacement en bloc |
+| Zones de restriction | **6 h** | SWR + ~~badge horodaté~~ date de récupération rappelée sur l'écran (« Réponse de VigiEau obtenue le … ») — **cache de session en mémoire, perdu au relancement** (T2, `CachedRestrictionSource`) | Remplacement en bloc |
 | `ReferencePercentile` | ∞ | Asset embarqué, jamais d'appel réseau | Remplacé à chaque release |
 | Départements | ∞ | Asset embarqué | — |
 | Tuiles | LRU, plafond **150 Mo** configurable | Pack local pour la bbox visitée | Auto au-delà du plafond, ou manuelle |
@@ -133,7 +135,7 @@ flowchart LR
 
 ### 4.2 Implémentation — client HTTP
 
-- Client `package:http` par source, avec **retry et backoff exponentiel à gigue** sur 429, 5xx et erreurs réseau transitoires ([`CLAUDE.md`](../CLAUDE.md) § HTTP) — ✅ livré en T0 (`N4`).
+- Client `package:http` par source, avec **retry et backoff exponentiel à gigue** sur 429, 5xx et erreurs réseau transitoires ([`CLAUDE.md`](../CLAUDE.md) § HTTP) — ✅ livré en T0 (`N4`) ; **depuis le 2026-10-06 chaque tentative est bornée à 10 s** et rejouée comme une panne réseau (arbitrage du commanditaire, revue de la PR #17 ; [`nfr.md`](nfr.md), `NFR-07`).
 - **206 doit être traité comme un succès** (`C-06`) : normaliser 200 et 206 au même endroit, jamais un test `status == 200` seul qui casse dès la première pagination.
 - Throttle client global : Hub'Eau n'annonce aucun quota, et l'app n'a pas de proxy pour mutualiser la charge de sa base installée (`C-15`).
 - Conversion l/s → m³/s **et** mm → m dans le mapper uniquement, couverte par test unitaire (`BR-002`). **`extension type`** (`LitresPerSecond`, `CubicMetresPerSecond`, `Millimetres`, `Metres`) pour empêcher qu'un `double` nu en l/s soit passé là où on attend des m³/s — Dart les ferme dans les deux sens.
@@ -177,12 +179,12 @@ Navigateur racine
 │   ├── Catégorie + modalité officielle + date de campagne
 │   ├── Historique des campagnes
 │   └── Avertissement renforcé
-├── Sécheresse et restrictions ..... avertissement renforcé en tête
-│   ├── Zone géolocalisée + niveau de gravité
-│   ├── Usages restreints (filtrables par profil)
-│   └── PDF de l'arrêté + arrêté-cadre
+├── Sécheresse et restrictions ..... écran plein poussé par la désignation d'un point sur la carte (choix « Restrictions » puis bouton, appui long ou clic droit) ; avertissement renforcé en tête
+│   ├── Point désigné, date de récupération, **toutes** les zones du point (eaux superficielles d'abord) et leur niveau de gravité
+│   ├── Arrêtés : PDF de l'arrêté et de l'arrêté-cadre, dédoublonnés
+│   └── Choix du profil, puis usages restreints groupés par zone
 ├── Favoris
-├── D'où vient cette donnée ? ...... limites L-01 à L-06, glossaire
+├── D'où vient cette donnée ? ...... ✅ écran plein livré par T2 (`S1`, `lib/features/shared/data_sources_view.dart`), réduit aux sources livrées : quatre sources, licences, `L-06`, limites propres aux restrictions ; ~~limites L-01 à L-06, glossaire~~ `L-01` à `L-05` n'y figurent pas tant qu'aucun percentile n'est affiché (Q8-A, `C1` de T2), et le glossaire n'y figure pas
 └── Réglages
     ├── Cache et zones hors-ligne
     └── À propos — sources, licences, date de génération de l'asset

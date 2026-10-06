@@ -6,8 +6,9 @@
 // (groupe « IgnAttributionBadge ») — seuls les imports changent.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart'
+    show ignAttribution;
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
-import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 
 void main() {
   group('IgnAttributionBadge', () {

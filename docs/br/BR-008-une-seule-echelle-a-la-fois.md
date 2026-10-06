@@ -27,6 +27,7 @@ C'est aussi ce qui **autorise la réutilisation de teintes** d'une échelle à l
 ## Invariants & cas limites
 
 - La légende est **toujours visible**, jamais repliée : elle porte le nom de l'échelle active et ses états.
+  > ⚠️ **Écart accepté — arbitrage du commanditaire du 2026-10-03.** Sous 600 px de large, la légende est repoussée sous un avis tant qu'il s'affiche ; la règle ci-dessus n'est pas modifiée. Voir [`04-ui.md` § 1](../04-ui.md) (amendement du 2026-10-03).
 - Le changement d'échelle est explicite, via les chips de filtre. Il n'y a pas d'échelle « automatique » selon le zoom.
 - Un marqueur peut exister dans plusieurs échelles (une station hydrométrique dans une zone de restriction) : il n'affiche que l'état de l'échelle active.
 - La fiche de détail, elle, présente **toutes** les informations disponibles — la règle porte sur la carte, pas sur le détail.

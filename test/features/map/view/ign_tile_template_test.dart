@@ -62,11 +62,6 @@ void main() {
       expect(ignMaxNativeZoom, 18);
     });
 
-    test("l'attribution porte IGN et la mention Licence Ouverte", () {
-      expect(ignAttribution, contains('IGN'));
-      expect(ignAttribution, contains('Licence Ouverte'));
-    });
-
     test("l'agent utilisateur nomme l'application appelante (C-12)", () {
       expect(ignUserAgentPackageName, 'fr.martinpecheur.app');
     });

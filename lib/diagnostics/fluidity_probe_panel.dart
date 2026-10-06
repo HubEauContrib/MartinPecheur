@@ -45,7 +45,7 @@
 // Position revue aussi : `fluidityProbePanelBottom` redescend à 32 (la
 // zone de fiche, vide pendant une mesure — aucune fiche ne s'ouvre pendant
 // qu'on mesure la fluidité) pour que les trois lignes ET le rapport de `G2`
-// tiennent SANS défilement à 800 × 700, et que le panneau ne recouvre plus
+// tiennent SANS défilement à 800 × 740, et que le panneau ne recouvre plus
 // les avis de carte (« ni station… », « Élargir la recherche », bandeau
 // d'erreur) posés SOUS les puces, en haut-gauche.
 //
@@ -81,7 +81,7 @@ const double fluidityProbePanelLeft = 8;
 const double fluidityProbePanelBottom = 32;
 
 /// Hauteur MAXIMALE du contenu du panneau : un filet de sécurité, pas le
-/// dimensionnement visé — à 800 × 700 avec [fluidityProbePanelBottom] à 32,
+/// dimensionnement visé — à 800 × 740 avec [fluidityProbePanelBottom] à 32,
 /// le contenu réel (titre, protocole, trois lignes, rapport de `G2` sur
 /// quatre lignes) tient largement en dessous, sans jamais déclencher le
 /// défilement du `SingleChildScrollView` qui reste dessous par prudence

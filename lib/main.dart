@@ -3,6 +3,8 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:martinpecheur/data/http/hub_eau_client.dart';
+import 'package:martinpecheur/data/http/json_http_client.dart';
+import 'package:martinpecheur/data/links/url_launcher_external_link_opener.dart';
 import 'package:martinpecheur/data/observations/cached_hydro_observation_repository.dart';
 import 'package:martinpecheur/data/observations/http_hydro_observation_repository.dart';
 import 'package:martinpecheur/data/onde/cached_onde_observation_repository.dart';
@@ -12,18 +14,26 @@ import 'package:martinpecheur/data/referentiel/asset_station_point_repository.da
 import 'package:martinpecheur/data/referentiel/asset_station_repository.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset_loader.dart';
+import 'package:martinpecheur/data/restrictions/cached_restriction_source.dart';
+import 'package:martinpecheur/data/restrictions/vigieau_restriction_source.dart';
 import 'package:martinpecheur/diagnostics/counting_station_point_repository.dart';
 import 'package:martinpecheur/diagnostics/fluidity_probe_panel.dart';
 import 'package:martinpecheur/diagnostics/fluidity_wiring.dart';
 import 'package:martinpecheur/diagnostics/frame_timing_probe.dart';
+import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
+import 'package:martinpecheur/domain/restrictions/alert_zone.dart'
+    show DocumentLink;
+import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
+import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
+import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 import 'package:martinpecheur/features/warnings/view/initial_warning_view.dart';
@@ -107,6 +117,16 @@ Future<void> main() async {
     inner: HttpOndeObservationRepository(hubEau),
   );
 
+  // VigiEau (T2, `E3`) : la source n'est nommée qu'ICI (confinement,
+  // `test/data/restrictions/restriction_source_test.dart`), sur le transport
+  // HTTP partagé `JsonHttpClient`, décorée par la politique de cache. Le
+  // ViewModel est de session : le profil d'usager y est gardé (Q2).
+  final RestrictionSource restrictionSource = CachedRestrictionSource(
+    inner: VigieauRestrictionSource(
+      client: JsonHttpClient(httpClient: http.Client()),
+    ),
+  );
+
   runApp(
     MartinPecheurApp(
       warningsViewModel: warningsViewModel,
@@ -123,6 +143,10 @@ Future<void> main() async {
       // cache est une politique unique, partagée, jamais recopiée par
       // tranche (CLAUDE.md, invariants).
       ondeSheetViewModel: OndeSheetViewModel(onde: onde),
+      restrictionsViewModel: RestrictionsViewModel(
+        source: restrictionSource,
+        links: const UrlLauncherExternalLinkOpener(),
+      ),
       fluidityProbe: fluidityWiring.probe,
       fluidityStationPoints: fluidityWiring.countingStationPoints,
     ),
@@ -149,6 +173,7 @@ class MartinPecheurApp extends StatelessWidget {
     required this.mapViewModel,
     required this.stationSheetViewModel,
     required this.ondeSheetViewModel,
+    required this.restrictionsViewModel,
     this.fluidityProbe,
     this.fluidityStationPoints,
     super.key,
@@ -171,6 +196,11 @@ class MartinPecheurApp extends StatelessWidget {
   /// Le ViewModel de la tranche fiche ONDE, construit dans [main] et possédé
   /// par cette racine, au même titre que les deux autres.
   final OndeSheetViewModel ondeSheetViewModel;
+
+  /// Le ViewModel de l'écran des restrictions (T2, `E3`), possédé par cette
+  /// racine : de session, il garde le profil d'usager. L'écran est une
+  /// ROUTE poussée à la désignation d'un point ; son retrait la ferme.
+  final RestrictionsViewModel restrictionsViewModel;
 
   /// `NFR-01` (Task X3) : `null` sans `--dart-define=FLUIDITY_PROBE=true`
   /// (« la sonde est inerte sans son drapeau », `CLAUDE.md`) — dans ce cas
@@ -257,6 +287,76 @@ class MartinPecheurApp extends StatelessWidget {
             onCloseSheets: () {
               stationSheetViewModel.close();
               ondeSheetViewModel.close();
+            },
+            // Désignation d'un point (`E1`) : ferme les deux fiches, lance la
+            // requête et pousse l'écran plein des restrictions (arbitrage
+            // C1, Q-1). Le retrait de la route — bouton de retour, `Échap`,
+            // retour Android — ferme le ViewModel : une réponse tardive
+            // n'écrit alors plus rien. L'épingle reste tenue par la vue
+            // carte (Q-2b).
+            onPointDesignated: (GeoPoint point) {
+              stationSheetViewModel.close();
+              ondeSheetViewModel.close();
+              // L'écran est ouvert tant que le ViewModel n'est pas fermé (il
+              // ne l'est qu'au retrait de la route, ci-dessous) : une
+              // nouvelle désignation ne fait alors que relancer la requête,
+              // sans empiler une seconde route dont le retrait fermerait le
+              // ViewModel sous l'écran encore affiché.
+              final bool screenOpen =
+                  restrictionsViewModel.state is! RestrictionsFermees;
+              unawaited(restrictionsViewModel.open(point));
+              if (screenOpen) {
+                return;
+              }
+              // Ce que CETTE route affiche, retenu pour sa durée de vie : le
+              // futur de `push` se complète à l'appel de `pop`, avant
+              // l'animation de sortie. `close()` vide alors le ViewModel
+              // (verrou contre une réponse tardive) pendant que la route est
+              // encore à l'écran — elle garde, elle, ce qu'elle affichait.
+              // `leaving` est posé au retrait, juste avant `close()` : dès
+              // lors la route ne met plus rien à jour. La carte dessous reçoit
+              // les gestes pendant la sortie : une nouvelle désignation
+              // relance le ViewModel, et c'est la NOUVELLE route qui cherche —
+              // pas celle qui s'en va.
+              RestrictionsState shownState = restrictionsViewModel.state;
+              String? shownUnopenedLink = restrictionsViewModel.unopenedLink;
+              bool leaving = false;
+              unawaited(
+                Navigator.of(context)
+                    .push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext context) => ListenableBuilder(
+                          listenable: restrictionsViewModel,
+                          builder: (BuildContext context, Widget? child) {
+                            if (!leaving) {
+                              shownState = restrictionsViewModel.state;
+                              shownUnopenedLink =
+                                  restrictionsViewModel.unopenedLink;
+                            }
+                            return RestrictionsScreen(
+                              state: shownState,
+                              profile: restrictionsViewModel.profile,
+                              onChooseProfile:
+                                  restrictionsViewModel.chooseProfile,
+                              onRetry: () =>
+                                  unawaited(restrictionsViewModel.retry()),
+                              onOpenDocument: (DocumentLink link) => unawaited(
+                                restrictionsViewModel.openDocument(link),
+                              ),
+                              onOpenPublicSite: () => unawaited(
+                                restrictionsViewModel.openPublicSite(),
+                              ),
+                              unopenedLink: shownUnopenedLink,
+                            );
+                          },
+                        ),
+                      ),
+                    )
+                    .then((_) {
+                      leaving = true;
+                      restrictionsViewModel.close();
+                    }),
+              );
             },
           );
 

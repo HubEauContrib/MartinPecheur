@@ -26,6 +26,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/shared/data_sources_view.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
@@ -47,8 +48,11 @@ const Key warningWindowCloseButtonKey = Key('warning-window-close');
 /// Clé du texte propre à l'écran, quand [WarningLink.extraText] est fourni.
 const Key warningWindowExtraTextKey = Key('warning-window-extra-text');
 
+/// Clé du lien « D'où vient cette donnée ? » de la fenêtre (T2, `S1`).
+const Key warningWindowSourcesLinkKey = Key('warning-window-sources-link');
+
 /// Le contrôle d'avertissement (`W3c`) : une icône et [warningLinkLabel],
-/// cible tactile ≥ 44 pt, atteignable et activable au clavier (Tab puis
+/// cible tactile ≥ 44 pt (48 dp sur Android), atteignable et activable au clavier (Tab puis
 /// Entrée/Espace — porté par [InkWell], comme l'était le bouton « Fermer »
 /// du bandeau retiré). Le tap ouvre [WarningWindow] avec [extraText].
 class WarningLink extends StatelessWidget {
@@ -95,7 +99,7 @@ class WarningLink extends StatelessWidget {
             // par défaut, ferait de ce contrôle DEUX arrêts de tabulation.
             canRequestFocus: false,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
+              constraints: BoxConstraints(
                 minWidth: minimumTapTarget,
                 minHeight: minimumTapTarget,
               ),
@@ -106,11 +110,17 @@ class WarningLink extends StatelessWidget {
                   children: <Widget>[
                     Icon(Icons.warning_amber_rounded),
                     SizedBox(width: 4),
-                    Text(
-                      warningLinkLabel,
-                      style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.w600,
+                    // `Flexible` : à 200 % sur une largeur de téléphone
+                    // (constat du 2026-09-29), le libellé dépassait la place
+                    // restante et la `Row` débordait. Il passe désormais à
+                    // la ligne, entier — jamais tronqué (`04-ui.md` § 3).
+                    Flexible(
+                      child: Text(
+                        warningLinkLabel,
+                        style: TextStyle(
+                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -138,7 +148,8 @@ class WarningLink extends StatelessWidget {
 ///
 /// [extraText], quand il est fourni, est rendu SOUS [initialWarningBody] :
 /// c'est la phrase propre à l'écran qui a ouvert cette fenêtre — jamais un
-/// texte nouveau, jamais recalculé ici.
+/// texte nouveau, jamais recalculé ici. Sous les deux, le lien
+/// [DataSourcesLink] vers l'écran « D'où vient cette donnée ? » (`S1`).
 class WarningWindow extends StatelessWidget {
   const WarningWindow({this.extraText, super.key});
 
@@ -169,7 +180,16 @@ class WarningWindow extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(extra, key: warningWindowExtraTextKey),
                 ],
-                const SizedBox(height: 24),
+                // Le lien vers l'écran des sources (T2, `S1`, Q-8 (a)) : le
+                // libellé que cherche le Gherkin du complément `US-01`,
+                // [dataSourcesTitle]. L'écran se pose PAR-DESSUS cette
+                // fenêtre, qui est retrouvée telle quelle au retour.
+                const SizedBox(height: 8),
+                const DataSourcesLink(
+                  key: warningWindowSourcesLinkKey,
+                  label: dataSourcesTitle,
+                ),
+                const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
                   child: _CloseAction(
@@ -224,7 +244,7 @@ class _CloseAction extends StatelessWidget {
             // tabulation.
             canRequestFocus: false,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
+              constraints: BoxConstraints(
                 minWidth: minimumTapTarget,
                 minHeight: minimumTapTarget,
               ),

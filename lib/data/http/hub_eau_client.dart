@@ -1,11 +1,15 @@
 // [HubEauClient.getJson] sert **tous** les endpoints Hub'Eau — hydrométrie
 // v2 et écoulement ONDE v1 (`lib/data/http/onde_uris.dart`) : il prend
-// n'importe quelle URI du même hôte, rejoue sur 429/5xx (`isRetryable`),
-// accepte 200 et 206 (`isSuccess`, C-06), décode en UTF-8 explicite, avec
-// attente et gigue injectées. Recréer un second client pour ONDE aurait
-// recopié cette logique de rejeu — ce que le produit interdit. Les
-// constructeurs d'URI de ce fichier, eux, restent propres à l'hydrométrie
-// v2 (ADR-001 : uniquement la v2, la v1 est arrêtée depuis le 05/05/2025,
+// n'importe quelle URI du même hôte et exige une racine JSON **objet**.
+// Le rejeu (429/5xx, `isRetryable`), l'acceptation de 200 et 206
+// (`isSuccess`, C-06), le décodage UTF-8 explicite, le délai d'attente de
+// chaque tentative (10 s, non surchargeable ici), l'attente et la gigue
+// injectées vivent dans le transport qu'il délègue,
+// `lib/data/http/json_http_client.dart` (extrait en D1 de T2) — la seule
+// boucle de rejeu du produit. Recréer un second client, pour ONDE ou une
+// autre API, aurait recopié cette logique de rejeu — ce que le produit
+// interdit. Les constructeurs d'URI de ce fichier, eux, restent propres à
+// l'hydrométrie v2 (ADR-001 : uniquement la v2, la v1 est arrêtée depuis le 05/05/2025,
 // C-01) ; `checkPageSize`, `maxPageSize` et `formatDateUtc` vivent dans
 // `lib/data/http/hub_eau_paging.dart`, communs aux deux endpoints, pour que
 // `onde_uris.dart` n'ait pas à importer ce fichier pour deux fonctions
@@ -18,40 +22,18 @@
 // `code_station` ne reçoivent qu'un [StationCode] à dix caractères, jamais un
 // code site à huit (C-05).
 //
-// Trois pannes sont distinguées dans [HubEauFailure.message], parce que
-// trois causes différentes appellent trois diagnostics différents : un
-// statut HTTP hors succès, une panne réseau (`http.ClientException`, levée
-// par `IOClient` sur coupure ou échec DNS — mais **pas** sur un échec TLS :
-// `IOClient.send` n'enveloppe que `SocketException` et `HttpException`
-// (`package:http` 1.6.0, `io_client.dart`), donc `HandshakeException` et
-// `TlsException` (`dart:io`) traversent tels quels et sont rattrapées ici
-// via `on IOException`, avec le même traitement rejouable — sans le moindre
-// statut, c'est la panne transitoire la plus courante), un corps qui
-// prétend être un succès mais ne se décode pas en JSON (rejouable aussi —
-// un 206 tronqué en cours de transfert n'est pas la faute de la requête).
-// Un statut non rejouable (4xx sauf 429, `isRetryable` en décide à lui
-// seul, C-06/C-12) échoue immédiatement, sans attente : le rejouer ne
-// corrigerait pas une requête mal formée. Un client déjà fermé
-// (`ClientException` dont le message contient « already closed ») n'est
-// pas davantage rejoué : aucune attente ne rouvrira le client.
-//
-// Le corps est toujours décodé en UTF-8 explicite (`utf8.decode
-// (response.bodyBytes)`), jamais via `response.body` : JSON est UTF-8 par
-// définition (RFC 8259), alors que `response.body` retombe sur latin1 dès
-// que l'en-tête `Content-Type` ne précise pas de charset
-// (`package:http` 1.6.0, `response.dart`) — un accent d'un libellé Hub'Eau
-// (`Pré-validée`) arriverait alors corrompu jusqu'à l'écran.
-//
-// Le tirage aléatoire de la gigue n'existe qu'à un seul endroit du produit,
-// `lib/data/http/retry.dart` : ce fichier n'importe pas `dart:math`, et
-// délègue à [delayForAttempt] pour chaque délai d'attente.
-import 'dart:convert';
-import 'dart:io';
-
+// Les trois pannes que le transport distingue par type — statut HTTP hors
+// succès, panne réseau (TLS, réponse corrompue pendant le transfert et délai
+// d'attente dépassé compris), corps illisible malgré un succès — arrivent ici
+// en [JsonHttpFailure] et repartent en [HubEauFailure], dont le
+// [HubEauFailure.message] recopie mot pour mot celui du transport : le
+// contrat de ce client n'a pas bougé à l'extraction. Une racine JSON qui
+// n'est pas un objet (un tableau par exemple) échoue immédiatement, sans
+// rejeu : aucun endpoint Hub'Eau n'en rend, et la rejouer ne changerait pas
+// sa forme.
 import 'package:http/http.dart' as http;
-import 'package:martinpecheur/data/http/http_status.dart';
 import 'package:martinpecheur/data/http/hub_eau_paging.dart';
-import 'package:martinpecheur/data/http/retry.dart';
+import 'package:martinpecheur/data/http/json_http_client.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
@@ -128,8 +110,9 @@ Uri _uri(String path, Map<String, String> queryParameters) {
 
 /// Échec de [HubEauClient.getJson], une fois toutes les tentatives
 /// épuisées (ou immédiatement, pour une panne non rejouable). [message]
-/// distingue la cause : un statut (`statut 400 …`), une panne réseau, ou un
-/// corps illisible.
+/// distingue la cause : un statut (`statut 400 …`), une panne réseau (`panne
+/// réseau : …`, `réponse corrompue pendant le transfert : …`, `délai
+/// d'attente de 10 s dépassé`), ou un corps illisible.
 final class HubEauFailure implements Exception {
   const HubEauFailure(this.message);
 
@@ -139,129 +122,65 @@ final class HubEauFailure implements Exception {
   String toString() => 'HubEauFailure: $message';
 }
 
-/// Attente réelle entre deux tentatives — jamais utilisée dans un test, où
-/// [HubEauClient.new] reçoit un `sleep` injecté qui n'attend pas vraiment.
-Future<void> _sleep(Duration duration) => Future<void>.delayed(duration);
-
 /// Client HTTP de l'API hydrométrie v2, avec recul exponentiel à gigue
-/// injectée (C-12) sur les pannes rejouables.
+/// injectée (C-12) sur les pannes rejouables — délégués à [JsonHttpClient].
 final class HubEauClient {
   /// Lève [ArgumentError] si [maxAttempts] est inférieur à 1 : une tentative
-  /// est le minimum pour qu'un appel ait un sens.
+  /// est le minimum pour qu'un appel ait un sens (vérifié par
+  /// [JsonHttpClient.new]). Sans [sleep], l'attente réelle par défaut est
+  /// celle du transport.
   HubEauClient({
     required http.Client httpClient,
-    Future<void> Function(Duration) sleep = _sleep,
+    Future<void> Function(Duration)? sleep,
     double Function()? jitter,
     this.maxAttempts = 4,
-  }) : _httpClient = httpClient, // ignore: prefer_initializing_formals
-       _sleepFn = sleep,
-       // ignore: prefer_initializing_formals
-       _jitter = jitter {
-    if (maxAttempts < 1) {
-      throw ArgumentError.value(
-        maxAttempts,
-        'maxAttempts',
-        'doit être au moins 1 (une tentative)',
-      );
-    }
-  }
+  }) : _transport = JsonHttpClient(
+         httpClient: httpClient,
+         sleep: sleep,
+         jitter: jitter,
+         maxAttempts: maxAttempts,
+       );
 
-  final http.Client _httpClient;
-
-  // Nommé différemment de la fonction de sommet `_sleep` : les deux
-  // partagent une portée dans le corps de la classe (le paramètre par
-  // défaut `= _sleep` est résolu ici), et un champ homonyme masquerait la
-  // fonction de sommet au profit d'un accès à `this` non constant.
-  final Future<void> Function(Duration) _sleepFn;
-  final double Function()? _jitter;
+  final JsonHttpClient _transport;
 
   /// Nombre maximal de tentatives, première comprise. La dernière n'attend
   /// jamais avant d'abandonner. Doit être au moins 1 — vérifié au
   /// constructeur, qui lève [ArgumentError] sinon.
   final int maxAttempts;
 
-  /// Récupère [uri] et renvoie son corps décodé en objet JSON, décodé en
-  /// UTF-8 explicite (JSON est UTF-8 par définition, RFC 8259).
+  /// Récupère [uri] par [JsonHttpClient.getJson] et renvoie son corps décodé
+  /// en objet JSON, décodé en UTF-8 explicite (JSON est UTF-8 par
+  /// définition, RFC 8259). Tout échec du transport est rendu en
+  /// [HubEauFailure], avec le même message.
   ///
   /// Rejoue sur 429 et 5xx (`isRetryable`, C-12), sur une panne réseau
   /// (`http.ClientException`), sur une panne TLS qui traverse `IOClient`
   /// sans être enveloppée (`HandshakeException`/`TlsException`, `on
-  /// IOException`) et sur un corps illisible malgré un statut de succès.
-  /// Échoue immédiatement, sans attente, sur un statut non rejouable, sur
-  /// un corps JSON qui n'est pas un objet, ou sur un client déjà fermé
-  /// (`ClientException` dont le message contient « already closed ») :
-  /// aucune attente ne le rouvrira.
+  /// IOException`), sur une `FormatException` levée par le transport (corps
+  /// `gzip` corrompu, redirection mal formée), sur une tentative qui dépasse
+  /// le délai d'attente du transport (10 s, `defaultRequestTimeout`) et sur
+  /// un corps illisible malgré un statut de succès. Échoue immédiatement,
+  /// sans attente, sur un statut non rejouable, sur un corps JSON qui n'est
+  /// pas un objet, ou sur un client déjà fermé (`ClientException` dont le
+  /// message contient « already closed ») : aucune attente ne le rouvrira.
   Future<Map<String, dynamic>> getJson(Uri uri) async {
-    HubEauFailure? lastFailure;
-
-    for (int attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        final http.Response response = await _httpClient.get(
-          uri,
-          headers: const <String, String>{'Accept': 'application/json'},
-        );
-
-        if (isSuccess(response.statusCode)) {
-          final Object? decoded;
-          try {
-            decoded = jsonDecode(utf8.decode(response.bodyBytes));
-          } on FormatException catch (error) {
-            lastFailure = HubEauFailure(
-              'corps illisible (statut ${response.statusCode}) : $error',
-            );
-            await _waitBeforeNextAttempt(attempt);
-            continue;
-          }
-
-          if (decoded is Map<String, dynamic>) {
-            return decoded;
-          }
-
-          throw HubEauFailure(
-            'corps JSON invalide : un objet est attendu, reçu '
-            '${decoded.runtimeType} (un tableau par exemple)',
-          );
-        }
-
-        final String body = utf8.decode(response.bodyBytes);
-
-        if (!isRetryable(response.statusCode)) {
-          throw HubEauFailure('statut ${response.statusCode} : $body');
-        }
-
-        lastFailure = HubEauFailure('statut ${response.statusCode} : $body');
-      } on http.ClientException catch (error) {
-        if (error.message.contains('already closed')) {
-          throw HubEauFailure(
-            'client HTTP déjà fermé, non rejouable : ${error.message}',
-          );
-        }
-        lastFailure = HubEauFailure('panne réseau : ${error.message}');
-      } on IOException catch (error) {
-        // `IOClient.send` n'enveloppe en `ClientException` que
-        // `SocketException` et `HttpException` — une panne TLS
-        // (`HandshakeException`/`TlsException`) traverse sans enveloppe,
-        // et atterrit ici plutôt que dans le catch ci-dessus.
-        lastFailure = HubEauFailure('panne réseau : $error');
-      }
-
-      await _waitBeforeNextAttempt(attempt);
+    final Object? decoded;
+    try {
+      decoded = await _transport.getJson(uri);
+    } on JsonHttpFailure catch (failure) {
+      throw HubEauFailure(failure.message);
     }
 
-    throw lastFailure!;
-  }
-
-  Future<void> _waitBeforeNextAttempt(int attempt) async {
-    if (attempt == maxAttempts - 1) {
-      return;
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
     }
-    final double Function()? jitter = _jitter;
-    final Duration delay = jitter == null
-        ? delayForAttempt(attempt)
-        : delayForAttempt(attempt, jitter: jitter);
-    await _sleepFn(delay);
+
+    throw HubEauFailure(
+      'corps JSON invalide : un objet est attendu, reçu '
+      '${decoded.runtimeType} (un tableau par exemple)',
+    );
   }
 
   /// Ferme le client HTTP sous-jacent.
-  void close() => _httpClient.close();
+  void close() => _transport.close();
 }

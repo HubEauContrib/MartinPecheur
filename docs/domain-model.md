@@ -1,9 +1,22 @@
 # Modèle de domaine
 
-**Statut** : Accepté · **2026-09-13**
+**Statut** : Accepté · **2026-09-13** · relu contre le code le **2026-10-04** (`X3` de T2)
 
-**Portée** : ce document décrit ce qui est **écrit** sous `lib/domain/` à la fin de T0 (D7
-compris) — pas une cible, un état. Le vocabulaire suit `docs/glossary.md`.
+**Portée** : ce document décrit ce qui est **écrit** sous `lib/domain/` — à la fin de T0 (D7
+compris), complété par T1 pour `OndePoint` et `AdministrativeArea`, puis par T2 (contexte
+Restrictions, `GeoPoint`, port d'ouverture de lien) — pas une cible, un état. Le vocabulaire suit
+`docs/glossary.md`.
+
+⚠️ **Relevé du 2026-10-04 (`X3` de T2) : le document est en retard sur T1.** Écrits sous
+`lib/domain/` et **absents** d'ici : `OndeStationCode`, `OndeObservation`,
+`OndeObservationRepository`, `OndeSweep`, `CampaignAge`, `StationMapState` (et ses branches
+`NonChargee`, `Chargee`, `SansDonnee`, `EnEchec`), les branches de `FlowCategory` autres que
+`NonObserve` et `Inconnu` (`Ecoulement`, `EcoulementFaible`, `EcoulementNonVisible`, `Assec`),
+`AreaCluster`, `AreaClustering`, `AreaLevel`, `AcknowledgementRepository`, `SheetWarningKind`, les
+formateurs de date (`display_date.dart`), les noms de source (`source_names.dart`), les textes
+d'avertissement (`warning_texts.dart`) et le rang de sévérité de `flow_severity.dart` (`BR-009`).
+`test/project/domain_model_doc_test.dart` ne verrouille que la liste `typesDuDomaine`, qui ne les
+contient pas : ce retard ne rougit rien. Il est **à rattraper**, il n'est pas rattrapé ici.
 
 ⚠️ Ce document décrit le **code**, pas la persistance. `docs/03-conception.md § 3` nomme une
 table `ObservationHydro` portant `ValeurM3S` ; le code porte `HydroObservation` et
@@ -21,9 +34,10 @@ Immuables, sans identité — deux instances aux mêmes champs sont interchangea
 | `DepartementCode` | Code département en chaîne. Refuse un entier déguisé : `"01"` interprété comme un nombre deviendrait `1`, et la Corse (`2A`/`2B`) rendrait la conversion impossible de toute façon. |
 | `Qualification` | Statut et qualification d'une observation, transportés tels quels (`BR-006`) — aucun champ n'est interprété ni filtré ici. |
 | `Bounds` | Emprise rectangulaire WGS 84 (`lib/domain/geo/bounds.dart`). Refuse une emprise inversée (`west >= east` ou `south >= north`) à la construction. Rangée sous `geo/` et non dans le fichier des contrats de dépôt : la vue en construit une à chaque relâchement de geste, et elle n'a pas à importer `StationRepository` pour cela. |
+| `GeoPoint` | Point désigné par l'usager sur la carte (`lib/domain/geo/geo_point.dart`, T2). Refuse une latitude hors `[-90, 90]`, une longitude hors `[-180, 180]`, `NaN` ou une valeur infinie sur l'une ou l'autre — à la construction, aucun arrondi. Seule entrée géographique de T2 (Q1-A) : une paire de `double` nus ouvrirait la porte à une inversion latitude/longitude. |
 
-`StationCode`, `DepartementCode`, `Qualification` et `Bounds` sont des classes, et non des
-`extension type` comme les unités, précisément **parce qu'elles valident**.
+`StationCode`, `DepartementCode`, `Qualification`, `Bounds` et `GeoPoint` sont des classes, et
+non des `extension type` comme les unités, précisément **parce qu'elles valident**.
 
 ## Nomenclatures closes
 
@@ -40,6 +54,27 @@ Immuables, sans identité — deux instances aux mêmes champs sont interchangea
 ⚠️ `NonObserve` (fait de terrain constaté — code `4`) et `Inconnu` (notre propre ignorance d'un
 code) restent deux branches distinctes (`BR-007`) : les confondre transformerait une absence de
 mesure en un défaut d'implémentation, ou l'inverse.
+
+Contexte Restrictions (`lib/domain/restrictions/`, T2) :
+
+- `DroughtSeverity` — sealed, échelle 3 de `04-ui.md § 2` : `Vigilance`, `Alerte`,
+  `AlerteRenforcee`, `Crise`, branche par défaut **`GraviteInconnue`**, porteuse de la valeur
+  brute (`rawValue`). `droughtSeverityScale` rend les quatre niveaux dans l'ordre, **sans** la
+  branche inconnue ; `droughtSeverityLabel` est le seul libellé de l'échelle (« Non renseigné »
+  pour l'inconnue). **Aucun rang de sévérité** : T2 ne compare jamais deux zones (YAGNI).
+- `ZoneKind` — sealed : `EauxSuperficielles` (`SUP`), `EauxSouterraines` (`SOU`), `EauPotable`
+  (`AEP`), branche par défaut **`TypeZoneInconnu`**, porteuse de la valeur brute. `zoneKindLabel`
+  est le seul libellé du type (« Eaux superficielles », « Eaux souterraines », « Eau potable »,
+  « Type de zone non renseigné » — la valeur brute n'est jamais affichée), posé par `E2` d'après
+  la conception d'écran (Q-5a, arbitré le 2026-09-27).
+- `UserProfile` — `enum` fermé (`particulier`, `exploitation`, `collectivite`, `entreprise`, ordre
+  d'`UC-002`), **sans** branche inconnue : le profil est choisi par l'usager, jamais reçu d'une
+  API — ce n'est pas un écart à `BR-011`. `userProfileLabel` est le seul libellé (« Particulier »,
+  « Exploitation », « Collectivité », « Entreprise », Q-5b, arbitré le 2026-09-27).
+
+Les branches inconnues s'appellent `GraviteInconnue` et `TypeZoneInconnu`, et non `Inconnu`,
+déjà pris par `FlowCategory` : deux classes homonymes rendraient ambigu tout fichier qui importe
+deux échelles. Branches connues égales **par type**, branches inconnues **par valeur brute**.
 
 ## Entités
 
@@ -68,6 +103,72 @@ Identité + cycle de vie, à la différence des objets-valeur.
   date de mesure (`BR-001`). `discharge` et `level` sont déjà convertis (`BR-002`) : aucun
   `double` nu. `null` ≠ zéro (`BR-007`) — un zéro mesuré est un assec, une absence est une
   absence. `level` traverse sans contrôle de signe : une hauteur négative est possible.
+
+## Contexte Restrictions — la réponse datée au point (T2, M3)
+
+Objets-valeur immuables, à égalité structurelle. Rien n'a de cycle de vie dans l'app : une
+réponse est un **instantané daté**, pas une entité suivie — il n'y a donc pas d'agrégat à racine
+persistante ici. Le seul regroupement porteur d'invariant est `ZonesAtPoint` (conception T2 § 2.3
+et § 5). Toutes les collections (`usages`, `concernedProfiles`, `zones`) sont copiées et rendues
+non modifiables à la construction ; l'égalité de liste et de set (et la validation UTC partagée)
+sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, factorisées entre
+`alert_zone.dart` et `zones_at_point.dart` — `package:flutter/foundation.dart` et
+`package:collection` restent interdits ici comme partout sous `lib/domain/`.
+
+- `DocumentLink` — un lien vers un PDF (arrêté ou arrêté-cadre), affiché **tel que reçu**
+  (`raw`), jamais décodé ni « réparé » (`BR-014`) : l'adresse de Paris contient
+  `sign%C3%83%C2%A9` et le reste. `openableUri` rend une `Uri` seulement pour une URL absolue en
+  `http` ou `https` (schéma et hôte : un fragment, `…pdf#page=3`, ne la rend pas inouvrable,
+  `dd09e8f`, 2026-10-06) ; sinon `null` — le lien reste affiché, aucune action d'ouverture n'est
+  proposée.
+- `RestrictionDecree` — l'arrêté d'une zone : `validFrom` (non optionnel, `BR-001`), `validUntil`
+  (optionnel), `document` et `frameworkDocument` (`DocumentLink?`). Les deux dates sont des dates
+  calendaires vues à minuit **UTC** ; un `DateTime` local à la construction lève une
+  `ArgumentError`. Le mapper garde les composantes d'une date écrite avec un décalage non nul telles
+  qu'écrites, sans la convertir (arbitrage du 2026-10-06, forme jamais constatée dans une réponse
+  réelle).
+- `RestrictedUsage` — un usage restreint, **cité tel quel** (`name`, `theme`, `description` :
+  les mots du préfet, jamais reformulés — l'exception voulue à « aucune valeur brute d'API
+  n'atteint la vue », qui vise les codes et les unités, pas une citation). `concernedProfiles`
+  (`Set<UserProfile>`, non modifiable) et `concerns(UserProfile)` filtrent par profil.
+- `AlertZone` — une zone d'alerte : `name`, `kind` (`ZoneKind`), `severity` (`DroughtSeverity`),
+  `decree` (`RestrictionDecree`), `usages` (non modifiable, ordre de la source).
+  `usagesFor(profile)` rend les usages qui concernent ce profil, dans l'ordre de la source, sans
+  tri ni dédoublonnage. Aucun `id`, aucun `code`, aucun `departement` : aucune US de T2 ne les
+  affiche.
+- `ZonesAtPoint` — la réponse au point : `point` (`GeoPoint`), `retrievedAt` (instant UTC de la
+  réponse, voyage **avec** la valeur et non dans le cache, `AR-3`), `zones` (non modifiable, vide
+  = « aucune zone », `BR-007`). `surfaceWaterZones` et `otherZones` forment une **partition sans
+  perte** de `zones` : `surfaceWaterZones` isole les zones `EauxSuperficielles` dans l'ordre de
+  la source, `otherZones` garde toutes les autres dans un **ordre fixe par type**
+  (`EauxSouterraines`, puis `EauPotable`, puis `TypeZoneInconnu`) et dans l'ordre de la source à
+  l'intérieur d'un même type. **Aucun tri par sévérité** : chaque zone régit ses propres usages,
+  rien ne fonde une zone « principale » (`Q5-B`).
+- `RestrictionSource` — le contrat qui rend un `ZonesAtPoint` pour un `GeoPoint` (T2, M4). Passé au
+  domaine depuis `lib/data/` (`ADR-014`, règle `features-vers-data`) : un ViewModel ne pouvait pas
+  l'importer autrement. L'ancienne couture `lib/data/restrictions/restriction_source.dart`
+  (`SurfaceWaterRestriction`, `ADR-004` T0) est supprimée par cette tâche — elle n'avait aucun
+  appelant. `RestrictionSource` garde son nom : cité dans l'invariant de `CLAUDE.md`, `ADR-004` et
+  `context-map.md` ; « source » dit ce que les autres dépôts ne disent pas, la frontière d'un
+  service externe en version 0.1 (`C-16`).
+- `RestrictionLookupFailure` — `sealed class`, fermée à **trois** branches (`BR-011`) : un `switch`
+  exhaustif est une erreur de compilation tant qu'une branche manque. Toujours **levée**, jamais
+  rendue comme une valeur : `withCachePolicy` n'écrit en cache que ce que `load` rend, jamais ce
+  qu'il lève — un échec rendu serait servi jusqu'à expiration de la clé. « Aucune zone » n'est pas
+  un échec : `200 []` rend un `ZonesAtPoint` à `zones` vide (`BR-007`).
+  - `SourceInjoignable` — la source n'a pas répondu de façon exploitable : panne réseau/TLS, réponse
+    corrompue pendant le transfert, délai d'attente de 10 s par tentative dépassé, ou `429`/`5xx`
+    persistant — dans tous les cas après les rejeux du transport partagé (2026-10-06).
+  - `RequeteRefusee` — la source a répondu mais a refusé ce point : `statusCode` porte le statut
+    HTTP tel que reçu (`400`, `404`, `409`…).
+  - `ReponseIllisible` — la réponse ne se laisse pas lire : corps non JSON, racine non tableau, ou
+    champ obligatoire absent/mal typé (§ 4.4, tout ou rien — `AR-2`).
+- `ExternalLinkOpener` — le port d'ouverture d'une adresse **hors de l'application** (T2, `B2`) :
+  `open(Uri) → Future<bool>`, vrai si la plateforme a accepté d'ouvrir. Déclaré dans le domaine
+  (`lib/domain/links/`) pour qu'un ViewModel l'appelle sans importer la bibliothèque ; implémenté
+  sous `lib/data/links/` autour de `url_launcher`, choisi par `main.dart`. Un échec d'ouverture
+  est un **résultat** (`false`), jamais une exception : l'adresse brute reste à l'écran
+  (`UC-002 A6`).
 
 ## Agrégats
 
@@ -159,6 +260,59 @@ classDiagram
         <<interface>>
         +findLatest(StationCode, Grandeur) HydroObservation?
     }
+    class GeoPoint {
+        +double latitude
+        +double longitude
+    }
+    class ZonesAtPoint {
+        +GeoPoint point
+        +DateTime retrievedAt
+        +List~AlertZone~ zones
+        +surfaceWaterZones() List~AlertZone~
+        +otherZones() List~AlertZone~
+    }
+    class AlertZone {
+        +String name
+        +ZoneKind kind
+        +DroughtSeverity severity
+        +RestrictionDecree decree
+        +List~RestrictedUsage~ usages
+        +usagesFor(UserProfile) List~RestrictedUsage~
+    }
+    class RestrictionDecree {
+        +DateTime validFrom
+        +DateTime? validUntil
+        +DocumentLink? document
+        +DocumentLink? frameworkDocument
+    }
+    class DocumentLink {
+        +String raw
+        +openableUri() Uri?
+    }
+    class RestrictedUsage {
+        +String name
+        +String theme
+        +String description
+        +Set~UserProfile~ concernedProfiles
+        +concerns(UserProfile) bool
+    }
+    class RestrictionSource {
+        <<interface>>
+        +zonesAt(GeoPoint) ZonesAtPoint
+    }
+    class RestrictionLookupFailure { <<sealed>> +String diagnostic }
+    class ExternalLinkOpener {
+        <<interface>>
+        +open(Uri) bool
+    }
+    class SourceInjoignable
+    class RequeteRefusee { +int statusCode }
+    class ReponseIllisible
+    class DroughtSeverity { <<sealed>> }
+    class GraviteInconnue { +String? rawValue }
+    class ZoneKind { <<sealed>> }
+    class TypeZoneInconnu { +String? rawValue }
+    class UserProfile { <<enumeration>> particulier exploitation collectivite entreprise }
     class LitresPerSecond { <<extension type>> +double value }
     class CubicMetresPerSecond { <<extension type>> +double value }
     class Millimetres { <<extension type>> +double value }
@@ -177,4 +331,19 @@ classDiagram
     HydroObservationRepository ..> HydroObservation
     LitresPerSecond ..> CubicMetresPerSecond : toCubicMetresPerSecond
     Millimetres ..> Metres : toMetres
+    ZonesAtPoint --> GeoPoint
+    ZonesAtPoint --> "0..*" AlertZone
+    AlertZone --> ZoneKind
+    AlertZone --> DroughtSeverity
+    AlertZone --> RestrictionDecree
+    AlertZone --> "0..*" RestrictedUsage
+    RestrictionDecree --> DocumentLink
+    RestrictedUsage --> UserProfile
+    DroughtSeverity <|-- GraviteInconnue
+    ZoneKind <|-- TypeZoneInconnu
+    RestrictionSource ..> ZonesAtPoint : rend
+    RestrictionSource ..> RestrictionLookupFailure : lève
+    RestrictionLookupFailure <|-- SourceInjoignable
+    RestrictionLookupFailure <|-- RequeteRefusee
+    RestrictionLookupFailure <|-- ReponseIllisible
 ```

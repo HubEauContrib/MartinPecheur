@@ -2,11 +2,14 @@
 // métier) : dart:io est autorisé ici, jamais sous lib/domain/.
 //
 // Vérifie que le gabarit Windows pose une taille minimale de fenêtre
-// (décision 8 du plan T1, tâche K3) : sous 800 × 700, la colonne
+// (décision 8 du plan T1, tâche K3) : sous 800 × 740, la colonne
 // « contrôle « ⚠ Avertissement » + légende » (`04-ui.md § 3`) n'a plus la
 // place de tenir sans chevauchement — ce n'est plus un bandeau qui se
 // tronque (amendement `W3c` du 2026-09-23), mais l'exigence de ne rien faire
 // se recouvrir reste posée par la même contrainte de fenêtre.
+//
+// Amendement du commanditaire, 2026-09-29 : 700 → 740 (le bouton de
+// désignation de `E1` fait recouvrir la légende débit sur 30 px à 800 × 700).
 //
 // Amendement du commanditaire, 2026-09-23 : 600 → 700. À 800 × 600, la
 // légende de l'échelle débit (phrase `BR-003`) recouvrait les contrôles de
@@ -54,7 +57,7 @@ void main() {
     });
 
     test(
-      'des constantes nommées portent 800 et 700 (pas de nombre magique)',
+      'des constantes nommées portent 800 et 740 (pas de nombre magique)',
       () {
         expect(
           contenu,
@@ -63,10 +66,10 @@ void main() {
         );
         expect(
           contenu,
-          contains(RegExp(r'constexpr\s+int\s+kMinWindowHeight\s*=\s*700')),
+          contains(RegExp(r'constexpr\s+int\s+kMinWindowHeight\s*=\s*740')),
           reason:
-              'hauteur minimale nommée, valeur 700 (décision 8, amendée le '
-              "2026-09-23 par le commanditaire : à 600, la légende de "
+              'hauteur minimale nommée, valeur 740 (décision 8, amendée le '
+              "2026-09-29 par le commanditaire ; 600 → 700 le 2026-09-23 : à 600, la légende de "
               "l'échelle débit recouvrait les contrôles de zoom)",
         );
       },
@@ -82,7 +85,7 @@ void main() {
             'ptMinTrackSize contraint la fenêtre EXTÉRIEURE (bordures et '
             'barre de titre comprises) ; sans conversion, la ZONE '
             'CLIENTE visible pour puces/légende/contrôles serait plus '
-            'petite que 800 × 700. AdjustWindowRectExForDpi (Win32, '
+            'petite que 800 × 740. AdjustWindowRectExForDpi (Win32, '
             'documentée) convertit une zone cliente désirée en taille '
             'de fenêtre extérieure, au DPI donné.',
       );

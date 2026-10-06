@@ -51,7 +51,7 @@ Les DOE et DCR sont fixés dans les SDAGE et les arrêtés-cadres préfectoraux,
 
 | # | Décision | Motif |
 |---|---|---|
-| [ADR-004](adr/ADR-004-integration-vigieau.md) | **VigiEau intégré en v1**, derrière une interface d'abstraction, avec repli sur les exports data.gouv | Sans lui, le besoin de P2 et P5 n'est pas couvert. L'API est en `0.1` : le risque est isolé dans une seule couche |
+| [ADR-004](adr/ADR-004-integration-vigieau.md) | **VigiEau intégré en v1**, derrière une interface d'abstraction, ~~avec repli sur les exports data.gouv~~ **repli data.gouv différé** (Q3-B du cadrage de T2, arbitré par le commanditaire le 2026-09-27 ; `ADR-004` amendé) : une rupture donne un échec nommé et un lien vers le site public | Sans lui, le besoin de P2 et P5 n'est pas couvert. L'API est en `0.1` : le risque est isolé dans une seule couche |
 | [ADR-006](adr/ADR-006-onde-quatre-categories.md) | **ONDE affiché en 4 catégories**, la modalité officielle restant visible sur la fiche | Le brief annonçait 3 modalités ; il y en a 6. « Écoulement visible faible » (7 879 observations depuis 2025) est le principal signal précurseur d'assèchement et ne doit pas être fondu dans « visible » |
 | [ADR-007](adr/ADR-007-ecarter-qualite-eau.md) | **Qualité de l'eau écartée de la v1** | Voir 01-analyse § 6. Le seul jeu disponible décrit l'eau du robinet |
 | [BR-007](br/BR-007-absence-de-donnee-jamais-neutre.md) | **Aucune coloration de marqueur sans donnée.** L'absence est un état affiché, jamais un état neutre | Un marqueur vert par défaut serait un mensonge |
@@ -123,6 +123,16 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 
 Compte utilisateur · notifications push · prévision ou modélisation hydrologique · qualité de l'eau · backend · alertes personnalisées · saisie d'observations par les usagers.
 
+> ⚠️ **Amendé le 2026-10-03 (arbitrage du commanditaire).** « Alertes personnalisées » quitte
+> cette liste pour la tranche **T5** : des avis sur les lieux suivis, portés au besoin par des
+> **notifications locales**, sans serveur ni compte. « Notifications push » **y reste** au sens
+> d'un envoi par serveur, puisque « backend » y reste. « Prévision ou modélisation
+> hydrologique » **y reste** aussi : la tranche **T4** relaie la vigilance crues publiée par
+> Vigicrues, citée et attribuée, sans rien prévoir ni déduire d'un débit. « Compte utilisateur »
+> y reste.
+> 🔄 Tranches prévues, non cadrées en détail :
+> [`superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md`](superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md).
+
 ## 4. Cas limites
 
 | Situation | Détection | Comportement |
@@ -139,6 +149,6 @@ Compte utilisateur · notifications push · prévision ou modélisation hydrolog
 | **Coordonnées absentes ou hors périmètre** | Filtre de mapping | Exclue de la carte |
 | **HTTP 409 VigiEau** (commune multi-zones) | Code 409 | Bascule automatique sur `lat`/`lon` |
 | **API indisponible** (5xx, délai dépassé) | Après épuisement des tentatives | Message par source : « Le service Hub'Eau n'a pas répondu. » Les autres sources restent affichées. Jamais d'écran blanc |
-| **Rupture de contrat VigiEau** | Désérialisation en échec | Repli sur l'export data.gouv en cache ; à défaut, lien externe vers vigieau.gouv.fr |
+| **Rupture de contrat VigiEau** | Désérialisation en échec | ~~Repli sur l'export data.gouv en cache ; à défaut, lien externe vers vigieau.gouv.fr~~ **Repli différé (Q3-B, 2026-09-27)** : échec nommé (`ReponseIllisible`), aucun niveau affiché, lien vers vigieau.gouv.fr (`UC-002 A2`) |
 | **Nomenclature inconnue** | Code hors énumération | « Non renseigné » (`BR-011`) |
 | **Cache plein** | Plafond atteint | Purge LRU des tuiles, jamais des dernières observations connues |

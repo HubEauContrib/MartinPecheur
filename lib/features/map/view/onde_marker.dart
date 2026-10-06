@@ -68,12 +68,13 @@
 // national tous les marqueurs du viewport élargi sont peints à chaque trame
 // d'un déplacement (`F2c`, aucun clustering ; `NFR-01`). Les `Paint` sont
 // mis en cache par teinte, les tracés par couple (forme, motif) et par
-// taille — en pratique une taille unique, [stationMarkerSize]. `paint()`
-// n'alloue rien et ne fait **que deux appels de dessin au plus**.
+// taille (et présence du liseré) — en pratique deux tailles,
+// [stationMarkerSize] et [compactMarkerSize]. `paint()` n'alloue rien et ne
+// fait **que trois appels de dessin au plus**.
 //
-// Les constantes d'accessibilité — 12 px de forme, 44 pt de cible tactile,
-// 2 px de halo — sont celles de `station_marker.dart`, importées et non
-// recopiées : les deux fichiers sont de la MÊME tranche (`features/map/`),
+// Les constantes d'accessibilité — 26 px de forme (12 en compact), 44 pt de
+// cible tactile, 2 px de halo, 2 px de liseré — sont celles de
+// `station_marker.dart`, importées et non recopiées : les deux fichiers sont de la MÊME tranche (`features/map/`),
 // et ce sont les mêmes lignes de `04-ui.md` § 3. La règle
 // `feature-vers-feature` de `test/architecture/layers_test.dart` n'interdit
 // qu'une tranche de citer une AUTRE tranche.
@@ -311,6 +312,12 @@ final Paint _haloPaint = Paint()
   ..style = PaintingStyle.stroke
   ..strokeWidth = stationMarkerBorderWidth;
 
+/// Le liseré blanc de détachement, identique pour les six catégories.
+final Paint _detachmentPaint = Paint()
+  ..color = markerDetachmentColor
+  ..style = PaintingStyle.stroke
+  ..strokeWidth = markerDetachmentWidth;
+
 /// Les `Paint` de remplissage déjà construits, par teinte. Cinq entrées au
 /// plus — les quatre teintes de catégorie plus le gris de `BR-010`.
 final Map<Color, Paint> _fillPaints = <Color, Paint>{};
@@ -330,11 +337,40 @@ Paint _fillPaintFor(Color color) => _fillPaints.putIfAbsent(
 /// construction — pas d'`@immutable` pour autant : un `Path` reste mutable
 /// en droit, et l'annotation promettrait plus que la classe ne peut tenir.
 class _OndeGeometry {
-  _OndeGeometry(OndeMarkerShapeKind shape, OndeMarkerPattern pattern, Size size)
-    : halo = pattern == OndeMarkerPattern.contourPointille
-          ? _dashed(_outlinePath(shape, size))
-          : _outlinePath(shape, size),
-      fill = _fillPath(shape, pattern, size);
+  _OndeGeometry(
+    OndeMarkerShapeKind shape,
+    OndeMarkerPattern pattern,
+    Size size, {
+    required bool detached,
+  }) : halo = pattern == OndeMarkerPattern.contourPointille
+           ? _dashed(_contour(shape, size, detached))
+           : _contour(shape, size, detached),
+       fill = _fillPath(shape, pattern, size, detached),
+       detachment = detached
+           ? _outlinePath(
+               shape,
+               size,
+               markerDetachmentWidth / 2,
+               perpendicular: true,
+             )
+           : null;
+
+  /// Le contour noir de [shape]. Compact : rentré d'un demi-halo le long des
+  /// axes (rendu historique). Avec liseré : rentré de 2 px de liseré plus un
+  /// demi-halo, **perpendiculairement à chaque côté** (voir
+  /// [_outlinePath]).
+  static Path _contour(OndeMarkerShapeKind shape, Size size, bool detached) =>
+      _outlinePath(
+        shape,
+        size,
+        _contourInset(detached),
+        perpendicular: detached,
+      );
+
+  /// Retrait du contour noir : un demi-halo, plus le liseré quand il y en a
+  /// un (le liseré occupe alors la marge extérieure de la boîte).
+  static double _contourInset(bool detached) =>
+      stationMarkerBorderWidth / 2 + (detached ? markerDetachmentWidth : 0);
 
   /// Le tracé que suit le halo de 2 px : le contour, continu ou en tirets.
   final Path halo;
@@ -342,10 +378,24 @@ class _OndeGeometry {
   /// Le tracé rempli, ou `null` quand le motif n'en a pas.
   final Path? fill;
 
-  /// Le contour de [shape], rentré d'un demi-halo : le trait est centré sur
-  /// le tracé, la moitié déborderait hors de la boîte sans cette marge.
-  static Path _outlinePath(OndeMarkerShapeKind shape, Size size) {
-    const double inset = stationMarkerBorderWidth / 2;
+  /// Le contour du liseré de détachement, au ras de la boîte ; nul sans
+  /// liseré. Toujours continu, même quand le halo noir est pointillé.
+  final Path? detachment;
+
+  /// Le contour de [shape], rentré de [inset] : le trait est centré sur le
+  /// tracé, la moitié déborderait hors de la boîte sans cette marge.
+  ///
+  /// [perpendicular] : pour le triangle, [inset] est mesuré perpendiculaire
+  /// à chaque côté (avec [insetConvexPolygon]) et non le long des axes, ce qui
+  /// donne un liseré de 2 px sur les flancs obliques et des pointes qui ne
+  /// sortent pas de la boîte. Cercles et carrés n'ont pas de côté oblique : les
+  /// deux mesures y coïncident.
+  static Path _outlinePath(
+    OndeMarkerShapeKind shape,
+    Size size,
+    double inset, {
+    required bool perpendicular,
+  }) {
     final Rect box = Rect.fromLTRB(
       inset,
       inset,
@@ -360,11 +410,20 @@ class _OndeGeometry {
       OndeMarkerShapeKind.cercleVide => Path()..addOval(box),
       OndeMarkerShapeKind.carre => Path()..addRect(box),
       OndeMarkerShapeKind.triangle =>
-        Path()..addPolygon(<Offset>[
-          Offset(box.center.dx, box.top),
-          Offset(box.right, box.bottom),
-          Offset(box.left, box.bottom),
-        ], true),
+        Path()..addPolygon(
+          perpendicular
+              ? insetConvexPolygon(<Offset>[
+                  Offset(size.width / 2, 0),
+                  Offset(size.width, size.height),
+                  Offset(0, size.height),
+                ], inset)
+              : <Offset>[
+                  Offset(box.center.dx, box.top),
+                  Offset(box.right, box.bottom),
+                  Offset(box.left, box.bottom),
+                ],
+          true,
+        ),
     };
   }
 
@@ -372,14 +431,15 @@ class _OndeGeometry {
     OndeMarkerShapeKind shape,
     OndeMarkerPattern pattern,
     Size size,
+    bool detached,
   ) => switch (pattern) {
     OndeMarkerPattern.plein ||
-    OndeMarkerPattern.pleinContourNoir => _outlinePath(shape, size),
-    OndeMarkerPattern.demiPlein => _halfDiscPath(size),
+    OndeMarkerPattern.pleinContourNoir => _contour(shape, size, detached),
+    OndeMarkerPattern.demiPlein => _halfDiscPath(size, _contourInset(detached)),
     OndeMarkerPattern.hachuresObliques => Path.combine(
       PathOperation.intersect,
       _hatchBarsPath(size),
-      _outlinePath(shape, size),
+      _contour(shape, size, detached),
     ),
     OndeMarkerPattern.contourPointille => null,
   };
@@ -388,8 +448,7 @@ class _OndeGeometry {
   /// demi-tour, `close` referme par la corde verticale. Le côté choisi n'a
   /// pas d'importance de spécification — ce qui compte est qu'une moitié
   /// seulement soit remplie (`04-ui.md` § 2, motif « demi-plein »).
-  static Path _halfDiscPath(Size size) {
-    const double inset = stationMarkerBorderWidth / 2;
+  static Path _halfDiscPath(Size size, double inset) {
     final Rect box = Rect.fromLTRB(
       inset,
       inset,
@@ -442,20 +501,24 @@ class _OndeGeometry {
   }
 }
 
-/// Les géométries déjà calculées. En pratique **cinq entrées** : un couple
-/// (forme, motif) par rendu visuel, tous à [stationMarkerSize].
-final Map<(OndeMarkerShapeKind, OndeMarkerPattern, Size), _OndeGeometry>
-_geometries = <(OndeMarkerShapeKind, OndeMarkerPattern, Size), _OndeGeometry>{};
+/// Les géométries déjà calculées. En pratique **cinq entrées** par mode : un
+/// couple (forme, motif) par rendu visuel, à [stationMarkerSize] avec liseré
+/// sur la carte, à [compactMarkerSize] sans liseré en légende et en pastille.
+final Map<(OndeMarkerShapeKind, OndeMarkerPattern, Size, bool), _OndeGeometry>
+_geometries =
+    <(OndeMarkerShapeKind, OndeMarkerPattern, Size, bool), _OndeGeometry>{};
 
 _OndeGeometry _geometryFor(
   OndeMarkerShapeKind shape,
   OndeMarkerPattern pattern,
-  Size size,
-) => _geometries.putIfAbsent((
+  Size size, {
+  required bool detached,
+}) => _geometries.putIfAbsent((
   shape,
   pattern,
   size,
-), () => _OndeGeometry(shape, pattern, size));
+  detached,
+), () => _OndeGeometry(shape, pattern, size, detached: detached));
 
 /// Peint un marqueur ONDE : la [shape] de `04-ui.md` § 2, son [pattern], et
 /// le halo noir de [stationMarkerBorderWidth] px que la même spécification
@@ -471,6 +534,7 @@ class OndeMarkerPainter extends CustomPainter {
     required this.fillColor,
     required this.shape,
     required this.pattern,
+    this.detached = false,
   });
 
   /// Le peintre de [category] vue à l'âge [age] : teinte de la catégorie,
@@ -479,10 +543,12 @@ class OndeMarkerPainter extends CustomPainter {
   factory OndeMarkerPainter.forCategory({
     required FlowCategory category,
     required CampaignAge age,
+    bool detached = false,
   }) => OndeMarkerPainter(
     fillColor: ondeEffectiveColor(category: category, age: age),
     shape: ondeCategoryShape(category),
     pattern: ondeCategoryPattern(category),
+    detached: detached,
   );
 
   /// La teinte réellement peinte — déjà passée par [ondeEffectiveColor].
@@ -494,11 +560,26 @@ class OndeMarkerPainter extends CustomPainter {
   /// Le motif de remplissage.
   final OndeMarkerPattern pattern;
 
-  /// Deux appels de dessin au plus, et **aucune allocation** : géométrie et
+  /// Vrai pour un marqueur de la carte : un liseré blanc de
+  /// [markerDetachmentWidth] px entoure le halo noir. Faux pour les symboles
+  /// compacts (légende, pastille de zone).
+  final bool detached;
+
+  /// Trois appels de dessin au plus, et **aucune allocation** : géométrie et
   /// `Paint` sont mis en cache hors de cette méthode.
   @override
   void paint(Canvas canvas, Size size) {
-    final _OndeGeometry geometry = _geometryFor(shape, pattern, size);
+    final _OndeGeometry geometry = _geometryFor(
+      shape,
+      pattern,
+      size,
+      detached: detached,
+    );
+
+    final Path? detachment = geometry.detachment;
+    if (detachment != null) {
+      canvas.drawPath(detachment, _detachmentPaint);
+    }
 
     final Path? fill = geometry.fill;
     if (fill != null) {
@@ -516,18 +597,19 @@ class OndeMarkerPainter extends CustomPainter {
       other is OndeMarkerPainter &&
       other.fillColor == fillColor &&
       other.shape == shape &&
-      other.pattern == pattern;
+      other.pattern == pattern &&
+      other.detached == detached;
 
   @override
-  int get hashCode => Object.hash(fillColor, shape, pattern);
+  int get hashCode => Object.hash(fillColor, shape, pattern, detached);
 }
 
 /// Le marqueur d'un point ONDE, à l'échelle « écoulement ».
 ///
-/// Une forme **dessinée** ([OndeMarkerPainter]) de [stationMarkerSize] px,
-/// et un libellé porté par `Semantics` plutôt que peint dedans — à 12 px,
-/// aucun texte n'atteindrait les seuils de lisibilité de `04-ui.md` § 3. La
-/// cible tactile, elle, vaut `minimumTapTarget`
+/// Une forme **dessinée** ([OndeMarkerPainter]) de [stationMarkerSize] px
+/// (ou [compactMarkerSize] en légende), et un libellé porté par `Semantics`
+/// plutôt que peint dedans — à cette taille, aucun texte n'atteindrait les
+/// seuils de lisibilité de `04-ui.md` § 3. La cible tactile, elle, vaut `minimumTapTarget`
 /// (`lib/features/shared/tap_target.dart`) : c'est l'appelant qui la pose
 /// autour (voir `buildMapLayers`, `map_view.dart`).
 ///
@@ -552,8 +634,13 @@ class OndeMarkerShape extends StatelessWidget {
     required this.category,
     required this.age,
     required this.observedAt,
+    this.compact = false,
     super.key,
   });
+
+  /// Symbole compact ([compactMarkerSize], sans liseré) : légende seulement.
+  /// Par défaut, le marqueur de la carte ([stationMarkerSize], avec liseré).
+  final bool compact;
 
   /// La catégorie d'écoulement observée.
   final FlowCategory category;
@@ -577,8 +664,12 @@ class OndeMarkerShape extends StatelessWidget {
         // Taille explicite : sans elle, `CustomPaint` peint dans la boîte
         // que son parent lui accorde — `Size.zero` là où ce parent lui
         // laisse des contraintes lâches, donc un marqueur invisible.
-        size: const Size.square(stationMarkerSize),
-        painter: OndeMarkerPainter.forCategory(category: category, age: age),
+        size: Size.square(compact ? compactMarkerSize : stationMarkerSize),
+        painter: OndeMarkerPainter.forCategory(
+          category: category,
+          age: age,
+          detached: !compact,
+        ),
       ),
     );
   }

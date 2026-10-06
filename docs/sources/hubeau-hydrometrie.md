@@ -2,10 +2,24 @@
 
 Base URL : `https://hubeau.eaufrance.fr/api/v2/hydrometrie` · `api_version` **2.0.1**
 (relevée le 2026-09-13, présente dans chaque réponse) · aucune authentification ·
-Licence Ouverte Etalab, **citation de l'auteur obligatoire** ; version de la licence non
-précisée aux CGU consultées : *non vérifié*. Rôle : débit, hauteur, historique journalier,
-référentiel des stations. Décision liée : `ADR-001` — cibler exclusivement la v2, la v1 est
-arrêtée depuis le 05/05/2025 (`403` constaté lors du cadrage, `C-01` ; non revérifié
+Licence Ouverte Etalab, **citation de l'auteur obligatoire** ; **version de la licence non
+écrite** sur les **7 pages** et les **2 schémas** relevés le 2026-10-03 (19:41 à 19:43 UTC), tous
+en HTTP 200 : `https://hubeau.eaufrance.fr/` (19:41:59), `…/page/conditions-generales` (19:42:04),
+`…/mentions-legales-credits` (19:42:05), `…/page/api-hydrometrie` (19:42:10),
+`…/page/api-ecoulement` (19:42:14), `…/page/FAQ` (19:42:17), `…/page/a-propos` (19:42:24) ;
+schémas `…/api/v2/hydrometrie/api-docs` (19:42:26) et `…/api/v1/ecoulement/api-docs` (19:42:38).
+Adresses prises sur la page d'accueil, pas devinées. Seules les conditions générales parlent
+de licence : « La réutilisation des Jeux de données est régie par la licence ouverte Etalab »
+(avec le lien `https://www.etalab.gouv.fr/licence-ouverte-open-licence`) et, § 5.1.4, « Les
+contenus proposés par l'Éditeur sont sous Licence Ouverte » — jamais de « 1.0 » ni de « 2.0 ».
+Les six autres pages ne contiennent ni « licence » ni « etalab ». Schéma hydrométrie v2 :
+`"license": {}` ; schéma écoulement v1 : `info` limité à titre et version, sans licence. Le lien
+des conditions générales aboutit aujourd'hui (`curl -L`, HTTP 200, 19:42:53 UTC) à
+`https://www.data.gouv.fr/pages/legal/licences/etalab-2.0`, la page « Licence Ouverte 2.0 » de
+data.gouv : cela ne prouve pas la version visée par Hub'Eau, qui n'écrit aucun numéro à l'écran.
+
+Rôle : débit, hauteur, historique journalier, référentiel des stations. Décision liée :
+`ADR-001` — cibler exclusivement la v2, la v1 est arrêtée depuis le 05/05/2025 (`403` constaté lors du cadrage, `C-01` ; non revérifié
 aujourd'hui).
 
 ## Endpoints
@@ -36,6 +50,18 @@ en-tête `Content-Type`. Une panne TLS (`HandshakeException`/`TlsException`) tra
 `IOClient` sans être enveloppée en `ClientException` et est rejouée comme une panne réseau ;
 un client déjà fermé (`ClientException` « already closed ») ne l'est pas. Les tentatives
 épuisées (`maxAttempts`, 4 par défaut) lèvent `HubEauFailure`.
+
+**Depuis le 2026-10-06** (revue de la PR #17, `7a19141`, arbitrage du commanditaire) : chaque
+tentative est bornée à **10 s** et un dépassement est rejoué comme une panne réseau — sans borne, un
+serveur qui accepte la connexion sans répondre laissait l'appelant sans fin ; pire cas avant l'échec
+avec quatre tentatives : 43,5 à 47 s, et un serveur lent mais vivant, qui répondrait en plus de 10 s,
+échoue. Le décodage UTF-8 strict ne vaut plus que pour un corps de **succès** ; le corps d'un
+**échec** HTTP, simple diagnostic, est décodé avec tolérance (`allowMalformed`) : un `503` non UTF-8 est
+rejoué, un `400` non UTF-8 reste refusé, et aucune `FormatException` nue ne sort du client. Une
+`FormatException` levée par le transport lui-même (corps `gzip` corrompu, redirection mal formée) est
+rejouée comme une panne réseau. Établi par exécution contre un serveur local, **jamais sur Hub'Eau** ;
+une tentative abandonnée au délai n'est pas annulée, sa connexion reste ouverte tant que le serveur ne
+répond ni ne coupe (mesuré contre un serveur local, `docs/project-state.md`, point 57).
 
 ```mermaid
 sequenceDiagram

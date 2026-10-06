@@ -133,6 +133,33 @@ void main() {
     },
   );
 
+  group('ecran des sources (T2, S1) — libelles de navigation, HORS verrou '
+      'de version', () {
+    test('initialWarningSourcesLinkLabel vaut exactement "Relire le detail '
+        'des sources" (04-ui.md § 1)', () {
+      expect(initialWarningSourcesLinkLabel, 'Relire le détail des sources');
+    });
+
+    test('dataSourcesTitle vaut exactement "D\'ou vient cette donnee ?" '
+        '(02-specifications.md, 04-ui.md § 1)', () {
+      expect(dataSourcesTitle, "D'où vient cette donnée ?");
+    });
+
+    test('ne contiennent aucun mot banni (BR-003)', () {
+      expect(_bannedWords.hasMatch(initialWarningSourcesLinkLabel), isFalse);
+      expect(_bannedWords.hasMatch(dataSourcesTitle), isFalse);
+    });
+
+    test("un lien de navigation n'est pas le texte acquitte : "
+        'initialWarningBody ne contient aucun des deux libelles', () {
+      expect(
+        initialWarningBody,
+        isNot(contains(initialWarningSourcesLinkLabel)),
+      );
+      expect(initialWarningBody, isNot(contains(dataSourcesTitle)));
+    });
+  });
+
   group('encart renforce (W5, BR-013, texte seul — le widget part en T2)', () {
     test('reinforcedWarningHeadline vaut exactement "NE FONDEZ AUCUNE '
         'DECISION SUR CET ECRAN" (04-ui.md § 1, l. 116-117)', () {

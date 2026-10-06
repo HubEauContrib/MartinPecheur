@@ -102,6 +102,23 @@ void main() {
     test('le label affiche est MartinPêcheur', () {
       expect(contenuManifeste, contains('android:label="MartinPêcheur"'));
     });
+
+    test('un element <queries> declare l intention VIEW en https, enfant '
+        'direct de <manifest> (README de url_launcher 6.3.2, T2 B2)', () {
+      // Hors de <application> : le README du paquet installe exige
+      // « a child of the root element ».
+      final RegExp intentionViewHttps = RegExp(
+        r'<queries>(?:(?!</queries>)[\s\S])*<intent>\s*'
+        r'<action android:name="android\.intent\.action\.VIEW"\s*/>\s*'
+        r'<data android:scheme="https"\s*/>\s*</intent>',
+      );
+      expect(intentionViewHttps.hasMatch(contenuManifeste), isTrue);
+      final int finApplication = contenuManifeste.indexOf('</application>');
+      final int positionQueries = contenuManifeste.lastIndexOf(
+        'android.intent.action.VIEW',
+      );
+      expect(positionQueries, greaterThan(finApplication));
+    });
   });
 
   group('MainActivity Android', () {
