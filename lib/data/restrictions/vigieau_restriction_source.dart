@@ -23,11 +23,14 @@
 // un autre type (conception T2 § 3). `getJson` attrape tout ce qui sort de
 // l'envoi de la requete et de la lecture de son corps (`Client.send`,
 // `Response.fromStream`) : `ClientException`, `IOException` (une panne TLS, que
-// `IOClient` n'enveloppe pas), `FormatException` (corps `gzip` corrompu,
+// `IOClient` n'enveloppe pas) et `FormatException` (corps `gzip` corrompu,
 // redirection mal formee — levees par le transport avant qu'aucune
-// `http.Response` ne soit rendue) et `TimeoutException` (delai d'attente
-// depasse) ; il decode le corps d'un echec avec tolerance (`allowMalformed`),
-// de sorte que seul un corps de succes illisible devient `JsonHttpUnreadableBody`.
+// `http.Response` ne soit rendue). Il attrape aussi `TimeoutException`
+// (delai d'attente d'une tentative depasse), mais celle-ci ne vient d'aucun de
+// ces deux appels : le rappel `onTimeout` de `Future.timeout` la leve dans
+// `_fetchWithin` (`json_http_client.dart`), autour de la tentative entiere. Il
+// decode le corps d'un echec avec tolerance (`allowMalformed`), de sorte que
+// seul un corps de succes illisible devient `JsonHttpUnreadableBody`.
 // `zonesUri` ne leve rien (`GeoPoint` valide ses coordonnees a la construction)
 // et `mapZones` ne leve que `ReponseIllisible`. Restent des `Error`, jamais
 // attrapees ici : `ArgumentError` sur une redirection vers un schema non HTTP ou
