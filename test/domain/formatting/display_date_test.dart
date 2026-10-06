@@ -109,11 +109,56 @@ void main() {
       expect(formatLongCalendarDate(DateTime.utc(2026, 8, 20)), '20 août 2026');
     });
 
-    test('jour sans zéro initial', () {
+    test('le premier du mois est un ordinal : 1er septembre 2026', () {
       expect(
         formatLongCalendarDate(DateTime.utc(2026, 9, 1)),
-        '1 septembre 2026',
+        '1er septembre 2026',
       );
+    });
+
+    test('seul le premier du mois prend « er » : le 2, le 10 et le 11 ne '
+        'changent pas, ni un jour qui finit par 1 (21, 31)', () {
+      expect(
+        <String>[
+          for (final int day in <int>[2, 10, 11, 21, 31])
+            formatLongCalendarDate(DateTime.utc(2026, 8, day)),
+        ],
+        <String>[
+          '2 août 2026',
+          '10 août 2026',
+          '11 août 2026',
+          '21 août 2026',
+          '31 août 2026',
+        ],
+      );
+    });
+
+    test('le premier de chaque mois prend « er », mois en minuscules', () {
+      expect(
+        <String>[
+          for (int month = 1; month <= 12; month++)
+            formatLongCalendarDate(DateTime.utc(2026, month)),
+        ],
+        <String>[
+          '1er janvier 2026',
+          '1er février 2026',
+          '1er mars 2026',
+          '1er avril 2026',
+          '1er mai 2026',
+          '1er juin 2026',
+          '1er juillet 2026',
+          '1er août 2026',
+          '1er septembre 2026',
+          '1er octobre 2026',
+          '1er novembre 2026',
+          '1er décembre 2026',
+        ],
+      );
+    });
+
+    test('le premier, passé en local, reste le 1er : aucune conversion', () {
+      final DateTime local = DateTime.utc(2026, 9).toLocal();
+      expect(formatLongCalendarDate(local), '1er septembre 2026');
     });
 
     test('les douze mois, en minuscules et accentués', () {
