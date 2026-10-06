@@ -667,9 +667,9 @@ void main() {
 
     // Defaut 2, par la composition reelle : l'usager redescend, rappuie sur
     // l'action de l'encart, nouvel echec du meme lien ; l'avis revient dans
-    // le champ.
-    testWidgets('second echec du site public : l avis, sorti du champ, est '
-        'ramene dans le champ', (WidgetTester tester) async {
+    // le champ. Rejoue en plateforme Windows, la premiere cible.
+    testWidgetsOnWindows('second echec du site public : l avis, sorti du '
+        'champ, est ramene dans le champ', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1266, 741);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -714,6 +714,56 @@ void main() {
       final Rect view = tester.getRect(scrollable);
       expect(at.top, greaterThanOrEqualTo(view.top), reason: '$at / $view');
       expect(at.bottom, lessThanOrEqualTo(view.bottom), reason: '$at / $view');
+    });
+
+    // La cible transmise au ViewModel par la composition reelle : `main.dart`
+    // passe celle que la vue lui donne, il ne la fige pas. Un ouvreur qui
+    // n'ouvre jamais, « Ouvrir l'arrete-cadre » : l'avis est dans la carte de
+    // l'arrete-cadre, et nulle part ailleurs (pas dans celle de l'arrete, dont
+    // l'adresse est pourtant la meme pour une zone qui cite l'une et l'autre).
+    testWidgetsOnWindows('echec d ouverture de l arrete-cadre : l avis est '
+        'dans la carte du CADRE, nulle part ailleurs, et la cible est '
+        'frameworkDecree', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1266, 741);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final _PendingRestrictionSource source = _PendingRestrictionSource();
+      final RestrictionsViewModel restrictions = _restrictions(source);
+      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+      await designate(tester);
+      source.completers.single.complete(zonesAin());
+      await tester.pumpAndSettle();
+      final Finder notice = find.textContaining(
+        "Ce lien n'a pas pu être ouvert",
+      );
+      expect(notice, findsNothing);
+
+      await tester.ensureVisible(find.text("Ouvrir l'arrêté-cadre"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("Ouvrir l'arrêté-cadre"));
+      await tester.pumpAndSettle();
+
+      expect(restrictions.unopenedLink?.target, LinkTarget.frameworkDecree);
+      expect(restrictions.unopenedLink?.raw, frameworkUrlAin);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            restrictionsDecreeCardKey(frameworkUrlAin, framework: true),
+          ),
+          matching: notice,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(
+            restrictionsDecreeCardKey(decreeUrlAin, framework: false),
+          ),
+          matching: notice,
+        ),
+        findsNothing,
+      );
+      expect(notice, findsOneWidget);
     });
 
     testWidgets('Echap : route retiree, ViewModel ferme', (

@@ -930,6 +930,87 @@ void main() {
       expect(vm.unopenedLink, isNull);
     });
 
+    // Garde de generation de `_clearUnopenedLink`. L'usager appuie sur « Ouvrir
+    // l'arrete » (lent a repondre), referme l'ecran, designe un autre point,
+    // appuie de nouveau sur le MEME lien : echec, l'avis est la. L'ouverture
+    // lente, de l'ancienne generation, aboutit alors : elle ne dit rien du
+    // lien que l'usager vient de redemander, l'avis recent reste.
+    test('reussite TARDIVE d une generation depassee, pour le meme lien : '
+        'l avis recent reste, aucune notification', () async {
+      final Completer<bool> slow = Completer<bool>();
+      int calls = 0;
+      links.answer = (Uri uri) =>
+          ++calls == 1 ? slow.future : Future<bool>.value(false);
+      final RestrictionsViewModel vm = viewModel();
+
+      final Future<void> slowOpening = vm.openDocument(
+        const DocumentLink(arrete),
+        LinkTarget.decree,
+      );
+      vm.close();
+      await vm.open(_pointAin());
+      await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
+      final UnopenedLink recent = vm.unopenedLink!;
+      expect(recent.raw, arrete);
+      int notifications = 0;
+      vm.addListener(() => notifications++);
+
+      slow.complete(true);
+      await slowOpening;
+
+      expect(vm.unopenedLink, same(recent));
+      expect(notifications, 0);
+    });
+
+    // Garde `_disposed` de `_clearUnopenedLink` : un avis est present, la
+    // reouverture du meme lien est en vol, le ViewModel est dispose, puis elle
+    // aboutit. Sans la garde, la remise a `null` notifierait un ViewModel
+    // dispose (`FlutterError`, « used after being disposed »).
+    test(
+      'dispose() pendant la reouverture du lien en echec, puis sa '
+      'reussite : aucune ecriture, aucune notification, aucune exception',
+      () async {
+        final Completer<bool> slow = Completer<bool>();
+        int calls = 0;
+        links.answer = (Uri uri) =>
+            ++calls == 1 ? Future<bool>.value(false) : slow.future;
+        final RestrictionsViewModel vm = RestrictionsViewModel(
+          source: source,
+          links: links,
+        );
+        await vm.openDocument(const DocumentLink(arrete), LinkTarget.decree);
+        final UnopenedLink notice = vm.unopenedLink!;
+        int notifications = 0;
+        vm.addListener(() => notifications++);
+
+        final Future<void> reopening = vm.openDocument(
+          const DocumentLink(arrete),
+          LinkTarget.decree,
+        );
+        vm.dispose();
+        slow.complete(true);
+        await expectLater(reopening, completes);
+
+        expect(notifications, 0);
+        expect(vm.unopenedLink, same(notice));
+      },
+    );
+
+    // Le site public a sa methode : `openDocument(link, publicSite)` n'aurait
+    // aucune carte pour porter l'avis, l'echec resterait muet.
+    test('openDocument refuse LinkTarget.publicSite : assertion, l ouvreur '
+        'n est pas appele', () async {
+      final RestrictionsViewModel vm = viewModel();
+
+      await expectLater(
+        vm.openDocument(const DocumentLink(arrete), LinkTarget.publicSite),
+        throwsAssertionError,
+      );
+
+      expect(links.opened, isEmpty);
+      expect(vm.unopenedLink, isNull);
+    });
+
     test(
       'dispose() pendant une ouverture : aucune notification apres',
       () async {

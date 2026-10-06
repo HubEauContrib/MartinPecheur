@@ -155,7 +155,8 @@ final class RestrictionsViewModel extends ChangeNotifier {
   int _failureCount = 0;
 
   /// Le dernier lien qui n'a pas pu s'ouvrir (`UC-002 A6`), ou `null`. Remis
-  /// a `null` par une ouverture reussie, par [open] et par [close].
+  /// a `null` par la reussite de CE lien (meme cible, meme adresse : celle d'un
+  /// autre lien ne le retire pas), par [open] et par [close].
   UnopenedLink? get unopenedLink => _unopenedLink;
 
   RestrictionsState _state = const RestrictionsFermees();
@@ -266,10 +267,17 @@ final class RestrictionsViewModel extends ChangeNotifier {
 
   /// Ouvre hors de l'application le PDF [link] : [target] dit s'il s'agit de
   /// l'arrete ([LinkTarget.decree]) ou de l'arrete-cadre
-  /// ([LinkTarget.frameworkDecree]) — le site public a sa methode. Sans
-  /// adresse ouvrable (`DocumentLink.openableUri` nul), l'ouvreur n'est pas
-  /// appele et l'adresse brute devient [unopenedLink].
+  /// ([LinkTarget.frameworkDecree]) — le site public a sa methode,
+  /// [openPublicSite] : [LinkTarget.publicSite] est refuse ici (assertion en
+  /// debogage), car aucune carte de l'ecran ne porterait l'avis de son echec.
+  /// Sans adresse ouvrable (`DocumentLink.openableUri` nul), l'ouvreur n'est
+  /// pas appele et l'adresse brute devient [unopenedLink].
   Future<void> openDocument(DocumentLink link, LinkTarget target) async {
+    assert(
+      target != LinkTarget.publicSite,
+      'Le site public a sa methode : appeler openPublicSite(), pas '
+      'openDocument(link, LinkTarget.publicSite).',
+    );
     final Uri? uri = link.openableUri;
     if (uri == null) {
       _recordFailure(_generation, link.raw, target);
