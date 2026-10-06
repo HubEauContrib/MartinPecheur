@@ -12,8 +12,10 @@
 // UTF-8 explicite, avec attente de rejeu et gigue injectées (NFR-07 : quatre
 // tentatives au plus par défaut, recul plafonné à 30 s par
 // `delayForAttempt`). Chaque tentative est bornée à [defaultRequestTimeout]
-// (10 s, surchargeable au constructeur) : sans borne, un serveur qui accepte
-// la connexion et ne répond pas ferait attendre `getJson` sans fin.
+// (10 s, surchargeable au constructeur — la source des restrictions la garde,
+// `HubEauClient` passe les 20 s de `hubEauRequestTimeout`) : sans borne, un
+// serveur qui accepte la connexion et ne répond pas ferait attendre `getJson`
+// sans fin.
 //
 // Une tentative qui dépasse son délai est **annulée**, pas seulement
 // abandonnée : la requête part en `AbortableRequest` (`Client.send`,
@@ -169,10 +171,13 @@ final class JsonHttpUnreadableBody extends JsonHttpFailure {
 /// 10 s. Arbitrage du commanditaire du 2026-10-06 : sans borne, un
 /// serveur qui accepte la connexion et ne répond pas laisse `getJson` — et
 /// l'écran qui l'attend — sans fin, sans bouton « Réessayer ». Surchargeable
-/// au constructeur de [JsonHttpClient], pour les tests. Avec quatre tentatives
-/// et les attentes de rejeu (`retry.dart`), le pire cas avant l'échec est de
-/// 43,5 à 47 s ; un serveur lent mais vivant, qui répondrait en plus de 10 s,
-/// échoue lui aussi.
+/// au constructeur de [JsonHttpClient] : `HubEauClient` y passe 20 s
+/// (`hubEauRequestTimeout`, arbitrage du soir du 2026-10-06, mesure `T-17` de
+/// `docs/sources/onde.md`) ; **la source des restrictions garde ces 10 s**.
+/// Avec quatre tentatives et les attentes de rejeu (`retry.dart`), le pire cas
+/// avant l'échec est de 43,5 à 47 s (vérifié en temps simulé par
+/// `test/data/http/json_http_client_test.dart`) ; un serveur lent mais vivant,
+/// qui répondrait en plus de 10 s, échoue lui aussi.
 const Duration defaultRequestTimeout = Duration(seconds: 10);
 
 /// Attente réelle entre deux tentatives — jamais utilisée dans un test, où

@@ -135,7 +135,7 @@ flowchart LR
 
 ### 4.2 Implémentation — client HTTP
 
-- Client `package:http` par source, avec **retry et backoff exponentiel à gigue** sur 429, 5xx et erreurs réseau transitoires ([`CLAUDE.md`](../CLAUDE.md) § HTTP) — ✅ livré en T0 (`N4`) ; **depuis le 2026-10-06 chaque tentative est bornée à 10 s** et rejouée comme une panne réseau (arbitrage du commanditaire, revue de la PR #17 ; [`nfr.md`](nfr.md), `NFR-07`).
+- Client `package:http` par source, avec **retry et backoff exponentiel à gigue** sur 429, 5xx et erreurs réseau transitoires ([`CLAUDE.md`](../CLAUDE.md) § HTTP) — ✅ livré en T0 (`N4`) ; **depuis le 2026-10-06 chaque tentative est bornée** — ~~à 10 s~~ à **20 s pour Hub'Eau**, **10 s pour VigiEau** (arbitrage du commanditaire, revue de la PR #17, puis le soir pour les 20 s de Hub'Eau, mesure `T-17` de [`sources/onde.md`](sources/onde.md)) — et rejouée comme une panne réseau ([`nfr.md`](nfr.md), `NFR-07`).
 - **206 doit être traité comme un succès** (`C-06`) : normaliser 200 et 206 au même endroit, jamais un test `status == 200` seul qui casse dès la première pagination.
 - Throttle client global : Hub'Eau n'annonce aucun quota, et l'app n'a pas de proxy pour mutualiser la charge de sa base installée (`C-15`).
 - Conversion l/s → m³/s **et** mm → m dans le mapper uniquement, couverte par test unitaire (`BR-002`). **`extension type`** (`LitresPerSecond`, `CubicMetresPerSecond`, `Millimetres`, `Metres`) pour empêcher qu'un `double` nu en l/s soit passé là où on attend des m³/s — Dart les ferme dans les deux sens.

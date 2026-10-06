@@ -52,10 +52,13 @@ un client déjà fermé (`ClientException` « already closed ») ne l'est pas. L
 épuisées (`maxAttempts`, 4 par défaut) lèvent `HubEauFailure`.
 
 **Depuis le 2026-10-06** (revue de la PR #17, `7a19141`, arbitrage du commanditaire) : chaque
-tentative est bornée à **10 s** et un dépassement est rejoué comme une panne réseau — sans borne, un
-serveur qui accepte la connexion sans répondre laissait l'appelant sans fin ; pire cas avant l'échec
-avec quatre tentatives : 43,5 à 47 s, et un serveur lent mais vivant, qui répondrait en plus de 10 s,
-échoue. Le décodage UTF-8 strict ne vaut plus que pour un corps de **succès** ; le corps d'un
+tentative est bornée à ~~**10 s**~~ **20 s pour Hub'Eau** (arbitrage du commanditaire du 2026-10-06 au
+soir, `hubEauRequestTimeout` ; **10 s pour VigiEau**) et un dépassement est rejoué comme une panne
+réseau — sans borne, un serveur qui accepte la connexion sans répondre laissait l'appelant sans fin ;
+pire cas avant l'échec avec quatre tentatives : ~~43,5 à 47 s~~ **83,5 à 87 s** pour Hub'Eau (4 × 20 s
++ 3,5 à 7 s d'attentes de rejeu, recalculé en temps simulé par les tests), 43,5 à 47 s pour VigiEau,
+et un serveur lent mais vivant, qui répondrait en plus de 20 s, échoue. Le décodage UTF-8 strict ne
+vaut plus que pour un corps de **succès** ; le corps d'un
 **échec** HTTP, simple diagnostic, est décodé avec tolérance (`allowMalformed`) : un `503` non UTF-8 est
 rejoué, un `400` non UTF-8 reste refusé, et aucune `FormatException` nue ne sort du client. Une
 `FormatException` levée par le transport lui-même (corps `gzip` corrompu, redirection mal formée) est
@@ -72,10 +75,12 @@ davantage annulée : une redirection suivie vers une autre origine** (autre hôt
 schéma), tant que les en-têtes de la réponse redirigée ne sont pas arrivés : l'annulation détruit la
 connexion d'origine, laisse ouverte celle de la redirection, et peut faire échouer une autre requête
 en vol qui réutilisait la connexion d'origine (constaté contre deux serveurs locaux le 2026-10-06,
-`83dac21` ; jamais sur Hub'Eau, et aucune des sources appelées ne redirige à ce jour). Le
+`83dac21` ; jamais sur Hub'Eau, et aucune des sources appelées ne redirige à ce jour). ~~Le
 délai de 10 s est **trop court pour le balayage ONDE national** mesuré à 10,26 s le 2026-10-06
-(`docs/sources/onde.md`, `T-17`) : question ouverte, point 59 ; latence d'un appel unique du
-référentiel : `T-18`, plus bas.
+(`docs/sources/onde.md`, `T-17`) : question ouverte, point 59~~ Le délai de 10 s était **trop court
+pour le balayage ONDE national** mesuré à 10,26 s le 2026-10-06 (`docs/sources/onde.md`, `T-17`) :
+question **tranchée le 2026-10-06 au soir**, 20 s pour Hub'Eau (codé et vérifié par test, **jamais
+éprouvé contre l'API réelle**) ; latence d'un appel unique du référentiel : `T-18`, plus bas.
 
 ```mermaid
 sequenceDiagram
@@ -309,11 +314,14 @@ appel réel, depuis ce poste, sans suivre les redirections ; non rejoué par la 
 Adresse telle que le relecteur l'a rapportée (le chemin, sous la base
 `https://hubeau.eaufrance.fr/api/v2/hydrometrie`) : `referentiel/stations?size=1` → **206**, réponse
 directe, **7,33 s**. Aucune redirection sur cet appel. Un appel, un jour, un poste : ni médiane ni
-dispersion ; la requête ne porte que sur une station (`size=1`). Le délai d'attente d'une tentative est
-de **10 s** et, depuis `9f81d8c`, le client ferme la connexion à 10 s au lieu de la laisser finir : cet
-appel a duré 7,33 s, à 2,67 s du délai. La question du délai pour Hub'Eau reste ouverte (point 59 de
-`docs/project-state.md`), non tranchée ici. Les deux autres appels de `T-18` (VigiEau, écoulement
-ONDE) : `docs/sources/onde.md`.
+dispersion ; la requête ne porte que sur une station (`size=1`). ~~Le délai d'attente d'une tentative
+est de **10 s** et, depuis `9f81d8c`, le client ferme la connexion à 10 s au lieu de la laisser finir :
+cet appel a duré 7,33 s, à 2,67 s du délai. La question du délai pour Hub'Eau reste ouverte (point 59
+de `docs/project-state.md`), non tranchée ici.~~ Depuis `9f81d8c`, le client ferme la connexion d'une
+tentative qui dépasse son délai au lieu de la laisser finir. Le délai d'attente d'une tentative est,
+depuis l'arbitrage du commanditaire du 2026-10-06 au soir, de **20 s pour Hub'Eau** : cet appel,
+7,33 s, était à 2,67 s de l'ancien délai de 10 s et reste à 12,67 s du nouveau. Les deux autres appels
+de `T-18` (VigiEau, écoulement ONDE) : `docs/sources/onde.md`.
 
 ## Non vérifié
 

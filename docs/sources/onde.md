@@ -208,11 +208,18 @@ l'un des deux.
   | `1.4,48.1,3.6,49.3` (Île-de-France) | **200** | **6,19 s** | 6,12 s | 60 006 |
 
   Un seul échantillon, un seul jour, depuis un seul poste ; la cause des quatre appels sans réponse
-  (charge, limitation, panne passagère) **n'est pas établie**. ⚠️ Le délai d'attente d'une
+  (charge, limitation, panne passagère) **n'est pas établie**. ⚠️ ~~Le délai d'attente d'une
   tentative est de **10 s** pour Hub'Eau comme pour VigiEau (`defaultRequestTimeout`) : à 10 s, le
   balayage national mesuré ici aurait été coupé. Un passage à 30 s pour Hub'Eau, arbitré par le
   commanditaire le même jour puis codé, a été **retiré à sa demande** avant tout commit : la
-  question reste ouverte.
+  question reste ouverte.~~ À 10 s, le balayage national mesuré ici (10,26 s) aurait été coupé.
+  **Question tranchée le 2026-10-06 au soir (arbitrage du commanditaire) : le délai d'attente d'une
+  tentative est de 20 s pour Hub'Eau** (hydrométrie v2 et ce service, `hubEauRequestTimeout` dans
+  `lib/data/http/hub_eau_client.dart`) **et reste de 10 s pour VigiEau** (`defaultRequestTimeout`).
+  Pire cas avant l'échec avec quatre tentatives : **83,5 à 87 s** pour Hub'Eau (4 × 20 s + 3,5 à 7 s
+  d'attentes de rejeu). Codé et vérifié par test en temps simulé, **jamais éprouvé contre l'API
+  réelle** : à 20 s, le balayage national de 10,26 s passe, mais les trois appels restés sans réponse
+  à plus de 60 s ci-dessus seraient encore coupés (leur cause n'est pas établie).
 
 - `T-18` **Latence d'appels uniques, rapportée par un relecteur** — le 2026-10-06 à 15:40 UTC, **un
   appel réel par adresse, depuis ce poste, sans suivre les redirections** ; **non rejoués par la boucle
@@ -227,11 +234,16 @@ l'un des deux.
 
   Aucune redirection sur ces appels. Un appel par adresse, un jour, un poste : ni médiane ni
   dispersion, et la cause de l'absence de réponse de l'écoulement (charge, limitation, panne
-  passagère) **n'est pas établie** — comme pour les quatre appels de `T-17`. ⚠️ Le délai d'attente
+  passagère) **n'est pas établie** — comme pour les quatre appels de `T-17`. ⚠️ ~~Le délai d'attente
   d'une tentative est de **10 s** partout (`defaultRequestTimeout`), et depuis `9f81d8c` le client
   **ferme la connexion** à 10 s au lieu de la laisser finir : la question du délai pour Hub'Eau reste
-  ouverte (`docs/project-state.md`, point 59), non tranchée ici. La ligne VigiEau est consignée ici pour
-  la comparaison ; `docs/sources/vigieau.md` n'est pas modifiée. L'appel hydrométrie est aussi dans
+  ouverte (`docs/project-state.md`, point 59), non tranchée ici.~~ Depuis `9f81d8c` le client
+  **ferme la connexion** d'une tentative qui dépasse son délai au lieu de la laisser finir. **La
+  question du délai est tranchée le 2026-10-06 au soir (arbitrage du commanditaire, voir `T-17`) :
+  20 s par tentative pour Hub'Eau, 10 s pour VigiEau** — l'appel hydrométrie de 7,33 s passait déjà à
+  10 s, l'écoulement, resté sans réponse en 20 s, serait coupé à 20 s (cause non établie) ; la
+  ligne VigiEau, 0,12 s, est loin de ses 10 s. La ligne VigiEau est consignée ici pour la
+  comparaison ; `docs/sources/vigieau.md` n'est pas modifiée. L'appel hydrométrie est aussi dans
   `docs/sources/hubeau-hydrometrie.md`.
 
 ## Non vérifié

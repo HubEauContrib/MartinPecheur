@@ -19,6 +19,8 @@ import 'package:http/testing.dart';
 import 'package:martinpecheur/data/http/json_http_client.dart';
 import 'package:martinpecheur/data/http/retry.dart';
 
+import '../../support/simulated_clock.dart';
+
 /// Un minuteur créé pendant l'exécution espionnée, avec la durée demandée.
 typedef _Minuteur = ({Duration duree, Timer minuteur});
 
@@ -564,6 +566,55 @@ void main() {
         List<Duration>.filled(4, const Duration(seconds: 10)),
       );
     });
+
+    // VigiEau (`main.dart` : `JsonHttpClient(httpClient: …)` sans délai) reste
+    // à 10 s par tentative alors que Hub'Eau passe à 20 s (arbitrage du
+    // 2026-10-06 au soir, `hubEauRequestTimeout`). Temps SIMULÉ : le pire cas
+    // avant l'échec, attentes de rejeu réelles comprises, est de 43,5 s sans
+    // gigue et de 47 s avec une gigue maximale.
+    for (final (double gigue, Duration pireCas) in <(double, Duration)>[
+      (0, const Duration(seconds: 43, milliseconds: 500)),
+      (1, const Duration(seconds: 47)),
+    ]) {
+      test('par défaut (VigiEau), gigue $gigue : quatre tentatives de 10 s et '
+          'trois attentes, échec à $pireCas', () async {
+        final SimulatedClock horloge = SimulatedClock();
+        int appels = 0;
+        final http.Client mock = MockClient((http.Request request) {
+          appels++;
+          return Completer<http.Response>().future;
+        });
+        final JsonHttpClient client = JsonHttpClient(
+          httpClient: mock,
+          jitter: () => gigue,
+        );
+        Object? echec;
+        Duration? echecA;
+        final Future<void> fini = horloge
+            .run(() => client.getJson(cible))
+            .then<void>(
+              (Object? _) {},
+              onError: (Object erreur) {
+                echec = erreur;
+                echecA = horloge.elapsed;
+              },
+            );
+
+        await horloge.advance(const Duration(seconds: 120));
+        await fini;
+
+        expect(appels, 4);
+        expect(echecA, pireCas);
+        expect(
+          echec,
+          isA<JsonHttpNetworkFailure>().having(
+            (JsonHttpNetworkFailure e) => e.message,
+            'message',
+            'délai d\'attente de 10 s dépassé',
+          ),
+        );
+      });
+    }
   });
 
   group('JsonHttpClient.getJson — annulation de la tentative abandonnée', () {

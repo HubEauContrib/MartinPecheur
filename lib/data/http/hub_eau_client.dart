@@ -3,8 +3,9 @@
 // n'importe quelle URI du même hôte et exige une racine JSON **objet**.
 // Le rejeu (429/5xx, `isRetryable`), l'acceptation de 200 et 206
 // (`isSuccess`, C-06), le décodage UTF-8 explicite, le délai d'attente de
-// chaque tentative (10 s, non surchargeable ici), l'attente et la gigue
-// injectées vivent dans le transport qu'il délègue,
+// chaque tentative (20 s, [hubEauRequestTimeout], non surchargeable ici ; la
+// source des restrictions garde les 10 s de `defaultRequestTimeout`), l'attente
+// et la gigue injectées vivent dans le transport qu'il délègue,
 // `lib/data/http/json_http_client.dart` (extrait en D1 de T2) — la seule
 // boucle de rejeu du produit. Recréer un second client, pour ONDE ou une
 // autre API, aurait recopié cette logique de rejeu — ce que le produit
@@ -42,6 +43,20 @@ const String _host = 'hubeau.eaufrance.fr';
 
 /// Préfixe de chemin commun à tous les endpoints hydrométrie v2.
 const String _basePath = '/api/v2/hydrometrie';
+
+/// Durée maximale d'**une tentative** vers Hub'Eau (hydrométrie v2 et
+/// écoulement ONDE v1, qui partagent [HubEauClient]) : 20 s. Arbitrage du
+/// commanditaire du 2026-10-06 au soir, après la mesure `T-17`
+/// (`docs/sources/onde.md`) : le balayage ONDE national a rendu sa réponse en
+/// 10,26 s, que les 10 s de `defaultRequestTimeout` — qui restent le délai de
+/// la source des restrictions — auraient coupée. Quatre tentatives (`NFR-07`)
+/// et les attentes de rejeu de `retry.dart` (0,5 + 1 + 2 s, doublées au plus
+/// par la gigue) : le pire cas avant l'échec est de 4 × 20 s + 3,5 à 7 s, soit
+/// **83,5 à 87 s** (contre 43,5 à 47 s au délai par défaut), vérifié en temps
+/// simulé par `test/data/http/hub_eau_client_test.dart`. Ce délai est codé et
+/// vérifié par test ; il n'a **jamais été éprouvé contre l'API réelle**. Il
+/// n'est pas surchargeable par [HubEauClient] : aucun appelant n'en a besoin.
+const Duration hubEauRequestTimeout = Duration(seconds: 20);
 
 /// Traduit [grandeur] en code API (`H`/`Q`). [Grandeur.inconnu] lève : on ne
 /// demande jamais la grandeur qu'on ne sait pas lire (BR-007, BR-011).
@@ -112,7 +127,7 @@ Uri _uri(String path, Map<String, String> queryParameters) {
 /// épuisées (ou immédiatement, pour une panne non rejouable). [message]
 /// distingue la cause : un statut (`statut 400 …`), une panne réseau (`panne
 /// réseau : …`, `réponse corrompue pendant le transfert : …`, `délai
-/// d'attente de 10 s dépassé`), ou un corps illisible.
+/// d'attente de 20 s dépassé`), ou un corps illisible.
 final class HubEauFailure implements Exception {
   const HubEauFailure(this.message);
 
@@ -139,6 +154,7 @@ final class HubEauClient {
          sleep: sleep,
          jitter: jitter,
          maxAttempts: maxAttempts,
+         requestTimeout: hubEauRequestTimeout,
        );
 
   final JsonHttpClient _transport;
@@ -158,7 +174,7 @@ final class HubEauClient {
   /// sans être enveloppée (`HandshakeException`/`TlsException`, `on
   /// IOException`), sur une `FormatException` levée par le transport (corps
   /// `gzip` corrompu, redirection mal formée), sur une tentative qui dépasse
-  /// le délai d'attente du transport (10 s, `defaultRequestTimeout`) et sur
+  /// le délai d'attente de Hub'Eau (20 s, [hubEauRequestTimeout]) et sur
   /// un corps illisible malgré un statut de succès. Échoue immédiatement,
   /// sans attente, sur un statut non rejouable, sur un corps JSON qui n'est
   /// pas un objet, ou sur un client déjà fermé (`ClientException` dont le
