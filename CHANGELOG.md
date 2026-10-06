@@ -143,6 +143,17 @@ T2) n'y figurent pas.
   glisser et molette posés à gauche du contrôle d'avertissement (zone morte
   de 121 px mesurée par test sur l'échelle débit à 100 %) : lu dans le code,
   non constaté à l'écran.
+- La caméra de la carte est contrainte au monde (arbitrage du commanditaire,
+  2026-10-06). Le code de `0.2.0` ne contraignait rien (lu dans le code) : les
+  flèches Haut et Bas poussaient sans borne le centre hors du monde, et après
+  33 flèches Haut la carte ne rebougeait qu'à la 27e flèche Bas (mesuré par
+  test sur le code de la branche ; défaut antérieur à la branche) ; avec le
+  bouton « Restrictions au centre de la carte » de cette version, le point sous
+  le réticule n'était plus celui qu'il désignait. Le bord de la caméra
+  s'arrête désormais au bord du monde ; glisser, molette, boutons de zoom,
+  recentrage et rotation sont contraints de même, et les cinq départements
+  d'outre-mer restent atteignables. Vérifié par test, non constaté à l'écran ;
+  deux limites sont écrites dans « Non vérifié ».
 
 ### Non vérifié
 
@@ -246,18 +257,23 @@ T2) n'y figurent pas.
   800 × 740 et 200 %, la légende de l'échelle débit s'atteint-elle à la
   molette, sans barre ; le retour de l'écran des restrictions (son contenu
   reste pendant la sortie) ; redimensionner la fenêtre après avoir défilé ;
-  l'avis de lien non ouvert amené dans le champ. Tout cela est vérifié par
-  `flutter test` seulement.
+  l'avis de lien non ouvert amené dans le champ ; et, depuis la caméra
+  contrainte au monde, au zoom minimal, la flèche Haut répétée : la carte
+  s'arrête-t-elle au bord du monde et repart-elle à la première flèche Bas, et
+  le bouton « Restrictions au centre de la carte » désigne-t-il le point sous le
+  réticule. Tout cela est vérifié par `flutter test` seulement.
 - **Segoe UI réelle n'est pas mesurée** : les verrous de gestes de la carte
   sont rejoués en plateforme Windows, mais les largeurs y sont mesurées en
   Roboto enregistrée sous le nom « Segoe UI », un substitut. L'annonce de
   l'avis de lien non ouvert (région d'alerte) par le Narrateur n'est pas
   constatée.
-- **Limites connues, non traitées** : la caméra de la carte n'est pas
-  contrainte au monde (les flèches Haut et Bas poussent le centre hors carte ;
-  entre 85,05° et 90° le point désigné n'est pas celui sous le réticule ; la
-  latitude désignée est seulement bornée à [-90, 90] pour ne plus lever ;
-  défaut antérieur à la branche) ; une tentative d'appel abandonnée au délai
+- **Limites connues, non traitées** : la caméra contrainte au monde a deux
+  limites, établies par des tests de caractérisation de `flutter_map` 8.3.2 et
+  jamais constatées à l'écran : le redimensionnement ne rejoue pas la
+  contrainte (agrandir la fenêtre depuis la butée, de 700 à 1 032 px de haut,
+  laisse 166 px de vide au-delà du monde jusqu'au prochain déplacement), et sur
+  une fenêtre de plus de 4 096 px de haut le dézoom vers le zoom 4 est refusé
+  (le monde y fait 4 096 px) ; une tentative d'appel abandonnée au délai
   de 10 s n'est pas annulée, sa connexion reste ouverte tant que le serveur ne
   répond ni ne coupe ; « Réessayer » n'apparaît qu'après 43,5 à 47 s si la
   source ne répond pas ; un second échec d'ouverture du même lien ne ramène pas
@@ -267,14 +283,16 @@ T2) n'y figurent pas.
   laquelle quand il y a deux arrêtés de restriction. Les autres constats de la
   revue (dédoublonnage des arrêtés et règle des dates décidés dans la vue,
   doublons de code) : `docs/project-state.md`, point 57.
-- **Cinq décisions de la boucle principale du 2026-10-06, non confirmées par
+- **Quatre décisions de la boucle principale du 2026-10-06, non confirmées par
   le commanditaire** : une réponse corrompue pendant le transfert est une
   source injoignable rejouable, non plus une réponse illisible ; l'avis de
   lien non ouvert est une région d'alerte pour l'arrêté **et** le site public ;
-  les surcouches de la carte n'ont plus de barre de défilement de bureau ; la
-  latitude désignée est bornée plutôt que la caméra contrainte ; les phrases
-  « sans zone d'eaux superficielles » sont écrites en place dans la vue, sans
-  constante liée au `.feature` (`docs/project-state.md`, point 58).
+  les surcouches de la carte n'ont plus de barre de défilement de bureau ; les
+  phrases « sans zone d'eaux superficielles » sont écrites en place dans la
+  vue, sans constante liée au `.feature` (`docs/project-state.md`, point 58 ;
+  la cinquième décision d'origine, borner la latitude désignée plutôt que
+  contraindre la caméra, est sans objet : le commanditaire a arbitré la
+  contrainte).
 
 ## [0.2.0] — 2026-09-27
 

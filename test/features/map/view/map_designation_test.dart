@@ -41,6 +41,8 @@ import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart'
+    show maximumMapZoom;
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
@@ -1268,72 +1270,132 @@ void main() {
     }
   });
 
+  // Où est le bord de la caméra par rapport à celui du monde, en pixels : 0 =
+  // collé, négatif = la carte montre du vide au-delà du monde. Mesuré sur le
+  // centre projeté et la hauteur de la caméra, jamais sur `visibleBounds` :
+  // celui-ci arrondit le centre au pixel inférieur (`MapCamera.pixelBounds`,
+  // `floor()`), ce qui décale le bord bas d'un pixel — 0,0076° à 85°.
+  double ecartAuHautDuMonde(MapCamera camera) =>
+      camera.projectAtZoom(camera.center).dy - camera.size.height / 2;
+  double ecartAuBasDuMonde(MapCamera camera) =>
+      camera.crs.scale(camera.zoom) -
+      (camera.projectAtZoom(camera.center).dy + camera.size.height / 2);
+
+  // Un `Tab` pour entrer sous le `Shortcuts` de la carte : sans focus sous lui,
+  // une flèche ou `−` n'atteint rien.
+  Future<void> entrerSousLesRaccourcis(WidgetTester tester) async {
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+  }
+
+  // Entrer sous les raccourcis, puis `−` jusqu'au zoom minimal : à ce zoom, un
+  // cran de flèche vaut plusieurs degrés.
+  Future<void> versLeZoomMinimum(WidgetTester tester) async {
+    await entrerSousLesRaccourcis(tester);
+    for (int i = 0; i < 6 && _camera(tester).zoom > 4; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+      await tester.pumpAndSettle();
+    }
+    expect(_camera(tester).zoom, 4);
+  }
+
+  /// [fois] pressions de [touche], chacune suivie d'un `pumpAndSettle`.
+  Future<void> appuyer(
+    WidgetTester tester,
+    LogicalKeyboardKey touche,
+    int fois,
+  ) async {
+    for (int i = 0; i < fois; i++) {
+      await tester.sendKeyEvent(touche);
+      await tester.pumpAndSettle();
+    }
+  }
+
   group('coordonnées désignées : toujours dans les bornes de GeoPoint', () {
     // `GeoPoint` lève une `ArgumentError` hors de [-90, 90] et [-180, 180].
-    // `flutter_map` 8.3.2 ne borne pas le centre de la caméra en latitude
-    // (`cameraConstraint` est `unconstrained()` par défaut). Hypothèse
-    // vérifiée, et écartée : un point tapé sur une réplique du monde,
-    // au-delà de l'antiméridien, la longitude rendue est toujours repliée
-    // dans [-180, 180]. Le bouton, l'appui long et le clic droit ne doivent
-    // jamais lever.
-    Future<void> versLeZoomMinimum(WidgetTester tester) async {
-      // Un `Tab` pour entrer sous le `Shortcuts` de la carte, puis `−` jusqu'au
-      // zoom minimal : à ce zoom, un cran de flèche vaut plusieurs degrés.
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      for (int i = 0; i < 6 && _camera(tester).zoom > 4; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+    // Latitude : la caméra est contrainte au monde (`cameraConstraint:
+    // containLatitude()`, arbitrage du commanditaire du 2026-10-06), donc son
+    // centre ne sort plus de ±85,0511° ; avant, `flutter_map` 8.3.2 n'appliquait
+    // aucune contrainte et la flèche Haut ou Bas poussait le centre au-delà
+    // d'un pôle. Longitude : hypothèse vérifiée, et écartée — un point tapé sur
+    // une réplique du monde, au-delà de l'antiméridien, a une longitude toujours
+    // repliée dans [-180, 180]. Le bouton, l'appui long et le clic droit ne
+    // doivent jamais lever.
+    for (final (String, LogicalKeyboardKey, LogicalKeyboardKey, double) sens
+        in <(String, LogicalKeyboardKey, LogicalKeyboardKey, double)>[
+          ('Haut', LogicalKeyboardKey.arrowUp, LogicalKeyboardKey.arrowDown, 1),
+          ('Bas', LogicalKeyboardKey.arrowDown, LogicalKeyboardKey.arrowUp, -1),
+        ]) {
+      final String nom = sens.$1;
+      final LogicalKeyboardKey vers = sens.$2;
+      final LogicalKeyboardKey retour = sens.$3;
+      final double signe = sens.$4;
+
+      testWidgets('flèche $nom répétée 40 fois au zoom 4 : le centre reste dans '
+          'le monde à chaque cran, puis le bouton désigne le point SOUS le '
+          'réticule, sans lever', (WidgetTester tester) async {
+        final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
+        await versLeZoomMinimum(tester);
+
+        for (int i = 0; i < 40; i++) {
+          await tester.sendKeyEvent(vers);
+          await tester.pumpAndSettle();
+          expect(
+            _camera(tester).center.latitude.abs(),
+            lessThanOrEqualTo(SphericalMercator.maxLatitude),
+            reason: 'cran $i : le centre de la caméra est sorti du monde',
+          );
+        }
+        final MapCamera camera = _camera(tester);
+        // Garde-fou : la butée est atteinte — le bord de la carte est celui du
+        // monde, ni en deçà (la flèche n'a pas fini sa course), ni au-delà.
+        expect(
+          signe > 0 ? ecartAuHautDuMonde(camera) : ecartAuBasDuMonde(camera),
+          closeTo(0, 1e-6),
+        );
+
+        await tester.tap(find.byKey(mapDesignateCenterButtonKey));
         await tester.pumpAndSettle();
-      }
-      expect(_camera(tester).zoom, 4);
+
+        expect(tester.takeException(), isNull);
+        expect(designated, hasLength(1));
+        // Le point désigné est celui que la caméra rend pour le centre de
+        // l'écran — le point sous le réticule —, et celui de son centre.
+        _expectClose(
+          designated.single,
+          _pointAt(tester, tester.getCenter(find.byType(FlutterMap))),
+        );
+        expect(
+          designated.single.latitude,
+          closeTo(camera.center.latitude, 1e-6),
+        );
+      });
+
+      testWidgets('après 33 flèches $nom, la première flèche en sens inverse '
+          'déplace la carte visible : aucune zone morte', (
+        WidgetTester tester,
+      ) async {
+        await pumpMap(tester);
+        await versLeZoomMinimum(tester);
+        await appuyer(tester, vers, 33);
+        // Ce que l'usager voit : le bord de la carte du côté de la butée.
+        double bordVisible() => signe > 0
+            ? _camera(tester).visibleBounds.north
+            : _camera(tester).visibleBounds.south;
+        final double avant = bordVisible();
+
+        await tester.sendKeyEvent(retour);
+        await tester.pumpAndSettle();
+
+        // Un cran vaut plusieurs degrés à ce zoom : la carte visible recule
+        // d'au moins un demi-degré, dans le sens inverse de la butée.
+        expect(
+          (bordVisible() - avant) * signe,
+          lessThan(-0.5),
+          reason: 'la première flèche inverse devait ramener la carte',
+        );
+      });
     }
-
-    testWidgets("flèche Haut jusqu'au-delà de 90 degrés, puis le bouton : "
-        'désigne le pôle, sans lever', (WidgetTester tester) async {
-      final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
-      await versLeZoomMinimum(tester);
-
-      for (int i = 0; i < 80 && _camera(tester).center.latitude <= 90; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-        await tester.pumpAndSettle();
-      }
-      // Garde-fou : le centre de la caméra est bien hors de [-90, 90].
-      expect(
-        _camera(tester).center.latitude,
-        greaterThan(90),
-        reason: 'la flèche Haut devait pousser le centre au-delà de 90',
-      );
-
-      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
-      await tester.pumpAndSettle();
-
-      expect(tester.takeException(), isNull);
-      expect(designated, hasLength(1));
-      expect(designated.single.latitude, 90);
-    });
-
-    testWidgets("flèche Bas jusqu'au-delà de -90 degrés, puis le bouton : "
-        'désigne le pôle sud, sans lever', (WidgetTester tester) async {
-      final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
-      await versLeZoomMinimum(tester);
-
-      for (int i = 0; i < 80 && _camera(tester).center.latitude >= -90; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        await tester.pumpAndSettle();
-      }
-      expect(
-        _camera(tester).center.latitude,
-        lessThan(-90),
-        reason: 'la flèche Bas devait pousser le centre au-delà de -90',
-      );
-
-      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
-      await tester.pumpAndSettle();
-
-      expect(tester.takeException(), isNull);
-      expect(designated, hasLength(1));
-      expect(designated.single.latitude, -90);
-    });
 
     for (final (String, LogicalKeyboardKey) sens
         in <(String, LogicalKeyboardKey)>[
@@ -1390,6 +1452,295 @@ void main() {
       expect(designated, hasLength(1));
       expect(designated.single.longitude, lessThan(0));
       expect(designated.single.longitude, inInclusiveRange(-180, 180));
+    });
+  });
+
+  group('caméra contrainte au monde (revue de la PR 17, arbitrage du '
+      '2026-10-06)', () {
+    // `MapOptions.cameraConstraint: containLatitude()` : `flutter_map` 8.3.2
+    // (`camera_constraint.dart`, `ContainCameraLatitude.constrain`) ramène le
+    // centre de la caméra pour que ses BORDS haut et bas restent dans les
+    // latitudes ±90 — que la projection plafonne à 85,0511° (`crs.dart`,
+    // `SphericalMercator.maxLatitude`) — et rend `null` (déplacement refusé)
+    // quand le monde est plus bas que la fenêtre. `moveRaw` l'applique à tout
+    // déplacement, zoom compris ; ni le redimensionnement ni la création de la
+    // caméra ne le font.
+    const double bord = SphericalMercator.maxLatitude;
+    const double tolerance = 1e-6;
+
+    for (final Size taille in <Size>[
+      const Size(800, 700),
+      const Size(800, 740),
+      const Size(1920, 1032),
+    ]) {
+      testWidgets('à ${taille.width.toInt()} × ${taille.height.toInt()}, au '
+          'zoom 4 : les flèches Haut puis Bas butent sur le bord du monde, '
+          'sans le franchir', (WidgetTester tester) async {
+        await pumpMap(tester, taille: taille);
+        await versLeZoomMinimum(tester);
+        // Garde-fou : le monde (256 × 2^4 = 4 096 px) est plus haut que la
+        // fenêtre, la contrainte est satisfiable.
+        expect(
+          _camera(tester).crs.scale(_camera(tester).zoom),
+          greaterThan(taille.height),
+        );
+
+        await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+        expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+
+        await appuyer(tester, LogicalKeyboardKey.arrowDown, 80);
+        expect(ecartAuBasDuMonde(_camera(tester)), closeTo(0, tolerance));
+      });
+    }
+
+    testWidgets(
+      'glisser vers le pôle depuis la butée : la carte ne bouge plus ; '
+      'glisser en sens inverse : elle bouge tout de suite',
+      (WidgetTester tester) async {
+        await pumpMap(tester);
+        await versLeZoomMinimum(tester);
+        await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+        final double butee = _camera(tester).center.latitude;
+
+        await tester.dragFrom(ailleurs, const Offset(0, 200));
+        await tester.pumpAndSettle();
+        expect(_camera(tester).center.latitude, closeTo(butee, tolerance));
+        expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+
+        await tester.dragFrom(ailleurs, const Offset(0, -300));
+        await tester.pumpAndSettle();
+        expect(_camera(tester).center.latitude, lessThan(butee - 1));
+      },
+    );
+
+    testWidgets('molette : dézoomer depuis la butée nord ne montre rien '
+        'au-delà du monde', (WidgetTester tester) async {
+      await pumpMap(tester);
+      await entrerSousLesRaccourcis(tester);
+      await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+      // Prémisse : la butée est atteinte avant le geste — sans elle, le test
+      // ne dirait rien du dézoom depuis le bord.
+      expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+
+      final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(pointer.hover(ailleurs));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 200)));
+      await tester.pumpAndSettle();
+
+      expect(_camera(tester).zoom, lessThan(5));
+      expect(
+        ecartAuHautDuMonde(_camera(tester)),
+        greaterThanOrEqualTo(-tolerance),
+        reason: 'la carte montre du vide au-delà du bord nord du monde',
+      );
+    });
+
+    testWidgets('bouton − depuis la butée nord au zoom 5 : le haut de la '
+        'carte reste au bord du monde', (WidgetTester tester) async {
+      await pumpMap(tester);
+      await entrerSousLesRaccourcis(tester);
+      await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+
+      await tester.tap(find.byKey(mapZoomOutButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(_camera(tester).zoom, 4);
+      expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+    });
+
+    testWidgets('bouton + depuis la butée nord au zoom 4 : le centre ne bouge '
+        'pas et la carte reste dans le monde', (WidgetTester tester) async {
+      await pumpMap(tester);
+      await versLeZoomMinimum(tester);
+      await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+      final double butee = _camera(tester).center.latitude;
+
+      await tester.tap(find.byKey(mapZoomInButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(_camera(tester).zoom, 5);
+      expect(_camera(tester).center.latitude, closeTo(butee, tolerance));
+      // Le monde est deux fois plus haut : le haut de la carte a de la marge.
+      expect(ecartAuHautDuMonde(_camera(tester)), greaterThan(100));
+    });
+
+    testWidgets('caractérisation flutter_map 8.3.2 : agrandir la fenêtre '
+        'depuis la butée nord '
+        'laisse du vide au-dessus du monde jusqu\'au prochain déplacement, '
+        'que la contrainte corrige', (WidgetTester tester) async {
+      await pumpMap(tester);
+      await versLeZoomMinimum(tester);
+      await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+      expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+
+      // `setNonRotatedSizeWithoutEmittingEvent` change la taille de la caméra
+      // sans passer par `moveRaw` : aucune contrainte n'est rejouée.
+      tester.view.physicalSize = const Size(800, 1032);
+      await tester.pumpAndSettle();
+      expect(
+        ecartAuHautDuMonde(_camera(tester)),
+        closeTo(-166, 1),
+        reason: 'la moitié des 332 px gagnés en hauteur est du vide en haut',
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(ecartAuHautDuMonde(_camera(tester)), closeTo(0, tolerance));
+    });
+
+    testWidgets('recentrer depuis la butée nord ramène à la caméra de '
+        'démarrage', (WidgetTester tester) async {
+      await pumpMap(tester);
+      await versLeZoomMinimum(tester);
+      await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+
+      await tester.tap(find.byKey(mapRecenterButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(_camera(tester).zoom, initialMapZoom);
+      expect(
+        _camera(tester).center.latitude,
+        closeTo(initialMapCenterLatitude, tolerance),
+      );
+      expect(
+        _camera(tester).center.longitude,
+        closeTo(initialMapCenterLongitude, tolerance),
+      );
+    });
+
+    testWidgets('pivoter la carte depuis la butée nord recule le centre : la '
+        'boîte englobante reste dans le monde', (WidgetTester tester) async {
+      await pumpMap(tester);
+      await versLeZoomMinimum(tester);
+      await appuyer(tester, LogicalKeyboardKey.arrowUp, 40);
+      final double butee = _camera(tester).center.latitude;
+
+      // `rotateRaw` contraint la caméra pivotée, dont la taille est celle de la
+      // boîte englobante (800 × 700 pivotée de 45° : environ 1 060 px de haut).
+      MapController.of(tester.element(find.byType(TileLayer))).rotate(45);
+      await tester.pumpAndSettle();
+
+      final MapCamera camera = _camera(tester);
+      expect(camera.rotation, 45);
+      expect(camera.center.latitude, lessThan(butee - 1));
+      expect(
+        ecartAuHautDuMonde(camera),
+        greaterThanOrEqualTo(-tolerance),
+        reason: 'le haut de la boîte englobante dépasse le bord du monde',
+      );
+    });
+
+    testWidgets('les DOM restent atteignables et centrables, au zoom minimal '
+        'comme au zoom maximal, dans la plus grande fenêtre (1920 × 1032)', (
+      WidgetTester tester,
+    ) async {
+      await pumpMap(tester, taille: const Size(1920, 1032));
+      final MapController controleur = MapController.of(
+        tester.element(find.byType(TileLayer)),
+      );
+
+      for (final (String, double, double) dom in <(String, double, double)>[
+        ('Guadeloupe', 16.25, -61.55),
+        ('Martinique', 14.64, -61.0),
+        ('Guyane', 4.0, -53.0),
+        ('La Réunion', -21.12, 55.54),
+        ('Mayotte', -12.83, 45.16),
+      ]) {
+        for (final double zoom in <double>[4, maximumMapZoom]) {
+          final bool aboutit = controleur.move(LatLng(dom.$2, dom.$3), zoom);
+          await tester.pumpAndSettle();
+
+          expect(aboutit, isTrue, reason: '${dom.$1} au zoom $zoom');
+          expect(_camera(tester).zoom, zoom, reason: dom.$1);
+          expect(
+            _camera(tester).center.latitude,
+            closeTo(dom.$2, tolerance),
+            reason: dom.$1,
+          );
+          expect(
+            _camera(tester).center.longitude,
+            closeTo(dom.$3, tolerance),
+            reason: dom.$1,
+          );
+        }
+
+        // Le chemin d'une pastille de zone (`ClusterZoomTarget.CoverBounds`,
+        // `_handleClusterSelect`) : `fitCamera` sur une emprise du territoire.
+        final LatLngBounds emprise = LatLngBounds(
+          LatLng(dom.$2 - 0.3, dom.$3 - 0.3),
+          LatLng(dom.$2 + 0.3, dom.$3 + 0.3),
+        );
+        final bool cadre = controleur.fitCamera(
+          CameraFit.bounds(bounds: emprise, minZoom: 7),
+        );
+        await tester.pumpAndSettle();
+
+        expect(cadre, isTrue, reason: '${dom.$1} : fitCamera');
+        expect(_camera(tester).zoom, greaterThanOrEqualTo(7));
+        expect(emprise.contains(_camera(tester).center), isTrue);
+      }
+    });
+
+    testWidgets("caractérisation flutter_map 8.3.2 : une fenêtre plus haute "
+        'que le monde au zoom '
+        '4 (4 096 px) refuse le dézoom, et la carte reste au zoom 5', (
+      WidgetTester tester,
+    ) async {
+      await pumpMap(tester, taille: const Size(800, 4200));
+
+      await tester.tap(find.byKey(mapZoomOutButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(_camera(tester).zoom, initialMapZoom);
+    });
+
+    group('caractérisation flutter_map 8.3.2 : containLatitude', () {
+      const CameraConstraint contrainte = CameraConstraint.containLatitude();
+
+      MapCamera camera(Size taille, LatLng centre) => MapCamera(
+        crs: const Epsg3857(),
+        center: centre,
+        zoom: 4,
+        rotation: 0,
+        nonRotatedSize: taille,
+      );
+
+      test('un centre au-delà du bord est ramené dans le monde', () {
+        final MapCamera? resultat = contrainte.constrain(
+          camera(const Size(800, 700), const LatLng(95, 0)),
+        );
+
+        expect(resultat, isNotNull);
+        expect(resultat!.center.latitude, lessThan(bord));
+      });
+
+      test('un monde plus bas que la fenêtre : constrain rend null', () {
+        expect(
+          contrainte.constrain(
+            camera(const Size(800, 4200), const LatLng(46.6, 2.2)),
+          ),
+          isNull,
+        );
+      });
+
+      // Pourquoi la borne de `_designate` reste : sans hauteur, la contrainte
+      // ne ramène rien (le bord haut est le centre), et un centre hors de
+      // [-90, 90] passerait tel quel — de même avant la première mise en page
+      // (`MapCamera.kImpossibleSize`, hauteur infinie négative).
+      for (final (String, Size) cas in <(String, Size)>[
+        ('sans hauteur', const Size(800, 0)),
+        ('avant la première mise en page', MapCamera.kImpossibleSize),
+      ]) {
+        test('${cas.$1} : un centre hors de [-90, 90] passe tel quel', () {
+          final MapCamera? resultat = contrainte.constrain(
+            camera(cas.$2, const LatLng(95, 0)),
+          );
+
+          expect(resultat, isNotNull);
+          expect(resultat!.center.latitude, 95);
+        });
+      }
     });
   });
 

@@ -1479,6 +1479,24 @@ class _MapViewState extends State<MapView> {
   /// `FocusNode` pour « carte », que ce fichier n'enveloppe plus d'un
   /// second `Focus` (voir le commentaire sur [_mapFocusNode] et la
   /// disparition de `KeyboardFocusRing` autour de `FlutterMap`).
+  ///
+  /// `cameraConstraint: containLatitude()` (arbitrage du commanditaire du
+  /// 2026-10-06) : par défaut `flutter_map` 8.3.2 n'applique AUCUNE contrainte
+  /// (`MapOptions.cameraConstraint` vaut `unconstrained()`), et la flèche Haut
+  /// ou Bas ([_handlePan]) poussait sans borne le centre hors du monde : le
+  /// point sous le réticule n'était plus celui que le bouton désignait, et la
+  /// carte restait figée autant de flèches en sens inverse.
+  /// `ContainCameraLatitude.constrain` (`camera_constraint.dart`, paquet
+  /// installé) ramène le centre pour que les BORDS haut et bas de la caméra —
+  /// sa boîte englobante quand la carte est pivotée — restent dans le monde,
+  /// que la projection plafonne à 85,0511° (`crs.dart`). `moveRaw` et
+  /// `rotateRaw` l'appliquent à tout déplacement, zoom et rotation. Deux
+  /// limites, verrouillées par des tests de caractérisation :
+  /// - le redimensionnement ne passe pas par lui : agrandir la fenêtre depuis
+  ///   la butée laisse du vide au-delà du monde jusqu'au prochain déplacement ;
+  /// - il REFUSE le déplacement quand le monde est plus bas que la fenêtre :
+  ///   au zoom minimal 4 le monde fait 4 096 px de haut, plus que toute
+  ///   fenêtre éprouvée (1 032 px pour la plus haute).
   late final MapOptions _mapOptions = MapOptions(
     initialCenter: const LatLng(
       initialMapCenterLatitude,
@@ -1487,6 +1505,7 @@ class _MapViewState extends State<MapView> {
     initialZoom: initialMapZoom,
     minZoom: minimumMapZoom,
     maxZoom: maximumMapZoom,
+    cameraConstraint: const CameraConstraint.containLatitude(),
     onMapEvent: _handleMapEvent,
     onLongPress: _handleLongPress,
     onSecondaryTap: _handleSecondaryTap,
@@ -1529,19 +1548,12 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
-    // `GeoPoint` lève hors de [-90, 90]. Le centre de la caméra n'est pas
-    // borné en latitude : `flutter_map` 8.3.2 n'applique aucune contrainte par
-    // défaut (`MapOptions.cameraConstraint` est `unconstrained()`) et
-    // `MapCamera.withPosition` n'enroule que la longitude ; la flèche Haut ou
-    // Bas ([_handlePan]) peut donc le pousser au-delà d'un pôle, et le bouton
-    // « Restrictions au centre de la carte » levait alors une `ArgumentError`.
-    // On borne ici pour ne plus lever. ⚠️ Cela traite le symptôme : la carte
-    // ne montre rien au-delà de 85,05° (projection), et entre 85,05° et 90° le
-    // point désigné n'est pas celui sous le réticule. La cause —
-    // [_handlePan] laisse le centre sortir du monde — est antérieure et reste à
-    // traiter (contrainte de caméra, à arbitrer).
+    // `GeoPoint` valide [-90, 90] et lève sinon. La caméra est contrainte au
+    // monde (`_mapOptions.cameraConstraint`) : son centre reste dans la
+    // projection, et un point d'écran est borné par elle. Aucune borne ici :
+    // elle ferait d'une latitude invalide (`NaN` compris) un pôle désigné.
     final GeoPoint designated = GeoPoint(
-      latitude: point.latitude.clamp(-90.0, 90.0).toDouble(),
+      latitude: point.latitude,
       longitude: point.longitude,
     );
     setState(() => _designatedPoint = designated);
