@@ -117,7 +117,11 @@ T2) n'y figurent pas.
   sans borne, un serveur qui acceptait la connexion sans répondre laissait
   l'écran en attente sans fin. Pire cas avant l'échec, avec quatre tentatives :
   43,5 à 47 s ; un serveur lent mais vivant, qui répondrait en plus de 10 s,
-  échoue désormais. Établi contre un serveur local, jamais sur une API réelle.
+  échoue désormais. Une tentative qui dépasse son délai est **annulée** : le
+  client ferme sa connexion, que le serveur n'ait pas encore répondu ou qu'il
+  cale en plein corps ; la phase de connexion (DNS, connexion TCP, poignée de
+  main TLS) n'est pas annulée. Établi contre un serveur local, jamais sur une
+  API réelle.
 - Surcouches de la carte (colonnes gauche et droite, colonne unique des
   largeurs de téléphone, bande du bouton de désignation) : plus de barre de
   défilement de bureau ; quand l'une déborde, elle défile à la molette posée
@@ -152,7 +156,9 @@ T2) n'y figurent pas.
   le réticule n'était plus celui qu'il désignait. Le bord de la caméra
   s'arrête désormais au bord du monde ; glisser, molette, boutons de zoom,
   recentrage et rotation sont contraints de même, et les cinq départements
-  d'outre-mer restent atteignables. Vérifié par test, non constaté à l'écran ;
+  d'outre-mer restent atteignables. Un changement de taille de la fenêtre
+  rejoue la contrainte : agrandir la fenêtre depuis le bord du monde ne laisse
+  plus de vide au-delà. Vérifié par test, non constaté à l'écran ;
   deux limites sont écrites dans « Non vérifié ».
 
 ### Non vérifié
@@ -257,7 +263,11 @@ T2) n'y figurent pas.
   800 × 740 et 200 %, la légende de l'échelle débit s'atteint-elle à la
   molette, sans barre ; le retour de l'écran des restrictions (son contenu
   reste pendant la sortie) ; redimensionner la fenêtre après avoir défilé ;
-  l'avis de lien non ouvert amené dans le champ ; et, depuis la caméra
+  l'avis de lien non ouvert amené dans le champ à chaque échec, y compris un
+  second échec du même lien, et sous la carte pressée quand l'arrêté et
+  l'arrêté-cadre ont la même adresse ; au zoom minimal, contre le bord nord du
+  monde, la fenêtre agrandie en hauteur : aucun vide au-delà du monde, et un
+  appui long tout en haut qui désigne un point du monde ; et, depuis la caméra
   contrainte au monde, au zoom minimal, la flèche Haut répétée : la carte
   s'arrête-t-elle au bord du monde et repart-elle à la première flèche Bas, et
   le bouton « Restrictions au centre de la carte » désigne-t-il le point sous le
@@ -268,21 +278,26 @@ T2) n'y figurent pas.
   l'avis de lien non ouvert (région d'alerte) par le Narrateur n'est pas
   constatée.
 - **Limites connues, non traitées** : la caméra contrainte au monde a deux
-  limites, établies par des tests de caractérisation de `flutter_map` 8.3.2 et
-  jamais constatées à l'écran : le redimensionnement ne rejoue pas la
-  contrainte (agrandir la fenêtre depuis la butée, de 700 à 1 032 px de haut,
-  laisse 166 px de vide au-delà du monde jusqu'au prochain déplacement), et sur
-  une fenêtre de plus de 4 096 px de haut le dézoom vers le zoom 4 est refusé
-  (le monde y fait 4 096 px) ; une tentative d'appel abandonnée au délai
-  de 10 s n'est pas annulée, sa connexion reste ouverte tant que le serveur ne
-  répond ni ne coupe ; « Réessayer » n'apparaît qu'après 43,5 à 47 s si la
-  source ne répond pas ; un second échec d'ouverture du même lien ne ramène pas
-  l'avis dans le champ ; si l'arrêté et l'arrêté-cadre d'une zone ont la même
-  adresse (cas absent des onze fixtures), le défilement suit le mauvais avis ;
-  la carte d'un arrêté-cadre écrit « S'applique à la même zone » sans dire
-  laquelle quand il y a deux arrêtés de restriction. Les autres constats de la
-  revue (dédoublonnage des arrêtés et règle des dates décidés dans la vue,
-  doublons de code) : `docs/project-state.md`, point 57.
+  limites, jamais constatées à l'écran : sur une fenêtre de plus de 4 096 px de
+  haut le dézoom vers le zoom 4 est refusé (le monde y fait 4 096 px ; établi
+  par un test de caractérisation de `flutter_map` 8.3.2, le recalage au
+  redimensionnement étant alors refusé de même, sans exception), et, pendant
+  un redimensionnement continu de la fenêtre AU bord du monde, la carte se
+  recharge à chaque trame, sans anti-rebond (écrit par l'auteur du correctif,
+  non mesuré) ; la phase de connexion d'une tentative d'appel (DNS, connexion
+  TCP, poignée de main TLS) n'est pas annulée au délai de 10 s, seule la suite
+  l'est (constaté pour la poignée de main TLS contre un serveur local, lu dans
+  le paquet `http` pour le DNS et la connexion TCP) ; le délai de 10 s est
+  trop court pour le balayage ONDE national, mesuré à 10,26 s le 2026-10-06
+  (`docs/sources/onde.md`, `T-17` ; un échantillon, un jour, un poste) : un
+  passage à 30 s pour Hub'Eau, arbitré par le commanditaire, a été retiré à sa
+  demande avant tout commit, la question reste ouverte ; « Réessayer »
+  n'apparaît qu'après 43,5 à 47 s si la source ne répond pas ; la carte d'un
+  arrêté-cadre écrit « S'applique à la même zone » sans dire laquelle quand il
+  y a deux arrêtés de restriction (le commanditaire a arbitré de lister ses
+  zones dès qu'il y a plusieurs arrêtés, pas encore codé). Les autres constats
+  de la revue (dédoublonnage des arrêtés et règle des dates décidés dans la
+  vue, doublons de code) : `docs/project-state.md`, points 57 et 59.
 - **Quatre décisions de la boucle principale du 2026-10-06, non confirmées par
   le commanditaire** : une réponse corrompue pendant le transfert est une
   source injoignable rejouable, non plus une réponse illisible ; l'avis de

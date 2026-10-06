@@ -60,8 +60,16 @@ avec quatre tentatives : 43,5 à 47 s, et un serveur lent mais vivant, qui répo
 rejoué, un `400` non UTF-8 reste refusé, et aucune `FormatException` nue ne sort du client. Une
 `FormatException` levée par le transport lui-même (corps `gzip` corrompu, redirection mal formée) est
 rejouée comme une panne réseau. Établi par exécution contre un serveur local, **jamais sur Hub'Eau** ;
-une tentative abandonnée au délai n'est pas annulée, sa connexion reste ouverte tant que le serveur ne
-répond ni ne coupe (mesuré contre un serveur local, `docs/project-state.md`, point 57).
+~~une tentative abandonnée au délai n'est pas annulée, sa connexion reste ouverte tant que le serveur ne
+répond ni ne coupe (mesuré contre un serveur local, `docs/project-state.md`, point 57)~~ depuis le
+2026-10-06 (`9f81d8c`, branche `fix/suites-relecture-pr17`), une tentative qui dépasse son délai est
+**annulée** (`AbortableRequest`, par `Client.send`) : le client ferme sa connexion, que le serveur
+n'ait pas encore répondu ou qu'il cale en plein corps (contre un serveur local muet, les quatre
+connexions des tentatives abandonnées sont fermées). **Reste non annulée : la phase de connexion**
+(DNS, connexion TCP, poignée de main TLS ; constaté pour la poignée de main TLS contre un serveur
+local, lu dans le paquet pour le DNS et la connexion TCP, `docs/project-state.md`, point 57). Le
+délai de 10 s est **trop court pour le balayage ONDE national** mesuré à 10,26 s le 2026-10-06
+(`docs/sources/onde.md`, `T-17`) : question ouverte, point 59.
 
 ```mermaid
 sequenceDiagram
