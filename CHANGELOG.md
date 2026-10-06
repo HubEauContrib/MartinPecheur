@@ -112,18 +112,24 @@ T2) n'y figurent pas.
 - Cibles tactiles de 48 sur Android, 44 ailleurs (`T2-K4`) : ce que `0.2.0`
   listait comme non vérifié est codé, **pas constaté**.
 - Fenêtre Windows : zone cliente minimale portée de 800 × 700 à 800 × 740.
-- Hub'Eau et VigiEau : chaque tentative d'appel est bornée à **10 s** et
-  rejouée comme une panne réseau (arbitrage du commanditaire, 2026-10-06) ;
-  sans borne, un serveur qui acceptait la connexion sans répondre laissait
-  l'écran en attente sans fin. Pire cas avant l'échec, avec quatre tentatives :
-  43,5 à 47 s ; un serveur lent mais vivant, qui répondrait en plus de 10 s,
-  échoue désormais. Une tentative qui dépasse son délai est **annulée** : le
+- Hub'Eau et VigiEau : chaque tentative d'appel est bornée et rejouée comme
+  une panne réseau (arbitrages du commanditaire, 2026-10-06) : **20 s pour
+  Hub'Eau** (hydrométrie v2 et écoulement ONDE v1) et **10 s pour VigiEau**.
+  Le matin du même jour la borne était de 10 s pour les deux ; elle est portée
+  à 20 s pour Hub'Eau le soir, le balayage ONDE national ayant été mesuré à
+  10,26 s. Sans borne, un serveur qui acceptait la connexion sans répondre
+  laissait l'écran en attente sans fin. Pire cas avant l'échec, avec quatre
+  tentatives : 83,5 à 87 s pour Hub'Eau, 43,5 à 47 s pour VigiEau ; un serveur
+  lent mais vivant, qui répondrait en plus de 20 s (Hub'Eau) ou de 10 s
+  (VigiEau), échoue désormais. Une tentative qui dépasse son délai est
+  **annulée** : le
   client ferme sa connexion, que le serveur n'ait pas encore répondu ou qu'il
   cale en plein corps ; la phase de connexion (DNS, connexion TCP, poignée de
   main TLS) n'est pas annulée, pas plus qu'une redirection suivie vers une
   autre origine (autre hôte, autre port ou autre schéma) tant que les
   en-têtes de la réponse redirigée ne sont pas arrivés. Établi contre un
-  serveur local, jamais sur une API réelle.
+  serveur local et, pour les délais, par test en temps simulé, jamais sur une
+  API réelle.
 - Surcouches de la carte (colonnes gauche et droite, colonne unique des
   largeurs de téléphone, bande du bouton de désignation) : plus de barre de
   défilement de bureau ; quand l'une déborde, elle défile à la molette posée
@@ -248,8 +254,9 @@ T2) n'y figurent pas.
   l'écran des restrictions, jamais en marqueurs. Hors périmètre de T2, non
   livrés : position de l'appareil, repli data.gouv, conservation des
   restrictions au-delà de la session.
-- **Quatre décisions de la boucle principale, non confirmées par le
-  commanditaire** : le mode « Restrictions » reste actif au retour de
+- **Quatre décisions de la boucle principale, confirmées par le
+  commanditaire le 2026-10-06 au soir (elles ne sont pas pour autant
+  constatées à l'écran)** : le mode « Restrictions » reste actif au retour de
   l'écran des restrictions ; la colonne gauche de la disposition large
   défile ; l'adresse du site public est un texte sélectionnable, non un
   lien, sur l'écran des sources ; les mesures de téléphone se font en
@@ -289,27 +296,41 @@ T2) n'y figurent pas.
   copie : dix pas de hauteur, dix chargements ; seuls garde-fous, le refus
   d'une emprise identique et le jeton de génération ; n'arrive qu'au bord du
   monde, hors de France) ; la phase de connexion d'une tentative d'appel (DNS,
-  connexion TCP, poignée de main TLS) n'est pas annulée au délai de 10 s, seule
-  la suite l'est (constaté pour la poignée de main TLS contre un serveur local,
-  lu dans le paquet `http` pour le DNS et la connexion TCP), pas davantage une
+  connexion TCP, poignée de main TLS) n'est pas annulée au délai (20 s pour
+  Hub'Eau, 10 s pour VigiEau), seule la suite l'est (constaté pour la poignée
+  de main TLS contre un serveur local, lu dans le paquet `http` pour le DNS et
+  la connexion TCP), pas davantage une
   redirection suivie vers une autre origine (autre hôte, autre port ou autre
   schéma) tant que les en-têtes de la réponse redirigée ne sont pas arrivés :
   l'annulation détruit la connexion d'origine, laisse ouverte celle de la
   redirection et peut faire échouer une autre requête en vol qui réutilisait
   la connexion d'origine (constaté contre deux serveurs locaux le 2026-10-06 ;
-  aucune des sources appelées ne redirige à ce jour) ; le délai de 10 s est
+  aucune des sources appelées ne redirige à ce jour) ; le délai de 10 s était
   trop court pour le balayage ONDE national, mesuré à 10,26 s le 2026-10-06
-  (`docs/sources/onde.md`, `T-17` ; un échantillon, un jour, un poste) : un
-  passage à 30 s pour Hub'Eau, arbitré par le commanditaire, a été retiré à sa
-  demande avant tout commit, la question reste ouverte ; « Réessayer »
-  n'apparaît qu'après 43,5 à 47 s si la source ne répond pas ; la carte d'un
-  arrêté-cadre écrit « S'applique à la même zone » sans dire laquelle quand il
-  y a deux arrêtés de restriction (le commanditaire a arbitré de lister ses
-  zones dès qu'il y a plusieurs arrêtés, pas encore codé). Les autres constats
-  de la revue (dédoublonnage des arrêtés et règle des dates décidés dans la
-  vue, doublons de code) : `docs/project-state.md`, points 57 et 59.
-- **Quatre décisions de la boucle principale du 2026-10-06, non confirmées par
-  le commanditaire** : une réponse corrompue pendant le transfert est une
+  (`docs/sources/onde.md`, `T-17` ; un échantillon, un jour, un poste) : le
+  commanditaire a arbitré le soir même 20 s pour Hub'Eau et 10 s pour VigiEau
+  (le passage à 30 s, d'abord arbitré puis retiré à sa demande avant tout
+  commit, n'a pas été retenu). Le balayage mesuré passe à 20 s ; les trois
+  appels de `T-17` restés sans réponse à plus de 60 s et l'appel écoulement de
+  `T-18` sans réponse en 20 s seraient encore coupés ; le délai de 20 s n'est
+  éprouvé que par test en temps simulé, jamais sur l'API réelle, et la
+  composition réelle de `main.dart` n'est éprouvée par aucun test (lue
+  seulement) ; « Réessayer » de l'écran des restrictions (VigiEau) n'apparaît
+  qu'après 43,5 à 47 s si la source ne répond pas, le pire cas avant l'échec
+  pour Hub'Eau étant de 83,5 à 87 s ; la carte d'un arrêté-cadre écrivait
+  « S'applique à la même zone » sans dire laquelle quand il y a deux arrêtés
+  de restriction : le commanditaire a arbitré de lister ses zones dès qu'il y a
+  plusieurs arrêtés de restriction, **codé le 2026-10-06 au soir** (vérifié par
+  test, non constaté à l'écran ; aucune réponse réelle gardée en fixture ne
+  porte deux arrêtés de restriction à un même point). La phrase de `BR-007`
+  écrite deux fois, sans zone d'eaux superficielles et avec un niveau de
+  gravité non reconnu, est gardée telle quelle par arbitrage et verrouillée par
+  un test depuis le 2026-10-06 au soir. Les autres constats de la revue
+  (dédoublonnage des arrêtés et règle des dates décidés dans la vue, doublons
+  de code) : `docs/project-state.md`, points 57 et 59.
+- **Quatre décisions de la boucle principale du 2026-10-06, confirmées par le
+  commanditaire le 2026-10-06 au soir (elles ne sont pas pour autant
+  constatées à l'écran)** : une réponse corrompue pendant le transfert est une
   source injoignable rejouable, non plus une réponse illisible ; l'avis de
   lien non ouvert est une région d'alerte pour l'arrêté **et** le site public ;
   les surcouches de la carte n'ont plus de barre de défilement de bureau ; les
