@@ -56,7 +56,10 @@ import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.d
 // second client recopierait sa logique de rejeu. Ses paramètres `sleep`,
 // `jitter` et `maxAttempts` gardent leurs valeurs par défaut, celles de
 // production documentées dans `hub_eau_client.dart` et `retry.dart` : le
-// tirage de gigue réel n'est injecté que dans les tests.
+// tirage de gigue réel n'est injecté que dans les tests. Son délai d'attente
+// par tentative (20 s, `hubEauRequestTimeout`) est fixé par `HubEauClient`
+// lui-même ; VigiEau, sur `JsonHttpClient`, garde les 10 s de
+// `defaultRequestTimeout` (arbitrage du 2026-10-06 au soir).
 //
 // Le référentiel est chargé une fois, avant `runApp`. La vue n'appelle jamais
 // un dépôt : elle observe son ViewModel, qui appelle les dépôts directement

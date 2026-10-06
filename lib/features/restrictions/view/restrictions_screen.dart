@@ -1086,21 +1086,26 @@ List<_DecreeEntry> _decreeEntries(List<AlertZone> zones) {
 }
 
 /// Vrai si [entry] est un arrete-cadre dont l'ensemble de zones est EXACTEMENT
-/// celui d'un arrete de restriction affiche : la liste serait alors une
-/// repetition, la carte dit « mêmes zones ».
+/// celui de l'UNIQUE arrete de restriction affiche : la liste serait alors une
+/// repetition, la carte dit « mêmes zones ». Des qu'il y a plusieurs arretes
+/// de restriction (apres le dedoublonnage par adresse exacte), on ne saurait
+/// pas « la meme que laquelle » : le raccourci tombe et la carte liste ses
+/// zones (arbitrage du commanditaire du 2026-10-06).
 bool _isSameZonesAsDecree(_DecreeEntry entry, List<_DecreeEntry> all) {
   if (!entry.isFramework) {
     return false;
   }
-  return all.any(
-    (_DecreeEntry other) =>
-        !other.isFramework &&
-        other.zones.length == entry.zones.length &&
-        entry.zones.every(
-          (AlertZone zone) =>
-              other.zones.any((AlertZone o) => identical(o, zone)),
-        ),
-  );
+  final List<_DecreeEntry> restrictions = all
+      .where((_DecreeEntry other) => !other.isFramework)
+      .toList();
+  if (restrictions.length != 1) {
+    return false;
+  }
+  final _DecreeEntry only = restrictions.single;
+  return only.zones.length == entry.zones.length &&
+      entry.zones.every(
+        (AlertZone zone) => only.zones.any((AlertZone o) => identical(o, zone)),
+      );
 }
 
 /// La ligne de dates d'un arrete de restriction, ou `null` : les dates de

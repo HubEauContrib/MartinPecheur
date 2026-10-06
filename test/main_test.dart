@@ -719,8 +719,11 @@ void main() {
     // La cible transmise au ViewModel par la composition reelle : `main.dart`
     // passe celle que la vue lui donne, il ne la fige pas. Un ouvreur qui
     // n'ouvre jamais, « Ouvrir l'arrete-cadre » : l'avis est dans la carte de
-    // l'arrete-cadre, et nulle part ailleurs (pas dans celle de l'arrete, dont
-    // l'adresse est pourtant la meme pour une zone qui cite l'une et l'autre).
+    // l'arrete-cadre, et nulle part ailleurs (pas dans celle de l'arrete). Dans
+    // l'echantillon de l'Ain les deux adresses sont differentes (`decreeUrlAin`
+    // et `frameworkUrlAin`, `test/features/restrictions/zones_samples.dart`) :
+    // ce test ne joue pas une collision d'adresse, il verrouille la cible
+    // transmise (`LinkTarget.frameworkDecree`).
     testWidgetsOnWindows('echec d ouverture de l arrete-cadre : l avis est '
         'dans la carte du CADRE, nulle part ailleurs, et la cible est '
         'frameworkDecree', (WidgetTester tester) async {

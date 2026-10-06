@@ -15,8 +15,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:martinpecheur/data/http/hub_eau_client.dart';
+import 'package:martinpecheur/data/http/json_http_client.dart'
+    show defaultRequestTimeout;
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/station/station.dart';
+
+import '../../support/simulated_clock.dart';
 
 void main() {
   final StationCode station = StationCode('K447001001');
@@ -369,114 +373,201 @@ void main() {
     );
   });
 
-  group('HubEauClient.getJson — pannes que le transport rend en échec typé', () {
-    test('une FormatException levée par le transport (gzip corrompu, '
-        'redirection mal formée) est rejouée puis rendue en HubEauFailure, '
-        'jamais nue', () async {
+  group(
+    'HubEauClient.getJson — pannes que le transport rend en échec typé',
+    () {
+      test('une FormatException levée par le transport (gzip corrompu, '
+          'redirection mal formée) est rejouée puis rendue en HubEauFailure, '
+          'jamais nue', () async {
+        int appels = 0;
+        final http.Client mock = MockClient((http.Request request) async {
+          appels++;
+          throw const FormatException('Filter error, bad data');
+        });
+        final HubEauClient client = HubEauClient(
+          httpClient: mock,
+          maxAttempts: 3,
+          jitter: () => 0,
+          sleep: (Duration duree) async {},
+        );
+
+        await expectLater(
+          client.getJson(cible),
+          throwsA(
+            isA<HubEauFailure>().having(
+              (HubEauFailure echec) => echec.message,
+              'message',
+              allOf(
+                startsWith('réponse corrompue pendant le transfert : '),
+                contains('Filter error, bad data'),
+              ),
+            ),
+          ),
+        );
+        expect(appels, 3);
+      });
+
+      test('un 5xx au corps non UTF-8 est rejoué puis rendu en HubEauFailure '
+          '(statut 503), jamais en FormatException nue', () async {
+        int appels = 0;
+        final http.Client mock = MockClient((http.Request request) async {
+          appels++;
+          return http.Response.bytes(<int>[0xFF, 0xFE, 0xFD], 503);
+        });
+        final HubEauClient client = HubEauClient(
+          httpClient: mock,
+          maxAttempts: 3,
+          jitter: () => 0,
+          sleep: (Duration duree) async {},
+        );
+
+        await expectLater(
+          client.getJson(cible),
+          throwsA(
+            isA<HubEauFailure>().having(
+              (HubEauFailure echec) => echec.message,
+              'message',
+              startsWith('statut 503 : '),
+            ),
+          ),
+        );
+        expect(appels, 3);
+      });
+    },
+  );
+
+  // Arbitrage du commanditaire du 2026-10-06 au soir : 20 s par tentative pour
+  // Hub'Eau (le balayage ONDE national a pris 10,26 s, `T-17`, `docs/sources/
+  // onde.md`), 10 s pour VigiEau. Temps SIMULÉ (`SimulatedClock`) : aucun de
+  // ces tests n'attend 20 s réelles.
+  group('HubEauClient.getJson — délai d\'attente par tentative : 20 s '
+      '(T-17)', () {
+    test('les deux délais côte à côte : Hub\'Eau 20 s, VigiEau (défaut du '
+        'transport) 10 s', () {
+      expect(hubEauRequestTimeout, const Duration(seconds: 20));
+      expect(defaultRequestTimeout, const Duration(seconds: 10));
+    });
+
+    test('une réponse qui met 15 s n\'est PAS abandonnée à 10 s : une seule '
+        'tentative, le corps est rendu', () async {
+      final SimulatedClock horloge = SimulatedClock();
       int appels = 0;
-      final http.Client mock = MockClient((http.Request request) async {
+      final http.Client mock = MockClient((http.Request request) {
         appels++;
-        throw const FormatException('Filter error, bad data');
+        return Future<http.Response>.delayed(
+          const Duration(seconds: 15),
+          () => http.Response(jsonEncode(<String, int>{'count': 7}), 200),
+        );
       });
       final HubEauClient client = HubEauClient(
         httpClient: mock,
-        maxAttempts: 3,
         jitter: () => 0,
         sleep: (Duration duree) async {},
       );
+      Map<String, dynamic>? corps;
+      final Future<void> fini = horloge
+          .run(() => client.getJson(cible))
+          .then<void>((Map<String, dynamic> lu) {
+            corps = lu;
+          });
 
-      await expectLater(
-        client.getJson(cible),
-        throwsA(
-          isA<HubEauFailure>().having(
-            (HubEauFailure echec) => echec.message,
-            'message',
-            allOf(
-              startsWith('réponse corrompue pendant le transfert : '),
-              contains('Filter error, bad data'),
-            ),
-          ),
-        ),
+      await horloge.advance(const Duration(seconds: 15));
+
+      expect(
+        appels,
+        1,
+        reason: 'à 10 s la tentative ne doit pas être abandonnée puis rejouée',
       );
-      expect(appels, 3);
+      await fini;
+      expect(corps?['count'], 7);
     });
 
-    test('une réponse qui n\'arrive jamais : le délai par défaut du transport '
-        '(10 s) borne chaque tentative, puis HubEauFailure', () async {
+    test('une réponse qui n\'arrive jamais : la tentative est abandonnée à '
+        '20 s, ni avant ni après', () async {
+      final SimulatedClock horloge = SimulatedClock();
       int appels = 0;
-      final List<Duration> delais = <Duration>[];
       final http.Client mock = MockClient((http.Request request) {
         appels++;
         return Completer<http.Response>().future;
       });
-      // Aucun paramètre de délai : c'est celui que le transport applique à
-      // tout appelant. Le minuteur part aussitôt, la durée demandée est notée.
       final HubEauClient client = HubEauClient(
         httpClient: mock,
-        maxAttempts: 3,
         jitter: () => 0,
         sleep: (Duration duree) async {},
       );
-
-      await expectLater(
-        runZoned(
-          () => client.getJson(cible),
-          zoneSpecification: ZoneSpecification(
-            createTimer:
-                (
-                  Zone self,
-                  ZoneDelegate parent,
-                  Zone zone,
-                  Duration duree,
-                  void Function() action,
-                ) {
-                  delais.add(duree);
-                  return parent.createTimer(zone, Duration.zero, action);
-                },
-          ),
-        ),
-        throwsA(
-          isA<HubEauFailure>().having(
-            (HubEauFailure echec) => echec.message,
-            'message',
-            'délai d\'attente de 10 s dépassé',
-          ),
-        ),
+      unawaited(
+        horloge
+            .run(() => client.getJson(cible))
+            .then<void>((Map<String, dynamic> _) {}, onError: (Object _) {}),
       );
-      expect(appels, 3);
+
+      await horloge.advance(
+        const Duration(seconds: 20) - const Duration(milliseconds: 1),
+      );
       expect(
-        delais,
-        List<Duration>.filled(3, const Duration(seconds: 10)),
-        reason: 'une durée de 10 s demandée à chaque tentative',
+        appels,
+        1,
+        reason: 'à 19,999 s la première tentative court encore',
+      );
+
+      await horloge.advance(const Duration(milliseconds: 1));
+      expect(
+        appels,
+        2,
+        reason:
+            'à 20 s elle est abandonnée, la suivante part (attente '
+            'injectée instantanée)',
       );
     });
 
-    test('un 5xx au corps non UTF-8 est rejoué puis rendu en HubEauFailure '
-        '(statut 503), jamais en FormatException nue', () async {
-      int appels = 0;
-      final http.Client mock = MockClient((http.Request request) async {
-        appels++;
-        return http.Response.bytes(<int>[0xFF, 0xFE, 0xFD], 503);
-      });
-      final HubEauClient client = HubEauClient(
-        httpClient: mock,
-        maxAttempts: 3,
-        jitter: () => 0,
-        sleep: (Duration duree) async {},
-      );
+    // Le pire cas avant l'échec, SANS attente injectée : l'attente de rejeu
+    // réelle (`Future.delayed`) suit elle aussi l'horloge simulée. Quatre
+    // tentatives de 20 s, plus les trois attentes de `delayForAttempt`
+    // (500 ms, 1 s, 2 s, doublées par une gigue maximale) : 83,5 à 87 s.
+    for (final (double gigue, Duration pireCas) in <(double, Duration)>[
+      (0, const Duration(seconds: 83, milliseconds: 500)),
+      (1, const Duration(seconds: 87)),
+    ]) {
+      test('une réponse qui n\'arrive jamais, gigue $gigue : quatre tentatives '
+          'de 20 s et trois attentes, échec à $pireCas, message du délai '
+          'réel', () async {
+        final SimulatedClock horloge = SimulatedClock();
+        int appels = 0;
+        final http.Client mock = MockClient((http.Request request) {
+          appels++;
+          return Completer<http.Response>().future;
+        });
+        final HubEauClient client = HubEauClient(
+          httpClient: mock,
+          jitter: () => gigue,
+        );
+        Object? echec;
+        Duration? echecA;
+        final Future<void> fini = horloge
+            .run(() => client.getJson(cible))
+            .then<void>(
+              (Map<String, dynamic> _) {},
+              onError: (Object erreur) {
+                echec = erreur;
+                echecA = horloge.elapsed;
+              },
+            );
 
-      await expectLater(
-        client.getJson(cible),
-        throwsA(
+        await horloge.advance(const Duration(seconds: 120));
+        await fini;
+
+        expect(appels, 4);
+        expect(echecA, pireCas);
+        expect(
+          echec,
           isA<HubEauFailure>().having(
-            (HubEauFailure echec) => echec.message,
+            (HubEauFailure e) => e.message,
             'message',
-            startsWith('statut 503 : '),
+            'délai d\'attente de 20 s dépassé',
           ),
-        ),
-      );
-      expect(appels, 3);
-    });
+        );
+      });
+    }
   });
 
   group('HubEauClient.new — maxAttempts', () {

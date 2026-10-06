@@ -1668,9 +1668,7 @@ void main() {
         ('500 × 400 (plus petite)', const Size(500, 400)),
       ]) {
         testWidgets('${cas.$1}, depuis le centre de la France : la caméra ne '
-            'bouge pas et rien ne se recharge (aucun mouvement de caméra)', (
-          WidgetTester tester,
-        ) async {
+            'bouge pas et rien ne se recharge', (WidgetTester tester) async {
           final List<Bounds> chargements = <Bounds>[];
           await pumpMap(tester, chargements: chargements);
           final MapCamera avant = _camera(tester);

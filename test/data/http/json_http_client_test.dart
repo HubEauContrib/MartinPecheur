@@ -5,9 +5,15 @@
 // Aucun appel ne touche une API réelle : http.testing.MockClient sert des
 // réponses préparées, et l'attente entre tentatives est injectée pour ne
 // jamais dormir — delayForAttempt lui-même reste vérifié seul dans
-// retry_test.dart. Une exception, le groupe du vrai IOClient (annulation de la
-// tentative abandonnée) : il ouvre un serveur TCP local à 127.0.0.1 (toujours
-// aucune API réelle) et attend un délai réel court (50 ms par tentative).
+// retry_test.dart. Le délai d'attente d'une tentative, lui, s'attend en temps
+// réel court avec un client factice (`MockClient`, ou `_ClientObservateur`) :
+// 20 ms par tentative (`delaiCourt`). La durée par défaut (10 s) n'est jamais
+// attendue : elle est soit simulée (`test/support/simulated_clock.dart`, pour
+// le pire cas), soit vérifiée par un minuteur déclenché aussitôt
+// (`_espionnerMinuteurs`). Le groupe du vrai IOClient (annulation de la
+// tentative abandonnée) ouvre en plus un serveur TCP local à 127.0.0.1
+// (toujours aucune API réelle) et attend un délai réel un peu plus long
+// (50 ms par tentative).
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -18,6 +24,8 @@ import 'package:http/io_client.dart';
 import 'package:http/testing.dart';
 import 'package:martinpecheur/data/http/json_http_client.dart';
 import 'package:martinpecheur/data/http/retry.dart';
+
+import '../../support/simulated_clock.dart';
 
 /// Un minuteur créé pendant l'exécution espionnée, avec la durée demandée.
 typedef _Minuteur = ({Duration duree, Timer minuteur});
@@ -564,6 +572,55 @@ void main() {
         List<Duration>.filled(4, const Duration(seconds: 10)),
       );
     });
+
+    // VigiEau (`main.dart` : `JsonHttpClient(httpClient: …)` sans délai) reste
+    // à 10 s par tentative alors que Hub'Eau passe à 20 s (arbitrage du
+    // 2026-10-06 au soir, `hubEauRequestTimeout`). Temps SIMULÉ : le pire cas
+    // avant l'échec, attentes de rejeu réelles comprises, est de 43,5 s sans
+    // gigue et de 47 s avec une gigue maximale.
+    for (final (double gigue, Duration pireCas) in <(double, Duration)>[
+      (0, const Duration(seconds: 43, milliseconds: 500)),
+      (1, const Duration(seconds: 47)),
+    ]) {
+      test('par défaut (VigiEau), gigue $gigue : quatre tentatives de 10 s et '
+          'trois attentes, échec à $pireCas', () async {
+        final SimulatedClock horloge = SimulatedClock();
+        int appels = 0;
+        final http.Client mock = MockClient((http.Request request) {
+          appels++;
+          return Completer<http.Response>().future;
+        });
+        final JsonHttpClient client = JsonHttpClient(
+          httpClient: mock,
+          jitter: () => gigue,
+        );
+        Object? echec;
+        Duration? echecA;
+        final Future<void> fini = horloge
+            .run(() => client.getJson(cible))
+            .then<void>(
+              (Object? _) {},
+              onError: (Object erreur) {
+                echec = erreur;
+                echecA = horloge.elapsed;
+              },
+            );
+
+        await horloge.advance(const Duration(seconds: 120));
+        await fini;
+
+        expect(appels, 4);
+        expect(echecA, pireCas);
+        expect(
+          echec,
+          isA<JsonHttpNetworkFailure>().having(
+            (JsonHttpNetworkFailure e) => e.message,
+            'message',
+            'délai d\'attente de 10 s dépassé',
+          ),
+        );
+      });
+    }
   });
 
   group('JsonHttpClient.getJson — annulation de la tentative abandonnée', () {
@@ -722,8 +779,14 @@ void main() {
   group('JsonHttpClient.getJson — annulation sur un vrai IOClient, contre un '
       'serveur local (aucune API réelle)', () {
     // Délai réel court : le serveur est en boucle locale, donc la requête
-    // l'atteint bien avant l'abandon (vérifié à 2 ms : les quatre requêtes et
-    // les quatre fermetures sont encore vues) ; quatre tentatives : ~0,2 s.
+    // l'atteint avant l'abandon, mais un délai trop court la devance. Seuil
+    // mesuré par le relecteur sur ce poste le 2026-10-06, en ramenant le délai
+    // et les messages à la valeur essayée : à 2, 5 et 10 ms le groupe rougit,
+    // trois passes sur trois (à 2 ms, `expect(serveur.requetesLues, 4)` rend
+    // `Actual: <0>`) ; à 20 ms, trois passes sur trois vertes ; à 50 ms (valeur
+    // retenue), cinq passes vertes à vide et cinq sous charge. Le seuil est donc
+    // entre 10 et 20 ms, et la marge de 50 ms d'environ ×2,5 à ×5 : un poste
+    // plus lent peut demander plus. Quatre tentatives : ~0,2 s.
     const Duration delaiIo = Duration(milliseconds: 50);
     // Serveur TCP brut et non `HttpServer` : `HttpServer` ne retire pas de
     // `connectionsInfo()` une connexion que le client a fermée tant que sa

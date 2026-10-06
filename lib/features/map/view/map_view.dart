@@ -63,7 +63,9 @@
 //   `onPositionChanged` n'est plus câblé du tout : la requête part sur
 //   [_handleMapEvent], câblé à `MapOptions.onMapEvent`, uniquement pour les
 //   événements de **fin** de geste — sauf le changement de taille de la
-//   carte, qui ne fait que rejouer la contrainte de caméra ; voir
+//   carte, qui rejoue la contrainte de caméra ([_reapplyCameraConstraint]) :
+//   il ne recharge rien lui-même, seul le recalage éventuel qui en découle
+//   passe par [_afterCameraMove] et recharge alors l'emprise ; voir
 //   [shouldRefreshOn]. La marge proportionnelle
 //   `defaultViewportMargin` (`lib/domain/geo/viewport_filter.dart`) couvre le
 //   déplacement entre-temps.
