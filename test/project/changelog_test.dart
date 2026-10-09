@@ -111,10 +111,11 @@ void main() {
     });
   });
 
-  // Task X4 du plan T2 : la version 0.3.0 est OUVERTE, pas publiee. Le test
-  // de datation de la tache P3 (« ## [0.3.0] » datee, sans « a publier »)
-  // inversera le deuxieme cas de ce groupe, celui qui exige « a publier ».
-  group('version 0.3.0 (Task X4 du plan T2)', () {
+  // Tasks X4 puis P3 du plan T2. X4 a ouvert la version 0.3.0 ; P3 la date,
+  // le 2026-10-09, SANS que la porte de T2 soit franchie (decision du
+  // commanditaire du meme jour) : les constats de P1 et de P2 n'existent pas,
+  // et le journal doit le dire plutot que le laisser croire.
+  group('version 0.3.0 (Tasks X4 et P3 du plan T2)', () {
     late String contenuChangelog;
 
     setUpAll(() {
@@ -161,15 +162,16 @@ void main() {
       );
     });
 
-    test('la version 0.3.0 est ouverte, pas datee : la porte de T2 n est pas '
-        'passee', () {
+    // Task P3 du plan T2 : la version se date. La date est epinglee : le
+    // chapeau la redit, et les deux doivent nommer le meme jour.
+    test('la version 0.3.0 est datee du 2026-10-09, sans « a publier »', () {
       final String? ligne = contenuChangelog
           .split('\n')
           .map((String l) => l.trimRight())
           .where((String l) => l.startsWith('## [0.3.0]'))
           .firstOrNull;
       expect(ligne, isNotNull);
-      expect(ligne, equals('## [0.3.0] — à publier'));
+      expect(ligne, equals('## [0.3.0] — 2026-10-09'));
     });
 
     test('le CHANGELOG porte une section ## [0.3.0], une seule, au-dessus de '
@@ -205,13 +207,31 @@ void main() {
       expect(ajoute, contains("hors de l'application"));
     });
 
-    test('le chapeau de 0.3.0 dit qu elle est ouverte, qu aucune construction '
-        'Android n est consignee ni constatee et que les ecrans de T2 ne sont '
-        'constates qu en partie, en debogage sur Windows', () {
+    test('le chapeau de 0.3.0 dit qu elle est datee sans que la porte de T2 '
+        'soit franchie, par decision du commanditaire, qu elle n est pas '
+        'publiee, qu aucune construction Android n est consignee ni constatee '
+        'et que les ecrans de T2 ne sont constates qu en partie, en debogage '
+        'sur Windows', () {
       final String section = section030();
       final String chapeau = section.substring(0, section.indexOf('\n### '));
       final String chapeauNormalise = chapeau.replaceAll(RegExp(r'\s+'), ' ');
-      expect(chapeau, contains('Version ouverte, pas'));
+      expect(chapeauNormalise, isNot(contains('Version ouverte')));
+      // Une date ne vaut pas une porte : le chapeau dit que la version est
+      // datee sans elle, qui l'a decide et quand. La phrase est exigee
+      // entiere : « decision du commanditaire » et « 2026-10-09 » existent
+      // ailleurs dans le chapeau (mise en production, ligne de titre) et ne
+      // prouveraient rien, pris seuls.
+      expect(
+        chapeauNormalise,
+        contains(
+          'Version datée le 2026-10-09 sans que la porte de T2 soit '
+          'franchie**, par décision du commanditaire du même jour',
+        ),
+      );
+      // Datee n'est pas publiee, et la porte reste due.
+      expect(chapeauNormalise, contains('pas publiée'));
+      expect(chapeauNormalise, contains('reste due'));
+      expect(chapeauNormalise, isNot(contains('porte de T2 est franchie')));
       expect(
         chapeauNormalise,
         contains("aucune construction Android n'est consignée ni constatée"),
@@ -234,6 +254,97 @@ void main() {
         ),
         reason: 'le constat partiel du 2026-10-04 a rendu cette phrase fausse',
       );
+    });
+
+    // Task P3 : ce que le commanditaire a VU, et rien d'autre. La porte
+    // n'etant pas franchie, la sous-section ne porte que les quatre constats
+    // du 2026-10-04 (debogage, Windows) et celui de la molette du 2026-09-29 ;
+    // son chapeau dit sur quel code, qu'aucun n'est fait sur l'executable de
+    // release ni sur Android, et que ce n'est pas le constat d'une porte.
+    // Le nombre de puces et leurs dates sont epingles expres : ce cas se
+    // reecrit le jour ou la porte apporte ses constats.
+    test('la sous-section Constate a l execution de 0.3.0 ne porte que les '
+        'quatre constats du 2026-10-04, en debogage sur Windows, et celui de '
+        'la molette du 2026-09-29, et dit qu aucun n est fait sur l '
+        'executable de release ni sur Android', () {
+      final String section = section030();
+      final String constate = sousSection("Constaté à l'exécution");
+      final List<String> morceaux = constate
+          .split('\n- ')
+          .map((String p) => p.replaceAll(RegExp(r'\s+'), ' '))
+          .toList();
+      final String chapeau = morceaux.first;
+      final List<String> constats = morceaux.skip(1).toList();
+
+      expect(
+        section.indexOf("### Constaté à l'exécution"),
+        lessThan(section.indexOf('### Non vérifié')),
+        reason: 'meme ordre que 0.2.0 et 0.1.0',
+      );
+
+      // Le chapeau : dans quelles conditions, et sur quel code.
+      expect(chapeau, contains('en débogage'));
+      expect(chapeau, contains('flutter run -d windows'));
+      expect(chapeau, contains('ba5d079'));
+      // Le constat de la molette est anterieur : un autre code, et son mode
+      // de lancement n'est ecrit nulle part. Il ne se range pas sous les
+      // conditions du 2026-10-04.
+      expect(chapeau, contains('bc81efe'));
+      expect(chapeau, contains('mode de lancement non consigné'));
+      expect(
+        chapeau,
+        contains(
+          "Aucun de ces constats n'est fait sur l'exécutable de release ni "
+          'sur Android',
+        ),
+      );
+      // Le code a change depuis, et personne n'a rien revu a l'ecran.
+      expect(chapeau, contains('le code a changé depuis'));
+      expect(chapeau, contains("aucun constat d'écran n'est rapporté depuis"));
+      expect(chapeau, contains("Ce n'est pas le constat d'une porte"));
+
+      // Les puces : cinq, chacune datee, aucune qui viendrait d'une
+      // construction de release ou d'Android.
+      expect(constats, hasLength(5));
+      for (final String constat in constats) {
+        expect(constat, matches(RegExp(r'^Le 2026-(10-04|09-29)')));
+        expect(constat, isNot(contains('release')));
+        expect(constat, isNot(contains('Android')));
+        expect(constat, isNot(contains('mulateur')));
+      }
+      expect(
+        constats.where((String c) => c.startsWith('Le 2026-09-29')),
+        hasLength(1),
+        reason: 'le defilement a la molette, constate le 2026-09-29',
+      );
+      // Les quatre non-constates du 2026-10-04 n'y sont pas ranges parmi ce
+      // qui a ete vu. (« profil » attraperait aussi « --profile » : voulu
+      // tant qu'aucune mesure de fluidite n'est refaite pour 0.3.0.)
+      for (final String constat in constats) {
+        expect(constat, isNot(contains('point en mer')));
+        expect(constat, isNot(contains('non repliable')));
+        expect(constat, isNot(contains('profil')));
+        expect(constat, isNot(contains('au retour')));
+      }
+    });
+
+    test('le Non verifie de 0.3.0 s ouvre sur la porte de T2 non franchie et '
+        'nomme ce qui reste du : A1, E4, P1, P2', () {
+      final String pucePorte = sousSection('Non vérifié')
+          .split('\n- ')
+          .skip(1)
+          .map((String p) => p.replaceAll(RegExp(r'\s+'), ' '))
+          .first;
+      expect(
+        pucePorte,
+        contains("La porte de T2 n'est pas franchie"),
+        reason: 'la puce de la porte ouvre la sous-section',
+      );
+      expect(pucePorte, contains('2026-10-09'));
+      expect(pucePorte, contains('`A1`'));
+      expect(pucePorte, contains('`E4`'));
+      expect(pucePorte, contains('`P1`'));
+      expect(pucePorte, contains('`P2`'));
     });
 
     test('la section 0.3.0 porte une sous-section Non verifie non vide, qui '
@@ -289,11 +400,10 @@ void main() {
         ),
       );
       expect(nonVerifie, isNot(contains('Tous les écrans')));
-      expect(
-        nonVerifie,
-        contains('2026-09-29'),
-        reason: 'le defilement a la molette, constate le 2026-09-29',
-      );
+      // Ce qui a ete vu a quitte cette sous-section pour « Constate a
+      // l'execution » (Task P3) : elle y renvoie, sans le redire.
+      expect(vu, contains("« Constaté à l'exécution »"));
+      expect(vu, isNot(contains('trois puces')));
       // Aucune construction de release, et la trace d'Android est dite, pas
       // supposee : un executable de debogage a ete lance le 2026-10-04.
       expect(
