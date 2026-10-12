@@ -156,6 +156,8 @@ station et à la fiche ONDE — deux tranches distinctes, un seul texte.
 > de `lib/features/shared/` est désormais **`WarningLink`** (`warning_link.dart`), importé par trois
 > tranches — carte, fiche station, fiche ONDE. La règle `shared-sans-tranche` est inchangée.
 
+> **Amendement du 2026-10-12 (`S4` de T3, décision 4 du commanditaire).** Depuis T3 (`S4`), `shared/` porte aussi un **état d'affichage en Dart pur**, `FavoriteStar` (`favorite_star.dart`, aucun import), que deux ViewModels de fiche produisent et qu'un widget partagé (`favorite_star_button.dart`) consomme : un ViewModel l'importe sans violer `view-model-sans-widget`.
+
 🔄 **Le dossier `lib/features/shared/` n'existe pas encore** au 2026-09-18 : la règle est décidée,
 pas encore occupée.
 
