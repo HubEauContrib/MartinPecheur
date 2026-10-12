@@ -356,11 +356,11 @@ final class MapViewModel extends ChangeNotifier {
   /// que `withinBounds` ne renvoie pas).
   ///
   /// Dans les deux cas, seulement celles que le filtre retient **sur
-  /// l'échelle active** (`filterKeepsStation`, T3) : l'état lu par [stateOf] porte la fraîcheur
-  /// de l'instant, une mesure qui passe une borne sort donc du filtre à la
-  /// lecture suivante, sans requête (`BR-005`). Tant que [filterActive] est
-  /// faux, le niveau individuel rend [stations] **elle-même**, sans copie
-  /// (`NFR-01`).
+  /// l'échelle active** (`filterKeepsStation`, T3) : l'état lu par
+  /// [stateOf] porte la fraîcheur de l'instant, une mesure qui passe une
+  /// borne sort donc du filtre à la lecture suivante, sans requête
+  /// (`BR-005`). Tant que [filterActive] est faux, le niveau individuel rend
+  /// [stations] **elle-même**, sans copie (`NFR-01`).
   List<StationPoint> get individualStations {
     final AreaLevel? level = _level;
     if (level == null) {
@@ -589,10 +589,36 @@ final class MapViewModel extends ChangeNotifier {
     }
     _filter = filter;
     notifyListeners();
+    // Même condition que [selectScale] : le préchargement ne porte que sur
+    // les stations du département retenu, il repart donc de zéro.
+    if (shouldPreloadOn(_scale) && _level == null) {
+      cancelPreload();
+      unawaited(preloadVisibleStations());
+    }
   }
 
   /// Retire tous les critères.
   void clearFilter() => applyFilter(MapFilter.none);
+
+  List<AdministrativeArea>? _departements;
+
+  /// Les départements du référentiel embarqué, triés par code, pour le choix
+  /// du filtre. `null` si la lecture lève : l'échec n'est pas mémorisé et ne
+  /// pose ni [error] ni [errorSource], ne notifie pas. Mémo posé au premier
+  /// succès seulement ; après [dispose], rend le mémo s'il existe, sinon
+  /// `null`, sans lever.
+  Future<List<AdministrativeArea>?> departements() async {
+    final List<AdministrativeArea>? memo = _departements;
+    if (memo != null || _disposed) {
+      return memo;
+    }
+    try {
+      final List<StationPoint> all = await _stationPoints.all();
+      return _departements ??= departementsOf(all);
+    } on Object {
+      return null;
+    }
+  }
 
   final Map<StationCode, StationMapState> _states =
       <StationCode, StationMapState>{};
@@ -1240,8 +1266,14 @@ final class MapViewModel extends ChangeNotifier {
     // ne réordonne pas ce que l'écran dessine. Le filtre est posé AVANT le
     // tri : trier 4 150 points pour en écarter ensuite les vingt premiers
     // ferait payer deux fois la même comparaison.
+    // Le critère de fraîcheur n'entre jamais ici : il faut charger pour la
+    // connaître. Seul le département borne le préchargement.
     final List<StationPoint> sorted = _stations
-        .where((StationPoint point) => _needsPreload(point.code))
+        .where(
+          (StationPoint point) =>
+              _needsPreload(point.code) &&
+              filterKeepsStationPoint(_filter, point),
+        )
         .toList();
     sorted.sort((StationPoint a, StationPoint b) {
       final int byDistance = _squaredDegreesTo(

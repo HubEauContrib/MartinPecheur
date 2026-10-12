@@ -7,6 +7,8 @@
 // Les doubles de dépôt sont recopiés de `map_view_model_test.dart` (classes
 // privées, non importables). Aucune borne de fraîcheur n'est écrite ici : les
 // instants se déduisent de `ancienneApres` et `perimeeApres` (`BR-005`).
+import 'dart:async' show Completer;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/filters/map_filter.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
@@ -564,8 +566,11 @@ void main() {
       final MapViewModel viewModel = await onDischarge();
 
       viewModel.applyFilter(moinsDe2h);
+      // Appliquer un filtre relance le préchargement (F6) : on le coupe avant
+      // toute réponse, la lecture ci-dessous porte sur des stations encore
+      // non chargées.
+      viewModel.cancelPreload();
 
-      expect(observations.requests, isEmpty);
       for (final StationPoint point in viewModel.stations) {
         expect(viewModel.stateOf(point.code), isA<NonChargee>());
       }
@@ -920,5 +925,255 @@ void main() {
       expect(viewModel.individualStations, isEmpty);
       expect(_clusterOf(viewModel, '24').count, 4);
     });
+  });
+
+  group('préchargement borné au département', () {
+    /// 30 stations en ligne : `i = 0..4` du 37, `i = 5..29` du 41.
+    List<StationPoint> line() => <StationPoint>[
+      for (int i = 0; i < 30; i++)
+        StationPoint(
+          code: StationCode('K44800${i.toString().padLeft(4, '0')}'),
+          label: 'Station $i',
+          latitude: 46,
+          longitude: i / 100,
+          departement: i < 5 ? _indreEtLoire : _loirEtCher,
+          region: _centreValDeLoire,
+        ),
+    ];
+
+    String codeOf(int i) => 'K44800${i.toString().padLeft(4, '0')}';
+
+    Bounds centred() => Bounds(west: -1, south: 45, east: 1, north: 47);
+
+    Future<MapViewModel> onLine({
+      required List<StationPoint> stations,
+      DateTime Function()? now,
+    }) async {
+      repository.answer = (int _) async => stations;
+      final MapViewModel viewModel = build(now: now);
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      await viewModel.loadFor(centred());
+      viewModel.cancelPreload();
+      observations.requests.clear();
+      return viewModel;
+    }
+
+    test('sous le département 41, les vingt codes demandés sont ceux de '
+        '5 à 24, aucun du 37', () async {
+      final MapViewModel viewModel = await onLine(stations: line());
+      viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+      viewModel.cancelPreload();
+      observations.requests.clear();
+
+      await viewModel.preloadVisibleStations(limit: 20);
+
+      expect(observations.requestedCodes, <String>[
+        for (int i = 5; i < 25; i++) codeOf(i),
+      ]);
+    });
+
+    test('une station sans département est préchargée sous le filtre '
+        'département', () async {
+      final MapViewModel viewModel = await onLine(
+        stations: <StationPoint>[
+          _station(_s1, departement: _loirEtCher, longitude: 0.1),
+          _station(_s4, longitude: 0.2),
+          _station(_s3, departement: _indreEtLoire, longitude: 0.3),
+        ],
+      );
+      viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+      viewModel.cancelPreload();
+      observations.requests.clear();
+
+      await viewModel.preloadVisibleStations();
+
+      expect(observations.requestedCodes.toSet(), <String>{_s1, _s4});
+    });
+
+    test('moins de 2 h seul : trois requêtes ; une station masquée par la '
+        'fraîcheur est rechargée passé stationStateRefreshAfter', () async {
+      DateTime clock = nowAtTen();
+      final DateTime now = nowAtTen();
+      observations.answer = (StationCode station, int _) async => _discharge(
+        station,
+        station.value == _s3
+            ? now.subtract(perimeeApres + const Duration(hours: 1))
+            : now,
+      );
+      final MapViewModel viewModel = await onLine(
+        stations: <StationPoint>[
+          _station(_s1, departement: _loirEtCher, longitude: 0.1),
+          _station(_s2, departement: _loirEtCher, longitude: 0.2),
+          _station(_s3, departement: _indreEtLoire, longitude: 0.3),
+        ],
+        now: () => clock,
+      );
+      viewModel.applyFilter(moinsDe2h);
+      viewModel.cancelPreload();
+      observations.requests.clear();
+
+      await viewModel.preloadVisibleStations();
+
+      expect(observations.requests, hasLength(3));
+      expect(_stationCodes(viewModel.individualStations), isNot(contains(_s3)));
+
+      clock = clock.add(stationStateRefreshAfter);
+      observations.requests.clear();
+      await viewModel.preloadVisibleStations();
+
+      expect(observations.requestedCodes, contains(_s3));
+    });
+
+    test("applyFilter(département) relance le préchargement : aucune requête "
+        'pour une station du 37', () async {
+      DateTime clock = nowAtTen();
+      final DateTime now = nowAtTen();
+      observations.answer = (StationCode station, int _) async =>
+          _discharge(station, now);
+      final MapViewModel viewModel = await onLine(
+        stations: _stationSet(),
+        now: () => clock,
+      );
+      await viewModel.preloadVisibleStations();
+      clock = clock.add(stationStateRefreshAfter);
+      observations.requests.clear();
+
+      viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+      await pumpEventQueue();
+
+      expect(observations.requests, isNotEmpty);
+      expect(observations.requestedCodes, isNot(contains(_s3)));
+    });
+
+    test('applyFilter sur écoulement, sous le zoom 9 ou avec un filtre égal : '
+        'aucune requête', () async {
+      // Écoulement.
+      onde.answer = (int _) async => _ondeSet();
+      final MapViewModel ecoulement = build();
+      addTearDown(ecoulement.dispose);
+      await ecoulement.loadFor(_loireBounds());
+      ecoulement.applyFilter(MapFilter.none.withDepartement('41'));
+      await pumpEventQueue();
+      expect(observations.requests, isEmpty);
+
+      // Débit sous le zoom 9.
+      repository.answer = (int _) async => _stationSet();
+      repository.allAnswer = () async => _stationSet();
+      final MapViewModel bas = build();
+      addTearDown(bas.dispose);
+      bas.selectScale(MapScaleKind.debit);
+      await bas.onGestureEnded(
+        _loireBounds(),
+        zoom: individualMarkersFromZoom - 1,
+      );
+      observations.requests.clear();
+      bas.applyFilter(MapFilter.none.withDepartement('41'));
+      await pumpEventQueue();
+      expect(observations.requests, isEmpty);
+
+      // Filtre égal, niveau individuel.
+      final MapViewModel haut = await onLine(stations: _stationSet());
+      haut.applyFilter(MapFilter.none.withDepartement('41'));
+      haut.cancelPreload();
+      await pumpEventQueue();
+      observations.requests.clear();
+      haut.applyFilter(MapFilter.none.withDepartement('41'));
+      await pumpEventQueue();
+      expect(observations.requests, isEmpty);
+    });
+
+    test("applyFilter annule le préchargement en cours : l'ancienne boucle "
+        "n'écrit plus l'état", () async {
+      final Completer<HydroObservation?> gate = Completer<HydroObservation?>();
+      observations.answer = (StationCode station, int _) => gate.future;
+      final MapViewModel viewModel = await onLine(
+        stations: <StationPoint>[
+          _station(_s1, departement: _loirEtCher, longitude: 0.1),
+        ],
+      );
+      final Future<void> running = viewModel.preloadVisibleStations();
+      await pumpEventQueue();
+      expect(observations.requests, hasLength(1));
+
+      viewModel.applyFilter(MapFilter.none.withDepartement('37'));
+      gate.complete(_discharge(StationCode(_s1), nowAtTen()));
+      await running;
+
+      expect(viewModel.stateOf(StationCode(_s1)), isA<NonChargee>());
+    });
+  });
+
+  group('departements()', () {
+    final List<StationPoint> asset = <StationPoint>[
+      _station(_s1, departement: _loirEtCher, longitude: 0.1),
+      _station(
+        _s2,
+        departement: const AdministrativeArea(code: '01', label: 'AIN'),
+        longitude: 0.2,
+      ),
+      _station(_s4, longitude: 0.3),
+    ];
+
+    test('rend les départements du référentiel, triés par code, sans les '
+        'stations sans département', () async {
+      repository.allAnswer = () async => asset;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      final List<AdministrativeArea>? result = await viewModel.departements();
+
+      expect(result?.map((AdministrativeArea a) => a.code).toList(), <String>[
+        '01',
+        '41',
+      ]);
+    });
+
+    test('deux appels : un seul appel de plus à all()', () async {
+      repository.allAnswer = () async => asset;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.departements();
+      await viewModel.departements();
+
+      expect(repository.allCalls, 1);
+    });
+
+    test("all() qui lève : null, aucune erreur posée, aucune notification ; "
+        "l'échec n'est pas mémorisé", () async {
+      repository.allAnswer = () async => throw StateError('asset illisible');
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      expect(await viewModel.departements(), isNull);
+      expect(viewModel.error, isNull);
+      expect(viewModel.errorSource, isNull);
+      expect(notifications, 0);
+
+      repository.allAnswer = () async => asset;
+
+      expect(await viewModel.departements(), hasLength(2));
+      expect(notifications, 0);
+    });
+
+    test(
+      'après dispose : le mémo s\'il existe, sinon null, sans exception',
+      () async {
+        repository.allAnswer = () async => asset;
+        final MapViewModel withMemo = build();
+        await withMemo.departements();
+        withMemo.dispose();
+
+        expect(await withMemo.departements(), hasLength(2));
+
+        final MapViewModel withoutMemo = build();
+        withoutMemo.dispose();
+
+        expect(await withoutMemo.departements(), isNull);
+      },
+    );
   });
 }
