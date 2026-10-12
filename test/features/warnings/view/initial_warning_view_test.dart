@@ -31,6 +31,9 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/warnings/view/initial_warning_view.dart';
 import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.dart';
 
+import '../../../support/android_platform.dart';
+import '../../../support/windows_platform.dart';
+
 const String _currentVersion = '2026-09-13.1';
 
 /// Double minimal de [AcknowledgementRepository] : rien n'est jamais
@@ -71,7 +74,7 @@ Widget _harness(WarningsViewModel viewModel) =>
 
 void main() {
   group('case et bouton', () {
-    testWidgets('a l\'ouverture : case decochee, bouton desactive', (
+    testWidgetsOnWindows('a l\'ouverture : case decochee, bouton desactive', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(_harness(_viewModelFor(_repository())));
@@ -87,39 +90,40 @@ void main() {
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('un tap sur la case l\'active, un second la desactive', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(_harness(_viewModelFor(_repository())));
+    testWidgetsOnWindows(
+      'un tap sur la case l\'active, un second la desactive',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_harness(_viewModelFor(_repository())));
 
-      await tester.tap(find.byKey(initialWarningCheckboxKey));
-      await tester.pump();
-      expect(
-        tester.widget<Checkbox>(find.byKey(initialWarningCheckboxKey)).value,
-        isTrue,
-      );
-      expect(
-        tester
-            .widget<ElevatedButton>(find.byKey(initialWarningButtonKey))
-            .onPressed,
-        isNotNull,
-      );
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
+        expect(
+          tester.widget<Checkbox>(find.byKey(initialWarningCheckboxKey)).value,
+          isTrue,
+        );
+        expect(
+          tester
+              .widget<ElevatedButton>(find.byKey(initialWarningButtonKey))
+              .onPressed,
+          isNotNull,
+        );
 
-      await tester.tap(find.byKey(initialWarningCheckboxKey));
-      await tester.pump();
-      expect(
-        tester.widget<Checkbox>(find.byKey(initialWarningCheckboxKey)).value,
-        isFalse,
-      );
-      expect(
-        tester
-            .widget<ElevatedButton>(find.byKey(initialWarningButtonKey))
-            .onPressed,
-        isNull,
-      );
-    });
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
+        expect(
+          tester.widget<Checkbox>(find.byKey(initialWarningCheckboxKey)).value,
+          isFalse,
+        );
+        expect(
+          tester
+              .widget<ElevatedButton>(find.byKey(initialWarningButtonKey))
+              .onPressed,
+          isNull,
+        );
+      },
+    );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'tap sur le bouton actif : viewModel.acknowledge() ecrit une fois '
       'la version courante',
       (WidgetTester tester) async {
@@ -135,7 +139,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'tap sur le bouton inactif : aucune ecriture (acknowledge() refuse '
       'sans case cochee)',
       (WidgetTester tester) async {
@@ -151,7 +155,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'un echec d\'ecriture laisse l\'ecran bloque et expose l\'erreur du '
       'ViewModel',
       (WidgetTester tester) async {
@@ -175,7 +179,7 @@ void main() {
 
   group('echec d\'enregistrement de l\'acquittement (UC-006 A6, arbitrage '
       'du 2026-09-22)', () {
-    testWidgets('aucune phrase au premier affichage', (
+    testWidgetsOnWindows('aucune phrase au premier affichage', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(_harness(_viewModelFor(_repository())));
@@ -183,7 +187,7 @@ void main() {
       expect(find.text(initialWarningWriteFailedText), findsNothing);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'echec d\'ecriture : la phrase s\'affiche sous le bouton, le modal '
       'reste, la carte n\'est pas construite',
       (WidgetTester tester) async {
@@ -211,7 +215,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'nouvel essai reussi : la phrase disparait et l\'acquittement est ecrit',
       (WidgetTester tester) async {
         final _AcknowledgementRepositoryDouble repository = _repository(
@@ -235,7 +239,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'la phrase est annoncee au lecteur d\'ecran (region d\'alerte)',
       (WidgetTester tester) async {
         final SemanticsHandle handle = tester.ensureSemantics();
@@ -261,72 +265,79 @@ void main() {
   });
 
   group('lien « Relire le detail des sources » (T2, S1, BR-012)', () {
-    testWidgets("le modal montre le lien, sous le bouton d'acquittement", (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(_harness(_viewModelFor(_repository())));
+    testWidgetsOnWindows(
+      "le modal montre le lien, sous le bouton d'acquittement",
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_harness(_viewModelFor(_repository())));
 
-      expect(find.text(initialWarningSourcesLinkLabel), findsOneWidget);
-      expect(
-        tester.getTopLeft(find.byKey(initialWarningSourcesLinkKey)).dy,
-        greaterThan(
-          tester.getBottomLeft(find.byKey(initialWarningButtonKey)).dy - 1,
-        ),
-      );
-    });
+        expect(find.text(initialWarningSourcesLinkLabel), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.byKey(initialWarningSourcesLinkKey)).dy,
+          greaterThan(
+            tester.getBottomLeft(find.byKey(initialWarningButtonKey)).dy - 1,
+          ),
+        );
+      },
+    );
 
-    testWidgets("l'actionner ouvre l'ecran des sources SANS acquitter : aucune "
-        'ecriture, le blocage reste', (WidgetTester tester) async {
-      final _AcknowledgementRepositoryDouble repository = _repository();
-      final WarningsViewModel viewModel = _viewModelFor(repository);
-      await tester.pumpWidget(_harness(viewModel));
-
-      await tester.tap(find.byKey(initialWarningSourcesLinkKey));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DataSourcesView), findsOneWidget);
-      expect(find.text(dataSourcesTitle), findsOneWidget);
-      expect(repository.written, isEmpty);
-      expect(viewModel.requiresAcknowledgement, isTrue);
-    });
-
-    for (final bool checked in <bool>[false, true]) {
-      testWidgets("au retour, le modal est tel qu'il etait laisse, case "
-          "${checked ? 'cochee' : 'decochee'} : rien n'est acquitte", (
-        WidgetTester tester,
-      ) async {
+    testWidgetsOnWindows(
+      "l'actionner ouvre l'ecran des sources SANS acquitter : aucune "
+      'ecriture, le blocage reste',
+      (WidgetTester tester) async {
         final _AcknowledgementRepositoryDouble repository = _repository();
         final WarningsViewModel viewModel = _viewModelFor(repository);
         await tester.pumpWidget(_harness(viewModel));
-        if (checked) {
-          await tester.tap(find.byKey(initialWarningCheckboxKey));
-          await tester.pump();
-        }
 
         await tester.tap(find.byKey(initialWarningSourcesLinkKey));
         await tester.pumpAndSettle();
-        await tester.pageBack();
-        await tester.pumpAndSettle();
 
-        expect(find.byType(DataSourcesView), findsNothing);
-        expect(
-          tester.widget<Checkbox>(find.byKey(initialWarningCheckboxKey)).value,
-          checked,
-        );
-        expect(viewModel.checkboxChecked, checked);
-        expect(
-          tester
-                  .widget<ElevatedButton>(find.byKey(initialWarningButtonKey))
-                  .onPressed ==
-              null,
-          !checked,
-        );
-        expect(viewModel.requiresAcknowledgement, isTrue);
+        expect(find.byType(DataSourcesView), findsOneWidget);
+        expect(find.text(dataSourcesTitle), findsOneWidget);
         expect(repository.written, isEmpty);
-      });
+        expect(viewModel.requiresAcknowledgement, isTrue);
+      },
+    );
+
+    for (final bool checked in <bool>[false, true]) {
+      testWidgetsOnWindows(
+        "au retour, le modal est tel qu'il etait laisse, case "
+        "${checked ? 'cochee' : 'decochee'} : rien n'est acquitte",
+        (WidgetTester tester) async {
+          final _AcknowledgementRepositoryDouble repository = _repository();
+          final WarningsViewModel viewModel = _viewModelFor(repository);
+          await tester.pumpWidget(_harness(viewModel));
+          if (checked) {
+            await tester.tap(find.byKey(initialWarningCheckboxKey));
+            await tester.pump();
+          }
+
+          await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+          await tester.pumpAndSettle();
+          await tester.pageBack();
+          await tester.pumpAndSettle();
+
+          expect(find.byType(DataSourcesView), findsNothing);
+          expect(
+            tester
+                .widget<Checkbox>(find.byKey(initialWarningCheckboxKey))
+                .value,
+            checked,
+          );
+          expect(viewModel.checkboxChecked, checked);
+          expect(
+            tester
+                    .widget<ElevatedButton>(find.byKey(initialWarningButtonKey))
+                    .onPressed ==
+                null,
+            !checked,
+          );
+          expect(viewModel.requiresAcknowledgement, isTrue);
+          expect(repository.written, isEmpty);
+        },
+      );
     }
 
-    testWidgets("Echap sur l'ecran des sources ramene au modal, rien "
+    testWidgetsOnWindows("Echap sur l'ecran des sources ramene au modal, rien "
         "n'est acquitte", (WidgetTester tester) async {
       final _AcknowledgementRepositoryDouble repository = _repository();
       final WarningsViewModel viewModel = _viewModelFor(repository);
@@ -343,7 +354,7 @@ void main() {
       expect(repository.written, isEmpty);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       "apres un echec d'enregistrement, le lien reste present sous la "
       "phrase d'echec (UC-006 A6)",
       (WidgetTester tester) async {
@@ -368,7 +379,7 @@ void main() {
       },
     );
 
-    testWidgets('le lien mesure au moins minimumTapTarget', (
+    testWidgetsOnWindows('le lien mesure au moins minimumTapTarget', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(_harness(_viewModelFor(_repository())));
@@ -380,34 +391,31 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(minimumTapTarget));
     });
 
-    testWidgets(
-      "telephone a 200 % de police : le lien defile, reste atteignable et "
-      "ouvre l'ecran",
-      (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
-        await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-            child: _harness(_viewModelFor(_repository())),
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgetsOnAndroid("Android : telephone a 200 % de police : le lien defile, reste atteignable et "
+        "ouvre l'ecran", (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: _harness(_viewModelFor(_repository())),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.ensureVisible(find.byKey(initialWarningSourcesLinkKey));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(initialWarningSourcesLinkKey));
-        await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(initialWarningSourcesLinkKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+      await tester.pumpAndSettle();
 
-        expect(tester.takeException(), isNull);
-        expect(find.byType(DataSourcesView), findsOneWidget);
-      },
-    );
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DataSourcesView), findsOneWidget);
+    });
   });
 
   group('libelle du bouton (BR-012)', () {
-    testWidgets('est exactement "J\'ai compris ces limites"', (
+    testWidgetsOnWindows('est exactement "J\'ai compris ces limites"', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(_harness(_viewModelFor(_repository())));
@@ -420,7 +428,9 @@ void main() {
   });
 
   group('contenu du corps (UC-006 § 2)', () {
-    testWidgets('contient les termes requis', (WidgetTester tester) async {
+    testWidgetsOnWindows('contient les termes requis', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(_harness(_viewModelFor(_repository())));
 
       expect(find.textContaining('indicatives'), findsWidgets);
@@ -431,58 +441,53 @@ void main() {
   });
 
   group('typographie dynamique (UC-006 A4, 04-ui.md § 3)', () {
-    testWidgets(
-      'sur un format telephone, a 200% de police, le texte defile et reste '
-      'atteignable jusqu\'au bouton',
-      (WidgetTester tester) async {
-        // Format téléphone (390 x 844 logiques, ratio 1) : c'est sur un
-        // écran étroit, pas sur la fenêtre large des tests par défaut, que
-        // `UC-006 A4` doit être prouvé — le contenu déborde vraiment.
-        // Remis à zéro après le test : `tester.view` est partagé entre
-        // tous les tests du binding.
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
+    testWidgetsOnAndroid('Android : sur un format telephone, a 200% de police, le texte defile et reste '
+        'atteignable jusqu\'au bouton', (WidgetTester tester) async {
+      // Format téléphone (390 x 844 logiques, ratio 1) : c'est sur un
+      // écran étroit, pas sur la fenêtre large des tests par défaut, que
+      // `UC-006 A4` doit être prouvé — le contenu déborde vraiment.
+      // Remis à zéro après le test : `tester.view` est partagé entre
+      // tous les tests du binding.
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-        final _AcknowledgementRepositoryDouble repository = _repository();
-        await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-            child: _harness(_viewModelFor(repository)),
-          ),
-        );
-        await tester.pumpAndSettle();
+      final _AcknowledgementRepositoryDouble repository = _repository();
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: _harness(_viewModelFor(repository)),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        // Aucune exception de rendu (dépassement, `RenderFlex overflowed`…) :
-        // le texte défile au lieu d'être tronqué.
-        expect(tester.takeException(), isNull);
+      // Aucune exception de rendu (dépassement, `RenderFlex overflowed`…) :
+      // le texte défile au lieu d'être tronqué.
+      expect(tester.takeException(), isNull);
 
-        // Le défilement est réel, pas supposé : à 200 %, sur ce format, le
-        // contenu dépasse la hauteur visible.
-        final ScrollableState scrollable = tester.state(
-          find.byType(Scrollable),
-        );
-        expect(scrollable.position.maxScrollExtent, greaterThan(0));
+      // Le défilement est réel, pas supposé : à 200 %, sur ce format, le
+      // contenu dépasse la hauteur visible.
+      final ScrollableState scrollable = tester.state(find.byType(Scrollable));
+      expect(scrollable.position.maxScrollExtent, greaterThan(0));
 
-        // Atteignabilité de bout en bout : `ensureVisible` fait défiler
-        // jusqu'à chaque contrôle avant de le taper — un contrôle qui ne
-        // défilerait pas jusqu'à l'écran resterait inatteignable, pas
-        // seulement invisible.
-        await tester.ensureVisible(find.byKey(initialWarningCheckboxKey));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(initialWarningCheckboxKey));
-        await tester.pump();
+      // Atteignabilité de bout en bout : `ensureVisible` fait défiler
+      // jusqu'à chaque contrôle avant de le taper — un contrôle qui ne
+      // défilerait pas jusqu'à l'écran resterait inatteignable, pas
+      // seulement invisible.
+      await tester.ensureVisible(find.byKey(initialWarningCheckboxKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(initialWarningCheckboxKey));
+      await tester.pump();
 
-        await tester.ensureVisible(find.byKey(initialWarningButtonKey));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(initialWarningButtonKey));
-        await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(initialWarningButtonKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(initialWarningButtonKey));
+      await tester.pumpAndSettle();
 
-        expect(repository.written, <String>[_currentVersion]);
-      },
-    );
+      expect(repository.written, <String>[_currentVersion]);
+    });
 
-    testWidgets(
+    testWidgetsOnWindows(
       "a la taille minimale de fenetre Windows (800 x 740, decision 8 "
       "amendee le 2026-09-23, K3) et 200% de police, le texte defile et "
       "reste atteignable jusqu'au bouton",
@@ -521,7 +526,7 @@ void main() {
   });
 
   group('accessibilite (UC-006 A5, 04-ui.md § 3)', () {
-    testWidgets('l\'ecran est une region d\'alerte (liveRegion)', (
+    testWidgetsOnWindows('l\'ecran est une region d\'alerte (liveRegion)', (
       WidgetTester tester,
     ) async {
       final SemanticsHandle handle = tester.ensureSemantics();
@@ -535,32 +540,33 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('l\'etat inactif du bouton est annonce, puis son activation', (
-      WidgetTester tester,
-    ) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
-      await tester.pumpWidget(_harness(_viewModelFor(_repository())));
+    testWidgetsOnWindows(
+      'l\'etat inactif du bouton est annonce, puis son activation',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        await tester.pumpWidget(_harness(_viewModelFor(_repository())));
 
-      final SemanticsNode disabledButton = tester.getSemantics(
-        find.byKey(initialWarningButtonKey),
-      );
-      expect(
-        disabledButton.getSemanticsData().flagsCollection.isEnabled,
-        Tristate.isFalse,
-      );
+        final SemanticsNode disabledButton = tester.getSemantics(
+          find.byKey(initialWarningButtonKey),
+        );
+        expect(
+          disabledButton.getSemanticsData().flagsCollection.isEnabled,
+          Tristate.isFalse,
+        );
 
-      await tester.tap(find.byKey(initialWarningCheckboxKey));
-      await tester.pump();
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
 
-      final SemanticsNode enabledButton = tester.getSemantics(
-        find.byKey(initialWarningButtonKey),
-      );
-      expect(
-        enabledButton.getSemanticsData().flagsCollection.isEnabled,
-        Tristate.isTrue,
-      );
+        final SemanticsNode enabledButton = tester.getSemantics(
+          find.byKey(initialWarningButtonKey),
+        );
+        expect(
+          enabledButton.getSemanticsData().flagsCollection.isEnabled,
+          Tristate.isTrue,
+        );
 
-      handle.dispose();
-    });
+        handle.dispose();
+      },
+    );
   });
 }

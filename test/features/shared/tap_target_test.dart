@@ -8,6 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../support/android_platform.dart';
+import '../../support/windows_platform.dart';
+
 void main() {
   group('minimumTapTargetFor', () {
     test('android donne 48', () {
@@ -52,16 +55,20 @@ void main() {
       return tester.getSize(find.byKey(warningLinkKey));
     }
 
-    testWidgets('android : au moins 48 × 48 dp', (WidgetTester tester) async {
+    testWidgetsOnAndroid('android : au moins 48 × 48 dp', (
+      WidgetTester tester,
+    ) async {
       final Size size = await sizeOf(tester);
       expect(size.width, greaterThanOrEqualTo(48));
       expect(size.height, greaterThanOrEqualTo(48));
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+    });
 
-    testWidgets('windows : au moins 44 × 44 pt', (WidgetTester tester) async {
+    testWidgetsOnWindows('windows : au moins 44 × 44 pt', (
+      WidgetTester tester,
+    ) async {
       final Size size = await sizeOf(tester);
       expect(size.width, greaterThanOrEqualTo(44));
       expect(size.height, greaterThanOrEqualTo(44));
-    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+    });
   });
 }
