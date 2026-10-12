@@ -101,6 +101,8 @@ void main() {
                 // SOUS les puces en haut-gauche — exactement ce que le
                 // panneau ne doit plus recouvrir (point 3).
                 ...buildMapOverlays(
+                  filterHidesEverything: false,
+                  onClearFilters: () {},
                   scale: MapScaleKind.debit,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: () {},

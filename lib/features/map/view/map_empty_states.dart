@@ -51,6 +51,18 @@ const String noDataInAreaText =
 /// `UC-001 A2`).
 const String widenSearchLabel = 'Élargir la recherche';
 
+/// Les filtres ont masqué tous les lieux lus sur l'emprise, recopié du
+/// cadrage de T3 (`2026-10-12-cadrage-t3-design.md`, § 10.1). Un lieu masqué
+/// par un filtre n'est pas une absence de donnée (`BR-007`) : la phrase le
+/// dit, et ne dit rien de l'eau.
+const String filterHidesEverythingText =
+    'Les filtres masquent tous les lieux du secteur affiché. Cela ne dit '
+    "rien de l'état des cours d'eau.";
+
+/// L'action qui accompagne ce message (cadrage de T3, § 10.1) : elle retire
+/// tous les critères du filtre.
+const String clearFiltersLabel = 'Effacer les filtres';
+
 /// Zone hors couverture ONDE, recopié de `02-specifications.md § 4`. Il
 /// **nomme le périmètre réel** du réseau, comme l'exige `UC-001 A5` : France
 /// hexagonale et Corse, sur de petits cours d'eau choisis (`01-analyse.md
@@ -122,6 +134,10 @@ String mapSourceName(MapErrorSource? source) => switch (source) {
 /// comme pour les puces d'échelle.
 const Key widenSearchKey = ValueKey<String>('map-elargir-la-recherche');
 
+/// Clé de l'action « Effacer les filtres », posée comme [widenSearchKey] sur
+/// le nœud sémantique, donc sur la boîte entière.
+const Key clearFiltersKey = ValueKey<String>('map-effacer-les-filtres');
+
 /// Ce que la carte doit **dire** d'une emprise, au-delà de ses marqueurs.
 ///
 /// Une `sealed class` et non un `enum` : deux avis portent des données
@@ -162,6 +178,13 @@ final class OutsideOndeCoverage extends MapNotice {
   const OutsideOndeCoverage();
 }
 
+/// Les filtres masquent tous les lieux lus sur l'emprise (cadrage de T3,
+/// § 10.1, `BR-007`). Ni une absence de donnée ni un état de l'eau : un
+/// avis à part, qui propose d'effacer les filtres.
+final class FilterHidesEverything extends MapNotice {
+  const FilterHidesEverything();
+}
+
 /// Une source n'a pas répondu, et [sourceName] la nomme.
 ///
 /// ⚠️ **Aucune cause technique.** L'exception qui a déclenché cet avis ne le
@@ -190,19 +213,31 @@ final class UnreadableRows extends MapNotice {
 /// combinaison (échelle × vide/non vide × panne × lignes illisibles)
 /// vérifiable sans monter d'écran.
 ///
-/// Trois règles, dans cet ordre, et l'ordre est la décision :
+/// Quatre règles, dans cet ordre, et l'ordre est la décision :
 ///
 /// 1. **Une panne parle seule.** Quand [error] n'est pas nul, l'absence de
 ///    marqueur s'explique par la panne : afficher en plus « personne ne
 ///    mesure ici » affirmerait un fait de terrain que personne n'a constaté
 ///    (`BR-007`, `UC-001 A4`). Le message nomme la source, jamais « une
 ///    erreur est survenue ».
-/// 2. **Des lignes illisibles expliquent l'absence qu'elles causent.**
+///    Ce rang vaut aussi contre [filterHidesEverything], que
+///    `MapViewModel.filterHidesEverything` calcule sans regarder les
+///    pannes : c'est ici qu'il est tenu.
+/// 2. **Un filtre qui masque tout le dit, et n'est pas une absence.**
+///    [filterHidesEverything] n'est lu que si le fait de l'échelle est non
+///    vide ([hasStations] sur le débit, [hasOndeObservations] sur
+///    l'écoulement) : un filtre ne vide pas ce qui n'a pas été lu, et une
+///    lecture vide garde son avis d'absence habituel (`BR-007`). Aucun avis
+///    d'absence ne l'accompagne — « personne ne mesure ici » dirait le
+///    contraire de ce que l'écran sait. Sur l'écoulement, les lignes
+///    illisibles gardent leur avis, placé avant : les deux ne se
+///    contredisent pas.
+/// 3. **Des lignes illisibles expliquent l'absence qu'elles causent.**
 ///    Quand [ondeUnreadableRows] est positif sur l'échelle écoulement, c'est
 ///    ce compte qui est dit — et aucun avis d'absence ne l'accompagne, sinon
 ///    l'écran dirait à la fois « personne ne mesure ici » et « N points non
 ///    lisibles », ce qui se contredit.
-/// 3. **On n'affirme que ce qu'on a lu.** « Ni station ni point » n'est vrai
+/// 4. **On n'affirme que ce qu'on a lu.** « Ni station ni point » n'est vrai
 ///    **que si les deux manquent**, et ne se dit que là où les deux ont été
 ///    cherchés : c'est la lettre de `BR-007`. Sur l'échelle écoulement, des
 ///    stations sans observation ONDE donnent l'avis du périmètre du réseau
@@ -226,6 +261,7 @@ List<MapNotice> mapNoticesFor({
   required Object? error,
   required MapErrorSource? errorSource,
   required int ondeUnreadableRows,
+  required bool filterHidesEverything,
 }) {
   if (error != null) {
     return <MapNotice>[
@@ -237,28 +273,41 @@ List<MapNotice> mapNoticesFor({
   // sans branche ne compile pas — jamais un écran silencieusement muet.
   return switch (scale) {
     MapScaleKind.debit =>
-      hasStations ? const <MapNotice>[] : const <MapNotice>[NoStationInArea()],
+      !hasStations
+          ? const <MapNotice>[NoStationInArea()]
+          : filterHidesEverything
+          ? const <MapNotice>[FilterHidesEverything()]
+          : const <MapNotice>[],
     MapScaleKind.ecoulement => <MapNotice>[
       if (ondeUnreadableRows > 0) UnreadableRows(ondeUnreadableRows),
-      if (!hasOndeObservations && ondeUnreadableRows == 0)
+      if (filterHidesEverything && hasOndeObservations)
+        const FilterHidesEverything()
+      else if (!hasOndeObservations && ondeUnreadableRows == 0)
         if (hasStations) const OutsideOndeCoverage() else const NoDataInArea(),
     ],
   };
 }
 
 /// Rend l'avis [notice]. `switch` exhaustif sur la `sealed class`
-/// (`BR-011`). [onWiden] n'est utilisé que par les deux avis d'absence,
-/// seuls porteurs d'une action (`UC-001 A2`).
-Widget buildMapNotice(MapNotice notice, {required VoidCallback onWiden}) =>
-    switch (notice) {
-      NoDataInArea() => NoDataInAreaNotice(onWiden: onWiden),
-      NoStationInArea() => NoStationInAreaNotice(onWiden: onWiden),
-      OutsideOndeCoverage() => const OutsideOndeCoverageNotice(),
-      SourceUnavailable(:final String sourceName) => SourceUnavailableNotice(
-        sourceName: sourceName,
-      ),
-      UnreadableRows(:final int count) => UnreadableRowsNotice(count: count),
-    };
+/// (`BR-011`). [onWiden] n'est utilisé que par les deux avis d'absence
+/// (`UC-001 A2`), [onClearFilters] que par l'avis des filtres : seuls
+/// porteurs d'une action.
+Widget buildMapNotice(
+  MapNotice notice, {
+  required VoidCallback onWiden,
+  required VoidCallback onClearFilters,
+}) => switch (notice) {
+  NoDataInArea() => NoDataInAreaNotice(onWiden: onWiden),
+  NoStationInArea() => NoStationInAreaNotice(onWiden: onWiden),
+  OutsideOndeCoverage() => const OutsideOndeCoverageNotice(),
+  FilterHidesEverything() => FilterHidesEverythingNotice(
+    onClearFilters: onClearFilters,
+  ),
+  SourceUnavailable(:final String sourceName) => SourceUnavailableNotice(
+    sourceName: sourceName,
+  ),
+  UnreadableRows(:final int count) => UnreadableRowsNotice(count: count),
+};
 
 /// Ni station ni point dans le secteur affiché, avec l'action « Élargir la
 /// recherche » (`BR-007`, `02-specifications.md § 4`, `UC-001 A2`).
@@ -307,37 +356,77 @@ class _AbsenceNotice extends StatelessWidget {
       children: <Widget>[
         Text(text, style: _bodyStyle),
         const SizedBox(height: _noticeSpacing),
-        _WidenSearchAction(onWiden: onWiden),
+        _NoticeAction(
+          actionKey: widenSearchKey,
+          label: widenSearchLabel,
+          onTap: onWiden,
+        ),
       ],
     );
   }
 }
 
-/// L'action « Élargir la recherche ». Construite à la main plutôt qu'avec un
-/// bouton Material, pour la même raison que les puces d'échelle : la cible
-/// tactile de 44 pt (`04-ui.md § 3`) est ici une contrainte explicite, pas
-/// la densité que le thème veut bien accorder.
-class _WidenSearchAction extends StatelessWidget {
-  const _WidenSearchAction({required this.onWiden});
+/// Les filtres masquent tous les lieux lus sur l'emprise (cadrage de T3,
+/// § 10.1) : le texte, puis l'action « Effacer les filtres ». Même habillage
+/// que les avis d'absence, mais ni leur phrase ni leur action : ce n'est pas
+/// une absence de donnée (`BR-007`), et « Élargir la recherche » n'y
+/// changerait rien.
+class FilterHidesEverythingNotice extends StatelessWidget {
+  const FilterHidesEverythingNotice({required this.onClearFilters, super.key});
 
-  final VoidCallback onWiden;
+  /// Appelé au tap sur « Effacer les filtres ». En production,
+  /// `MapViewModel.clearFilter` : la vue ne décide d'aucun critère.
+  final VoidCallback onClearFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    return _NoticeCard(
+      children: <Widget>[
+        const Text(filterHidesEverythingText, style: _bodyStyle),
+        const SizedBox(height: _noticeSpacing),
+        _NoticeAction(
+          actionKey: clearFiltersKey,
+          label: clearFiltersLabel,
+          onTap: onClearFilters,
+        ),
+      ],
+    );
+  }
+}
+
+/// L'action d'un avis : « Élargir la recherche » ou « Effacer les filtres ».
+/// Construite à la main plutôt qu'avec un bouton Material, pour la même
+/// raison que les puces d'échelle : la cible tactile de 44 pt
+/// (`04-ui.md § 3`) est ici une contrainte explicite, pas la densité que le
+/// thème veut bien accorder. Rendu et sémantique sont ceux d'« Élargir la
+/// recherche » avant `F8` ; seuls la clé, le libellé et le rappel varient.
+class _NoticeAction extends StatelessWidget {
+  const _NoticeAction({
+    required this.actionKey,
+    required this.label,
+    required this.onTap,
+  });
+
+  final Key actionKey;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      key: widenSearchKey,
+      key: actionKey,
       button: true,
-      label: widenSearchLabel,
+      label: label,
       // Le libellé est déjà annoncé ici ; sans cette exclusion le `Text`
       // intérieur en ferait un second nœud.
       excludeSemantics: true,
       // Sans ce rappel, `excludeSemantics` masque l'action de tap que le
       // geste porterait sinon lui-même : un double-tap au lecteur d'écran
       // n'activerait plus rien (relecture du 2026-09-23).
-      onTap: onWiden,
+      onTap: onTap,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: onWiden,
+        onTap: onTap,
         child: ConstrainedBox(
           constraints: BoxConstraints(
             minWidth: minimumTapTarget,
@@ -351,15 +440,15 @@ class _WidenSearchAction extends StatelessWidget {
                 Radius.circular(minimumTapTarget / 2),
               ),
             ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               // `Align` à facteurs 1 : la boîte se dimensionne sur son
               // texte, et c'est le `ConstrainedBox` au-dessus qui impose le
               // plancher de 44 pt.
               child: Align(
                 widthFactor: 1,
                 heightFactor: 1,
-                child: Text(widenSearchLabel, style: _bodyStyle),
+                child: Text(label, style: _bodyStyle),
               ),
             ),
           ),

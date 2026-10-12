@@ -309,6 +309,8 @@ Future<List<FlutterErrorDetails>> _pumpOverlays(
   bool avecFiche = false,
   bool avecAvis = true,
   bool attendErreurs = false,
+  bool filtreVideTout = false,
+  VoidCallback? onEffacer,
   void Function(MapScaleKind kind)? onSelect,
   VoidCallback? onBasculerMode,
   VoidCallback? onCarteTap,
@@ -347,6 +349,8 @@ Future<List<FlutterErrorDetails>> _pumpOverlays(
                   ),
                 ),
                 ...buildMapOverlays(
+                  filterHidesEverything: filtreVideTout,
+                  onClearFilters: onEffacer ?? () {},
                   scale: scale,
                   onSelect: onSelect ?? (MapScaleKind kind) {},
                   onWiden: () {},
@@ -2429,5 +2433,73 @@ void main() {
         }
       }
     }
+  });
+
+  // ---------------------------------------------------------------------
+  // L'avis de carte vidée par le filtre (`F8` de T3)
+  // ---------------------------------------------------------------------
+  // Écoulement, des observations lues, un filtre qui les masque toutes : la
+  // carte écrit « Les filtres masquent tous les lieux… » et propose « Effacer
+  // les filtres ». L'action est entière dans l'écran et ne recoupe ni la
+  // légende ni les contrôles de zoom — à la taille minimale de Windows et à la
+  // taille d'un téléphone.
+  for (final (Size, _Test) cas in <(Size, _Test)>[
+    (const Size(800, 740), _surWindows),
+    (_petit, _surAndroid),
+  ]) {
+    cas.$2(
+      'à ${cas.$1.width.toInt()} × ${cas.$1.height.toInt()}, un filtre qui '
+      'masque tout : « Effacer les filtres » est dans l’écran et ne recoupe '
+      'ni la légende ni les contrôles de zoom',
+      (WidgetTester tester) async {
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          scale: MapScaleKind.ecoulement,
+          avecAvis: false,
+          filtreVideTout: true,
+        );
+
+        expect(find.text(filterHidesEverythingText), findsOneWidget);
+        expect(find.byType(NoDataInAreaNotice), findsNothing);
+
+        final Rect action = _rectOf(tester, find.byKey(clearFiltersKey));
+        final Rect ecran = Offset.zero & cas.$1;
+        expect(
+          ecran.contains(action.topLeft) && ecran.contains(action.bottomRight),
+          isTrue,
+          reason: 'action=$action, écran=$ecran',
+        );
+        expect(
+          action.overlaps(_rectOf(tester, find.byType(MapLegend))),
+          isFalse,
+          reason: 'action=$action recoupe la légende',
+        );
+        expect(
+          action.overlaps(_rectOf(tester, find.byType(MapControls))),
+          isFalse,
+          reason: 'action=$action recoupe les contrôles de zoom',
+        );
+      },
+    );
+  }
+
+  _surWindows('un tap sur « Effacer les filtres » appelle onEffacer une fois', (
+    WidgetTester tester,
+  ) async {
+    int effacements = 0;
+    await _pumpOverlays(
+      tester,
+      const Size(800, 740),
+      scale: MapScaleKind.ecoulement,
+      avecAvis: false,
+      filtreVideTout: true,
+      onEffacer: () => effacements++,
+    );
+
+    await tester.tap(find.byKey(clearFiltersKey));
+    await tester.pump();
+
+    expect(effacements, 1);
   });
 }

@@ -43,6 +43,7 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+import '../../../support/android_platform.dart';
 import '../../../support/windows_platform.dart';
 
 /// Le fichier source des avis, lu par le verrou d'exhaustivité ci-dessous.
@@ -54,6 +55,8 @@ const String _sourcePath = 'lib/features/map/view/map_empty_states.dart';
 List<String> _allTexts() => <String>[
   noDataInAreaText,
   widenSearchLabel,
+  filterHidesEverythingText,
+  clearFiltersLabel,
   outsideOndeCoverageText,
   noDataFallbackText,
   noStationInAreaText,
@@ -74,6 +77,8 @@ List<String> _allTexts() => <String>[
 const List<String> _sweptConstants = <String>[
   'noDataInAreaText',
   'widenSearchLabel',
+  'filterHidesEverythingText',
+  'clearFiltersLabel',
   'outsideOndeCoverageText',
   'noDataFallbackText',
   'noStationInAreaText',
@@ -407,6 +412,148 @@ void main() {
     );
   });
 
+  group('FilterHidesEverythingNotice — une carte vidée par le filtre (F8 de '
+      'T3, cadrage § 10.1)', () {
+    testWidgetsOnWindows('le texte est celui du cadrage § 10.1, mot pour mot, '
+        'et rien ne dit que les cours d\'eau sont dans un état', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, FilterHidesEverythingNotice(onClearFilters: () {}));
+
+      expect(
+        find.text(
+          'Les filtres masquent tous les lieux du secteur affiché. Cela ne '
+          "dit rien de l'état des cours d'eau.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(clearFiltersLabel), findsOneWidget);
+      expect(clearFiltersLabel, 'Effacer les filtres');
+    });
+
+    testWidgetsOnWindows(
+      "l'action « Effacer les filtres » est un bouton sémantique, et un tap "
+      'appelle onClearFilters UNE fois',
+      (WidgetTester tester) async {
+        int effacements = 0;
+        await _pump(
+          tester,
+          FilterHidesEverythingNotice(onClearFilters: () => effacements++),
+        );
+
+        expect(
+          tester.getSemantics(find.byKey(clearFiltersKey)),
+          matchesSemantics(
+            label: 'Effacer les filtres',
+            isButton: true,
+            hasTapAction: true,
+          ),
+        );
+
+        await tester.tap(find.byKey(clearFiltersKey));
+        await tester.pump();
+
+        expect(effacements, 1);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "l'action porte une action tap pour le lecteur d'écran, qui appelle "
+      'onClearFilters',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        int effacements = 0;
+        await _pump(
+          tester,
+          FilterHidesEverythingNotice(onClearFilters: () => effacements++),
+        );
+
+        final SemanticsNode node = tester.getSemantics(
+          find.byKey(clearFiltersKey),
+        );
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pump();
+
+        expect(effacements, 1);
+        handle.dispose();
+      },
+    );
+
+    testWidgetsOnWindows(
+      "aucun avis d'absence, aucune action « Élargir la recherche » avec "
+      'lui (BR-007)',
+      (WidgetTester tester) async {
+        await _pump(tester, FilterHidesEverythingNotice(onClearFilters: () {}));
+
+        expect(find.byType(NoDataInAreaNotice), findsNothing);
+        expect(find.byType(NoStationInAreaNotice), findsNothing);
+        expect(find.byType(OutsideOndeCoverageNotice), findsNothing);
+        expect(find.byKey(widenSearchKey), findsNothing);
+        expect(find.text(widenSearchLabel), findsNothing);
+        expect(find.textContaining('personne ne mesure'), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'la cible de l\'action fait au moins 44 pt (Windows)',
+      (WidgetTester tester) async {
+        await _pump(tester, FilterHidesEverythingNotice(onClearFilters: () {}));
+
+        final Size taille = tester.getSize(find.byKey(clearFiltersKey));
+        expect(
+          taille.height,
+          greaterThanOrEqualTo(minimumTapTargetFor(TargetPlatform.windows)),
+        );
+        expect(
+          taille.width,
+          greaterThanOrEqualTo(minimumTapTargetFor(TargetPlatform.windows)),
+        );
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : la cible de l\'action fait au moins 48 dp',
+      (WidgetTester tester) async {
+        await _pump(tester, FilterHidesEverythingNotice(onClearFilters: () {}));
+
+        final Size taille = tester.getSize(find.byKey(clearFiltersKey));
+        expect(
+          taille.height,
+          greaterThanOrEqualTo(minimumTapTargetFor(TargetPlatform.android)),
+        );
+        expect(
+          taille.width,
+          greaterThanOrEqualTo(minimumTapTargetFor(TargetPlatform.android)),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      "« Élargir la recherche » est rendu comme avant par l'action "
+      'partagée : même clé, même libellé, une seule action',
+      (WidgetTester tester) async {
+        int elargissements = 0;
+        await _pump(
+          tester,
+          NoDataInAreaNotice(onWiden: () => elargissements++),
+        );
+
+        expect(
+          tester.getSemantics(find.byKey(widenSearchKey)),
+          matchesSemantics(
+            label: 'Élargir la recherche',
+            isButton: true,
+            hasTapAction: true,
+          ),
+        );
+        expect(find.byKey(clearFiltersKey), findsNothing);
+        await tester.tap(find.byKey(widenSearchKey));
+        await tester.pump();
+        expect(elargissements, 1);
+      },
+    );
+  });
+
   group('UnreadableRowsNotice — les lignes ONDE illisibles (T-14)', () {
     testWidgetsOnWindows('1 : singulier', (WidgetTester tester) async {
       await _pump(tester, const UnreadableRowsNotice(count: 1));
@@ -436,6 +583,7 @@ void main() {
       Object? error,
       MapErrorSource? errorSource,
       int ondeUnreadableRows = 0,
+      bool filterHidesEverything = false,
     }) => mapNoticesFor(
       scale: scale,
       hasStations: hasStations,
@@ -443,7 +591,99 @@ void main() {
       error: error,
       errorSource: errorSource,
       ondeUnreadableRows: ondeUnreadableRows,
+      filterHidesEverything: filterHidesEverything,
     );
+
+    test('un filtre qui masque tout, écoulement, des observations lues : '
+        "l'avis des filtres, et aucun avis d'absence", () {
+      expect(notices(filterHidesEverything: true), <MapNotice>[
+        const FilterHidesEverything(),
+      ]);
+    });
+
+    test('un filtre qui masque tout, écoulement, avec 3 lignes illisibles : '
+        'les DEUX avis, le compte d\'abord — ils ne se contredisent pas', () {
+      final List<MapNotice> rendus = notices(
+        filterHidesEverything: true,
+        ondeUnreadableRows: 3,
+      );
+
+      expect(rendus.map((MapNotice avis) => avis.runtimeType).toList(), <Type>[
+        UnreadableRows,
+        FilterHidesEverything,
+      ]);
+      expect((rendus.first as UnreadableRows).count, 3);
+    });
+
+    test('un filtre qui masque tout, écoulement, aucune observation lue, des '
+        "stations : l'avis habituel du périmètre ONDE — un filtre ne vide "
+        'pas ce qui n\'a pas été lu', () {
+      expect(
+        notices(hasOndeObservations: false, filterHidesEverything: true),
+        <MapNotice>[const OutsideOndeCoverage()],
+      );
+    });
+
+    test('un filtre qui masque tout, écoulement, ni station ni observation '
+        "lue : l'avis d'absence habituel (BR-007)", () {
+      expect(
+        notices(
+          hasStations: false,
+          hasOndeObservations: false,
+          filterHidesEverything: true,
+        ),
+        <MapNotice>[const NoDataInArea()],
+      );
+    });
+
+    test('un filtre qui masque tout, débit, des stations lues : '
+        "l'avis des filtres seul", () {
+      expect(
+        notices(scale: MapScaleKind.debit, filterHidesEverything: true),
+        <MapNotice>[const FilterHidesEverything()],
+      );
+    });
+
+    test('un filtre qui masque tout, débit, ni station lue : '
+        "l'avis d'absence habituel", () {
+      expect(
+        notices(
+          scale: MapScaleKind.debit,
+          hasStations: false,
+          filterHidesEverything: true,
+        ),
+        <MapNotice>[const NoStationInArea()],
+      );
+    });
+
+    test('un filtre qui masque tout, débit, avec des lignes ONDE illisibles '
+        "résiduelles : l'avis des filtres seul — elles ne disent rien "
+        'sur cette échelle (BR-008)', () {
+      expect(
+        notices(
+          scale: MapScaleKind.debit,
+          ondeUnreadableRows: 5,
+          filterHidesEverything: true,
+        ),
+        <MapNotice>[const FilterHidesEverything()],
+      );
+    });
+
+    test('une panne parle seule, même quand le filtre masque tout, sur les '
+        'deux échelles', () {
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        final List<MapNotice> rendus = notices(
+          scale: scale,
+          error: StateError('panne'),
+          errorSource: MapErrorSource.ecoulement,
+          ondeUnreadableRows: 3,
+          filterHidesEverything: true,
+        );
+
+        expect(rendus, hasLength(1), reason: '$scale');
+        expect(rendus.single, isA<SourceUnavailable>(), reason: '$scale');
+      }
+    });
 
     test("échelle débit, aucune station, aucune erreur : la phrase dédiée "
         "de l'arbitrage du 2026-09-18, jamais « ni station ni point » — "
@@ -562,42 +802,64 @@ void main() {
           for (final bool observations in <bool>[true, false]) {
             for (final int illisibles in <int>[0, 2]) {
               for (final Object? error in <Object?>[null, StateError('x')]) {
-                final List<MapNotice> rendus = mapNoticesFor(
-                  scale: scale,
-                  hasStations: stations,
-                  hasOndeObservations: observations,
-                  error: error,
-                  errorSource: error == null
-                      ? null
-                      : MapErrorSource.referentiel,
-                  ondeUnreadableRows: illisibles,
-                );
+                for (final bool filtre in <bool>[false, true]) {
+                  final List<MapNotice> rendus = mapNoticesFor(
+                    scale: scale,
+                    hasStations: stations,
+                    hasOndeObservations: observations,
+                    error: error,
+                    errorSource: error == null
+                        ? null
+                        : MapErrorSource.referentiel,
+                    ondeUnreadableRows: illisibles,
+                    filterHidesEverything: filtre,
+                  );
 
-                expect(
-                  rendus.whereType<NoDataInArea>().length +
-                      rendus.whereType<NoStationInArea>().length +
-                      rendus.whereType<OutsideOndeCoverage>().length,
-                  lessThanOrEqualTo(1),
-                  reason:
-                      'deux avis d absence pour $scale / stations=$stations '
-                      '/ observations=$observations',
-                );
-                if (scale == MapScaleKind.debit) {
                   expect(
-                    rendus.whereType<NoDataInArea>(),
-                    isEmpty,
+                    rendus.whereType<NoDataInArea>().length +
+                        rendus.whereType<NoStationInArea>().length +
+                        rendus.whereType<OutsideOndeCoverage>().length,
+                    lessThanOrEqualTo(1),
                     reason:
-                        '« ni station ni point » suppose que les DEUX ont '
-                        'été cherchés ; sur l échelle débit, l ONDE ne l a '
-                        'pas été (BR-008) — on n affirme que ce qu on a lu',
+                        'deux avis d absence pour $scale / stations=$stations '
+                        '/ observations=$observations / filtre=$filtre',
                   );
-                }
-                if (error != null) {
                   expect(
-                    rendus.map((MapNotice avis) => avis.runtimeType).toList(),
-                    <Type>[SourceUnavailable],
-                    reason: 'une panne parle seule',
+                    rendus.whereType<FilterHidesEverything>().length +
+                        (rendus.whereType<NoDataInArea>().length +
+                            rendus.whereType<NoStationInArea>().length +
+                            rendus.whereType<OutsideOndeCoverage>().length),
+                    lessThanOrEqualTo(1),
+                    reason:
+                        "l'avis des filtres et un avis d'absence se "
+                        'contrediraient : $scale / stations=$stations / '
+                        'observations=$observations / filtre=$filtre',
                   );
+                  if (!filtre) {
+                    expect(
+                      rendus.whereType<FilterHidesEverything>(),
+                      isEmpty,
+                      reason:
+                          "sans filtre qui masque tout, pas l'avis des filtres",
+                    );
+                  }
+                  if (scale == MapScaleKind.debit) {
+                    expect(
+                      rendus.whereType<NoDataInArea>(),
+                      isEmpty,
+                      reason:
+                          '« ni station ni point » suppose que les DEUX ont '
+                          'été cherchés ; sur l échelle débit, l ONDE ne l a '
+                          'pas été (BR-008) — on n affirme que ce qu on a lu',
+                    );
+                  }
+                  if (error != null) {
+                    expect(
+                      rendus.map((MapNotice avis) => avis.runtimeType).toList(),
+                      <Type>[SourceUnavailable],
+                      reason: 'une panne parle seule',
+                    );
+                  }
                 }
               }
             }

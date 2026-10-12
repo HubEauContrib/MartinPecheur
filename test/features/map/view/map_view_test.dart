@@ -16,6 +16,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:martinpecheur/domain/filters/map_filter.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/area_cluster.dart' show AreaLevel;
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -871,6 +872,8 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
                 scale: scale,
                 onSelect: onSelect ?? (MapScaleKind kind) {},
                 onWiden: onWiden ?? () {},
@@ -1114,6 +1117,8 @@ void main() {
             home: Scaffold(
               body: Stack(
                 children: buildMapOverlays(
+                  filterHidesEverything: false,
+                  onClearFilters: () {},
                   scale: MapScaleKind.debit,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: () {},
@@ -1179,6 +1184,8 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
                 scale: MapScaleKind.ecoulement,
                 onSelect: (MapScaleKind kind) {},
                 onWiden: () {},
@@ -1274,6 +1281,8 @@ void main() {
             home: Scaffold(
               body: Stack(
                 children: buildMapOverlays(
+                  filterHidesEverything: false,
+                  onClearFilters: () {},
                   scale: scale,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: () {},
@@ -1750,6 +1759,8 @@ void main() {
                   ),
                 ),
                 ...buildMapOverlays(
+                  filterHidesEverything: false,
+                  onClearFilters: () {},
                   scale: MapScaleKind.ecoulement,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: onWiden ?? () {},
@@ -2301,6 +2312,8 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
                 scale: scale,
                 onSelect: (MapScaleKind kind) {},
                 onWiden: onWiden ?? () {},
@@ -2471,6 +2484,8 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
                 scale: scale,
                 onSelect: onSelect ?? (MapScaleKind kind) {},
                 onWiden: () {},
@@ -3132,6 +3147,104 @@ void main() {
       },
     );
   });
+
+  group('MapView — un filtre qui masque tout (F8 de T3)', () {
+    /// Deux points ONDE sans région : ils restent des marqueurs individuels à
+    /// tous les niveaux, donc dessinés dès le démarrage.
+    List<OndeObservation> deuxAssecs() => <OndeObservation>[
+      _observation(
+        _leTrey(),
+        category: const Assec(),
+        observedAt: DateTime.utc(2026, 9, 1),
+      ),
+      _observation(
+        _laSeille(),
+        category: const Assec(),
+        observedAt: DateTime.utc(2026, 9, 1),
+      ),
+    ];
+
+    Finder marqueursOnde() => find.descendant(
+      of: find.byType(MarkerLayer),
+      matching: find.byType(OndeMarkerShape),
+    );
+
+    final MapFilter sansAssec = MapFilter.none.withCategory(
+      const Assec(),
+      shown: false,
+    );
+
+    testWidgetsOnWindows(
+      "deux Assec lus, la case « À sec » décochée : l'avis des filtres "
+      "s'affiche seul ; « Effacer les filtres » le retire, ramène le filtre "
+      'à MapFilter.none et redessine les deux marqueurs',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: _EmptyStationPointRepository(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: _SpyOndeObservationRepository(deuxAssecs()),
+        );
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        expect(marqueursOnde(), findsNWidgets(2));
+        expect(find.text(filterHidesEverythingText), findsNothing);
+
+        viewModel.applyFilter(sansAssec);
+        await tester.pumpAndSettle();
+
+        expect(find.text(filterHidesEverythingText), findsOneWidget);
+        expect(find.byKey(clearFiltersKey), findsOneWidget);
+        expect(marqueursOnde(), findsNothing);
+        expect(find.byType(NoDataInAreaNotice), findsNothing);
+        expect(find.byType(OutsideOndeCoverageNotice), findsNothing);
+        expect(find.text(widenSearchLabel), findsNothing);
+
+        await tester.tap(find.byKey(clearFiltersKey));
+        await tester.pumpAndSettle();
+
+        expect(find.text(filterHidesEverythingText), findsNothing);
+        expect(viewModel.filter, MapFilter.none);
+        expect(marqueursOnde(), findsNWidgets(2));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'une panne ONDE après un balayage dont le filtre masque tout : seul '
+      "l'avis de la source tombée est affiché (une panne parle seule)",
+      (WidgetTester tester) async {
+        final _SwitchableOndeObservationRepository onde =
+            _SwitchableOndeObservationRepository(deuxAssecs());
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: _EmptyStationPointRepository(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: onde,
+        );
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        viewModel.applyFilter(sansAssec);
+        await tester.pumpAndSettle();
+        expect(find.text(filterHidesEverythingText), findsOneWidget);
+
+        onde.fail = true;
+        await viewModel.widenSearch();
+        await tester.pumpAndSettle();
+
+        expect(viewModel.error, isNotNull);
+        expect(viewModel.filterHidesEverything, isTrue);
+        expect(find.byType(SourceUnavailableNotice), findsOneWidget);
+        expect(find.text(filterHidesEverythingText), findsNothing);
+        expect(find.byKey(clearFiltersKey), findsNothing);
+      },
+    );
+  });
 }
 
 /// Un double PROGRAMMABLE de [StationPointRepository] : `all()` et
@@ -3217,6 +3330,34 @@ final class _SpyOndeObservationRepository implements OndeObservationRepository {
     required DateTime since,
   }) async {
     callCount++;
+    return OndeSweep(observations: observations, unreadableRows: 0);
+  }
+
+  @override
+  Future<List<OndeObservation>> historyFor(
+    OndeStationCode station, {
+    int limit = 5,
+  }) async => const <OndeObservation>[];
+}
+
+/// Comme [_SpyOndeObservationRepository], mais il peut tomber : `fail` à vrai
+/// fait lever chaque balayage suivant.
+final class _SwitchableOndeObservationRepository
+    implements OndeObservationRepository {
+  _SwitchableOndeObservationRepository(this.observations);
+
+  final List<OndeObservation> observations;
+
+  bool fail = false;
+
+  @override
+  Future<OndeSweep> latestWithinBounds(
+    Bounds bounds, {
+    required DateTime since,
+  }) async {
+    if (fail) {
+      throw StateError('Hub\'Eau écoulement : panne simulée');
+    }
     return OndeSweep(observations: observations, unreadableRows: 0);
   }
 

@@ -69,3 +69,13 @@ Fonctionnalité: Filtrer la carte
     Étant donné un filtre appliqué pendant une session
     Quand l'application est relancée
     Alors la carte montre tous les lieux : aucun n'est masqué sans un geste de l'usager ce jour-là (BR-007)
+
+  Scénario: Une carte vidée par le filtre le dit et propose de l'effacer
+    Étant donné une emprise où des lieux ont été lus et un filtre qui les masque tous
+    Quand la carte s'affiche
+    Alors elle écrit « Les filtres masquent tous les lieux du secteur affiché. Cela ne dit rien de l'état des cours d'eau. », propose « Effacer les filtres », et n'affiche aucun avis d'absence (BR-007)
+
+  Scénario: Une emprise sans lieu garde son avis d'absence, filtre actif ou non
+    Étant donné une emprise où aucun lieu n'a été lu et un filtre actif
+    Quand la carte s'affiche
+    Alors l'avis d'absence habituel s'affiche, et l'avis des filtres ne s'affiche pas (BR-007)

@@ -606,6 +606,10 @@ final class MapViewModel extends ChangeNotifier {
   /// **aucun** de ces lieux lus n'est retenu. Une lecture vide n'est pas le
   /// fait du filtre : c'est l'avis d'absence habituel (`BR-007`).
   ///
+  /// Ce getter ne regarde pas les pannes : le rang « une panne parle seule »
+  /// est tenu par `mapNoticesFor` (`map_empty_states.dart`), qui n'affiche
+  /// alors que l'avis de la source tombée, même quand ce getter est vrai.
+  ///
   /// Sur le débit sous le zoom 9, la question se pose aux [stations] de
   /// l'emprise, pas à [clusters] : les pastilles se comptent sur le
   /// référentiel entier (`ADR-015`), il peut en rester une à l'autre bout du

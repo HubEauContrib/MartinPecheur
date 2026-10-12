@@ -814,16 +814,19 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 /// [onSelect] est appelé avec l'échelle demandée par un tap de puce — en
 /// production, `MapViewModel.selectScale`. [onWiden] l'est par l'action
 /// « Élargir la recherche » de l'avis d'absence — en production,
-/// `MapViewModel.widenSearch`. Les deux sont **requis** : un contrôle sans
+/// `MapViewModel.widenSearch`. [onClearFilters] l'est par l'action « Effacer les
+/// filtres » de l'avis des filtres — en production, `MapViewModel.clearFilter`.
+/// Ces trois rappels sont **requis** : un contrôle sans
 /// rappel serait mort à l'écran.
 ///
-/// [stations], [ondeObservations] et [ondeUnreadableRows] ne servent QU'À
+/// [stations], [ondeObservations], [ondeUnreadableRows] et
+/// [filterHidesEverything] ne servent QU'À
 /// décider des avis : cette fonction ne dessine aucun marqueur, c'est
 /// [buildMapLayers] qui s'en charge. Elle n'en lit d'ailleurs que le vide ou
 /// le non-vide — la décision elle-même est [mapNoticesFor], pure et testable
 /// sans widget.
 ///
-/// Les trois sont **requis**, sans valeur par défaut : un appelant qui en
+/// Ces quatre faits sont **requis**, sans valeur par défaut : un appelant qui en
 /// oublie un ferait dire à l'écran « il n'y a rien ici » alors que la carte
 /// dessine des marqueurs. Un oubli doit être une erreur de compilation, pas
 /// une affirmation fausse à l'usager (`BR-007`).
@@ -835,6 +838,11 @@ List<Widget> buildMapOverlays({
   required List<StationPoint> stations,
   required Map<OndeStationCode, OndeObservation> ondeObservations,
   required int ondeUnreadableRows,
+  // `F8` de T3 : `MapViewModel.filterHidesEverything` et
+  // `MapViewModel.clearFilter`. Requis, comme les faits lus : un oubli ferait
+  // dire « personne ne mesure ici » à une carte que le filtre a vidée.
+  required bool filterHidesEverything,
+  required VoidCallback onClearFilters,
   // `K1`, 2026-09-23 — [onZoomIn]/[onZoomOut] sont **nuls** quand
   // `MapViewModel.canZoomIn`/`canZoomOut` disent qu'un cran de plus n'aurait
   // aucun effet ; [MapControls] rend alors le bouton correspondant
@@ -867,6 +875,7 @@ List<Widget> buildMapOverlays({
     error: error,
     errorSource: errorSource,
     ondeUnreadableRows: ondeUnreadableRows,
+    filterHidesEverything: filterHidesEverything,
   );
   // Les pièces du haut de la carte, construites UNE fois pour les deux
   // dispositions ci-dessous : leurs ordres de tabulation (`K2`) ne peuvent
@@ -890,7 +899,11 @@ List<Widget> buildMapOverlays({
     for (final MapNotice notice in notices)
       Padding(
         padding: const EdgeInsets.only(top: _overlayPadding),
-        child: buildMapNotice(notice, onWiden: onWiden),
+        child: buildMapNotice(
+          notice,
+          onWiden: onWiden,
+          onClearFilters: onClearFilters,
+        ),
       ),
   ];
 
@@ -2020,6 +2033,9 @@ class _MapViewState extends State<MapView> {
                       stations: widget.viewModel.stations,
                       ondeObservations: widget.viewModel.ondeObservations,
                       ondeUnreadableRows: widget.viewModel.ondeUnreadableRows,
+                      filterHidesEverything:
+                          widget.viewModel.filterHidesEverything,
+                      onClearFilters: widget.viewModel.clearFilter,
                       onZoomIn: widget.viewModel.canZoomIn
                           ? _handleZoomIn
                           : null,

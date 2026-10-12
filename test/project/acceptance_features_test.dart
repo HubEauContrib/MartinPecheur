@@ -26,6 +26,8 @@ import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
+import 'package:martinpecheur/features/map/view/map_empty_states.dart'
+    show clearFiltersLabel, filterHidesEverythingText;
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
@@ -665,6 +667,8 @@ void main() {
       'échelle débit': mapScaleLabel(MapScaleKind.debit),
       'case du code non reconnu': flowCategoryLabel(const Inconnu(null)),
       'case Assec': flowCategoryLabel(const Assec()),
+      'texte de l’avis des filtres': filterHidesEverythingText,
+      'action de l’avis des filtres': clearFiltersLabel,
       'critère de fraîcheur': dischargeFreshnessCriterionLabel(
         DischargeFreshnessCriterion.moinsDe2h,
       ),
