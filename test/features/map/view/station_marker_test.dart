@@ -22,6 +22,7 @@ import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 import '../../../support/marker_pixels.dart';
+import '../../../support/windows_platform.dart';
 
 /// Les six etats que `StationMapState` peut prendre. Six, et non les cinq du
 /// tableau de U2 : `EnEchec` existe dans le domaine depuis V2 et doit, lui
@@ -106,80 +107,94 @@ void main() {
   });
 
   group('liseré blanc de détachement', () {
-    testWidgets('a 26 px, chaque etat a un pixel blanc juste hors du contour '
-        'noir (bas de la boite, hors du contour)', (WidgetTester tester) async {
-      const int side = 26;
-      for (final StationMapState state in tousLesEtats) {
+    testWidgetsOnWindows(
+      'a 26 px, chaque etat a un pixel blanc juste hors du contour '
+      'noir (bas de la boite, hors du contour)',
+      (WidgetTester tester) async {
+        const int side = 26;
+        for (final StationMapState state in tousLesEtats) {
+          final ByteData data = await renderMarker(
+            tester,
+            StationMarkerPainter.forState(state, detached: true),
+            side,
+          );
+
+          expect(
+            looksWhite(pixelOf(data, side, side ~/ 2, side - 2)),
+            isTrue,
+            reason: 'liseré absent pour $state',
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      'a 12 px (compact), aucun liseré : le bord reste le fond',
+      (WidgetTester tester) async {
+        const int side = 12;
+        for (final StationMapState state in tousLesEtats) {
+          final ByteData data = await renderMarker(
+            tester,
+            StationMarkerPainter.forState(state),
+            side,
+          );
+
+          expect(
+            looksWhite(pixelOf(data, side, side ~/ 2, side - 1)),
+            isFalse,
+            reason: 'liseré inattendu pour $state',
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      '◇ : le liseré fait 2 px PERPENDICULAIREMENT au milieu d un '
+      'flanc oblique, contour noir juste apres',
+      (WidgetTester tester) async {
+        const int side = 26;
         final ByteData data = await renderMarker(
           tester,
-          StationMarkerPainter.forState(state, detached: true),
+          StationMarkerPainter.forState(const NonChargee(), detached: true),
           side,
         );
 
+        // Flanc haut-droit : la droite y = x - 13. Distances perpendiculaires
+        // des centres de pixel au bord de la boite : (18,6) 0,7 · (18,7) 1,4 ·
+        // (17,8) 2,8.
         expect(
-          looksWhite(pixelOf(data, side, side ~/ 2, side - 2)),
+          looksWhite(pixelOf(data, side, 18, 6), minChannel: 0x99),
           isTrue,
-          reason: 'liseré absent pour $state',
         );
-      }
-    });
-
-    testWidgets('a 12 px (compact), aucun liseré : le bord reste le fond', (
-      WidgetTester tester,
-    ) async {
-      const int side = 12;
-      for (final StationMapState state in tousLesEtats) {
-        final ByteData data = await renderMarker(
-          tester,
-          StationMarkerPainter.forState(state),
-          side,
-        );
-
         expect(
-          looksWhite(pixelOf(data, side, side ~/ 2, side - 1)),
-          isFalse,
-          reason: 'liseré inattendu pour $state',
+          looksWhite(pixelOf(data, side, 18, 7), minChannel: 0x99),
+          isTrue,
         );
-      }
-    });
+        expect(looksBlack(pixelOf(data, side, 17, 8)), isTrue);
+      },
+    );
 
-    testWidgets('◇ : le liseré fait 2 px PERPENDICULAIREMENT au milieu d un '
-        'flanc oblique, contour noir juste apres', (WidgetTester tester) async {
-      const int side = 26;
-      final ByteData data = await renderMarker(
-        tester,
-        StationMarkerPainter.forState(const NonChargee(), detached: true),
-        side,
-      );
+    testWidgetsOnWindows(
+      'rien ne sort de la boite de 26 px, pointes comprises',
+      (WidgetTester tester) async {
+        const int side = 26;
+        const int margin = 8;
+        for (final StationMapState state in tousLesEtats) {
+          final ByteData data = await renderMarkerInMargin(
+            tester,
+            StationMarkerPainter.forState(state, detached: true),
+            side,
+            margin,
+          );
 
-      // Flanc haut-droit : la droite y = x - 13. Distances perpendiculaires
-      // des centres de pixel au bord de la boite : (18,6) 0,7 · (18,7) 1,4 ·
-      // (17,8) 2,8.
-      expect(looksWhite(pixelOf(data, side, 18, 6), minChannel: 0x99), isTrue);
-      expect(looksWhite(pixelOf(data, side, 18, 7), minChannel: 0x99), isTrue);
-      expect(looksBlack(pixelOf(data, side, 17, 8)), isTrue);
-    });
-
-    testWidgets('rien ne sort de la boite de 26 px, pointes comprises', (
-      WidgetTester tester,
-    ) async {
-      const int side = 26;
-      const int margin = 8;
-      for (final StationMapState state in tousLesEtats) {
-        final ByteData data = await renderMarkerInMargin(
-          tester,
-          StationMarkerPainter.forState(state, detached: true),
-          side,
-          margin,
-        );
-
-        expect(
-          paintsOutsideBox(data, side, margin),
-          isFalse,
-          reason: 'debordement pour $state',
-        );
-      }
-    });
+          expect(
+            paintsOutsideBox(data, side, margin),
+            isFalse,
+            reason: 'debordement pour $state',
+          );
+        }
+      },
+    );
 
     test('la fabrique ne pose pas de liseré par defaut', () {
       expect(
@@ -188,177 +203,196 @@ void main() {
       );
     });
 
-    testWidgets('le widget de carte est detache a 26 px, le compact non a '
-        '12 px', (WidgetTester tester) async {
-      await _pumpDot(tester, const Chargee(Freshness.fraiche));
-      expect(_paintedBy(tester).detached, isTrue);
-      expect(
-        tester
-            .widget<CustomPaint>(
-              find.descendant(
-                of: find.byType(StationMarkerDot),
-                matching: find.byType(CustomPaint),
-              ),
-            )
-            .size,
-        const Size.square(stationMarkerSize),
-      );
+    testWidgetsOnWindows(
+      'le widget de carte est detache a 26 px, le compact non a '
+      '12 px',
+      (WidgetTester tester) async {
+        await _pumpDot(tester, const Chargee(Freshness.fraiche));
+        expect(_paintedBy(tester).detached, isTrue);
+        expect(
+          tester
+              .widget<CustomPaint>(
+                find.descendant(
+                  of: find.byType(StationMarkerDot),
+                  matching: find.byType(CustomPaint),
+                ),
+              )
+              .size,
+          const Size.square(stationMarkerSize),
+        );
 
-      await tester.pumpWidget(
-        const Directionality(
-          textDirection: TextDirection.ltr,
-          child: Center(
-            child: SizedBox(
-              width: compactMarkerSize,
-              height: compactMarkerSize,
-              child: StationMarkerDot(state: NonChargee(), compact: true),
+        await tester.pumpWidget(
+          const Directionality(
+            textDirection: TextDirection.ltr,
+            child: Center(
+              child: SizedBox(
+                width: compactMarkerSize,
+                height: compactMarkerSize,
+                child: StationMarkerDot(state: NonChargee(), compact: true),
+              ),
             ),
           ),
-        ),
-      );
-      final CustomPaint compact = tester.widget<CustomPaint>(
-        find.descendant(
-          of: find.byType(StationMarkerDot),
-          matching: find.byType(CustomPaint),
-        ),
-      );
-      expect(compact.size, const Size.square(compactMarkerSize));
-      expect((compact.painter! as StationMarkerPainter).detached, isFalse);
-    });
+        );
+        final CustomPaint compact = tester.widget<CustomPaint>(
+          find.descendant(
+            of: find.byType(StationMarkerDot),
+            matching: find.byType(CustomPaint),
+          ),
+        );
+        expect(compact.size, const Size.square(compactMarkerSize));
+        expect((compact.painter! as StationMarkerPainter).detached, isFalse);
+      },
+    );
   });
 
   group('les six etats rendent six combinaisons distinctes', () {
-    testWidgets('deux etats quelconques ne rendent jamais la meme combinaison '
-        '(opacite, contour, libelle)', (WidgetTester tester) async {
-      final List<(StationMarkerPainter, String)> rendus =
-          <(StationMarkerPainter, String)>[];
+    testWidgetsOnWindows(
+      'deux etats quelconques ne rendent jamais la meme combinaison '
+      '(opacite, contour, libelle)',
+      (WidgetTester tester) async {
+        final List<(StationMarkerPainter, String)> rendus =
+            <(StationMarkerPainter, String)>[];
 
-      for (final StationMapState state in tousLesEtats) {
-        await _pumpDot(tester, state);
-        rendus.add((_paintedBy(tester), _semanticLabelOf(tester)));
-      }
+        for (final StationMapState state in tousLesEtats) {
+          await _pumpDot(tester, state);
+          rendus.add((_paintedBy(tester), _semanticLabelOf(tester)));
+        }
 
-      expect(
-        rendus.toSet(),
-        hasLength(tousLesEtats.length),
-        reason:
-            'chaque etat doit se lire a l ecran : deux rendus identiques '
-            'fondraient deux situations differentes (BR-007)',
-      );
-    });
-
-    testWidgets('Chargee(perimee) est attenuee : opacite de remplissage '
-        'STRICTEMENT inferieure a Chargee(fraiche) (BR-005)', (
-      WidgetTester tester,
-    ) async {
-      await _pumpDot(tester, const Chargee(Freshness.fraiche));
-      final double fraiche = _paintedBy(tester).fillOpacity;
-
-      await _pumpDot(tester, const Chargee(Freshness.perimee));
-      final double perimee = _paintedBy(tester).fillOpacity;
-
-      expect(perimee, lessThan(fraiche));
-      expect(perimee, greaterThan(0));
-    });
-
-    testWidgets("l attenuation ne touche QUE le remplissage : aucune couche "
-        'Opacity ne recouvre la pastille, le contour de 2 px garde son '
-        'contraste (BR-005, 04-ui.md § 3)', (WidgetTester tester) async {
-      for (final StationMapState state in tousLesEtats) {
-        await _pumpDot(tester, state);
         expect(
-          find.descendant(
-            of: find.byType(StationMarkerDot),
-            matching: find.byType(Opacity),
-          ),
-          findsNothing,
-          reason: 'un Opacity sur toute la pastille delaverait le contour',
+          rendus.toSet(),
+          hasLength(tousLesEtats.length),
+          reason:
+              'chaque etat doit se lire a l ecran : deux rendus identiques '
+              'fondraient deux situations differentes (BR-007)',
         );
-      }
-    });
+      },
+    );
 
-    testWidgets('SansDonnee porte un contour pointille, NonChargee un contour '
-        'continu et neutre (BR-007)', (WidgetTester tester) async {
-      await _pumpDot(tester, const SansDonnee());
-      expect(_paintedBy(tester).outline, StationMarkerOutline.pointille);
-      expect(_paintedBy(tester).fillOpacity, 0);
+    testWidgetsOnWindows(
+      'Chargee(perimee) est attenuee : opacite de remplissage '
+      'STRICTEMENT inferieure a Chargee(fraiche) (BR-005)',
+      (WidgetTester tester) async {
+        await _pumpDot(tester, const Chargee(Freshness.fraiche));
+        final double fraiche = _paintedBy(tester).fillOpacity;
 
-      await _pumpDot(tester, const NonChargee());
-      expect(_paintedBy(tester).outline, StationMarkerOutline.continu);
-      expect(_paintedBy(tester).fillOpacity, 0);
-    });
+        await _pumpDot(tester, const Chargee(Freshness.perimee));
+        final double perimee = _paintedBy(tester).fillOpacity;
+
+        expect(perimee, lessThan(fraiche));
+        expect(perimee, greaterThan(0));
+      },
+    );
+
+    testWidgetsOnWindows(
+      "l attenuation ne touche QUE le remplissage : aucune couche "
+      'Opacity ne recouvre la pastille, le contour de 2 px garde son '
+      'contraste (BR-005, 04-ui.md § 3)',
+      (WidgetTester tester) async {
+        for (final StationMapState state in tousLesEtats) {
+          await _pumpDot(tester, state);
+          expect(
+            find.descendant(
+              of: find.byType(StationMarkerDot),
+              matching: find.byType(Opacity),
+            ),
+            findsNothing,
+            reason: 'un Opacity sur toute la pastille delaverait le contour',
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      'SansDonnee porte un contour pointille, NonChargee un contour '
+      'continu et neutre (BR-007)',
+      (WidgetTester tester) async {
+        await _pumpDot(tester, const SansDonnee());
+        expect(_paintedBy(tester).outline, StationMarkerOutline.pointille);
+        expect(_paintedBy(tester).fillOpacity, 0);
+
+        await _pumpDot(tester, const NonChargee());
+        expect(_paintedBy(tester).outline, StationMarkerOutline.continu);
+        expect(_paintedBy(tester).fillOpacity, 0);
+      },
+    );
   });
 
   group('libelles annonces au lecteur d ecran', () {
-    testWidgets('SansDonnee annonce exactement la formulation de repli de '
-        'BR-007', (WidgetTester tester) async {
-      await _pumpDot(tester, const SansDonnee());
+    testWidgetsOnWindows(
+      'SansDonnee annonce exactement la formulation de repli de '
+      'BR-007',
+      (WidgetTester tester) async {
+        await _pumpDot(tester, const SansDonnee());
 
-      expect(_semanticLabelOf(tester), 'Aucune donnée disponible ici.');
-    });
+        expect(_semanticLabelOf(tester), 'Aucune donnée disponible ici.');
+      },
+    );
 
-    testWidgets('NonChargee n annonce AUCUN libelle d etat — un chargement en '
-        "cours n'affiche pas d'etat par defaut (BR-007)", (
-      WidgetTester tester,
-    ) async {
-      await _pumpDot(tester, const NonChargee());
-      final String label = _semanticLabelOf(tester);
+    testWidgetsOnWindows(
+      'NonChargee n annonce AUCUN libelle d etat — un chargement en '
+      "cours n'affiche pas d'etat par defaut (BR-007)",
+      (WidgetTester tester) async {
+        await _pumpDot(tester, const NonChargee());
+        final String label = _semanticLabelOf(tester);
 
-      expect(label, isEmpty);
-      for (final StationMapState autre in <StationMapState>[
-        const Chargee(Freshness.ancienne),
-        const Chargee(Freshness.perimee),
-        const SansDonnee(),
-        const EnEchec('panne de lecture'),
-      ]) {
-        expect(label, isNot(contains(stationMapStateLabel(autre))));
-      }
-    });
+        expect(label, isEmpty);
+        for (final StationMapState autre in <StationMapState>[
+          const Chargee(Freshness.ancienne),
+          const Chargee(Freshness.perimee),
+          const SansDonnee(),
+          const EnEchec('panne de lecture'),
+        ]) {
+          expect(label, isNot(contains(stationMapStateLabel(autre))));
+        }
+      },
+    );
 
-    testWidgets('Chargee(ancienne) et Chargee(perimee) reprennent le libelle '
-        'du domaine, jamais une recopie locale (BR-005)', (
-      WidgetTester tester,
-    ) async {
-      await _pumpDot(tester, const Chargee(Freshness.ancienne));
-      expect(
-        _semanticLabelOf(tester),
-        stationMapStateLabel(const Chargee(Freshness.ancienne)),
-      );
+    testWidgetsOnWindows(
+      'Chargee(ancienne) et Chargee(perimee) reprennent le libelle '
+      'du domaine, jamais une recopie locale (BR-005)',
+      (WidgetTester tester) async {
+        await _pumpDot(tester, const Chargee(Freshness.ancienne));
+        expect(
+          _semanticLabelOf(tester),
+          stationMapStateLabel(const Chargee(Freshness.ancienne)),
+        );
 
-      await _pumpDot(tester, const Chargee(Freshness.perimee));
-      expect(
-        _semanticLabelOf(tester),
-        stationMapStateLabel(const Chargee(Freshness.perimee)),
-      );
-    });
+        await _pumpDot(tester, const Chargee(Freshness.perimee));
+        expect(
+          _semanticLabelOf(tester),
+          stationMapStateLabel(const Chargee(Freshness.perimee)),
+        );
+      },
+    );
   });
 
   group('une forme dessinee, jamais un glyphe de police', () {
-    testWidgets('aucun Text ni Icon dans la pastille, quel que soit l etat — '
-        '4 150 passes de texte au zoom national (NFR-01)', (
-      WidgetTester tester,
-    ) async {
-      for (final StationMapState state in tousLesEtats) {
-        await _pumpDot(tester, state);
+    testWidgetsOnWindows(
+      'aucun Text ni Icon dans la pastille, quel que soit l etat — '
+      '4 150 passes de texte au zoom national (NFR-01)',
+      (WidgetTester tester) async {
+        for (final StationMapState state in tousLesEtats) {
+          await _pumpDot(tester, state);
 
-        expect(
-          find.descendant(
-            of: find.byType(StationMarkerDot),
-            matching: find.byType(Text),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(StationMarkerDot),
-            matching: find.byType(Icon),
-          ),
-          findsNothing,
-        );
-      }
-    });
+          expect(
+            find.descendant(
+              of: find.byType(StationMarkerDot),
+              matching: find.byType(Text),
+            ),
+            findsNothing,
+          );
+          expect(
+            find.descendant(
+              of: find.byType(StationMarkerDot),
+              matching: find.byType(Icon),
+            ),
+            findsNothing,
+          );
+        }
+      },
+    );
 
-    testWidgets('la pastille monte le peintre de son etat', (
+    testWidgetsOnWindows('la pastille monte le peintre de son etat', (
       WidgetTester tester,
     ) async {
       for (final StationMapState state in tousLesEtats) {
@@ -371,15 +405,16 @@ void main() {
       }
     });
 
-    testWidgets('la pastille occupe exactement la taille qu on lui donne', (
-      WidgetTester tester,
-    ) async {
-      await _pumpDot(tester, const Chargee(Freshness.fraiche));
+    testWidgetsOnWindows(
+      'la pastille occupe exactement la taille qu on lui donne',
+      (WidgetTester tester) async {
+        await _pumpDot(tester, const Chargee(Freshness.fraiche));
 
-      expect(
-        tester.getSize(find.byType(StationMarkerDot)),
-        const Size(stationMarkerSize, stationMarkerSize),
-      );
-    });
+        expect(
+          tester.getSize(find.byType(StationMarkerDot)),
+          const Size(stationMarkerSize, stationMarkerSize),
+        );
+      },
+    );
   });
 }

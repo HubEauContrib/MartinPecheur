@@ -12,6 +12,9 @@ import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
 import 'package:martinpecheur/features/shared/action_color.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+import '../../../support/android_platform.dart';
+import '../../../support/windows_platform.dart';
+
 const String _label = 'Restrictions au centre de la carte';
 
 Future<int Function()> _pump(
@@ -44,63 +47,65 @@ Future<int Function()> _pump(
 
 void main() {
   group('bouton', () {
-    testWidgets('libellé visible, gras, sémantique exacte, ≥ 52 de haut', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester);
+    testWidgetsOnWindows(
+      'libellé visible, gras, sémantique exacte, ≥ 52 de haut',
+      (WidgetTester tester) async {
+        await _pump(tester);
 
-      final Finder bouton = find.byKey(mapDesignateCenterButtonKey);
-      expect(bouton, findsOneWidget);
-      final Finder texte = find.descendant(
-        of: bouton,
-        matching: find.text(_label),
-      );
-      expect(texte, findsOneWidget);
-      final TextStyle? style = tester.widget<Text>(texte).style;
-      expect(style?.fontWeight, FontWeight.bold);
-      expect(style?.fontSize, inInclusiveRange(16, 17));
-      expect(style?.color, onPrimaryActionColor);
+        final Finder bouton = find.byKey(mapDesignateCenterButtonKey);
+        expect(bouton, findsOneWidget);
+        final Finder texte = find.descendant(
+          of: bouton,
+          matching: find.text(_label),
+        );
+        expect(texte, findsOneWidget);
+        final TextStyle? style = tester.widget<Text>(texte).style;
+        expect(style?.fontWeight, FontWeight.bold);
+        expect(style?.fontSize, inInclusiveRange(16, 17));
+        expect(style?.color, onPrimaryActionColor);
 
-      expect(
-        tester.getSemantics(bouton),
-        matchesSemantics(
-          label: _label,
-          isButton: true,
-          isEnabled: true,
-          hasEnabledState: true,
-          hasTapAction: true,
-        ),
-      );
-      expect(tester.getSize(bouton).height, greaterThanOrEqualTo(52));
-      expect(
-        tester.getSize(bouton).height,
-        greaterThanOrEqualTo(minimumTapTarget),
-      );
-    });
+        expect(
+          tester.getSemantics(bouton),
+          matchesSemantics(
+            label: _label,
+            isButton: true,
+            isEnabled: true,
+            hasEnabledState: true,
+            hasTapAction: true,
+          ),
+        );
+        expect(tester.getSize(bouton).height, greaterThanOrEqualTo(52));
+        expect(
+          tester.getSize(bouton).height,
+          greaterThanOrEqualTo(minimumTapTarget),
+        );
+      },
+    );
 
-    testWidgets('fond primaryActionColor, bordure blanche 2, ombre, pilule', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester);
+    testWidgetsOnWindows(
+      'fond primaryActionColor, bordure blanche 2, ombre, pilule',
+      (WidgetTester tester) async {
+        await _pump(tester);
 
-      final ShapeDecoration decoration = tester
-          .widgetList<DecoratedBox>(
-            find.descendant(
-              of: find.byKey(mapDesignateCenterButtonKey),
-              matching: find.byType(DecoratedBox),
-            ),
-          )
-          .map((DecoratedBox b) => b.decoration)
-          .whereType<ShapeDecoration>()
-          .first;
-      expect(decoration.color, primaryActionColor);
-      expect(decoration.shadows, isNotEmpty);
-      final StadiumBorder shape = decoration.shape as StadiumBorder;
-      expect(shape.side.color, Colors.white);
-      expect(shape.side.width, 2);
-    });
+        final ShapeDecoration decoration = tester
+            .widgetList<DecoratedBox>(
+              find.descendant(
+                of: find.byKey(mapDesignateCenterButtonKey),
+                matching: find.byType(DecoratedBox),
+              ),
+            )
+            .map((DecoratedBox b) => b.decoration)
+            .whereType<ShapeDecoration>()
+            .first;
+        expect(decoration.color, primaryActionColor);
+        expect(decoration.shadows, isNotEmpty);
+        final StadiumBorder shape = decoration.shape as StadiumBorder;
+        expect(shape.side.color, Colors.white);
+        expect(shape.side.width, 2);
+      },
+    );
 
-    testWidgets("l'icône de visée est exclue de la sémantique", (
+    testWidgetsOnWindows("l'icône de visée est exclue de la sémantique", (
       WidgetTester tester,
     ) async {
       await _pump(tester);
@@ -117,7 +122,7 @@ void main() {
       );
     });
 
-    testWidgets('un tap, Entrée et Espace appellent le rappel', (
+    testWidgetsOnWindows('un tap, Entrée et Espace appellent le rappel', (
       WidgetTester tester,
     ) async {
       final int Function() taps = await _pump(tester);
@@ -137,8 +142,8 @@ void main() {
       (const Size(360, 640), 2),
       (const Size(390, 844), 2),
     ]) {
-      testWidgets(
-        'à ${cas.$1.width.toInt()} de large, police ${cas.$2 * 100} % : '
+      testWidgetsOnAndroid(
+        'Android : à ${cas.$1.width.toInt()} de large, police ${cas.$2 * 100} % : '
         'libellé complet, aucun débordement',
         (WidgetTester tester) async {
           await _pump(tester, size: cas.$1, textScale: cas.$2);
@@ -170,7 +175,7 @@ void main() {
         'ou clic droit sur n\'importe quel point de la carte',
       ),
     ]) {
-      testWidgets('${cas.$1.name} : « ${cas.$2} », hors sémantique', (
+      testWidgetsOnWindows('${cas.$1.name} : « ${cas.$2} », hors sémantique', (
         WidgetTester tester,
       ) async {
         debugDefaultTargetPlatformOverride = cas.$1;
@@ -205,44 +210,46 @@ void main() {
       });
     }
 
-    testWidgets('sans coup de dépassement à 360 × 640, police 200 %', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, size: const Size(360, 640), textScale: 2);
+    testWidgetsOnAndroid(
+      'Android : sans coup de dépassement à 360 × 640, police 200 %',
+      (WidgetTester tester) async {
+        await _pump(tester, size: const Size(360, 640), textScale: 2);
 
-      expect(tester.takeException(), isNull);
-      final Rect h = tester.getRect(find.byKey(mapDesignateCenterHintKey));
-      expect(h.left, greaterThanOrEqualTo(0));
-      expect(h.right, lessThanOrEqualTo(360));
-    });
+        expect(tester.takeException(), isNull);
+        final Rect h = tester.getRect(find.byKey(mapDesignateCenterHintKey));
+        expect(h.left, greaterThanOrEqualTo(0));
+        expect(h.right, lessThanOrEqualTo(360));
+      },
+    );
   });
 
   group('réticule', () {
-    testWidgets('48 × 48, inerte : hors pointeur, sémantique et focus', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: Center(child: MapCenterReticle())),
-        ),
-      );
+    testWidgetsOnWindows(
+      '48 × 48, inerte : hors pointeur, sémantique et focus',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(body: Center(child: MapCenterReticle())),
+          ),
+        );
 
-      final Finder reticule = find.byKey(mapCenterReticleKey);
-      expect(reticule, findsOneWidget);
-      expect(tester.getSize(reticule), const Size(48, 48));
-      expect(tester.getCenter(reticule), const Offset(400, 300));
-      expect(
-        find.ancestor(of: reticule, matching: find.byType(IgnorePointer)),
-        findsWidgets,
-      );
-      expect(
-        find.ancestor(of: reticule, matching: find.byType(ExcludeSemantics)),
-        findsWidgets,
-      );
-      expect(
-        find.ancestor(of: reticule, matching: find.byType(ExcludeFocus)),
-        findsWidgets,
-      );
-    });
+        final Finder reticule = find.byKey(mapCenterReticleKey);
+        expect(reticule, findsOneWidget);
+        expect(tester.getSize(reticule), const Size(48, 48));
+        expect(tester.getCenter(reticule), const Offset(400, 300));
+        expect(
+          find.ancestor(of: reticule, matching: find.byType(IgnorePointer)),
+          findsWidgets,
+        );
+        expect(
+          find.ancestor(of: reticule, matching: find.byType(ExcludeSemantics)),
+          findsWidgets,
+        );
+        expect(
+          find.ancestor(of: reticule, matching: find.byType(ExcludeFocus)),
+          findsWidgets,
+        );
+      },
+    );
   });
 }

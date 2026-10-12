@@ -23,19 +23,10 @@ const String lockFilePath = 'test/project/widget_test_platform_test.dart';
 
 /// Les fichiers pas encore migrés. Ne fait que décroître ; vide à la fin de N9.
 const Set<String> filesNotYetMigrated = <String>{
-  'test/features/map/view/area_cluster_marker_test.dart',
-  'test/features/map/view/designate_center_button_test.dart',
-  'test/features/map/view/ign_attribution_badge_test.dart',
-  'test/features/map/view/map_controls_test.dart',
   'test/features/map/view/map_designation_test.dart',
-  'test/features/map/view/map_empty_states_test.dart',
   'test/features/map/view/map_keyboard_test.dart',
-  'test/features/map/view/map_legend_test.dart',
   'test/features/map/view/map_overlays_phone_test.dart',
-  'test/features/map/view/map_scale_chips_test.dart',
   'test/features/map/view/map_view_test.dart',
-  'test/features/map/view/onde_marker_test.dart',
-  'test/features/map/view/station_marker_test.dart',
 };
 
 /// « chemin:ligne » de chaque ligne de CODE (hors ligne entière de

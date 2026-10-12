@@ -18,6 +18,8 @@ import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 
+import '../../../support/windows_platform.dart';
+
 /// Les cinq mots proscrits pour qualifier un debit (BR-003, `glossary.md`).
 const List<String> bannedWords = <String>[
   'suffisant',
@@ -74,7 +76,7 @@ List<String> _texts(WidgetTester tester) => tester
 void main() {
   group('symboles compacts (canvas de design du 2026-09-29)', () {
     for (final MapScaleKind scale in MapScaleKind.values) {
-      testWidgets('legende $scale : symboles a 12 px, sans liseré', (
+      testWidgetsOnWindows('legende $scale : symboles a 12 px, sans liseré', (
         WidgetTester tester,
       ) async {
         await _pumpLegend(tester, scale);
@@ -107,7 +109,7 @@ void main() {
   });
 
   group('legende de l echelle « debit »', () {
-    testWidgets('nomme son echelle avec le libelle de 04-ui.md', (
+    testWidgetsOnWindows('nomme son echelle avec le libelle de 04-ui.md', (
       WidgetTester tester,
     ) async {
       await _pumpLegend(tester, MapScaleKind.debit);
@@ -115,79 +117,92 @@ void main() {
       expect(find.text(mapScaleLabel(MapScaleKind.debit)), findsOneWidget);
     });
 
-    testWidgets('contient « Indéterminé » — en T1 aucun percentile n existe, '
-        'donc toute station porte ce niveau (BR-004, ADR-003 hors T1)', (
-      WidgetTester tester,
-    ) async {
-      await _pumpLegend(tester, MapScaleKind.debit);
+    testWidgetsOnWindows(
+      'contient « Indéterminé » — en T1 aucun percentile n existe, '
+      'donc toute station porte ce niveau (BR-004, ADR-003 hors T1)',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.debit);
 
-      expect(find.text('Indéterminé'), findsOneWidget);
-    });
+        expect(find.text('Indéterminé'), findsOneWidget);
+      },
+    );
 
-    testWidgets('porte le sous-texte permanent de BR-003 / L-01, mot pour '
-        'mot', (WidgetTester tester) async {
-      await _pumpLegend(tester, MapScaleKind.debit);
+    testWidgetsOnWindows(
+      'porte le sous-texte permanent de BR-003 / L-01, mot pour '
+      'mot',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.debit);
 
-      expect(
-        find.text(
-          "Comparaison statistique. Ce n'est pas un seuil réglementaire.",
-        ),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('explique « Indéterminé » avec le libelle long de BR-004, '
-        'mot pour mot — c est ce que l usager lit quand la moitie des '
-        'stations porte ce niveau', (WidgetTester tester) async {
-      await _pumpLegend(tester, MapScaleKind.debit);
-
-      expect(
-        find.text(
-          'Pas assez de mesures passées à cette station pour situer la '
-          "valeur d'aujourd'hui.",
-        ),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('le sous-texte de BR-003 est LISIBLE : couleur de texte par '
-        'defaut et taille >= 12 — c est le seul garde-fou permanent contre '
-        'la lecture « seuil » a l ecran', (WidgetTester tester) async {
-      await _pumpLegend(tester, MapScaleKind.debit);
-
-      final Text sousTexte = tester.widget<Text>(
-        find.text(
-          "Comparaison statistique. Ce n'est pas un seuil réglementaire.",
-        ),
-      );
-
-      expect(sousTexte.style?.fontSize ?? 14, greaterThanOrEqualTo(12));
-      expect(
-        sousTexte.style?.color,
-        isNull,
-        reason:
-            'aucune teinte ne doit affaiblir cet avertissement : la couleur '
-            'de texte par defaut tient les ratios de 04-ui.md § 3',
-      );
-    });
-
-    testWidgets('liste ses cinq etats, chacun avec la pastille exacte que la '
-        'carte dessine', (WidgetTester tester) async {
-      await _pumpLegend(tester, MapScaleKind.debit);
-
-      expect(find.byType(StationMarkerDot), findsNWidgets(5));
-      for (final String label in libellesDebit) {
         expect(
-          find.text(label),
+          find.text(
+            "Comparaison statistique. Ce n'est pas un seuil réglementaire.",
+          ),
           findsOneWidget,
-          reason: '« $label » manque a la legende',
         );
-      }
-    });
+      },
+    );
+
+    testWidgetsOnWindows(
+      'explique « Indéterminé » avec le libelle long de BR-004, '
+      'mot pour mot — c est ce que l usager lit quand la moitie des '
+      'stations porte ce niveau',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.debit);
+
+        expect(
+          find.text(
+            'Pas assez de mesures passées à cette station pour situer la '
+            "valeur d'aujourd'hui.",
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'le sous-texte de BR-003 est LISIBLE : couleur de texte par '
+      'defaut et taille >= 12 — c est le seul garde-fou permanent contre '
+      'la lecture « seuil » a l ecran',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.debit);
+
+        final Text sousTexte = tester.widget<Text>(
+          find.text(
+            "Comparaison statistique. Ce n'est pas un seuil réglementaire.",
+          ),
+        );
+
+        expect(sousTexte.style?.fontSize ?? 14, greaterThanOrEqualTo(12));
+        expect(
+          sousTexte.style?.color,
+          isNull,
+          reason:
+              'aucune teinte ne doit affaiblir cet avertissement : la couleur '
+              'de texte par defaut tient les ratios de 04-ui.md § 3',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'liste ses cinq etats, chacun avec la pastille exacte que la '
+      'carte dessine',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.debit);
+
+        expect(find.byType(StationMarkerDot), findsNWidgets(5));
+        for (final String label in libellesDebit) {
+          expect(
+            find.text(label),
+            findsOneWidget,
+            reason: '« $label » manque a la legende',
+          );
+        }
+      },
+    );
   });
 
   group('legende de l echelle « ecoulement »', () {
-    testWidgets('nomme son echelle avec le libelle de 04-ui.md', (
+    testWidgetsOnWindows('nomme son echelle avec le libelle de 04-ui.md', (
       WidgetTester tester,
     ) async {
       await _pumpLegend(tester, MapScaleKind.ecoulement);
@@ -195,57 +210,61 @@ void main() {
       expect(find.text(mapScaleLabel(MapScaleKind.ecoulement)), findsOneWidget);
     });
 
-    testWidgets('liste les six libelles carte de l echelle 1, mot pour mot', (
-      WidgetTester tester,
-    ) async {
-      await _pumpLegend(tester, MapScaleKind.ecoulement);
+    testWidgetsOnWindows(
+      'liste les six libelles carte de l echelle 1, mot pour mot',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.ecoulement);
 
-      for (final String label in libellesEcoulement) {
-        expect(
-          find.text(label),
-          findsOneWidget,
-          reason: '« $label » manque a la legende',
-        );
-      }
-    });
+        for (final String label in libellesEcoulement) {
+          expect(
+            find.text(label),
+            findsOneWidget,
+            reason: '« $label » manque a la legende',
+          );
+        }
+      },
+    );
 
-    testWidgets('chaque ligne montre le marqueur QUE LA CARTE DESSINE, pas '
-        'une forme ecrite — six lignes, six marqueurs (T1-U3)', (
-      WidgetTester tester,
-    ) async {
-      await _pumpLegend(tester, MapScaleKind.ecoulement);
+    testWidgetsOnWindows(
+      'chaque ligne montre le marqueur QUE LA CARTE DESSINE, pas '
+      'une forme ecrite — six lignes, six marqueurs (T1-U3)',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.ecoulement);
 
-      expect(find.byType(OndeMarkerShape), findsNWidgets(6));
-    });
+        expect(find.byType(OndeMarkerShape), findsNWidgets(6));
+      },
+    );
 
-    testWidgets('les marqueurs de legende sont rendus a l age « recente » : '
-        'une legende montre la teinte de la categorie, jamais le gris de '
-        'BR-010 qui depend de la date d une observation', (
-      WidgetTester tester,
-    ) async {
-      await _pumpLegend(tester, MapScaleKind.ecoulement);
+    testWidgetsOnWindows(
+      'les marqueurs de legende sont rendus a l age « recente » : '
+      'une legende montre la teinte de la categorie, jamais le gris de '
+      'BR-010 qui depend de la date d une observation',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.ecoulement);
 
-      for (final OndeMarkerShape shape in tester.widgetList<OndeMarkerShape>(
-        find.byType(OndeMarkerShape),
-      )) {
-        expect(shape.age, CampaignAge.recente);
-        expect(shape.observedAt, isNull);
-      }
-    });
+        for (final OndeMarkerShape shape in tester.widgetList<OndeMarkerShape>(
+          find.byType(OndeMarkerShape),
+        )) {
+          expect(shape.age, CampaignAge.recente);
+          expect(shape.observedAt, isNull);
+        }
+      },
+    );
 
-    testWidgets('« Non observé » et « Non renseigné » sont DEUX lignes — un '
-        'fait de terrain constate n est pas notre ignorance (BR-007)', (
-      WidgetTester tester,
-    ) async {
-      await _pumpLegend(tester, MapScaleKind.ecoulement);
+    testWidgetsOnWindows(
+      '« Non observé » et « Non renseigné » sont DEUX lignes — un '
+      'fait de terrain constate n est pas notre ignorance (BR-007)',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.ecoulement);
 
-      expect(find.text('Non observé'), findsOneWidget);
-      expect(find.text('Non renseigné'), findsOneWidget);
-    });
+        expect(find.text('Non observé'), findsOneWidget);
+        expect(find.text('Non renseigné'), findsOneWidget);
+      },
+    );
   });
 
   group('une seule echelle a la fois (BR-008)', () {
-    testWidgets('la legende « debit » ne contient aucun libelle de '
+    testWidgetsOnWindows('la legende « debit » ne contient aucun libelle de '
         'l echelle ecoulement', (WidgetTester tester) async {
       await _pumpLegend(tester, MapScaleKind.debit);
       final List<String> texts = _texts(tester);
@@ -258,55 +277,65 @@ void main() {
       }
     });
 
-    testWidgets('la legende « ecoulement » ne contient aucun libelle de '
-        'l echelle debit', (WidgetTester tester) async {
-      await _pumpLegend(tester, MapScaleKind.ecoulement);
-      final List<String> texts = _texts(tester);
+    testWidgetsOnWindows(
+      'la legende « ecoulement » ne contient aucun libelle de '
+      'l echelle debit',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.ecoulement);
+        final List<String> texts = _texts(tester);
 
-      for (final String label in <String>[
-        mapScaleLabel(MapScaleKind.debit),
-        ...libellesDebit,
-      ]) {
-        expect(texts, isNot(contains(label)));
-      }
-    });
+        for (final String label in <String>[
+          mapScaleLabel(MapScaleKind.debit),
+          ...libellesDebit,
+        ]) {
+          expect(texts, isNot(contains(label)));
+        }
+      },
+    );
 
-    testWidgets('la legende « ecoulement » ne dessine aucune pastille de '
-        'l echelle debit', (WidgetTester tester) async {
-      await _pumpLegend(tester, MapScaleKind.ecoulement);
+    testWidgetsOnWindows(
+      'la legende « ecoulement » ne dessine aucune pastille de '
+      'l echelle debit',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.ecoulement);
 
-      expect(find.byType(StationMarkerDot), findsNothing);
-    });
+        expect(find.byType(StationMarkerDot), findsNothing);
+      },
+    );
 
-    testWidgets('la legende « debit » ne dessine aucun marqueur ONDE', (
-      WidgetTester tester,
-    ) async {
-      await _pumpLegend(tester, MapScaleKind.debit);
+    testWidgetsOnWindows(
+      'la legende « debit » ne dessine aucun marqueur ONDE',
+      (WidgetTester tester) async {
+        await _pumpLegend(tester, MapScaleKind.debit);
 
-      expect(find.byType(OndeMarkerShape), findsNothing);
-    });
+        expect(find.byType(OndeMarkerShape), findsNothing);
+      },
+    );
   });
 
   group('vocabulaire (BR-003)', () {
-    testWidgets('aucun texte de legende ne contient un mot banni, sur l une '
-        'comme sur l autre echelle', (WidgetTester tester) async {
-      for (final MapScaleKind scale in MapScaleKind.values) {
-        await _pumpLegend(tester, scale);
+    testWidgetsOnWindows(
+      'aucun texte de legende ne contient un mot banni, sur l une '
+      'comme sur l autre echelle',
+      (WidgetTester tester) async {
+        for (final MapScaleKind scale in MapScaleKind.values) {
+          await _pumpLegend(tester, scale);
 
-        for (final String text in _texts(tester)) {
-          final Set<String> words = text
-              .toLowerCase()
-              .split(RegExp(r'[^a-zà-öø-ÿ]+'))
-              .toSet();
-          for (final String banned in bannedWords) {
-            expect(
-              words,
-              isNot(contains(banned)),
-              reason: '"$banned" trouve MOT POUR MOT dans "$text" (BR-003)',
-            );
+          for (final String text in _texts(tester)) {
+            final Set<String> words = text
+                .toLowerCase()
+                .split(RegExp(r'[^a-zà-öø-ÿ]+'))
+                .toSet();
+            for (final String banned in bannedWords) {
+              expect(
+                words,
+                isNot(contains(banned)),
+                reason: '"$banned" trouve MOT POUR MOT dans "$text" (BR-003)',
+              );
+            }
           }
         }
-      }
-    });
+      },
+    );
   });
 }

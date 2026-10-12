@@ -22,6 +22,8 @@ import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 
+import '../../../support/windows_platform.dart';
+
 /// Un agrégat écoulement minimal — région Centre-Val de Loire, 15 points
 /// chargés, plus sévère « Assec » récent. Reprend l'exemple du plan T1
 /// (« Task Z4 »).
@@ -141,25 +143,26 @@ void main() {
   });
 
   group('AreaClusterMarker', () {
-    testWidgets('mesure au moins 44 x 44 (cible tactile, 04-ui.md § 3)', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Center(
-            child: AreaClusterMarker(cluster: _centreValDeLoireAssec()),
+    testWidgetsOnWindows(
+      'mesure au moins 44 x 44 (cible tactile, 04-ui.md § 3)',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Center(
+              child: AreaClusterMarker(cluster: _centreValDeLoireAssec()),
+            ),
           ),
-        ),
-      );
+        );
 
-      final Size taille = tester.getSize(find.byType(AreaClusterMarker));
-      expect(taille.width, greaterThanOrEqualTo(areaClusterMarkerSize));
-      expect(taille.height, greaterThanOrEqualTo(areaClusterMarkerSize));
-      expect(areaClusterMarkerSize, greaterThanOrEqualTo(44.0));
-    });
+        final Size taille = tester.getSize(find.byType(AreaClusterMarker));
+        expect(taille.width, greaterThanOrEqualTo(areaClusterMarkerSize));
+        expect(taille.height, greaterThanOrEqualTo(areaClusterMarkerSize));
+        expect(areaClusterMarkerSize, greaterThanOrEqualTo(44.0));
+      },
+    );
 
-    testWidgets('le symbole reste compact : 12 px, sans liseré', (
+    testWidgetsOnWindows('le symbole reste compact : 12 px, sans liseré', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
@@ -183,44 +186,45 @@ void main() {
       expect((symbole.painter! as OndeMarkerPainter).detached, isFalse);
     });
 
-    testWidgets('porte un seul nœud Semantics, préfixé par l\'échelle', (
-      WidgetTester tester,
-    ) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
+    testWidgetsOnWindows(
+      'porte un seul nœud Semantics, préfixé par l\'échelle',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
 
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Center(
-            child: AreaClusterMarker(cluster: _centreValDeLoireAssec()),
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Center(
+              child: AreaClusterMarker(cluster: _centreValDeLoireAssec()),
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(
-        find.bySemanticsLabel(
-          'Écoulement : Centre-Val de Loire, '
-          "15 points d'observation sur cette vue, "
-          'état le plus sévère : À sec',
-        ),
-        findsOneWidget,
-      );
-      // Un seul nœud sémantique porté par la pastille : le symbole enfant
-      // (`OndeMarkerPainter`) n'en ajoute aucun second — sans quoi il serait
-      // annoncé séparément (`excludeSemantics`).
-      final SemanticsNode racine = tester.getSemantics(
-        find.byType(AreaClusterMarker),
-      );
-      int comptes = 0;
-      racine.visitChildren((SemanticsNode enfant) {
-        comptes++;
-        return true;
-      });
-      expect(comptes, 0);
-      handle.dispose();
-    });
+        expect(
+          find.bySemanticsLabel(
+            'Écoulement : Centre-Val de Loire, '
+            "15 points d'observation sur cette vue, "
+            'état le plus sévère : À sec',
+          ),
+          findsOneWidget,
+        );
+        // Un seul nœud sémantique porté par la pastille : le symbole enfant
+        // (`OndeMarkerPainter`) n'en ajoute aucun second — sans quoi il serait
+        // annoncé séparément (`excludeSemantics`).
+        final SemanticsNode racine = tester.getSemantics(
+          find.byType(AreaClusterMarker),
+        );
+        int comptes = 0;
+        racine.visitChildren((SemanticsNode enfant) {
+          comptes++;
+          return true;
+        });
+        expect(comptes, 0);
+        handle.dispose();
+      },
+    );
 
-    testWidgets('compte à trois chiffres (753) sans déborder', (
+    testWidgetsOnWindows('compte à trois chiffres (753) sans déborder', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(

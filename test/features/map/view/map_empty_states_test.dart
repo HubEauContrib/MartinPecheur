@@ -43,6 +43,8 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+import '../../../support/windows_platform.dart';
+
 /// Le fichier source des avis, lu par le verrou d'exhaustivité ci-dessous.
 const String _sourcePath = 'lib/features/map/view/map_empty_states.dart';
 
@@ -171,208 +173,242 @@ Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
 
 void main() {
   group('NoDataInAreaNotice — ni station ni point (BR-007, UC-001 A2)', () {
-    testWidgets('le texte est celui de BR-007 et de 02-specifications § 4, '
-        'mot pour mot', (WidgetTester tester) async {
-      await _pump(tester, NoDataInAreaNotice(onWiden: () {}));
+    testWidgetsOnWindows(
+      'le texte est celui de BR-007 et de 02-specifications § 4, '
+      'mot pour mot',
+      (WidgetTester tester) async {
+        await _pump(tester, NoDataInAreaNotice(onWiden: () {}));
 
-      expect(
-        find.text(
-          "Il n'y a ni station de mesure ni point d'observation dans le "
-          "secteur affiché. Ce n'est pas un signe que tout va bien : c'est "
-          'simplement que personne ne mesure ici.',
-        ),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.text(
+            "Il n'y a ni station de mesure ni point d'observation dans le "
+            "secteur affiché. Ce n'est pas un signe que tout va bien : c'est "
+            'simplement que personne ne mesure ici.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets("l'action « Élargir la recherche » est rendue, appelle "
-        'onWiden, et sa cible fait au moins 44 pt (04-ui.md § 3, '
-        'UC-001 A2)', (WidgetTester tester) async {
-      int elargissements = 0;
-      await _pump(tester, NoDataInAreaNotice(onWiden: () => elargissements++));
+    testWidgetsOnWindows(
+      "l'action « Élargir la recherche » est rendue, appelle "
+      'onWiden, et sa cible fait au moins 44 pt (04-ui.md § 3, '
+      'UC-001 A2)',
+      (WidgetTester tester) async {
+        int elargissements = 0;
+        await _pump(
+          tester,
+          NoDataInAreaNotice(onWiden: () => elargissements++),
+        );
 
-      final Finder action = find.byKey(widenSearchKey);
-      expect(action, findsOneWidget);
-      expect(find.text(widenSearchLabel), findsOneWidget);
+        final Finder action = find.byKey(widenSearchKey);
+        expect(action, findsOneWidget);
+        expect(find.text(widenSearchLabel), findsOneWidget);
 
-      final Size taille = tester.getSize(action);
-      expect(taille.width, greaterThanOrEqualTo(minimumTapTarget));
-      expect(taille.height, greaterThanOrEqualTo(minimumTapTarget));
+        final Size taille = tester.getSize(action);
+        expect(taille.width, greaterThanOrEqualTo(minimumTapTarget));
+        expect(taille.height, greaterThanOrEqualTo(minimumTapTarget));
 
-      await tester.tap(action);
-      await tester.pump();
+        await tester.tap(action);
+        await tester.pump();
 
-      expect(elargissements, 1);
-    });
+        expect(elargissements, 1);
+      },
+    );
 
-    testWidgets("« Élargir la recherche » porte une action tap pour le "
-        "lecteur d'écran — `excludeSemantics` masque celle du geste "
-        '(relecture du 2026-09-23)', (WidgetTester tester) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
-      int elargissements = 0;
-      await _pump(tester, NoDataInAreaNotice(onWiden: () => elargissements++));
+    testWidgetsOnWindows(
+      "« Élargir la recherche » porte une action tap pour le "
+      "lecteur d'écran — `excludeSemantics` masque celle du geste "
+      '(relecture du 2026-09-23)',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        int elargissements = 0;
+        await _pump(
+          tester,
+          NoDataInAreaNotice(onWiden: () => elargissements++),
+        );
 
-      final SemanticsNode node = tester.getSemantics(
-        find.byKey(widenSearchKey),
-      );
-      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+        final SemanticsNode node = tester.getSemantics(
+          find.byKey(widenSearchKey),
+        );
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-      node.owner!.performAction(node.id, SemanticsAction.tap);
-      await tester.pump();
-      expect(elargissements, 1);
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pump();
+        expect(elargissements, 1);
 
-      handle.dispose();
-    });
+        handle.dispose();
+      },
+    );
   });
 
   group('OutsideOndeCoverageNotice — le périmètre réel (UC-001 A5)', () {
-    testWidgets('le texte NOMME le périmètre : France hexagonale, Corse, '
-        "petits cours d'eau choisis", (WidgetTester tester) async {
-      await _pump(tester, const OutsideOndeCoverageNotice());
+    testWidgetsOnWindows(
+      'le texte NOMME le périmètre : France hexagonale, Corse, '
+      "petits cours d'eau choisis",
+      (WidgetTester tester) async {
+        await _pump(tester, const OutsideOndeCoverageNotice());
 
-      expect(
-        find.text(
-          "Le réseau ONDE ne suit que certains petits cours d'eau de France "
-          'hexagonale et de Corse.',
-        ),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.text(
+            "Le réseau ONDE ne suit que certains petits cours d'eau de France "
+            'hexagonale et de Corse.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets("l'absence est nommée, jamais laissée muette (BR-007)", (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, const OutsideOndeCoverageNotice());
+    testWidgetsOnWindows(
+      "l'absence est nommée, jamais laissée muette (BR-007)",
+      (WidgetTester tester) async {
+        await _pump(tester, const OutsideOndeCoverageNotice());
 
-      expect(find.text(noDataFallbackText), findsOneWidget);
-    });
+        expect(find.text(noDataFallbackText), findsOneWidget);
+      },
+    );
   });
 
   group('SourceUnavailableNotice — un message PAR SOURCE (BR-007)', () {
-    testWidgets('le texte nomme la source passée', (WidgetTester tester) async {
+    testWidgetsOnWindows('le texte nomme la source passée', (
+      WidgetTester tester,
+    ) async {
       await _pump(tester, const SourceUnavailableNotice(sourceName: "Hub'Eau"));
 
       expect(find.text("Hub'Eau n'a pas répondu."), findsOneWidget);
     });
 
-    testWidgets('deux sources distinctes donnent deux messages distincts : '
-        "l'écran ne dit jamais « une erreur est survenue »", (
-      WidgetTester tester,
-    ) async {
-      await _pump(
-        tester,
-        const SourceUnavailableNotice(sourceName: "Hub'Eau hydrométrie"),
-      );
-      expect(find.textContaining('hydrométrie'), findsOneWidget);
-
-      await _pump(
-        tester,
-        const SourceUnavailableNotice(sourceName: "Hub'Eau écoulement ONDE"),
-      );
-      expect(find.textContaining('écoulement ONDE'), findsOneWidget);
-    });
-
-    testWidgets('ne dit ni « rien à signaler », ni « tout va bien », ni '
-        '« aucun problème »', (WidgetTester tester) async {
-      await _pump(tester, const SourceUnavailableNotice(sourceName: "Hub'Eau"));
-
-      for (final String phrase in <String>[
-        'rien à signaler',
-        'tout va bien',
-        'aucun problème',
-      ]) {
-        expect(
-          find.textContaining(phrase),
-          findsNothing,
-          reason: '"$phrase" est interdit par BR-007',
+    testWidgetsOnWindows(
+      'deux sources distinctes donnent deux messages distincts : '
+      "l'écran ne dit jamais « une erreur est survenue »",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          const SourceUnavailableNotice(sourceName: "Hub'Eau hydrométrie"),
         );
-      }
-    });
+        expect(find.textContaining('hydrométrie'), findsOneWidget);
 
-    testWidgets("la cause technique n'est JAMAIS rendue : c'est une donnée "
-        "de diagnostic, pas un texte pour l'usager — la convention des deux "
-        'fiches (`station_summary_sheet.dart`, `onde_summary_sheet.dart`), '
-        "et le grief porté contre l'ancien `MapErrorBanner`", (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, const SourceUnavailableNotice(sourceName: "Hub'Eau"));
-
-      for (final String diagnostic in <String>[
-        'HubEauFailure',
-        '503',
-        'Exception',
-        'Bad state',
-      ]) {
-        expect(
-          find.textContaining(diagnostic),
-          findsNothing,
-          reason: '"$diagnostic" est un texte de diagnostic, pas d interface',
+        await _pump(
+          tester,
+          const SourceUnavailableNotice(sourceName: "Hub'Eau écoulement ONDE"),
         );
-      }
-      expect(find.text(sourceUnavailableText("Hub'Eau")), findsOneWidget);
-      expect(find.text(sourceUnavailableHint), findsOneWidget);
-    });
+        expect(find.textContaining('écoulement ONDE'), findsOneWidget);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'ne dit ni « rien à signaler », ni « tout va bien », ni '
+      '« aucun problème »',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          const SourceUnavailableNotice(sourceName: "Hub'Eau"),
+        );
+
+        for (final String phrase in <String>[
+          'rien à signaler',
+          'tout va bien',
+          'aucun problème',
+        ]) {
+          expect(
+            find.textContaining(phrase),
+            findsNothing,
+            reason: '"$phrase" est interdit par BR-007',
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      "la cause technique n'est JAMAIS rendue : c'est une donnée "
+      "de diagnostic, pas un texte pour l'usager — la convention des deux "
+      'fiches (`station_summary_sheet.dart`, `onde_summary_sheet.dart`), '
+      "et le grief porté contre l'ancien `MapErrorBanner`",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          const SourceUnavailableNotice(sourceName: "Hub'Eau"),
+        );
+
+        for (final String diagnostic in <String>[
+          'HubEauFailure',
+          '503',
+          'Exception',
+          'Bad state',
+        ]) {
+          expect(
+            find.textContaining(diagnostic),
+            findsNothing,
+            reason: '"$diagnostic" est un texte de diagnostic, pas d interface',
+          );
+        }
+        expect(find.text(sourceUnavailableText("Hub'Eau")), findsOneWidget);
+        expect(find.text(sourceUnavailableHint), findsOneWidget);
+      },
+    );
   });
 
   group('NoStationInAreaNotice — zone sans station, échelle débit '
       '(U6, arbitrage du commanditaire 2026-09-18)', () {
-    testWidgets('dit EXACTEMENT la phrase retenue par le commanditaire, et '
-        'ne porte plus la formulation de repli générique de BR-007 : sur '
-        "l'échelle débit l'ONDE n'est pas interrogée (BR-008), « ni station "
-        "ni point » affirmerait une lecture qui n'a pas eu lieu", (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, NoStationInAreaNotice(onWiden: () {}));
+    testWidgetsOnWindows(
+      'dit EXACTEMENT la phrase retenue par le commanditaire, et '
+      'ne porte plus la formulation de repli générique de BR-007 : sur '
+      "l'échelle débit l'ONDE n'est pas interrogée (BR-008), « ni station "
+      "ni point » affirmerait une lecture qui n'a pas eu lieu",
+      (WidgetTester tester) async {
+        await _pump(tester, NoStationInAreaNotice(onWiden: () {}));
 
-      expect(
-        find.text(
-          "Il n'y a aucune station de mesure dans le secteur affiché. Cela "
-          "ne dit rien de l'état des cours d'eau : le débit n'est "
-          'simplement pas mesuré ici.',
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.text(noDataFallbackText),
-        findsNothing,
-        reason:
-            'la formulation de repli générique est remplacée par la phrase '
-            'dédiée depuis le 2026-09-18',
-      );
-      expect(
-        find.textContaining("point d'observation"),
-        findsNothing,
-        reason: "on n'affirme que ce qu'on a lu",
-      );
-      expect(
-        find.textContaining('ONDE'),
-        findsNothing,
-        reason: "l'ONDE n'est pas interrogée sur l'échelle débit (BR-008)",
-      );
-      expect(find.textContaining('personne ne mesure ici'), findsNothing);
-    });
+        expect(
+          find.text(
+            "Il n'y a aucune station de mesure dans le secteur affiché. Cela "
+            "ne dit rien de l'état des cours d'eau : le débit n'est "
+            'simplement pas mesuré ici.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.text(noDataFallbackText),
+          findsNothing,
+          reason:
+              'la formulation de repli générique est remplacée par la phrase '
+              'dédiée depuis le 2026-09-18',
+        );
+        expect(
+          find.textContaining("point d'observation"),
+          findsNothing,
+          reason: "on n'affirme que ce qu'on a lu",
+        );
+        expect(
+          find.textContaining('ONDE'),
+          findsNothing,
+          reason: "l'ONDE n'est pas interrogée sur l'échelle débit (BR-008)",
+        );
+        expect(find.textContaining('personne ne mesure ici'), findsNothing);
+      },
+    );
 
-    testWidgets("l'action « Élargir la recherche » y est rendue aussi : une "
-        'absence sans issue serait un cul-de-sac (UC-001 A2)', (
-      WidgetTester tester,
-    ) async {
-      int elargissements = 0;
-      await _pump(
-        tester,
-        NoStationInAreaNotice(onWiden: () => elargissements++),
-      );
+    testWidgetsOnWindows(
+      "l'action « Élargir la recherche » y est rendue aussi : une "
+      'absence sans issue serait un cul-de-sac (UC-001 A2)',
+      (WidgetTester tester) async {
+        int elargissements = 0;
+        await _pump(
+          tester,
+          NoStationInAreaNotice(onWiden: () => elargissements++),
+        );
 
-      expect(find.text(widenSearchLabel), findsOneWidget);
+        expect(find.text(widenSearchLabel), findsOneWidget);
 
-      await tester.tap(find.byKey(widenSearchKey));
-      await tester.pump();
+        await tester.tap(find.byKey(widenSearchKey));
+        await tester.pump();
 
-      expect(elargissements, 1);
-    });
+        expect(elargissements, 1);
+      },
+    );
   });
 
   group('UnreadableRowsNotice — les lignes ONDE illisibles (T-14)', () {
-    testWidgets('1 : singulier', (WidgetTester tester) async {
+    testWidgetsOnWindows('1 : singulier', (WidgetTester tester) async {
       await _pump(tester, const UnreadableRowsNotice(count: 1));
 
       expect(
@@ -381,7 +417,7 @@ void main() {
       );
     });
 
-    testWidgets('3 : pluriel', (WidgetTester tester) async {
+    testWidgetsOnWindows('3 : pluriel', (WidgetTester tester) async {
       await _pump(tester, const UnreadableRowsNotice(count: 3));
 
       expect(
