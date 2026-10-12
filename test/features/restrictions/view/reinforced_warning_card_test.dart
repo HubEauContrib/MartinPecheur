@@ -15,13 +15,14 @@ import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.
 import 'package:martinpecheur/features/restrictions/view/reinforced_warning_card.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+import '../../../support/android_platform.dart';
 import '../../../support/windows_platform.dart';
 
 Widget _host(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
   group('tete epinglee : titre et action', () {
-    testWidgets('titre et libelle importes, action appelee', (
+    testWidgetsOnWindows('titre et libelle importes, action appelee', (
       WidgetTester tester,
     ) async {
       int calls = 0;
@@ -35,7 +36,9 @@ void main() {
       expect(calls, 1);
     });
 
-    testWidgets('region d alerte (liveRegion)', (WidgetTester tester) async {
+    testWidgetsOnWindows('region d alerte (liveRegion)', (
+      WidgetTester tester,
+    ) async {
       final SemanticsHandle handle = tester.ensureSemantics();
       await tester.pumpWidget(
         _host(ReinforcedWarningHeader(onConsultDecrees: () {})),
@@ -47,7 +50,9 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('titre lu avant l action', (WidgetTester tester) async {
+    testWidgetsOnWindows('titre lu avant l action', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         _host(ReinforcedWarningHeader(onConsultDecrees: () {})),
       );
@@ -57,7 +62,9 @@ void main() {
       );
     });
 
-    testWidgets('cible tactile minimale', (WidgetTester tester) async {
+    testWidgetsOnAndroid('Android : cible tactile minimale', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         _host(ReinforcedWarningHeader(onConsultDecrees: () {})),
       );
@@ -81,19 +88,20 @@ void main() {
   });
 
   group('corps : texte et adresse', () {
-    testWidgets('corps importe en deux paragraphes, adresse selectionnable', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(_host(const ReinforcedWarningBody()));
-      expect(find.text(reinforcedWarningBody), findsOneWidget);
-      expect(find.byType(SelectableText), findsOneWidget);
-      expect(
-        find.textContaining(restrictionsPublicSiteUrl, findRichText: true),
-        findsOneWidget,
-      );
-    });
+    testWidgetsOnWindows(
+      'corps importe en deux paragraphes, adresse selectionnable',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_host(const ReinforcedWarningBody()));
+        expect(find.text(reinforcedWarningBody), findsOneWidget);
+        expect(find.byType(SelectableText), findsOneWidget);
+        expect(
+          find.textContaining(restrictionsPublicSiteUrl, findRichText: true),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('pas de region d alerte : une seule, sur la tete', (
+    testWidgetsOnWindows('pas de region d alerte : une seule, sur la tete', (
       WidgetTester tester,
     ) async {
       final SemanticsHandle handle = tester.ensureSemantics();
@@ -105,7 +113,7 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('contraste d au moins 7:1 avec le fond reel', (
+    testWidgetsOnWindows('contraste d au moins 7:1 avec le fond reel', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
@@ -160,7 +168,7 @@ void main() {
   });
 
   group('surface verrouillee (aucun repli, fermeture ni masquage)', () {
-    testWidgets('ni ExpansionTile, ni Dismissible, ni Visibility', (
+    testWidgetsOnWindows('ni ExpansionTile, ni Dismissible, ni Visibility', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(

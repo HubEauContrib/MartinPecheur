@@ -23,11 +23,6 @@ const String lockFilePath = 'test/project/widget_test_platform_test.dart';
 
 /// Les fichiers pas encore migrés. Ne fait que décroître ; vide à la fin de N9.
 const Set<String> filesNotYetMigrated = <String>{
-  'test/features/restrictions/view/drought_severity_badge_size_test.dart',
-  'test/features/restrictions/view/drought_severity_badge_test.dart',
-  'test/features/restrictions/view/reinforced_warning_card_test.dart',
-  'test/features/restrictions/view/restrictions_scale_text_test.dart',
-  'test/features/restrictions/view/restrictions_screen_test.dart',
   'test/features/map/view/area_cluster_marker_test.dart',
   'test/features/map/view/designate_center_button_test.dart',
   'test/features/map/view/ign_attribution_badge_test.dart',

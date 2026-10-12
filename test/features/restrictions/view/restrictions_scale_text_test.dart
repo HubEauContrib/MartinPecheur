@@ -20,6 +20,8 @@ import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 
+import '../../../support/android_platform.dart';
+import '../../../support/windows_platform.dart';
 import '../zones_samples.dart';
 
 Duration _paris(DateTime _) => const Duration(hours: 2);
@@ -57,13 +59,23 @@ Future<bool> _loadRoboto() async {
     }
     found.add(file);
   }
-  final FontLoader loader = FontLoader('Roboto');
-  for (final File file in found) {
-    loader.addFont(
+  // Les memes octets sous deux familles : « Roboto », que Material demande sur
+  // Android, et « Segoe UI », qu'il demande sur Windows. Segoe UI n'est pas
+  // dans le SDK : les cas a 800 x 740, sous Windows, mesurent donc en Roboto,
+  // un SUBSTITUT de Segoe UI, pas sa mesure (meme choix que
+  // `map_overlays_phone_test.dart`). Sans lui, Windows retombe sur la police
+  // de test et « Vigilance » est coupe au milieu du mot a 800 x 740, 100 %.
+  final List<Future<ByteData>> bytes = <Future<ByteData>>[
+    for (final File file in found)
       Future<ByteData>.value(ByteData.sublistView(file.readAsBytesSync())),
-    );
+  ];
+  for (final String family in <String>['Roboto', 'Segoe UI']) {
+    final FontLoader loader = FontLoader(family);
+    for (final Future<ByteData> font in bytes) {
+      loader.addFont(font);
+    }
+    await loader.load();
   }
-  await loader.load();
   return true;
 }
 
@@ -143,8 +155,11 @@ void main() {
   ];
 
   for (final Size window in windows) {
+    // Sous 600 px de large : un téléphone, donc Android, et le titre le dit.
+    final bool phone = window.width < 600;
+    final run = phone ? testWidgetsOnAndroid : testWidgetsOnWindows;
     for (final double scale in const <double>[1, 2]) {
-      testWidgets('échelle à ${window.width.toInt()} x '
+      run('${phone ? 'Android : ' : ''}échelle à ${window.width.toInt()} x '
           '${window.height.toInt()}, police ${(scale * 100).toInt()} % : '
           'aucun libellé coupé au milieu d\'un mot', (
         WidgetTester tester,
@@ -174,87 +189,92 @@ void main() {
     }
   }
 
-  testWidgets('le détecteur voit un mot coupé (« Alerte renfor / cée »)', (
-    WidgetTester tester,
-  ) async {
-    if (!fontsLoaded) {
-      markTestSkipped('police Roboto du SDK introuvable');
-      return;
-    }
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Center(
-          child: SizedBox(
-            width: 70,
-            child: Text(
-              'Alerte renforcée',
-              style: TextStyle(fontFamily: 'Roboto', fontSize: 28),
+  testWidgetsOnWindows(
+    'le détecteur voit un mot coupé (« Alerte renfor / cée »)',
+    (WidgetTester tester) async {
+      if (!fontsLoaded) {
+        markTestSkipped('police Roboto du SDK introuvable');
+        return;
+      }
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 70,
+              child: Text(
+                'Alerte renforcée',
+                style: TextStyle(fontFamily: 'Roboto', fontSize: 28),
+              ),
             ),
           ),
         ),
-      ),
-    );
-    final RenderParagraph paragraph = tester.renderObject(
-      find.text('Alerte renforcée'),
-    );
-    expect(_brokenWords(paragraph, 'Alerte renforcée'), isNotEmpty);
-    // Et un mot entier sur sa ligne n'est pas signalé.
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Center(
-          child: SizedBox(
-            width: 400,
-            child: Text(
-              'Alerte renforcée',
-              style: TextStyle(fontFamily: 'Roboto', fontSize: 28),
+      );
+      final RenderParagraph paragraph = tester.renderObject(
+        find.text('Alerte renforcée'),
+      );
+      expect(_brokenWords(paragraph, 'Alerte renforcée'), isNotEmpty);
+      // Et un mot entier sur sa ligne n'est pas signalé.
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 400,
+              child: Text(
+                'Alerte renforcée',
+                style: TextStyle(fontFamily: 'Roboto', fontSize: 28),
+              ),
             ),
           ),
         ),
-      ),
-    );
-    expect(
-      _brokenWords(
-        tester.renderObject(find.text('Alerte renforcée')),
-        'Alerte renforcée',
-      ),
-      isEmpty,
-    );
-  });
+      );
+      expect(
+        _brokenWords(
+          tester.renderObject(find.text('Alerte renforcée')),
+          'Alerte renforcée',
+        ),
+        isEmpty,
+      );
+    },
+  );
 
-  testWidgets('palier 1 colonne : 360 de large, police 100 % '
-      '(contenu non agrandi < 300)', (WidgetTester tester) async {
-    if (!fontsLoaded) {
-      markTestSkipped('police Roboto du SDK introuvable');
-      return;
-    }
-    await _pumpAt(tester, const Size(360, 640), 1);
-    final List<double> tops = <double>[
-      for (final String l in _labels)
-        tester.getTopLeft(_inScale(0, find.text(l))).dy,
-    ];
-    for (int i = 1; i < tops.length; i++) {
-      expect(tops[i], greaterThan(tops[i - 1] + 10), reason: 'ligne $i');
-    }
-  });
+  testWidgetsOnAndroid(
+    'Android : palier 1 colonne : 360 de large, police 100 % '
+    '(contenu non agrandi < 300)',
+    (WidgetTester tester) async {
+      if (!fontsLoaded) {
+        markTestSkipped('police Roboto du SDK introuvable');
+        return;
+      }
+      await _pumpAt(tester, const Size(360, 640), 1);
+      final List<double> tops = <double>[
+        for (final String l in _labels)
+          tester.getTopLeft(_inScale(0, find.text(l))).dy,
+      ];
+      for (int i = 1; i < tops.length; i++) {
+        expect(tops[i], greaterThan(tops[i - 1] + 10), reason: 'ligne $i');
+      }
+    },
+  );
 
-  testWidgets('palier 1 colonne : 390 de large, police 200 %', (
-    WidgetTester tester,
-  ) async {
-    if (!fontsLoaded) {
-      markTestSkipped('police Roboto du SDK introuvable');
-      return;
-    }
-    await _pumpAt(tester, const Size(390, 844), 2);
-    final double vigilance = tester
-        .getTopLeft(_inScale(0, find.text('Vigilance')))
-        .dy;
-    final double alerte = tester
-        .getTopLeft(_inScale(0, find.text('Alerte')))
-        .dy;
-    expect(alerte, greaterThan(vigilance + 10));
-  });
+  testWidgetsOnAndroid(
+    'Android : palier 1 colonne : 390 de large, police 200 %',
+    (WidgetTester tester) async {
+      if (!fontsLoaded) {
+        markTestSkipped('police Roboto du SDK introuvable');
+        return;
+      }
+      await _pumpAt(tester, const Size(390, 844), 2);
+      final double vigilance = tester
+          .getTopLeft(_inScale(0, find.text('Vigilance')))
+          .dy;
+      final double alerte = tester
+          .getTopLeft(_inScale(0, find.text('Alerte')))
+          .dy;
+      expect(alerte, greaterThan(vigilance + 10));
+    },
+  );
 
-  testWidgets('palier 2 colonnes : 800 de large, police 200 %', (
+  testWidgetsOnWindows('palier 2 colonnes : 800 de large, police 200 %', (
     WidgetTester tester,
   ) async {
     if (!fontsLoaded) {
@@ -268,18 +288,19 @@ void main() {
     expect(top('Alerte renforcée'), greaterThan(top('Vigilance') + 10));
   });
 
-  testWidgets('la gravité inconnue n\'a toujours aucune case marquée', (
-    WidgetTester tester,
-  ) async {
-    if (!fontsLoaded) {
-      markTestSkipped('police Roboto du SDK introuvable');
-      return;
-    }
-    await _pumpAt(tester, const Size(360, 640), 2);
-    // Les eaux superficielles d'abord : l'ordre affiché est 0 (alerte),
-    // 1 (gravité inconnue), puis les autres zones.
-    expect(_inScale(1, find.text('← cette zone')), findsNothing);
-    expect(_inScale(0, find.text('← cette zone')), findsOneWidget);
-    expect(droughtSeverityScale, hasLength(4));
-  });
+  testWidgetsOnAndroid(
+    'Android : la gravité inconnue n\'a toujours aucune case marquée',
+    (WidgetTester tester) async {
+      if (!fontsLoaded) {
+        markTestSkipped('police Roboto du SDK introuvable');
+        return;
+      }
+      await _pumpAt(tester, const Size(360, 640), 2);
+      // Les eaux superficielles d'abord : l'ordre affiché est 0 (alerte),
+      // 1 (gravité inconnue), puis les autres zones.
+      expect(_inScale(1, find.text('← cette zone')), findsNothing);
+      expect(_inScale(0, find.text('← cette zone')), findsOneWidget);
+      expect(droughtSeverityScale, hasLength(4));
+    },
+  );
 }
