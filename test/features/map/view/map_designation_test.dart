@@ -141,9 +141,9 @@ Offset _pinTip(WidgetTester tester) {
 /// Un test de widget posé sur une plateforme : les verrous de gestes ci-dessous
 /// sont rejoués sur Android ET sur Windows, la première cible du produit. Un
 /// titre passé par [_surAndroid] commence par « Android : ». Les deux n'ont pas
-/// le même
-/// comportement de défilement : `MaterialScrollBehavior` pose une `Scrollbar`
-/// automatique sur les défilements verticaux du bureau, pas sur ceux d'Android.
+/// le même comportement de défilement : `MaterialScrollBehavior` pose une
+/// `Scrollbar` automatique sur les défilements verticaux du bureau, pas sur
+/// ceux d'Android.
 typedef _Test = void Function(
   String description,
   Future<void> Function(WidgetTester tester) corps,

@@ -15,6 +15,7 @@ import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dar
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/shared/screen_layout.dart';
 
+import '../../../support/android_platform.dart';
 import '../../../support/windows_platform.dart';
 import '../zones_samples.dart';
 
@@ -284,27 +285,30 @@ void main() {
     // elle, la tete peut grandir (son texte passe a la ligne) : le repli y
     // reste synchrone, sans quoi elle deborderait. Image repliee peinte, puis
     // re-epinglage : jamais d'exception de debordement, position gardee.
-    testWidgetsOnWindows('largeur reduite, ecran defile : aucun debordement '
-        'a aucune image, la position est gardee', (WidgetTester tester) async {
-      await _pump(tester);
-      await _wheel(tester, const Offset(633, 500), 400);
-      expect(_offset(tester), 400);
+    testWidgetsOnAndroid(
+      'Android : largeur reduite, ecran defile : aucun debordement '
+      'a aucune image, la position est gardee',
+      (WidgetTester tester) async {
+        await _pump(tester);
+        await _wheel(tester, const Offset(633, 500), 400);
+        expect(_offset(tester), 400);
 
-      for (int step = 1; step <= 20; step++) {
-        tester.view.physicalSize = Size(
-          _window.width - 40 * step,
-          _window.height,
-        );
-        await tester.pump();
-        expect(tester.takeException(), isNull, reason: 'pas $step');
-        await tester.pump();
-        expect(tester.takeException(), isNull, reason: 'pas $step, suivante');
-      }
-      await tester.pumpAndSettle();
+        for (int step = 1; step <= 20; step++) {
+          tester.view.physicalSize = Size(
+            _window.width - 40 * step,
+            _window.height,
+          );
+          await tester.pump();
+          expect(tester.takeException(), isNull, reason: 'pas $step');
+          await tester.pump();
+          expect(tester.takeException(), isNull, reason: 'pas $step, suivante');
+        }
+        await tester.pumpAndSettle();
 
-      expect(_headerPinned(), isTrue);
-      expect(_offset(tester), 400);
-    });
+        expect(_headerPinned(), isTrue);
+        expect(_offset(tester), 400);
+      },
+    );
 
     // Constat de la seconde relecture : au-dessus de la colonne de lecture
     // (`readingColumnWidth + 2 * readingColumnGutter`, 792), la tete a une
@@ -353,68 +357,69 @@ void main() {
     // repli observe est bien celui de la LARGEUR — la tete, a sa hauteur
     // memorisee (92), tient encore dans la moitie de la zone — et que la tete
     // epinglee aurait deborde (228 > 200).
-    testWidgetsOnWindows('largeur reduite sous la colonne de lecture : repli '
-        'des la premiere image, aucun debordement', (
-      WidgetTester tester,
-    ) async {
-      const double height = 348;
-      tester.view.physicalSize = const Size(780, height);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: RestrictionsScreen(
-            state: ZonesTrouvees(zonesAin()),
-            profile: UserProfile.particulier,
-            onChooseProfile: (UserProfile _) {},
-            onRetry: () {},
-            onOpenDocument: (DocumentLink _, LinkTarget _) {},
-            onOpenPublicSite: () {},
-            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+    testWidgetsOnAndroid(
+      'Android : largeur reduite sous la colonne de lecture : repli '
+      'des la premiere image, aucun debordement',
+      (WidgetTester tester) async {
+        const double height = 348;
+        tester.view.physicalSize = const Size(780, height);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: RestrictionsScreen(
+              state: ZonesTrouvees(zonesAin()),
+              profile: UserProfile.particulier,
+              onChooseProfile: (UserProfile _) {},
+              onRetry: () {},
+              onOpenDocument: (DocumentLink _, LinkTarget _) {},
+              onOpenPublicSite: () {},
+              utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(780, lessThan(_readingColumn));
-      expect(_headerPinned(), isTrue);
-      final Finder header = find.byKey(reinforcedWarningHeaderKey);
-      final double wideHeader = tester.getSize(header).height;
+        );
+        await tester.pumpAndSettle();
+        expect(780, lessThan(_readingColumn));
+        expect(_headerPinned(), isTrue);
+        final Finder header = find.byKey(reinforcedWarningHeaderKey);
+        final double wideHeader = tester.getSize(header).height;
 
-      tester.view.physicalSize = const Size(200, height);
-      // UN SEUL pump : l'image du retrecissement elle-meme.
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      expect(_headerPinned(), isFalse);
+        tester.view.physicalSize = const Size(200, height);
+        // UN SEUL pump : l'image du retrecissement elle-meme.
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(_headerPinned(), isFalse);
 
-      // Garde-fous, sur les mesures de cette image.
-      final double narrowZone = height - _barBottom(tester);
-      final double narrowHeader = tester.getSize(header).height;
-      expect(
-        wideHeader * 2,
-        lessThanOrEqualTo(narrowZone),
-        reason:
-            'le repli doit venir de la largeur, pas de la hauteur : tete '
-            '$wideHeader, zone $narrowZone',
-      );
-      expect(
-        narrowHeader,
-        greaterThan(narrowZone),
-        reason:
-            'la tete epinglee doit deborder de la zone : tete '
-            '$narrowHeader, zone $narrowZone',
-      );
+        // Garde-fous, sur les mesures de cette image.
+        final double narrowZone = height - _barBottom(tester);
+        final double narrowHeader = tester.getSize(header).height;
+        expect(
+          wideHeader * 2,
+          lessThanOrEqualTo(narrowZone),
+          reason:
+              'le repli doit venir de la largeur, pas de la hauteur : tete '
+              '$wideHeader, zone $narrowZone',
+        );
+        expect(
+          narrowHeader,
+          greaterThan(narrowZone),
+          reason:
+              'la tete epinglee doit deborder de la zone : tete '
+              '$narrowHeader, zone $narrowZone',
+        );
 
-      // La decision apres rendu ne la re-epingle pas : elle ne tient pas.
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(_headerPinned(), isFalse);
+        // La decision apres rendu ne la re-epingle pas : elle ne tient pas.
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(_headerPinned(), isFalse);
 
-      // La fenetre regrandit : la tete se re-epingle.
-      tester.view.physicalSize = const Size(780, height);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(_headerPinned(), isTrue);
-    });
+        // La fenetre regrandit : la tete se re-epingle.
+        tester.view.physicalSize = const Size(780, height);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(_headerPinned(), isTrue);
+      },
+    );
   });
 
   // Constat C de la revue : le bouton « Consulter les arretes en vigueur » est
@@ -496,16 +501,19 @@ void main() {
       expect(_offset(tester), 0);
     });
 
-    testWidgetsOnWindows('telephone, en haut : l avis sous la ligne de '
-        'flottaison y est amene', (WidgetTester tester) async {
-      await pumpAt(tester, const Size(411, 420));
-      expect(_offset(tester), 0);
+    testWidgetsOnAndroid(
+      'Android : telephone, en haut : l avis sous la ligne de '
+      'flottaison y est amene',
+      (WidgetTester tester) async {
+        await pumpAt(tester, const Size(411, 420));
+        expect(_offset(tester), 0);
 
-      await tester.pumpWidget(screen(unopenedLink: _publicSiteFailure));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(screen(unopenedLink: _publicSiteFailure));
+        await tester.pumpAndSettle();
 
-      expectNoticeInView(tester);
-    });
+        expectNoticeInView(tester);
+      },
+    );
 
     // Defaut 2 : l'usager redescend, rappuie sur le meme bouton, nouvel echec
     // du MEME lien. L'avis est deja a l'ecran : sans nouvel etat, il ne se
@@ -617,27 +625,28 @@ void main() {
       },
     );
 
-    testWidgetsOnWindows('avis plus haut que la zone visible (petit ecran, '
-        '200 %) : son DEBUT est dans le champ, pas sa fin', (
-      WidgetTester tester,
-    ) async {
-      const Size small = Size(411, 500);
-      await pumpAt(tester, small, textScale: 2);
-      await tester.pumpWidget(
-        screen(unopenedLink: _publicSiteFailure, textScale: 2),
-      );
-      await tester.pumpAndSettle();
+    testWidgetsOnAndroid(
+      'Android : avis plus haut que la zone visible (petit ecran, '
+      '200 %) : son DEBUT est dans le champ, pas sa fin',
+      (WidgetTester tester) async {
+        const Size small = Size(411, 500);
+        await pumpAt(tester, small, textScale: 2);
+        await tester.pumpWidget(
+          screen(unopenedLink: _publicSiteFailure, textScale: 2),
+        );
+        await tester.pumpAndSettle();
 
-      final Rect view = tester.getRect(_mainScrollable);
-      final Rect at = tester.getRect(notice);
-      expect(
-        at.height,
-        greaterThan(view.height),
-        reason: 'l avis doit etre plus haut que la zone : $at / $view',
-      );
-      expect(at.top, greaterThanOrEqualTo(view.top), reason: '$at / $view');
-      expect(at.top, lessThan(view.bottom), reason: '$at / $view');
-    });
+        final Rect view = tester.getRect(_mainScrollable);
+        final Rect at = tester.getRect(notice);
+        expect(
+          at.height,
+          greaterThan(view.height),
+          reason: 'l avis doit etre plus haut que la zone : $at / $view',
+        );
+        expect(at.top, greaterThanOrEqualTo(view.top), reason: '$at / $view');
+        expect(at.top, lessThan(view.bottom), reason: '$at / $view');
+      },
+    );
   });
 
   group('H3 : la molette defile, ou que soit le pointeur', () {

@@ -73,9 +73,15 @@ cellule ou en bas de page, jamais sous la marque ✅.
   (`test/features/map/view/map_overlays_phone_test.dart`) sont des mesures en police Roboto, pas des
   constats d'écran, et Windows (Segoe UI) n'y est pas mesurée. Depuis le 2026-10-06 (revue de la
   PR #17), les verrous de gestes de la carte (`map_designation_test.dart`,
-  `map_overlays_phone_test.dart`) et ceux du défilement de l'écran des restrictions sont **rejoués en
-  plateforme Windows**, où la barre de défilement automatique du bureau change ce que reçoit la
-  carte ; leurs largeurs y sont mesurées en Roboto enregistrée sous le nom « Segoe UI », un substitut :
+  `map_overlays_phone_test.dart`) et ceux du défilement de l'écran des restrictions ~~sont **rejoués en
+  plateforme Windows**~~ **tournent en plateforme Windows**, où la barre de défilement automatique du
+  bureau change ce que reçoit la carte ; **ceux de la carte ont leurs jumeaux sous Android**. Depuis le
+  2026-10-12 (`N9` de T3, dette 1 de T2 soldée), **par convention, tout test de widget tourne sous
+  Windows** (`testWidgetsOnWindows`), **sauf** un test de téléphone (fenêtre de moins de 600 px de
+  large, ou téléphone en paysage) ou qui porte sur Android par son objet, qui tourne sous Android
+  (`testWidgetsOnAndroid`, titre « Android : … ») — le défaut de `flutter test` reste Android, et
+  l'appel nu est interdit (verrou `widget_test_platform_test.dart`, liste d'exceptions vide) ; sous Windows, les
+  largeurs de ces verrous sont mesurées en Roboto enregistrée sous le nom « Segoe UI », un substitut :
   Segoe UI réelle n'est pas mesurée, et aucun de ces gestes n'est constaté à l'écran.
 - **BR-013 et US-09** : l'annonce de l'encart renforcé par un lecteur d'écran (Narrateur,
   TalkBack) n'est **pas constatée**. `test/features/restrictions/view/reinforced_warning_card_test.dart`

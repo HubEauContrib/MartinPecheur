@@ -4,10 +4,11 @@
 // `testWidgets` nu est interdit hors de `test/support/` : verrou
 // `test/project/widget_test_platform_test.dart`. Pas de paramètre `variant`.
 //
-// Sous `flutter test` la plateforme par défaut est android (arbitrage du
-// commanditaire du 2026-09-29, `K4` de T2 : cible tactile de 48 sur Android,
-// 44 ailleurs) : les tests de disposition de Windows (taille minimale
-// 800 × 740, `K3`) et les goldens, calibrés sur 44, doivent la fixer.
+// Sous `flutter test` la plateforme par défaut est android, où la cible
+// tactile est de 48 et non de 44 (la cible, elle, est un arbitrage du
+// commanditaire du 2026-09-29, `K4` de T2 : 48 sur Android, 44 ailleurs) :
+// les tests de disposition de Windows (taille minimale 800 × 740, `K3`) et
+// les goldens, calibrés sur 44, doivent fixer la plateforme.
 // `debugDefaultTargetPlatformOverride` doit être remis à `null` AVANT la
 // vérification des invariants de fin de test — `setUp`/`tearDown`/
 // `addTearDown` passent trop tard —, d'où ce `try/finally` autour du corps du

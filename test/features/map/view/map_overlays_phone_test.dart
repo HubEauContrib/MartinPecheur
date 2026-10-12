@@ -3,6 +3,12 @@
 // « Restrictions » (`E5`, `E5b` de T2). Ce que ces tests prouvent, et rien de
 // plus :
 //
+// - la plateforme (`N9` de T3) : un cas dont le plus petit côté de la fenêtre
+//   fait moins de 600 px est un cas de téléphone — en portrait (360 × 640,
+//   390 × 844) comme en paysage (600 × 360, 640 × 360) —, il tourne sous
+//   Android et son titre commence par « Android : » ; les autres tournent
+//   sous Windows. Seule exception, voulue : les verrous de gestes à
+//   360 × 640 rejoués sous Windows (section « Gestes rendus à la carte ») ;
 // - la police : ce fichier charge ROBOTO, la police d'Android, depuis le SDK
 //   Flutter (voir [_chargerRoboto]) — pas la police de test, où chaque glyphe
 //   est un carré d'un em. Mesurées en police de test, les trois puces
@@ -104,6 +110,7 @@ import 'package:martinpecheur/features/shared/tap_target.dart'
     show minimumTapTarget;
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/android_platform.dart';
 import '../../../support/windows_platform.dart';
 
 /// Clé de la fiche de test : une hauteur réaliste de 320, comme
@@ -536,23 +543,33 @@ Future<void> _verifierColonneGauche(
   );
 }
 
-/// Un `testWidgets` posé sur une plateforme : Android, la plateforme par défaut
-/// de `flutter test`, ou Windows (`testWidgetsOnWindows`).
+/// Un test de widget posé sur une plateforme : Android (`testWidgetsOnAndroid`)
+/// ou Windows (`testWidgetsOnWindows`). Un titre passé par [_surAndroid]
+/// commence par « Android : ».
 typedef _Test = void Function(
   String description,
   Future<void> Function(WidgetTester tester) corps,
 );
 
+/// L'assistant d'un cas d'une boucle qui mêle tailles de téléphone et tailles
+/// de bureau : quand le plus petit côté de la fenêtre fait moins de 600 px,
+/// c'est un téléphone, en portrait ou en paysage (600 × 360, 640 × 360), et
+/// le cas tourne sous Android ; sinon sous Windows. Une fenêtre Windows ne
+/// descend pas sous 800 × 740 (`K3`).
+_Test _selonFenetre(Size taille) =>
+    taille.shortestSide < 600 ? _surAndroid : _surWindows;
+
 void _surAndroid(String d, Future<void> Function(WidgetTester tester) corps) =>
-    testWidgets(d, corps);
+    testWidgetsOnAndroid('Android : $d', corps);
 
 void _surWindows(String d, Future<void> Function(WidgetTester tester) corps) =>
     testWidgetsOnWindows(d, corps);
 
 /// EN MODE, à [taille], 100 % : un tap, un glisser et un cran de molette posés
 /// dans la bande du bouton de désignation, hors de la pilule et de l'indice,
-/// atteignent la carte. Partagé par la plateforme par défaut (Android) et par
-/// Windows, où une `Scrollbar` automatique entoure la bande.
+/// atteignent la carte. Ses appelants tournent sous Windows (800 × 740,
+/// 800 × 700), où une `Scrollbar` automatique entoure la bande, et sous
+/// Android pour le téléphone en paysage (600 × 360).
 Future<void> _verifierBande(WidgetTester tester, Size taille) async {
   int taps = 0;
   int glissers = 0;
@@ -603,7 +620,7 @@ void main() {
   // ---------------------------------------------------------------------
   // La police : Roboto, pas la police de test
   // ---------------------------------------------------------------------
-  testWidgets('la police de ce fichier est ROBOTO : « Avertissement », dans le '
+  _surAndroid('la police de ce fichier est ROBOTO : « Avertissement », dans le '
       'style du contrôle, fait environ 95 px (185 en police de test)', (
     WidgetTester tester,
   ) async {
@@ -635,7 +652,7 @@ void main() {
                 '${_nom(size, textScale, scale)}, ${_mode(enMode)}'
                 '${avecFiche ? ', fiche de 320 px ouverte' : ''}';
 
-            testWidgets('$cas : aucune erreur de rendu, avertissement et '
+            _surAndroid('$cas : aucune erreur de rendu, avertissement et '
                 'trois puces entiers dans l’écran', (
               WidgetTester tester,
             ) async {
@@ -721,29 +738,29 @@ void main() {
   ]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
       for (final bool enMode in <bool>[false, true]) {
-        testWidgets(
-          'à ${_nom(cas.$1, cas.$2, scale)}, ${_mode(enMode)} : les trois '
-          'puces prennent ${cas.$3} rangée${cas.$3 > 1 ? 's' : ''}',
-          (WidgetTester tester) async {
-            await _pumpOverlays(
-              tester,
-              cas.$1,
-              textScale: cas.$2,
-              scale: scale,
-              enMode: enMode,
-            );
+        final _Test sur = _selonFenetre(cas.$1);
+        sur('à ${_nom(cas.$1, cas.$2, scale)}, ${_mode(enMode)} : les trois '
+            'puces prennent ${cas.$3} rangée${cas.$3 > 1 ? 's' : ''}', (
+          WidgetTester tester,
+        ) async {
+          await _pumpOverlays(
+            tester,
+            cas.$1,
+            textScale: cas.$2,
+            scale: scale,
+            enMode: enMode,
+          );
 
-            expect(
-              _rangeesDePuces(tester),
-              cas.$3,
-              reason:
-                  'puces=${_rectOf(tester, find.byType(MapScaleChips))}, '
-                  'écoulement=${_rectOf(tester, _puceEchelle(MapScaleKind.ecoulement))}, '
-                  'débit=${_rectOf(tester, _puceEchelle(MapScaleKind.debit))}, '
-                  'Restrictions=${_rectOf(tester, _puceRestrictions())}',
-            );
-          },
-        );
+          expect(
+            _rangeesDePuces(tester),
+            cas.$3,
+            reason:
+                'puces=${_rectOf(tester, find.byType(MapScaleChips))}, '
+                'écoulement=${_rectOf(tester, _puceEchelle(MapScaleKind.ecoulement))}, '
+                'débit=${_rectOf(tester, _puceEchelle(MapScaleKind.debit))}, '
+                'Restrictions=${_rectOf(tester, _puceRestrictions())}',
+          );
+        });
       }
     }
   }
@@ -751,13 +768,14 @@ void main() {
   // ---------------------------------------------------------------------
   // Gestes rendus à la carte
   // ---------------------------------------------------------------------
-  // Les mêmes verrous, sur Android (la plateforme par défaut de `flutter test`)
-  // ET sur Windows : le bureau pose une `Scrollbar` automatique autour de
-  // chaque défilement vertical, dont le `MouseRegion` opaque absorbait le
-  // toucher sur toute la boîte de la colonne. Une fenêtre Windows ne descend
-  // pas sous 800 de large (`K3`) : la disposition compacte n'y est jamais
-  // montrée, mais la colonne compacte garde la même enveloppe que les deux
-  // colonnes larges.
+  // Les mêmes verrous, sous Android ET sous Windows : le bureau pose une
+  // `Scrollbar` automatique autour de chaque défilement vertical, dont le
+  // `MouseRegion` opaque absorbait le toucher sur toute la boîte de la
+  // colonne. Une fenêtre Windows ne descend pas sous 800 de large (`K3`) : la
+  // disposition compacte n'y est jamais montrée, mais la colonne compacte
+  // garde la même enveloppe que les deux colonnes larges. C'est la SEULE
+  // fenêtre de moins de 600 px de large que ce fichier monte sous Windows,
+  // exprès : la `Scrollbar` du bureau ne s'éprouve que là.
   for (final (String, _Test) plateforme in <(String, _Test)>[
     ('', _surAndroid),
     (' — Windows', _surWindows),
@@ -898,7 +916,7 @@ void main() {
   // ---------------------------------------------------------------------
   for (final Size size in <Size>[_petit, _grand]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
-      testWidgets(
+      _surAndroid(
         'ordre de la colonne à ${_nom(size, 1, scale)} : avertissement, '
         'puces (trois), avis, puis légende (la légende n’est repoussée que '
         'pendant qu’un avis s’affiche : écart à BR-008 accepté le '
@@ -950,7 +968,7 @@ void main() {
   for (final Size size in <Size>[_petit, _grand]) {
     for (final double textScale in <double>[1, 2]) {
       for (final bool enMode in <bool>[false, true]) {
-        testWidgets('Tab à ${_nom(size, textScale, MapScaleKind.ecoulement)}, '
+        _surAndroid('Tab à ${_nom(size, textScale, MapScaleKind.ecoulement)}, '
             '${_mode(enMode)} : puces (trois) → contrôles de zoom'
             '${enMode ? ' → bouton de désignation' : ''} → contrôle '
             'd’avertissement, puis reboucle', (WidgetTester tester) async {
@@ -998,7 +1016,7 @@ void main() {
   for (final Size size in <Size>[_petit, _grand]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
       for (final bool enMode in <bool>[false, true]) {
-        testWidgets(
+        _surAndroid(
           'à ${_nom(size, 1, scale)}, ${_mode(enMode)}, AVEC un avis : l’avis '
           'est entier dans l’écran, libre de toute surcouche du bas, et son '
           'action « Élargir la recherche » est atteignable',
@@ -1043,7 +1061,7 @@ void main() {
   // ---------------------------------------------------------------------
   for (final Size size in <Size>[_petit, _grand]) {
     for (final bool enMode in <bool>[false, true]) {
-      testWidgets(
+      _surAndroid(
         'à ${_nom(size, 1, MapScaleKind.ecoulement)}, ${_mode(enMode)}, SANS '
         'avis : la légende est entière, dans l’écran, et ne recoupe ni les '
         'contrôles de zoom, ni le bouton de désignation, ni l’attribution',
@@ -1089,7 +1107,7 @@ void main() {
         (_grand, false, false, <String>{}),
         (_grand, true, false, <String>{}),
       ]) {
-    testWidgets(
+    _surAndroid(
       'CONSTAT — à ${_nom(cas.$1, 1, MapScaleKind.debit)}, ${_mode(cas.$2)}, '
       'SANS avis : la légende « débit » (247 px de haut) '
       '${cas.$4.isEmpty ? 'ne recoupe aucune surcouche du bas' : 'recoupe '
@@ -1157,7 +1175,7 @@ void main() {
         (_grand, MapScaleKind.debit, false, false, <String>{}),
         (_grand, MapScaleKind.debit, true, false, <String>{}),
       ]) {
-    testWidgets(
+    _surAndroid(
       'CONSTAT — à ${_nom(cas.$1, 1, cas.$2)}, ${_mode(cas.$3)}, AVEC un '
       'avis : la légende, repoussée sous l’avis, '
       '${cas.$5.isEmpty ? 'ne recoupe aucune surcouche du bas' : 'recoupe '
@@ -1197,7 +1215,7 @@ void main() {
     for (final double textScale in <double>[1, 2]) {
       for (final MapScaleKind scale in MapScaleKind.values) {
         for (final bool avecAvis in <bool>[true, false]) {
-          testWidgets(
+          _surAndroid(
             'BR-012 — à ${_nom(size, textScale, scale)}, HORS MODE, '
             '${avecAvis ? 'AVEC' : 'SANS'} avis : le centre du contrôle '
             '« ⚠ Avertissement » et celui des trois puces sont atteignables',
@@ -1231,7 +1249,7 @@ void main() {
   // ---------------------------------------------------------------------
   // Seuil de la disposition compacte
   // ---------------------------------------------------------------------
-  testWidgets('à 599 px de large la disposition est compacte : la légende est '
+  _surAndroid('à 599 px de large la disposition est compacte : la légende est '
       'SOUS les puces', (WidgetTester tester) async {
     await _pumpOverlays(
       tester,
@@ -1244,7 +1262,7 @@ void main() {
     expect(puces.bottom, lessThanOrEqualTo(legende.top));
   });
 
-  testWidgets('à 600 px de large la disposition est large : la légende est À '
+  _surWindows('à 600 px de large la disposition est large : la légende est À '
       'DROITE des puces, en haut', (WidgetTester tester) async {
     await _pumpOverlays(
       tester,
@@ -1281,7 +1299,8 @@ void main() {
     for (final double textScale in <double>[1, 2]) {
       for (final MapScaleKind scale in MapScaleKind.values) {
         for (final bool enMode in <bool>[false, true]) {
-          testWidgets(
+          final _Test sur = _selonFenetre(taille);
+          sur(
             'disposition LARGE à ${_nom(taille, textScale, scale)}, '
             '${_mode(enMode)}, avis affiché : aucune erreur de rendu, et le '
             'bas de l’avis s’amène dans la fenêtre de la colonne gauche en la '
@@ -1303,7 +1322,7 @@ void main() {
     const Size(800, 640),
     const Size(900, 640),
   ]) {
-    testWidgets(
+    _surWindows(
       'disposition LARGE à ${_nom(taille, 2, MapScaleKind.ecoulement)}, '
       '${_mode(true)}, avis affiché : aucune erreur de rendu (un seul cas à '
       'cette taille : rien n’y défile en Roboto)',
@@ -1358,59 +1377,59 @@ void main() {
         (const Size(800, 740), 2, MapScaleKind.debit, false, true, 0),
         (const Size(800, 740), 2, MapScaleKind.debit, true, true, 0),
       ]) {
-    testWidgets(
-      'CONSTAT — disposition LARGE à ${_nom(cas.$1, cas.$2, cas.$3)}, '
-      '${_mode(cas.$4)}, avis affiché : l’action de l’avis '
-      '${cas.$5 ? 'est' : 'n’est pas'} atteignable au repos ; une fois la '
-      'colonne défilée, l’attribution en recouvre le bas de '
-      '${cas.$6.toInt()} px'
-      '${cas.$6 > 0 ? ' (le centre de l’action reste atteignable)' : ''}',
-      (WidgetTester tester) async {
-        await _pumpOverlays(
-          tester,
-          cas.$1,
-          textScale: cas.$2,
-          scale: cas.$3,
-          enMode: cas.$4,
-        );
+    final _Test sur = _selonFenetre(cas.$1);
+    sur('CONSTAT — disposition LARGE à ${_nom(cas.$1, cas.$2, cas.$3)}, '
+        '${_mode(cas.$4)}, avis affiché : l’action de l’avis '
+        '${cas.$5 ? 'est' : 'n’est pas'} atteignable au repos ; une fois la '
+        'colonne défilée, l’attribution en recouvre le bas de '
+        '${cas.$6.toInt()} px'
+        '${cas.$6 > 0 ? ' (le centre de l’action reste atteignable)' : ''}', (
+      WidgetTester tester,
+    ) async {
+      await _pumpOverlays(
+        tester,
+        cas.$1,
+        textScale: cas.$2,
+        scale: cas.$3,
+        enMode: cas.$4,
+      );
 
-        // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : l'attribution IGN est
-        // posée au-dessus de la colonne dans la pile.
-        expect(
-          _atteignable(find.byKey(widenSearchKey)),
-          cas.$5,
-          reason: 'action=${_rectOf(tester, find.byKey(widenSearchKey))}',
-        );
-        final Rect colonne = _fenetre(tester);
-        final Rect repos = _rectOf(tester, _avis(cas.$3));
-        final bool aDefile = repos.bottom > colonne.bottom;
-        if (aDefile) {
-          await _defilerDuDoigt(tester, repos.bottom - colonne.bottom);
-        }
-        // Une fois la colonne défilée, le centre de l'action est atteignable ;
-        // quand rien n'a défilé, il l'est comme au repos.
-        expect(
-          _atteignable(find.byKey(widenSearchKey)),
-          cas.$5 || aDefile,
-          reason:
-              'après défilement : '
-              'action=${_rectOf(tester, find.byKey(widenSearchKey))}',
-        );
-        final Rect action = _rectOf(tester, find.byKey(widenSearchKey));
-        final Rect attribution = _rectOf(
-          tester,
-          find.byType(IgnAttributionBadge),
-        );
-        final double recouvert = attribution.overlaps(action)
-            ? action.bottom - attribution.top
-            : 0;
-        expect(
-          recouvert,
-          cas.$6,
-          reason: 'action=$action, attribution=$attribution',
-        );
-      },
-    );
+      // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : l'attribution IGN est
+      // posée au-dessus de la colonne dans la pile.
+      expect(
+        _atteignable(find.byKey(widenSearchKey)),
+        cas.$5,
+        reason: 'action=${_rectOf(tester, find.byKey(widenSearchKey))}',
+      );
+      final Rect colonne = _fenetre(tester);
+      final Rect repos = _rectOf(tester, _avis(cas.$3));
+      final bool aDefile = repos.bottom > colonne.bottom;
+      if (aDefile) {
+        await _defilerDuDoigt(tester, repos.bottom - colonne.bottom);
+      }
+      // Une fois la colonne défilée, le centre de l'action est atteignable ;
+      // quand rien n'a défilé, il l'est comme au repos.
+      expect(
+        _atteignable(find.byKey(widenSearchKey)),
+        cas.$5 || aDefile,
+        reason:
+            'après défilement : '
+            'action=${_rectOf(tester, find.byKey(widenSearchKey))}',
+      );
+      final Rect action = _rectOf(tester, find.byKey(widenSearchKey));
+      final Rect attribution = _rectOf(
+        tester,
+        find.byType(IgnAttributionBadge),
+      );
+      final double recouvert = attribution.overlaps(action)
+          ? action.bottom - attribution.top
+          : 0;
+      expect(
+        recouvert,
+        cas.$6,
+        reason: 'action=$action, attribution=$attribution',
+      );
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -1434,7 +1453,7 @@ void main() {
     (_grand, MapScaleKind.debit, false),
   ]) {
     for (final bool enMode in <bool>[false, true]) {
-      testWidgets('à ${_nom(cas.$1, 2, cas.$2)}, ${_mode(enMode)}'
+      _surAndroid('à ${_nom(cas.$1, 2, cas.$2)}, ${_mode(enMode)}'
           '${cas.$3 ? ', AVEC un avis' : ', SANS avis'}'
           ' : faire défiler la colonne amène le bord bas de la légende dans la '
           'fenêtre', (WidgetTester tester) async {
@@ -1485,7 +1504,7 @@ void main() {
   // Le premier à basculer ; sa bascule n'apprendrait rien (un pixel de police
   // ou de marge).
   for (final bool enMode in <bool>[false, true]) {
-    testWidgets('CONSTAT — à ${_nom(_grand, 2, MapScaleKind.ecoulement)}, '
+    _surAndroid('CONSTAT — à ${_nom(_grand, 2, MapScaleKind.ecoulement)}, '
         '${_mode(enMode)}, AVEC un avis : il n’y a qu’UN pixel à défiler pour '
         'amener le bord bas de la légende dans la fenêtre (837 contre 836), de '
         'PEU', (WidgetTester tester) async {
@@ -1594,7 +1613,7 @@ void main() {
       ]) {
     for (final bool enMode in <bool>[false, true]) {
       final Set<String> attendu = enMode ? cas.$6 : cas.$5;
-      testWidgets('CONSTAT — à ${_nom(cas.$1, 2, cas.$2)}, ${_mode(enMode)}'
+      _surAndroid('CONSTAT — à ${_nom(cas.$1, 2, cas.$2)}, ${_mode(enMode)}'
           '${cas.$3 ? ', AVEC un avis' : ', SANS avis'}'
           ' : au repos la légende est ${cas.$4} ; amenée dans la fenêtre, elle '
           '${attendu.isEmpty ? 'ne recoupe aucune surcouche du bas' : 'recoupe '
@@ -1659,7 +1678,7 @@ void main() {
       ]) {
     for (final bool enMode in <bool>[false, true]) {
       final Set<String> attendu = enMode ? cas.$4 : cas.$3;
-      testWidgets(
+      _surAndroid(
         'CONSTAT — à ${_nom(cas.$1, 2, cas.$2)}, ${_mode(enMode)}, AVEC un '
         'avis : l’avis, entier au repos, '
         '${attendu.isEmpty ? 'ne recoupe aucune surcouche du bas' : 'recoupe '
@@ -1718,7 +1737,7 @@ void main() {
   for (final Size size in <Size>[_petit, _grand]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
       for (final bool avecAvis in <bool>[true, false]) {
-        testWidgets(
+        _surAndroid(
           'EN MODE, à ${_nom(size, 2, scale)}, ${avecAvis ? 'AVEC' : 'SANS'} '
           'avis : le centre de la puce « Restrictions » est atteignable (le '
           'bouton de désignation ne le recouvre pas)',
@@ -1753,7 +1772,7 @@ void main() {
   for (final Size size in <Size>[_petit, _grand]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
       for (final bool avecAvis in <bool>[true, false]) {
-        testWidgets('CONSTAT — EN MODE, à ${_nom(size, 2, scale)}, '
+        _surAndroid('CONSTAT — EN MODE, à ${_nom(size, 2, scale)}, '
             '${avecAvis ? 'AVEC' : 'SANS'} avis : toute la surface de la puce '
             '« Restrictions » est atteignable (100 % d’une grille de 2 px)', (
           WidgetTester tester,
@@ -1785,16 +1804,20 @@ void main() {
   // EN MODE : la bande du bouton ne capte les gestes que sur ses enfants
   // ---------------------------------------------------------------------
   // La bande (le `ListView` de `_DesignationPlacement`) est plus large que la
-  // pilule et son indice : à 800 × 740, 100 %, elle va de 64 à 736 quand la
-  // pilule va de 234,5 à 565,5. Opaque (le défaut d'un `Scrollable`), elle
+  // pilule et son indice : à 800 × 740, 100 %, sous Windows, elle va de 60 à
+  // 740 quand la pilule va de 234,5 à 565,5 (verrouillé dans le groupe
+  // « Windows » plus bas). Opaque (le défaut d'un `Scrollable`), elle
   // captait les gestes de la carte sur toute cette largeur. Défaut relevé
-  // pendant `E5b`, corrigé le 2026-10-04 par `deferToChild`.
+  // pendant `E5b`, corrigé le 2026-10-04 par `deferToChild`. 800 × 740 et
+  // 800 × 700 tournent sous Windows, 600 × 360 (téléphone en paysage) sous
+  // Android (`N9` de T3).
   for (final Size taille in <Size>[
     const Size(800, 740),
     const Size(600, 360),
     const Size(800, 700),
   ]) {
-    testWidgets(
+    final _Test sur = _selonFenetre(taille);
+    sur(
       'EN MODE, à ${_nom(taille, 1, MapScaleKind.ecoulement)} : un tap, un '
       'glisser et un cran de molette posés dans la bande, hors de la pilule et '
       'de l’indice, atteignent la carte',
@@ -1811,7 +1834,7 @@ void main() {
   // 800 de large le contenu (121 px à 200 %) tient dans toute fenêtre où les
   // contrôles du bas, eux, tiennent. Tap, Entrée et Espace sur la pilule sont
   // verrouillés dans `map_designation_test.dart`.
-  testWidgets(
+  _surAndroid(
     'EN MODE, à ${_nom(const Size(360, 300), 2, MapScaleKind.ecoulement)} : la '
     'bande déborde et défile quand on glisse depuis la pilule, sans que le '
     'glisser atteigne la carte',
@@ -1875,7 +1898,7 @@ void main() {
     (const Size(360, 540), 0.36, false),
     (const Size(360, 330), 0.0, false),
   ]) {
-    testWidgets(
+    _surAndroid(
       'CONSTAT — EN MODE, à ${_nom(cas.$1, 2, MapScaleKind.ecoulement)}, AVEC '
       'un avis : le bouton de désignation recouvre la puce « Restrictions » '
       '(part atteignable ${cas.$2}, centre '
@@ -1905,7 +1928,7 @@ void main() {
 
   for (final Size size in <Size>[_petit, _grand]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
-      testWidgets(
+      _surAndroid(
         'CONSTAT — EN MODE, à ${_nom(size, 2, scale)}, AVEC un avis : le '
         'bouton de désignation ne recouvre ni le contrôle d’avertissement ni '
         'aucune des trois puces (leurs centres sont atteignables) ; il '
@@ -1982,7 +2005,8 @@ void main() {
         (const Size(800, 700), 2, MapScaleKind.ecoulement, true, true),
         (const Size(800, 700), 2, MapScaleKind.debit, true, true),
       ]) {
-    testWidgets(
+    final _Test sur = _selonFenetre(cas.$1);
+    sur(
       'CONSTAT — EN MODE, carte vide, à ${_nom(cas.$1, cas.$2, cas.$3)} : '
       'l’avis ${cas.$4 ? 'recouvre' : 'ne recouvre pas'} le réticule'
       '${cas.$4 ? (cas.$5 ? ', centre compris' : ', sans son centre') : ''}',
@@ -2084,7 +2108,7 @@ void main() {
       ]) {
     for (final bool enMode in <bool>[false, true]) {
       final Set<String> attendu = enMode ? cas.$5 : cas.$4;
-      testWidgets(
+      _surAndroid(
         'CONSTAT — fiche de 320 px à ${_nom(cas.$1, cas.$2, cas.$3)}, '
         '${_mode(enMode)} : la fiche '
         '${attendu.isEmpty ? 'ne recouvre aucune pièce du haut' : 'recouvre '
@@ -2122,9 +2146,14 @@ void main() {
   // ---------------------------------------------------------------------
   // WINDOWS, 800 × 740 : la première cible du produit
   // ---------------------------------------------------------------------
-  // Les mêmes mesures qu'Android à 800 × 740 (la taille minimale de la
-  // fenêtre, `K3`), rejouées sur la plateforme Windows. Deux choses y
-  // changent, pas davantage :
+  // Les mesures à 800 × 740 (la taille minimale de la fenêtre, `K3`), écrites
+  // quand les boucles ci-dessus tournaient sous Android, la plateforme par
+  // défaut de `flutter test`, pour les rejouer sous Windows. Depuis `N9` de T3
+  // les cas de ces boucles qui ne sont pas des tailles de téléphone tournent
+  // eux aussi sous Windows : à 800 × 740, ce groupe en répète 21 (rangées de
+  // puces, colonne gauche, réticule, bande ; suppression à décider à part),
+  // et plus rien ici ne mesure Android à cette taille. Deux choses y changeaient par rapport à Android, pas
+  // davantage :
   // - la cible tactile : 44, non 48 (`minimumTapTarget`, `K4`) — d'où la
   //   colonne des contrôles de zoom (44 de large), la marge droite que la
   //   bande réserve (60, non 64) et la hauteur du contrôle d'avertissement et
@@ -2291,7 +2320,7 @@ void main() {
       },
     );
 
-    // Les trois puces : une rangée à 100 %, deux à 200 %, comme sur Android.
+    // Les trois puces : une rangée à 100 %, deux à 200 %.
     for (final (double, int) cas in <(double, int)>[(1, 1), (2, 2)]) {
       for (final MapScaleKind scale in MapScaleKind.values) {
         for (final bool enMode in <bool>[false, true]) {
@@ -2316,8 +2345,7 @@ void main() {
 
     // La disposition large à 200 % : la colonne GAUCHE ne défile pas ; la
     // colonne droite, elle, a de quoi défiler à 200 % sur l'échelle débit.
-    // L'action de l'avis est atteignable et l'attribution ne la recoupe pas —
-    // comme sur Android.
+    // L'action de l'avis est atteignable et l'attribution ne la recoupe pas.
     for (final MapScaleKind scale in MapScaleKind.values) {
       for (final bool enMode in <bool>[false, true]) {
         testWidgetsOnWindows(
@@ -2348,9 +2376,8 @@ void main() {
       }
     }
 
-    // L'avis recouvre le réticule de désignation EN MODE, carte vide : mêmes
-    // valeurs qu'Android (aucun recouvrement à 100 %, le centre du réticule
-    // sous l'avis à 200 %).
+    // L'avis recouvre le réticule de désignation EN MODE, carte vide :
+    // aucun recouvrement à 100 %, le centre du réticule sous l'avis à 200 %.
     for (final (double, MapScaleKind, bool) cas
         in <(double, MapScaleKind, bool)>[
           (1, MapScaleKind.ecoulement, false),

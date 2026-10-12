@@ -1,6 +1,8 @@
 // Verrouille la cible tactile minimale (`K4` de T2, arbitrage du commanditaire
 // du 2026-09-29) : 48 sur Android, 44 partout ailleurs, Windows et iOS
-// compris. Sous `flutter test` la plateforme par défaut est android.
+// compris. Chaque test nomme sa plateforme (`testWidgetsOnAndroid`,
+// `testWidgetsOnWindows`) : aucun ne se repose sur le défaut de
+// `flutter test`.
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';

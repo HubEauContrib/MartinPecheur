@@ -8,9 +8,10 @@
 // et un test de disposition de Windows qui l'oublie mesure autre chose que ce
 // qu'il dit (`docs/project-state.md`, point 59).
 //
-// La migration se fait fichier par fichier (`N2` à `N9`) : les fichiers pas
-// encore migrés sont une liste d'exceptions, [filesNotYetMigrated], qui ne
-// fait que décroître. Un fichier migré qui y reste fait rougir le verrou.
+// La migration s'est faite fichier par fichier (`N2` à `N9`) : les fichiers
+// pas encore migrés étaient une liste d'exceptions, [filesNotYetMigrated],
+// qui n'a fait que décroître. Elle est vide depuis `N9` et verrouillée vide :
+// le verrou est fermé, plus aucune exception ne s'ajoute.
 //
 // Ce fichier écrit le mot interdit dans ses cas synthétiques : il s'exclut
 // lui-même par [lockFilePath].
@@ -21,10 +22,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// Chemin de ce fichier : ses cas synthétiques écrivent le mot interdit.
 const String lockFilePath = 'test/project/widget_test_platform_test.dart';
 
-/// Les fichiers pas encore migrés. Ne fait que décroître ; vide à la fin de N9.
-const Set<String> filesNotYetMigrated = <String>{
-  'test/features/map/view/map_overlays_phone_test.dart',
-};
+/// Les fichiers pas encore migrés : aucun. La migration est finie (`N9` de
+/// T3) et cette liste ne se remplit plus — un cas de « La suite réelle » la
+/// verrouille vide. Un nouveau test de widget nomme sa plateforme.
+const Set<String> filesNotYetMigrated = <String>{};
 
 /// « chemin:ligne » de chaque ligne de CODE (hors ligne entière de
 /// commentaire) qui porte le mot `testWidgets` seul, dans un fichier sous
@@ -245,6 +246,16 @@ void main() {
         reason:
             'Un fichier migré (ou supprimé) se retire de '
             'filesNotYetMigrated dans son commit.',
+      );
+    });
+
+    test('la liste d’exceptions est vide : la migration est finie', () {
+      expect(
+        filesNotYetMigrated,
+        isEmpty,
+        reason:
+            'La migration est finie (N9 de T3) : la liste ne se remplit '
+            'plus. Un nouveau test de widget nomme sa plateforme.',
       );
     });
   });
