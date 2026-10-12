@@ -10,6 +10,7 @@ import 'package:martinpecheur/data/observations/http_hydro_observation_repositor
 import 'package:martinpecheur/data/onde/cached_onde_observation_repository.dart';
 import 'package:martinpecheur/data/onde/http_onde_observation_repository.dart';
 import 'package:martinpecheur/data/preferences/shared_preferences_acknowledgement_repository.dart';
+import 'package:martinpecheur/data/preferences/shared_preferences_favorite_repository.dart';
 import 'package:martinpecheur/data/referentiel/asset_station_point_repository.dart';
 import 'package:martinpecheur/data/referentiel/asset_station_repository.dart';
 import 'package:martinpecheur/data/referentiel/stations_asset.dart';
@@ -20,6 +21,7 @@ import 'package:martinpecheur/diagnostics/counting_station_point_repository.dart
 import 'package:martinpecheur/diagnostics/fluidity_probe_panel.dart';
 import 'package:martinpecheur/diagnostics/fluidity_wiring.dart';
 import 'package:martinpecheur/diagnostics/frame_timing_probe.dart';
+import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
@@ -130,6 +132,12 @@ Future<void> main() async {
     ),
   );
 
+  // Les favoris (T3, `S5`) : UNE SEULE instance du dépôt, passée à tous ceux
+  // qui lisent ou écrivent la liste. Il sérialise ses lire-puis-écrire PAR
+  // INSTANCE : deux instances croiseraient leurs écritures et perdraient un
+  // favori. Verrou : `test/main_test.dart`.
+  final FavoriteRepository favorites = SharedPreferencesFavoriteRepository();
+
   runApp(
     MartinPecheurApp(
       warningsViewModel: warningsViewModel,
@@ -141,6 +149,7 @@ Future<void> main() async {
       stationSheetViewModel: StationSheetViewModel(
         observations: observations,
         stations: AssetStationRepository(stationsRead.stations),
+        favorites: favorites,
       ),
       // Le MÊME dépôt ONDE décoré que celui du ViewModel de la carte : le
       // cache est une politique unique, partagée, jamais recopiée par

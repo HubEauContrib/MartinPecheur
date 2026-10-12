@@ -4,6 +4,9 @@
 // de génération contre une réponse tardive, `_disposed` contre une
 // notification après `dispose()`.
 //
+// Il sait aussi si la station est en favori (`S5` de T3) : [FavoriteStar],
+// lue à chaque ouverture, basculée par `toggleFavorite`.
+//
 // ⚠️ Un ViewModel ne connaît aucun widget : ce fichier n'importe ni
 // `package:flutter/material.dart`, ni `widgets.dart`, ni `cupertino.dart` —
 // seul `foundation.dart`, pour [ChangeNotifier]. Le verrou est
@@ -18,11 +21,14 @@
 // l'âge RÉEL de la mesure là où la carte se contente de la borne franchie.
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:martinpecheur/domain/favorites/favorite.dart';
+import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
+import 'package:martinpecheur/features/shared/favorite_star.dart';
 
 /// Libellé de repli quand `libelle_statut` est absent ou vide (BR-006,
 /// BR-011) : jamais une chaîne vide à l'écran.
@@ -145,6 +151,7 @@ final class StationSheetViewModel extends ChangeNotifier {
   StationSheetViewModel({
     required this._observations,
     required this._stations,
+    required this._favorites,
     DateTime Function()? now,
     UtcOffsetOf? utcOffsetOf,
   }) : _now = now ?? DateTime.now,
@@ -152,6 +159,7 @@ final class StationSheetViewModel extends ChangeNotifier {
 
   final HydroObservationRepository _observations;
   final StationRepository _stations;
+  final FavoriteRepository _favorites;
   final DateTime Function() _now;
   final UtcOffsetOf _utcOffsetOf;
 
@@ -170,6 +178,56 @@ final class StationSheetViewModel extends ChangeNotifier {
   /// garde que `MapViewModel._generation`).
   int _generation = 0;
 
+  /// Vrai dès que la lecture des favoris de l'`open()` courant a abouti —
+  /// en liste ou en échec. Tant qu'il est faux, aucune étoile n'est due.
+  bool _favoritesRead = false;
+
+  /// La lecture des favoris de l'`open()` courant a levé : rien n'est su de
+  /// la station, et rien ne s'écrit par-dessus une liste illisible.
+  bool _favoritesUnreadable = false;
+
+  /// Le favori de la station ouverte, tel que lu — ou tel qu'ajouté par
+  /// [toggleFavorite] ; `null` : elle n'est pas en favori.
+  StationFavorite? _favorite;
+
+  /// Une écriture (ajout ou retrait) court pour l'`open()` courant.
+  bool _writing = false;
+
+  /// La dernière écriture de l'`open()` courant a échoué.
+  bool _writeFailed = false;
+
+  /// L'étoile de favori à dessiner, ou `null` s'il n'y en a aucune : fiche
+  /// fermée, favoris pas encore lus, ou station qui n'est pas en favori sur
+  /// une fiche qui n'est pas [Prete] — ajouter exige le libellé de la
+  /// station, que seul cet état porte. Une station DÉJÀ en favori garde son
+  /// étoile pleine dans tous les autres états : retirer n'exige que le code.
+  FavoriteStar? get favoriteStar {
+    final bool canAdd;
+    switch (_state) {
+      case Fermee():
+        return null;
+      case EnCours() || EnEchec() || Introuvable():
+        canAdd = false;
+      case Prete():
+        canAdd = true;
+    }
+    if (!_favoritesRead) {
+      return null;
+    }
+    if (_favoritesUnreadable) {
+      return const FavoriteStar(filled: false, enabled: false);
+    }
+    final bool filled = _favorite != null;
+    if (!filled && !canAdd) {
+      return null;
+    }
+    return FavoriteStar(
+      filled: filled,
+      enabled: !_writing,
+      writeFailed: _writeFailed,
+    );
+  }
+
   /// Charge la station [code] : la station d'abord (`stations.findByCode`),
   /// puis ses deux dernières observations (débit, hauteur), les deux
   /// toujours demandées — si l'une des deux lève, l'état final est
@@ -178,10 +236,21 @@ final class StationSheetViewModel extends ChangeNotifier {
   /// Deux issues négatives, jamais confondues : `findByCode` qui rend `null`
   /// donne [Introuvable] — une absence du référentiel embarqué, sans aucun
   /// appel réseau — là où un dépôt qui LÈVE donne [EnEchec].
+  ///
+  /// Les favoris sont relus EN MÊME TEMPS, à chaque appel (le dépôt n'a pas
+  /// de mémo) : l'état de la fiche ne les attend pas, mais le futur rendu ne
+  /// se complète qu'après les deux.
   Future<void> open(StationCode code) async {
     final int generation = ++_generation;
+    _resetFavorite();
     _emit(generation, EnCours(code));
 
+    final Future<void> favoritesRead = _readFavorite(generation, code);
+    await _load(generation, code);
+    await favoritesRead;
+  }
+
+  Future<void> _load(int generation, StationCode code) async {
     try {
       final Station? station = await _stations.findByCode(code);
       if (station == null) {
@@ -247,11 +316,104 @@ final class StationSheetViewModel extends ChangeNotifier {
     }
   }
 
+  /// Lit les favoris pour l'`open()` de numéro [generation]. Toute levée —
+  /// les deux branches de `FavoriteStorageFailure` comme une autre — vaut
+  /// « liste illisible ». Ne lève jamais.
+  Future<void> _readFavorite(int generation, StationCode code) async {
+    StationFavorite? favorite;
+    bool unreadable = false;
+    try {
+      favorite = stationFavoriteIn(await _favorites.readAll(), code);
+    } on Object {
+      unreadable = true;
+    }
+    _changeStar(generation, () {
+      _favoritesRead = true;
+      _favoritesUnreadable = unreadable;
+      _favorite = favorite;
+    });
+  }
+
+  /// Ajoute la station aux favoris, ou l'en retire. Sans effet — et sans
+  /// appel au dépôt — quand aucune étoile n'est due ou qu'elle est inactive
+  /// ([favoriteStar]). L'échec ne se lève pas : il se lit dans
+  /// `favoriteStar.writeFailed`, l'étoile gardant sa forme d'avant.
+  Future<void> toggleFavorite() async {
+    final FavoriteStar? star = favoriteStar;
+    if (star == null || !star.enabled) {
+      return;
+    }
+    final StationSheetState state = _state;
+    final StationFavorite? current = _favorite;
+    // `favoriteStar` ne rend une étoile vide et active qu'en `Prete`.
+    if (current == null && state is! Prete) {
+      return;
+    }
+    final int generation = _generation;
+    _changeStar(generation, () {
+      _writing = true;
+      _writeFailed = false;
+    });
+
+    StationFavorite? next;
+    try {
+      if (current != null) {
+        await _favorites.remove(current);
+      } else if (state is Prete) {
+        final Station station = state.data.station;
+        // Construit DANS le `try` : un libellé blanc lève, et l'ajout qui ne
+        // peut pas se faire est un ajout en échec.
+        final StationFavorite added = StationFavorite(
+          code: station.code,
+          label: station.label,
+          addedAt: _now().toUtc(),
+        );
+        await _favorites.add(added);
+        next = added;
+      }
+    } on Object {
+      _changeStar(generation, () {
+        _writing = false;
+        _writeFailed = true;
+      });
+      return;
+    }
+    _changeStar(generation, () {
+      _writing = false;
+      _favorite = next;
+    });
+  }
+
   /// Ferme la fiche : toute réponse d'un `open()` en cours devient tardive
   /// et n'écrira plus rien (le jeton de génération change ici aussi).
   void close() {
     final int generation = ++_generation;
+    _resetFavorite();
     _emit(generation, const Fermee());
+  }
+
+  /// Oublie ce qui était su du favori : un `open()` relit, un `close()` n'a
+  /// plus d'étoile. Ne notifie pas — l'appelant émet l'état juste après.
+  void _resetFavorite() {
+    _favoritesRead = false;
+    _favoritesUnreadable = false;
+    _favorite = null;
+    _writing = false;
+    _writeFailed = false;
+  }
+
+  /// Applique [change] à ce qui est su du favori si [generation] est toujours
+  /// la dernière demandée et que ce ViewModel n'est pas disposé (même garde
+  /// que [_emit]) ; ne notifie que si [favoriteStar] en sort changée.
+  void _changeStar(int generation, void Function() change) {
+    if (_disposed || generation != _generation) {
+      return;
+    }
+    final FavoriteStar? before = favoriteStar;
+    change();
+    if (favoriteStar != before) {
+      notifyListeners();
+    }
   }
 
   /// Applique [next] si [generation] est toujours la dernière demandée et

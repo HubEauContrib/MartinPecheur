@@ -16,6 +16,7 @@
 // permis : `test/architecture/layers_test.dart` (règle `features-vers-data`)
 // contraint `lib/`, pas `test/`.
 import 'dart:async' show Completer;
+import 'dart:io' show File;
 import 'dart:ui' show Rect, Size;
 
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -67,6 +68,7 @@ import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.d
 import 'package:martinpecheur/main.dart';
 
 import 'features/restrictions/zones_samples.dart';
+import 'support/in_memory_favorite_repository.dart';
 import 'support/windows_platform.dart';
 
 /// Dépôts vides, juste assez pour CONSTRUIRE les trois autres ViewModels :
@@ -181,6 +183,8 @@ RestrictionsViewModel _restrictions([RestrictionSource? source]) =>
 MartinPecheurApp _app(
   WarningsViewModel warningsViewModel, [
   RestrictionsViewModel? restrictionsViewModel,
+  StationSheetViewModel? stationSheetViewModel,
+  OndeSheetViewModel? ondeSheetViewModel,
 ]) => MartinPecheurApp(
   warningsViewModel: warningsViewModel,
   restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
@@ -189,13 +193,16 @@ MartinPecheurApp _app(
     observations: _EmptyHydroObservationRepository(),
     onde: _EmptyOndeObservationRepository(),
   ),
-  stationSheetViewModel: StationSheetViewModel(
-    observations: _EmptyHydroObservationRepository(),
-    stations: _EmptyStationRepository(),
-  ),
-  ondeSheetViewModel: OndeSheetViewModel(
-    onde: _EmptyOndeObservationRepository(),
-  ),
+  stationSheetViewModel:
+      stationSheetViewModel ??
+      StationSheetViewModel(
+        observations: _EmptyHydroObservationRepository(),
+        stations: _EmptyStationRepository(),
+        favorites: InMemoryFavoriteRepository(),
+      ),
+  ondeSheetViewModel:
+      ondeSheetViewModel ??
+      OndeSheetViewModel(onde: _EmptyOndeObservationRepository()),
 );
 
 /// Un point DANS la bande du bouton de désignation (la boîte du `ListView` de
@@ -227,6 +234,36 @@ Offset _pointDansLaBande(WidgetTester tester) {
 }
 
 void main() {
+  // `main()` ne s'appelle pas ici (voir l'en-tête) : ce verrou-ci LIT le
+  // texte de la racine. Le dépôt des favoris sérialise ses écritures par
+  // instance ; une seconde instance, câblée à un autre ViewModel, croiserait
+  // ses lire-puis-écrire avec la première et perdrait un favori (`S5` de T3).
+  test('la racine ne construit qu une seule instance du depot des favoris, '
+      'et la passe a la fiche station', () {
+    final String root = File('lib/main.dart').readAsStringSync();
+
+    expect(
+      RegExp(r'SharedPreferencesFavoriteRepository\(').allMatches(root),
+      hasLength(1),
+      reason: 'une seule construction, partagee par tous ses clients',
+    );
+    expect(
+      root,
+      contains(
+        'final FavoriteRepository favorites = '
+        'SharedPreferencesFavoriteRepository();',
+      ),
+    );
+    expect(
+      RegExp(
+        // Sans traverser la construction d'un AUTRE ViewModel.
+        r'StationSheetViewModel\((?:(?!ViewModel\()[^;])*?favorites: favorites,',
+      ).hasMatch(root),
+      isTrue,
+      reason: 'la fiche station recoit CETTE instance',
+    );
+  });
+
   testWidgetsOnWindows(
     'requiresAcknowledgement vrai : InitialWarningView est affiche, '
     'MapView n\'est jamais construit',
