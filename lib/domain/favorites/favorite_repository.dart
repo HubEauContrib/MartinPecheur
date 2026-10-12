@@ -21,7 +21,7 @@ abstract interface class FavoriteRepository {
   /// changement, aucune erreur. Mêmes échecs que [add].
   Future<void> remove(Favorite favorite);
 
-  /// Remplace ce qui est stocké par une liste vide SANS le lire. Seul échec
+  /// Remplace ce qui est stocké par une liste vide sans le DÉCODER. Seul échec
   /// possible : [EcritureDeFavorisEnEchec].
   Future<void> clear();
 }
