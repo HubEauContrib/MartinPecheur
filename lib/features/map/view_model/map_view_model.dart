@@ -32,6 +32,8 @@ import 'dart:collection' show UnmodifiableListView, UnmodifiableMapView;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:martinpecheur/domain/filters/map_filter.dart';
+import 'package:martinpecheur/domain/filters/map_filter_predicates.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/area_cluster.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -45,6 +47,7 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/features/map/view_model/map_filter_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 // [minimumMapZoom]/[maximumMapZoom] viennent de `map_zoom_bounds.dart`, un
 // fichier Dart pur de CE dossier (`view_model/`) — plus d'import du dossier
@@ -256,6 +259,9 @@ final class MapViewModel extends ChangeNotifier {
   /// référentiel. Jamais `null` : une absence de donnée est une liste vide
   /// (BR-007).
   ///
+  /// Ce sont les faits lus, **non filtrés** : les avis d'absence s'y
+  /// décident. Ce que le filtre retient se lit dans [individualStations].
+  ///
   /// Vue **immuable** : la vue lit cet état, elle ne le modifie pas. Un
   /// [UnmodifiableListView] et non `List.unmodifiable` — le second **recopie**
   /// la liste, donc jusqu'à 4 150 éléments à chaque relâchement de geste, là
@@ -347,22 +353,45 @@ final class MapViewModel extends ChangeNotifier {
   /// l'emprise courante n'a rien à faire sur cet écran (relecture avec
   /// mutations : l'asset entier peut porter des stations non rattachées
   /// que `withinBounds` ne renvoie pas).
+  ///
+  /// Dans les deux cas, seulement celles que le filtre retient
+  /// (`filterKeepsStation`, T3) : l'état lu par [stateOf] porte la fraîcheur
+  /// de l'instant, une mesure qui passe une borne sort donc du filtre à la
+  /// lecture suivante, sans requête (`BR-005`). Tant que [filterActive] est
+  /// faux, le niveau individuel rend [stations] **elle-même**, sans copie
+  /// (`NFR-01`).
   List<StationPoint> get individualStations {
     final AreaLevel? level = _level;
     if (level == null) {
-      return _stations;
+      if (!filterActive) {
+        return _stations;
+      }
+      return _stations.where(_filterKeepsStation).toList(growable: false);
     }
     return _stations
-        .where((StationPoint point) => _stationAreaOf(level, point) == null)
+        .where(
+          (StationPoint point) =>
+              _stationAreaOf(level, point) == null &&
+              _filterKeepsStation(point),
+        )
         .toList(growable: false);
   }
 
+  bool _filterKeepsStation(StationPoint point) =>
+      filterKeepsStation(_filter, point, stateOf(point.code));
+
   /// Les observations ONDE à dessiner individuellement, même règle que
-  /// [individualStations].
+  /// [individualStations]. Au niveau individuel, seulement celles que le
+  /// filtre retient (`filterKeepsOndeObservation`, T3).
   List<OndeObservation> get individualOndeObservations {
     final AreaLevel? level = _level;
     if (level == null) {
-      return _ondeObservations.values.toList(growable: false);
+      return _ondeObservations.values
+          .where(
+            (OndeObservation observation) =>
+                filterKeepsOndeObservation(_filter, observation),
+          )
+          .toList(growable: false);
     }
     return _ondeClustering(level).unassigned;
   }
@@ -534,6 +563,31 @@ final class MapViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  MapFilter _filter = MapFilter.none;
+
+  /// Le filtre appliqué à la carte (T3). Gardé le temps de la session : il
+  /// naît [MapFilter.none], n'est lu d'aucun stockage et n'est écrit dans
+  /// aucun. [selectScale] ne le touche pas.
+  MapFilter get filter => _filter;
+
+  /// Le filtre masque-t-il quelque chose sur l'échelle active ? Un critère
+  /// qui ne porte que sur l'autre échelle laisse celle-ci entière.
+  bool get filterActive => mapFilterActiveFor(_filter, _scale);
+
+  /// Pose [filter] et notifie une fois. Ne fait **rien** — pas même une
+  /// notification — si [filter] est égal au filtre courant. N'appelle aucun
+  /// dépôt : les prédicats du domaine jouent sur ce qui est déjà lu.
+  void applyFilter(MapFilter filter) {
+    if (filter == _filter) {
+      return;
+    }
+    _filter = filter;
+    notifyListeners();
+  }
+
+  /// Retire tous les critères.
+  void clearFilter() => applyFilter(MapFilter.none);
+
   final Map<StationCode, StationMapState> _states =
       <StationCode, StationMapState>{};
 
@@ -555,7 +609,8 @@ final class MapViewModel extends ChangeNotifier {
   /// Les dernières observations d'écoulement connues pour l'emprise
   /// courante, **une par station** — la clé est `observation.station`, le
   /// regroupement étant déjà fait par le dépôt. Vue non modifiable, pour la
-  /// même raison que [stations].
+  /// même raison que [stations]. Comme elle, ce sont les faits lus, **non
+  /// filtrés** : les avis d'absence s'y décident.
   ///
   /// Alimentée seulement sur l'échelle [MapScaleKind.ecoulement] (BR-008).
   /// Un passage à [MapScaleKind.debit] ne la vide pas : ce qui est déjà
