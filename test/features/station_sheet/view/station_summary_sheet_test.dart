@@ -12,17 +12,22 @@
 // SEULS dans un `MaterialApp`. L'environnement de test refuse les tuiles, et
 // un échec de tuile ne dirait rien sur ce code.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
+import 'package:martinpecheur/features/shared/favorite_star.dart';
+import 'package:martinpecheur/features/shared/favorite_star_button.dart';
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
+import '../../../support/android_platform.dart';
 import '../../../support/windows_platform.dart';
 
 /// Instant de mesure des deux fixtures : `date_obs` 2026-08-27T08:00:00Z.
@@ -764,6 +769,406 @@ void main() {
           ),
         );
         expect(find.byKey(stationSheetCloseButtonKey), findsOneWidget);
+      },
+    );
+  });
+
+  // `S7a` de T3 : l'étoile de favori entre dans le cadre commun. Sans étoile à
+  // montrer (`favoriteStar` nul) le cadre est celui d'avant, au pixel : les
+  // groupes précédents n'ont pas bougé.
+  group("StationSheetPanel — l'étoile de favori (S7a de T3)", () {
+    const FavoriteStar empty = FavoriteStar(filled: false, enabled: true);
+    const FavoriteStar full = FavoriteStar(filled: true, enabled: true);
+
+    StationSheetState prete() =>
+        Prete(_data(discharge: _discharge(), level: _level()));
+
+    Widget panel(
+      StationSheetState state, {
+      FavoriteStar? star,
+      VoidCallback? onToggle,
+      VoidCallback? onClose,
+    }) => StationSheetPanel(
+      state: state,
+      onClose: onClose ?? () {},
+      favoriteStar: star,
+      onToggleFavorite: star == null ? null : (onToggle ?? () {}),
+    );
+
+    /// Le panneau tel que la carte le pose : largeur bornée (420), hauteur
+    /// libre. Sert aux mesures « avec et sans étoile ».
+    Future<void> pump420(WidgetTester tester, Widget child) => _pump(
+      tester,
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: child,
+      ),
+    );
+
+    /// Ce que le ViewModel produit pour le contenu court (EnCours) : une
+    /// étoile de station n'y existe que pleine.
+    StationSheetState enCours() => EnCours(_code());
+
+    Future<Size> contentSize(
+      WidgetTester tester,
+      StationSheetState state, {
+      FavoriteStar? star,
+    }) async {
+      await pump420(tester, panel(state, star: star));
+      return tester.getSize(find.byType(StationSummarySheet));
+    }
+
+    Color? ringColor(WidgetTester tester) {
+      final DecoratedBox box = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: find.byType(KeyboardFocusRing),
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      return (box.decoration as BoxDecoration).border?.top.color;
+    }
+
+    testWidgetsOnWindows(
+      'Prete : l\'étoile ne rétrécit pas le contenu et n\'allonge pas la '
+      'fiche (même largeur, même hauteur avec et sans étoile)',
+      (WidgetTester tester) async {
+        final Size without = await contentSize(tester, prete());
+        final Size panelWithout = tester.getSize(
+          find.byType(StationSheetPanel),
+        );
+        final Rect closeWithout = tester.getRect(
+          find.byKey(stationSheetCloseButtonKey),
+        );
+        expect(find.byKey(favoriteStarButtonKey), findsNothing);
+
+        final Size withStar = await contentSize(tester, prete(), star: empty);
+        final Size panelWith = tester.getSize(find.byType(StationSheetPanel));
+
+        expect(withStar.width, without.width);
+        expect(withStar.height, without.height);
+        expect(panelWith, panelWithout);
+        // Le bouton de fermeture n'a pas bougé.
+        expect(
+          tester.getRect(find.byKey(stationSheetCloseButtonKey)),
+          closeWithout,
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'l\'étoile est SOUS le bouton de fermeture, alignée sur lui, à 8 px ; '
+      'sans étoile, aucun emplacement vide',
+      (WidgetTester tester) async {
+        await pump420(tester, panel(enCours()));
+        final Size none = tester.getSize(find.byType(StationSheetPanel));
+        final Rect closeAlone = tester.getRect(
+          find.byKey(stationSheetCloseButtonKey),
+        );
+        // 12 + fermeture + 12 : rien de réservé pour une étoile absente.
+        expect(none.height, 12 + minimumTapTarget + 12);
+
+        await pump420(tester, panel(enCours(), star: full));
+        final Rect star = tester.getRect(find.byKey(favoriteStarButtonKey));
+        final Rect close = tester.getRect(
+          find.byKey(stationSheetCloseButtonKey),
+        );
+        expect(close, closeAlone);
+        expect(star.size, Size(minimumTapTarget, minimumTapTarget));
+        expect(star.left, closeTo(close.left, 0.01));
+        expect(star.top - close.bottom, closeTo(8, 0.01));
+        expect(
+          tester.getSize(find.byType(StationSheetPanel)).height,
+          12 + minimumTapTarget + 8 + minimumTapTarget + 12,
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'Tab atteint l\'étoile (un arrêt de tabulation ; le bouton de fermeture '
+      'n\'en est pas un)',
+      (WidgetTester tester) async {
+        await _pump(tester, panel(enCours(), star: full));
+        expect(ringColor(tester), Colors.transparent);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        expect(ringColor(tester), focusRingColor);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'le focus clavier de l\'étoile survit à une écriture : inactive pendant '
+      'l\'écriture, puis active avec l\'avis d\'échec — toujours focalisée',
+      (WidgetTester tester) async {
+        await _pump(tester, panel(enCours(), star: full));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(ringColor(tester), focusRingColor);
+
+        await _pump(
+          tester,
+          panel(
+            enCours(),
+            star: const FavoriteStar(filled: true, enabled: false),
+          ),
+        );
+        await tester.pump();
+        expect(ringColor(tester), focusRingColor);
+
+        await _pump(
+          tester,
+          panel(
+            enCours(),
+            star: const FavoriteStar(
+              filled: true,
+              enabled: true,
+              writeFailed: true,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(ringColor(tester), focusRingColor);
+        expect(find.text("Le favori n'a pas pu être retiré."), findsOneWidget);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'le tap appelle onToggleFavorite, la fermeture onClose',
+      (WidgetTester tester) async {
+        int toggled = 0;
+        int closed = 0;
+        await _pump(
+          tester,
+          panel(
+            prete(),
+            star: empty,
+            onToggle: () => toggled++,
+            onClose: () => closed++,
+          ),
+        );
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pump();
+        expect(toggled, 1);
+        expect(closed, 0);
+
+        await tester.tap(find.byKey(stationSheetCloseButtonKey));
+        await tester.pump();
+        expect(closed, 1);
+        expect(toggled, 1);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'favoriteStar nul, dans chacun des états visibles : aucune étoile',
+      (WidgetTester tester) async {
+        final List<StationSheetState> visible = <StationSheetState>[
+          EnCours(_code()),
+          prete(),
+          EnEchec(_code(), StateError('socket')),
+          Introuvable(_code()),
+        ];
+        for (final StationSheetState state in visible) {
+          await _pump(tester, panel(state));
+
+          expect(find.byKey(favoriteStarButtonKey), findsNothing);
+          expect(find.byType(FavoriteStarButton), findsNothing);
+          expect(find.byKey(stationSheetCloseButtonKey), findsOneWidget);
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      "Fermee avec une étoile non nulle : rien n'est rendu",
+      (WidgetTester tester) async {
+        await _pump(tester, panel(const Fermee(), star: full));
+
+        expect(find.byType(FavoriteStarButton), findsNothing);
+        expect(find.byType(Text), findsNothing);
+        expect(find.byKey(stationSheetCloseButtonKey), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "EnEchec avec une étoile pleine : l'étoile ET le texte d'échec",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          panel(EnEchec(_code(), StateError('socket')), star: full),
+        );
+
+        expect(find.byKey(favoriteStarButtonKey), findsOneWidget);
+        expect(
+          find.textContaining(
+            "Hub'Eau n'a pas répondu pour la station K447001001.",
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(FavoriteWriteFailedNotice), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "un ajout en échec (étoile vide) : « enregistré », sous la rangée, "
+      "l'étoile reste vide",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          panel(
+            prete(),
+            star: const FavoriteStar(
+              filled: false,
+              enabled: true,
+              writeFailed: true,
+            ),
+          ),
+        );
+
+        expect(
+          find.text("Le favori n'a pas pu être enregistré."),
+          findsOneWidget,
+        );
+        expect(find.text("Le favori n'a pas pu être retiré."), findsNothing);
+        expect(find.byIcon(Icons.star_border), findsOneWidget);
+        expect(find.byIcon(Icons.star), findsNothing);
+        final double noticeTop = tester
+            .getTopLeft(find.byType(FavoriteWriteFailedNotice))
+            .dy;
+        expect(
+          noticeTop,
+          greaterThanOrEqualTo(
+            tester.getBottomLeft(find.byKey(favoriteStarButtonKey)).dy,
+          ),
+        );
+        expect(
+          noticeTop,
+          greaterThanOrEqualTo(
+            tester.getBottomLeft(find.byKey(stationSheetCloseButtonKey)).dy,
+          ),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      "un retrait en échec (étoile pleine) : « retiré », l'étoile reste "
+      "pleine, l'autre phrase est absente",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          panel(
+            prete(),
+            star: const FavoriteStar(
+              filled: true,
+              enabled: true,
+              writeFailed: true,
+            ),
+          ),
+        );
+
+        expect(find.text("Le favori n'a pas pu être retiré."), findsOneWidget);
+        expect(
+          find.text("Le favori n'a pas pu être enregistré."),
+          findsNothing,
+        );
+        expect(find.byIcon(Icons.star), findsOneWidget);
+        expect(find.byIcon(Icons.star_border), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "sans échec d'écriture, ou liste illisible : aucune des deux phrases",
+      (WidgetTester tester) async {
+        final List<FavoriteStar> stars = <FavoriteStar>[
+          empty,
+          full,
+          const FavoriteStar(filled: false, enabled: false),
+        ];
+        for (final FavoriteStar star in stars) {
+          await _pump(tester, panel(prete(), star: star));
+
+          expect(find.byKey(favoriteStarButtonKey), findsOneWidget);
+          expect(find.byType(FavoriteWriteFailedNotice), findsNothing);
+          expect(find.textContaining('Le favori'), findsNothing);
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      "étoile inactive : le tap n'appelle pas onToggleFavorite",
+      (WidgetTester tester) async {
+        int toggled = 0;
+        await _pump(
+          tester,
+          panel(
+            prete(),
+            star: const FavoriteStar(filled: false, enabled: false),
+            onToggle: () => toggled++,
+          ),
+        );
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pump();
+
+        expect(toggled, 0);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : à 360 px et 200 % de police, le cadre (étoile sous la '
+      'fermeture, avis d\'échec) reste dans l\'écran',
+      (WidgetTester tester) async {
+        // Ce test mesure LE CADRE, avec un contenu court (EnCours) et une
+        // étoile que le ViewModel peut produire dans cet état : hors `Prete`,
+        // une étoile de station n'existe que pleine. La fiche `Prete` entière
+        // ne tient pas à 200 % sur 360 x 640 : ce débordement est ANTÉRIEUR à
+        // T3 — la fiche n'est ni défilante ni bornée en hauteur
+        // (`map_view.dart`, colonne des fiches). Point ouvert, hors de `S7a`.
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (BuildContext context, Widget? child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: panel(
+                  EnCours(_code()),
+                  star: const FavoriteStar(
+                    filled: true,
+                    enabled: true,
+                    writeFailed: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final Rect star = tester.getRect(find.byKey(favoriteStarButtonKey));
+        final Rect close = tester.getRect(
+          find.byKey(stationSheetCloseButtonKey),
+        );
+        expect(star.size, const Size(48, 48));
+        expect(close.size, const Size(48, 48));
+        expect(star.left, closeTo(close.left, 0.01));
+        expect(star.top - close.bottom, closeTo(8, 0.01));
+        expect(close.right, lessThanOrEqualTo(360));
+        expect(
+          tester.getRect(find.byType(FavoriteWriteFailedNotice)).right,
+          lessThanOrEqualTo(360),
+        );
+        expect(
+          tester.getRect(find.byType(FavoriteWriteFailedNotice)).bottom,
+          lessThanOrEqualTo(640),
+        );
+        expect(tester.takeException(), isNull);
       },
     );
   });

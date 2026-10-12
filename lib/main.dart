@@ -273,6 +273,9 @@ class MartinPecheurApp extends StatelessWidget {
                   StationSheetPanel(
                     state: stationSheetViewModel.state,
                     onClose: stationSheetViewModel.close,
+                    favoriteStar: stationSheetViewModel.favoriteStar,
+                    onToggleFavorite: () =>
+                        unawaited(stationSheetViewModel.toggleFavorite()),
                   ),
             ),
             // Même câblage pour la fiche ONDE (T1-U4) : la carte ne connaît
@@ -289,6 +292,9 @@ class MartinPecheurApp extends StatelessWidget {
               builder: (BuildContext context, Widget? child) => OndeSheetPanel(
                 state: ondeSheetViewModel.state,
                 onClose: ondeSheetViewModel.close,
+                favoriteStar: ondeSheetViewModel.favoriteStar,
+                onToggleFavorite: () =>
+                    unawaited(ondeSheetViewModel.toggleFavorite()),
               ),
             ),
             // `Échap` (`K2`) : ferme la fiche ouverte, qu'elle soit station

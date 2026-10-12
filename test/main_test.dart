@@ -31,6 +31,8 @@ import 'package:flutter/material.dart'
         ValueKey;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/favorites/favorite.dart'
+    show OndePointFavorite, StationFavorite;
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
@@ -38,6 +40,7 @@ import 'package:martinpecheur/domain/geo/viewport_filter.dart'
 import 'package:martinpecheur/domain/links/external_link_opener.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
@@ -60,6 +63,8 @@ import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_mod
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/shared/data_sources_view.dart';
+import 'package:martinpecheur/features/shared/favorite_star_button.dart'
+    show favoriteStarButtonKey;
 import 'package:martinpecheur/features/shared/warning_link.dart'
     show warningLinkKey, warningWindowRegionKey, warningWindowSourcesLinkKey;
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
@@ -114,6 +119,20 @@ final class _EmptyOndeObservationRepository
 final class _EmptyStationRepository implements StationRepository {
   @override
   Future<Station?> findByCode(StationCode code) async => null;
+}
+
+/// Une station du référentiel : celle des fixtures, `K447001001`.
+final class _BloisStationRepository implements StationRepository {
+  @override
+  Future<Station?> findByCode(StationCode code) async => Station(
+    code: code,
+    label: 'La Loire à Blois',
+    latitude: 47.584957074,
+    longitude: 1.335147948,
+    departement: DepartementCode('41'),
+    riverLabel: 'la Loire',
+    inService: true,
+  );
 }
 
 /// Double de [AcknowledgementRepository], programmable en lecture — même
@@ -275,6 +294,109 @@ void main() {
       ).hasMatch(root),
       isTrue,
       reason: 'la fiche ONDE recoit CETTE MEME instance',
+    );
+  });
+
+  // `S7a` de T3 : l'étoile des fiches par la composition RÉELLE de
+  // `MartinPecheurApp`. Un `MaterialApp` de banc ne prouverait pas que la
+  // racine passe `favoriteStar` et `onToggleFavorite` aux deux panneaux.
+  group("l'étoile de favori des fiches (S7a de T3) — composition reelle", () {
+    Future<WarningsViewModel> acknowledged() async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      return viewModel;
+    }
+
+    /// La taille minimale de la fenêtre Windows (800 x 740, `K3`) : la fiche
+    /// ouverte doit y tenir, étoile comprise, sans débordement.
+    void minimumWindow(WidgetTester tester) {
+      tester.view.physicalSize = const Size(800, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    String? starLabel(WidgetTester tester) =>
+        tester.getSemantics(find.byKey(favoriteStarButtonKey)).label;
+
+    testWidgetsOnWindows(
+      'fiche station Prete : l etoile est la ; un tap ajoute la station '
+      'au depot et l etoile annonce « Retirer des favoris »',
+      (WidgetTester tester) async {
+        final InMemoryFavoriteRepository favorites =
+            InMemoryFavoriteRepository();
+        final StationSheetViewModel sheet = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _BloisStationRepository(),
+          favorites: favorites,
+        );
+        minimumWindow(tester);
+        await tester.pumpWidget(_app(await acknowledged(), null, sheet, null));
+        expect(find.byKey(favoriteStarButtonKey), findsNothing);
+
+        await sheet.open(StationCode('K447001001'));
+        await tester.pump();
+
+        expect(sheet.state, isA<Prete>());
+        expect(find.byKey(favoriteStarButtonKey), findsOneWidget);
+        expect(starLabel(tester), 'Ajouter aux favoris');
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pump();
+        await tester.pump();
+
+        expect(favorites.stored, hasLength(1));
+        expect(favorites.stored.single, isA<StationFavorite>());
+        expect(
+          (favorites.stored.single as StationFavorite).code.value,
+          'K447001001',
+        );
+        expect(starLabel(tester), 'Retirer des favoris');
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche ONDE Prete : l etoile est la ; un tap ajoute le point au '
+      'depot et l etoile annonce « Retirer des favoris »',
+      (WidgetTester tester) async {
+        final InMemoryFavoriteRepository favorites =
+            InMemoryFavoriteRepository();
+        final OndeSheetViewModel sheet = OndeSheetViewModel(
+          onde: _EmptyOndeObservationRepository(),
+          favorites: favorites,
+        );
+        minimumWindow(tester);
+        await tester.pumpWidget(_app(await acknowledged(), null, null, sheet));
+        expect(find.byKey(favoriteStarButtonKey), findsNothing);
+
+        await sheet.open(
+          OndePoint(
+            code: OndeStationCode('K4520001'),
+            label: 'LA RIVIERE AUX LOCHES A CHAON',
+            latitude: 47.610620493,
+            longitude: 2.173858157,
+            waterCourseLabel: 'ruisseau la rivière aux loches',
+            departement: null,
+          ),
+        );
+        await tester.pump();
+
+        expect(sheet.state, isA<OndeSheetPrete>());
+        expect(find.byKey(favoriteStarButtonKey), findsOneWidget);
+        expect(starLabel(tester), 'Ajouter aux favoris');
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pump();
+        await tester.pump();
+
+        expect(favorites.stored, hasLength(1));
+        expect(favorites.stored.single, isA<OndePointFavorite>());
+        expect(starLabel(tester), 'Retirer des favoris');
+      },
     );
   });
 

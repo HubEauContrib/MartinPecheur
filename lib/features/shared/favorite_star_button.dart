@@ -3,7 +3,9 @@
 // Lisible SANS la couleur (critère 14) : la FORME dit l'état — `Icons.star`
 // pleine, `Icons.star_border` vide —, la teinte est la même, et le lecteur
 // d'écran annonce le libellé de l'action. Inactive, elle garde sa forme,
-// atténuée, et sort de l'ordre de tabulation.
+// atténuée, annoncée désactivée, et RESTE dans l'ordre de tabulation : elle
+// n'appelle simplement pas `onToggle` (le focus ne doit pas se perdre pendant
+// une écriture).
 //
 // Même construction que `DataSourcesLink` : `Semantics` en racine,
 // `KeyboardFocusRing` dessous, `InkWell` sans focus propre.
@@ -58,9 +60,12 @@ class FavoriteStarButton extends StatelessWidget {
       // porterait sinon.
       onTap: activate,
       excludeSemantics: true,
+      // Toujours focalisable, même inactive : le ViewModel rend
+      // `enabled: false` pendant toute écriture, et un nœud qui cesserait
+      // d'être focalisable alors perdrait le focus sans le retrouver. Inactive,
+      // `activate` est nul : Entrée, Espace et tap ne font rien (`KeyboardFocusRing`).
       child: KeyboardFocusRing(
         onActivate: activate,
-        canRequestFocus: star.enabled,
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(

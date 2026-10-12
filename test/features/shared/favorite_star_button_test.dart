@@ -181,7 +181,8 @@ void main() {
   group('FavoriteStarButton — inactive', () {
     testWidgetsOnWindows(
       'tap, Entrée et Espace n appellent pas onToggle ; la forme est gardée ; '
-      'état désactivé annoncé ; hors de l ordre de tabulation',
+      'état désactivé annoncé ; reste focalisable (le focus ne se perd pas '
+      'pendant une écriture)',
       (WidgetTester tester) async {
         int toggles = 0;
         await _pump(
@@ -210,13 +211,58 @@ void main() {
           ),
         );
 
+        // Inactive, elle reste un arrêt de tabulation : Tab l'atteint, le
+        // contour apparaît, mais Entrée et Espace ne font rien.
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
-        expect(_ringColor(tester), Colors.transparent);
+        expect(_ringColor(tester), focusRingColor);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.sendKeyEvent(LogicalKeyboardKey.space);
         await tester.pump();
         expect(toggles, 0);
+      },
+    );
+
+    // Le ViewModel rend `enabled: false` pendant toute écriture. Un nœud qui
+    // cesserait d'être focalisable à cet instant perdrait le focus, et Flutter
+    // ne le rendrait pas : un usager au clavier perdrait l'étoile à chaque
+    // Entrée.
+    testWidgetsOnWindows(
+      'focus sur l etoile, reconstruction inactive puis active : le focus '
+      'reste sur l etoile, et Entree rebascule',
+      (WidgetTester tester) async {
+        int toggles = 0;
+        await _pump(
+          tester,
+          const FavoriteStar(filled: false, enabled: true),
+          () => toggles++,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(_ringColor(tester), focusRingColor);
+
+        await _pump(
+          tester,
+          const FavoriteStar(filled: false, enabled: false),
+          () => toggles++,
+        );
+        await tester.pump();
+        expect(_ringColor(tester), focusRingColor);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(toggles, 0);
+
+        await _pump(
+          tester,
+          const FavoriteStar(filled: true, enabled: true, writeFailed: true),
+          () => toggles++,
+        );
+        await tester.pump();
+        expect(_ringColor(tester), focusRingColor);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(toggles, 1);
       },
     );
   });

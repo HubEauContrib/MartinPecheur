@@ -15,6 +15,7 @@
 // SEULS dans un `MaterialApp`. L'environnement de test refuse les tuiles, et
 // un échec de tuile ne dirait rien sur ce code.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
@@ -25,9 +26,13 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
+import 'package:martinpecheur/features/shared/favorite_star.dart';
+import 'package:martinpecheur/features/shared/favorite_star_button.dart';
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/android_platform.dart';
 import '../../../support/windows_platform.dart';
 
 OndeStationCode _code() => OndeStationCode('K4520001');
@@ -760,6 +765,416 @@ void main() {
           ),
         );
         expect(find.byKey(ondeSheetCloseButtonKey), findsOneWidget);
+      },
+    );
+  });
+
+  // `S7a` de T3 : l'étoile de favori entre dans le cadre commun. Sans étoile à
+  // montrer (`favoriteStar` nul) le cadre est celui d'avant, au pixel : les
+  // groupes précédents n'ont pas bougé.
+  group("OndeSheetPanel — l'étoile de favori (S7a de T3)", () {
+    const FavoriteStar empty = FavoriteStar(filled: false, enabled: true);
+    const FavoriteStar full = FavoriteStar(filled: true, enabled: true);
+
+    Widget panel(
+      OndeSheetState state, {
+      FavoriteStar? star,
+      VoidCallback? onToggle,
+      VoidCallback? onClose,
+    }) => OndeSheetPanel(
+      state: state,
+      onClose: onClose ?? () {},
+      favoriteStar: star,
+      onToggleFavorite: star == null ? null : (onToggle ?? () {}),
+    );
+
+    /// Le panneau tel que la carte le pose : largeur bornée (420), hauteur
+    /// libre. Sert aux mesures « avec et sans étoile ».
+    Future<void> pump420(WidgetTester tester, Widget child) => _pump(
+      tester,
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: child,
+      ),
+    );
+
+    Future<Size> contentSize(
+      WidgetTester tester,
+      OndeSheetState state, {
+      FavoriteStar? star,
+    }) async {
+      await pump420(tester, panel(state, star: star));
+      return tester.getSize(find.byType(OndeSummarySheet));
+    }
+
+    Color? ringColor(WidgetTester tester) {
+      final DecoratedBox box = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: find.byType(KeyboardFocusRing),
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      return (box.decoration as BoxDecoration).border?.top.color;
+    }
+
+    testWidgetsOnWindows(
+      "Prete : l'étoile ne rétrécit pas le contenu et n'allonge pas la "
+      'fiche (même largeur, même hauteur avec et sans étoile)',
+      (WidgetTester tester) async {
+        // Fenêtre haute : la fiche Prete et son historique de cinq campagnes
+        // dépassent les 600 px de la fenêtre de test par défaut (602 px), avec
+        // ou sans étoile.
+        tester.view.physicalSize = const Size(800, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final Size without = await contentSize(tester, OndeSheetPrete(_data()));
+        final Size panelWithout = tester.getSize(find.byType(OndeSheetPanel));
+        final Rect closeWithout = tester.getRect(
+          find.byKey(ondeSheetCloseButtonKey),
+        );
+        expect(find.byKey(favoriteStarButtonKey), findsNothing);
+
+        final Size withStar = await contentSize(
+          tester,
+          OndeSheetPrete(_data()),
+          star: empty,
+        );
+        final Size panelWith = tester.getSize(find.byType(OndeSheetPanel));
+
+        expect(withStar.width, without.width);
+        expect(withStar.height, without.height);
+        expect(panelWith, panelWithout);
+        // Le bouton de fermeture n'a pas bougé.
+        expect(
+          tester.getRect(find.byKey(ondeSheetCloseButtonKey)),
+          closeWithout,
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      "l'étoile est SOUS le bouton de fermeture, alignée sur lui, à 8 px ; "
+      'sans étoile, aucun emplacement vide',
+      (WidgetTester tester) async {
+        // Libellé court : le texte tient sur une ligne, plus bas que les
+        // boutons, pour que la hauteur du cadre soit celle des boutons.
+        final OndeSheetState state = OndeSheetEnCours(
+          OndePoint(
+            code: _code(),
+            label: 'Chaon',
+            latitude: 47.6,
+            longitude: 2.17,
+            waterCourseLabel: null,
+            departement: null,
+          ),
+        );
+        await pump420(tester, panel(state));
+        final Size none = tester.getSize(find.byType(OndeSheetPanel));
+        final Rect closeAlone = tester.getRect(
+          find.byKey(ondeSheetCloseButtonKey),
+        );
+        // 12 + fermeture + 12 : rien de réservé pour une étoile absente.
+        expect(none.height, 12 + minimumTapTarget + 12);
+
+        await pump420(tester, panel(state, star: full));
+        final Rect star = tester.getRect(find.byKey(favoriteStarButtonKey));
+        final Rect close = tester.getRect(find.byKey(ondeSheetCloseButtonKey));
+        expect(close, closeAlone);
+        expect(star.size, Size(minimumTapTarget, minimumTapTarget));
+        expect(star.left, closeTo(close.left, 0.01));
+        expect(star.top - close.bottom, closeTo(8, 0.01));
+        expect(
+          tester.getSize(find.byType(OndeSheetPanel)).height,
+          12 + minimumTapTarget + 8 + minimumTapTarget + 12,
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      "Tab atteint l'étoile (un arrêt de tabulation ; le bouton de fermeture "
+      "n'en est pas un)",
+      (WidgetTester tester) async {
+        await _pump(tester, panel(OndeSheetEnCours(_chaon()), star: full));
+        expect(ringColor(tester), Colors.transparent);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        expect(ringColor(tester), focusRingColor);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "le focus clavier de l'étoile survit à une écriture : inactive pendant "
+      "l'écriture, puis active avec l'avis d'échec — toujours focalisée",
+      (WidgetTester tester) async {
+        final OndeSheetState state = OndeSheetEnCours(_chaon());
+        await _pump(tester, panel(state, star: empty));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(ringColor(tester), focusRingColor);
+
+        await _pump(
+          tester,
+          panel(state, star: const FavoriteStar(filled: false, enabled: false)),
+        );
+        await tester.pump();
+        expect(ringColor(tester), focusRingColor);
+
+        await _pump(
+          tester,
+          panel(
+            state,
+            star: const FavoriteStar(
+              filled: false,
+              enabled: true,
+              writeFailed: true,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(ringColor(tester), focusRingColor);
+        expect(
+          find.text("Le favori n'a pas pu être enregistré."),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'le tap appelle onToggleFavorite, la fermeture onClose',
+      (WidgetTester tester) async {
+        int toggled = 0;
+        int closed = 0;
+        await _pump(
+          tester,
+          panel(
+            OndeSheetPrete(_data()),
+            star: empty,
+            onToggle: () => toggled++,
+            onClose: () => closed++,
+          ),
+        );
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pump();
+        expect(toggled, 1);
+        expect(closed, 0);
+
+        await tester.tap(find.byKey(ondeSheetCloseButtonKey));
+        await tester.pump();
+        expect(closed, 1);
+        expect(toggled, 1);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'favoriteStar nul, dans chacun des états visibles : aucune étoile',
+      (WidgetTester tester) async {
+        final List<OndeSheetState> visible = <OndeSheetState>[
+          OndeSheetEnCours(_chaon()),
+          OndeSheetPrete(_data()),
+          OndeSheetEnEchec(_chaon(), StateError('socket')),
+        ];
+        for (final OndeSheetState state in visible) {
+          await _pump(tester, panel(state));
+
+          expect(find.byKey(favoriteStarButtonKey), findsNothing);
+          expect(find.byType(FavoriteStarButton), findsNothing);
+          expect(find.byKey(ondeSheetCloseButtonKey), findsOneWidget);
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      "OndeSheetFermee avec une étoile non nulle : rien n'est rendu",
+      (WidgetTester tester) async {
+        await _pump(tester, panel(const OndeSheetFermee(), star: full));
+
+        expect(find.byType(FavoriteStarButton), findsNothing);
+        expect(find.byType(Text), findsNothing);
+        expect(find.byKey(ondeSheetCloseButtonKey), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "OndeSheetEnEchec avec une étoile pleine : l'étoile ET le texte "
+      "d'échec",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          panel(OndeSheetEnEchec(_chaon(), StateError('socket')), star: full),
+        );
+
+        expect(find.byKey(favoriteStarButtonKey), findsOneWidget);
+        expect(
+          find.textContaining(
+            "Hub'Eau n'a pas répondu pour le point "
+            'LA RIVIERE AUX LOCHES A CHAON.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(FavoriteWriteFailedNotice), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "un ajout en échec (étoile vide) : « enregistré », sous la rangée, "
+      "l'étoile reste vide",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          panel(
+            OndeSheetPrete(_data()),
+            star: const FavoriteStar(
+              filled: false,
+              enabled: true,
+              writeFailed: true,
+            ),
+          ),
+        );
+
+        expect(
+          find.text("Le favori n'a pas pu être enregistré."),
+          findsOneWidget,
+        );
+        expect(find.text("Le favori n'a pas pu être retiré."), findsNothing);
+        expect(find.byIcon(Icons.star_border), findsOneWidget);
+        expect(find.byIcon(Icons.star), findsNothing);
+        final double noticeTop = tester
+            .getTopLeft(find.byType(FavoriteWriteFailedNotice))
+            .dy;
+        expect(
+          noticeTop,
+          greaterThanOrEqualTo(
+            tester.getBottomLeft(find.byKey(favoriteStarButtonKey)).dy,
+          ),
+        );
+        expect(
+          noticeTop,
+          greaterThanOrEqualTo(
+            tester.getBottomLeft(find.byKey(ondeSheetCloseButtonKey)).dy,
+          ),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      "un retrait en échec (étoile pleine) : « retiré », l'étoile reste "
+      "pleine, l'autre phrase est absente",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          panel(
+            OndeSheetPrete(_data()),
+            star: const FavoriteStar(
+              filled: true,
+              enabled: true,
+              writeFailed: true,
+            ),
+          ),
+        );
+
+        expect(find.text("Le favori n'a pas pu être retiré."), findsOneWidget);
+        expect(
+          find.text("Le favori n'a pas pu être enregistré."),
+          findsNothing,
+        );
+        expect(find.byIcon(Icons.star), findsOneWidget);
+        expect(find.byIcon(Icons.star_border), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "sans échec d'écriture, ou liste illisible : aucune des deux phrases",
+      (WidgetTester tester) async {
+        final List<FavoriteStar> stars = <FavoriteStar>[
+          empty,
+          full,
+          const FavoriteStar(filled: false, enabled: false),
+        ];
+        for (final FavoriteStar star in stars) {
+          await _pump(tester, panel(OndeSheetPrete(_data()), star: star));
+
+          expect(find.byKey(favoriteStarButtonKey), findsOneWidget);
+          expect(find.byType(FavoriteWriteFailedNotice), findsNothing);
+          expect(find.textContaining('Le favori'), findsNothing);
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      "étoile inactive : le tap n'appelle pas onToggleFavorite",
+      (WidgetTester tester) async {
+        int toggled = 0;
+        await _pump(
+          tester,
+          panel(
+            OndeSheetPrete(_data()),
+            star: const FavoriteStar(filled: false, enabled: false),
+            onToggle: () => toggled++,
+          ),
+        );
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pump();
+
+        expect(toggled, 0);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : à 360 px et 200 % de police, le cadre (étoile sous la '
+      "fermeture, avis d'échec) reste dans l'écran",
+      (WidgetTester tester) async {
+        // Ce test mesure LE CADRE, avec un contenu court (OndeSheetEnCours).
+        // La fiche `Prete` entière ne tient pas à 200 % sur 360 x 640 (cas de
+        // la fiche station, mesuré) : ce débordement est ANTÉRIEUR à T3 — la
+        // fiche n'est ni défilante ni bornée en hauteur (`map_view.dart`,
+        // colonne des fiches). Point ouvert, hors de `S7a`.
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (BuildContext context, Widget? child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: panel(
+                  OndeSheetEnCours(_chaon()),
+                  star: const FavoriteStar(
+                    filled: false,
+                    enabled: true,
+                    writeFailed: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final Rect star = tester.getRect(find.byKey(favoriteStarButtonKey));
+        final Rect close = tester.getRect(find.byKey(ondeSheetCloseButtonKey));
+        expect(star.size, const Size(48, 48));
+        expect(close.size, const Size(48, 48));
+        expect(star.left, closeTo(close.left, 0.01));
+        expect(star.top - close.bottom, closeTo(8, 0.01));
+        expect(close.right, lessThanOrEqualTo(360));
+        expect(
+          tester.getRect(find.byType(FavoriteWriteFailedNotice)).right,
+          lessThanOrEqualTo(360),
+        );
+        expect(
+          tester.getRect(find.byType(FavoriteWriteFailedNotice)).bottom,
+          lessThanOrEqualTo(640),
+        );
+        expect(tester.takeException(), isNull);
       },
     );
   });
