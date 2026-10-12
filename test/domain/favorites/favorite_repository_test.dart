@@ -1,5 +1,7 @@
 // Le contrat de `FavoriteRepository`, éprouvé sur le double en mémoire
 // (S1 de T3).
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
@@ -92,6 +94,55 @@ void main() {
       throwsA(isA<EcritureDeFavorisEnEchec>()),
     );
     await expectLater(repo.clear(), throwsA(isA<EcritureDeFavorisEnEchec>()));
+  });
+
+  test('readGate : readAll compte son appel, attend la porte, puis rend la '
+      'liste ; sans porte, il aboutit tout de suite', () async {
+    final InMemoryFavoriteRepository repo = InMemoryFavoriteRepository(
+      <Favorite>[_a()],
+    );
+    final Completer<void> gate = Completer<void>();
+    repo.readGate = gate;
+    List<Favorite>? read;
+
+    final Future<void> reading = repo.readAll().then((List<Favorite> l) {
+      read = l;
+    });
+    await pumpEventQueue();
+
+    expect(repo.readCalls, 1);
+    expect(read, isNull);
+
+    gate.complete();
+    await reading;
+
+    expect(read, <Favorite>[_a()]);
+
+    repo.readGate = null;
+    expect(await repo.readAll(), <Favorite>[_a()]);
+    expect(repo.readCalls, 2);
+  });
+
+  test('readGate : la porte précède readError', () async {
+    final InMemoryFavoriteRepository repo = InMemoryFavoriteRepository()
+      ..readError = const ListeDeFavorisIllisible('x');
+    final Completer<void> gate = Completer<void>();
+    repo.readGate = gate;
+    Object? failure;
+
+    final Future<void> reading = repo.readAll().then<void>(
+      (List<Favorite> _) {},
+      onError: (Object e) {
+        failure = e;
+      },
+    );
+    await pumpEventQueue();
+    expect(failure, isNull);
+
+    gate.complete();
+    await reading;
+
+    expect(failure, isA<ListeDeFavorisIllisible>());
   });
 
   test('switch sans default sur FavoriteStorageFailure', () {

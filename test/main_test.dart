@@ -185,25 +185,32 @@ MartinPecheurApp _app(
   RestrictionsViewModel? restrictionsViewModel,
   StationSheetViewModel? stationSheetViewModel,
   OndeSheetViewModel? ondeSheetViewModel,
-]) => MartinPecheurApp(
-  warningsViewModel: warningsViewModel,
-  restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
-  mapViewModel: MapViewModel(
-    stationPoints: _EmptyStationPointRepository(),
-    observations: _EmptyHydroObservationRepository(),
-    onde: _EmptyOndeObservationRepository(),
-  ),
-  stationSheetViewModel:
-      stationSheetViewModel ??
-      StationSheetViewModel(
-        observations: _EmptyHydroObservationRepository(),
-        stations: _EmptyStationRepository(),
-        favorites: InMemoryFavoriteRepository(),
-      ),
-  ondeSheetViewModel:
-      ondeSheetViewModel ??
-      OndeSheetViewModel(onde: _EmptyOndeObservationRepository()),
-);
+]) {
+  // Comme la racine : UN dépôt des favoris, partagé par les deux fiches.
+  final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository();
+  return MartinPecheurApp(
+    warningsViewModel: warningsViewModel,
+    restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
+    mapViewModel: MapViewModel(
+      stationPoints: _EmptyStationPointRepository(),
+      observations: _EmptyHydroObservationRepository(),
+      onde: _EmptyOndeObservationRepository(),
+    ),
+    stationSheetViewModel:
+        stationSheetViewModel ??
+        StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _EmptyStationRepository(),
+          favorites: favorites,
+        ),
+    ondeSheetViewModel:
+        ondeSheetViewModel ??
+        OndeSheetViewModel(
+          onde: _EmptyOndeObservationRepository(),
+          favorites: favorites,
+        ),
+  );
+}
 
 /// Un point DANS la bande du bouton de désignation (la boîte du `ListView` de
 /// `_DesignationPlacement`, seul `ListView` au-dessus du bouton), sur la
@@ -239,7 +246,7 @@ void main() {
   // instance ; une seconde instance, câblée à un autre ViewModel, croiserait
   // ses lire-puis-écrire avec la première et perdrait un favori (`S5` de T3).
   test('la racine ne construit qu une seule instance du depot des favoris, '
-      'et la passe a la fiche station', () {
+      'et la passe aux fiches station et ONDE', () {
     final String root = File('lib/main.dart').readAsStringSync();
 
     expect(
@@ -261,6 +268,13 @@ void main() {
       ).hasMatch(root),
       isTrue,
       reason: 'la fiche station recoit CETTE instance',
+    );
+    expect(
+      RegExp(
+        r'OndeSheetViewModel\((?:(?!ViewModel\()[^;])*?favorites: favorites[,)]',
+      ).hasMatch(root),
+      isTrue,
+      reason: 'la fiche ONDE recoit CETTE MEME instance',
     );
   });
 

@@ -154,7 +154,8 @@ Future<void> main() async {
       // Le MÊME dépôt ONDE décoré que celui du ViewModel de la carte : le
       // cache est une politique unique, partagée, jamais recopiée par
       // tranche (CLAUDE.md, invariants).
-      ondeSheetViewModel: OndeSheetViewModel(onde: onde),
+      // Les favoris : la MÊME instance que celle de la fiche station.
+      ondeSheetViewModel: OndeSheetViewModel(onde: onde, favorites: favorites),
       restrictionsViewModel: RestrictionsViewModel(
         source: restrictionSource,
         links: const UrlLauncherExternalLinkOpener(),

@@ -20,6 +20,10 @@ final class InMemoryFavoriteRepository implements FavoriteRepository {
   /// Posée : `add`, `remove` et `clear` attendent qu'elle aboutisse.
   Completer<void>? writeGate;
 
+  /// Posée : `readAll` attend qu'elle aboutisse, avant de lever [readError] ou
+  /// de rendre la liste. Chaque lecture compte dans [readCalls] dès son appel.
+  Completer<void>? readGate;
+
   int readCalls = 0;
   int writeCalls = 0;
 
@@ -28,6 +32,7 @@ final class InMemoryFavoriteRepository implements FavoriteRepository {
   @override
   Future<List<Favorite>> readAll() async {
     readCalls++;
+    await readGate?.future;
     final Object? error = readError;
     if (error != null) {
       throw error;

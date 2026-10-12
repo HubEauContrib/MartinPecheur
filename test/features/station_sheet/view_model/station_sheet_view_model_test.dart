@@ -122,34 +122,6 @@ final class _HydroObservationRepositoryDouble
   }
 }
 
-/// Dépôt des favoris dont chaque LECTURE est tenue par une porte : un test
-/// décide quand elle aboutit. Les écritures passent telles quelles à [inner].
-final class _GatedReadFavoriteRepository implements FavoriteRepository {
-  _GatedReadFavoriteRepository(this.inner);
-
-  final InMemoryFavoriteRepository inner;
-
-  /// Une porte par lecture demandée, dans l'ordre des appels.
-  final List<Completer<void>> readGates = <Completer<void>>[];
-
-  @override
-  Future<List<Favorite>> readAll() async {
-    final Completer<void> gate = Completer<void>();
-    readGates.add(gate);
-    await gate.future;
-    return inner.readAll();
-  }
-
-  @override
-  Future<void> add(Favorite favorite) => inner.add(favorite);
-
-  @override
-  Future<void> remove(Favorite favorite) => inner.remove(favorite);
-
-  @override
-  Future<void> clear() => inner.clear();
-}
-
 /// L'instant d'ajout d'un favori déjà stocké, distinct de l'horloge des tests.
 final DateTime _addedBefore = DateTime.utc(2026, 10, 1, 8);
 
@@ -617,11 +589,11 @@ void main() {
   group('favori', () {
     final DateTime clock = DateTime.utc(2026, 10, 12, 9, 30);
 
-    StationSheetViewModel build([FavoriteRepository? repository]) {
+    StationSheetViewModel build() {
       final StationSheetViewModel viewModel = StationSheetViewModel(
         observations: observations,
         stations: stations,
-        favorites: repository ?? favorites,
+        favorites: favorites,
         // Une horloge LOCALE : l'instant d'ajout doit sortir en UTC.
         now: () => clock.toLocal(),
       );
@@ -925,10 +897,9 @@ void main() {
 
     test('la fiche passe a Prete sans attendre la lecture des favoris ; le '
         'futur d open ne se complete qu apres elle', () async {
-      final _GatedReadFavoriteRepository gated = _GatedReadFavoriteRepository(
-        favorites,
-      );
-      final StationSheetViewModel viewModel = build(gated);
+      final Completer<void> gate = Completer<void>();
+      favorites.readGate = gate;
+      final StationSheetViewModel viewModel = build();
       addTearDown(viewModel.dispose);
       bool opened = false;
 
@@ -941,7 +912,7 @@ void main() {
       expect(viewModel.favoriteStar, isNull);
       expect(opened, isFalse);
 
-      gated.readGates.single.complete();
+      gate.complete();
       await opening;
 
       expect(opened, isTrue);
@@ -951,10 +922,9 @@ void main() {
     test('close() pendant la lecture des favoris : aucune etoile, aucune '
         'notification tardive', () async {
       favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
-      final _GatedReadFavoriteRepository gated = _GatedReadFavoriteRepository(
-        favorites,
-      );
-      final StationSheetViewModel viewModel = build(gated);
+      final Completer<void> gate = Completer<void>();
+      favorites.readGate = gate;
+      final StationSheetViewModel viewModel = build();
       addTearDown(viewModel.dispose);
 
       final Future<void> opening = viewModel.open(_codeBlois());
@@ -963,7 +933,7 @@ void main() {
       int notifications = 0;
       viewModel.addListener(() => notifications++);
 
-      gated.readGates.single.complete();
+      gate.complete();
       await opening;
 
       expect(viewModel.state, isA<Fermee>());
@@ -975,21 +945,24 @@ void main() {
         'celle de B', () async {
       // A (Blois) est en favori, B ne l'est pas.
       favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
-      final _GatedReadFavoriteRepository gated = _GatedReadFavoriteRepository(
-        favorites,
-      );
-      final StationSheetViewModel viewModel = build(gated);
+      final StationSheetViewModel viewModel = build();
       addTearDown(viewModel.dispose);
+      // Une porte par lecture : `readAll` lit `readGate` à l'appel, donc on la
+      // change entre les deux `open`.
+      final Completer<void> gateA = Completer<void>();
+      final Completer<void> gateB = Completer<void>();
 
+      favorites.readGate = gateA;
       final Future<void> openingA = viewModel.open(_codeBlois());
+      favorites.readGate = gateB;
       final Future<void> openingB = viewModel.open(_codeGoyaves());
-      expect(gated.readGates, hasLength(2));
+      expect(favorites.readCalls, 2);
 
-      gated.readGates[1].complete();
+      gateB.complete();
       await openingB;
       expect(viewModel.favoriteStar, _emptyActive);
 
-      gated.readGates[0].complete();
+      gateA.complete();
       await openingA;
 
       expect((viewModel.state as Prete).data.station.code, _codeGoyaves());
@@ -1032,14 +1005,25 @@ void main() {
       expect(notifications, 0);
     });
 
+    test('apres dispose(), toggleFavorite n appelle pas le depot', () async {
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      expect(viewModel.favoriteStar, _emptyActive);
+      viewModel.dispose();
+
+      await viewModel.toggleFavorite();
+
+      expect(favorites.writeCalls, 0);
+      expect(favorites.stored, isEmpty);
+    });
+
     test(
       'une lecture de favoris qui change l etoile notifie, et elle seule',
       () async {
         favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
-        final _GatedReadFavoriteRepository gated = _GatedReadFavoriteRepository(
-          favorites,
-        );
-        final StationSheetViewModel viewModel = build(gated);
+        final Completer<void> gate = Completer<void>();
+        favorites.readGate = gate;
+        final StationSheetViewModel viewModel = build();
         addTearDown(viewModel.dispose);
         final Future<void> opening = viewModel.open(_codeBlois());
         await pumpEventQueue();
@@ -1047,7 +1031,7 @@ void main() {
         final List<FavoriteStar?> seen = <FavoriteStar?>[];
         viewModel.addListener(() => seen.add(viewModel.favoriteStar));
 
-        gated.readGates.single.complete();
+        gate.complete();
         await opening;
 
         expect(seen, <FavoriteStar?>[_filledActive]);

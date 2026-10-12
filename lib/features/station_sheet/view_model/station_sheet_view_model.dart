@@ -335,10 +335,14 @@ final class StationSheetViewModel extends ChangeNotifier {
   }
 
   /// Ajoute la station aux favoris, ou l'en retire. Sans effet — et sans
-  /// appel au dépôt — quand aucune étoile n'est due ou qu'elle est inactive
-  /// ([favoriteStar]). L'échec ne se lève pas : il se lit dans
-  /// `favoriteStar.writeFailed`, l'étoile gardant sa forme d'avant.
+  /// appel au dépôt — quand aucune étoile n'est due, qu'elle est inactive
+  /// ([favoriteStar]) ou que ce ViewModel est disposé. L'échec ne se lève pas :
+  /// il se lit dans `favoriteStar.writeFailed`, l'étoile gardant sa forme
+  /// d'avant.
   Future<void> toggleFavorite() async {
+    if (_disposed) {
+      return;
+    }
     final FavoriteStar? star = favoriteStar;
     if (star == null || !star.enabled) {
       return;
