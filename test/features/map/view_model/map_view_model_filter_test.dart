@@ -39,6 +39,11 @@ const AdministrativeArea _centreValDeLoire = AdministrativeArea(
   code: '24',
   label: 'Centre-Val de Loire',
 );
+const AdministrativeArea _auvergneRhoneAlpes = AdministrativeArea(
+  code: '84',
+  label: 'Auvergne-Rhône-Alpes',
+);
+const AdministrativeArea _ain = AdministrativeArea(code: '01', label: 'Ain');
 
 Bounds _loireBounds() => Bounds(west: -1, south: 46, east: 3, north: 48);
 
@@ -247,6 +252,27 @@ final class _OndeObservationRepositoryDouble
     int limit = 5,
   }) => Future<List<OndeObservation>>.value(<OndeObservation>[]);
 }
+
+/// Une station du jeu des pastilles : région et département indépendants.
+StationPoint _stationIn(
+  String code, {
+  AdministrativeArea? departement,
+  AdministrativeArea? region,
+}) => StationPoint(
+  code: StationCode(code),
+  label: 'Station $code',
+  latitude: 47,
+  longitude: 1.5,
+  departement: departement,
+  region: region,
+);
+
+MapAreaCluster _clusterOf(MapViewModel viewModel, String areaCode) => viewModel
+    .clusters
+    .singleWhere((MapAreaCluster cluster) => cluster.area.code == areaCode);
+
+List<String> _areaCodes(Iterable<MapAreaCluster> clusters) =>
+    clusters.map((MapAreaCluster cluster) => cluster.area.code).toList();
 
 void main() {
   late _StationPointRepositoryDouble repository;
@@ -648,5 +674,251 @@ void main() {
       'requête ni notification',
       () => vieillit(moinsDe24h, perimeeApres),
     );
+  });
+
+  group('écoulement, pastilles de zone', () {
+    /// `R1` à `R6` : trois dans la région 24, deux dans la 84, une sans région.
+    List<OndeObservation> pastilleSet() => <OndeObservation>[
+      _obs(
+        'K4520011',
+        category: const Ecoulement(),
+        region: _centreValDeLoire,
+        departement: _loirEtCher,
+        latitude: 47.0,
+        longitude: 1.0,
+      ),
+      _obs(
+        'K4520012',
+        category: const Ecoulement(),
+        region: _centreValDeLoire,
+        departement: _indreEtLoire,
+        latitude: 47.4,
+        longitude: 1.4,
+      ),
+      _obs(
+        'K4520013',
+        category: const Assec(),
+        region: _centreValDeLoire,
+        departement: _loirEtCher,
+        latitude: 47.8,
+        longitude: 1.8,
+      ),
+      _obs(
+        'K4520014',
+        category: const Assec(),
+        region: _auvergneRhoneAlpes,
+        departement: _ain,
+        latitude: 45.0,
+        longitude: 5.0,
+      ),
+      _obs(
+        'K4520015',
+        category: const Assec(),
+        region: _auvergneRhoneAlpes,
+        departement: _ain,
+        latitude: 45.5,
+        longitude: 5.5,
+      ),
+      _obs(
+        'K4520016',
+        category: const Ecoulement(),
+        departement: _loirEtCher,
+        latitude: 46.5,
+        longitude: 2.5,
+      ),
+    ];
+
+    const String r6 = 'K4520016';
+
+    Future<MapViewModel> atZoom(double zoom) async {
+      onde.answer = (int _) async => pastilleSet();
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.onGestureEnded(_loireBounds(), zoom: zoom);
+      return viewModel;
+    }
+
+    test('zoom 6, aucun critère : deux pastilles, le point sans région '
+        'individuel', () async {
+      final MapViewModel viewModel = await atZoom(6);
+
+      expect(_areaCodes(viewModel.clusters), <String>['24', '84']);
+      expect(_clusterOf(viewModel, '24').count, 3);
+      expect(_clusterOf(viewModel, '24').severest, const Assec());
+      expect(_clusterOf(viewModel, '84').count, 2);
+      expect(_clusterOf(viewModel, '84').severest, const Assec());
+      expect(_ondeCodes(viewModel.individualOndeObservations), <String>[r6]);
+    });
+
+    test('zoom 6, Assec décochée : une seule pastille, comptée sur les '
+        'retenus, la 84 disparaît', () async {
+      final MapViewModel viewModel = await atZoom(6);
+
+      viewModel.applyFilter(sansAssec);
+
+      expect(_areaCodes(viewModel.clusters), <String>['24']);
+      final MapAreaCluster cluster = _clusterOf(viewModel, '24');
+      expect(cluster.count, 2);
+      expect(cluster.severest, const Ecoulement());
+      expect(cluster.latitude, closeTo(47.2, 1e-9));
+      expect(cluster.longitude, closeTo(1.2, 1e-9));
+      expect(_areaCodes(viewModel.orderedClusters), <String>['24']);
+      expect(_ondeCodes(viewModel.individualOndeObservations), <String>[r6]);
+      expect(viewModel.ondeObservations, hasLength(6));
+    });
+
+    test('zoom 6, Écoulement décochée : la 24 ne garde que son Assec, plus '
+        "d'individuel", () async {
+      final MapViewModel viewModel = await atZoom(6);
+
+      viewModel.applyFilter(
+        MapFilter.none.withCategory(const Ecoulement(), shown: false),
+      );
+
+      expect(_areaCodes(viewModel.clusters), <String>['24', '84']);
+      final MapAreaCluster cluster = _clusterOf(viewModel, '24');
+      expect(cluster.count, 1);
+      expect(cluster.severest, const Assec());
+      expect(cluster.bounds, isNull);
+      expect(cluster.latitude, closeTo(47.8, 1e-9));
+      expect(cluster.longitude, closeTo(1.8, 1e-9));
+      expect(_clusterOf(viewModel, '84').count, 2);
+      expect(viewModel.individualOndeObservations, isEmpty);
+    });
+
+    test('zoom 6, département 41 : la 24 compte ses deux points du 41, pas de '
+        '84, le point sans région reste', () async {
+      final MapViewModel viewModel = await atZoom(6);
+
+      viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+
+      expect(_areaCodes(viewModel.clusters), <String>['24']);
+      expect(_clusterOf(viewModel, '24').count, 2);
+      expect(_areaCodes(viewModel.orderedClusters), <String>['24']);
+      expect(_ondeCodes(viewModel.individualOndeObservations), <String>[r6]);
+    });
+
+    test('zoom 8, Assec décochée : agrégats par département sur les '
+        'retenus', () async {
+      final MapViewModel viewModel = await atZoom(8);
+
+      viewModel.applyFilter(sansAssec);
+
+      expect(_areaCodes(viewModel.clusters), <String>['37', '41']);
+      expect(_clusterOf(viewModel, '37').count, 1);
+      expect(_clusterOf(viewModel, '41').count, 2);
+      expect(viewModel.individualOndeObservations, isEmpty);
+    });
+  });
+
+  group('débit, pastilles de zone', () {
+    const String t1 = 'K447000011';
+    const String t7 = 'K447000017';
+
+    /// `T1`, `T2` (24, 41), `T3` (24, 37), `T4`, `T5` (84, 01), `T6` (24, sans
+    /// département), `T7` (sans rien).
+    List<StationPoint> pastilleSet() => <StationPoint>[
+      _stationIn(t1, departement: _loirEtCher, region: _centreValDeLoire),
+      _stationIn(
+        'K447000012',
+        departement: _loirEtCher,
+        region: _centreValDeLoire,
+      ),
+      _stationIn(
+        'K447000013',
+        departement: _indreEtLoire,
+        region: _centreValDeLoire,
+      ),
+      _stationIn('K447000014', departement: _ain, region: _auvergneRhoneAlpes),
+      _stationIn('K447000015', departement: _ain, region: _auvergneRhoneAlpes),
+      _stationIn('K447000016', region: _centreValDeLoire),
+      _stationIn(t7),
+    ];
+
+    Future<MapViewModel> onDischargeAt(double zoom) async {
+      repository.answer = (int _) async => pastilleSet();
+      repository.allAnswer = () async => pastilleSet();
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      await viewModel.onGestureEnded(_loireBounds(), zoom: zoom);
+      return viewModel;
+    }
+
+    /// Précharge au zoom 9 avec une mesure périmée pour [station], puis passe
+    /// au zoom 6 : une station `Chargee(perimee)` face aux pastilles.
+    Future<MapViewModel> preloadedStale(String station) async {
+      final DateTime now = nowAtTen();
+      final DateTime stale = now.subtract(
+        perimeeApres + const Duration(hours: 1),
+      );
+      observations.answer = (StationCode code, int _) async =>
+          code.value == station ? _discharge(code, stale) : null;
+      final MapViewModel viewModel = await onDischargeAt(
+        individualMarkersFromZoom,
+      );
+      expect(viewModel.stateOf(StationCode(station)), isA<Chargee>());
+      await viewModel.onGestureEnded(
+        Bounds(west: -1, south: 46, east: 3, north: 49),
+        zoom: 6,
+      );
+      return viewModel;
+    }
+
+    test('zoom 6, aucun critère : deux pastilles, la station sans zone '
+        'individuelle', () async {
+      final MapViewModel viewModel = await onDischargeAt(6);
+
+      expect(_areaCodes(viewModel.clusters), <String>['24', '84']);
+      expect(_clusterOf(viewModel, '24').count, 4);
+      expect(_clusterOf(viewModel, '84').count, 2);
+      expect(_stationCodes(viewModel.individualStations), <String>[t7]);
+      expect(viewModel.stations, hasLength(7));
+    });
+
+    test('zoom 6, département 41 : la 24 garde la station sans département, '
+        'la 84 disparaît', () async {
+      final MapViewModel viewModel = await onDischargeAt(6);
+
+      viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+
+      expect(_areaCodes(viewModel.clusters), <String>['24']);
+      expect(_clusterOf(viewModel, '24').count, 3);
+      expect(_stationCodes(viewModel.individualStations), <String>[t7]);
+    });
+
+    test('zoom 6, moins de 2 h : les sept sont non chargées, mêmes '
+        'pastilles que sans critère', () async {
+      final MapViewModel viewModel = await onDischargeAt(6);
+
+      viewModel.applyFilter(moinsDe2h);
+
+      expect(_areaCodes(viewModel.clusters), <String>['24', '84']);
+      expect(_clusterOf(viewModel, '24').count, 4);
+      expect(_clusterOf(viewModel, '84').count, 2);
+    });
+
+    test('la fraîcheur ne change aucune pastille : T1 périmée, la 24 garde '
+        'ses quatre stations', () async {
+      final MapViewModel viewModel = await preloadedStale(t1);
+      final int sansCritere = _clusterOf(viewModel, '24').count;
+
+      viewModel.applyFilter(moinsDe2h);
+
+      expect(sansCritere, 4);
+      expect(_clusterOf(viewModel, '24').count, 4);
+      expect(_clusterOf(viewModel, '84').count, 2);
+    });
+
+    test('une station sans zone chargée hors critère est masquée : la '
+        'fraîcheur vaut pour les marqueurs', () async {
+      final MapViewModel viewModel = await preloadedStale(t7);
+      expect(_stationCodes(viewModel.individualStations), <String>[t7]);
+
+      viewModel.applyFilter(moinsDe2h);
+
+      expect(viewModel.individualStations, isEmpty);
+      expect(_clusterOf(viewModel, '24').count, 4);
+    });
   });
 }

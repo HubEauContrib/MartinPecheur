@@ -127,6 +127,7 @@ final class MapAreaCluster {
   /// Le nombre de membres de cet agrégat. Sur l'échelle écoulement, c'est le
   /// compte des points ONDE **chargés** pour l'emprise courante ; sur
   /// l'échelle débit, c'est le compte sur l'asset **entier** (`ADR-015`).
+  /// Sous un filtre, c'est le compte des membres **retenus** (`BR-009`).
   final int count;
 
   /// L'emprise exacte des membres, `null` si elle est plate (un seul
@@ -354,8 +355,8 @@ final class MapViewModel extends ChangeNotifier {
   /// mutations : l'asset entier peut porter des stations non rattachées
   /// que `withinBounds` ne renvoie pas).
   ///
-  /// Dans les deux cas, seulement celles que le filtre retient
-  /// (`filterKeepsStation`, T3) : l'état lu par [stateOf] porte la fraîcheur
+  /// Dans les deux cas, seulement celles que le filtre retient **sur
+  /// l'échelle active** (`filterKeepsStation`, T3) : l'état lu par [stateOf] porte la fraîcheur
   /// de l'instant, une mesure qui passe une borne sort donc du filtre à la
   /// lecture suivante, sans requête (`BR-005`). Tant que [filterActive] est
   /// faux, le niveau individuel rend [stations] **elle-même**, sans copie
@@ -410,7 +411,9 @@ final class MapViewModel extends ChangeNotifier {
       return null;
     }
     return clusterByArea<StationPoint>(
-      all,
+      all.where(
+        (StationPoint point) => filterKeepsStationPoint(_filter, point),
+      ),
       level: level,
       areaOf: (StationPoint point) => _stationAreaOf(level, point),
       positionOf: (StationPoint point) =>
@@ -422,7 +425,10 @@ final class MapViewModel extends ChangeNotifier {
   /// au niveau [level].
   AreaClustering<OndeObservation> _ondeClustering(AreaLevel level) {
     return clusterByArea<OndeObservation>(
-      _ondeObservations.values,
+      _ondeObservations.values.where(
+        (OndeObservation observation) =>
+            filterKeepsOndeObservation(_filter, observation),
+      ),
       level: level,
       areaOf: (OndeObservation observation) => level == AreaLevel.region
           ? observation.point.region
