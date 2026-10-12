@@ -28,6 +28,7 @@ import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 
+import '../../support/windows_platform.dart';
 import 'golden_harness.dart';
 
 /// Les cinq états qui ont chacun leur image, et le nom du fichier qui les
@@ -58,41 +59,45 @@ Widget _pastille(StationMapState etat) =>
 void main() {
   group('Une image de référence par état de la pastille', () {
     for (final (String nom, StationMapState etat) in etatsAvecImage) {
-      testWidgets('le rendu de « $nom » ne change pas sans qu\'on le voie', (
-        WidgetTester tester,
-      ) async {
-        await pompeLImage(
-          tester,
-          contenu: _pastille(etat),
-          taille: const Size(coteDUneCase, coteDUneCase),
-        );
+      testWidgetsOnWindows(
+        'le rendu de « $nom » ne change pas sans qu\'on le voie',
+        (WidgetTester tester) async {
+          await pompeLImage(
+            tester,
+            contenu: _pastille(etat),
+            taille: const Size(coteDUneCase, coteDUneCase),
+          );
 
-        await verifieLImage('station_marker_$nom.png');
-      });
+          await verifieLImage('station_marker_$nom.png');
+        },
+      );
     }
   });
 
-  testWidgets('en niveaux de gris, les six états de l\'échelle 2 restent '
-      'distinguables', (WidgetTester tester) async {
-    // `04-ui.md` § 3 : « La distinction reste assurée par la forme même en
-    // achromatopsie ». Sur cette échelle la teinte est la MÊME pour les six
-    // états (`#767676`, l'« Indéterminé » de `BR-004`) : la couleur ne
-    // portait déjà aucune distinction, et l'image le montre — ce qui sépare
-    // les états est le remplissage (plein, atténué, creux) et le contour
-    // (continu, pointillé).
-    await pompeLImage(
-      tester,
-      contenu: ColorFiltered(
-        colorFilter: filtreNiveauxDeGris,
-        child: rangee(toutelEchelle.map(_pastille).toList()),
-      ),
-      taille: Size(coteDUneCase * toutelEchelle.length, coteDUneCase),
-    );
+  testWidgetsOnWindows(
+    'en niveaux de gris, les six états de l\'échelle 2 restent '
+    'distinguables',
+    (WidgetTester tester) async {
+      // `04-ui.md` § 3 : « La distinction reste assurée par la forme même en
+      // achromatopsie ». Sur cette échelle la teinte est la MÊME pour les six
+      // états (`#767676`, l'« Indéterminé » de `BR-004`) : la couleur ne
+      // portait déjà aucune distinction, et l'image le montre — ce qui sépare
+      // les états est le remplissage (plein, atténué, creux) et le contour
+      // (continu, pointillé).
+      await pompeLImage(
+        tester,
+        contenu: ColorFiltered(
+          colorFilter: filtreNiveauxDeGris,
+          child: rangee(toutelEchelle.map(_pastille).toList()),
+        ),
+        taille: Size(coteDUneCase * toutelEchelle.length, coteDUneCase),
+      );
 
-    await verifieLImage('station_marker_echelle_niveaux_de_gris.png');
-  });
+      await verifieLImage('station_marker_echelle_niveaux_de_gris.png');
+    },
+  );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'une pastille périmée est atténuée, et son halo de 2 px reste entier',
     (WidgetTester tester) async {
       // Les deux exigences de `BR-005` dans une seule image, parce qu'elles
