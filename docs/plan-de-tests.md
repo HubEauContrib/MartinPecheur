@@ -5,7 +5,10 @@
 (`docs/superpowers/plans/2026-09-13-t1-fiche-station-et-avertissements.md`). En T1 s'ajoutent
 les critères d'acceptation en Gherkin (`docs/acceptance/`, `X1`) et la matrice de traçabilité
 (`docs/tracabilite.md`, `X2`), vérifiés par `test/project/acceptance_features_test.dart` et
-`test/project/tracabilite_test.dart` ; aucun framework BDD (décision 6 du plan T1).
+`test/project/tracabilite_test.dart` ; aucun framework BDD (décision 6 du plan T1). En T3
+(`docs/superpowers/plans/2026-10-12-t3-favoris-filtres-fraicheur.md`, `N1`) s'ajoute la
+plateforme nommée de chaque test de widget, vérifiée par
+`test/project/widget_test_platform_test.dart`.
 
 Ce document ne liste pas les tests qui existent : il dit **à quel étage** une règle se vérifie,
 et pourquoi pas à un autre. Le détail des cas figure dans chaque `BR-NNN` et dans le plan
@@ -18,9 +21,9 @@ d'implémentation en cours.
 | `test/architecture/` | Les frontières de couches tiennent : aucune infrastructure sous `lib/domain/`, `data/` n'importe jamais `features/`, aucun `view_model` n'importe un widget, aucun appel au volet sécheresse hors de son module | quelques ms | ✅ T0 (`domain_isolation_test.dart`), complété en T1 (`layers_test.dart`) |
 | `test/domain/`, `test/data/` | Règles métier et conversions ; tout `BR-xxx` se vérifie ici **ou nulle part** | ms | ✅ T0 |
 | `test/features/<feature>/view_model/` | La logique d'écran **sans rendu** : un `ChangeNotifier` est instancié avec un faux dépôt, une action est appelée, on observe l'état et les notifications. Aucun widget monté | ms | ✅ T1 (`ADR-014`) — `map`, `station_sheet`, `onde_sheet`, `warnings` |
-| `test/features/` | Un écran affiche ce que la règle impose : attribution présente, marqueurs filtrés, absence jamais neutre | dizaines de ms | ✅ T0 minimal, étendu en T1 (fiches, avertissements, clavier, taille minimale) |
+| `test/features/` | Un écran affiche ce que la règle impose : attribution présente, marqueurs filtrés, absence jamais neutre. **La plateforme est nommée par test** : `testWidgetsOnWindows` par défaut, `testWidgetsOnAndroid` pour un test qui porte sur Android (`test/support/`) ; `testWidgets` nu est refusé par le verrou `test/project/widget_test_platform_test.dart` (`N1` de T3), les fichiers pas encore migrés y formant une liste d'exceptions qui ne fait que décroître | dizaines de ms | ✅ T0 minimal, étendu en T1 (fiches, avertissements, clavier, taille minimale) |
 | `test/features/goldens/` | Rendu d'un marqueur : contraste, halo, atténuation d'une donnée périmée | secondes | ✅ T1 — **23 images versionnées** (`git ls-files`, 2026-09-23) : 20 en `U5` (2026-09-14) — 5 états de pastille, 12 marqueurs ONDE (6 catégories × 2 âges), 2 planches en niveaux de gris, 1 comparaison périmée / fraîche —, plus 3 pastilles de zone en `Z4` (`75cb36b`). ⚠️ **plateforme-dépendantes**, produites sur Windows |
-| `integration_test/` | Parcours complet, sur fenêtre ou appareil réel | minutes | 🔄 T3 — le dossier n'existe pas ; aucun parcours intégré en T1 |
+| `integration_test/` | Parcours complet, sur fenêtre ou appareil réel | minutes | 🔄 tranche ultérieure, non nommée (arbitrage 1 du 2026-10-12) — le dossier n'existe pas ; aucun parcours intégré en T1 |
 
 ```mermaid
 graph BT
@@ -51,7 +54,7 @@ L'étage `view_model` est **le premier gain de MVVM** : ce qui se testait autref
 `FlutterMap`. Un comportement d'écran qui **exige** un widget pour être vérifié est le signe qu'il
 est resté dans la vue.
 
-## 2. Les quatre règles qui décident de l'étage
+## 2. Les cinq règles qui décident de l'étage
 
 1. **Une règle métier se teste sans rendu.** Si vérifier `BR-005` demande un widget, la règle
    est mal placée : elle vit dans la vue, pas dans le domaine.
@@ -63,6 +66,11 @@ est resté dans la vue.
    ainsi n'est pas une borne.
 4. **Le hasard est injecté, jamais lu.** Instant courant, gigue de retry, état du réseau sont
    des paramètres passés au test, pas des valeurs constatées à l'exécution.
+5. **Un test de widget nomme sa plateforme.** `testWidgetsOnWindows` par défaut (Windows est la
+   première cible), `testWidgetsOnAndroid` pour un test qui porte sur Android — cible de 48,
+   mesures de téléphone, toute fenêtre de moins de 600 px de large —, ce que son titre dit.
+   Sous `flutter test` la plateforme par défaut est android : un test qui ne la nomme pas
+   mesure autre chose que ce qu'il annonce.
 
 ## 3. Ce qu'on ne teste pas, et pourquoi
 
