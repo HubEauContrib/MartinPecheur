@@ -28,6 +28,8 @@ import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_mod
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/windows_platform.dart';
+
 OndeStationCode _code() => OndeStationCode('K4520001');
 
 OndePoint _chaon({
@@ -223,7 +225,7 @@ void main() {
   });
 
   group('OndeSummarySheet — le contenu de la fiche (UC-004 § 3 et § 4)', () {
-    testWidgets(
+    testWidgetsOnWindows(
       "rend le libellé du point, son cours d'eau et son département",
       (WidgetTester tester) async {
         await _pump(tester, OndeSummarySheet(data: _data()));
@@ -237,7 +239,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       "cours d'eau nul → une absence honnête, jamais une ligne vide (BR-007)",
       (WidgetTester tester) async {
         await _pump(
@@ -249,7 +251,7 @@ void main() {
       },
     );
 
-    testWidgets('département nul → une absence honnête (BR-007)', (
+    testWidgetsOnWindows('département nul → une absence honnête (BR-007)', (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -260,7 +262,7 @@ void main() {
       expect(find.text(ondeDepartementNonRenseigne), findsOneWidget);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'rend la catégorie « À sec » — le libellé d INTERFACE, jamais « Assec »',
       (WidgetTester tester) async {
         await _pump(tester, OndeSummarySheet(data: _data()));
@@ -269,15 +271,18 @@ void main() {
       },
     );
 
-    testWidgets('rend la modalité officielle exacte : « code 3 » et « Assec » '
-        '(ADR-006, UC-004 § 3)', (WidgetTester tester) async {
-      await _pump(tester, OndeSummarySheet(data: _data()));
+    testWidgetsOnWindows(
+      'rend la modalité officielle exacte : « code 3 » et « Assec » '
+      '(ADR-006, UC-004 § 3)',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
 
-      expect(find.textContaining('code 3'), findsOneWidget);
-      expect(find.textContaining('Assec'), findsOneWidget);
-    });
+        expect(find.textContaining('code 3'), findsOneWidget);
+        expect(find.textContaining('Assec'), findsOneWidget);
+      },
+    );
 
-    testWidgets('rend la date de la campagne, sans heure (T-08)', (
+    testWidgetsOnWindows('rend la date de la campagne, sans heure (T-08)', (
       WidgetTester tester,
     ) async {
       await _pump(tester, OndeSummarySheet(data: _data()));
@@ -297,59 +302,70 @@ void main() {
       }
     });
 
-    testWidgets("rend l'âge de la campagne — le nombre et le mot « jour » "
-        '(BR-010)', (WidgetTester tester) async {
-      await _pump(tester, OndeSummarySheet(data: _data()));
+    testWidgetsOnWindows(
+      "rend l'âge de la campagne — le nombre et le mot « jour » "
+      '(BR-010)',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
 
-      expect(find.textContaining('il y a 19 jours'), findsOneWidget);
-    });
+        expect(find.textContaining('il y a 19 jours'), findsOneWidget);
+      },
+    );
 
     // L'invariant de `U4` : les trois informations sont sur la MÊME fiche et
     // dans CET ordre, sans exception (`UC-004`, `BR-010`, `ADR-006`).
-    testWidgets('ordre imposé : catégorie, puis modalité officielle, puis '
-        'date de campagne', (WidgetTester tester) async {
-      await _pump(tester, OndeSummarySheet(data: _data()));
+    testWidgetsOnWindows(
+      'ordre imposé : catégorie, puis modalité officielle, puis '
+      'date de campagne',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
 
-      final double category = tester.getTopLeft(find.text('À sec')).dy;
-      final double modality = tester
-          .getTopLeft(find.textContaining('code 3'))
-          .dy;
-      final double date = tester
-          .getTopLeft(find.textContaining('il y a 19 jours'))
-          .dy;
+        final double category = tester.getTopLeft(find.text('À sec')).dy;
+        final double modality = tester
+            .getTopLeft(find.textContaining('code 3'))
+            .dy;
+        final double date = tester
+            .getTopLeft(find.textContaining('il y a 19 jours'))
+            .dy;
 
-      expect(category, lessThan(modality));
-      expect(modality, lessThan(date));
-    });
+        expect(category, lessThan(modality));
+        expect(modality, lessThan(date));
+      },
+    );
 
     // L'invariant de `W4`, tenu désormais par le contrôle d'avertissement
     // (`W3c`) : voir le groupe « le contrôle d'avertissement de tête »
     // ci-dessous pour l'assertion d'ordre EN TÊTE, avant la catégorie.
 
-    testWidgets('rend les CINQ campagnes de la fixture, chacune avec sa date '
-        'et sa catégorie, la plus récente en tête (UC-004 § 4)', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, OndeSummarySheet(data: _data()));
+    testWidgetsOnWindows(
+      'rend les CINQ campagnes de la fixture, chacune avec sa date '
+      'et sa catégorie, la plus récente en tête (UC-004 § 4)',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
 
-      const List<String> expected = <String>[
-        '25/08/2026 — À sec',
-        '24/07/2026 — À sec',
-        '26/06/2026 — Eau stagnante',
-        '26/05/2026 — Eau qui coule',
-        '26/09/2025 — Écoulement faible',
-      ];
+        const List<String> expected = <String>[
+          '25/08/2026 — À sec',
+          '24/07/2026 — À sec',
+          '26/06/2026 — Eau stagnante',
+          '26/05/2026 — Eau qui coule',
+          '26/09/2025 — Écoulement faible',
+        ];
 
-      double previous = -1;
-      for (final String line in expected) {
-        expect(find.text(line), findsOneWidget, reason: 'ligne manquante');
-        final double top = tester.getTopLeft(find.text(line)).dy;
-        expect(top, greaterThan(previous), reason: 'ordre rompu sur « $line »');
-        previous = top;
-      }
-    });
+        double previous = -1;
+        for (final String line in expected) {
+          expect(find.text(line), findsOneWidget, reason: 'ligne manquante');
+          final double top = tester.getTopLeft(find.text(line)).dy;
+          expect(
+            top,
+            greaterThan(previous),
+            reason: 'ordre rompu sur « $line »',
+          );
+          previous = top;
+        }
+      },
+    );
 
-    testWidgets('le rappel de rythme est rendu (UC-004 § 5)', (
+    testWidgetsOnWindows('le rappel de rythme est rendu (UC-004 § 5)', (
       WidgetTester tester,
     ) async {
       await _pump(tester, OndeSummarySheet(data: _data()));
@@ -357,7 +373,7 @@ void main() {
       expect(find.text(ondeSeasonNotice), findsOneWidget);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       "$ondeSourceName est rendu avec la date de campagne (BR-001, point 32)",
       (WidgetTester tester) async {
         await _pump(tester, OndeSummarySheet(data: _data()));
@@ -375,15 +391,16 @@ void main() {
 
   group("OndeSummarySheet — le contrôle d'avertissement de tête (W3c, "
       'arbitrage du commanditaire du 2026-09-23)', () {
-    testWidgets('le contrôle est TOUJOURS rendu, avec ou sans campagne', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, OndeSummarySheet(data: _data()));
+    testWidgetsOnWindows(
+      'le contrôle est TOUJOURS rendu, avec ou sans campagne',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
 
-      expect(find.byType(WarningLink), findsOneWidget);
-    });
+        expect(find.byType(WarningLink), findsOneWidget);
+      },
+    );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'le contrôle est rendu EN TÊTE, avant la catégorie — assertion sur '
       "l'ORDRE dans l'arbre, pas sur la seule présence",
       (WidgetTester tester) async {
@@ -398,7 +415,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'avec une campagne, la fenêtre porte la phrase datée, plus insistante '
       'que la version station (UC-004 § 1)',
       (WidgetTester tester) async {
@@ -419,7 +436,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'sans campagne, le contrôle reste mais la fenêtre n\'a pas de phrase '
       'propre — arbitrage du commanditaire du 2026-09-23 : sans date, '
       'aucun encart',
@@ -450,22 +467,23 @@ void main() {
       officialModalityText: 'code 1f — Ecoulement visible faible',
     );
 
-    testWidgets('rend la mention « dernière observation le 26/09/2025 »', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, OndeSummarySheet(data: ancienne()));
+    testWidgetsOnWindows(
+      'rend la mention « dernière observation le 26/09/2025 »',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: ancienne()));
 
-      expect(
-        find.textContaining('dernière observation le 26/09/2025'),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.textContaining('dernière observation le 26/09/2025'),
+          findsOneWidget,
+        );
+      },
+    );
 
     // Relecture du 2026-09-14 : `#767676` (4,54:1) ne tient pas les 7:1
     // qu'exige `04-ui.md` § 3 pour un libellé d'état. `BR-010` reste
     // respecté autrement — la mention datée, vérifiée ici, et le marqueur
     // de la carte (`U3`) — sans recolorer le texte de la catégorie.
-    testWidgets(
+    testWidgetsOnWindows(
       "la mention datée est rendue et la catégorie ne porte pas #767676",
       (WidgetTester tester) async {
         await _pump(tester, OndeSummarySheet(data: ancienne()));
@@ -483,7 +501,7 @@ void main() {
       },
     );
 
-    testWidgets('une campagne récente ne porte pas la mention', (
+    testWidgetsOnWindows('une campagne récente ne porte pas la mention', (
       WidgetTester tester,
     ) async {
       await _pump(tester, OndeSummarySheet(data: _data()));
@@ -494,7 +512,7 @@ void main() {
   });
 
   group('OndeSummarySheet — les absences (UC-004 A2 et A4, BR-007)', () {
-    testWidgets(
+    testWidgetsOnWindows(
       "aucune campagne → le message d'absence, et la fiche N'EST PAS vidée "
       '(UC-004 A4, BR-007)',
       (WidgetTester tester) async {
@@ -522,7 +540,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'catégorie NonObserve → la phrase de UC-004 A2, jamais un état neutre',
       (WidgetTester tester) async {
         final OndeObservation nonObserve = _observation(
@@ -547,34 +565,36 @@ void main() {
       },
     );
 
-    testWidgets('une catégorie observée ne porte PAS la phrase de UC-004 A2', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, OndeSummarySheet(data: _data()));
+    testWidgetsOnWindows(
+      'une catégorie observée ne porte PAS la phrase de UC-004 A2',
+      (WidgetTester tester) async {
+        await _pump(tester, OndeSummarySheet(data: _data()));
 
-      expect(find.text(ondePointNonObserveText), findsNothing);
-    });
+        expect(find.text(ondePointNonObserveText), findsNothing);
+      },
+    );
   });
 
   group('vocabulaire — BR-003 et BR-014', () {
-    testWidgets('aucun des cinq mots bannis dans AUCUN des quatre états du '
-        'panneau — toute la copie du produit est balayée', (
-      WidgetTester tester,
-    ) async {
-      for (final OndeSheetState state in _panelStates()) {
-        await _pump(tester, OndeSheetPanel(state: state, onClose: () {}));
+    testWidgetsOnWindows(
+      'aucun des cinq mots bannis dans AUCUN des quatre états du '
+      'panneau — toute la copie du produit est balayée',
+      (WidgetTester tester) async {
+        for (final OndeSheetState state in _panelStates()) {
+          await _pump(tester, OndeSheetPanel(state: state, onClose: () {}));
 
-        for (final String text in _renderedTexts(tester)) {
-          expect(
-            _bannedWords.hasMatch(text),
-            isFalse,
-            reason: 'mot banni dans « $text » (état ${state.runtimeType})',
-          );
+          for (final String text in _renderedTexts(tester)) {
+            expect(
+              _bannedWords.hasMatch(text),
+              isFalse,
+              reason: 'mot banni dans « $text » (état ${state.runtimeType})',
+            );
+          }
         }
-      }
-    });
+      },
+    );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'aucun mot de garantie dans AUCUN des quatre états du panneau (BR-014)',
       (WidgetTester tester) async {
         for (final OndeSheetState state in _panelStates()) {
@@ -595,29 +615,34 @@ void main() {
     // La réserve de `BR-014` sur les libellés d'une autorité, bornée : le mot
     // « officiel » ne sert QU'À attribuer la nomenclature ONDE à sa source
     // (`UC-004 § 3`), jamais à qualifier nos propres données.
-    testWidgets("le mot « officiel » ne sert qu'à attribuer la nomenclature "
-        'ONDE', (WidgetTester tester) async {
-      final RegExp officiel = RegExp('officiel', caseSensitive: false);
+    testWidgetsOnWindows(
+      "le mot « officiel » ne sert qu'à attribuer la nomenclature "
+      'ONDE',
+      (WidgetTester tester) async {
+        final RegExp officiel = RegExp('officiel', caseSensitive: false);
 
-      for (final OndeSheetState state in _panelStates()) {
-        await _pump(tester, OndeSheetPanel(state: state, onClose: () {}));
+        for (final OndeSheetState state in _panelStates()) {
+          await _pump(tester, OndeSheetPanel(state: state, onClose: () {}));
 
-        for (final String text in _renderedTexts(tester)) {
-          if (!officiel.hasMatch(text)) {
-            continue;
+          for (final String text in _renderedTexts(tester)) {
+            if (!officiel.hasMatch(text)) {
+              continue;
+            }
+            expect(
+              text.startsWith(ondeModalitePrefix),
+              isTrue,
+              reason: 'occurrence hors attribution dans « $text »',
+            );
           }
-          expect(
-            text.startsWith(ondeModalitePrefix),
-            isTrue,
-            reason: 'occurrence hors attribution dans « $text »',
-          );
         }
-      }
-    });
+      },
+    );
   });
 
   group('OndeSheetPanel — les quatre états de la fiche', () {
-    testWidgets('OndeSheetFermee ne rend rien', (WidgetTester tester) async {
+    testWidgetsOnWindows('OndeSheetFermee ne rend rien', (
+      WidgetTester tester,
+    ) async {
       await _pump(
         tester,
         OndeSheetPanel(state: const OndeSheetFermee(), onClose: () {}),
@@ -627,7 +652,7 @@ void main() {
       expect(find.byType(OndeSummarySheet), findsNothing);
     });
 
-    testWidgets('OndeSheetEnCours nomme le point demandé', (
+    testWidgetsOnWindows('OndeSheetEnCours nomme le point demandé', (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -641,7 +666,7 @@ void main() {
       );
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       "OndeSheetEnEchec nomme la source défaillante et le point — jamais une "
       'feuille vide (UC-001 A4)',
       (WidgetTester tester) async {
@@ -661,21 +686,22 @@ void main() {
       },
     );
 
-    testWidgets('OndeSheetEnEchec ne rend jamais la cause technique brute', (
-      WidgetTester tester,
-    ) async {
-      await _pump(
-        tester,
-        OndeSheetPanel(
-          state: OndeSheetEnEchec(_chaon(), StateError('socket')),
-          onClose: () {},
-        ),
-      );
+    testWidgetsOnWindows(
+      'OndeSheetEnEchec ne rend jamais la cause technique brute',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          OndeSheetPanel(
+            state: OndeSheetEnEchec(_chaon(), StateError('socket')),
+            onClose: () {},
+          ),
+        );
 
-      expect(find.textContaining('socket'), findsNothing);
-    });
+        expect(find.textContaining('socket'), findsNothing);
+      },
+    );
 
-    testWidgets('OndeSheetPrete rend la feuille de résumé', (
+    testWidgetsOnWindows('OndeSheetPrete rend la feuille de résumé', (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -687,7 +713,7 @@ void main() {
       expect(find.text('LA RIVIERE AUX LOCHES A CHAON'), findsOneWidget);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'le bouton de fermeture mesure au moins 44 × 44 pt (04-ui.md § 3)',
       (WidgetTester tester) async {
         await _pump(
@@ -702,7 +728,7 @@ void main() {
       },
     );
 
-    testWidgets('le bouton de fermeture appelle onClose', (
+    testWidgetsOnWindows('le bouton de fermeture appelle onClose', (
       WidgetTester tester,
     ) async {
       int closed = 0;
@@ -717,23 +743,24 @@ void main() {
       expect(closed, 1);
     });
 
-    testWidgets('EnCours et EnEchec portent aussi un bouton de fermeture', (
-      WidgetTester tester,
-    ) async {
-      await _pump(
-        tester,
-        OndeSheetPanel(state: OndeSheetEnCours(_chaon()), onClose: () {}),
-      );
-      expect(find.byKey(ondeSheetCloseButtonKey), findsOneWidget);
+    testWidgetsOnWindows(
+      'EnCours et EnEchec portent aussi un bouton de fermeture',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          OndeSheetPanel(state: OndeSheetEnCours(_chaon()), onClose: () {}),
+        );
+        expect(find.byKey(ondeSheetCloseButtonKey), findsOneWidget);
 
-      await _pump(
-        tester,
-        OndeSheetPanel(
-          state: OndeSheetEnEchec(_chaon(), StateError('socket')),
-          onClose: () {},
-        ),
-      );
-      expect(find.byKey(ondeSheetCloseButtonKey), findsOneWidget);
-    });
+        await _pump(
+          tester,
+          OndeSheetPanel(
+            state: OndeSheetEnEchec(_chaon(), StateError('socket')),
+            onClose: () {},
+          ),
+        );
+        expect(find.byKey(ondeSheetCloseButtonKey), findsOneWidget);
+      },
+    );
   });
 }

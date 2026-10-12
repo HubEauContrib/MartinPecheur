@@ -23,6 +23,8 @@ import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
+import '../../../support/windows_platform.dart';
+
 /// Instant de mesure des deux fixtures : `date_obs` 2026-08-27T08:00:00Z.
 final DateTime _measuredAt = DateTime.utc(2026, 8, 27, 8);
 
@@ -197,26 +199,29 @@ void main() {
   group(
     'StationSummarySheet — date en heure locale, décalage injecté (H1)',
     () {
-      testWidgets('2026-08-27T08:00Z, +2 h injecté → 27/08/2026 à 10:00, sans '
-          'suffixe de fuseau', (WidgetTester tester) async {
-        await _pump(
-          tester,
-          StationSummarySheet(
-            data: _data(discharge: _discharge(), level: _level()),
-            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
-          ),
-        );
+      testWidgetsOnWindows(
+        '2026-08-27T08:00Z, +2 h injecté → 27/08/2026 à 10:00, sans '
+        'suffixe de fuseau',
+        (WidgetTester tester) async {
+          await _pump(
+            tester,
+            StationSummarySheet(
+              data: _data(discharge: _discharge(), level: _level()),
+              utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+            ),
+          );
 
-        expect(
-          find.text(
-            'Débit : 47,8 m³/s — mesuré le 27/08/2026 à 10:00 — '
-            "$hydrometrieSourceName",
-          ),
-          findsOneWidget,
-        );
-      });
+          expect(
+            find.text(
+              'Débit : 47,8 m³/s — mesuré le 27/08/2026 à 10:00 — '
+              "$hydrometrieSourceName",
+            ),
+            findsOneWidget,
+          );
+        },
+      );
 
-      testWidgets(
+      testWidgetsOnWindows(
         "l'instant est converti par un décalage négatif injecté (−3 h)",
         (WidgetTester tester) async {
           await _pump(
@@ -246,7 +251,7 @@ void main() {
   });
 
   group('StationSummarySheet — le contenu de la feuille (UC-003 § 2)', () {
-    testWidgets("rend libellé, cours d'eau et département", (
+    testWidgetsOnWindows("rend libellé, cours d'eau et département", (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -261,7 +266,7 @@ void main() {
       expect(find.textContaining('41'), findsWidgets);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'rend le débit en m³/s AVEC sa date, en heure locale, ET sa source, '
       "dans le MÊME Text (BR-001, BR-002, H1, point 32)",
       (WidgetTester tester) async {
@@ -283,7 +288,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'rend la hauteur en m AVEC sa date, signe conservé, en heure locale, '
       'ET sa source, dans le MÊME Text (H1, point 32)',
       (WidgetTester tester) async {
@@ -305,7 +310,7 @@ void main() {
       },
     );
 
-    testWidgets('rend statut et qualification, verbatim (BR-006)', (
+    testWidgetsOnWindows('rend statut et qualification, verbatim (BR-006)', (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -319,7 +324,7 @@ void main() {
       expect(find.textContaining('Bonne'), findsOneWidget);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'une observation périmée rend son avis de fraîcheur, avec la date '
       '(BR-005)',
       (WidgetTester tester) async {
@@ -342,7 +347,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'une mesure fraîche ne porte aucun avis de fraîcheur (BR-005)',
       (WidgetTester tester) async {
         await _pump(
@@ -356,7 +361,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       "débit absent → la phrase d'absence, jamais un zéro ni un tiret seul "
       '(BR-007, UC-003 A3)',
       (WidgetTester tester) async {
@@ -377,25 +382,26 @@ void main() {
       },
     );
 
-    testWidgets("hauteur absente → la même phrase d'absence (BR-007)", (
-      WidgetTester tester,
-    ) async {
-      await _pump(
-        tester,
-        StationSummarySheet(data: _data(discharge: _discharge())),
-      );
+    testWidgetsOnWindows(
+      "hauteur absente → la même phrase d'absence (BR-007)",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSummarySheet(data: _data(discharge: _discharge())),
+        );
 
-      expect(
-        find.textContaining(
-          "La station n'a pas transmis de valeur pour ce paramètre.",
-        ),
-        findsOneWidget,
-      );
-      final List<String> texts = _renderedTexts(tester);
-      expect(texts.any((String text) => text.contains(' m —')), isFalse);
-    });
+        expect(
+          find.textContaining(
+            "La station n'a pas transmis de valeur pour ce paramètre.",
+          ),
+          findsOneWidget,
+        );
+        final List<String> texts = _renderedTexts(tester);
+        expect(texts.any((String text) => text.contains(' m —')), isFalse);
+      },
+    );
 
-    testWidgets(
+    testWidgetsOnWindows(
       "cours d'eau nul → une absence honnête, jamais une ligne vide (BR-007)",
       (WidgetTester tester) async {
         await _pump(
@@ -416,15 +422,16 @@ void main() {
 
   group('StationSummarySheet — le contrôle d\'avertissement de tête (W3c, '
       'arbitrage du commanditaire du 2026-09-23)', () {
-    testWidgets('le contrôle est TOUJOURS rendu, avec ou sans mesure', (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, StationSummarySheet(data: _data()));
+    testWidgetsOnWindows(
+      'le contrôle est TOUJOURS rendu, avec ou sans mesure',
+      (WidgetTester tester) async {
+        await _pump(tester, StationSummarySheet(data: _data()));
 
-      expect(find.byType(WarningLink), findsOneWidget);
-    });
+        expect(find.byType(WarningLink), findsOneWidget);
+      },
+    );
 
-    testWidgets(
+    testWidgetsOnWindows(
       "le contrôle est rendu EN TÊTE, avant la valeur du débit — assertion "
       "sur l'ORDRE dans l'arbre, pas sur la seule présence",
       (WidgetTester tester) async {
@@ -445,36 +452,39 @@ void main() {
       },
     );
 
-    testWidgets('avec une mesure de débit, la fenêtre porte la phrase datée '
-        '(UC-003 § 1)', (WidgetTester tester) async {
-      await _pump(
-        tester,
-        StationSummarySheet(
-          data: _data(discharge: _discharge(), level: _level()),
-          utcOffsetOf: (DateTime _) => const Duration(hours: 2),
-        ),
-      );
+    testWidgetsOnWindows(
+      'avec une mesure de débit, la fenêtre porte la phrase datée '
+      '(UC-003 § 1)',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSummarySheet(
+            data: _data(discharge: _discharge(), level: _level()),
+            utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+          ),
+        );
 
-      await tester.tap(find.byKey(warningLinkKey));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('Mesure brute du 27/08/2026 à 10:00'),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .widget<Text>(find.byKey(warningWindowExtraTextKey))
-            .data!
-            .contains('lâchers de barrage'),
-        isTrue,
-        reason:
-            'la phrase propre à la fiche (sous le corps général) porte '
-            'bien la mention des lâchers de barrage',
-      );
-    });
+        expect(
+          find.textContaining('Mesure brute du 27/08/2026 à 10:00'),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<Text>(find.byKey(warningWindowExtraTextKey))
+              .data!
+              .contains('lâchers de barrage'),
+          isTrue,
+          reason:
+              'la phrase propre à la fiche (sous le corps général) porte '
+              'bien la mention des lâchers de barrage',
+        );
+      },
+    );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'sans débit ni hauteur, le contrôle reste mais la fenêtre n\'a pas '
       'de phrase propre — arbitrage du commanditaire du 2026-09-23 : sans '
       'date, aucun encart',
@@ -497,7 +507,7 @@ void main() {
   // deux libellés d'API sont donc neutres ici, pour que le balayage ne
   // mesure que la copie du produit.
   group('vocabulaire — BR-003 et BR-014', () {
-    testWidgets(
+    testWidgetsOnWindows(
       'aucun des cinq mots bannis dans AUCUN des cinq états du panneau — '
       'toute la copie du produit est balayée, pas la seule feuille',
       (WidgetTester tester) async {
@@ -515,7 +525,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'aucun mot de garantie dans AUCUN des cinq états du panneau (BR-014)',
       (WidgetTester tester) async {
         for (final StationSheetState state in _panelStates()) {
@@ -533,31 +543,34 @@ void main() {
       },
     );
 
-    testWidgets('aucun des cinq mots bannis dans les textes du produit', (
+    testWidgetsOnWindows(
+      'aucun des cinq mots bannis dans les textes du produit',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSummarySheet(
+            data: _data(
+              discharge: _discharge(),
+              level: _level(),
+              qualificationLabel: 'non qualifiée',
+              stalenessNotice: 'Dernière mesure il y a 3 h',
+            ),
+          ),
+        );
+
+        for (final String text in _renderedTexts(tester)) {
+          expect(
+            _bannedWords.hasMatch(text),
+            isFalse,
+            reason: 'mot banni dans « $text »',
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows('aucun mot de garantie (BR-014)', (
       WidgetTester tester,
     ) async {
-      await _pump(
-        tester,
-        StationSummarySheet(
-          data: _data(
-            discharge: _discharge(),
-            level: _level(),
-            qualificationLabel: 'non qualifiée',
-            stalenessNotice: 'Dernière mesure il y a 3 h',
-          ),
-        ),
-      );
-
-      for (final String text in _renderedTexts(tester)) {
-        expect(
-          _bannedWords.hasMatch(text),
-          isFalse,
-          reason: 'mot banni dans « $text »',
-        );
-      }
-    });
-
-    testWidgets('aucun mot de garantie (BR-014)', (WidgetTester tester) async {
       await _pump(
         tester,
         StationSummarySheet(
@@ -580,7 +593,7 @@ void main() {
   });
 
   group('StationSheetPanel — les cinq états de la fiche', () {
-    testWidgets('Fermee ne rend rien', (WidgetTester tester) async {
+    testWidgetsOnWindows('Fermee ne rend rien', (WidgetTester tester) async {
       await _pump(
         tester,
         StationSheetPanel(state: const Fermee(), onClose: () {}),
@@ -590,7 +603,7 @@ void main() {
       expect(find.byType(StationSummarySheet), findsNothing);
     });
 
-    testWidgets('EnCours rend le code de la station demandée', (
+    testWidgetsOnWindows('EnCours rend le code de la station demandée', (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -601,7 +614,7 @@ void main() {
       expect(find.textContaining('K447001001'), findsOneWidget);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'EnEchec nomme la source défaillante et le code — jamais une feuille '
       'vide (UC-001 A4)',
       (WidgetTester tester) async {
@@ -618,7 +631,7 @@ void main() {
       },
     );
 
-    testWidgets('EnEchec ne rend jamais la cause technique brute', (
+    testWidgetsOnWindows('EnEchec ne rend jamais la cause technique brute', (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -635,7 +648,7 @@ void main() {
     // Les 37 stations sans `code_departement` sont sur la carte et tapables,
     // sans entrée dans le référentiel embarqué : aucun appel réseau n'a eu
     // lieu, nommer Hub'Eau serait une accusation fausse (BR-007, UC-001 A4).
-    testWidgets(
+    testWidgetsOnWindows(
       "Introuvable dit l'absence du référentiel embarqué et ne nomme PAS "
       "Hub'Eau — aucun réseau n'a été appelé (BR-007)",
       (WidgetTester tester) async {
@@ -654,7 +667,7 @@ void main() {
       },
     );
 
-    testWidgets('Introuvable porte aussi un bouton de fermeture', (
+    testWidgetsOnWindows('Introuvable porte aussi un bouton de fermeture', (
       WidgetTester tester,
     ) async {
       await _pump(
@@ -665,7 +678,9 @@ void main() {
       expect(find.byKey(stationSheetCloseButtonKey), findsOneWidget);
     });
 
-    testWidgets('Prete rend la feuille de résumé', (WidgetTester tester) async {
+    testWidgetsOnWindows('Prete rend la feuille de résumé', (
+      WidgetTester tester,
+    ) async {
       await _pump(
         tester,
         StationSheetPanel(
@@ -678,7 +693,7 @@ void main() {
       expect(find.text('La Loire à Blois'), findsOneWidget);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'Prete transmet utcOffsetOf à StationSummarySheet : +2 h injecté '
       'rend « 10:00 » (H1, le panneau transmet le décalage)',
       (WidgetTester tester) async {
@@ -695,7 +710,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'le bouton de fermeture mesure au moins 44 × 44 pt (04-ui.md § 3)',
       (WidgetTester tester) async {
         await _pump(
@@ -714,7 +729,7 @@ void main() {
       },
     );
 
-    testWidgets('le bouton de fermeture appelle onClose', (
+    testWidgetsOnWindows('le bouton de fermeture appelle onClose', (
       WidgetTester tester,
     ) async {
       int closed = 0;
@@ -732,23 +747,24 @@ void main() {
       expect(closed, 1);
     });
 
-    testWidgets('EnCours et EnEchec portent aussi un bouton de fermeture', (
-      WidgetTester tester,
-    ) async {
-      await _pump(
-        tester,
-        StationSheetPanel(state: EnCours(_code()), onClose: () {}),
-      );
-      expect(find.byKey(stationSheetCloseButtonKey), findsOneWidget);
+    testWidgetsOnWindows(
+      'EnCours et EnEchec portent aussi un bouton de fermeture',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          StationSheetPanel(state: EnCours(_code()), onClose: () {}),
+        );
+        expect(find.byKey(stationSheetCloseButtonKey), findsOneWidget);
 
-      await _pump(
-        tester,
-        StationSheetPanel(
-          state: EnEchec(_code(), StateError('socket')),
-          onClose: () {},
-        ),
-      );
-      expect(find.byKey(stationSheetCloseButtonKey), findsOneWidget);
-    });
+        await _pump(
+          tester,
+          StationSheetPanel(
+            state: EnEchec(_code(), StateError('socket')),
+            onClose: () {},
+          ),
+        );
+        expect(find.byKey(stationSheetCloseButtonKey), findsOneWidget);
+      },
+    );
   });
 }
