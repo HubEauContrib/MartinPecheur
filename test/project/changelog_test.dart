@@ -148,20 +148,6 @@ void main() {
     Iterable<String> puces(String texte) =>
         texte.split('\n').where((String l) => l.startsWith('- '));
 
-    test('pubspec.yaml porte version: 0.3.0+3', () {
-      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
-      expect(
-        RegExp(
-          r'^version:\s*0\.3\.0\+3\s*$',
-          multiLine: true,
-        ).hasMatch(contenuPubspec),
-        isTrue,
-        reason:
-            'un tag et un journal qui divergent laissent personne savoir ce '
-            'que contient le binaire installe',
-      );
-    });
-
     // Task P3 du plan T2 : la version se date. La date est epinglee : le
     // chapeau la redit, et les deux doivent nommer le meme jour.
     test('la version 0.3.0 est datee du 2026-10-09, sans « a publier »', () {
@@ -444,6 +430,102 @@ void main() {
             'borne a la section 0.2.0 : sans cela, le Non verifie de 0.1.0 '
             'suffirait',
       );
+    });
+  });
+
+  // Task O1 du plan T3 ouvre la version 0.4.0 ; P3 la datera.
+  group('version 0.4.0 (Tasks O1 et P3 du plan T3)', () {
+    late String contenuChangelog;
+
+    setUpAll(() {
+      contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    });
+
+    // Le texte de la section `## [0.4.0]`, jusqu'a la section suivante.
+    String section040() {
+      final int debut = contenuChangelog.indexOf('## [0.4.0]');
+      expect(debut, isNot(-1), reason: 'aucune section ## [0.4.0]');
+      final int suivante = contenuChangelog.indexOf('\n## [', debut + 1);
+      return contenuChangelog.substring(
+        debut,
+        suivante == -1 ? contenuChangelog.length : suivante,
+      );
+    }
+
+    // Le texte d'une sous-section `### <titre>` de la section 0.4.0.
+    String sousSection(String titre) {
+      final String section = section040();
+      final int debut = section.indexOf('### $titre');
+      expect(debut, isNot(-1), reason: 'aucune sous-section ### $titre');
+      final int suivante = section.indexOf('\n### ', debut + 1);
+      return section.substring(
+        debut,
+        suivante == -1 ? section.length : suivante,
+      );
+    }
+
+    test('pubspec.yaml porte version: 0.4.0+4', () {
+      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        RegExp(
+          r'^version:\s*0\.4\.0\+4\s*$',
+          multiLine: true,
+        ).hasMatch(contenuPubspec),
+        isTrue,
+        reason:
+            'un tag et un journal qui divergent laissent personne savoir ce '
+            'que contient le binaire installe',
+      );
+    });
+
+    test('la version 0.4.0 est ouverte', () {
+      final String? ligne = contenuChangelog
+          .split('\n')
+          .map((String l) => l.trimRight())
+          .where((String l) => l.startsWith('## [0.4.0]'))
+          .firstOrNull;
+      expect(ligne, isNotNull);
+      expect(ligne, equals('## [0.4.0] — à publier'));
+    });
+
+    test('une section ## [0.4.0], une seule, sous [Non publié] et au-dessus '
+        'de [0.3.0]', () {
+      final int occurrences = RegExp(
+        r'^## \[0\.4\.0\]',
+        multiLine: true,
+      ).allMatches(contenuChangelog).length;
+      expect(occurrences, 1);
+      final int nonPublie = contenuChangelog.indexOf('## [Non publié]');
+      final int v040 = contenuChangelog.indexOf('## [0.4.0]');
+      final int v030 = contenuChangelog.indexOf('## [0.3.0]');
+      expect(nonPublie, lessThan(v040));
+      expect(v040, lessThan(v030));
+    });
+
+    test('le chapeau de 0.4.0 dit qu\'elle est ouverte et pas publiée, et que '
+        'la porte de T2 reste due', () {
+      final String section = section040();
+      final int finTitre = section.indexOf('\n');
+      final int premiereSousSection = section.indexOf('\n### ');
+      expect(premiereSousSection, isNot(-1));
+      final String chapeau = section
+          .substring(finTitre, premiereSousSection)
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(chapeau, contains('Version ouverte'));
+      expect(chapeau, contains('pas publiée'));
+      expect(chapeau, contains('la porte de T2 reste due'));
+    });
+
+    test('le Non vérifié de 0.4.0 n\'est pas vide', () {
+      final String nonVerifie = sousSection('Non vérifié');
+      expect(
+        nonVerifie.split('\n').where((String l) => l.startsWith('- ')),
+        isNotEmpty,
+        reason: 'une section Non verifie vide ferait croire a un produit fini',
+      );
+      expect(nonVerifie, contains('Android'));
+      expect(nonVerifie, contains('porte de T3'));
+      expect(nonVerifie, contains('écran de T3'));
     });
   });
 }

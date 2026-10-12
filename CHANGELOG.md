@@ -11,6 +11,20 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [0.4.0] — à publier
+
+Quatrième tranche (T3) : les favoris, les filtres de la carte et le critère
+de fraîcheur. **Version ouverte**, pas publiée : rien n'en est encore livré,
+ce que la tranche ajoute s'écrit à sa fin ; la porte de T2 reste due (`A1`,
+`E4`, `P1`, `P2`).
+
+### Non vérifié
+
+- Aucun écran de T3 n'existe ni n'est constaté.
+- La porte de T3 est sur Windows et sur Android (arbitrage 7 du cadrage) ; elle
+  dépend d'une construction Android jamais constatée.
+- Aucun exécutable de release de `0.3.0` ni de `0.4.0` n'est construit.
+
 ## [0.3.0] — 2026-10-09
 
 Troisième tranche (T2) : la sécheresse et les restrictions, lues sur VigiEau

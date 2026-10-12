@@ -89,7 +89,7 @@ Appels réels, datés, conservés en fixtures, sur : la structure de la réponse
 ### Dépendances
 
 - **T3** : les favoris (`US-14`) sont le socle des lieux suivis.
-- **Stockage structuré** : `ADR-011` laisse le moteur ouvert et lie ce choix aux favoris. Il se tranche donc avec T3 ; T5 s'appuie dessus.
+- **Stockage structuré** : `ADR-011` laisse le moteur ouvert et lie ce choix aux favoris. ~~Il se tranche donc avec T3 ; T5 s'appuie dessus.~~ **Corrigé le 2026-10-12 (arbitrage 2 du cadrage de T3) :** les favoris de T3 sont en `shared_preferences` ; le moteur structuré reste ouvert jusqu'au hors-ligne (`US-10`). T5 ne peut pas compter qu'il soit tranché avant elle.
 - **Bibliothèque de notifications** : aucune relevée. À vérifier sur `pub.dev` avant ajout — version, licence compatible GPL-3.0, plateformes dont Windows, date de dernière publication.
 - **T4** pour les avis de crue ; les avis de sécheresse ne dépendent que de T2 et T3.
 

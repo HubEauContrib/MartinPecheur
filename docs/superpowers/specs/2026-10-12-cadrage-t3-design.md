@@ -1,6 +1,6 @@
 # Cadrage de T3 — Favoris, filtres, fraîcheur
 
-**Date :** 2026-10-12 · **Statut :** 🔄 **proposé, soumis à la relecture du commanditaire ; huit arbitrages reçus le 2026-10-12** (§ 2) — plus aucune question ouverte ; **les textes de § 10.1 (amendements de règles métier, textes d'écran) sont soumis à son approbation avec ce document** · **Branche :** `feat/t3-favoris-filtres`, partie de `dev` à `1247de3` · **État vivant :** [`project-state.md`](../../project-state.md)
+**Date :** 2026-10-12 · **Statut :** ✅ **approuvé par le commanditaire le 2026-10-12** ; huit arbitrages reçus le 2026-10-12 (§ 2) — plus aucune question ouverte ; les textes de § 10.1 (amendements de règles métier, textes d'écran) sont approuvés avec ce document · **Branche :** `feat/t3-favoris-filtres`, partie de `dev` à `1247de3` · **État vivant :** [`project-state.md`](../../project-state.md)
 
 > Ce document décide du **quoi**, du **pourquoi** et des **frontières** (où vit quoi, au regard d'[`ADR-014`](../../adr/ADR-014-feature-first-mvvm.md)). Il ne fixe ni la disposition ni les tâches : le plan vient après. Tout fait de code est cité `fichier:ligne`, lu le 2026-10-12 ; ce qui n'a pas été lu est marqué 💭. Relu par un second agent le 2026-10-12 ; ses corrections sont intégrées.
 
