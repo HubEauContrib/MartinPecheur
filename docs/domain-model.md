@@ -175,6 +175,46 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
   est un **résultat** (`false`), jamais une exception : l'adresse brute reste à l'écran
   (`UC-002 A6`).
 
+## Contexte Favoris — une identité copiée à l'ajout (T3, S1)
+
+Un **favori** est un lieu que l'usager choisit de retrouver. L'application en garde l'identité
+copiée à l'ajout — nom, code, date d'ajout —, jamais une mesure. `Favorite` est un type clos à
+trois branches (`BR-011`) :
+
+- `StationFavorite` — code station et libellé, **sans coordonnées** ;
+- `OndePointFavorite` — le point ONDE **entier** (la fiche s'ouvre avec lui) ;
+- `UnreadableFavorite` — une entrée que cette version ne sait pas lire : gardée, affichée par son
+  libellé s'il est connu, retirable par son texte brut.
+
+La clé d'un lieu est le **couple type et code** (`sameFavoritePlace`) : un code ONDE est une chaîne
+libre, rien n'interdit qu'il égale un code station. `addedAt` est en UTC. L'égalité est
+structurelle ; `OndePoint` n'a pas d'égalité et n'en reçoit pas, `OndePointFavorite` compare ses
+sept champs un à un.
+
+`FavoriteRepository` (`lib/domain/favorites/`) : `readAll` (liste non modifiable, dernier ajouté
+en tête), `add` (en tête ; un lieu déjà présent ne change rien), `remove`, `clear` (sans lire). Son
+échec, `FavoriteStorageFailure`, est **levé** : `ListeDeFavorisIllisible` ou
+`EcritureDeFavorisEnEchec`.
+
+```mermaid
+classDiagram
+    class Favorite { <<sealed>> }
+    class StationFavorite { +StationCode code +String label +DateTime addedAt }
+    class OndePointFavorite { +OndePoint point +DateTime addedAt }
+    class UnreadableFavorite { +String raw +String? label }
+    class FavoriteRepository { <<interface>> readAll() add() remove() clear() }
+    class FavoriteStorageFailure { <<sealed>> +String diagnostic }
+    class ListeDeFavorisIllisible
+    class EcritureDeFavorisEnEchec
+    Favorite <|-- StationFavorite
+    Favorite <|-- OndePointFavorite
+    Favorite <|-- UnreadableFavorite
+    FavoriteRepository ..> Favorite
+    FavoriteRepository ..> FavoriteStorageFailure : lève
+    FavoriteStorageFailure <|-- ListeDeFavorisIllisible
+    FavoriteStorageFailure <|-- EcritureDeFavorisEnEchec
+```
+
 ## Agrégats
 
 - **Station observée** — racine `Station`, dernière observation connue par `Grandeur`. Une

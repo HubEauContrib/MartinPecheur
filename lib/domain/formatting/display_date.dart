@@ -58,6 +58,17 @@ String formatLocalDateTime(
       '${local.year} à ${_twoDigits(local.hour)}:${_twoDigits(local.minute)}';
 }
 
+/// Formate le JOUR local de l'INSTANT [instant] en `'JJ/MM/AAAA'`, même
+/// calcul que [formatLocalDateTime], sans l'heure.
+String formatLocalDate(
+  DateTime instant, {
+  UtcOffsetOf offsetOf = systemUtcOffsetOf,
+}) {
+  final DateTime utcInstant = instant.toUtc();
+  final DateTime local = utcInstant.add(offsetOf(utcInstant));
+  return '${_twoDigits(local.day)}/${_twoDigits(local.month)}/${local.year}';
+}
+
 /// Formate la DATE CALENDAIRE [date] en `'JJ/MM/AAAA'`, SANS aucune
 /// conversion de fuseau : une campagne ONDE n'a pas d'heure (`T-08`), et la
 /// convertir la reculerait d'un jour à l'ouest de Greenwich. Les composantes

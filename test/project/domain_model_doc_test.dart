@@ -56,6 +56,14 @@ const List<String> typesDuDomaine = <String>[
   'Metres',
   'MapFilter',
   'DischargeFreshnessCriterion',
+  'Favorite',
+  'StationFavorite',
+  'OndePointFavorite',
+  'UnreadableFavorite',
+  'FavoriteRepository',
+  'FavoriteStorageFailure',
+  'ListeDeFavorisIllisible',
+  'EcritureDeFavorisEnEchec',
 ];
 
 /// Types envisagés mais pas encore écrits sous lib/domain/ (Écoulement

@@ -26,6 +26,7 @@ modèle et les APIs.
 | **Arrêté-cadre** | `RestrictionDecree.frameworkDocument` (T2) | Le second document PDF que la source rattache à une zone, distinct de l'arrêté de restriction : « Ouvrir l'arrêté-cadre » à côté de « Ouvrir l'arrêté ». Ce que contient un arrêté-cadre n'est pas défini par ce projet, et l'application ne l'explique pas : elle donne son adresse et le moyen de l'ouvrir. Seul l'arrêté fait foi. |
 | **Point désigné** | `GeoPoint` (T2) | Le lieu que l'usager désigne sur la carte pour lire les restrictions : le choix « Restrictions » puis le bouton « Restrictions au centre de la carte », un appui long, ou un clic droit. L'écran le rappelle : « Point désigné : 46,20000° N, 5,22600° E ». Ce n'est ni la position de l'appareil, ni une station : une restriction se lit en un lieu, jamais d'une station. |
 | **Filtre** | `MapFilter` (T3) | Ce qui masque des lieux à l'intérieur de l'échelle affichée : des états (écoulement), un département, la fraîcheur d'une mesure (débit). Il ne choisit pas l'échelle — ce sont les puces d'échelle. Un lieu masqué n'est pas une absence de donnée. Gardé le temps de la session, jamais enregistré. |
+| **Favori** | `Favorite` (T3) | Un lieu que l'usager choisit de retrouver — une station hydrométrique ou un point ONDE. L'application en garde l'identité (nom, code, date d'ajout), jamais une mesure. |
 | **UDI** | — | La zone desservie par un même réseau d'eau du robinet. **Concerne l'eau potable, pas la rivière.** Hors périmètre v1 (`ADR-007`). |
 
 ## Contextes bornés
