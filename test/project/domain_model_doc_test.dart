@@ -42,6 +42,7 @@ const List<String> typesDuDomaine = <String>[
   'DocumentLink',
   'RestrictedUsage',
   'ZonesAtPoint',
+  'DecreeDocument',
   'RestrictionSource',
   'RestrictionLookupFailure',
   'SourceInjoignable',

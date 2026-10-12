@@ -149,6 +149,8 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
   (`EauxSouterraines`, puis `EauPotable`, puis `TypeZoneInconnu`) et dans l'ordre de la source à
   l'intérieur d'un même type. **Aucun tri par sévérité** : chaque zone régit ses propres usages,
   rien ne fonde une zone « principale » (`Q5-B`).
+- `DecreeDocument` — un document distinct cité par les zones d'un point ; dédoublonnage par
+  adresse exacte et par rôle, dates partagées (T3, `R1`).
 - `RestrictionSource` — le contrat qui rend un `ZonesAtPoint` pour un `GeoPoint` (T2, M4). Passé au
   domaine depuis `lib/data/` (`ADR-014`, règle `features-vers-data`) : un ViewModel ne pouvait pas
   l'importer autrement. L'ancienne couture `lib/data/restrictions/restriction_source.dart`
