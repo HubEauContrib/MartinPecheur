@@ -2211,7 +2211,9 @@ Attendu, **inconnu d'avance** : la construction Gradle aboutit (premier passage 
 
 ## Décisions à valider avec le plan
 
-### Au commanditaire
+### Au commanditaire — arbitrées le 2026-10-12
+
+> **Plan approuvé par le commanditaire le 2026-10-12 (« Approuvé, exécuter »), avec ces réponses : 1 → A · 2 → A · 3 → A · 4 → A.** Pour 2 et 3, il a coché les deux propositions en ajoutant « je ne sais pas » : elles sont **retenues par défaut** (lecture de la boucle principale, réversible) ; il les confirme ou les écarte à la séance de constat. `P1-m` et `P2-m` se font donc, sauf contrordre.
 
 | # | Question | Options | Recommandation |
 |---|---|---|---|
