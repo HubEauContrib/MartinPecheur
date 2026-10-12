@@ -180,7 +180,11 @@ class RestrictionsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    const _TitleBar(),
+                    const ScreenTitleBar(
+                      title: restrictionsScreenTitle,
+                      backgroundColor: droughtScreenBackground,
+                      titleColor: droughtLevelLabelColor,
+                    ),
                     // Encart renforce (E4, Q-4 amende le 2026-09-29) : tete
                     // epinglee tant qu'elle tient dans la moitie de la hauteur
                     // utile, sinon tout l'encart defile en tete.
@@ -640,44 +644,6 @@ String _zoneTitle(AlertZone zone) =>
 String _datedLevel(AlertZone zone) =>
     '${droughtSeverityLabel(zone.severity)} · depuis le '
     '${formatCalendarDate(zone.decree.validFrom)}';
-
-class _TitleBar extends StatelessWidget {
-  const _TitleBar();
-
-  @override
-  Widget build(BuildContext context) {
-    // Pas d'`AppBar` : sa hauteur est fixe, et son titre serait tronque a
-    // 200 % de police sur un telephone. Cette barre grandit avec le texte.
-    return Material(
-      color: droughtScreenBackground,
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          children: <Widget>[
-            BackButton(
-              style: IconButton.styleFrom(
-                minimumSize: Size.square(minimumTapTarget),
-                visualDensity: VisualDensity.standard,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Semantics(
-                header: true,
-                child: Text(
-                  restrictionsScreenTitle,
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(color: droughtLevelLabelColor),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
