@@ -54,6 +54,8 @@ const List<String> typesDuDomaine = <String>[
   'Millimetres',
   'CubicMetresPerSecond',
   'Metres',
+  'MapFilter',
+  'DischargeFreshnessCriterion',
 ];
 
 /// Types envisagés mais pas encore écrits sous lib/domain/ (Écoulement

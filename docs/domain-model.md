@@ -35,6 +35,7 @@ Immuables, sans identité — deux instances aux mêmes champs sont interchangea
 | `Qualification` | Statut et qualification d'une observation, transportés tels quels (`BR-006`) — aucun champ n'est interprété ni filtré ici. |
 | `Bounds` | Emprise rectangulaire WGS 84 (`lib/domain/geo/bounds.dart`). Refuse une emprise inversée (`west >= east` ou `south >= north`) à la construction. Rangée sous `geo/` et non dans le fichier des contrats de dépôt : la vue en construit une à chaque relâchement de geste, et elle n'a pas à importer `StationRepository` pour cela. |
 | `GeoPoint` | Point désigné par l'usager sur la carte (`lib/domain/geo/geo_point.dart`, T2). Refuse une latitude hors `[-90, 90]`, une longitude hors `[-180, 180]`, `NaN` ou une valeur infinie sur l'une ou l'autre — à la construction, aucun arrondi. Seule entrée géographique de T2 (Q1-A) : une paire de `double` nus ouvrirait la porte à une inversion latitude/longitude. |
+| `MapFilter` | Filtre de la carte (`lib/domain/filters/map_filter.dart`, T3). Six booléens, un par branche de `FlowCategory`, un code de département ou aucun, un `DischargeFreshnessCriterion`. Aucun critère actif au départ (`MapFilter.none`). La décision se prend par `switch` sur le **type** : `Inconnu` est égal par code brut, un ensemble laisserait passer `Inconnu('9')`. Deux membres, `isActiveForFlow` et `isActiveForDischarge`, et aucun paramètre d'échelle : `MapScaleKind` vit dans la tranche carte. Gardé le temps de la session, jamais enregistré. |
 
 `StationCode`, `DepartementCode`, `Qualification`, `Bounds` et `GeoPoint` sont des classes, et
 non des `extension type` comme les unités, précisément **parce qu'elles valident**.
@@ -46,6 +47,10 @@ non des `extension type` comme les unités, précisément **parce qu'elles valid
 
 - `Freshness` — fraîcheur d'une observation, calculée (`fraiche` / `ancienne` / `perimee`), sans
   objet propre.
+- `DischargeFreshnessCriterion` — `enum` fermé du filtre (`toutes` / `moinsDe2h` / `moinsDe24h`),
+  sans branche inconnue : choisi par l'usager, jamais reçu d'une API. Ses bornes sont celles de
+  `Freshness` (`BR-005`), lues et non recopiées ; `dischargeFreshnessAdmits` et
+  `dischargeFreshnessCriterionLabel` en sont le prédicat et le libellé.
 - `Grandeur` — hauteur / débit / **`inconnu`** : un code non reconnu ne s'assimile jamais à
   `debit`, ce qui afficherait des mètres comme des m³/s.
 - `FlowCategory` — sealed, branche par défaut `Inconnu`, porteur du code brut reçu (`rawCode`) —
