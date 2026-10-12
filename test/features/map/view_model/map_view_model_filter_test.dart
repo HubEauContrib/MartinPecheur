@@ -406,7 +406,8 @@ void main() {
       expect(notifications, 0);
     });
 
-    test("applyFilter et clearFilter n'appellent aucun dépôt", () async {
+    test("applyFilter et clearFilter n'appellent aucun dépôt sur l'échelle "
+        'écoulement', () async {
       repository.answer = (int _) async => _stationSet();
       onde.answer = (int _) async => _ondeSet();
       final MapViewModel viewModel = build();
@@ -1175,5 +1176,299 @@ void main() {
         expect(await withoutMemo.departements(), isNull);
       },
     );
+  });
+
+  group('le filtre a vidé la carte', () {
+    /// `B` et `R3` : deux points « Assec » du `41`, région `24`.
+    List<OndeObservation> deuxAssecs() => <OndeObservation>[
+      _obs(
+        _b,
+        category: const Assec(),
+        departement: _loirEtCher,
+        region: _centreValDeLoire,
+        longitude: 1.2,
+      ),
+      _obs(
+        'K4520013',
+        category: const Assec(),
+        departement: _loirEtCher,
+        region: _centreValDeLoire,
+        latitude: 47.8,
+        longitude: 1.8,
+      ),
+    ];
+
+    Future<MapViewModel> onFlowAt(
+      double zoom,
+      List<OndeObservation> lues,
+    ) async {
+      onde.answer = (int _) async => lues;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.onGestureEnded(_loireBounds(), zoom: zoom);
+      return viewModel;
+    }
+
+    Future<MapViewModel> onDischargeAt(
+      double zoom,
+      List<StationPoint> lues,
+    ) async {
+      repository.answer = (int _) async => lues;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      await viewModel.onGestureEnded(_loireBounds(), zoom: zoom);
+      return viewModel;
+    }
+
+    List<StationPoint> deuxDu37() => <StationPoint>[
+      _station(_s1, departement: _indreEtLoire, longitude: 1.1),
+      _station(_s2, departement: _indreEtLoire, longitude: 1.2),
+    ];
+
+    /// Toute mesure rendue a dépassé [perimeeApres] : `Chargee(perimee)`.
+    void answerStale() {
+      final DateTime stale = nowAtTen().subtract(
+        perimeeApres + const Duration(hours: 1),
+      );
+      observations.answer = (StationCode station, int _) async =>
+          _discharge(station, stale);
+    }
+
+    test('sans filtre : faux, emprise vide comme pleine', () async {
+      final MapViewModel vide = await onFlowAt(
+        individualMarkersFromZoom,
+        <OndeObservation>[],
+      );
+      expect(vide.filterHidesEverything, isFalse);
+
+      final MapViewModel pleine = await onFlowAt(
+        individualMarkersFromZoom,
+        _ondeSet(),
+      );
+      expect(pleine.filterHidesEverything, isFalse);
+
+      final MapViewModel debit = await onDischargeAt(
+        individualMarkersFromZoom,
+        _stationSet(),
+      );
+      expect(debit.filterHidesEverything, isFalse);
+    });
+
+    for (final double zoom in <double>[individualMarkersFromZoom, 6]) {
+      test('écoulement, zoom $zoom, deux points « Assec » et la case Assec '
+          'décochée : vrai', () async {
+        final MapViewModel viewModel = await onFlowAt(zoom, deuxAssecs());
+
+        viewModel.applyFilter(sansAssec);
+
+        expect(viewModel.ondeObservations, hasLength(2));
+        expect(viewModel.filterHidesEverything, isTrue);
+      });
+    }
+
+    test("écoulement, case Assec décochée, lecture ONDE vide : faux (c'est "
+        "l'avis d'absence habituel)", () async {
+      final MapViewModel viewModel = await onFlowAt(
+        individualMarkersFromZoom,
+        <OndeObservation>[],
+      );
+
+      viewModel.applyFilter(sansAssec);
+
+      expect(viewModel.filterActive, isTrue);
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
+
+    test('écoulement, deux points « Assec », moins de 2 h seul : faux (le '
+        "critère n'est pas actif pour l'écoulement)", () async {
+      final MapViewModel viewModel = await onFlowAt(
+        individualMarkersFromZoom,
+        deuxAssecs(),
+      );
+
+      viewModel.applyFilter(moinsDe2h);
+
+      expect(viewModel.filterActive, isFalse);
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
+
+    test('écoulement, A et B, case Assec décochée : faux, A reste', () async {
+      final List<OndeObservation> set = _ondeSet();
+      final MapViewModel viewModel = await onFlowAt(
+        individualMarkersFromZoom,
+        <OndeObservation>[set[0], set[1]],
+      );
+
+      viewModel.applyFilter(sansAssec);
+
+      expect(_ondeCodes(viewModel.individualOndeObservations), <String>[_a]);
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
+
+    test('débit, niveau individuel, deux stations du 37 sous le département '
+        '41 : vrai', () async {
+      final MapViewModel viewModel = await onDischargeAt(
+        individualMarkersFromZoom,
+        deuxDu37(),
+      );
+
+      viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+
+      expect(viewModel.stations, hasLength(2));
+      expect(viewModel.filterHidesEverything, isTrue);
+    });
+
+    test('débit, niveau individuel, deux stations du 37 et une sans '
+        'département sous le département 41 : faux', () async {
+      final MapViewModel viewModel = await onDischargeAt(
+        individualMarkersFromZoom,
+        <StationPoint>[...deuxDu37(), _station(_s4, longitude: 1.4)],
+      );
+
+      viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+
+      expect(_stationCodes(viewModel.individualStations), <String>[_s4]);
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
+
+    test('débit, niveau individuel, deux stations chargées périmées sous '
+        'moins de 24 h : vrai', () async {
+      answerStale();
+      final MapViewModel viewModel = await onDischargeAt(
+        individualMarkersFromZoom,
+        deuxDu37(),
+      );
+
+      viewModel.applyFilter(moinsDe24h);
+
+      expect(
+        viewModel.stateOf(StationCode(_s1)),
+        const Chargee(Freshness.perimee),
+      );
+      expect(
+        viewModel.stateOf(StationCode(_s2)),
+        const Chargee(Freshness.perimee),
+      );
+      expect(viewModel.filterHidesEverything, isTrue);
+    });
+
+    test('débit, niveau individuel, moins de 24 h avant le préchargement des '
+        'deux stations : faux', () async {
+      answerStale();
+      repository.answer = (int _) async => deuxDu37();
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.debit);
+      await viewModel.loadFor(_loireBounds());
+
+      viewModel.applyFilter(moinsDe24h);
+      // Appliquer un filtre relance le préchargement (F6) : on le coupe avant
+      // toute réponse, les deux stations sont encore non chargées.
+      viewModel.cancelPreload();
+
+      expect(viewModel.stateOf(StationCode(_s1)), isA<NonChargee>());
+      expect(viewModel.stateOf(StationCode(_s2)), isA<NonChargee>());
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
+
+    test(
+      "débit, zoom 6, l'emprise ne lit qu'une station du 37 sous le "
+      'département 41 : vrai, alors que des pastilles restent ailleurs',
+      () async {
+        final StationPoint t3 = _stationIn(
+          'K447000013',
+          departement: _indreEtLoire,
+          region: _centreValDeLoire,
+        );
+        repository.allAnswer = () async => <StationPoint>[
+          _stationIn(
+            'K447000011',
+            departement: _loirEtCher,
+            region: _centreValDeLoire,
+          ),
+          _stationIn(
+            'K447000012',
+            departement: _loirEtCher,
+            region: _centreValDeLoire,
+          ),
+          t3,
+        ];
+        final MapViewModel viewModel = await onDischargeAt(6, <StationPoint>[
+          t3,
+        ]);
+
+        viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+
+        expect(viewModel.clusters, isNotEmpty);
+        expect(_clusterOf(viewModel, '24').count, 2);
+        expect(viewModel.filterHidesEverything, isTrue);
+      },
+    );
+
+    test('débit, zoom 6, stations rattachées et chargées périmées sous moins '
+        'de 2 h : faux, la fraîcheur ne touche pas la pastille', () async {
+      answerStale();
+      final List<StationPoint> rattachees = <StationPoint>[
+        _stationIn(
+          'K447000011',
+          departement: _loirEtCher,
+          region: _centreValDeLoire,
+        ),
+        _stationIn(
+          'K447000012',
+          departement: _loirEtCher,
+          region: _centreValDeLoire,
+        ),
+      ];
+      repository.allAnswer = () async => rattachees;
+      final MapViewModel viewModel = await onDischargeAt(
+        individualMarkersFromZoom,
+        rattachees,
+      );
+      for (final StationPoint point in rattachees) {
+        expect(viewModel.stateOf(point.code), const Chargee(Freshness.perimee));
+      }
+      await viewModel.onGestureEnded(
+        Bounds(west: -1, south: 46, east: 3, north: 49),
+        zoom: 6,
+      );
+
+      viewModel.applyFilter(moinsDe2h);
+
+      expect(viewModel.filterActive, isTrue);
+      expect(_clusterOf(viewModel, '24').count, 2);
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
+
+    test("débit, zoom 6, le référentiel entier n'a jamais été lu, une station "
+        'du 41 sur l\'emprise sous le département 41 : faux', () async {
+      repository.allAnswer = () async => throw StateError('asset illisible');
+      final MapViewModel viewModel = await onDischargeAt(6, <StationPoint>[
+        _stationIn(
+          'K447000011',
+          departement: _loirEtCher,
+          region: _centreValDeLoire,
+        ),
+      ]);
+
+      viewModel.applyFilter(MapFilter.none.withDepartement('41'));
+
+      expect(viewModel.clusters, isEmpty);
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
+
+    test('après clearFilter : faux', () async {
+      final MapViewModel viewModel = await onFlowAt(
+        individualMarkersFromZoom,
+        deuxAssecs(),
+      );
+      viewModel.applyFilter(sansAssec);
+      expect(viewModel.filterHidesEverything, isTrue);
+
+      viewModel.clearFilter();
+
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
   });
 }

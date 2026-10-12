@@ -18,6 +18,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/filters/map_filter.dart';
+import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
 import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
@@ -28,17 +30,19 @@ import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 
-/// Les cinq fichiers attendus sous `docs/acceptance/` : les quatre de T1
-/// (`Task X1` du plan T1) et `restrictions.feature` (`Task X1` du plan T2).
+/// Les six fichiers attendus sous `docs/acceptance/` : les quatre de T1
+/// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2) et
+/// `filtres.feature` (`Task F7` du plan T3).
 const List<String> _featureFiles = <String>[
   'avertissements.feature',
   'fraicheur-d-une-mesure.feature',
   'fiche-station.feature',
   'ecoulement-onde.feature',
   'restrictions.feature',
+  'filtres.feature',
 ];
 
-/// Les règles métier que les cinq fichiers doivent couvrir AU MINIMUM,
+/// Les règles métier que les six fichiers doivent couvrir AU MINIMUM,
 /// ensemble (`Task X1` : « la liste est dans le test, pas seulement dans une
 /// intention »). `BR-013` (l'encart renforcé) y entre avec l'écran des
 /// restrictions de T2 ; l'affirmation inverse, valable en T1 (aucun écran de
@@ -64,6 +68,20 @@ const List<String> _restrictionsRules = <String>[
 
 /// Les trois user stories de T2 que `restrictions.feature` met en scénarios.
 const List<String> _restrictionsStories = <String>['US-09', 'US-07', 'US-08'];
+
+/// Les règles que `filtres.feature` doit citer, chacune par au moins un
+/// SCÉNARIO : la fraîcheur, le lieu masqué qui n'est pas une absence, les
+/// échelles séparées, la pastille comptée sur les retenus, le code inconnu.
+const List<String> _filtresRules = <String>[
+  'BR-005',
+  'BR-007',
+  'BR-008',
+  'BR-009',
+  'BR-011',
+];
+
+/// La user story de T3 que `filtres.feature` met en scénarios.
+const String _filtresStory = 'US-13';
 
 /// Bornes de `BR-005` (fraîcheur d'une observation hydrométrique) : chacune
 /// doit avoir son propre scénario, avec la valeur écrite en toutes lettres
@@ -201,8 +219,8 @@ void main() {
       dossierAcceptance.existsSync(),
       isTrue,
       reason:
-          'docs/acceptance/ doit exister avec les cinq .feature de Task X1 '
-          '(quatre en T1, restrictions.feature en T2)',
+          'docs/acceptance/ doit exister avec ses six .feature '
+          '(quatre en T1, restrictions.feature en T2, filtres.feature en T3)',
     );
   });
 
@@ -283,13 +301,13 @@ void main() {
     }
   });
 
-  test('les cinq fichiers couvrent ensemble BR-005, BR-006, BR-007, BR-010, BR-012, BR-013', () {
+  test('les six fichiers couvrent ensemble BR-005, BR-006, BR-007, BR-010, BR-012, BR-013', () {
     final String tout = contenusParFichier.values.join('\n');
     for (final String regle in _minimumCoveredRules) {
       expect(
         tout.contains(regle),
         isTrue,
-        reason: '$regle doit être citée par au moins un des cinq .feature',
+        reason: '$regle doit être citée par au moins un des six .feature',
       );
     }
   });
@@ -325,6 +343,29 @@ void main() {
             'aucun scénario de restrictions.feature sous la section $histoire',
       );
     }
+  });
+
+  test('filtres.feature cite BR-005, BR-007, BR-008, BR-009, BR-011, chacune '
+      'par un scénario', () {
+    final String contenu = contenusParFichier['filtres.feature'] ?? '';
+    final List<String> scenarios = _scenariosOf(contenu);
+    expect(scenarios, isNotEmpty);
+    for (final String regle in _filtresRules) {
+      expect(
+        scenarios.any((String scenario) => scenario.contains(regle)),
+        isTrue,
+        reason: 'aucun scénario de filtres.feature ne cite $regle',
+      );
+    }
+  });
+
+  test('filtres.feature met en scénarios US-13', () {
+    final String contenu = contenusParFichier['filtres.feature'] ?? '';
+    expect(
+      _scenariosByStory(contenu)[_filtresStory] ?? 0,
+      greaterThan(0),
+      reason: 'aucun scénario de filtres.feature sous la section US-13',
+    );
   });
 
   // Un plan du scénario (`Plan du scénario:` + `Exemples:`) est un seul
@@ -426,6 +467,21 @@ void main() {
           );
         },
       );
+    }
+  });
+
+  // Le critère de fraîcheur du filtre joue sur les mêmes bornes : le plan de
+  // `filtres.feature` porte une ligne d'exemple par borne.
+  group('BR-005 — le filtre de fraîcheur porte chaque borne', () {
+    for (final String borne in _br005Bounds) {
+      test('la borne "$borne" apparaît dans filtres.feature', () {
+        final String contenu = contenusParFichier['filtres.feature'] ?? '';
+        expect(
+          contenu.contains(borne),
+          isTrue,
+          reason: 'filtres.feature ne porte pas la borne BR-005 "$borne"',
+        );
+      });
     }
   });
 
@@ -593,6 +649,33 @@ void main() {
           isTrue,
           reason:
               'avertissements.feature ne contient pas « ${libelle.value} », '
+              'le libellé du code pour ${libelle.key}',
+        );
+      });
+    }
+  });
+
+  // Même lien que pour T2, pour `filtres.feature` (T3) : libellés lus dans le
+  // code, cherchés entre guillemets français.
+  group('les libellés portés par le code figurent dans filtres.feature', () {
+    final String filtres = contenusParFichier['filtres.feature'] ?? '';
+
+    final Map<String, String> libellesFiltres = <String, String>{
+      'échelle écoulement': mapScaleLabel(MapScaleKind.ecoulement),
+      'échelle débit': mapScaleLabel(MapScaleKind.debit),
+      'case du code non reconnu': flowCategoryLabel(const Inconnu(null)),
+      'case Assec': flowCategoryLabel(const Assec()),
+      'critère de fraîcheur': dischargeFreshnessCriterionLabel(
+        DischargeFreshnessCriterion.moinsDe2h,
+      ),
+    };
+    for (final MapEntry<String, String> libelle in libellesFiltres.entries) {
+      test('filtres.feature cite « ${libelle.value} » (${libelle.key})', () {
+        expect(
+          _containsQuoted(filtres, libelle.value),
+          isTrue,
+          reason:
+              'filtres.feature ne contient pas « ${libelle.value} », '
               'le libellé du code pour ${libelle.key}',
         );
       });

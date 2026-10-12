@@ -600,6 +600,41 @@ final class MapViewModel extends ChangeNotifier {
   /// Retire tous les critères.
   void clearFilter() => applyFilter(MapFilter.none);
 
+  /// Le filtre a-t-il vidé la carte ? Vrai si un critère est actif pour
+  /// l'échelle ([filterActive]), si le fait lu sur l'emprise n'est pas vide
+  /// ([ondeObservations] sur l'écoulement, [stations] sur le débit) et si
+  /// **aucun** de ces lieux lus n'est retenu. Une lecture vide n'est pas le
+  /// fait du filtre : c'est l'avis d'absence habituel (`BR-007`).
+  ///
+  /// Sur le débit sous le zoom 9, la question se pose aux [stations] de
+  /// l'emprise, pas à [clusters] : les pastilles se comptent sur le
+  /// référentiel entier (`ADR-015`), il peut en rester une à l'autre bout du
+  /// pays, et le référentiel entier peut ne pas être encore lu. Une station
+  /// qui a une zone au niveau courant est membre d'une pastille, que la
+  /// fraîcheur ne touche pas : seul son département décide.
+  bool get filterHidesEverything {
+    if (!filterActive) {
+      return false;
+    }
+    switch (_scale) {
+      case MapScaleKind.ecoulement:
+        return _ondeObservations.isNotEmpty &&
+            !_ondeObservations.values.any(
+              (OndeObservation observation) =>
+                  filterKeepsOndeObservation(_filter, observation),
+            );
+      case MapScaleKind.debit:
+        final AreaLevel? level = _level;
+        return _stations.isNotEmpty &&
+            !_stations.any(
+              (StationPoint point) =>
+                  level != null && _stationAreaOf(level, point) != null
+                  ? filterKeepsStationPoint(_filter, point)
+                  : _filterKeepsStation(point),
+            );
+    }
+  }
+
   List<AdministrativeArea>? _departements;
 
   /// Les départements du référentiel embarqué, triés par code, pour le choix
@@ -1032,6 +1067,10 @@ final class MapViewModel extends ChangeNotifier {
   /// propre requête (décision 4 du plan T1). Un [limit] nul ou négatif ne
   /// précharge rien.
   ///
+  /// **Borné aussi par le département du filtre** (T3) : sous un critère de
+  /// département, aucune requête ne part pour une station connue d'un autre
+  /// département ; une station sans département reste préchargée.
+  ///
   /// **Les états déjà connus sont sautés** ([_needsPreload]) : une station
   /// [Chargee] ou [SansDonnee] ne vaut pas une seconde requête, une station
   /// [EnEchec] est **retentée** — une panne passe, un fait constaté non — et
@@ -1252,6 +1291,9 @@ final class MapViewModel extends ChangeNotifier {
   /// Les [limit] stations visibles les plus proches du centre de l'emprise
   /// courante, **parmi celles qui valent encore une requête**
   /// ([_needsPreload]). Liste vide si aucune emprise n'a encore été chargée.
+  /// Le critère de département du filtre borne ce choix
+  /// (`filterKeepsStationPoint`) : une station connue d'un autre département
+  /// n'est jamais candidate.
   List<StationPoint> _closestToCentre(int limit) {
     final Bounds? bounds = _lastRequestedBounds;
     if (bounds == null || _stations.isEmpty) {
