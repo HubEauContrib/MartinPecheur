@@ -227,21 +227,24 @@ Offset _pointDansLaBande(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('requiresAcknowledgement vrai : InitialWarningView est affiche, '
-      'MapView n\'est jamais construit', (WidgetTester tester) async {
-    final WarningsViewModel warningsViewModel = WarningsViewModel(
-      acknowledgements: _AcknowledgementRepositoryDouble(),
-      currentWarningVersion: warningTextVersion,
-    );
-    await warningsViewModel.load();
+  testWidgetsOnWindows(
+    'requiresAcknowledgement vrai : InitialWarningView est affiche, '
+    'MapView n\'est jamais construit',
+    (WidgetTester tester) async {
+      final WarningsViewModel warningsViewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(),
+        currentWarningVersion: warningTextVersion,
+      );
+      await warningsViewModel.load();
 
-    await tester.pumpWidget(_app(warningsViewModel));
+      await tester.pumpWidget(_app(warningsViewModel));
 
-    expect(find.byType(InitialWarningView), findsOneWidget);
-    expect(find.byType(MapView), findsNothing);
-  });
+      expect(find.byType(InitialWarningView), findsOneWidget);
+      expect(find.byType(MapView), findsNothing);
+    },
+  );
 
-  testWidgets('requiresAcknowledgement faux : MapView est affiche', (
+  testWidgetsOnWindows('requiresAcknowledgement faux : MapView est affiche', (
     WidgetTester tester,
   ) async {
     final WarningsViewModel warningsViewModel = WarningsViewModel(
@@ -258,7 +261,7 @@ void main() {
     expect(find.byType(InitialWarningView), findsNothing);
   });
 
-  testWidgets(
+  testWidgetsOnWindows(
     'usager deja acquitte : InitialWarningView n\'est jamais rendu, pas '
     'meme une image — assertion des le tout premier pump',
     (WidgetTester tester) async {
@@ -283,7 +286,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'cocher puis presser le bouton bascule vers la carte sans redemarrer '
     'l\'app, MapView n\'est construit qu\'apres',
     (WidgetTester tester) async {
@@ -307,7 +310,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'echec de lecture du stockage : le modal reste affiche, l\'app ne '
     'plante pas',
     (WidgetTester tester) async {
@@ -327,7 +330,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'echec d\'ecriture de l\'acquittement (UC-006 A6) : le modal reste '
     'affiche, MapView n\'est jamais construit',
     (WidgetTester tester) async {
@@ -367,94 +370,104 @@ void main() {
       await tester.pumpWidget(_app(viewModel));
     }
 
-    testWidgets('modal : le lien ouvre l ecran, rien n est acquitte, la '
-        'carte n est toujours pas construite', (WidgetTester tester) async {
-      await pumpUnacknowledged(tester);
+    testWidgetsOnWindows(
+      'modal : le lien ouvre l ecran, rien n est acquitte, la '
+      'carte n est toujours pas construite',
+      (WidgetTester tester) async {
+        await pumpUnacknowledged(tester);
 
-      await tester.tap(find.byKey(initialWarningSourcesLinkKey));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(find.byType(DataSourcesView), findsOneWidget);
-      expect(find.text(dataSourcesTitle), findsOneWidget);
-      // Ni visible NI cachee sous la route : la carte n'existe pas.
-      expect(find.byType(MapView, skipOffstage: false), findsNothing);
-    });
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DataSourcesView), findsOneWidget);
+        expect(find.text(dataSourcesTitle), findsOneWidget);
+        // Ni visible NI cachee sous la route : la carte n'existe pas.
+        expect(find.byType(MapView, skipOffstage: false), findsNothing);
+      },
+    );
 
     for (final bool checked in <bool>[false, true]) {
-      testWidgets('modal, case ${checked ? 'cochee' : 'decochee'} : le retour '
-          'rend le modal tel qu il etait laisse, toujours bloquant', (
-        WidgetTester tester,
-      ) async {
+      testWidgetsOnWindows(
+        'modal, case ${checked ? 'cochee' : 'decochee'} : le retour '
+        'rend le modal tel qu il etait laisse, toujours bloquant',
+        (WidgetTester tester) async {
+          await pumpUnacknowledged(tester);
+          if (checked) {
+            await tester.tap(find.byKey(initialWarningCheckboxKey));
+            await tester.pump();
+          }
+
+          await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+          await tester.pumpAndSettle();
+          await tester.pageBack();
+          await tester.pumpAndSettle();
+
+          expect(find.byType(DataSourcesView), findsNothing);
+          expect(find.byType(InitialWarningView), findsOneWidget);
+          expect(find.byType(MapView, skipOffstage: false), findsNothing);
+          expect(
+            tester
+                .widget<Checkbox>(find.byKey(initialWarningCheckboxKey))
+                .value,
+            checked,
+          );
+        },
+      );
+    }
+
+    testWidgetsOnWindows(
+      'apres acquittement : la fenetre d avertissement de la carte '
+      'porte le lien, qui ouvre l ecran',
+      (WidgetTester tester) async {
+        final WarningsViewModel viewModel = WarningsViewModel(
+          acknowledgements: _AcknowledgementRepositoryDouble(
+            storedVersion: warningTextVersion,
+          ),
+          currentWarningVersion: warningTextVersion,
+        );
+        await viewModel.load();
+        await tester.pumpWidget(_app(viewModel));
+
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DataSourcesView), findsOneWidget);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(DataSourcesView), findsNothing);
+        expect(find.byKey(warningWindowRegionKey), findsOneWidget);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'de bout en bout : relire les sources depuis le modal, '
+      'acquitter, puis les relire depuis la carte',
+      (WidgetTester tester) async {
         await pumpUnacknowledged(tester);
-        if (checked) {
-          await tester.tap(find.byKey(initialWarningCheckboxKey));
-          await tester.pump();
-        }
 
         await tester.tap(find.byKey(initialWarningSourcesLinkKey));
         await tester.pumpAndSettle();
         await tester.pageBack();
         await tester.pumpAndSettle();
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
+        await tester.tap(find.byKey(initialWarningButtonKey));
+        await tester.pumpAndSettle();
+        expect(find.byType(MapView), findsOneWidget);
 
-        expect(find.byType(DataSourcesView), findsNothing);
-        expect(find.byType(InitialWarningView), findsOneWidget);
-        expect(find.byType(MapView, skipOffstage: false), findsNothing);
-        expect(
-          tester.widget<Checkbox>(find.byKey(initialWarningCheckboxKey)).value,
-          checked,
-        );
-      });
-    }
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+        await tester.pumpAndSettle();
 
-    testWidgets('apres acquittement : la fenetre d avertissement de la carte '
-        'porte le lien, qui ouvre l ecran', (WidgetTester tester) async {
-      final WarningsViewModel viewModel = WarningsViewModel(
-        acknowledgements: _AcknowledgementRepositoryDouble(
-          storedVersion: warningTextVersion,
-        ),
-        currentWarningVersion: warningTextVersion,
-      );
-      await viewModel.load();
-      await tester.pumpWidget(_app(viewModel));
-
-      await tester.tap(find.byKey(warningLinkKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(warningWindowSourcesLinkKey));
-      await tester.pumpAndSettle();
-
-      expect(tester.takeException(), isNull);
-      expect(find.byType(DataSourcesView), findsOneWidget);
-
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.byType(DataSourcesView), findsNothing);
-      expect(find.byKey(warningWindowRegionKey), findsOneWidget);
-    });
-
-    testWidgets('de bout en bout : relire les sources depuis le modal, '
-        'acquitter, puis les relire depuis la carte', (
-      WidgetTester tester,
-    ) async {
-      await pumpUnacknowledged(tester);
-
-      await tester.tap(find.byKey(initialWarningSourcesLinkKey));
-      await tester.pumpAndSettle();
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(initialWarningCheckboxKey));
-      await tester.pump();
-      await tester.tap(find.byKey(initialWarningButtonKey));
-      await tester.pumpAndSettle();
-      expect(find.byType(MapView), findsOneWidget);
-
-      await tester.tap(find.byKey(warningLinkKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(warningWindowSourcesLinkKey));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DataSourcesView), findsOneWidget);
-    });
+        expect(find.byType(DataSourcesView), findsOneWidget);
+      },
+    );
   });
 
   group('ecran des restrictions (E3)', () {
@@ -487,40 +500,47 @@ void main() {
         .properties
         .selected!;
 
-    testWidgets('composition reelle, au lancement : la puce Restrictions est '
-        'la, ni bouton, ni indice, ni reticule', (WidgetTester tester) async {
-      await tester.pumpWidget(_app(await acknowledged()));
+    testWidgetsOnWindows(
+      'composition reelle, au lancement : la puce Restrictions est '
+      'la, ni bouton, ni indice, ni reticule',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app(await acknowledged()));
 
-      expect(find.byKey(mapDesignationChipKey), findsOneWidget);
-      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
-      expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
-      expect(find.byKey(mapCenterReticleKey), findsNothing);
-    });
+        expect(find.byKey(mapDesignationChipKey), findsOneWidget);
+        expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+        expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
+        expect(find.byKey(mapCenterReticleKey), findsNothing);
+      },
+    );
 
-    testWidgets('composition reelle : apres la puce, le bouton et son indice '
-        'sont centres sur la carte (fiches fermees)', (
-      WidgetTester tester,
-    ) async {
-      tester.view.physicalSize = const Size(1920, 1032);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        _app(await acknowledged(), _restrictions(_PendingRestrictionSource())),
-      );
-      await tester.tap(find.byKey(mapDesignationChipKey));
-      await tester.pumpAndSettle();
+    testWidgetsOnWindows(
+      'composition reelle : apres la puce, le bouton et son indice '
+      'sont centres sur la carte (fiches fermees)',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1920, 1032);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _app(
+            await acknowledged(),
+            _restrictions(_PendingRestrictionSource()),
+          ),
+        );
+        await tester.tap(find.byKey(mapDesignationChipKey));
+        await tester.pumpAndSettle();
 
-      expect(
-        tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
-        closeTo(960, 1),
-      );
-      expect(
-        tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
-        closeTo(960, 1),
-      );
-    });
+        expect(
+          tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
+          closeTo(960, 1),
+        );
+        expect(
+          tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
+          closeTo(960, 1),
+        );
+      },
+    );
 
-    testWidgets('designation : la route de l ecran est poussee et le '
+    testWidgetsOnWindows('designation : la route de l ecran est poussee et le '
         'ViewModel interroge le point designe', (WidgetTester tester) async {
       final _PendingRestrictionSource source = _PendingRestrictionSource();
       final RestrictionsViewModel restrictions = _restrictions(source);
@@ -534,136 +554,146 @@ void main() {
       expect(restrictions.state, isA<RestrictionsEnCours>());
     });
 
-    testWidgets('bouton de retour : route retiree, ViewModel ferme, carte '
-        'de nouveau visible', (WidgetTester tester) async {
-      final RestrictionsViewModel restrictions = _restrictions();
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
+    testWidgetsOnWindows(
+      'bouton de retour : route retiree, ViewModel ferme, carte '
+      'de nouveau visible',
+      (WidgetTester tester) async {
+        final RestrictionsViewModel restrictions = _restrictions();
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsNothing);
-      expect(restrictions.state, isA<RestrictionsFermees>());
-      expect(find.byType(MapView), findsOneWidget);
-    });
+        expect(find.byType(RestrictionsScreen), findsNothing);
+        expect(restrictions.state, isA<RestrictionsFermees>());
+        expect(find.byType(MapView), findsOneWidget);
+      },
+    );
 
     // Constat A de la revue : le futur de `push` se complete a l'appel de
     // `pop`, AVANT l'animation de sortie ; `close()` passait alors l'etat a
     // `RestrictionsFermees` et la route, encore montee, se vidait.
-    testWidgets('retour : pendant la sortie de la route, l ecran garde son '
-        'dernier contenu, le ViewModel est deja ferme', (
-      WidgetTester tester,
-    ) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
-      source.completers.single.complete(zonesAin());
-      await tester.pumpAndSettle();
-      expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
-      expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
+    testWidgetsOnWindows(
+      'retour : pendant la sortie de la route, l ecran garde son '
+      'dernier contenu, le ViewModel est deja ferme',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
+        source.completers.single.complete(zonesAin());
+        await tester.pumpAndSettle();
+        expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
+        expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
 
-      await tester.pageBack();
-      await tester.pump(const Duration(milliseconds: 50));
+        await tester.pageBack();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      // Le verrou contre une reponse tardive reste pose des le retrait...
-      expect(restrictions.state, isA<RestrictionsFermees>());
-      // ... mais la route, encore a l'ecran, n'est pas vide.
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
-      expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
+        // Le verrou contre une reponse tardive reste pose des le retrait...
+        expect(restrictions.state, isA<RestrictionsFermees>());
+        // ... mais la route, encore a l'ecran, n'est pas vide.
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
+        expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
 
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsNothing);
-    });
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsNothing);
+      },
+    );
 
     // La route sortante est sous `IgnorePointer`, mais la carte DESSOUS recoit
     // les gestes : une nouvelle designation 50 ms apres le retour relance la
     // requete (le ViewModel quitte `RestrictionsFermees`) pendant que la
     // route sortante est encore a l'ecran. Elle ne doit pas se vider pour
     // autant : seule la NOUVELLE route montre « Recherche des zones… ».
-    testWidgets('retour puis nouvelle designation pendant la sortie : la '
-        'route SORTANTE garde ses cartes de zone', (WidgetTester tester) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
-      source.completers.single.complete(zonesAin());
-      await tester.pumpAndSettle();
-      expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
+    testWidgetsOnWindows(
+      'retour puis nouvelle designation pendant la sortie : la '
+      'route SORTANTE garde ses cartes de zone',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
+        source.completers.single.complete(zonesAin());
+        await tester.pumpAndSettle();
+        expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
 
-      await tester.pageBack();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(restrictions.state, isA<RestrictionsFermees>());
-      // Le bouton de la carte, dessous, recoit l'appui (le mode est reste
-      // actif au retour).
-      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
-      await tester.pump();
+        await tester.pageBack();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(restrictions.state, isA<RestrictionsFermees>());
+        // Le bouton de la carte, dessous, recoit l'appui (le mode est reste
+        // actif au retour).
+        await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+        await tester.pump();
 
-      // La requete est bien repartie...
-      expect(source.requested, hasLength(2));
-      expect(restrictions.state, isA<RestrictionsEnCours>());
-      // ... la nouvelle route cherche, et la SORTANTE garde ses cartes. La
-      // nouvelle route est encore hors scene a sa premiere image : on compte
-      // hors scene aussi.
-      expect(
-        find.byType(RestrictionsScreen, skipOffstage: false),
-        findsNWidgets(2),
-      );
-      expect(
-        find.byKey(restrictionsZoneCardKey(0), skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(
-        find.text(
-          "Recherche des zones d'alerte pour ce point…",
-          skipOffstage: false,
-        ),
-        findsOneWidget,
-      );
+        // La requete est bien repartie...
+        expect(source.requested, hasLength(2));
+        expect(restrictions.state, isA<RestrictionsEnCours>());
+        // ... la nouvelle route cherche, et la SORTANTE garde ses cartes. La
+        // nouvelle route est encore hors scene a sa premiere image : on compte
+        // hors scene aussi.
+        expect(
+          find.byType(RestrictionsScreen, skipOffstage: false),
+          findsNWidgets(2),
+        );
+        expect(
+          find.byKey(restrictionsZoneCardKey(0), skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            "Recherche des zones d'alerte pour ce point…",
+            skipOffstage: false,
+          ),
+          findsOneWidget,
+        );
 
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(find.byKey(restrictionsZoneCardKey(0)), findsNothing);
-      expect(
-        find.text("Recherche des zones d'alerte pour ce point…"),
-        findsOneWidget,
-      );
-    });
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(find.byKey(restrictionsZoneCardKey(0)), findsNothing);
+        expect(
+          find.text("Recherche des zones d'alerte pour ce point…"),
+          findsOneWidget,
+        );
+      },
+    );
 
     // `close()` vide `unopenedLink` du ViewModel des le retrait : la route
     // sortante doit garder, elle, l'avis qu'elle affichait.
-    testWidgets('retour : un avis de lien non ouvert reste affiche pendant la '
-        'sortie de la route', (WidgetTester tester) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
-      source.completers.single.complete(zonesAin());
-      await tester.pumpAndSettle();
+    testWidgetsOnWindows(
+      'retour : un avis de lien non ouvert reste affiche pendant la '
+      'sortie de la route',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
+        source.completers.single.complete(zonesAin());
+        await tester.pumpAndSettle();
 
-      // L'action de l'encart, par la composition reelle : `_NeverOpensLinks`
-      // refuse, l'avis apparait.
-      await tester.tap(find.text(reinforcedWarningActionLabel));
-      await tester.pumpAndSettle();
-      expect(restrictions.unopenedLink?.raw, restrictionsPublicSiteUrl);
-      final Finder notice = find.textContaining(
-        "Ce lien n'a pas pu être ouvert",
-      );
-      expect(notice, findsOneWidget);
+        // L'action de l'encart, par la composition reelle : `_NeverOpensLinks`
+        // refuse, l'avis apparait.
+        await tester.tap(find.text(reinforcedWarningActionLabel));
+        await tester.pumpAndSettle();
+        expect(restrictions.unopenedLink?.raw, restrictionsPublicSiteUrl);
+        final Finder notice = find.textContaining(
+          "Ce lien n'a pas pu être ouvert",
+        );
+        expect(notice, findsOneWidget);
 
-      await tester.pageBack();
-      await tester.pump(const Duration(milliseconds: 50));
+        await tester.pageBack();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      expect(restrictions.state, isA<RestrictionsFermees>());
-      expect(restrictions.unopenedLink, isNull);
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(notice, findsOneWidget);
+        expect(restrictions.state, isA<RestrictionsFermees>());
+        expect(restrictions.unopenedLink, isNull);
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(notice, findsOneWidget);
 
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsNothing);
-    });
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsNothing);
+      },
+    );
 
     // Defaut 2, par la composition reelle : l'usager redescend, rappuie sur
     // l'action de l'encart, nouvel echec du meme lien ; l'avis revient dans
@@ -769,7 +799,7 @@ void main() {
       expect(notice, findsOneWidget);
     });
 
-    testWidgets('Echap : route retiree, ViewModel ferme', (
+    testWidgetsOnWindows('Echap : route retiree, ViewModel ferme', (
       WidgetTester tester,
     ) async {
       final RestrictionsViewModel restrictions = _restrictions();
@@ -783,125 +813,136 @@ void main() {
       expect(restrictions.state, isA<RestrictionsFermees>());
     });
 
-    testWidgets('retour pendant un chargement : la reponse tardive laisse '
-        'le ViewModel ferme', (WidgetTester tester) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
+    testWidgetsOnWindows(
+      'retour pendant un chargement : la reponse tardive laisse '
+      'le ViewModel ferme',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      source.completers.single.complete(
-        ZonesAtPoint(
-          point: source.requested.single,
-          retrievedAt: DateTime.utc(2026, 9, 27, 11, 25),
-          zones: const [],
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        source.completers.single.complete(
+          ZonesAtPoint(
+            point: source.requested.single,
+            retrievedAt: DateTime.utc(2026, 9, 27, 11, 25),
+            zones: const [],
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(restrictions.state, isA<RestrictionsFermees>());
-    });
+        expect(restrictions.state, isA<RestrictionsFermees>());
+      },
+    );
 
-    testWidgets('deux designations sans retour : une seule route, etat du '
-        'second point, un retour ramene a la carte ViewModel ferme', (
-      WidgetTester tester,
-    ) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+    testWidgetsOnWindows(
+      'deux designations sans retour : une seule route, etat du '
+      'second point, un retour ramene a la carte ViewModel ferme',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
 
-      await tester.tap(find.byKey(mapDesignationChipKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
-      await tester.pump();
-      // La route couvre deja la carte : le second geste (appui long, clic
-      // droit) arrive par le rappel de la carte, sans retour entre les deux.
-      tester
-          .widget<MapView>(find.byType(MapView, skipOffstage: false))
-          .onPointDesignated!(GeoPoint(latitude: 45, longitude: 3));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapDesignationChipKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+        await tester.pump();
+        // La route couvre deja la carte : le second geste (appui long, clic
+        // droit) arrive par le rappel de la carte, sans retour entre les deux.
+        tester
+            .widget<MapView>(find.byType(MapView, skipOffstage: false))
+            .onPointDesignated!(GeoPoint(latitude: 45, longitude: 3));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(source.requested, hasLength(2));
-      final RestrictionsState state = restrictions.state;
-      expect(state, isA<RestrictionsEnCours>());
-      expect((state as RestrictionsEnCours).point, source.requested.last);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsNothing);
-      expect(find.byType(MapView), findsOneWidget);
-      expect(restrictions.state, isA<RestrictionsFermees>());
-    });
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(source.requested, hasLength(2));
+        final RestrictionsState state = restrictions.state;
+        expect(state, isA<RestrictionsEnCours>());
+        expect((state as RestrictionsEnCours).point, source.requested.last);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsNothing);
+        expect(find.byType(MapView), findsOneWidget);
+        expect(restrictions.state, isA<RestrictionsFermees>());
+      },
+    );
 
-    testWidgets('re-designation apres retour : une seule route, l etat '
-        'est celui du second point', (WidgetTester tester) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+    testWidgetsOnWindows(
+      're-designation apres retour : une seule route, l etat '
+      'est celui du second point',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
 
-      await designate(tester);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      // Le mode est resté actif au retour : le bouton est là, sans rappuyer
-      // sur la puce.
-      await designate(tester, allumer: false);
+        await designate(tester);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        // Le mode est resté actif au retour : le bouton est là, sans rappuyer
+        // sur la puce.
+        await designate(tester, allumer: false);
 
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(source.requested, hasLength(2));
-      final RestrictionsState state = restrictions.state;
-      expect(state, isA<RestrictionsEnCours>());
-      expect((state as RestrictionsEnCours).point, source.requested.last);
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(source.requested, hasLength(2));
+        final RestrictionsState state = restrictions.state;
+        expect(state, isA<RestrictionsEnCours>());
+        expect((state as RestrictionsEnCours).point, source.requested.last);
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsNothing);
-    });
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsNothing);
+      },
+    );
 
-    testWidgets('au retour de l ecran des restrictions, le mode est toujours '
-        'actif (bouton present) et l echelle inchangee (E5)', (
-      WidgetTester tester,
-    ) async {
-      final RestrictionsViewModel restrictions = _restrictions();
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
+    testWidgetsOnWindows(
+      'au retour de l ecran des restrictions, le mode est toujours '
+      'actif (bouton present) et l echelle inchangee (E5)',
+      (WidgetTester tester) async {
+        final RestrictionsViewModel restrictions = _restrictions();
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
 
-      await designate(tester);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+        await designate(tester);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsNothing);
-      expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
-      expect(find.byKey(mapCenterReticleKey), findsOneWidget);
-      expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
-      expect(echelleSelectionnee(tester, MapScaleKind.debit), isFalse);
-    });
+        expect(find.byType(RestrictionsScreen), findsNothing);
+        expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
+        expect(find.byKey(mapCenterReticleKey), findsOneWidget);
+        expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
+        expect(echelleSelectionnee(tester, MapScaleKind.debit), isFalse);
+      },
+    );
 
-    testWidgets('une designation par appui long, hors mode, ouvre l ecran et '
-        'laisse le mode eteint au retour (E5)', (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1920, 1032);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+    testWidgetsOnWindows(
+      'une designation par appui long, hors mode, ouvre l ecran et '
+      'laisse le mode eteint au retour (E5)',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1920, 1032);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
 
-      await tester.longPressAt(const Offset(1200, 500));
-      await tester.pumpAndSettle();
+        await tester.longPressAt(const Offset(1200, 500));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(source.requested, hasLength(1));
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(source.requested, hasLength(1));
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsNothing);
-      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
-      expect(find.byKey(mapCenterReticleKey), findsNothing);
-      expect(find.byKey(mapDesignationChipKey), findsOneWidget);
-    });
+        expect(find.byType(RestrictionsScreen), findsNothing);
+        expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+        expect(find.byKey(mapCenterReticleKey), findsNothing);
+        expect(find.byKey(mapDesignationChipKey), findsOneWidget);
+      },
+    );
 
     // Windows est la première cible, et `flutter test` tourne par défaut en
     // Android : la désignation par appui long ET par clic droit, hors mode,
