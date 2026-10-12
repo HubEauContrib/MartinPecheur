@@ -36,6 +36,8 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/windows_platform.dart';
+
 /// Le focus courant (`FocusManager.instance.primaryFocus`) est-il porté par
 /// un élément du sous-arbre de [ancestor] ? Même construction que
 /// `test/features/shared/warning_link_test.dart` (`_hasFocusWithin`) :
@@ -424,7 +426,7 @@ void main() {
   });
 
   group('MapView — ordre de tabulation déclaré (K2)', () {
-    testWidgets(
+    testWidgetsOnWindows(
       'Tab parcourt, dans cet ordre : chips (2) → contrôles de zoom (3) → '
       'carte → lien du bandeau — puis reboucle',
       (WidgetTester tester) async {
@@ -469,7 +471,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'une fiche ouverte s intercale entre carte et lien du bandeau',
       (WidgetTester tester) async {
         const Key fiche = Key('fiche-de-test-K2');
@@ -504,55 +506,56 @@ void main() {
       },
     );
 
-    testWidgets('le focus est visible sur chaque arrêt de l ordre déclaré', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(home: MapView(viewModel: _viewModel())),
-      );
-      await tester.pumpAndSettle();
+    testWidgetsOnWindows(
+      'le focus est visible sur chaque arrêt de l ordre déclaré',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: _viewModel())),
+        );
+        await tester.pumpAndSettle();
 
-      // chips (×2), contrôles (×3), carte, lien : sept arrêts, dans l'ordre
-      // déclaré. « carte » (index 5) est vérifiée à part
-      // ([_carteFocusRingVisible]) — voir [_carteFocused].
-      final List<Finder?> arrets = <Finder?>[
-        find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
-        find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
-        find.byKey(mapZoomInButtonKey),
-        find.byKey(mapZoomOutButtonKey),
-        find.byKey(mapRecenterButtonKey),
-        null,
-        find.byKey(warningLinkKey),
-      ];
+        // chips (×2), contrôles (×3), carte, lien : sept arrêts, dans l'ordre
+        // déclaré. « carte » (index 5) est vérifiée à part
+        // ([_carteFocusRingVisible]) — voir [_carteFocused].
+        final List<Finder?> arrets = <Finder?>[
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(mapZoomInButtonKey),
+          find.byKey(mapZoomOutButtonKey),
+          find.byKey(mapRecenterButtonKey),
+          null,
+          find.byKey(warningLinkKey),
+        ];
 
-      for (final Finder? arret in arrets) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-        if (arret == null) {
-          expect(
-            _carteFocusRingVisible(tester),
-            isTrue,
-            reason:
-                'aucun contour visible sur « carte » alors qu elle a le '
-                'focus',
-          );
-          expect(
-            _carteFocusRingPosition(tester),
-            DecorationPosition.foreground,
-            reason:
-                'sans `DecorationPosition.foreground` (🔴 2), l\'anneau de '
-                '« carte » se peint SOUS `FlutterMap` et ses tuiles '
-                "opaques, invisible même quand il a le focus",
-          );
-        } else {
-          expect(
-            _focusRingVisible(tester, arret),
-            isTrue,
-            reason: 'aucun contour visible sur $arret alors qu il a le focus',
-          );
+        for (final Finder? arret in arrets) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          if (arret == null) {
+            expect(
+              _carteFocusRingVisible(tester),
+              isTrue,
+              reason:
+                  'aucun contour visible sur « carte » alors qu elle a le '
+                  'focus',
+            );
+            expect(
+              _carteFocusRingPosition(tester),
+              DecorationPosition.foreground,
+              reason:
+                  'sans `DecorationPosition.foreground` (🔴 2), l\'anneau de '
+                  '« carte » se peint SOUS `FlutterMap` et ses tuiles '
+                  "opaques, invisible même quand il a le focus",
+            );
+          } else {
+            expect(
+              _focusRingVisible(tester, arret),
+              isTrue,
+              reason: 'aucun contour visible sur $arret alors qu il a le focus',
+            );
+          }
         }
-      }
-    });
+      },
+    );
   });
 
   group('MapView — les raccourcis clavier pilotent la caméra (K2)', () {
@@ -568,29 +571,32 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('+ (ici =, le clavier de test ne connaît pas Add) zoome '
-        'd un cran, exactement comme le bouton (K1)', (
-      WidgetTester tester,
-    ) async {
-      final MapViewModel viewModel = _viewModel();
-      await tester.pumpWidget(MaterialApp(home: MapView(viewModel: viewModel)));
-      await tester.pumpAndSettle();
-      await tabIntoScope(tester);
-      final double zoomInitial = viewModel.zoom!;
+    testWidgetsOnWindows(
+      '+ (ici =, le clavier de test ne connaît pas Add) zoome '
+      'd un cran, exactement comme le bouton (K1)',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = _viewModel();
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        await tabIntoScope(tester);
+        final double zoomInitial = viewModel.zoom!;
 
-      // `LogicalKeyboardKey.add` n'a pas de touche physique connue du
-      // simulateur de `flutter_test` (`KeyEventSimulator._findPhysicalKey`,
-      // constaté à l'exécution) : `=` porte exactement le même `ZoomIntent`
-      // dans `mapShortcuts()`, et EST simulable. `mapShortcuts — pure, sans
-      // widget` couvre déjà `add` séparément, sans passer par un clavier
-      // simulé.
-      await tester.sendKeyEvent(LogicalKeyboardKey.equal);
-      await tester.pumpAndSettle();
+        // `LogicalKeyboardKey.add` n'a pas de touche physique connue du
+        // simulateur de `flutter_test` (`KeyEventSimulator._findPhysicalKey`,
+        // constaté à l'exécution) : `=` porte exactement le même `ZoomIntent`
+        // dans `mapShortcuts()`, et EST simulable. `mapShortcuts — pure, sans
+        // widget` couvre déjà `add` séparément, sans passer par un clavier
+        // simulé.
+        await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+        await tester.pumpAndSettle();
 
-      expect(viewModel.zoom, zoomInitial + zoomStep);
-    });
+        expect(viewModel.zoom, zoomInitial + zoomStep);
+      },
+    );
 
-    testWidgets('− dézoome d un cran', (WidgetTester tester) async {
+    testWidgetsOnWindows('− dézoome d un cran', (WidgetTester tester) async {
       final MapViewModel viewModel = _viewModel();
       await tester.pumpWidget(MaterialApp(home: MapView(viewModel: viewModel)));
       await tester.pumpAndSettle();
@@ -603,45 +609,50 @@ void main() {
       expect(viewModel.zoom, zoomInitial - zoomStep);
     });
 
-    testWidgets('une flèche déplace la caméra — nouvelle emprise demandée '
-        'au dépôt de points', (WidgetTester tester) async {
-      final _BoundsSpyStationPointRepository stations =
-          _BoundsSpyStationPointRepository();
-      final MapViewModel viewModel = _viewModel(stationPoints: stations);
-      await tester.pumpWidget(MaterialApp(home: MapView(viewModel: viewModel)));
-      await tester.pumpAndSettle();
-      viewModel.selectScale(MapScaleKind.debit);
-      await tester.pumpAndSettle();
-      await tabIntoScope(tester);
-
-      // Niveau individuel (`ADR-015`) : c'est à ce niveau que
-      // `StationPointRepository.withinBounds` est appelé pour l'emprise
-      // courante — au niveau regroupé, seul `all()` sert au regroupement
-      // par zone, et [stations.lastBounds] ne bougerait jamais (même
-      // montée que `map_view_test.dart`, groupe « les boutons de zoom »).
-      // Zoom au CLAVIER (`=`), pas à la souris : ce test reste un test du
-      // pilotage clavier de bout en bout.
-      for (int i = 0; i < 4; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    testWidgetsOnWindows(
+      'une flèche déplace la caméra — nouvelle emprise demandée '
+      'au dépôt de points',
+      (WidgetTester tester) async {
+        final _BoundsSpyStationPointRepository stations =
+            _BoundsSpyStationPointRepository();
+        final MapViewModel viewModel = _viewModel(stationPoints: stations);
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
         await tester.pumpAndSettle();
-      }
-      expect(viewModel.level, isNull, reason: 'niveau individuel atteint');
-      final Bounds avant = stations.lastBounds!;
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        await tabIntoScope(tester);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
+        // Niveau individuel (`ADR-015`) : c'est à ce niveau que
+        // `StationPointRepository.withinBounds` est appelé pour l'emprise
+        // courante — au niveau regroupé, seul `all()` sert au regroupement
+        // par zone, et [stations.lastBounds] ne bougerait jamais (même
+        // montée que `map_view_test.dart`, groupe « les boutons de zoom »).
+        // Zoom au CLAVIER (`=`), pas à la souris : ce test reste un test du
+        // pilotage clavier de bout en bout.
+        for (int i = 0; i < 4; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.level, isNull, reason: 'niveau individuel atteint');
+        final Bounds avant = stations.lastBounds!;
 
-      final Bounds apres = stations.lastBounds!;
-      expect(
-        apres.east,
-        greaterThan(avant.east),
-        reason: 'une flèche DROITE déplace la caméra vers l est',
-      );
-    });
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+
+        final Bounds apres = stations.lastBounds!;
+        expect(
+          apres.east,
+          greaterThan(avant.east),
+          reason: 'une flèche DROITE déplace la caméra vers l est',
+        );
+      },
+    );
   });
 
   group('MapView — Échap ferme la fiche ouverte, et rien d autre (K2)', () {
-    testWidgets('ferme la fiche station', (WidgetTester tester) async {
+    testWidgetsOnWindows('ferme la fiche station', (WidgetTester tester) async {
       bool fermee = false;
       await tester.pumpWidget(
         MaterialApp(
@@ -665,7 +676,7 @@ void main() {
       expect(fermee, isTrue);
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'sans fiche branchée, Échap ne fait rien — MapView.onCloseSheets '
       'reste optionnel',
       (WidgetTester tester) async {
@@ -683,36 +694,39 @@ void main() {
       },
     );
 
-    testWidgets('Échap ne change ni l échelle active ni le zoom courant — rien '
-        "d'autre que la fiche ne bouge", (WidgetTester tester) async {
-      final MapViewModel viewModel = _viewModel();
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MapView(
-            viewModel: viewModel,
-            onStationTap: (StationCode code) {},
-            stationSheet: const SizedBox.shrink(),
-            onCloseSheets: () {},
+    testWidgetsOnWindows(
+      'Échap ne change ni l échelle active ni le zoom courant — rien '
+      "d'autre que la fiche ne bouge",
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = _viewModel();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onStationTap: (StationCode code) {},
+              stationSheet: const SizedBox.shrink(),
+              onCloseSheets: () {},
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      final MapScaleKind scaleAvant = viewModel.scale;
-      final double? zoomAvant = viewModel.zoom;
+        );
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final MapScaleKind scaleAvant = viewModel.scale;
+        final double? zoomAvant = viewModel.zoom;
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
 
-      expect(viewModel.scale, scaleAvant);
-      expect(viewModel.zoom, zoomAvant);
-    });
+        expect(viewModel.scale, scaleAvant);
+        expect(viewModel.zoom, zoomAvant);
+      },
+    );
   });
 
   group('MapView — un raccourci ne se déclenche pas depuis un TextField '
       '(harnais de test)', () {
-    testWidgets(
+    testWidgetsOnWindows(
       'le focus dans un TextField, à côté de la carte, absorbe + sans '
       'déclencher ZoomIntent',
       (WidgetTester tester) async {
@@ -788,7 +802,7 @@ void main() {
       }
     }
 
-    testWidgets(
+    testWidgetsOnWindows(
       'zoom 5 : Tab atteint la pastille la plus proche du centre, puis '
       'la suivante — Entrée sur la première fait passer level à '
       'departement (Z4), puis Tab atteint le lien du bandeau',
@@ -847,171 +861,181 @@ void main() {
       },
     );
 
-    testWidgets('zoom 9 (échelle débit) : Tab atteint un marqueur de station, '
-        'Entrée appelle onStationTap UNE FOIS avec son code', (
-      WidgetTester tester,
-    ) async {
-      final List<StationPoint> stations = <StationPoint>[
-        _lonelyStation(1, latitude: 46.6, longitude: 2.2),
-        _lonelyStation(2, latitude: 50, longitude: 10),
-      ];
-      final List<StationCode> tapped = <StationCode>[];
-      final MapViewModel viewModel = _viewModel(
-        stationPoints: _StationsStub(stations),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MapView(
-            viewModel: viewModel,
-            onStationTap: tapped.add,
-            stationSheet: const SizedBox.shrink(),
+    testWidgetsOnWindows(
+      'zoom 9 (échelle débit) : Tab atteint un marqueur de station, '
+      'Entrée appelle onStationTap UNE FOIS avec son code',
+      (WidgetTester tester) async {
+        final List<StationPoint> stations = <StationPoint>[
+          _lonelyStation(1, latitude: 46.6, longitude: 2.2),
+          _lonelyStation(2, latitude: 50, longitude: 10),
+        ];
+        final List<StationCode> tapped = <StationCode>[];
+        final MapViewModel viewModel = _viewModel(
+          stationPoints: _StationsStub(stations),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onStationTap: tapped.add,
+              stationSheet: const SizedBox.shrink(),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      viewModel.selectScale(MapScaleKind.debit);
-      await tester.pumpAndSettle();
-      for (int i = 0; i < 4; i++) {
-        await tester.tap(find.byKey(mapZoomInButtonKey));
+        );
         await tester.pumpAndSettle();
-      }
-      expect(viewModel.level, isNull, reason: 'niveau individuel');
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        for (int i = 0; i < 4; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.level, isNull, reason: 'niveau individuel');
 
-      await tabJusquACarte(tester);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
+        await tabJusquACarte(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
 
-      expect(tapped, hasLength(1));
-      expect(tapped.single, stations.first.code);
-    });
+        expect(tapped, hasLength(1));
+        expect(tapped.single, stations.first.code);
+      },
+    );
 
-    testWidgets('zoom 9 (échelle écoulement) : Tab atteint un marqueur ONDE, '
-        'Entrée appelle onOndeTap UNE FOIS avec son point', (
-      WidgetTester tester,
-    ) async {
-      final OndePoint point1 = _lonelyOndePoint(
-        '0001',
-        latitude: 46.6,
-        longitude: 2.2,
-      );
-      final OndePoint point2 = _lonelyOndePoint(
-        '0002',
-        latitude: 50,
-        longitude: 10,
-      );
-      final List<OndePoint> tapped = <OndePoint>[];
-      final MapViewModel viewModel = _viewModel(
-        onde: _OndeStub(<OndeObservation>[
-          _ondeObservationAt(point1),
-          _ondeObservationAt(point2),
-        ]),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MapView(
-            viewModel: viewModel,
-            onOndeTap: tapped.add,
-            ondeSheet: const SizedBox.shrink(),
+    testWidgetsOnWindows(
+      'zoom 9 (échelle écoulement) : Tab atteint un marqueur ONDE, '
+      'Entrée appelle onOndeTap UNE FOIS avec son point',
+      (WidgetTester tester) async {
+        final OndePoint point1 = _lonelyOndePoint(
+          '0001',
+          latitude: 46.6,
+          longitude: 2.2,
+        );
+        final OndePoint point2 = _lonelyOndePoint(
+          '0002',
+          latitude: 50,
+          longitude: 10,
+        );
+        final List<OndePoint> tapped = <OndePoint>[];
+        final MapViewModel viewModel = _viewModel(
+          onde: _OndeStub(<OndeObservation>[
+            _ondeObservationAt(point1),
+            _ondeObservationAt(point2),
+          ]),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onOndeTap: tapped.add,
+              ondeSheet: const SizedBox.shrink(),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      for (int i = 0; i < 4; i++) {
-        await tester.tap(find.byKey(mapZoomInButtonKey));
+        );
         await tester.pumpAndSettle();
-      }
-      expect(viewModel.level, isNull, reason: 'niveau individuel');
+        for (int i = 0; i < 4; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.level, isNull, reason: 'niveau individuel');
 
-      await tabJusquACarte(tester);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
+        await tabJusquACarte(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
 
-      expect(tapped, hasLength(1));
-      expect(tapped.single.code, point1.code);
-    });
+        expect(tapped, hasLength(1));
+        expect(tapped.single.code, point1.code);
+      },
+    );
 
-    testWidgets('après le dernier élément de « carte », Tab atteint le lien du '
-        'bandeau', (WidgetTester tester) async {
-      final List<StationPoint> stations = <StationPoint>[
-        _lonelyStation(1, latitude: 46.6, longitude: 2.2),
-      ];
-      final MapViewModel viewModel = _viewModel(
-        stationPoints: _StationsStub(stations),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MapView(
-            viewModel: viewModel,
-            // Un marqueur SANS rappel de tap n'est pas focalisable
-            // (`canRequestFocus`, `_stationMarkers`) : rien à activer,
-            // rien à atteindre — ce test veut au contraire vérifier
-            // qu'un marqueur INTERACTIF reste le dernier arrêt avant le
-            // lien du bandeau.
-            onStationTap: (StationCode code) {},
-            stationSheet: const SizedBox.shrink(),
+    testWidgetsOnWindows(
+      'après le dernier élément de « carte », Tab atteint le lien du '
+      'bandeau',
+      (WidgetTester tester) async {
+        final List<StationPoint> stations = <StationPoint>[
+          _lonelyStation(1, latitude: 46.6, longitude: 2.2),
+        ];
+        final MapViewModel viewModel = _viewModel(
+          stationPoints: _StationsStub(stations),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              // Un marqueur SANS rappel de tap n'est pas focalisable
+              // (`canRequestFocus`, `_stationMarkers`) : rien à activer,
+              // rien à atteindre — ce test veut au contraire vérifier
+              // qu'un marqueur INTERACTIF reste le dernier arrêt avant le
+              // lien du bandeau.
+              onStationTap: (StationCode code) {},
+              stationSheet: const SizedBox.shrink(),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      viewModel.selectScale(MapScaleKind.debit);
-      await tester.pumpAndSettle();
-      for (int i = 0; i < 4; i++) {
-        await tester.tap(find.byKey(mapZoomInButtonKey));
+        );
         await tester.pumpAndSettle();
-      }
-      expect(viewModel.level, isNull);
-
-      // Un seul marqueur au niveau individuel : un Tab de plus après
-      // avoir atteint « carte » doit sortir du groupe.
-      await tabJusquACarte(tester);
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-
-      expect(_focusedWithin(tester, find.byKey(warningLinkKey)), isTrue);
-    });
-
-    testWidgets('les flèches déplacent la carte même quand le focus est sur un '
-        'marqueur', (WidgetTester tester) async {
-      final _StationsStub stations = _StationsStub(<StationPoint>[
-        _lonelyStation(1, latitude: 46.6, longitude: 2.2),
-      ]);
-      final MapViewModel viewModel = _viewModel(stationPoints: stations);
-      await tester.pumpWidget(MaterialApp(home: MapView(viewModel: viewModel)));
-      await tester.pumpAndSettle();
-      viewModel.selectScale(MapScaleKind.debit);
-      await tester.pumpAndSettle();
-      for (int i = 0; i < 4; i++) {
-        await tester.tap(find.byKey(mapZoomInButtonKey));
+        viewModel.selectScale(MapScaleKind.debit);
         await tester.pumpAndSettle();
-      }
-      expect(viewModel.level, isNull);
-      await tabJusquACarte(tester);
-      expect(
-        _carteFocused(),
-        isFalse,
-        reason:
-            'le focus doit être descendu sur le marqueur réel, pas '
-            'resté sur le nœud de secours de « carte »',
-      );
-      final Bounds avant = stations.lastBounds!;
+        for (int i = 0; i < 4; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.level, isNull);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
+        // Un seul marqueur au niveau individuel : un Tab de plus après
+        // avoir atteint « carte » doit sortir du groupe.
+        await tabJusquACarte(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
 
-      final Bounds apres = stations.lastBounds!;
-      expect(
-        apres.east,
-        greaterThan(avant.east),
-        reason:
-            'le focus sur un marqueur ne doit pas empêcher la '
-            "flèche d'agir",
-      );
-    });
+        expect(_focusedWithin(tester, find.byKey(warningLinkKey)), isTrue);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'les flèches déplacent la carte même quand le focus est sur un '
+      'marqueur',
+      (WidgetTester tester) async {
+        final _StationsStub stations = _StationsStub(<StationPoint>[
+          _lonelyStation(1, latitude: 46.6, longitude: 2.2),
+        ]);
+        final MapViewModel viewModel = _viewModel(stationPoints: stations);
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        for (int i = 0; i < 4; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.level, isNull);
+        await tabJusquACarte(tester);
+        expect(
+          _carteFocused(),
+          isFalse,
+          reason:
+              'le focus doit être descendu sur le marqueur réel, pas '
+              'resté sur le nœud de secours de « carte »',
+        );
+        final Bounds avant = stations.lastBounds!;
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+
+        final Bounds apres = stations.lastBounds!;
+        expect(
+          apres.east,
+          greaterThan(avant.east),
+          reason:
+              'le focus sur un marqueur ne doit pas empêcher la '
+              "flèche d'agir",
+        );
+      },
+    );
   });
 
   group('MapView — relecture du commanditaire du 2026-09-23 (mutations '
       'survivantes, 🟢 7)', () {
-    testWidgets('Shift+Tab parcourt l ordre inverse', (
+    testWidgetsOnWindows('Shift+Tab parcourt l ordre inverse', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
@@ -1048,155 +1072,168 @@ void main() {
       );
     });
 
-    testWidgets('Espace seul active un marqueur — même effet qu Entrée', (
-      WidgetTester tester,
-    ) async {
-      final List<StationCode> tapped = <StationCode>[];
-      final MapViewModel viewModel = _viewModel(
-        stationPoints: _StationsStub(<StationPoint>[
-          _lonelyStation(1, latitude: 46.6, longitude: 2.2),
-        ]),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MapView(
-            viewModel: viewModel,
-            onStationTap: tapped.add,
-            stationSheet: const SizedBox.shrink(),
+    testWidgetsOnWindows(
+      'Espace seul active un marqueur — même effet qu Entrée',
+      (WidgetTester tester) async {
+        final List<StationCode> tapped = <StationCode>[];
+        final MapViewModel viewModel = _viewModel(
+          stationPoints: _StationsStub(<StationPoint>[
+            _lonelyStation(1, latitude: 46.6, longitude: 2.2),
+          ]),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onStationTap: tapped.add,
+              stationSheet: const SizedBox.shrink(),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      viewModel.selectScale(MapScaleKind.debit);
-      await tester.pumpAndSettle();
-      for (int i = 0; i < 4; i++) {
-        await tester.tap(find.byKey(mapZoomInButtonKey));
+        );
         await tester.pumpAndSettle();
-      }
-      for (int i = 0; i < 6; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-      }
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      await tester.pumpAndSettle();
-
-      expect(tapped, hasLength(1));
-    });
-
-    testWidgets('Échap dans WarningWindow ferme la fenêtre SANS appeler '
-        'onCloseSheets — ce n est pas une fiche', (WidgetTester tester) async {
-      bool closeSheetsAppele = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MapView(
-            viewModel: _viewModel(),
-            onCloseSheets: () => closeSheetsAppele = true,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(warningLinkKey));
-      await tester.pumpAndSettle();
-      expect(find.text(initialWarningTitle), findsOneWidget);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-
-      expect(find.text(initialWarningTitle), findsNothing);
-      expect(
-        closeSheetsAppele,
-        isFalse,
-        reason:
-            'la fenêtre d avertissement (`WarningWindow`) se ferme par '
-            'sa propre route (`showDialog`/`Navigator`), pas par '
-            '`MapView.onCloseSheets` — elle ne fait pas partie du '
-            'sous-arbre `Shortcuts` de `MapView`',
-      );
-    });
-
-    testWidgets('le focus reste sur la MÊME station après un déplacement qui '
-        'change l ordre — Marker.key évite la réconciliation par POSITION '
-        '(🟠 3)', (WidgetTester tester) async {
-      // Deux stations : « proche » est la plus proche du centre au
-      // départ, « lointaine » ne l est pas — après un déplacement vers
-      // l est, leurs distances au centre s inversent (`lointaine`
-      // devient la plus proche), ce qui inverse leur position dans
-      // `orderedIndividualStations`. `Marker.key` doit garder le focus
-      // sur LA MÊME station, jamais sur celle qui prend sa position
-      // dans la liste.
-      final StationPoint proche = _lonelyStation(
-        1,
-        latitude: 46.6,
-        longitude: 2.2,
-      );
-      final StationPoint lointaine = _lonelyStation(
-        2,
-        latitude: 46.6,
-        longitude: 2.9,
-      );
-      final MapViewModel viewModel = _viewModel(
-        stationPoints: _StationsStub(<StationPoint>[proche, lointaine]),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MapView(
-            viewModel: viewModel,
-            onStationTap: (StationCode code) {},
-            stationSheet: const SizedBox.shrink(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      viewModel.selectScale(MapScaleKind.debit);
-      await tester.pumpAndSettle();
-      for (int i = 0; i < 4; i++) {
-        await tester.tap(find.byKey(mapZoomInButtonKey));
+        viewModel.selectScale(MapScaleKind.debit);
         await tester.pumpAndSettle();
-      }
-      expect(viewModel.level, isNull);
+        for (int i = 0; i < 4; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        for (int i = 0; i < 6; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
 
-      // Six Tab pour entrer dans « carte » : `proche` est en tête
-      // (`orderedIndividualStations`, distance croissante).
-      for (int i = 0; i < 6; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-      }
-      expect(
-        _focusedWithin(tester, find.byKey(ValueKey<String>(proche.code.value))),
-        isTrue,
-        reason: 'proche est la plus proche du centre au départ',
-      );
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
 
-      // Un geste directement au ViewModel — PAS une flèche au clavier —
-      // pour changer l'ordre SANS déplacer la caméra RÉELLE de
-      // `flutter_map` : sinon, un déplacement assez grand pour inverser
-      // l'ordre risque aussi de faire sortir `proche` du viewport
-      // (culling interne à `MarkerLayer`, constaté par test), ce qui ne
-      // prouverait plus rien sur `Marker.key` — seulement que la
-      // station est sortie de l'écran. Le centre de cette emprise est
-      // celui de `lointaine` : elle devient la plus proche, et bascule
-      // donc en tête de `orderedIndividualStations`.
-      await viewModel.onGestureEnded(
-        Bounds(west: 2.85, south: 46.55, east: 2.95, north: 46.65),
-        zoom: individualMarkersFromZoom,
-      );
-      await tester.pumpAndSettle();
+        expect(tapped, hasLength(1));
+      },
+    );
 
-      expect(
-        _focusedWithin(tester, find.byKey(ValueKey<String>(proche.code.value))),
-        isTrue,
-        reason:
-            'le focus doit rester sur LA MÊME station (sa clé), même '
-            "si l'ordre de la liste a changé — sans `Marker.key`, "
-            'Flutter réconcilie par position et ferait glisser le '
-            "focus sur `lointaine`, qui prend la place de `proche` "
-            'dans la liste',
-      );
-    });
+    testWidgetsOnWindows(
+      'Échap dans WarningWindow ferme la fenêtre SANS appeler '
+      'onCloseSheets — ce n est pas une fiche',
+      (WidgetTester tester) async {
+        bool closeSheetsAppele = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: _viewModel(),
+              onCloseSheets: () => closeSheetsAppele = true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-    testWidgets(
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+        expect(find.text(initialWarningTitle), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        expect(find.text(initialWarningTitle), findsNothing);
+        expect(
+          closeSheetsAppele,
+          isFalse,
+          reason:
+              'la fenêtre d avertissement (`WarningWindow`) se ferme par '
+              'sa propre route (`showDialog`/`Navigator`), pas par '
+              '`MapView.onCloseSheets` — elle ne fait pas partie du '
+              'sous-arbre `Shortcuts` de `MapView`',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'le focus reste sur la MÊME station après un déplacement qui '
+      'change l ordre — Marker.key évite la réconciliation par POSITION '
+      '(🟠 3)',
+      (WidgetTester tester) async {
+        // Deux stations : « proche » est la plus proche du centre au
+        // départ, « lointaine » ne l est pas — après un déplacement vers
+        // l est, leurs distances au centre s inversent (`lointaine`
+        // devient la plus proche), ce qui inverse leur position dans
+        // `orderedIndividualStations`. `Marker.key` doit garder le focus
+        // sur LA MÊME station, jamais sur celle qui prend sa position
+        // dans la liste.
+        final StationPoint proche = _lonelyStation(
+          1,
+          latitude: 46.6,
+          longitude: 2.2,
+        );
+        final StationPoint lointaine = _lonelyStation(
+          2,
+          latitude: 46.6,
+          longitude: 2.9,
+        );
+        final MapViewModel viewModel = _viewModel(
+          stationPoints: _StationsStub(<StationPoint>[proche, lointaine]),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onStationTap: (StationCode code) {},
+              stationSheet: const SizedBox.shrink(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        for (int i = 0; i < 4; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.level, isNull);
+
+        // Six Tab pour entrer dans « carte » : `proche` est en tête
+        // (`orderedIndividualStations`, distance croissante).
+        for (int i = 0; i < 6; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(
+          _focusedWithin(
+            tester,
+            find.byKey(ValueKey<String>(proche.code.value)),
+          ),
+          isTrue,
+          reason: 'proche est la plus proche du centre au départ',
+        );
+
+        // Un geste directement au ViewModel — PAS une flèche au clavier —
+        // pour changer l'ordre SANS déplacer la caméra RÉELLE de
+        // `flutter_map` : sinon, un déplacement assez grand pour inverser
+        // l'ordre risque aussi de faire sortir `proche` du viewport
+        // (culling interne à `MarkerLayer`, constaté par test), ce qui ne
+        // prouverait plus rien sur `Marker.key` — seulement que la
+        // station est sortie de l'écran. Le centre de cette emprise est
+        // celui de `lointaine` : elle devient la plus proche, et bascule
+        // donc en tête de `orderedIndividualStations`.
+        await viewModel.onGestureEnded(
+          Bounds(west: 2.85, south: 46.55, east: 2.95, north: 46.65),
+          zoom: individualMarkersFromZoom,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          _focusedWithin(
+            tester,
+            find.byKey(ValueKey<String>(proche.code.value)),
+          ),
+          isTrue,
+          reason:
+              'le focus doit rester sur LA MÊME station (sa clé), même '
+              "si l'ordre de la liste a changé — sans `Marker.key`, "
+              'Flutter réconcilie par position et ferait glisser le '
+              "focus sur `lointaine`, qui prend la place de `proche` "
+              'dans la liste',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
       '1 200 marqueurs synthétiques : après le dernier, Tab atteint la '
       'fiche ouverte puis « ⚠ Avertissement », jamais l inverse (🔴 1)',
       (WidgetTester tester) async {
