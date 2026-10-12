@@ -79,3 +79,33 @@ Fonctionnalité: Filtrer la carte
     Étant donné une emprise où aucun lieu n'a été lu et un filtre actif
     Quand la carte s'affiche
     Alors l'avis d'absence habituel s'affiche, et l'avis des filtres ne s'affiche pas (BR-007)
+
+  Scénario: Le type de donnée se choisit par les puces d'échelle, pas dans la feuille
+    Étant donné la carte et ses puces d'échelle
+    Quand la feuille « Filtres » s'ouvre
+    Alors elle ne propose aucune échelle : l'échelle active reste celle des puces (BR-008)
+
+  Scénario: Sur l'écoulement, la feuille ne propose pas de fraîcheur et dit la borne des 60 jours
+    Étant donné l'échelle « Écoulement »
+    Quand la feuille « Filtres » s'ouvre
+    Alors elle écrit « La carte ne montre que les campagnes d'observation des 60 derniers jours. Un point observé plus tôt n'y figure pas. » à la place du critère de fraîcheur (BR-010)
+
+  Scénario: Sur le débit, la feuille ne propose aucun critère d'état
+    Étant donné l'échelle « Débit relatif à l'historique »
+    Quand la feuille « Filtres » s'ouvre
+    Alors elle propose le département et la fraîcheur, et aucune case d'état : un débit ne se qualifie pas (BR-003)
+
+  Scénario: La feuille dit ce que le critère de fraîcheur ne masque pas
+    Étant donné l'échelle « Débit relatif à l'historique »
+    Quand la feuille « Filtres » s'ouvre
+    Alors elle écrit « Ce critère ne porte que sur les mesures déjà chargées : une station dont la mesure n'est pas encore chargée reste affichée. » puis « Il ne s'applique pas aux regroupements par région ou par département : leur compte n'en tient pas compte. » (BR-007, BR-009)
+
+  Scénario: Fermer la feuille sans appliquer ne change rien à la carte
+    Étant donné la feuille « Filtres » ouverte et une case décochée dans le brouillon
+    Quand l'usager ferme la feuille sans activer « Appliquer » — par « Fermer », par la touche Échap, par le retour du téléphone ou en touchant hors de la feuille
+    Alors la carte montre les mêmes lieux qu'avant, et aucun lieu n'est masqué (BR-007)
+
+  Scénario: Aucun texte de la feuille ne qualifie un débit
+    Étant donné la feuille « Filtres » sur l'échelle « Débit relatif à l'historique »
+    Quand l'usager lit ses critères et ses phrases
+    Alors la fraîcheur y est dite en heures — « Toutes », « Moins de 2 h », « Moins de 24 h » — et aucun mot ne juge le débit (BR-003)

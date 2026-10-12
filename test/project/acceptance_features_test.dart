@@ -28,6 +28,7 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show clearFiltersLabel, filterHidesEverythingText;
+import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
@@ -73,12 +74,16 @@ const List<String> _restrictionsStories = <String>['US-09', 'US-07', 'US-08'];
 
 /// Les règles que `filtres.feature` doit citer, chacune par au moins un
 /// SCÉNARIO : la fraîcheur, le lieu masqué qui n'est pas une absence, les
-/// échelles séparées, la pastille comptée sur les retenus, le code inconnu.
+/// échelles séparées, la pastille comptée sur les retenus, le code inconnu ;
+/// depuis la feuille (`F9`) : le débit qui ne se qualifie pas, la borne des
+/// 60 jours.
 const List<String> _filtresRules = <String>[
+  'BR-003',
   'BR-005',
   'BR-007',
   'BR-008',
   'BR-009',
+  'BR-010',
   'BR-011',
 ];
 
@@ -347,8 +352,8 @@ void main() {
     }
   });
 
-  test('filtres.feature cite BR-005, BR-007, BR-008, BR-009, BR-011, chacune '
-      'par un scénario', () {
+  test('filtres.feature cite BR-003, BR-005, BR-007, BR-008, BR-009, BR-010, '
+      'BR-011, chacune par un scénario', () {
     final String contenu = contenusParFichier['filtres.feature'] ?? '';
     final List<String> scenarios = _scenariosOf(contenu);
     expect(scenarios, isNotEmpty);
@@ -669,9 +674,16 @@ void main() {
       'case Assec': flowCategoryLabel(const Assec()),
       'texte de l’avis des filtres': filterHidesEverythingText,
       'action de l’avis des filtres': clearFiltersLabel,
-      'critère de fraîcheur': dischargeFreshnessCriterionLabel(
-        DischargeFreshnessCriterion.moinsDe2h,
-      ),
+      'titre de la feuille': mapFilterSheetTitle,
+      'action qui applique': mapFilterApplyLabel,
+      'action qui ferme la feuille': warningReviewCloseLabel,
+      'phrase des 60 jours': mapFilterFlowWindowText,
+      'fraîcheur, mesures chargées': mapFilterFreshnessLoadedOnlyText,
+      'fraîcheur, regroupements': mapFilterFreshnessClustersText,
+      for (final DischargeFreshnessCriterion criterion
+          in DischargeFreshnessCriterion.values)
+        'choix de fraîcheur ${criterion.name}':
+            dischargeFreshnessCriterionLabel(criterion),
     };
     for (final MapEntry<String, String> libelle in libellesFiltres.entries) {
       test('filtres.feature cite « ${libelle.value} » (${libelle.key})', () {
