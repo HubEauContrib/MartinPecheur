@@ -1,6 +1,6 @@
 # BR-009 — Un cluster porte l'état le plus sévère qu'il contient
 
-- **Statut :** Accepté
+- **Statut :** Accepté · **amendé le 2026-10-12 (T3)**
 - **Date :** 2026-07-30
 - **Contexte borné :** Carte
 
@@ -27,6 +27,7 @@ L'assec est précisément l'information que l'usager cherche, et c'est statistiq
 
 - « Non observé » et « Indéterminé » **ne participent pas** au classement de sévérité : un cluster de points non observés affiche « Non observé », mais un seul point observé lui donne son état.
 - Le compte affiché sur le cluster est le nombre **total** de points, pas le nombre de points dans l'état le plus sévère.
+- Sous un filtre (T3), un cluster ne regroupe que les points retenus : son compte et son état le plus sévère portent sur eux, et un cluster sans point retenu n'est pas dessiné. Exception, sur l'échelle débit : le critère de fraîcheur ne s'applique pas aux clusters — leur compte inclut des stations dont la mesure chargée est hors critère —, et la feuille de filtres le dit.
 - Sur l'échelle 2, la sévérité est **bilatérale** : « Très haut » et « Très bas » sont tous deux plus sévères qu'« Habituel ». En cas d'égalité de rang, « Très bas » l'emporte — c'est l'usage principal du produit.
 - Le tap sur un cluster zoome ; il n'ouvre pas de fiche.
 

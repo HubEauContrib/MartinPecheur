@@ -129,6 +129,7 @@ section « Si la décision est revue ».
 | [UC-004](use-cases/UC-004-consulter-un-point-onde.md) | Consulter un point d'observation ONDE | Pêcheur |
 | [UC-005](use-cases/UC-005-consulter-la-carte-hors-ligne.md) | Consulter la dernière carte hors ligne | Pêcheur |
 | [UC-006](use-cases/UC-006-acquitter-l-avertissement-initial.md) | Acquitter l'avertissement initial | Tout usager |
+| [UC-007](use-cases/UC-007-filtrer-la-carte.md) | Filtrer la carte | Pêcheur |
 
 ## Règles d'écriture
 

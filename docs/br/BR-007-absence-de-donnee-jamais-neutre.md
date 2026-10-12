@@ -1,7 +1,7 @@
 # BR-007 — L'absence de donnée n'est jamais un état neutre
 
 - **Statut :** Accepté · **révisé le 2026-09-18, arbitrage du commanditaire** (voir « Révision du
-  2026-09-18 » ci-dessous)
+  2026-09-18 » ci-dessous) · **amendé le 2026-10-12 (T3, filtre de l'usager)**
 - **Date :** 2026-07-30 · **révisée le 2026-09-18**
 - **Contexte borné :** Carte · Referentiel
 
@@ -35,6 +35,7 @@ Un agriculteur qui ne voit aucune alerte sur sa zone doit comprendre qu'il n'y a
 - Échec de chargement : message par source. Les autres sources restent affichées. **Jamais d'écran blanc.**
 - Niveau de gravité inconnu : *« Cela ne signifie pas qu'aucun arrêté ne s'applique : vérifiez auprès de votre préfecture. »*
 - La règle vaut aussi pour les états de chargement : un écran en cours de chargement n'affiche pas d'état par défaut.
+- **Filtre de l'usager (T3).** Un lieu masqué par un filtre n'est pas une absence de donnée. Tant qu'un critère est actif, la carte le montre en permanence, à tous les zooms. Une carte que le filtre a vidée l'écrit — *« Les filtres masquent tous les lieux du secteur affiché. Cela ne dit rien de l'état des cours d'eau. »* — et propose de les effacer ; elle n'emploie aucun des avis d'absence ci-dessus, qui affirmeraient qu'aucun lieu n'existe. Un lieu dont l'état n'est pas connu — non chargé, en échec, sans donnée, sans département — n'est jamais masqué par un critère qui porte sur cet état.
 
 ## Révision du 2026-09-18
 
@@ -52,6 +53,6 @@ Test de contenu : aucune occurrence de « rien à signaler », « tout va bien �
 
 ## Liens
 
-- Use cases : `UC-001`, `UC-002`, `UC-005`
+- Use cases : `UC-001`, `UC-002`, `UC-005`, `UC-007`
 - ADR liés : `ADR-007`
 - Voir aussi : `BR-004`, `BR-014`

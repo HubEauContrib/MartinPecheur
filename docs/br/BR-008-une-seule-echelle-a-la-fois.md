@@ -1,6 +1,6 @@
 # BR-008 — Une seule échelle d'état est active à la fois
 
-- **Statut :** Accepté
+- **Statut :** Accepté · **amendé le 2026-10-12 (T3)**
 - **Date :** 2026-07-30
 - **Contexte borné :** Carte
 
@@ -8,7 +8,7 @@
 
 > Les trois échelles d'état — **écoulement**, **niveau de débit**, **sévérité sécheresse** —
 > ne sont jamais superposées sur un même marqueur ni affichées simultanément sur la carte.
-> Une seule est active, choisie par le filtre, et la **légende l'indique en permanence**.
+> Une seule est active, choisie par **les puces d'échelle**, et la **légende l'indique en permanence**.
 
 ## Justification
 
@@ -28,7 +28,8 @@ C'est aussi ce qui **autorise la réutilisation de teintes** d'une échelle à l
 
 - La légende est **toujours visible**, jamais repliée : elle porte le nom de l'échelle active et ses états.
   > ⚠️ **Écart accepté — arbitrage du commanditaire du 2026-10-03.** Sous 600 px de large, la légende est repoussée sous un avis tant qu'il s'affiche ; la règle ci-dessus n'est pas modifiée. Voir [`04-ui.md` § 1](../04-ui.md) (amendement du 2026-10-03).
-- Le changement d'échelle est explicite, via les chips de filtre. Il n'y a pas d'échelle « automatique » selon le zoom.
+- Le changement d'échelle est explicite, via **les puces d'échelle**. Il n'y a pas d'échelle « automatique » selon le zoom.
+- Un filtre (T3) masque des lieux à l'intérieur de l'échelle active ; il ne choisit pas l'échelle et n'en superpose aucune.
 - Un marqueur peut exister dans plusieurs échelles (une station hydrométrique dans une zone de restriction) : il n'affiche que l'état de l'échelle active.
 - La fiche de détail, elle, présente **toutes** les informations disponibles — la règle porte sur la carte, pas sur le détail.
 - En lecture d'écran, l'annonce du marqueur nomme l'échelle : *« écoulement : à sec »*, jamais *« à sec »* seul.
