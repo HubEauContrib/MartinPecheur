@@ -20,7 +20,7 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application **F
 | [`superpowers/plans/`](superpowers/plans/) | Plans d'implémentation par tranche | `YYYY-MM-DD-slug.md` |
 | [`superpowers/specs/`](superpowers/specs/) | **Cadrages et conceptions** par tranche : ce qui est décidé avant le plan, avec ses arbitrages (index plus bas) | `YYYY-MM-DD-slug-design.md` |
 | [`sources/`](sources/) | **Fiches de sources de données** — faits vérifiés et datés, fixtures associées | `<source>.md` |
-| [`acceptance/`](acceptance/) | **Critères d'acceptation Gherkin** — spécification lisible, chaque `Scénario` cite une `BR-` qui existe sur le disque (`test/project/acceptance_features_test.dart`, `Task X1`) ; aucun framework BDD en T1, en T2 ni en T3. Six fichiers : les quatre de T1, [`restrictions.feature`](acceptance/restrictions.feature) (T2, `X1`, 2026-10-04) et [`filtres.feature`](acceptance/filtres.feature) (T3, `F7`, 2026-10-12 : premiers scénarios de `US-13`) | `slug.feature` |
+| [`acceptance/`](acceptance/) | **Critères d'acceptation Gherkin** — spécification lisible, chaque `Scénario` cite une `BR-` qui existe sur le disque (`test/project/acceptance_features_test.dart`, `Task X1`) ; aucun framework BDD en T1, en T2 ni en T3. Sept fichiers : les quatre de T1, [`restrictions.feature`](acceptance/restrictions.feature) (T2, `X1`, 2026-10-04), [`filtres.feature`](acceptance/filtres.feature) (T3, `F7`, 2026-10-12 : premiers scénarios de `US-13`) et [`favoris.feature`](acceptance/favoris.feature) (T3, `S7b`, 2026-10-12 : premiers scénarios de `US-14`) | `slug.feature` |
 | [`glossary.md`](glossary.md) | **Langage omniprésent** — termes métier, ce qui est dit à l'usager, vocabulaire proscrit | — |
 | [`context-map.md`](context-map.md) | **Carte des contextes** — 6 contextes bornés et leurs sources externes | — |
 | [`domain-model.md`](domain-model.md) | **Modèle de domaine** — objets-valeur, entités, agrégats, ce que le domaine ne contient pas | — |
@@ -130,6 +130,7 @@ section « Si la décision est revue ».
 | [UC-005](use-cases/UC-005-consulter-la-carte-hors-ligne.md) | Consulter la dernière carte hors ligne | Pêcheur |
 | [UC-006](use-cases/UC-006-acquitter-l-avertissement-initial.md) | Acquitter l'avertissement initial | Tout usager |
 | [UC-007](use-cases/UC-007-filtrer-la-carte.md) | Filtrer la carte | Pêcheur |
+| [UC-008](use-cases/UC-008-suivre-un-lieu-en-favori.md) | Suivre un lieu en favori | Pêcheur |
 
 ## Règles d'écriture
 

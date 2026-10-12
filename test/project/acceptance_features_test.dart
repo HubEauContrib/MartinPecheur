@@ -32,10 +32,11 @@ import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
+import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 
-/// Les six fichiers attendus sous `docs/acceptance/` : les quatre de T1
-/// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2) et
-/// `filtres.feature` (`Task F7` du plan T3).
+/// Les sept fichiers attendus sous `docs/acceptance/` : les quatre de T1
+/// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2),
+/// `filtres.feature` (`Task F7` du plan T3), `favoris.feature` (`Task S7b`).
 const List<String> _featureFiles = <String>[
   'avertissements.feature',
   'fraicheur-d-une-mesure.feature',
@@ -43,9 +44,10 @@ const List<String> _featureFiles = <String>[
   'ecoulement-onde.feature',
   'restrictions.feature',
   'filtres.feature',
+  'favoris.feature',
 ];
 
-/// Les règles métier que les six fichiers doivent couvrir AU MINIMUM,
+/// Les règles métier que les sept fichiers doivent couvrir AU MINIMUM,
 /// ensemble (`Task X1` : « la liste est dans le test, pas seulement dans une
 /// intention »). `BR-013` (l'encart renforcé) y entre avec l'écran des
 /// restrictions de T2 ; l'affirmation inverse, valable en T1 (aucun écran de
@@ -226,8 +228,8 @@ void main() {
       dossierAcceptance.existsSync(),
       isTrue,
       reason:
-          'docs/acceptance/ doit exister avec ses six .feature '
-          '(quatre en T1, restrictions.feature en T2, filtres.feature en T3)',
+          'docs/acceptance/ doit exister avec ses sept .feature '
+          '(quatre en T1, restrictions.feature en T2, filtres.feature et favoris.feature en T3)',
     );
   });
 
@@ -308,13 +310,13 @@ void main() {
     }
   });
 
-  test('les six fichiers couvrent ensemble BR-005, BR-006, BR-007, BR-010, BR-012, BR-013', () {
+  test('les sept fichiers couvrent ensemble BR-005, BR-006, BR-007, BR-010, BR-012, BR-013', () {
     final String tout = contenusParFichier.values.join('\n');
     for (final String regle in _minimumCoveredRules) {
       expect(
         tout.contains(regle),
         isTrue,
-        reason: '$regle doit être citée par au moins un des six .feature',
+        reason: '$regle doit être citée par au moins un des sept .feature',
       );
     }
   });
@@ -372,6 +374,15 @@ void main() {
       _scenariosByStory(contenu)[_filtresStory] ?? 0,
       greaterThan(0),
       reason: 'aucun scénario de filtres.feature sous la section US-13',
+    );
+  });
+
+  test('favoris.feature met en scénarios US-14', () {
+    final String contenu = contenusParFichier['favoris.feature'] ?? '';
+    expect(
+      _scenariosByStory(contenu)['US-14'] ?? 0,
+      greaterThan(0),
+      reason: 'aucun scénario de favoris.feature sous la section US-14',
     );
   });
 
@@ -692,6 +703,29 @@ void main() {
           isTrue,
           reason:
               'filtres.feature ne contient pas « ${libelle.value} », '
+              'le libellé du code pour ${libelle.key}',
+        );
+      });
+    }
+  });
+
+  // Même lien pour `favoris.feature` (T3) : libellés lus dans le code,
+  // cherchés entre guillemets français. `S9` et `S11` allongent la table.
+  group('les libellés portés par le code figurent dans favoris.feature', () {
+    final String favoris = contenusParFichier['favoris.feature'] ?? '';
+
+    final Map<String, String> libellesFavoris = <String, String>{
+      'étoile vide': addFavoriteLabel,
+      'étoile pleine': removeFavoriteLabel,
+      'écriture en échec': favoriteWriteFailedText,
+    };
+    for (final MapEntry<String, String> libelle in libellesFavoris.entries) {
+      test('favoris.feature cite « ${libelle.value} » (${libelle.key})', () {
+        expect(
+          _containsQuoted(favoris, libelle.value),
+          isTrue,
+          reason:
+              'favoris.feature ne contient pas « ${libelle.value} », '
               'le libellé du code pour ${libelle.key}',
         );
       });

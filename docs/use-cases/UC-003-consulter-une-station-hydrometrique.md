@@ -16,7 +16,7 @@ Connaître le débit actuel d'un point de rivière, son évolution récente, et 
 
 ## Déclencheur
 
-L'usager tape « Voir la fiche » depuis la carte, ou ouvre un favori.
+L'usager tape « Voir la fiche » depuis la carte, ou ouvre un favori (🔄 livré par `T3-S11` : l'écran « Favoris » n'existe pas encore).
 
 ## Flux nominal
 
@@ -25,7 +25,7 @@ L'usager tape « Voir la fiche » depuis la carte, ou ouvre un favori.
 3. L'asset de référence est consulté pour la quinzaine calendaire courante.
 4. Si l'historique compte au moins 10 années, le niveau relatif s'affiche — *« Bas pour la saison »* — avec son percentile, le nombre d'années de référence, et le sous-texte *« Comparaison statistique. Ce n'est pas un seuil réglementaire. »*
 5. La courbe d'évolution se charge depuis `obs_elab`, sur 7, 30 ou 90 jours, avec la médiane historique en repère.
-6. L'usager peut mettre en favori, télécharger la zone hors-ligne, ou partager.
+6. L'usager peut mettre en favori, télécharger la zone hors-ligne, ou partager. ⚠️ **Amendement du 2026-10-12 (tranche T3, `S7b`)** : la mise en favori est livrée, par l'étoile du cadre de la fiche (`UC-008`) ; télécharger la zone hors-ligne et partager ne sont pas livrés.
 
 ```mermaid
 sequenceDiagram
