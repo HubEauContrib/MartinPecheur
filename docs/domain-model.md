@@ -148,7 +148,10 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
   la source, `otherZones` garde toutes les autres dans un **ordre fixe par type**
   (`EauxSouterraines`, puis `EauPotable`, puis `TypeZoneInconnu`) et dans l'ordre de la source à
   l'intérieur d'un même type. **Aucun tri par sévérité** : chaque zone régit ses propres usages,
-  rien ne fonde une zone « principale » (`Q5-B`).
+  rien ne fonde une zone « principale » (`Q5-B`). `lacksSurfaceWaterZone` dit que le point porte des
+  zones dont aucune n'est d'eaux superficielles ; `canStateSurfaceWaterAbsence` ajoute qu'aucune
+  n'est de type non reconnu : d'une telle zone l'application ne sait pas ce qu'elle est, elle
+  n'affirme donc pas l'absence (`BR-011`, T3, `R2`).
 - `DecreeDocument` — un document distinct cité par les zones d'un point ; dédoublonnage par
   adresse exacte et par rôle, dates partagées (T3, `R1`).
 - `RestrictionSource` — le contrat qui rend un `ZonesAtPoint` pour un `GeoPoint` (T2, M4). Passé au

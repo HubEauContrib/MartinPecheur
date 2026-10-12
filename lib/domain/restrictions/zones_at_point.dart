@@ -73,6 +73,19 @@ final class ZonesAtPoint {
     ]);
   }
 
+  /// Vrai si le point porte des zones, dont aucune d'eaux superficielles.
+  bool get lacksSurfaceWaterZone =>
+      surfaceWaterZones.isEmpty && otherZones.isNotEmpty;
+
+  /// Vrai si l'absence de zone d'eaux superficielles peut s'écrire : il y a
+  /// des zones, aucune n'est d'eaux superficielles, et aucune n'est de type
+  /// non reconnu (`BR-011`). D'une zone de type non reconnu, l'application
+  /// ne sait pas ce qu'elle est : elle n'affirme pas qu'aucune n'est d'eaux
+  /// superficielles (arbitrage du 2026-10-06).
+  bool get canStateSurfaceWaterAbsence =>
+      lacksSurfaceWaterZone &&
+      !otherZones.any((AlertZone zone) => zone.kind is TypeZoneInconnu);
+
   @override
   bool operator ==(Object other) =>
       other is ZonesAtPoint &&
