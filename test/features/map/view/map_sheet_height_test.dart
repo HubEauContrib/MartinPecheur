@@ -52,7 +52,11 @@
 // - G. un CONSTAT, un fait mesuré qui n'est PAS un invariant voulu (même
 //   convention que `map_overlays_phone_test.dart`), à corriger À LA MAIN
 //   quand l'écran change, jamais en silence — `docs/project-state.md`,
-//   point 60 : la position de défilement survit au changement de fiche ;
+//   point 60 : la position de défilement survit au changement de fiche, pour
+//   `buildMapOverlays` SEUL et sans contrôleur — à l'écran, la racine de
+//   composition la remet à zéro à chaque ouverture (`K4` de T3) ; G bis : avec
+//   un contrôleur fourni, `jumpTo(0)` entre deux poses ramène la fiche en
+//   haut ;
 // - H. (`K5` de T3) l'INVARIANT qui remplace l'ancien CONSTAT « le bas de la
 //   fiche défilée au bout reste en partie sous l'attribution IGN » : à 200 %,
 //   aux quatre tailles, hors mode et en mode, fiche défilée au bout, le
@@ -64,8 +68,8 @@
 // Les cas B à G posent des configurations déjà couvertes par la matrice A, qui
 // affirme seule l'absence d'erreur de rendu : ils ne la répètent pas, pour que
 // B et C échouent sur ce qu'ils testent (un défilement absent) et non sur le
-// débordement. Seule exception : la seconde pose du CONSTAT de position, une
-// autre station, n'est pas dans la matrice.
+// débordement. Seule exception : la seconde pose du CONSTAT de position et
+// celle de G bis, une autre station, ne sont pas dans la matrice.
 //
 // La plateforme (`N9` de T3) : un cas dont le plus petit côté de la fenêtre
 // fait moins de 600 px est un cas de téléphone — en portrait (360 × 640,
@@ -415,6 +419,8 @@ Future<List<FlutterErrorDetails>> _capturer(
 /// aucune n'est filtrée. Sous les surcouches, une couche « carte » compte les
 /// taps et les crans de molette qui lui parviennent ([carte]). Les surcouches
 /// sont dans un groupe de tabulation ordonné, comme dans `MapView` (`K2`).
+/// [controleur] : le contrôleur du défilement de la zone des fiches, tel que
+/// la racine de composition le fournit (`K4` de T3) ; `null` : aucun.
 Future<List<FlutterErrorDetails>> _poser(
   WidgetTester tester, {
   required Size taille,
@@ -422,6 +428,7 @@ Future<List<FlutterErrorDetails>> _poser(
   required _Cas cas,
   bool enMode = false,
   _Carte? carte,
+  ScrollController? controleur,
 }) {
   tester.view.physicalSize = taille;
   tester.view.devicePixelRatio = 1.0;
@@ -481,6 +488,7 @@ Future<List<FlutterErrorDetails>> _poser(
                     onToggleFavorite: () {},
                     utcOffsetOf: _offset,
                   ),
+                  sheetScrollController: controleur,
                   ondeSheet: OndeSheetPanel(
                     state: cas.onde,
                     onClose: () {},
@@ -1018,10 +1026,12 @@ void main() {
       // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : fiche défilée au bout, puis
       // une AUTRE fiche haute posée au même emplacement — le défilement garde
       // sa position, la nouvelle fiche s'ouvre sur son bas, son nom et
-      // « ⚠ Avertissement » hors champ. Corriger demande de savoir quand la
-      // fiche change, ce que `buildMapOverlays` ignore : hors du périmètre
-      // arbitré, à trancher par le commanditaire. Une fois corrigé, la position
-      // revient à 0 : corriger ce CONSTAT à la main.
+      // « ⚠ Avertissement » hors champ. Ce constat parle de `buildMapOverlays`
+      // SEUL, sans contrôleur : la fonction ignore quand la fiche change. À
+      // l'écran, c'est la racine de composition qui remet la position à zéro
+      // à chaque ouverture de fiche (`K4` de T3, `lib/main.dart`), par le
+      // contrôleur qu'elle fournit — cas suivant, et `test/main_test.dart`
+      // pour la racine elle-même.
       const Size taille = Size(360, 640);
       await _poser(
         tester,
@@ -1052,6 +1062,58 @@ void main() {
         _position(tester, _panneauStation()).pixels,
         greaterThan(0),
         reason: "la position n'est pas revenue à 0 (avant : $auBout)",
+      );
+    },
+  );
+
+  // G bis (`K4` de T3). Le moyen donné à la racine de composition : avec un
+  // contrôleur fourni, `jumpTo(0)` entre deux poses ramène la fiche en haut.
+  testWidgetsOnAndroid(
+    'Android : à 360 × 640, 200 %, avec un contrôleur fourni, jumpTo(0) '
+    'entre deux poses ramène la fiche en haut',
+    (WidgetTester tester) async {
+      const Size taille = Size(360, 640);
+      final ScrollController controleur = ScrollController();
+      addTearDown(controleur.dispose);
+      await _poser(
+        tester,
+        taille: taille,
+        textScale: 2,
+        cas: _casStationSansValeur(_blois()),
+        controleur: controleur,
+      );
+      final ScrollPosition position = _position(tester, _panneauStation());
+      expect(
+        controleur.position,
+        same(position),
+        reason: 'le contrôleur fourni est celui de la zone des fiches',
+      );
+      expect(position.maxScrollExtent, greaterThan(0), reason: 'à défiler');
+      controleur.jumpTo(position.maxScrollExtent);
+      await tester.pump();
+      expect(controleur.offset, greaterThan(0), reason: 'défilée au bout');
+
+      controleur.jumpTo(0);
+      await _poser(
+        tester,
+        taille: taille,
+        textScale: 2,
+        cas: _casStationSansValeur(_autreStation()),
+        controleur: controleur,
+      );
+
+      expect(
+        find.text(_autreStation().label),
+        findsOneWidget,
+        reason: "l'autre fiche est bien posée",
+      );
+      expect(controleur.offset, 0, reason: 'la fiche est revenue en haut');
+      final Rect fenetre = _fenetre(tester, _panneauStation());
+      final double haut = tester.getRect(find.text(_autreStation().label)).top;
+      expect(
+        haut >= fenetre.top - _tolerance && haut < fenetre.bottom,
+        isTrue,
+        reason: 'haut du nom de la station à $haut, fenêtre $fenetre',
       );
     },
   );

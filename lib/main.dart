@@ -180,7 +180,7 @@ Future<void> main() async {
 // d'avertissement partagé (`W3c`, `WarningLink`) remplace le bandeau (`W3`),
 // son menu (`W3b`) et l'encart daté (`W4`) ; l'encart renforcé (`BR-013`)
 // arrive en T2, `W5` n'en écrit que le texte.
-class MartinPecheurApp extends StatelessWidget {
+class MartinPecheurApp extends StatefulWidget {
   const MartinPecheurApp({
     required this.warningsViewModel,
     required this.mapViewModel,
@@ -227,7 +227,114 @@ class MartinPecheurApp extends StatelessWidget {
   final CountingStationPointRepository? fluidityStationPoints;
 
   @override
+  State<MartinPecheurApp> createState() => _MartinPecheurAppState();
+}
+
+// L'état de la racine ne porte qu'une chose (`K4` de T3) : le contrôleur du
+// défilement de la zone des fiches, et l'écoute qui le remet à zéro.
+//
+// La règle : toute ouverture de fiche, d'où qu'elle vienne, montre la fiche
+// depuis son haut. Sans cela, la position de défilement survit au changement
+// de fiche quand la donnée est en cache — `open()` émet « en cours » puis
+// « prête » sans trame entre les deux, et la nouvelle fiche s'ouvre sur son
+// bas. `buildMapOverlays` ignore quand la fiche change, et les deux tranches
+// de fiche s'ignorent (règle `feature-vers-feature`) : seule cette racine
+// connaît les deux ViewModels. Elle écoute donc leur passage à « en cours »,
+// que `open()` émet de façon SYNCHRONE, avant toute attente — un seul
+// endroit pour toutes les entrées, le tap d'un marqueur comme les autres.
+//
+// Rien d'autre ne déplace la fiche. Un ViewModel de fiche notifie aussi sans
+// changer d'état — la réponse du dépôt des favoris, une bascule de favori —,
+// y compris PENDANT « en cours » (une station déjà en favori y porte une
+// étoile pleine, active). L'écoute garde donc le dernier état vu de chaque
+// ViewModel et ne remet à zéro que si l'état a CHANGÉ et qu'il est « en
+// cours » : chaque `open()` construit une instance neuve de cet état, une
+// réouverture du même lieu se voit donc aussi.
+class _MartinPecheurAppState extends State<MartinPecheurApp> {
+  final ScrollController _sheetScrollController = ScrollController();
+
+  /// Le dernier état vu de chaque ViewModel de fiche, comparé par identité.
+  late StationSheetState _lastStationSheetState;
+  late OndeSheetState _lastOndeSheetState;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastStationSheetState = widget.stationSheetViewModel.state;
+    _lastOndeSheetState = widget.ondeSheetViewModel.state;
+    widget.stationSheetViewModel.addListener(_onStationSheetChanged);
+    widget.ondeSheetViewModel.addListener(_onOndeSheetChanged);
+  }
+
+  @override
+  void didUpdateWidget(MartinPecheurApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(
+      oldWidget.stationSheetViewModel,
+      widget.stationSheetViewModel,
+    )) {
+      oldWidget.stationSheetViewModel.removeListener(_onStationSheetChanged);
+      _lastStationSheetState = widget.stationSheetViewModel.state;
+      widget.stationSheetViewModel.addListener(_onStationSheetChanged);
+    }
+    if (!identical(oldWidget.ondeSheetViewModel, widget.ondeSheetViewModel)) {
+      oldWidget.ondeSheetViewModel.removeListener(_onOndeSheetChanged);
+      _lastOndeSheetState = widget.ondeSheetViewModel.state;
+      widget.ondeSheetViewModel.addListener(_onOndeSheetChanged);
+    }
+  }
+
+  // Les ViewModels ne sont PAS disposés ici : ils sont construits dans
+  // [main] et vivent aussi longtemps que l'application. Seuls l'écoute et le
+  // contrôleur, créés par cet état, sont rendus.
+  @override
+  void dispose() {
+    widget.stationSheetViewModel.removeListener(_onStationSheetChanged);
+    widget.ondeSheetViewModel.removeListener(_onOndeSheetChanged);
+    _sheetScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onStationSheetChanged() {
+    final StationSheetState state = widget.stationSheetViewModel.state;
+    final bool opening =
+        state is EnCours && !identical(state, _lastStationSheetState);
+    _lastStationSheetState = state;
+    if (opening) {
+      _showSheetFromTop();
+    }
+  }
+
+  void _onOndeSheetChanged() {
+    final OndeSheetState state = widget.ondeSheetViewModel.state;
+    final bool opening =
+        state is OndeSheetEnCours && !identical(state, _lastOndeSheetState);
+    _lastOndeSheetState = state;
+    if (opening) {
+      _showSheetFromTop();
+    }
+  }
+
+  /// Sans client, aucune zone des fiches n'est à l'écran (avertissement
+  /// initial non acquitté) : il n'y a rien à ramener.
+  void _showSheetFromTop() {
+    if (_sheetScrollController.hasClients) {
+      _sheetScrollController.jumpTo(0);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final WarningsViewModel warningsViewModel = widget.warningsViewModel;
+    final MapViewModel mapViewModel = widget.mapViewModel;
+    final StationSheetViewModel stationSheetViewModel =
+        widget.stationSheetViewModel;
+    final OndeSheetViewModel ondeSheetViewModel = widget.ondeSheetViewModel;
+    final RestrictionsViewModel restrictionsViewModel =
+        widget.restrictionsViewModel;
+    final FrameTimingProbe? fluidityProbe = widget.fluidityProbe;
+    final CountingStationPointRepository? fluidityStationPoints =
+        widget.fluidityStationPoints;
     return MaterialApp(
       title: 'MartinPêcheur',
       // `ListenableBuilder` sur `warningsViewModel` : tant que
@@ -297,6 +404,9 @@ class MartinPecheurApp extends StatelessWidget {
                     unawaited(ondeSheetViewModel.toggleFavorite()),
               ),
             ),
+            // `K4` de T3 : le défilement de la zone des fiches, remis à zéro par
+            // cette racine à chaque ouverture de fiche (voir [initState]).
+            sheetScrollController: _sheetScrollController,
             // `Échap` (`K2`) : ferme la fiche ouverte, qu'elle soit station
             // ou ONDE — cette racine est la seule à connaître les DEUX
             // ViewModels de fiche (règle `feature-vers-feature`), au même

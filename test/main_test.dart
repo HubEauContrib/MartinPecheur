@@ -24,6 +24,7 @@ import 'package:flutter/material.dart'
     show
         Checkbox,
         ListView,
+        ScrollPosition,
         Scrollable,
         ScrollableState,
         Semantics,
@@ -32,7 +33,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart'
-    show OndePointFavorite, StationFavorite;
+    show Favorite, OndePointFavorite, StationFavorite;
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
@@ -59,6 +60,8 @@ import 'package:martinpecheur/features/map/view/map_scale_chips.dart'
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
+    show OndeSheetPanel;
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
@@ -67,12 +70,15 @@ import 'package:martinpecheur/features/shared/favorite_star_button.dart'
     show favoriteStarButtonKey;
 import 'package:martinpecheur/features/shared/warning_link.dart'
     show warningLinkKey, warningWindowRegionKey, warningWindowSourcesLinkKey;
+import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart'
+    show StationSheetPanel;
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 import 'package:martinpecheur/features/warnings/view/initial_warning_view.dart';
 import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.dart';
 import 'package:martinpecheur/main.dart';
 
 import 'features/restrictions/zones_samples.dart';
+import 'support/android_platform.dart';
 import 'support/in_memory_favorite_repository.dart';
 import 'support/windows_platform.dart';
 
@@ -133,6 +139,30 @@ final class _BloisStationRepository implements StationRepository {
     riverLabel: 'la Loire',
     inService: true,
   );
+}
+
+/// Un référentiel qui ne répond pas : la fiche station reste « en cours ».
+final class _PendingStationRepository implements StationRepository {
+  @override
+  Future<Station?> findByCode(StationCode code) => Completer<Station?>().future;
+}
+
+/// Une source ONDE dont l'historique ne répond pas : la fiche ONDE reste
+/// « en cours ». Le balayage de la carte, lui, répond vide.
+final class _PendingOndeObservationRepository
+    implements OndeObservationRepository {
+  @override
+  Future<OndeSweep> latestWithinBounds(
+    Bounds bounds, {
+    required DateTime since,
+  }) async =>
+      const OndeSweep(observations: <OndeObservation>[], unreadableRows: 0);
+
+  @override
+  Future<List<OndeObservation>> historyFor(
+    OndeStationCode station, {
+    int limit = 5,
+  }) => Completer<List<OndeObservation>>().future;
 }
 
 /// Double de [AcknowledgementRepository], programmable en lecture — même
@@ -230,6 +260,14 @@ MartinPecheurApp _app(
         ),
   );
 }
+
+/// Ce que les cas de `K4` tiennent de la racine montée : les deux VRAIS
+/// ViewModels de fiche et le dépôt des favoris qu'ils partagent.
+typedef _SheetsRoot = ({
+  StationSheetViewModel station,
+  OndeSheetViewModel onde,
+  InMemoryFavoriteRepository favorites,
+});
 
 /// Un point DANS la bande du bouton de désignation (la boîte du `ListView` de
 /// `_DesignationPlacement`, seul `ListView` au-dessus du bouton), sur la
@@ -396,6 +434,458 @@ void main() {
         expect(favorites.stored, hasLength(1));
         expect(favorites.stored.single, isA<OndePointFavorite>());
         expect(starLabel(tester), 'Retirer des favoris');
+      },
+    );
+  });
+
+  // `K4` de T3 : toute ouverture de fiche montre la fiche depuis son haut. La
+  // zone des fiches défile (2026-10-13) et sa position survivait au changement
+  // de fiche quand la donnée arrive sans trame entre « en cours » et
+  // « prête » (dépôt qui répond sans attente : la donnée en cache). Seule la
+  // racine sait quand une fiche s'ouvre : c'est sa composition RÉELLE qui est
+  // éprouvée, par les rappels de tap qu'elle passe à `MapView`.
+  //
+  // La police est celle de test (un glyphe vaut un em) : à 360 × 640 et 200 %,
+  // les fiches prêtes y sont plus hautes que la carte, c'est tout ce qu'il
+  // faut ici — aucun pixel n'est mesuré.
+  group('une fiche s ouvre par le haut (K4 de T3) — composition reelle', () {
+    Future<WarningsViewModel> acknowledged() async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      return viewModel;
+    }
+
+    // `_BloisStationRepository` répond pour tout code : le second est un
+    // double de test, pas une station réelle.
+    StationCode stationA() => StationCode('K447001001');
+    StationCode stationB() => StationCode('K000000002');
+    OndePoint chaon() => OndePoint(
+      code: OndeStationCode('K4520001'),
+      label: 'LA RIVIERE AUX LOCHES A CHAON',
+      latitude: 47.610620493,
+      longitude: 2.173858157,
+      waterCourseLabel: 'ruisseau la rivière aux loches',
+      departement: null,
+    );
+
+    /// Monte la racine sur un téléphone, 360 × 640, police à 200 %, avec les
+    /// VRAIS ViewModels de fiche et des dépôts qui répondent sans attente.
+    Future<_SheetsRoot> pumpPhone(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository();
+      final StationSheetViewModel station = StationSheetViewModel(
+        observations: _EmptyHydroObservationRepository(),
+        stations: _BloisStationRepository(),
+        favorites: favorites,
+      );
+      final OndeSheetViewModel onde = OndeSheetViewModel(
+        onde: _EmptyOndeObservationRepository(),
+        favorites: favorites,
+      );
+      await tester.pumpWidget(_app(await acknowledged(), null, station, onde));
+      return (station: station, onde: onde, favorites: favorites);
+    }
+
+    /// Le défilement de la zone des fiches : les deux panneaux y sont, l'un
+    /// des deux fermé.
+    Finder sheetScrollable() => find
+        .ancestor(
+          of: find.byType(StationSheetPanel),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+
+    ScrollPosition sheetPosition(WidgetTester tester) =>
+        tester.state<ScrollableState>(sheetScrollable()).position;
+
+    /// Ouvre une fiche PAR LA RACINE — le rappel de tap qu'elle passe à
+    /// `MapView` — et laisse le ViewModel aller au bout SANS trame : aucune
+    /// image n'est dessinée entre « en cours » et « prête ».
+    Future<void> openWithoutFrame(
+      WidgetTester tester,
+      void Function(MapView map) tap,
+    ) async {
+      tap(tester.widget<MapView>(find.byType(MapView)));
+      await tester.idle();
+    }
+
+    /// Fait défiler la fiche ouverte au bout, et rend la position atteinte.
+    Future<double> scrollToEnd(WidgetTester tester) async {
+      final ScrollPosition position = sheetPosition(tester);
+      expect(
+        position.maxScrollExtent,
+        greaterThan(0),
+        reason: 'la fiche doit être plus haute que la carte',
+      );
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pump();
+      expect(position.pixels, greaterThan(0), reason: 'défilée au bout');
+      return position.pixels;
+    }
+
+    /// La position vaut 0 et le haut du contrôle « ⚠ Avertissement » de la
+    /// fiche [panel] est dans la fenêtre de défilement.
+    void expectShownFromTop(WidgetTester tester, Finder panel, double before) {
+      expect(
+        sheetPosition(tester).pixels,
+        0,
+        reason: 'la position de défilement est conservée (avant : $before)',
+      );
+      final Rect window = tester.getRect(sheetScrollable());
+      final double top = tester
+          .getRect(
+            find.descendant(of: panel, matching: find.byKey(warningLinkKey)),
+          )
+          .top;
+      expect(
+        top >= window.top && top < window.bottom,
+        isTrue,
+        reason: 'haut de « ⚠ Avertissement » à $top, fenêtre $window',
+      );
+    }
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : station A defilee au bout, puis station '
+      'B ouverte sans trame entre « en cours » et « prete » — a la premiere '
+      'trame ou B est prete, la position vaut 0 et « Avertissement » est '
+      'dans la fenetre',
+      (WidgetTester tester) async {
+        final _SheetsRoot root = await pumpPhone(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationB()),
+        );
+        final StationSheetState state = root.station.state;
+        expect(state, isA<Prete>(), reason: 'B prête avant toute trame');
+        expect((state as Prete).data.station.code, stationB());
+        await tester.pump();
+
+        expectShownFromTop(tester, find.byType(StationSheetPanel), before);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : fiche station defilee au bout, puis un '
+      'point ONDE ouvert sans trame — la fiche ONDE est montree depuis son '
+      'haut',
+      (WidgetTester tester) async {
+        final _SheetsRoot root = await pumpPhone(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onOndeTap!(chaon()),
+        );
+        expect(root.station.state, isA<Fermee>());
+        expect(root.onde.state, isA<OndeSheetPrete>());
+        await tester.pump();
+
+        expectShownFromTop(tester, find.byType(OndeSheetPanel), before);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : fiche ONDE defilee au bout, puis une '
+      'station ouverte sans trame — la fiche station est montree depuis son '
+      'haut',
+      (WidgetTester tester) async {
+        final _SheetsRoot root = await pumpPhone(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onOndeTap!(chaon()),
+        );
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        expect(root.onde.state, isA<OndeSheetFermee>());
+        expect(root.station.state, isA<Prete>());
+        await tester.pump();
+
+        expectShownFromTop(tester, find.byType(StationSheetPanel), before);
+      },
+    );
+
+    // Vert avant comme après `K4` : seule une OUVERTURE ramène la fiche en
+    // haut.
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : une bascule de favori sur une fiche '
+      'defilee ne remet pas la position a 0',
+      (WidgetTester tester) async {
+        final _SheetsRoot root = await pumpPhone(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        // Par le ViewModel, non par l'étoile de la racine : elle a défilé hors
+        // champ avec la fiche, et son câblage est tenu par les cas de `S7a`.
+        await root.station.toggleFavorite();
+        await tester.pump();
+
+        expect(root.favorites.stored, hasLength(1), reason: 'bascule faite');
+        expect(sheetPosition(tester).pixels, before);
+      },
+    );
+
+    // La remise à zéro ne joue qu'au PASSAGE à « en cours ». Deux
+    // notifications arrivent PENDANT cet état sans que la fiche change : la
+    // réponse du dépôt des favoris quand la station est déjà en favori
+    // (l'étoile pleine apparaît), et la bascule de cette étoile. La fenêtre
+    // est courte et la police grande pour que la fiche « en cours » elle-même
+    // dépasse et défile ; le référentiel ne répond pas, elle le reste.
+    testWidgetsOnAndroid(
+      'Android : 360 x 200, 300 % : fiche station « en cours » defilee — la '
+      'reponse du depot des favoris, puis une bascule de favori, notifient '
+      'sans changer d etat et ne remettent pas la position a 0',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = 3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+          <Favorite>[
+            StationFavorite(
+              code: stationA(),
+              label: 'La Loire à Blois',
+              addedAt: DateTime.utc(2026, 10, 14),
+            ),
+          ],
+        );
+        final Completer<void> favoritesAnswer = Completer<void>();
+        favorites.readGate = favoritesAnswer;
+        final StationSheetViewModel station = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _PendingStationRepository(),
+          favorites: favorites,
+        );
+        int notifications = 0;
+        station.addListener(() => notifications++);
+        await tester.pumpWidget(_app(await acknowledged(), null, station));
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(station.favoriteStar, isNull, reason: 'favoris pas encore lus');
+        final double before = await scrollToEnd(tester);
+
+        // La réponse du dépôt des favoris : l'étoile pleine apparaît.
+        int seen = notifications;
+        favoritesAnswer.complete();
+        await tester.idle();
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(station.favoriteStar?.filled, isTrue);
+        expect(notifications, greaterThan(seen), reason: 'a notifié');
+        expect(sheetPosition(tester).pixels, before);
+
+        // La bascule de l'étoile pleine, active en « en cours » : un retrait.
+        seen = notifications;
+        await station.toggleFavorite();
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(favorites.stored, isEmpty, reason: 'bascule faite');
+        expect(notifications, greaterThan(seen), reason: 'a notifié');
+        expect(sheetPosition(tester).pixels, before);
+      },
+    );
+
+    // La bascule SEULE : les favoris sont lus avant le défilement, la seule
+    // notification reçue ensuite pendant « en cours » est celle de la bascule.
+    testWidgetsOnAndroid(
+      'Android : 360 x 200, 300 % : fiche station « en cours » defilee, '
+      'favoris deja lus — la bascule de l etoile pleine ne remet pas la '
+      'position a 0',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = 3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+          <Favorite>[
+            StationFavorite(
+              code: stationA(),
+              label: 'La Loire à Blois',
+              addedAt: DateTime.utc(2026, 10, 14),
+            ),
+          ],
+        );
+        final StationSheetViewModel station = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _PendingStationRepository(),
+          favorites: favorites,
+        );
+        await tester.pumpWidget(_app(await acknowledged(), null, station));
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(station.favoriteStar?.filled, isTrue, reason: 'favoris lus');
+        final double before = await scrollToEnd(tester);
+
+        int notifications = 0;
+        station.addListener(() => notifications++);
+        await station.toggleFavorite();
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(favorites.stored, isEmpty, reason: 'bascule faite');
+        expect(notifications, greaterThan(0), reason: 'a notifié');
+        expect(sheetPosition(tester).pixels, before);
+      },
+    );
+
+    // Le même fait pour la fiche ONDE, dont la garde est écrite à part : la
+    // source ONDE ne répond pas, la fiche reste « en cours » ; le point est
+    // déjà en favori et la réponse du dépôt des favoris fait apparaître
+    // l'étoile pleine sans changer l'état.
+    testWidgetsOnAndroid(
+      'Android : 360 x 200, 300 % : fiche ONDE « en cours » defilee — la '
+      'reponse du depot des favoris notifie sans changer d etat et ne remet '
+      'pas la position a 0',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = 3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+          <Favorite>[
+            OndePointFavorite(
+              point: chaon(),
+              addedAt: DateTime.utc(2026, 10, 14),
+            ),
+          ],
+        );
+        final Completer<void> favoritesAnswer = Completer<void>();
+        favorites.readGate = favoritesAnswer;
+        final OndeSheetViewModel onde = OndeSheetViewModel(
+          onde: _PendingOndeObservationRepository(),
+          favorites: favorites,
+        );
+        int notifications = 0;
+        onde.addListener(() => notifications++);
+        await tester.pumpWidget(_app(await acknowledged(), null, null, onde));
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onOndeTap!(chaon()),
+        );
+        await tester.pump();
+        expect(onde.state, isA<OndeSheetEnCours>());
+        expect(onde.favoriteStar, isNull, reason: 'favoris pas encore lus');
+        final double before = await scrollToEnd(tester);
+
+        final int seen = notifications;
+        favoritesAnswer.complete();
+        await tester.idle();
+        await tester.pump();
+        expect(onde.state, isA<OndeSheetEnCours>());
+        expect(onde.favoriteStar?.filled, isTrue);
+        expect(notifications, greaterThan(seen), reason: 'a notifié');
+        expect(sheetPosition(tester).pixels, before);
+      },
+    );
+
+    // La racine s'abonne à des ViewModels reçus par son constructeur : s'ils
+    // changent, ses écoutes les suivent (`didUpdateWidget`).
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : racine remontee avec d autres ViewModels '
+      'de fiche — une ouverture sur les nouveaux ramene la fiche en haut',
+      (WidgetTester tester) async {
+        await pumpPhone(tester);
+
+        final InMemoryFavoriteRepository favorites =
+            InMemoryFavoriteRepository();
+        final StationSheetViewModel station = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _BloisStationRepository(),
+          favorites: favorites,
+        );
+        final OndeSheetViewModel onde = OndeSheetViewModel(
+          onde: _EmptyOndeObservationRepository(),
+          favorites: favorites,
+        );
+        final MartinPecheurApp first = tester.widget<MartinPecheurApp>(
+          find.byType(MartinPecheurApp),
+        );
+        // La MÊME racine, aux deux ViewModels de fiche près.
+        await tester.pumpWidget(
+          MartinPecheurApp(
+            warningsViewModel: first.warningsViewModel,
+            mapViewModel: first.mapViewModel,
+            restrictionsViewModel: first.restrictionsViewModel,
+            stationSheetViewModel: station,
+            ondeSheetViewModel: onde,
+          ),
+        );
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        expect(station.state, isA<Prete>(), reason: 'ouverte sur les nouveaux');
+        final double before = await scrollToEnd(tester);
+
+        // Une ouverture sur les NOUVEAUX ramène la fiche en haut.
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationB()),
+        );
+        expect(station.state, isA<Prete>());
+        await tester.pump();
+        expectShownFromTop(tester, find.byType(StationSheetPanel), before);
+
+        await scrollToEnd(tester);
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onOndeTap!(chaon()),
+        );
+        expect(onde.state, isA<OndeSheetPrete>());
+        await tester.pump();
+        expectShownFromTop(tester, find.byType(OndeSheetPanel), before);
       },
     );
   });

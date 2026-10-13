@@ -818,8 +818,10 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    de la carte et défile au-delà (arbitrage du commanditaire du
 ///    2026-10-13) : une fiche plus haute que la carte ne déborde plus de
 ///    l'écran, son bas s'amène dans la fenêtre de défilement en la faisant
-///    défiler ; à 200 % en portrait il reste en partie sous l'attribution IGN
-///    (`docs/project-state.md`, point 60). Elle garde la priorité sur la bande
+///    défiler ; ce qu'on voit de la fiche ne passe jamais sous l'attribution
+///    IGN (`K5` de T3) ; la racine de composition ramène la fiche en haut à
+///    chaque ouverture, par [sheetScrollController] (`K4` de T3 ;
+///    `docs/project-state.md`, point 60). Elle garde la priorité sur la bande
 ///    du bouton de désignation, qui reçoit le reste ;
 /// 5. le **groupe des boutons d'entrée** ([MapEntryButtons], `F10b` de T3 :
 ///    « Filtres »), puis, dessous, les **boutons de zoom et de recentrage**
@@ -886,6 +888,10 @@ List<Widget> buildMapOverlays({
   MapErrorSource? errorSource,
   Widget? stationSheet,
   Widget? ondeSheet,
+  // `K4` de T3 : le contrôleur du défilement de la zone des fiches, tenu par
+  // la racine de composition, qui remet la position à zéro à chaque
+  // ouverture de fiche. `null` : le défilement garde son contrôleur interne.
+  ScrollController? sheetScrollController,
 }) {
   final Widget? sheet = stationSheet;
   final Widget? onde = ondeSheet;
@@ -967,10 +973,13 @@ List<Widget> buildMapOverlays({
   // [_sheetBottomPadding]. En mode, la borne de hauteur laisse cette même
   // hauteur libre en bas ; la bande du bouton reçoit toujours le reste.
   //
-  // Une limite connue, hors du périmètre arbitré (`docs/project-state.md`,
-  // point 60) : la position de défilement est conservée d'une fiche à
-  // l'autre quand la nouvelle arrive sans trame courte entre les deux (donnée
-  // en cache), cette fonction ignorant quand la fiche change.
+  // Cette fonction ignore quand la fiche change : d'elle-même, la position de
+  // défilement est conservée d'une fiche à l'autre quand la nouvelle arrive
+  // sans trame courte entre les deux (donnée en cache). C'est la racine de
+  // composition qui le sait (`K4` de T3, `docs/project-state.md`, point 60) :
+  // elle fournit [sheetScrollController] et le remet à zéro à chaque
+  // ouverture de fiche. Sans contrôleur fourni, rien ne ramène la fiche en
+  // haut.
   final Widget? bottomArea =
       sheet != null || onde != null || designation != null
       ? Align(
@@ -1063,6 +1072,7 @@ List<Widget> buildMapOverlays({
                               ),
                               child: _WithoutScrollbar(
                                 child: SingleChildScrollView(
+                                  controller: sheetScrollController,
                                   primary: false,
                                   hitTestBehavior: HitTestBehavior.deferToChild,
                                   child: Column(
@@ -1563,6 +1573,7 @@ class MapView extends StatefulWidget {
     this.ondeSheet,
     this.onCloseSheets,
     this.onPointDesignated,
+    this.sheetScrollController,
     super.key,
   }) : assert(
          (onStationTap == null) == (stationSheet == null),
@@ -1632,6 +1643,13 @@ class MapView extends StatefulWidget {
   /// `null` : les gestes sont sans effet, et ni la puce « Restrictions » ni
   /// le bouton n'existent.
   final void Function(GeoPoint point)? onPointDesignated;
+
+  /// Le contrôleur du défilement de la zone des fiches (`K4` de T3), créé et
+  /// possédé par `main.dart` : la racine de composition est la seule à savoir
+  /// quand une fiche s'ouvre, et y remet la position à zéro. Cette vue le
+  /// passe, elle ne le dispose pas. `null` : aucune remise à zéro, le
+  /// défilement garde son contrôleur interne.
+  final ScrollController? sheetScrollController;
 
   @override
   State<MapView> createState() => _MapViewState();
@@ -2269,6 +2287,7 @@ class _MapViewState extends State<MapView> {
                           : widget.viewModel.toggleDesignationMode,
                       stationSheet: widget.stationSheet,
                       ondeSheet: widget.ondeSheet,
+                      sheetScrollController: widget.sheetScrollController,
                     ),
                   ],
                 ),
