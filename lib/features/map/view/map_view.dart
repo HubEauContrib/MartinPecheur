@@ -99,6 +99,7 @@
 // carte, elle, n'a aucune raison d'être reconstruite pour cela.
 
 import 'dart:async' show unawaited;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
@@ -957,19 +958,30 @@ List<Widget> buildMapOverlays({
   // hauteur de la carte, la bande du bouton de désignation (`Flexible`)
   // reçoit le reste — rien ne lui est réservé.
   //
-  // Deux limites connues, hors du périmètre arbitré (`docs/project-state.md`,
+  // Ce qu'on voit de la fiche ne passe JAMAIS sous le bandeau d'attribution
+  // IGN, opaque et peint après elle (`K5` de T3) : la hauteur du bandeau suit
+  // la police et la largeur, elle est MESURÉE ([_attributionBadgeHeight], le
+  // calcul que fait aussi la bande du bouton). Hors mode, la marge basse de
+  // la zone vaut au moins [_sheetBottomPadding] et au moins cette hauteur plus
+  // la marge basse du bandeau — à 100 %, bandeau sur une ligne, elle reste de
+  // [_sheetBottomPadding]. En mode, la borne de hauteur laisse cette même
+  // hauteur libre en bas ; la bande du bouton reçoit toujours le reste.
+  //
+  // Une limite connue, hors du périmètre arbitré (`docs/project-state.md`,
   // point 60) : la position de défilement est conservée d'une fiche à
   // l'autre quand la nouvelle arrive sans trame courte entre les deux (donnée
-  // en cache), cette fonction ignorant quand la fiche change ; et à 200 % en
-  // portrait, le bas de la fiche défilée au bout reste en partie sous
-  // l'attribution IGN, la marge fixe de `_sheetBottomPadding` ne suivant pas
-  // la police.
+  // en cache), cette fonction ignorant quand la fiche change.
   final Widget? bottomArea =
       sheet != null || onde != null || designation != null
       ? Align(
           alignment: Alignment.bottomCenter,
           child: LayoutBuilder(
             builder: (BuildContext context, BoxConstraints constraints) {
+              // Ce que le bandeau d'attribution occupe au bas de la carte :
+              // sa hauteur mesurée, plus sa marge basse.
+              final double attributionReserve =
+                  _attributionBadgeHeight(context, constraints.maxWidth) +
+                  _overlayPadding;
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -978,15 +990,26 @@ List<Widget> buildMapOverlays({
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ConstrainedBox(
+                        // En mode, la borne s'arrête au haut du bandeau
+                        // d'attribution : la zone n'a alors pas de marge
+                        // basse (voir dessous).
                         constraints: BoxConstraints(
-                          maxHeight: constraints.maxHeight,
+                          maxHeight: designation == null
+                              ? constraints.maxHeight
+                              : math.max(
+                                  0.0,
+                                  constraints.maxHeight - attributionReserve,
+                                ),
                         ),
                         child: Padding(
-                          // Marge basse plus épaisse SANS bouton : elle dégage
-                          // le bandeau d'attribution IGN, qui reste lisible en
-                          // toutes circonstances (Licence Ouverte, `04-ui.md`
-                          // § 3). Avec le bouton, c'est la bande qui la porte
-                          // (et réserve sa hauteur réelle).
+                          // Marge basse SANS bouton : elle dégage le bandeau
+                          // d'attribution IGN, qui reste lisible en toutes
+                          // circonstances (Licence Ouverte, `04-ui.md` § 3) —
+                          // [_sheetBottomPadding] au moins, et au moins ce que
+                          // le bandeau occupe. Avec le bouton, c'est la bande
+                          // qui la porte (et réserve sa hauteur réelle), et la
+                          // borne ci-dessus qui tient la fiche au-dessus du
+                          // bandeau quand la bande n'a plus de place.
                           //
                           // Marge DROITE réservée à la colonne des boutons de
                           // zoom (arbitrage du coordinateur du 2026-09-23,
@@ -1000,7 +1023,12 @@ List<Widget> buildMapOverlays({
                             _overlayPadding,
                             _overlayPadding,
                             _sheetRightPadding,
-                            designation == null ? _sheetBottomPadding : 0,
+                            designation == null
+                                ? math.max(
+                                    _sheetBottomPadding,
+                                    attributionReserve,
+                                  )
+                                : 0,
                           ),
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(
@@ -1404,30 +1432,12 @@ class _DesignationPlacement extends StatelessWidget {
         final bool roomy =
             constraints.maxWidth >=
             2 * _sheetRightPadding + _designationComfortWidth;
-        // Hauteur EXACTE de l'attribution : le même texte, la même police, la
-        // même échelle, sur la largeur qu'elle occupe (marge de 8 de chaque
-        // côté, plus la marge intérieure du bandeau) — pas une estimation.
-        final TextPainter attribution =
-            TextPainter(
-              text: TextSpan(
-                text: ignAttribution,
-                style: DefaultTextStyle.of(context).style
-                    .merge(const TextStyle(fontSize: ignAttributionFontSize)),
-              ),
-              textDirection: TextDirection.ltr,
-              textScaler: MediaQuery.textScalerOf(context),
-            )..layout(
-              maxWidth:
-                  constraints.maxWidth -
-                  2 * _overlayPadding -
-                  2 * ignAttributionPaddingHorizontal,
-            );
+        // Hauteur EXACTE de l'attribution, entre deux marges : mesurée
+        // ([_attributionBadgeHeight]), pas estimée.
         final double bottom =
             _overlayPadding +
-            attribution.height +
-            2 * ignAttributionPaddingVertical +
+            _attributionBadgeHeight(context, constraints.maxWidth) +
             _overlayPadding;
-        attribution.dispose();
         return Padding(
           padding: EdgeInsets.fromLTRB(
             roomy ? _sheetRightPadding : _overlayPadding,
@@ -1472,8 +1482,40 @@ class _DesignationPlacement extends StatelessWidget {
 /// Marge d'une surcouche au bord de la carte, en pixels logiques.
 const double _overlayPadding = 8;
 
-/// Marge basse du panneau de fiche : elle dégage l'attribution IGN.
+/// Marge basse MINIMALE du panneau de fiche : elle dégage l'attribution IGN
+/// tant que le bandeau tient dessous (à 100 %, sur une ligne). Au-delà, la
+/// marge suit la hauteur mesurée du bandeau ([_attributionBadgeHeight]).
 const double _sheetBottomPadding = 32;
+
+/// Hauteur EXACTE du bandeau d'attribution IGN ([IgnAttributionBadge]) sur
+/// une carte large de [mapWidth] : le même texte, la même police, la même
+/// échelle, sur la largeur qu'il occupe (marge de [_overlayPadding] de chaque
+/// côté, plus sa marge intérieure) — pas une estimation. Elle suit la police
+/// (11 pt mis à l'échelle) et grandit quand le texte passe à la ligne.
+///
+/// LE seul calcul de cette hauteur : la bande du bouton de désignation
+/// ([_DesignationPlacement]) et la zone des fiches ([buildMapOverlays]) le
+/// partagent, pour que ni le bouton ni une fiche ne passent sous le bandeau.
+double _attributionBadgeHeight(BuildContext context, double mapWidth) {
+  final TextPainter attribution =
+      TextPainter(
+        text: TextSpan(
+          text: ignAttribution,
+          style: DefaultTextStyle.of(context).style
+              .merge(const TextStyle(fontSize: ignAttributionFontSize)),
+        ),
+        textDirection: TextDirection.ltr,
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(
+        maxWidth:
+            mapWidth -
+            2 * _overlayPadding -
+            2 * ignAttributionPaddingHorizontal,
+      );
+  final double height = attribution.height + 2 * ignAttributionPaddingVertical;
+  attribution.dispose();
+  return height;
+}
 
 /// Largeur maximale du panneau de fiche, en pixels logiques.
 const double _sheetMaxWidth = 420;

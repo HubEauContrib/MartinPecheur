@@ -17,9 +17,10 @@
 // - A. matrice (80 cas : quatre tailles, 100 % et 200 %, hors mode et EN MODE
 //   « Restrictions », cinq états de fiche), quatre constats rassemblés et
 //   rendus ENSEMBLE : (1) aucune erreur de rendu pendant la pose ; (2) ce
-//   qu'on voit de la fiche tient dans la carte (haut à 8 px au moins, bas à
-//   32 px du bord hors mode — la marge de l'attribution IGN —, au bord en
-//   mode) ; (3) au repos, le HAUT du premier texte est dans ce qu'on voit ;
+//   qu'on voit de la fiche tient dans la carte (haut à 8 px au moins, bas
+//   au-dessus de la marge de l'attribution IGN, [_basMax] : hors mode, 32 px
+//   au moins et au moins la hauteur réelle du bandeau plus ses 8 px de marge ;
+//   en mode, le haut du bandeau — `K5` de T3) ; (3) au repos, le HAUT du premier texte est dans ce qu'on voit ;
 //   (4) la dernière ligne s'amène dans la fenêtre de défilement : après
 //   `ensureVisible`, son BAS est au plus au bas de ce qu'on voit ET au plus à
 //   la limite basse de la carte (la même qu'en 2), sans erreur de rendu. Sans
@@ -29,9 +30,11 @@
 //   fois, pas seulement sur le premier — sauf débordement de quelques
 //   pixels, qui n'échoue que sur le premier ou les deux premiers ;
 // - B. la fiche ONDE prête à 200 % défile réellement aux quatre tailles, et sa
-//   fenêtre va exactement de 8 px à la hauteur de la carte moins 32 px (hors
-//   mode) — cette égalité verrouille la borne ; B bis : la même, EN MODE, va
-//   de 8 px à la hauteur de la carte ; B ter : une fiche qui tient (cas
+//   fenêtre va exactement de 8 px à la hauteur de la carte moins la marge de
+//   l'attribution (hors mode ; la marge est calculée d'après le rectangle
+//   réel du bandeau, [_basMax]) — cette égalité verrouille la borne ; B bis :
+//   la même, EN MODE et aux quatre tailles, va de 8 px au haut du bandeau
+//   d'attribution ; B ter : une fiche qui tient (cas
 //   court, hors mode) a son cadre posé à la hauteur de la carte moins 32 px
 //   (ONDE) ou moins 40 px (station : l'écart de 8 px et le panneau ONDE
 //   fermé sont dessous) — ce qui verrouille aussi la place de la borne
@@ -46,12 +49,17 @@
 //   groupe « défilements de surcouche » de `map_designation_test.dart`) ;
 // - F. NON-RÉGRESSION, verte avant comme après : en mode, la fiche garde la
 //   priorité sur la bande du bouton de désignation — rien n'en est coupé ;
-// - G. deux CONSTAT, des faits mesurés qui ne sont PAS des invariants voulus
-//   (même convention que `map_overlays_phone_test.dart`), à corriger À LA MAIN
+// - G. un CONSTAT, un fait mesuré qui n'est PAS un invariant voulu (même
+//   convention que `map_overlays_phone_test.dart`), à corriger À LA MAIN
 //   quand l'écran change, jamais en silence — `docs/project-state.md`,
-//   point 60 : la position de défilement survit au changement de fiche ; à
-//   200 % en portrait, le bas de la fiche défilée au bout reste en partie sous
-//   l'attribution IGN.
+//   point 60 : la position de défilement survit au changement de fiche ;
+// - H. (`K5` de T3) l'INVARIANT qui remplace l'ancien CONSTAT « le bas de la
+//   fiche défilée au bout reste en partie sous l'attribution IGN » : à 200 %,
+//   aux quatre tailles, hors mode et en mode, fiche défilée au bout, le
+//   rectangle de `IgnAttributionBadge` ne recoupe ni la dernière ligne ni ce
+//   qu'on voit de la fiche ; et une NON-RÉGRESSION, verte avant comme après :
+//   la bande du bouton de désignation garde sa marge basse (la hauteur
+//   mesurée du bandeau entre deux marges de 8 px).
 //
 // Les cas B à G posent des configurations déjà couvertes par la matrice A, qui
 // affirme seule l'absence d'erreur de rendu : ils ne la répètent pas, pour que
@@ -69,6 +77,7 @@
 // mesurée ici : ces pixels sont des mesures de test, pas des constats d'écran.
 
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
@@ -86,6 +95,7 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
+import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -104,10 +114,29 @@ const double _tolerance = 0.5;
 /// Marge haute de la zone des fiches (`_overlayPadding` de `map_view.dart`).
 const double _margeHaute = 8;
 
-/// Marge basse de la zone des fiches HORS MODE (`_sheetBottomPadding` de
-/// `map_view.dart`) : elle dégage l'attribution IGN. En mode, la bande du
-/// bouton de désignation la porte.
+/// Marge basse MINIMALE de la zone des fiches HORS MODE (`_sheetBottomPadding`
+/// de `map_view.dart`) : elle dégage l'attribution IGN tant que le bandeau
+/// tient dessous — à 100 % sur une ligne. Au-delà, la marge suit le bandeau
+/// ([_basMax]).
 const double _margeAttribution = 32;
+
+/// Le rectangle RÉEL du bandeau d'attribution IGN, tel qu'il est posé.
+Rect _attribution(WidgetTester tester) =>
+    tester.getRect(find.byType(IgnAttributionBadge));
+
+/// La limite basse de ce qu'on voit de la fiche (`K5` de T3), calculée d'après
+/// le rectangle réel du bandeau d'attribution, jamais d'après un nombre de
+/// pixels écrit pour 200 % : hors mode, la hauteur de la carte moins la plus
+/// grande de deux marges — [_margeAttribution], et la hauteur du bandeau plus
+/// sa marge basse (ce qui sépare le haut du bandeau du bas de la carte) ; en
+/// mode, le haut du bandeau.
+double _basMax(WidgetTester tester, Size taille, {required bool enMode}) {
+  final Rect attribution = _attribution(tester);
+  return enMode
+      ? attribution.top
+      : taille.height -
+            math.max(_margeAttribution, taille.height - attribution.top);
+}
 
 /// Charge ROBOTO — toutes les graisses `Roboto-*.ttf` du SDK Flutter — sous la
 /// famille `Roboto`, celle que Material demande sur Android, et enregistre les
@@ -587,9 +616,7 @@ Future<void> _verifierMatrice(
   final Finder panneau = cas.panneau();
   final Rect cadre = _cadre(tester, panneau);
   final Rect vu = _vu(tester, panneau);
-  final double basMax = enMode
-      ? taille.height
-      : taille.height - _margeAttribution;
+  final double basMax = _basMax(tester, taille, enMode: enMode);
   if (vu.top < _margeHaute - _tolerance) {
     constats.add('2. le haut de la fiche vue (${vu.top}) est à moins de 8');
   }
@@ -695,7 +722,8 @@ void main() {
     _test(
       taille,
       '${_nom(taille, 2)}, hors mode, ONDE prête : la fiche est portée par un '
-      'défilement dont la fenêtre va de 8 px à la hauteur de la carte moins 32',
+      'défilement dont la fenêtre va de 8 px à la hauteur de la carte moins '
+      'la marge de l’attribution IGN, calculée d’après le bandeau réel',
       (WidgetTester tester) async {
         await _poser(
           tester,
@@ -713,46 +741,68 @@ void main() {
           closeTo(_margeHaute, _tolerance),
           reason: 'fenêtre $fenetre',
         );
+        // La marge CALCULÉE, d'après le rectangle réel du bandeau : à 200 % il
+        // est plus haut que les 32 px de la marge minimale (garde-fou, sans
+        // lequel cette égalité ne verrouillerait que l'ancienne marge fixe).
+        final Rect attribution = _attribution(tester);
+        expect(
+          taille.height - attribution.top,
+          greaterThan(_margeAttribution),
+          reason: 'attribution $attribution, carte ${taille.height} de haut',
+        );
         expect(
           fenetre.bottom,
-          closeTo(taille.height - _margeAttribution, _tolerance),
-          reason: 'fenêtre $fenetre, carte ${taille.height} de haut',
+          closeTo(_basMax(tester, taille, enMode: false), _tolerance),
+          reason:
+              'fenêtre $fenetre, attribution $attribution, carte '
+              '${taille.height} de haut',
         );
       },
     );
   }
 
-  // B bis. EN MODE, la fenêtre va jusqu'à la hauteur de la carte : la bande du
-  // bouton de désignation porte la marge basse, la fiche garde la priorité.
-  testWidgetsOnAndroid(
-    'Android : 360 × 640, police 200 %, EN MODE Restrictions, ONDE prête : la '
-    'fenêtre de défilement va de 8 px à la hauteur de la carte',
-    (WidgetTester tester) async {
-      const Size taille = Size(360, 640);
-      await _poser(
-        tester,
-        taille: taille,
-        textScale: 2,
-        cas: _cas('ONDE prête'),
-        enMode: true,
-      );
+  // B bis. EN MODE, la fenêtre s'arrête au haut du bandeau d'attribution
+  // (`K5` de T3) : la borne de hauteur laisse libre la hauteur du bandeau et
+  // sa marge basse. La fiche garde la priorité, la bande du bouton de
+  // désignation reçoit le reste — rien ne lui est réservé de plus.
+  // Aux QUATRE tailles, comme B : la matrice A et l'invariant H ne posent
+  // qu'une inégalité, une réserve trop grande en mode y passerait. À 200 %, la
+  // fiche ONDE prête dépasse la hauteur de la carte aux quatre tailles (le
+  // garde-fou « à défiler » le vérifie) : l'égalité a donc un sens partout.
+  for (final Size taille in tailles) {
+    _test(
+      taille,
+      '${_nom(taille, 2)}, EN MODE Restrictions, ONDE prête : la fenêtre de '
+      'défilement va de 8 px au haut du bandeau d’attribution IGN',
+      (WidgetTester tester) async {
+        await _poser(
+          tester,
+          taille: taille,
+          textScale: 2,
+          cas: _cas('ONDE prête'),
+          enMode: true,
+        );
 
-      final ScrollPosition position = _position(tester, _panneauOnde());
-      expect(position.maxScrollExtent, greaterThan(0), reason: 'à défiler');
+        final ScrollPosition position = _position(tester, _panneauOnde());
+        expect(position.maxScrollExtent, greaterThan(0), reason: 'à défiler');
 
-      final Rect fenetre = _fenetre(tester, _panneauOnde());
-      expect(
-        fenetre.top,
-        closeTo(_margeHaute, _tolerance),
-        reason: 'fenêtre $fenetre',
-      );
-      expect(
-        fenetre.bottom,
-        closeTo(taille.height, _tolerance),
-        reason: 'fenêtre $fenetre, carte ${taille.height} de haut',
-      );
-    },
-  );
+        final Rect fenetre = _fenetre(tester, _panneauOnde());
+        expect(
+          fenetre.top,
+          closeTo(_margeHaute, _tolerance),
+          reason: 'fenêtre $fenetre',
+        );
+        final Rect attribution = _attribution(tester);
+        expect(
+          fenetre.bottom,
+          closeTo(attribution.top, _tolerance),
+          reason:
+              'fenêtre $fenetre, attribution $attribution, carte '
+              '${taille.height} de haut',
+        );
+      },
+    );
+  }
 
   // B ter. Une fiche qui TIENT garde sa place : sa zone est collée au bas de la
   // carte, la marge de l'attribution dessous. La fiche ONDE finit à la hauteur
@@ -957,9 +1007,9 @@ void main() {
   );
 
   // -----------------------------------------------------------------------
-  // G. Deux CONSTAT : des faits mesurés, PAS des invariants voulus. Ils
-  //    décrivent l'écran tel qu'il est et se corrigent À LA MAIN quand il
-  //    change, jamais en silence (`docs/project-state.md`, point 60).
+  // G. Un CONSTAT : un fait mesuré, PAS un invariant voulu. Il décrit
+  //    l'écran tel qu'il est et se corrige À LA MAIN quand il change, jamais
+  //    en silence (`docs/project-state.md`, point 60).
   // -----------------------------------------------------------------------
   testWidgetsOnAndroid(
     'Android : CONSTAT : à 360 × 640, 200 %, la position de défilement '
@@ -1006,34 +1056,98 @@ void main() {
     },
   );
 
-  testWidgetsOnAndroid(
-    'Android : CONSTAT : à 360 × 640, 200 %, hors mode, ONDE prête défilée '
-    "au bout, le bas de la fiche reste en partie sous l'attribution IGN",
-    (WidgetTester tester) async {
-      // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : la marge basse de la zone
-      // des fiches est fixe (`_sheetBottomPadding`, 32 px) et ne suit pas la
-      // police ; à 200 % le bandeau d'attribution, opaque et peint après, est
-      // plus haut que cette marge et recouvre une partie de la dernière ligne.
-      // On ne verrouille pas les pixels exacts, seulement le recoupement.
-      await _poser(
-        tester,
-        taille: const Size(360, 640),
-        textScale: 2,
-        cas: _cas('ONDE prête'),
-      );
-      final ScrollPosition position = _position(tester, _panneauOnde());
-      position.jumpTo(position.maxScrollExtent);
-      await tester.pump();
+  // -----------------------------------------------------------------------
+  // H. (`K5` de T3) Ce qu'on voit de la fiche ne passe JAMAIS sous le bandeau
+  //    d'attribution IGN. C'était un CONSTAT (« à 200 % en portrait, le bas de
+  //    la fiche défilée au bout reste en partie sous l'attribution IGN » : la
+  //    marge basse, fixe, ne suivait pas la police) ; c'est l'invariant
+  //    inverse. Le bandeau est opaque et peint après la fiche : un recoupement
+  //    est du texte masqué.
+  // -----------------------------------------------------------------------
+  for (final Size taille in tailles) {
+    for (final bool enMode in <bool>[false, true]) {
+      for (final String nom in <String>[
+        'ONDE prête',
+        'station prête avec valeurs',
+      ]) {
+        _test(
+          taille,
+          '${_nom(taille, 2)}, ${_mode(enMode)}, $nom défilée au bout : le '
+          'bandeau d’attribution IGN ne recoupe ni la dernière ligne ni ce '
+          'qu’on voit de la fiche',
+          (WidgetTester tester) async {
+            final _Cas cas = _cas(nom);
+            await _poser(
+              tester,
+              taille: taille,
+              textScale: 2,
+              cas: cas,
+              enMode: enMode,
+            );
+            // Défilée au bout quand il y a de quoi défiler ; une fiche qui
+            // tient est déjà « au bout ».
+            final ScrollPosition position = _position(tester, cas.panneau());
+            position.jumpTo(position.maxScrollExtent);
+            await tester.pump();
 
-      final Rect ligne = tester.getRect(find.text(ondeSeasonNotice));
-      final Rect attribution = tester.getRect(find.byType(IgnAttributionBadge));
-      expect(
-        ligne.overlaps(attribution),
-        isTrue,
-        reason:
-            'dernière ligne $ligne, attribution IGN $attribution : plus de '
-            'recoupement — corriger ce CONSTAT à la main',
+            final Rect attribution = _attribution(tester);
+            final Rect ligne = tester.getRect(cas.derniereLigne());
+            final Rect vu = _vu(tester, cas.panneau());
+            expect(
+              <String>[
+                if (ligne.overlaps(attribution))
+                  'la dernière ligne $ligne passe sous le bandeau',
+                if (vu.overlaps(attribution))
+                  'la fiche vue $vu passe sous le bandeau',
+              ],
+              isEmpty,
+              reason:
+                  'attribution IGN $attribution, défilement à '
+                  '${position.pixels} sur ${position.maxScrollExtent}',
+            );
+          },
+        );
+      }
+    }
+  }
+
+  // La bande du bouton de désignation garde sa marge basse : la hauteur
+  // mesurée du bandeau, entre deux marges de 8 px. NON-RÉGRESSION, verte avant
+  // comme après `K5` — le calcul de la hauteur du bandeau est partagé avec la
+  // zone des fiches, la bande ne doit pas en bouger d'un pixel.
+  for (final Size taille in <Size>[const Size(360, 640), bureau]) {
+    for (final double textScale in <double>[1, 2]) {
+      _test(
+        taille,
+        '${_nom(taille, textScale)}, EN MODE Restrictions, aucune fiche : le '
+        'bas du bouton de désignation est à 8 px au-dessus du bandeau '
+        'd’attribution IGN (non-régression, vert avant comme après)',
+        (WidgetTester tester) async {
+          await _poser(
+            tester,
+            taille: taille,
+            textScale: textScale,
+            cas: (
+              nom: 'aucune fiche',
+              station: const Fermee(),
+              onde: const OndeSheetFermee(),
+              panneau: _panneauOnde,
+              derniereLigne: _panneauOnde,
+            ),
+            enMode: true,
+          );
+
+          final Rect attribution = _attribution(tester);
+          final Rect bouton = tester.getRect(
+            find.byType(DesignateCenterControl),
+          );
+          expect(
+            bouton.bottom,
+            closeTo(attribution.top - _margeHaute, _tolerance),
+            reason: 'bouton $bouton, attribution IGN $attribution',
+          );
+        },
       );
-    },
-  );
+    }
+  }
 }
