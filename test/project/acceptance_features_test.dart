@@ -28,6 +28,8 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show clearFiltersLabel, filterHidesEverythingText;
+import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
+    show mapFiltersActiveLabel, mapFiltersLabel;
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -685,6 +687,8 @@ void main() {
       'case Assec': flowCategoryLabel(const Assec()),
       'texte de l’avis des filtres': filterHidesEverythingText,
       'action de l’avis des filtres': clearFiltersLabel,
+      'bouton « Filtres », aucun filtre actif': mapFiltersLabel,
+      'bouton « Filtres », un filtre actif': mapFiltersActiveLabel,
       'titre de la feuille': mapFilterSheetTitle,
       'action qui applique': mapFilterApplyLabel,
       'action qui ferme la feuille': warningReviewCloseLabel,

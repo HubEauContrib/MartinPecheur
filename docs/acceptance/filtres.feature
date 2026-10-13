@@ -109,3 +109,13 @@ Fonctionnalité: Filtrer la carte
     Étant donné la feuille « Filtres » sur l'échelle « Débit relatif à l'historique »
     Quand l'usager lit ses critères et ses phrases
     Alors la fraîcheur y est dite en heures — « Toutes », « Moins de 2 h », « Moins de 24 h » — et aucun mot ne juge le débit (BR-003)
+
+  Scénario: Le bouton « Filtres » montre qu'un critère est actif, à tous les zooms
+    Étant donné un filtre dont un critère est actif pour l'échelle affichée
+    Quand la carte s'affiche, au niveau des marqueurs comme à celui des pastilles de région
+    Alors le bouton « Filtres » a changé de forme et s'annonce « Filtres — un filtre est actif » (BR-007)
+
+  Scénario: Une fiche ouverte reste ouverte quand le filtre masque son lieu
+    Étant donné la fiche d'un lieu ouverte sur la carte
+    Quand un filtre appliqué masque ce lieu
+    Alors la fiche reste ouverte : un lieu masqué n'est pas une absence de donnée (BR-007)

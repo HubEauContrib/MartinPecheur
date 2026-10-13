@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/area_cluster.dart' show AreaLevel;
 import 'package:martinpecheur/domain/geo/bounds.dart';
+import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
@@ -28,7 +29,10 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show initialWarningTitle;
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
+import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
+import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
+import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -427,8 +431,8 @@ void main() {
 
   group('MapView — ordre de tabulation déclaré (K2)', () {
     testWidgetsOnWindows(
-      'Tab parcourt, dans cet ordre : chips (2) → contrôles de zoom (3) → '
-      'carte → lien du bandeau — puis reboucle',
+      'Tab parcourt, dans cet ordre : chips (2) → « Filtres » → contrôles de '
+      'zoom (3) → carte → lien du bandeau — puis reboucle',
       (WidgetTester tester) async {
         await tester.pumpWidget(
           MaterialApp(home: MapView(viewModel: _viewModel())),
@@ -441,6 +445,7 @@ void main() {
         final List<Finder?> ordreAttendu = <Finder?>[
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(mapFiltersButtonKey),
           find.byKey(mapZoomInButtonKey),
           find.byKey(mapZoomOutButtonKey),
           find.byKey(mapRecenterButtonKey),
@@ -486,9 +491,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // chips (×2) puis contrôles (×3) puis carte : six Tab avant la
-        // fiche.
-        for (int i = 0; i < 6; i++) {
+        // chips (×2), « Filtres », contrôles (×3) puis carte : sept Tab
+        // avant la fiche.
+        for (int i = 0; i < 7; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }
@@ -507,6 +512,62 @@ void main() {
     );
 
     testWidgetsOnWindows(
+      'l ordre entier (F10b de T3), désignation câblée, mode « Restrictions » '
+      'allumé, fiche ouverte : puces (3) → « Filtres » → + → − → recentrer → '
+      'bouton de désignation → carte → fiche → « ⚠ Avertissement »',
+      (WidgetTester tester) async {
+        const Key fiche = Key('fiche-de-test-F10b');
+        final MapViewModel viewModel = _viewModel();
+        addTearDown(viewModel.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onStationTap: (StationCode code) {},
+              stationSheet: const _FocusableTestSheet(key: fiche),
+              onPointDesignated: (GeoPoint point) {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        viewModel.toggleDesignationMode();
+        await tester.pumpAndSettle();
+
+        final List<Finder?> ordreAttendu = <Finder?>[
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(mapDesignationChipKey),
+          find.byKey(mapFiltersButtonKey),
+          find.byKey(mapZoomInButtonKey),
+          find.byKey(mapZoomOutButtonKey),
+          find.byKey(mapRecenterButtonKey),
+          find.byKey(mapDesignateCenterButtonKey),
+          null,
+          find.byKey(fiche),
+          find.byKey(warningLinkKey),
+        ];
+
+        for (final Finder? attendu in ordreAttendu) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          if (attendu == null) {
+            expect(_carteFocused(), isTrue, reason: 'attendu à ce Tab : carte');
+          } else {
+            expect(
+              _focusedWithin(tester, attendu),
+              isTrue,
+              reason: 'attendu à ce Tab : $attendu',
+            );
+          }
+        }
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(_focusedWithin(tester, ordreAttendu.first!), isTrue);
+      },
+    );
+
+    testWidgetsOnWindows(
       'le focus est visible sur chaque arrêt de l ordre déclaré',
       (WidgetTester tester) async {
         await tester.pumpWidget(
@@ -514,12 +575,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // chips (×2), contrôles (×3), carte, lien : sept arrêts, dans l'ordre
-        // déclaré. « carte » (index 5) est vérifiée à part
+        // chips (×2), « Filtres », contrôles (×3), carte, lien : huit arrêts,
+        // dans l'ordre
+        // déclaré. « carte » (index 6) est vérifiée à part
         // ([_carteFocusRingVisible]) — voir [_carteFocused].
         final List<Finder?> arrets = <Finder?>[
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(mapFiltersButtonKey),
           find.byKey(mapZoomInButtonKey),
           find.byKey(mapZoomOutButtonKey),
           find.byKey(mapRecenterButtonKey),
@@ -790,13 +853,13 @@ void main() {
       label: 'Loiret',
     );
 
-    /// Six Tab après le montage : deux puces, trois boutons de zoom, puis
-    /// UN de plus pour ENTRER dans le groupe « carte » — chaque Tab
+    /// Sept Tab après le montage : deux puces, « Filtres », trois boutons de
+    /// zoom, puis UN de plus pour ENTRER dans le groupe « carte » — chaque Tab
     /// déplace le focus DEPUIS l'arrêt courant vers le suivant (le
     /// premier Tab atteint la première puce, pas « avant » elle), donc
-    /// le sixième atteint le premier élément de « carte ».
+    /// le septième atteint le premier élément de « carte ».
     Future<void> tabJusquACarte(WidgetTester tester) async {
-      for (int i = 0; i < 6; i++) {
+      for (int i = 0; i < 7; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
       }
@@ -1097,7 +1160,7 @@ void main() {
           await tester.tap(find.byKey(mapZoomInButtonKey));
           await tester.pumpAndSettle();
         }
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 7; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }
@@ -1187,9 +1250,9 @@ void main() {
         }
         expect(viewModel.level, isNull);
 
-        // Six Tab pour entrer dans « carte » : `proche` est en tête
+        // Sept Tab pour entrer dans « carte » : `proche` est en tête
         // (`orderedIndividualStations`, distance croissante).
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 7; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }

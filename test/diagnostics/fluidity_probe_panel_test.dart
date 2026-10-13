@@ -103,6 +103,8 @@ void main() {
                 ...buildMapOverlays(
                   filterHidesEverything: false,
                   onClearFilters: () {},
+                  filterActive: false,
+                  onOpenFilters: () {},
                   scale: MapScaleKind.debit,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: () {},

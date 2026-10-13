@@ -33,7 +33,8 @@
 //   légende n'est repoussée que pendant qu'un avis s'affiche : un écart à
 //   `BR-008` (« toujours visible »), accepté par le commanditaire le
 //   2026-10-03 ;
-// - l'ordre de tabulation (`K2`) sous 600 px : puces (trois), contrôles de
+// - l'ordre de tabulation (`K2`) sous 600 px : puces (trois), « Filtres »
+//   (`F10b` de T3), contrôles de
 //   zoom, puis, EN MODE seulement, bouton de désignation, enfin contrôle
 //   d'avertissement ;
 // - à 100 %, avec un avis, l'avis est entier dans l'écran, libre de toute
@@ -45,8 +46,11 @@
 //   « ⚠ Avertissement » et celui des trois puces sont atteignables ;
 // - EN MODE, à 200 %, le centre de la puce « Restrictions », seule sortie du
 //   mode, est atteignable : le bouton ne le recouvre pas ;
-// - à 200 %, faire défiler la colonne amène le bord bas de la légende dans la
-//   fenêtre ;
+// - à 100 % comme à 200 %, là où la légende dépasse sa fenêtre, faire défiler
+//   la colonne en amène le bord bas dans la fenêtre, au-dessus du groupe
+//   « Filtres » ;
+// - le défilement du bas à droite (`F10b` de T3) ne capte les gestes que sur
+//   ses pièces, sous Windows et sous Android ;
 // - en disposition LARGE, aucune erreur de rendu : la colonne gauche (puces
 //   et avis) défile au lieu de déborder, et le bas de l'avis s'y amène en la
 //   faisant défiler (`E5`, 2026-10-03). En Roboto elle ne défile qu'à
@@ -61,15 +65,23 @@
 // silence. Plusieurs ne tiennent que de quelques pixels (marqués dans le
 // fichier) : ce sont les premiers à basculer.
 //
-// - la légende, repoussée sous un avis, est recoupée par les contrôles de
-//   zoom (et, en mode, par le bouton) à 360 × 640 ; à 200 %, amenée dans la
-//   fenêtre, elle passe sous les contrôles de zoom et l'attribution (et, en
-//   mode, sous le bouton), sauf « écoulement » sans avis, entière au repos :
-//   sous les contrôles à 360 × 640, sous rien à 390 × 844 hors mode ;
-// - à 200 %, EN MODE, le bouton de désignation recouvre l'action de l'avis ;
-//   il ne recouvre ni le contrôle d'avertissement ni les puces, et la puce
-//   « Restrictions » est atteignable sur toute sa surface (mesuré) — mais plus
-//   sur une fenêtre plus courte ;
+// - RETIRÉ le 2026-10-12 (arbitrage du commanditaire, « La légende défile »,
+//   `F10b` de T3) : « la légende, repoussée sous un avis, est recoupée par
+//   les contrôles de zoom à 360 × 640 ; à 200 %, amenée dans la fenêtre, elle
+//   passe sous les contrôles de zoom et l'attribution ». La fenêtre de la
+//   colonne du haut s'arrête désormais au-dessus de la colonne du bas à
+//   droite (boutons d'entrée, contrôles de zoom, attribution) : la partie
+//   visible de la légende ne recoupe plus aucune de ces pièces, elle défile
+//   — INVARIANT, plus un constat (section « La légende défile », en fin de
+//   fichier, et section « Le groupe des boutons d'entrée »). Reste un
+//   constat : EN MODE, le bouton de désignation, lui, la recoupe encore ;
+// - à 200 %, l'avis n'est qu'en partie visible au repos : son action s'amène
+//   dans la fenêtre en faisant défiler la colonne, hors mode comme EN MODE
+//   (elle n'était pas atteignable en mode avant le 2026-10-12) ; le bouton de
+//   désignation recouvre encore une partie de l'avis ;
+// - EN MODE, à 200 %, le bouton de désignation ne recouvre ni le contrôle
+//   d'avertissement ni les puces, et la puce « Restrictions » est atteignable
+//   sur toute sa surface (mesuré) — mais plus sur une fenêtre plus courte ;
 // - EN MODE, la bande du bouton ne capte les gestes que sur la pilule et son
 //   indice (invariant : elle était opaque sur toute sa boîte, défaut relevé
 //   pendant `E5b`, corrigé le 2026-10-04) ;
@@ -77,7 +89,11 @@
 //   cas de carte vide ;
 // - une fiche de 320 px recouvre une partie des surcouches du haut ;
 // - à 600 × 360 et 640 × 360, 200 %, l'attribution IGN recouvre le bas de
-//   l'action de l'avis, une fois la colonne gauche défilée.
+//   l'action de l'avis, une fois la colonne gauche défilée ;
+// - sur une fenêtre compacte COURTE (360 × 300), la colonne du haut ne garde
+//   que le contrôle « ⚠ Avertissement » : puces, avis et légende sont sous le
+//   bord de sa fenêtre au repos (effet de la décision « le haut cède
+//   d'abord, jusqu'à une cible tactile », mesuré le 2026-10-13).
 
 import 'dart:io';
 import 'dart:math' as math;
@@ -102,6 +118,7 @@ import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
+import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
@@ -351,6 +368,8 @@ Future<List<FlutterErrorDetails>> _pumpOverlays(
                 ...buildMapOverlays(
                   filterHidesEverything: filtreVideTout,
                   onClearFilters: onEffacer ?? () {},
+                  filterActive: false,
+                  onOpenFilters: () {},
                   scale: scale,
                   onSelect: onSelect ?? (MapScaleKind kind) {},
                   onWiden: () {},
@@ -403,6 +422,15 @@ Future<List<FlutterErrorDetails>> _pumpOverlays(
 Rect _fenetre(WidgetTester tester) => tester.getRect(
   find.ancestor(
     of: find.byType(MapScaleChips),
+    matching: find.byType(SingleChildScrollView),
+  ),
+);
+
+/// La fenêtre de la colonne du bas à droite : le défilement qui porte les
+/// contrôles de zoom.
+Rect _fenetreDuBas(WidgetTester tester) => tester.getRect(
+  find.ancestor(
+    of: find.byType(MapControls),
     matching: find.byType(SingleChildScrollView),
   ),
 );
@@ -606,6 +634,66 @@ Future<void> _verifierBande(WidgetTester tester, Size taille) async {
   await tester.tapAt(p);
   await tester.pump();
   expect(taps, 1, reason: 'tap en $p, bande=$bande, pilule=$pilule');
+
+  await tester.dragFrom(p, const Offset(0, -30));
+  await tester.pump();
+  expect(glissers, greaterThan(0), reason: 'glisser en $p');
+
+  final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+  await tester.sendEventToBinding(souris.hover(p));
+  await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
+  await tester.pump();
+  expect(crans, 1, reason: 'molette en $p');
+}
+
+/// HORS MODE, à [taille], 100 % : un tap, un glisser et un cran de molette
+/// posés dans la boîte du défilement du BAS À DROITE, hors de ses pièces,
+/// atteignent la carte (`F10b` de T3). La boîte est large comme l'attribution,
+/// bien plus large que les boutons : sans `deferToChild`, et sans
+/// `_WithoutScrollbar` sur le bureau, toute cette surface serait morte pour la
+/// carte — avant `F10b` c'était une `Column` nue, transparente aux gestes.
+Future<void> _verifierBasADroite(WidgetTester tester, Size taille) async {
+  int taps = 0;
+  int glissers = 0;
+  int crans = 0;
+  await _pumpOverlays(
+    tester,
+    taille,
+    scale: MapScaleKind.ecoulement,
+    avecAvis: false,
+    onCarteTap: () => taps++,
+    onCarteGlisser: () => glissers++,
+    onCarteMolette: () => crans++,
+  );
+
+  // Un point calculé depuis les rectangles mesurés : sur la rangée du bouton
+  // « − », à mi-chemin entre le bord gauche de la boîte et celui des boutons.
+  final Rect boite = _fenetreDuBas(tester);
+  final Rect controles = _rectOf(tester, find.byType(MapControls));
+  final Offset p = Offset(
+    (boite.left + controles.left) / 2,
+    controles.center.dy,
+  );
+  expect(
+    boite.contains(p) && p.dx > boite.left,
+    isTrue,
+    reason: 'le point $p doit être DANS la boîte $boite',
+  );
+  for (final Finder piece in <Finder>[
+    find.byType(MapEntryButtons),
+    find.byType(MapControls),
+    find.byType(IgnAttributionBadge),
+  ]) {
+    expect(
+      _rectOf(tester, piece).contains(p),
+      isFalse,
+      reason: '$p tombe dans une pièce de la colonne du bas',
+    );
+  }
+
+  await tester.tapAt(p);
+  await tester.pump();
+  expect(taps, 1, reason: 'tap en $p, boîte=$boite, contrôles=$controles');
 
   await tester.dragFrom(p, const Offset(0, -30));
   await tester.pump();
@@ -967,13 +1055,14 @@ void main() {
   // `FocusTraversalOrder`, pour les deux dispositions. `map_keyboard_test.dart`
   // le vérifie sur `MapView` à 800 × 600 (large) ; ici, sous 600 px, sans
   // « carte » (aucun `FlutterMap` dans ce banc). Hors mode il n'y a pas de
-  // bouton de désignation : le contrôle d'avertissement suit les contrôles de
+  // bouton de désignation : « Filtres » (`F10b` de T3) suit les puces, et le
+  // contrôle d'avertissement suit les contrôles de
   // zoom ; en mode le bouton s'intercale entre les deux.
   for (final Size size in <Size>[_petit, _grand]) {
     for (final double textScale in <double>[1, 2]) {
       for (final bool enMode in <bool>[false, true]) {
         _surAndroid('Tab à ${_nom(size, textScale, MapScaleKind.ecoulement)}, '
-            '${_mode(enMode)} : puces (trois) → contrôles de zoom'
+            '${_mode(enMode)} : puces (trois) → « Filtres » → contrôles de zoom'
             '${enMode ? ' → bouton de désignation' : ''} → contrôle '
             'd’avertissement, puis reboucle', (WidgetTester tester) async {
           await _pumpOverlays(
@@ -988,6 +1077,7 @@ void main() {
             _puceEchelle(MapScaleKind.ecoulement),
             _puceEchelle(MapScaleKind.debit),
             _puceRestrictions(),
+            find.byKey(mapFiltersButtonKey),
             find.byKey(mapZoomInButtonKey),
             find.byKey(mapZoomOutButtonKey),
             find.byKey(mapRecenterButtonKey),
@@ -1100,23 +1190,27 @@ void main() {
   }
 
   // `(taille, EN MODE, légende coupée par la fenêtre, ce que la légende
-  // recoupe)`. La légende « débit » (247 px de haut en Roboto) sans avis : à
-  // 360 × 640 elle s'arrête à 423, à 21 px des contrôles de zoom (444) —
-  // elle ne recoupe rien, de PEU : un seul pixel de police ou de marge de plus
-  // et elle les recoupe.
+  // recoupe)`. La légende « débit » (247 px de haut en Roboto) sans avis.
+  //
+  // Depuis le 2026-10-12 (arbitrage du commanditaire, « La légende défile »,
+  // `F10b` de T3) la fenêtre de la colonne s'arrête au-dessus de la colonne
+  // du bas à droite : à 360 × 640 elle finit à 380, le groupe « Filtres »
+  // commençant à 388. La légende (176 à 423) y est donc COUPÉE — elle défile —
+  // et sa partie visible ne recoupe rien. Avant, la fenêtre ne la coupait pas
+  // et elle s'arrêtait à 21 px des contrôles de zoom (444). À 390 × 844 la
+  // fenêtre est assez haute : rien n'a changé.
   for (final (Size, bool, bool, Set<String>) cas
       in <(Size, bool, bool, Set<String>)>[
-        (_petit, false, false, <String>{}),
-        (_petit, true, false, <String>{}),
+        (_petit, false, true, <String>{}),
+        (_petit, true, true, <String>{}),
         (_grand, false, false, <String>{}),
         (_grand, true, false, <String>{}),
       ]) {
     _surAndroid(
       'CONSTAT — à ${_nom(cas.$1, 1, MapScaleKind.debit)}, ${_mode(cas.$2)}, '
       'SANS avis : la légende « débit » (247 px de haut) '
-      '${cas.$4.isEmpty ? 'ne recoupe aucune surcouche du bas' : 'recoupe '
-                '${cas.$4.join(', ')}'}'
-      '${cas.$3 ? ', et sa fenêtre la coupe' : ', et sa fenêtre ne la coupe pas'}',
+      '${cas.$3 ? 'est coupée par sa fenêtre' : 'n’est pas coupée par sa fenêtre'}'
+      ' ; INVARIANT — sa partie visible ne recoupe aucune surcouche du bas',
       (WidgetTester tester) async {
         await _pumpOverlays(
           tester,
@@ -1149,31 +1243,21 @@ void main() {
   // `(taille, échelle, EN MODE, légende coupée par la fenêtre, ce que la
   // légende recoupe)`, AVEC un avis : la légende, repoussée sous lui.
   //
-  // À 360 × 640 elle recoupe les contrôles de zoom (et, en mode, le bouton) :
-  // « écoulement » entière (340 à 505, les contrôles commencent à 444),
-  // « débit » entière aussi (321 à 568). À 390 × 844 rien ne la recoupe.
-  // ⚠️ Tenu de PEU, le premier à basculer : EN MODE, à 360 × 640 « écoulement »,
-  // la légende (bas à 505) ne recoupe le bouton de désignation (haut à 504)
-  // que d'UN pixel. Elle ne recoupe pas l'attribution, à 107 px près (505
-  // contre 612) : rien ne se joue là.
+  // Depuis le 2026-10-12 (arbitrage du commanditaire, « La légende défile »,
+  // `F10b` de T3) : à 360 × 640 la fenêtre de la colonne finit à 380, au-dessus
+  // du groupe « Filtres » (388). La légende — « écoulement » de 340 à 505,
+  // « débit » de 321 à 568 — y est COUPÉE et défile ; sa partie visible ne
+  // recoupe plus AUCUNE surcouche du bas, hors mode comme en mode. Avant, la
+  // fenêtre ne la coupait pas : elle passait sous les contrôles de zoom (444)
+  // et, en mode, sous le bouton de désignation (504) — l'écart à `BR-008`
+  // accepté le 2026-10-03, qui disparaît. À 390 × 844 rien ne la recoupe et
+  // rien ne la coupe, comme avant.
   for (final (Size, MapScaleKind, bool, bool, Set<String>) cas
       in <(Size, MapScaleKind, bool, bool, Set<String>)>[
-        (_petit, MapScaleKind.ecoulement, false, false, <String>{_controles}),
-        (
-          _petit,
-          MapScaleKind.ecoulement,
-          true,
-          false,
-          <String>{_controles, _designation},
-        ),
-        (_petit, MapScaleKind.debit, false, false, <String>{_controles}),
-        (
-          _petit,
-          MapScaleKind.debit,
-          true,
-          false,
-          <String>{_controles, _designation},
-        ),
+        (_petit, MapScaleKind.ecoulement, false, true, <String>{}),
+        (_petit, MapScaleKind.ecoulement, true, true, <String>{}),
+        (_petit, MapScaleKind.debit, false, true, <String>{}),
+        (_petit, MapScaleKind.debit, true, true, <String>{}),
         (_grand, MapScaleKind.ecoulement, false, false, <String>{}),
         (_grand, MapScaleKind.ecoulement, true, false, <String>{}),
         (_grand, MapScaleKind.debit, false, false, <String>{}),
@@ -1182,9 +1266,8 @@ void main() {
     _surAndroid(
       'CONSTAT — à ${_nom(cas.$1, 1, cas.$2)}, ${_mode(cas.$3)}, AVEC un '
       'avis : la légende, repoussée sous l’avis, '
-      '${cas.$5.isEmpty ? 'ne recoupe aucune surcouche du bas' : 'recoupe '
-                '${cas.$5.join(', ')}'}'
-      '${cas.$4 ? ', et sa fenêtre la coupe' : ', et sa fenêtre ne la coupe pas'}',
+      '${cas.$4 ? 'est coupée par sa fenêtre' : 'n’est pas coupée par sa fenêtre'}'
+      ' ; INVARIANT — sa partie visible ne recoupe aucune surcouche du bas',
       (WidgetTester tester) async {
         await _pumpOverlays(tester, cas.$1, scale: cas.$2, enMode: cas.$3);
 
@@ -1437,37 +1520,56 @@ void main() {
   }
 
   // ---------------------------------------------------------------------
-  // Légende à 200 %
+  // Légende qui dépasse sa fenêtre, à 100 % et à 200 %
   // ---------------------------------------------------------------------
   // Affirmation stricte : quand la légende dépasse le bas de la fenêtre,
-  // faire défiler la colonne en amène le bord bas dans la fenêtre, et elle y
-  // tient entière si elle est plus basse que la fenêtre n'est haute. Sans
-  // table de valeurs mesurées : tout vient de la géométrie du test. Les cas
-  // « écoulement, sans avis » ne sont pas là, à 360 × 640 comme à 390 × 844 :
-  // la légende y tient entière au repos, rien n'y défile (voir le CONSTAT
-  // ci-dessous). Le cas 390 × 844, « écoulement », AVEC un avis non plus : il
-  // n'y a qu'UN pixel à défiler (837 contre 836), trop peu pour un invariant
-  // — il est verrouillé en CONSTAT « de peu » plus bas. Le plus petit
-  // défilement des cas ci-dessous est de 210 px.
-  for (final (Size, MapScaleKind, bool) cas in <(Size, MapScaleKind, bool)>[
-    (_petit, MapScaleKind.ecoulement, true),
-    (_petit, MapScaleKind.debit, true),
-    (_grand, MapScaleKind.debit, true),
-    (_petit, MapScaleKind.debit, false),
-    (_grand, MapScaleKind.debit, false),
-  ]) {
+  // faire défiler la colonne DU DOIGT en amène le bord bas dans la fenêtre,
+  // au-dessus du groupe « Filtres », et elle y tient entière si elle est plus
+  // basse que la fenêtre n'est haute. Sans table de valeurs mesurées : tout
+  // vient de la géométrie du test.
+  //
+  // Depuis le 2026-10-12 (arbitrage du commanditaire, « La légende défile »,
+  // `F10b` de T3) la fenêtre s'arrête au-dessus de la colonne du bas à droite :
+  // deux cas de plus ont de quoi défiler — 360 × 640, « écoulement », SANS avis
+  // (la légende y tenait entière, sous les contrôles de zoom), et 390 × 844,
+  // « écoulement », AVEC un avis (299 px à défiler ; il n'y en avait qu'UN,
+  // verrouillé à part en CONSTAT « de peu », retiré : ce n'est plus un cas
+  // limite). Seul 390 × 844, « écoulement », SANS avis reste hors de la table :
+  // la légende y tient entière au repos (voir le CONSTAT ci-dessous).
+  //
+  // À 100 % aussi, depuis le même arbitrage : la table porte les trois
+  // situations où la légende dépasse sa fenêtre à cette échelle de police,
+  // toutes à 360 × 640 — « écoulement » AVEC un avis (125 px à défiler),
+  // « débit » SANS avis (43 px) et AVEC un avis (188 px). Les cinq autres
+  // situations à 100 % (« écoulement » sans avis à 360 × 640, et tout
+  // 390 × 844) n'ont rien à défiler : la légende y est entière au repos.
+  for (final (double, Size, MapScaleKind, bool) cas
+      in <(double, Size, MapScaleKind, bool)>[
+        (1, _petit, MapScaleKind.ecoulement, true),
+        (1, _petit, MapScaleKind.debit, true),
+        (1, _petit, MapScaleKind.debit, false),
+        (2, _petit, MapScaleKind.ecoulement, true),
+        (2, _petit, MapScaleKind.debit, true),
+        (2, _grand, MapScaleKind.ecoulement, true),
+        (2, _grand, MapScaleKind.debit, true),
+        (2, _petit, MapScaleKind.ecoulement, false),
+        (2, _petit, MapScaleKind.debit, false),
+        (2, _grand, MapScaleKind.debit, false),
+      ]) {
     for (final bool enMode in <bool>[false, true]) {
-      _surAndroid('à ${_nom(cas.$1, 2, cas.$2)}, ${_mode(enMode)}'
-          '${cas.$3 ? ', AVEC un avis' : ', SANS avis'}'
+      _surAndroid('à ${_nom(cas.$2, cas.$1, cas.$3)}, ${_mode(enMode)}'
+          '${cas.$4 ? ', AVEC un avis' : ', SANS avis'}'
           ' : faire défiler la colonne amène le bord bas de la légende dans la '
-          'fenêtre', (WidgetTester tester) async {
+          'fenêtre, au-dessus du groupe « Filtres »', (
+        WidgetTester tester,
+      ) async {
         await _pumpOverlays(
           tester,
-          cas.$1,
-          textScale: 2,
-          scale: cas.$2,
+          cas.$2,
+          textScale: cas.$1,
+          scale: cas.$3,
           enMode: enMode,
-          avecAvis: cas.$3,
+          avecAvis: cas.$4,
         );
 
         final Rect colonne = _fenetre(tester);
@@ -1492,6 +1594,13 @@ void main() {
           lessThanOrEqualTo(colonne.bottom + 0.5),
           reason: 'après défilement : fenêtre=$colonne, légende=${legende()}',
         );
+        // La dernière ligne de la légende se lit AU-DESSUS des boutons.
+        final Rect groupe = _rectOf(tester, find.byType(MapEntryButtons));
+        expect(
+          legende().bottom,
+          lessThan(groupe.top),
+          reason: 'légende=${legende()}, groupe « Filtres »=$groupe',
+        );
         final bool entiere =
             legende().top >= colonne.top && legende().bottom <= colonne.bottom;
         expect(
@@ -1503,93 +1612,65 @@ void main() {
     }
   }
 
-  // CONSTAT « de peu » : à 390 × 844, 200 %, « écoulement », AVEC un avis, la
-  // légende (bas à 837) ne dépasse le bas de la fenêtre (836) que d'UN pixel.
-  // Le premier à basculer ; sa bascule n'apprendrait rien (un pixel de police
-  // ou de marge).
-  for (final bool enMode in <bool>[false, true]) {
-    _surAndroid('CONSTAT — à ${_nom(_grand, 2, MapScaleKind.ecoulement)}, '
-        '${_mode(enMode)}, AVEC un avis : il n’y a qu’UN pixel à défiler pour '
-        'amener le bord bas de la légende dans la fenêtre (837 contre 836), de '
-        'PEU', (WidgetTester tester) async {
-      await _pumpOverlays(
-        tester,
-        _grand,
-        textScale: 2,
-        scale: MapScaleKind.ecoulement,
-        enMode: enMode,
-      );
-
-      // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : corriger ce test À LA
-      // MAIN si la légende ou la fenêtre changent d'un pixel.
-      final Rect colonne = _fenetre(tester);
-      final double distance = _adefiler(tester);
-      expect(
-        distance,
-        closeTo(1, 0.05),
-        reason:
-            'fenêtre=$colonne, '
-            'légende=${_rectOf(tester, find.byType(MapLegend))}',
-      );
-
-      await _defilerDuDoigt(tester, distance);
-
-      expect(
-        _rectOf(tester, find.byType(MapLegend)).bottom,
-        lessThanOrEqualTo(colonne.bottom + 0.5),
-        reason: 'après défilement : fenêtre=$colonne',
-      );
-    });
-  }
-
   // `(taille, échelle, avec un avis, légende au repos, ce qu'elle recoupe
   // HORS MODE, ce qu'elle recoupe EN MODE — une fois amenée au bord bas de la
   // fenêtre, sans rien défiler quand elle y est déjà)`.
+  //
+  // Depuis le 2026-10-12 (arbitrage du commanditaire, « La légende défile »,
+  // `F10b` de T3), la partie visible de la légende ne passe plus JAMAIS sous
+  // les contrôles de zoom ni sous l'attribution : la fenêtre s'arrête
+  // au-dessus d'eux. Ce qui reste un CONSTAT, non corrigé : EN MODE, le
+  // bouton de désignation (bande du bas, au centre, posée au-dessus de la
+  // colonne dans la pile) peut encore la recouper. État au repos, lui aussi
+  // changé : avec un avis la légende est désormais CACHÉE sous le bord de la
+  // fenêtre (elle était « en partie » visible, sous les boutons), et à
+  // 360 × 640, « écoulement », sans avis, elle n'est plus qu'« en partie »
+  // visible (elle était entière, sous les contrôles de zoom).
   for (final (Size, MapScaleKind, bool, String, Set<String>, Set<String>) cas
       in <(Size, MapScaleKind, bool, String, Set<String>, Set<String>)>[
         (
           _petit,
           MapScaleKind.ecoulement,
           true,
-          'en partie',
-          <String>{_controles, _attribution},
-          <String>{_controles, _designation, _attribution},
+          'cachée',
+          <String>{},
+          <String>{_designation},
         ),
         (
           _petit,
           MapScaleKind.debit,
           true,
-          'en partie',
-          <String>{_controles, _attribution},
-          <String>{_controles, _designation, _attribution},
+          'cachée',
+          <String>{},
+          <String>{_designation},
         ),
         (
           _grand,
           MapScaleKind.ecoulement,
           true,
-          'en partie',
-          <String>{_controles, _attribution},
-          <String>{_controles, _designation, _attribution},
+          'cachée',
+          <String>{},
+          <String>{_designation},
         ),
         (
           _grand,
           MapScaleKind.debit,
           true,
-          'en partie',
-          <String>{_controles, _attribution},
-          <String>{_controles, _designation, _attribution},
+          'cachée',
+          <String>{},
+          <String>{_designation},
         ),
-        // Les deux cas où la légende est entière au repos : rien à défiler.
-        // À 390 × 844 hors mode elle ne recoupe RIEN (bas à 522, les contrôles
-        // commencent à 602) ; en mode seul le bouton (haut à 503) la recoupe.
         (
           _petit,
           MapScaleKind.ecoulement,
           false,
-          'entière',
-          <String>{_controles},
-          <String>{_controles, _designation},
+          'en partie',
+          <String>{},
+          <String>{_designation},
         ),
+        // Le seul cas où la légende est entière au repos : rien à défiler.
+        // À 390 × 844 hors mode elle ne recoupe RIEN ; en mode seul le bouton
+        // (haut à 503) la recoupe.
         (
           _grand,
           MapScaleKind.ecoulement,
@@ -1603,16 +1684,16 @@ void main() {
           MapScaleKind.debit,
           false,
           'en partie',
-          <String>{_controles, _attribution},
-          <String>{_controles, _designation, _attribution},
+          <String>{},
+          <String>{_designation},
         ),
         (
           _grand,
           MapScaleKind.debit,
           false,
           'en partie',
-          <String>{_controles, _attribution},
-          <String>{_controles, _designation, _attribution},
+          <String>{},
+          <String>{_designation},
         ),
       ]) {
     for (final bool enMode in <bool>[false, true]) {
@@ -1631,10 +1712,10 @@ void main() {
           avecAvis: cas.$3,
         );
 
-        // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : même amenée dans la
-        // fenêtre, la légende passe sous les contrôles et l'attribution
-        // (posés au-dessus de la colonne dans la pile), et, en mode, sous
-        // le bouton de désignation.
+        // ⚠️ FAIT CONSTATÉ pour l'état au repos et pour le bouton de
+        // désignation. INVARIANT, lui, depuis le 2026-10-12 : ni les
+        // contrôles de zoom ni l'attribution ne recoupent la partie visible
+        // de la légende — affirmé à part ci-dessous.
         expect(
           _etat(tester, find.byType(MapLegend)),
           cas.$4,
@@ -1646,8 +1727,20 @@ void main() {
         if (distance > 0) {
           await _defilerDuDoigt(tester, distance);
         }
+        final Set<String> recoupes = _recoupements(
+          tester,
+          find.byType(MapLegend),
+          _bas(),
+        );
         expect(
-          _recoupements(tester, find.byType(MapLegend), _bas()),
+          recoupes.intersection(<String>{_controles, _attribution}),
+          isEmpty,
+          reason:
+              'après défilement : '
+              'légende=${_rectOf(tester, find.byType(MapLegend))}',
+        );
+        expect(
+          recoupes,
           attendu,
           reason:
               'après défilement : '
@@ -1657,26 +1750,27 @@ void main() {
     }
   }
 
-  // `(taille, échelle, ce que l'avis recoupe HORS MODE, ce qu'il recoupe EN
-  // MODE)`. À 200 %, avec un avis, en Roboto : l'avis (344 px à 360 × 640
-  // « écoulement », 307 px sinon) est ENTIER dans l'écran au repos, aux
-  // quatre cas, mais il recoupe les surcouches du bas, et EN MODE le bouton
-  // de désignation (posé au-dessus de la colonne) recouvre l'action de
-  // l'avis : elle n'est plus atteignable. Hors mode elle l'est.
+  // `(taille, échelle, ce que la partie visible de l'avis recoupe HORS MODE,
+  // ce qu'elle recoupe EN MODE)`. À 200 %, avec un avis, en Roboto : l'avis
+  // (344 px à 360 × 640 « écoulement », 307 px sinon).
+  //
+  // Depuis le 2026-10-12 (arbitrage du commanditaire, « La légende défile »,
+  // `F10b` de T3) la fenêtre de la colonne s'arrête au-dessus de la colonne
+  // du bas à droite : l'avis n'est plus ENTIER au repos, il est « en partie »
+  // visible — coupé par le bord de la fenêtre, de 248 px au plus (360 × 640,
+  // « écoulement ») et de 7 px seulement à 390 × 844 — et sa partie visible ne
+  // passe plus sous les contrôles de zoom ni sous l'attribution. Son action
+  // « Élargir la recherche », en bas de l'avis, s'atteint en faisant défiler la
+  // colonne. Avant : l'avis était entier dans l'écran et passait SOUS les
+  // contrôles (et l'attribution) ; hors mode l'action était atteignable sans
+  // défiler, et EN MODE elle ne l'était pas du tout (le bouton de désignation
+  // la recouvrait). EN MODE elle l'est désormais, une fois amenée au bas de la
+  // fenêtre — de PEU à 360 × 640 : son centre (295,5) est à 3,5 px au-dessus
+  // du haut du bouton (299). Le premier à basculer.
   for (final (Size, MapScaleKind, Set<String>, Set<String>) cas
       in <(Size, MapScaleKind, Set<String>, Set<String>)>[
-        (
-          _petit,
-          MapScaleKind.ecoulement,
-          <String>{_controles, _attribution},
-          <String>{_controles, _designation, _attribution},
-        ),
-        (
-          _petit,
-          MapScaleKind.debit,
-          <String>{_controles},
-          <String>{_controles, _designation},
-        ),
+        (_petit, MapScaleKind.ecoulement, <String>{}, <String>{_designation}),
+        (_petit, MapScaleKind.debit, <String>{}, <String>{_designation}),
         (_grand, MapScaleKind.ecoulement, <String>{}, <String>{_designation}),
         (_grand, MapScaleKind.debit, <String>{}, <String>{_designation}),
       ]) {
@@ -1684,10 +1778,10 @@ void main() {
       final Set<String> attendu = enMode ? cas.$4 : cas.$3;
       _surAndroid(
         'CONSTAT — à ${_nom(cas.$1, 2, cas.$2)}, ${_mode(enMode)}, AVEC un '
-        'avis : l’avis, entier au repos, '
+        'avis : l’avis, en partie visible au repos, '
         '${attendu.isEmpty ? 'ne recoupe aucune surcouche du bas' : 'recoupe '
-                  '${attendu.join(', ')}'} et son action '
-        '${enMode ? 'n’est pas atteignable : le bouton de désignation la recouvre' : 'est atteignable'}',
+                  '${attendu.join(', ')}'} ; amené dans la fenêtre, son '
+        'action est atteignable',
         (WidgetTester tester) async {
           await _pumpOverlays(
             tester,
@@ -1697,32 +1791,42 @@ void main() {
             enMode: enMode,
           );
 
-          // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : à 200 %, le bouton de
-          // désignation, posé au-dessus de la colonne du haut, recouvre
-          // l'avis (arbitrage du 2026-10-03 : à ne pas corriger ici). Corriger
-          // ce test À LA MAIN quand l'écran sera repris.
+          // ⚠️ FAIT CONSTATÉ pour l'état au repos et pour le bouton de
+          // désignation, posé au-dessus de la colonne du haut (arbitrage du
+          // 2026-10-03 : à ne pas corriger ici). INVARIANT depuis le
+          // 2026-10-12 : ni les contrôles de zoom ni l'attribution ne
+          // recoupent la partie visible de l'avis.
           final Finder lAvis = _avis(cas.$2);
-          final Rect ecran = Offset.zero & cas.$1;
+          final Rect fenetre = _fenetre(tester);
           expect(
             _etat(tester, lAvis),
-            'entière',
-            reason:
-                'avis=${_rectOf(tester, lAvis)}, fenêtre=${_fenetre(tester)}',
+            'en partie',
+            reason: 'avis=${_rectOf(tester, lAvis)}, fenêtre=$fenetre',
           );
+          final Set<String> recoupes = _recoupements(tester, lAvis, _bas());
           expect(
-            ecran.intersect(_rectOf(tester, lAvis)),
-            _rectOf(tester, lAvis),
-            reason: 'hors écran : avis=${_rectOf(tester, lAvis)}',
-          );
-          expect(
-            _recoupements(tester, lAvis, _bas()),
-            attendu,
+            recoupes.intersection(<String>{_controles, _attribution}),
+            isEmpty,
             reason: 'avis=${_rectOf(tester, lAvis)}',
+          );
+          expect(recoupes, attendu, reason: 'avis=${_rectOf(tester, lAvis)}');
+
+          // L'action, en bas de l'avis, s'amène dans la fenêtre du doigt.
+          await _defilerDuDoigt(
+            tester,
+            _rectOf(tester, lAvis).bottom - fenetre.bottom,
+          );
+          expect(
+            _rectOf(tester, lAvis).bottom,
+            lessThanOrEqualTo(fenetre.bottom + 0.5),
+            reason: 'avis=${_rectOf(tester, lAvis)}, fenêtre=$fenetre',
           );
           expect(
             _atteignable(find.byKey(widenSearchKey)),
-            !enMode,
-            reason: 'action=${_rectOf(tester, find.byKey(widenSearchKey))}',
+            isTrue,
+            reason:
+                'action=${_rectOf(tester, find.byKey(widenSearchKey))}, '
+                'fenêtre=$fenetre',
           );
         },
       );
@@ -1829,6 +1933,19 @@ void main() {
     );
   }
 
+  // Le défilement du BAS À DROITE (`F10b` de T3, ancré en bas) : même verrou,
+  // sous Windows (taille minimale de la fenêtre, `Scrollbar` automatique du
+  // bureau) ET sous Android (téléphone).
+  for (final Size taille in <Size>[const Size(800, 740), _petit]) {
+    final _Test sur = _selonFenetre(taille);
+    sur(
+      'HORS MODE, à ${_nom(taille, 1, MapScaleKind.ecoulement)} : un tap, un '
+      'glisser et un cran de molette posés dans la boîte du défilement du bas '
+      'à droite, hors des boutons et de l’attribution, atteignent la carte',
+      (WidgetTester tester) => _verifierBasADroite(tester, taille),
+    );
+  }
+
   // Le bouton lui-même marche toujours : quand le contenu de la bande dépasse
   // la hauteur restante — 360 × 300, 200 % : la bande (206 px) ne contient pas
   // le bouton et son indice (259 px) —, elle défile, et on la fait défiler en
@@ -1894,9 +2011,14 @@ void main() {
   // de désignation (259 px de haut à 200 %, posé en bas) monte vers la puce : à
   // 360 × 572 il la touche tout juste, à 360 × 568 il en recouvre 8 % (la puce
   // finit à 230, le bouton commence à 227), à 360 × 540 il en recouvre 64 % et
-  // son centre, à 360 × 330 il la recouvre entièrement. La puce étant la
-  // SEULE sortie du mode, un téléphone aussi court, à 200 %, n'a plus de
-  // sortie tactile du mode : à signaler au commanditaire, non corrigé ici.
+  // son centre. À 360 × 330 le mécanisme n'est plus celui-là depuis `F10b`
+  // (décision « le haut cède d'abord, jusqu'à une cible tactile ») : à 200 %,
+  // sous 362 px de haut (seuil mesuré HORS MODE et SANS AVIS ; ce cas, en
+  // mode, n'a pas été remesuré pièce par pièce), la fenêtre du haut ne garde
+  // que le contrôle d'avertissement, et la puce est SOUS LE BORD de sa fenêtre —
+  // aucune part n'en est atteignable au repos. La puce étant la SEULE sortie
+  // du mode, un téléphone aussi court, à 200 %, n'a plus de sortie tactile du
+  // mode : à signaler au commanditaire, non corrigé ici.
   for (final (Size, double, bool) cas in <(Size, double, bool)>[
     (const Size(360, 568), 0.92, true),
     (const Size(360, 540), 0.36, false),
@@ -1904,8 +2026,9 @@ void main() {
   ]) {
     _surAndroid(
       'CONSTAT — EN MODE, à ${_nom(cas.$1, 2, MapScaleKind.ecoulement)}, AVEC '
-      'un avis : le bouton de désignation recouvre la puce « Restrictions » '
-      '(part atteignable ${cas.$2}, centre '
+      'un avis : la puce « Restrictions » n’est pas toute atteignable — le '
+      'bouton de désignation la recouvre ou, à 360 × 330, elle est sous le '
+      'bord de sa fenêtre (part atteignable ${cas.$2}, centre '
       '${cas.$3 ? 'atteignable' : 'recouvert'})',
       (WidgetTester tester) async {
         await _pumpOverlays(
@@ -2055,6 +2178,13 @@ void main() {
   // recouvre le contrôle d'avertissement de la carte et les puces ; chaque
   // fiche porte son propre contrôle « ⚠ Avertissement » (`W3c`).
   //
+  // Depuis le 2026-10-12 (« La légende défile », `F10b` de T3) : à 200 %,
+  // hors mode, la fiche ne recouvre plus que l'AVIS, aux deux tailles et sur
+  // les deux échelles. Avant, elle recouvrait aussi la légende ; celle-ci est
+  // désormais cachée sous le bord de la fenêtre de la colonne (qui s'arrête
+  // au-dessus des boutons du bas), donc plus sous la fiche : elle se lit en
+  // faisant défiler la colonne.
+  //
   // ⚠️ Pas de cas tenu de peu : le plus proche est 390 × 844, 100 %,
   // « écoulement », hors mode (fiche à 492, légende finissant à 430).
   for (final (Size, double, MapScaleKind, Set<String>, Set<String>) cas
@@ -2077,14 +2207,14 @@ void main() {
           _petit,
           2,
           MapScaleKind.ecoulement,
-          <String>{avisNom, legendeNom},
+          <String>{avisNom},
           <String>{lienNom, pucesNom, avisNom},
         ),
         (
           _petit,
           2,
           MapScaleKind.debit,
-          <String>{avisNom, legendeNom},
+          <String>{avisNom},
           <String>{lienNom, pucesNom, avisNom},
         ),
         (_grand, 1, MapScaleKind.ecoulement, <String>{}, <String>{legendeNom}),
@@ -2099,14 +2229,14 @@ void main() {
           _grand,
           2,
           MapScaleKind.ecoulement,
-          <String>{avisNom, legendeNom},
+          <String>{avisNom},
           <String>{pucesNom, avisNom},
         ),
         (
           _grand,
           2,
           MapScaleKind.debit,
-          <String>{avisNom, legendeNom},
+          <String>{avisNom},
           <String>{pucesNom, avisNom},
         ),
       ]) {
@@ -2501,5 +2631,453 @@ void main() {
     await tester.pump();
 
     expect(effacements, 1);
+  });
+
+  // ---------------------------------------------------------------------
+  // Le groupe des boutons d'entrée (`F10b` de T3, arbitrage 8)
+  // ---------------------------------------------------------------------
+  // « Filtres » s'ajoute à la colonne du bas à droite, au-dessus des contrôles
+  // de zoom. À 360 × 640, à 100 % puis à 200 %, sur les deux échelles, avec et
+  // sans fiche, hors mode et en mode, avec et sans avis : le groupe est entier
+  // dans l'écran et ne recoupe ni la légende (sa partie visible), ni la fiche,
+  // ni le bouton de désignation (sa partie visible), ni l'attribution.
+  for (final double textScale in <double>[1, 2]) {
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      for (final bool avecFiche in <bool>[false, true]) {
+        for (final bool enMode in <bool>[false, true]) {
+          for (final bool avecAvis in <bool>[false, true]) {
+            _surAndroid('${_nom(_petit, textScale, scale)}, ${_mode(enMode)}, '
+                '${avecAvis ? 'AVEC' : 'SANS'} avis'
+                '${avecFiche ? ', fiche de 320 px ouverte' : ''} : le groupe '
+                'des boutons d’entrée est dans l’écran et ne recoupe ni la '
+                'partie visible de la légende, ni la fiche, ni la partie '
+                'visible du bouton de désignation, ni l’attribution', (
+              WidgetTester tester,
+            ) async {
+              await _pumpOverlays(
+                tester,
+                _petit,
+                textScale: textScale,
+                scale: scale,
+                enMode: enMode,
+                avecFiche: avecFiche,
+                avecAvis: avecAvis,
+              );
+
+              final Rect ecran = Offset.zero & _petit;
+              final Rect groupe = _rectOf(tester, find.byType(MapEntryButtons));
+              expect(
+                ecran.intersect(groupe),
+                groupe,
+                reason: 'MapEntryButtons hors de l’écran : $groupe',
+              );
+              // « Filtres » est juste au-dessus de `+`, à
+              // `mapControlsSpacing`.
+              expect(
+                groupe.bottom + mapControlsSpacing,
+                _rectOf(tester, find.byKey(mapZoomInButtonKey)).top,
+              );
+
+              final Rect? legende = _visible(tester, find.byType(MapLegend));
+              final Rect designation = !enMode
+                  ? Rect.zero
+                  : _rectOf(
+                      tester,
+                      find.byType(DesignateCenterControl),
+                    ).intersect(_rectOf(tester, _bande()));
+              final Map<String, Rect> autres = <String, Rect>{
+                'MapLegend (partie visible)': ?legende,
+                if (avecFiche) 'fiche': _rectOf(tester, find.byKey(_ficheKey)),
+                if (enMode && designation.width > 0 && designation.height > 0)
+                  '$_designation (partie visible)': designation,
+                _attribution: _rectOf(tester, find.byType(IgnAttributionBadge)),
+              };
+              final List<String> recoupes = <String>[
+                for (final MapEntry<String, Rect> autre in autres.entries)
+                  if (groupe.overlaps(autre.value))
+                    '${autre.key}=${autre.value}',
+              ];
+              expect(
+                recoupes,
+                isEmpty,
+                reason: 'MapEntryButtons=$groupe recoupe : $recoupes',
+              );
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // « La légende défile » : la colonne du haut s'arrête au-dessus de celle
+  // du bas à droite (arbitrage du commanditaire du 2026-10-12, `F10b` de T3)
+  // ---------------------------------------------------------------------
+  // La fenêtre de la colonne du haut reçoit la hauteur que la colonne du bas à
+  // droite lui laisse : elle s'arrête au-dessus du groupe « Filtres », à la
+  // marge qu'elle a elle-même au bord de la carte, et suit la hauteur de la
+  // fenêtre — aucune hauteur n'est écrite dans ces cas, tout vient des boîtes.
+
+  for (final double hauteur in <double>[560, 640, 700, 844]) {
+    _surAndroid(
+      'construction — à 360 × ${hauteur.toInt()}, police 100 %, échelle débit, '
+      'SANS avis : la fenêtre de la colonne du haut finit au-dessus du groupe '
+      '« Filtres », à la marge du bord, tant que la légende ne tient pas ; '
+      'jamais plus bas',
+      (WidgetTester tester) async {
+        await _pumpOverlays(
+          tester,
+          Size(360, hauteur),
+          scale: MapScaleKind.debit,
+          avecAvis: false,
+        );
+
+        final Rect fenetre = _fenetre(tester);
+        final Rect groupe = _rectOf(tester, find.byType(MapEntryButtons));
+        final Rect legende = _rectOf(tester, find.byType(MapLegend));
+        // La marge au bord de la carte, lue sur la fenêtre elle-même.
+        final double marge = fenetre.top;
+        expect(
+          fenetre.bottom,
+          lessThanOrEqualTo(groupe.top - marge),
+          reason: 'fenêtre=$fenetre, groupe « Filtres »=$groupe',
+        );
+        if (legende.bottom > fenetre.bottom) {
+          // La légende ne tient pas : la fenêtre prend TOUTE la place offerte.
+          expect(
+            fenetre.bottom,
+            groupe.top - marge,
+            reason: 'fenêtre=$fenetre, groupe « Filtres »=$groupe',
+          );
+        }
+        // Le groupe, lui, ne dépend pas de la colonne du haut : il est juste
+        // au-dessus de `+`, comme toujours.
+        expect(
+          groupe.bottom + mapControlsSpacing,
+          _rectOf(tester, find.byKey(mapZoomInButtonKey)).top,
+        );
+      },
+    );
+  }
+
+  _surAndroid('construction — la légende « débit » tient à 360 × 844 et ne '
+      'tient plus à 360 × 560 : la même colonne, la fenêtre seule a changé', (
+    WidgetTester tester,
+  ) async {
+    await _pumpOverlays(
+      tester,
+      const Size(360, 844),
+      scale: MapScaleKind.debit,
+      avecAvis: false,
+    );
+    expect(_etat(tester, find.byType(MapLegend)), 'entière');
+    final double hautGroupeGrand = _rectOf(
+      tester,
+      find.byType(MapEntryButtons),
+    ).top;
+    final double basFenetreGrand = _fenetre(tester).bottom;
+
+    await _pumpOverlays(
+      tester,
+      const Size(360, 560),
+      scale: MapScaleKind.debit,
+      avecAvis: false,
+    );
+    expect(_etat(tester, find.byType(MapLegend)), 'en partie');
+    final double hautGroupePetit = _rectOf(
+      tester,
+      find.byType(MapEntryButtons),
+    ).top;
+    // Le groupe est monté d'autant que la fenêtre a raccourci (844 − 560), et
+    // la fenêtre de la colonne du haut l'a suivi.
+    expect(hautGroupeGrand - hautGroupePetit, 844 - 560);
+    expect(_fenetre(tester).bottom, lessThan(basFenetreGrand));
+    expect(_fenetre(tester).bottom, hautGroupePetit - _fenetre(tester).top);
+  });
+
+  // Décision de la boucle principale du 2026-10-12 : sur une fenêtre trop
+  // courte, c'est la colonne du BAS qui cède — elle défile, ancrée en bas —,
+  // et le contrôle « ⚠ Avertissement » reste visible (`BR-012`).
+  for (final bool enMode in <bool>[false, true]) {
+    // Le titre dit ce que le cas prouve, mode par mode : HORS MODE le contrôle
+    // est atteignable ; EN MODE il ne l'est PAS (CONSTAT, voir plus bas).
+    final String atteinte = enMode
+        ? 'mais — CONSTAT — la pilule du bouton de désignation recouvre son '
+              'centre : il n’est PAS atteignable'
+        : 'et il est atteignable';
+    _surAndroid('${_nom(const Size(360, 300), 2, MapScaleKind.ecoulement)}, '
+        '${_mode(enMode)} : aucune erreur de rendu, le contrôle '
+        '« ⚠ Avertissement » est entier dans l’écran et dans sa fenêtre, '
+        '$atteinte ; l’attribution est entière au repos, et « Filtres » s’atteint en '
+        'faisant défiler la colonne du bas', (WidgetTester tester) async {
+      const Size taille = Size(360, 300);
+      // `_pumpOverlays` affirme l'absence de toute erreur de rendu.
+      await _pumpOverlays(
+        tester,
+        taille,
+        textScale: 2,
+        scale: MapScaleKind.ecoulement,
+        enMode: enMode,
+        avecAvis: false,
+      );
+
+      final Rect ecran = Offset.zero & taille;
+      final Rect lien = _rectOf(tester, find.byType(WarningLink));
+      expect(ecran.intersect(lien), lien, reason: 'lien=$lien');
+      expect(
+        _fenetre(tester).intersect(lien),
+        lien,
+        reason: 'lien=$lien, fenêtre du haut=${_fenetre(tester)}',
+      );
+      // HORS MODE le contrôle est atteignable. EN MODE, CONSTAT antérieur,
+      // non corrigé ici : sur une fenêtre aussi courte la pilule du bouton de
+      // désignation (bande du bas, posée au-dessus de la colonne du haut dans
+      // la pile) remonte jusqu'en haut et recouvre son centre — le même
+      // défaut que pour la puce « Restrictions » (voir plus haut,
+      // « un téléphone aussi court »). La mise en page, elle, lui garde toute
+      // sa place : c'est ce que les deux affirmations ci-dessus tiennent.
+      expect(_atteignable(find.byKey(warningLinkKey)), !enMode);
+      if (enMode) {
+        expect(
+          _rectOf(
+            tester,
+            find.byKey(mapDesignateCenterButtonKey),
+          ).contains(lien.center),
+          isTrue,
+          reason: 'ce qui recouvre le contrôle doit être la pilule',
+        );
+      }
+
+      // La colonne du bas est ancrée en bas : l'attribution, dernière
+      // pièce, est entière dans sa fenêtre ; « Filtres », première pièce,
+      // dépasse par le haut.
+      final Rect bas = _fenetreDuBas(tester);
+      final Rect attribution = _rectOf(
+        tester,
+        find.byType(IgnAttributionBadge),
+      );
+      expect(bas.intersect(attribution), attribution);
+      expect(ecran.intersect(attribution), attribution);
+      final Finder filtres = find.byKey(mapFiltersButtonKey);
+      expect(
+        _rectOf(tester, filtres).top,
+        lessThan(bas.top),
+        reason: 'filtres=${_rectOf(tester, filtres)}, fenêtre du bas=$bas',
+      );
+      // Les deux fenêtres ne se recoupent pas.
+      expect(bas.overlaps(_fenetre(tester)), isFalse);
+
+      // Du doigt, depuis un bouton de zoom (`deferToChild`), vers le bas :
+      // la colonne défile et « Filtres » entre dans sa fenêtre.
+      final Finder recentrer = find.byKey(mapRecenterButtonKey);
+      await tester.dragFrom(
+        _rectOf(tester, recentrer).center.dy < bas.top
+            ? bas.center
+            : _rectOf(tester, recentrer).intersect(bas).center,
+        Offset(0, bas.top - _rectOf(tester, filtres).top + kDragSlopDefault),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        bas.intersect(_rectOf(tester, filtres)),
+        _rectOf(tester, filtres),
+        reason: 'filtres=${_rectOf(tester, filtres)}, fenêtre du bas=$bas',
+      );
+      expect(_atteignable(filtres), isTrue);
+    });
+  }
+
+  // CONSTAT — l'effet de cette décision sur une fenêtre COMPACTE COURTE
+  // (360 × 300 : un téléphone en écran divisé). Des faits mesurés en Roboto le
+  // 2026-10-13, PAS des invariants voulus : la colonne du bas à droite (244 px
+  // à 100 %, 290 px à 200 %) ne laisse à celle du haut que la hauteur d'une
+  // cible tactile. Sa fenêtre va de 8 à 56 et ne montre que le contrôle
+  // « ⚠ Avertissement » : les puces d'échelle, l'avis et la légende sont SOUS
+  // son bord au repos — une régression de `BR-007` (un avis qu'on ne voit pas)
+  // et de `BR-008` (une légende qu'on ne voit pas) à cette taille, acceptée
+  // par la décision, à dire au commanditaire et à constater en écran divisé à
+  // la porte Android. Avant `F10b`, la colonne du haut prenait toute la
+  // hauteur (de 8 à 292) et passait SOUS les contrôles de zoom : les puces y
+  // étaient entières au repos à 100 % (de 64 à 168), l'avis en partie.
+  //
+  // Ce qui reste possible, HORS MODE : faire défiler la colonne du haut du
+  // doigt DEPUIS LE CONTRÔLE (seul enfant visible, `deferToChild`) amène une
+  // puce sous le doigt, dans une fenêtre de 48 px.
+  for (final double textScale in <double>[1, 2]) {
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      for (final bool avecAvis in <bool>[false, true]) {
+        for (final bool enMode in <bool>[false, true]) {
+          final String suite = enMode
+              ? ''
+              : ' ; la puce « débit » s’atteint en faisant défiler la colonne '
+                    'depuis le contrôle';
+          _surAndroid('CONSTAT — à '
+              '${_nom(const Size(360, 300), textScale, scale)}, '
+              '${_mode(enMode)}, ${avecAvis ? 'AVEC un' : 'SANS'} avis : la '
+              'fenêtre de la colonne du haut n’a que la hauteur du contrôle '
+              '« ⚠ Avertissement » (de 8 à 56) ; puces'
+              '${avecAvis ? ', avis' : ''} et légende sont SOUS son bord au '
+              'repos$suite', (WidgetTester tester) async {
+            await _pumpOverlays(
+              tester,
+              const Size(360, 300),
+              textScale: textScale,
+              scale: scale,
+              enMode: enMode,
+              avecAvis: avecAvis,
+            );
+
+            final Rect fenetre = _fenetre(tester);
+            final Rect lien = _rectOf(tester, find.byType(WarningLink));
+            expect(fenetre.top, 8);
+            expect(fenetre.bottom, 56);
+            expect(fenetre.height, minimumTapTarget);
+            expect(lien.top, fenetre.top);
+            expect(lien.bottom, fenetre.bottom);
+            expect(_etat(tester, find.byType(MapScaleChips)), 'cachée');
+            if (avecAvis) {
+              expect(_etat(tester, _avis(scale)), 'cachée');
+            }
+            expect(_etat(tester, find.byType(MapLegend)), 'cachée');
+            // Les deux fenêtres du bord droit ne se recoupent pas, et
+            // l'attribution est entière dans l'écran.
+            final Rect bas = _fenetreDuBas(tester);
+            expect(bas.top, fenetre.bottom + 8);
+            expect(bas.bottom, 292);
+            final Rect attribution = _rectOf(
+              tester,
+              find.byType(IgnAttributionBadge),
+            );
+            expect(bas.intersect(attribution), attribution);
+
+            if (enMode) {
+              return;
+            }
+            // Du doigt, depuis le contrôle : la puce « débit » vient sous le
+            // doigt, son centre dans la fenêtre.
+            final Finder puce = _puceEchelle(MapScaleKind.debit);
+            expect(_atteignable(puce), isFalse);
+            await tester.dragFrom(
+              lien.center,
+              Offset(
+                0,
+                -(_rectOf(tester, puce).center.dy -
+                    fenetre.center.dy +
+                    kDragSlopDefault),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              fenetre.contains(_rectOf(tester, puce).center),
+              isTrue,
+              reason: 'puce=${_rectOf(tester, puce)}, fenêtre=$fenetre',
+            );
+            expect(_atteignable(puce), isTrue);
+          });
+        }
+      }
+    }
+  }
+
+  // CONSTAT — les hauteurs où la décision cesse de jouer, à 360 de large,
+  // SANS avis, HORS MODE, mesurées en Roboto par pas de 2 px le 2026-10-13 :
+  // `(police, la colonne du bas défile encore à, ne défile plus à, les puces
+  // ne sont pas entières au repos à, le sont à)`. Entre les deux seuils la
+  // colonne du bas tient entière et la colonne du haut reçoit ce qui reste :
+  // les puces n'y sont qu'en partie visibles au repos. La légende, elle, ne
+  // tient entière qu'à partir de 602 px (« écoulement ») et 684 px (« débit »)
+  // à 100 %, de 828 px (« écoulement ») à 200 %.
+  for (final (double, double, double, double, double) cas
+      in <(double, double, double, double, double)>[
+        (1, 314, 316, 426, 428),
+        (2, 360, 362, 534, 536),
+      ]) {
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      _surAndroid('CONSTAT — à 360 de large, police '
+          '${(cas.$1 * 100).toInt()} %, échelle ${scale.name}, HORS MODE, SANS '
+          'avis : la colonne du bas à droite défile à ${cas.$2.toInt()} px de '
+          'haut et plus à ${cas.$3.toInt()} ; les puces sont entières au repos '
+          'à ${cas.$5.toInt()} px de haut, pas à ${cas.$4.toInt()}', (
+        WidgetTester tester,
+      ) async {
+        Future<void> poser(double hauteur) => _pumpOverlays(
+          tester,
+          Size(360, hauteur),
+          textScale: cas.$1,
+          scale: scale,
+          avecAvis: false,
+        );
+        bool leBasDefile() =>
+            _rectOf(tester, find.byType(MapEntryButtons)).top <
+            _fenetreDuBas(tester).top;
+
+        await poser(cas.$2);
+        expect(leBasDefile(), isTrue);
+        await poser(cas.$3);
+        expect(leBasDefile(), isFalse);
+        await poser(cas.$4);
+        expect(_etat(tester, find.byType(MapScaleChips)), 'en partie');
+        await poser(cas.$5);
+        expect(_etat(tester, find.byType(MapScaleChips)), 'entière');
+      });
+    }
+  }
+
+  // Sous Windows, là où la fenêtre est courte pour la légende : 800 × 740,
+  // 200 %, échelle débit. La légende dépasse sa fenêtre ; un cran de molette
+  // posé sur elle fait défiler la colonne droite (pas de barre : voir
+  // `_WithoutScrollbar`), et son bord bas arrive au-dessus du groupe.
+  _surWindows('à ${_nom(const Size(800, 740), 2, MapScaleKind.debit)} : la '
+      'molette posée sur la légende en amène le bord bas dans la fenêtre, '
+      'au-dessus du groupe « Filtres » ; sa partie visible ne recoupe aucune '
+      'pièce du bas à droite', (WidgetTester tester) async {
+    await _pumpOverlays(
+      tester,
+      const Size(800, 740),
+      textScale: 2,
+      scale: MapScaleKind.debit,
+      avecAvis: false,
+    );
+
+    Rect legende() => _rectOf(tester, find.byType(MapLegend));
+    final Rect fenetre = tester.getRect(
+      find.ancestor(
+        of: find.byType(MapLegend),
+        matching: find.byType(SingleChildScrollView),
+      ),
+    );
+    final Rect groupe = _rectOf(tester, find.byType(MapEntryButtons));
+    final double distance = legende().bottom - fenetre.bottom;
+    expect(
+      distance,
+      greaterThan(0),
+      reason: 'rien à défiler : fenêtre=$fenetre, légende=${legende()}',
+    );
+    expect(fenetre.bottom, groupe.top - fenetre.top);
+    for (final Finder piece in <Finder>[
+      find.byType(MapEntryButtons),
+      find.byType(MapControls),
+      find.byType(IgnAttributionBadge),
+    ]) {
+      expect(
+        legende().intersect(fenetre).overlaps(_rectOf(tester, piece)),
+        isFalse,
+        reason: 'légende visible=${legende().intersect(fenetre)}',
+      );
+    }
+
+    final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(
+      souris.hover(legende().intersect(fenetre).center),
+    );
+    await tester.sendEventToBinding(souris.scroll(Offset(0, distance)));
+    await tester.pumpAndSettle();
+
+    expect(
+      legende().bottom,
+      lessThanOrEqualTo(fenetre.bottom + 0.5),
+      reason: 'après la molette : fenêtre=$fenetre, légende=${legende()}',
+    );
+    expect(legende().bottom, lessThan(groupe.top));
   });
 }
