@@ -1270,6 +1270,158 @@ void main() {
     );
   });
 
+  // `F10c` de T3 : la place du cinquième bouton, « Favoris », que le lot 7
+  // posera au-dessus de « Filtres » dans `MapEntryButtons`. MESURE anticipée :
+  // le rectangle du groupe, étendu vers le haut d'un bouton et d'un
+  // espacement, est mis en regard de la BOÎTE ENTIÈRE de la légende (qui peut
+  // dépasser de sa fenêtre), du bouton de désignation, de l'attribution et de
+  // la fiche. Police de test, plateforme Windows ; Segoe UI non mesurée.
+  //
+  // Arbitrage du commanditaire du 2026-10-14 : « Favoris » reste AU-DESSUS de
+  // « Filtres » (arbitrage 8, inchangé). La taille d'arrêt se juge en Roboto
+  // (`map_overlays_phone_test.dart`, INVARIANT). Ici, en police de test, la
+  // légende « débit » mesure 434 px de haut (247 en Roboto) : sa morsure de
+  // 42 px est un CONSTAT, un artefact de la police. `S10` (rendu réel à cinq
+  // boutons) et `K3` remesureront avec le vrai bouton.
+  group('F10c de T3 — la place du cinquième bouton, à 800 × 740 (Windows)', () {
+    const Key ficheKey = Key('fiche-de-test-F10c');
+
+    Future<void> pump(
+      WidgetTester tester,
+      MapScaleKind scale, {
+      required bool avecFiche,
+    }) async {
+      const Size taille = Size(800, 740);
+      tester.view.physicalSize = taille;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            body: Stack(
+              children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
+                filterActive: false,
+                onOpenFilters: () {},
+                scale: scale,
+                onSelect: (MapScaleKind kind) {},
+                onWiden: () {},
+                error: null,
+                stations: const <StationPoint>[],
+                ondeObservations: const <OndeStationCode, OndeObservation>{},
+                ondeUnreadableRows: 0,
+                onZoomIn: () {},
+                onZoomOut: () {},
+                onRecenter: () {},
+                onToggleDesignationMode: () {},
+                onDesignateCenter: () {},
+                stationSheet: avecFiche
+                    ? Container(
+                        key: ficheKey,
+                        width: double.infinity,
+                        height: 320,
+                        color: Colors.red,
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    for (final bool avecFiche in <bool>[false, true]) {
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        final bool constat = scale == MapScaleKind.debit;
+        testWidgetsOnWindows(
+          '${constat ? "CONSTAT — " : ""}(police de test) échelle ${scale.name}, '
+          '${avecFiche ? "AVEC" : "SANS"} fiche : le groupe des boutons '
+          'd’entrée étendu d’un bouton et d’un espacement vers le haut reste '
+          'dans l’écran et ne coupe ni le bouton de désignation, ni '
+          'l’attribution, ni la fiche'
+          '${constat ? ", mais mord de 42 px sur la boîte de la légende" : ", ni la légende (boîte entière)"}',
+          (WidgetTester tester) async {
+            const Size taille = Size(800, 740);
+            await pump(tester, scale, avecFiche: avecFiche);
+
+            final Rect groupe = tester.getRect(find.byType(MapEntryButtons));
+            final Rect etendu =
+                groupe.topLeft.translate(
+                  0,
+                  -(minimumTapTarget + mapControlsSpacing),
+                ) &
+                Size(
+                  groupe.width,
+                  groupe.height + minimumTapTarget + mapControlsSpacing,
+                );
+            final Rect legende = tester.getRect(find.byType(MapLegend));
+            final Rect fenetre = tester.getRect(
+              find.ancestor(
+                of: find.byType(MapLegend),
+                matching: find.byType(SingleChildScrollView),
+              ),
+            );
+            final Rect visible = legende.intersect(fenetre);
+            final double morsure = etendu.overlaps(legende)
+                ? etendu.intersect(legende).height
+                : 0;
+            final String mesure =
+                'écran=$taille, échelle=${scale.name}, fiche=$avecFiche, '
+                'groupe=$groupe, étendu=$etendu, légende(boîte)=$legende, '
+                'légende(visible)=$visible, fenêtre=$fenetre, '
+                'morsure sur la boîte=$morsure px';
+
+            expect(etendu.top, greaterThanOrEqualTo(0), reason: mesure);
+            expect(
+              etendu.right,
+              lessThanOrEqualTo(taille.width),
+              reason: mesure,
+            );
+            if (constat) {
+              // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : un ARTEFACT de la
+              // police de test (légende « débit » de 434 px de haut, 247 en
+              // Roboto). La mesure qui fait foi est celle de
+              // `map_overlays_phone_test.dart` (Roboto) : là, aucune morsure.
+              expect(
+                morsure,
+                moreOrLessEquals(42, epsilon: 0.1),
+                reason: 'morsure sur la boîte de la légende : $mesure',
+              );
+            } else {
+              expect(
+                etendu.overlaps(legende),
+                isFalse,
+                reason: 'MapLegend : $mesure',
+              );
+            }
+            expect(
+              etendu.overlaps(
+                tester.getRect(find.byType(DesignateCenterControl)),
+              ),
+              isFalse,
+              reason: 'DesignateCenterControl : $mesure',
+            );
+            expect(
+              etendu.overlaps(tester.getRect(find.byType(IgnAttributionBadge))),
+              isFalse,
+              reason: 'IgnAttributionBadge : $mesure',
+            );
+            if (avecFiche) {
+              expect(
+                etendu.overlaps(tester.getRect(find.byKey(ficheKey))),
+                isFalse,
+                reason: 'fiche : $mesure',
+              );
+            }
+          },
+        );
+      }
+    }
+  });
+
   // `MapErrorBanner` est retiré depuis `U6` : un bandeau rouge portant
   // `error.toString()` ne nommait aucune source, et `BR-007` exige un
   // « message par source ». `SourceUnavailableNotice` le remplace, et ses

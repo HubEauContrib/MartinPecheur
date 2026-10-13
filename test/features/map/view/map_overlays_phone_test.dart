@@ -706,6 +706,88 @@ Future<void> _verifierBasADroite(WidgetTester tester, Size taille) async {
   expect(crans, 1, reason: 'molette en $p');
 }
 
+/// `F10c` de T3 : la mesure de la place du cinquième bouton, « Favoris »,
+/// au-dessus de « Filtres » dans `MapEntryButtons` (lot 7). Le rectangle du
+/// groupe est étendu vers le haut d'un bouton et d'un espacement ; il est mis
+/// en regard de la BOÎTE ENTIÈRE de la légende, du bouton de désignation (EN
+/// MODE), de l'attribution et de la fiche. [morsure] est la hauteur dont il
+/// mord sur la boîte de la légende : 0 s'il ne la mord pas, sinon ce qu'elle
+/// aurait à défiler.
+class _PlaceDuCinquieme {
+  _PlaceDuCinquieme(WidgetTester tester, this.ecran, this.ficheKey)
+    : groupe = tester.getRect(find.byType(MapEntryButtons)),
+      legende = tester.getRect(find.byType(MapLegend)),
+      fenetre = tester.getRect(
+        find.ancestor(
+          of: find.byType(MapLegend),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      ),
+      designation = tester.getRect(find.byType(DesignateCenterControl)),
+      attribution = tester.getRect(find.byType(IgnAttributionBadge)),
+      ficheRect = ficheKey == null
+          ? null
+          : tester.getRect(find.byKey(ficheKey)) {
+    etendu = Rect.fromLTRB(
+      groupe.left,
+      groupe.top - (minimumTapTarget + mapControlsSpacing),
+      groupe.right,
+      groupe.bottom,
+    );
+  }
+
+  final Size ecran;
+  final Key? ficheKey;
+  final Rect groupe;
+  final Rect legende;
+  final Rect fenetre;
+  final Rect designation;
+  final Rect attribution;
+  final Rect? ficheRect;
+  late final Rect etendu;
+
+  Rect get visible => legende.intersect(fenetre);
+
+  double get morsure =>
+      etendu.overlaps(legende) ? etendu.intersect(legende).height : 0;
+
+  String get mesure =>
+      'écran=$ecran, groupe=$groupe, étendu=$etendu, '
+      'légende(boîte)=$legende, légende(visible)=$visible, '
+      'fenêtre=$fenetre, désignation=$designation, '
+      'attribution=$attribution, fiche=$ficheRect, '
+      'morsure sur la boîte de la légende=$morsure px';
+
+  /// Les cinq affirmations de la tâche : dans l'écran, et ne coupe ni la
+  /// légende (boîte entière), ni le bouton de désignation, ni l'attribution,
+  /// ni la fiche.
+  void exiger() {
+    exigerHorsLegende();
+    expect(etendu.overlaps(legende), isFalse, reason: 'MapLegend : $mesure');
+  }
+
+  /// Ce qui reste un invariant même là où la légende est mordue (constat) :
+  /// dans l'écran, ni le bouton de désignation, ni l'attribution, ni la
+  /// fiche.
+  void exigerHorsLegende() {
+    expect(etendu.top, greaterThanOrEqualTo(0), reason: mesure);
+    expect(etendu.right, lessThanOrEqualTo(ecran.width), reason: mesure);
+    expect(
+      etendu.overlaps(designation),
+      isFalse,
+      reason: 'DesignateCenterControl : $mesure',
+    );
+    expect(
+      etendu.overlaps(attribution),
+      isFalse,
+      reason: 'IgnAttributionBadge : $mesure',
+    );
+    if (ficheRect != null) {
+      expect(etendu.overlaps(ficheRect!), isFalse, reason: 'fiche : $mesure');
+    }
+  }
+}
+
 void main() {
   setUpAll(_chargerRoboto);
 
@@ -3080,4 +3162,149 @@ void main() {
     );
     expect(legende().bottom, lessThan(groupe.top));
   });
+
+  // ---------------------------------------------------------------------
+  // `F10c` de T3 — la place du cinquième bouton (« Favoris »)
+  // ---------------------------------------------------------------------
+  // Mesure anticipée, en Roboto, avec un point sur la carte (aucun avis),
+  // EN MODE Restrictions (le bouton de désignation existe), police à 100 %.
+  // Le lot 7 posera « Favoris » au-dessus de « Filtres » : le rectangle du
+  // groupe, étendu d'un bouton et d'un espacement, est mis en regard de la
+  // légende (boîte entière), du bouton de désignation, de l'attribution et de
+  // la fiche de 320 px.
+  //
+  // Arbitrage du commanditaire du 2026-10-14 : « Favoris » reste AU-DESSUS de
+  // « Filtres » (arbitrage 8, inchangé). À 800 × 740 (Windows, Roboto pour
+  // Segoe UI) la légende tient : INVARIANT. Au téléphone (360 × 640, 640 × 360)
+  // elle défilera un peu plus, effet de « La légende défile » : rien n'est
+  // recouvert, ce sont des CONSTATS, à vérifier à l'écran à la porte Android.
+  // `S10` (rendu réel à cinq boutons) et `K3` remesureront avec le vrai
+  // bouton.
+  // Morsure mesurée (px) et ce dont la légende dépasse déjà sa fenêtre au repos,
+  // par échelle, à 360 × 640 (Roboto, 2026-10-14).
+  const Map<MapScaleKind, double> morsure360 = <MapScaleKind, double>{
+    MapScaleKind.ecoulement: 9,
+    MapScaleKind.debit: 91,
+  };
+  const Map<MapScaleKind, double> auRepos360 = <MapScaleKind, double>{
+    MapScaleKind.ecoulement: 0,
+    MapScaleKind.debit: 43,
+  };
+  for (final bool avecFiche in <bool>[false, true]) {
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      // ⚠️ FAIT CONSTATÉ, pas un invariant voulu (Roboto, mesuré le
+      // 2026-10-14) : avec le cinquième bouton la légende aurait à défiler de
+      // `morsure360` (au lieu de `auRepos360` aujourd'hui). À corriger À LA MAIN
+      // quand l'écran change.
+      _surAndroid('CONSTAT — F10c : à ${_nom(_petit, 1, scale)}, EN MODE, '
+          '${avecFiche ? "AVEC" : "SANS"} fiche : le groupe étendu mord de '
+          '${morsure360[scale]!.toInt()} px sur la boîte de '
+          'la légende, sans toucher le reste', (WidgetTester tester) async {
+        await _pumpOverlays(
+          tester,
+          _petit,
+          scale: scale,
+          enMode: true,
+          avecAvis: false,
+          avecFiche: avecFiche,
+        );
+        final _PlaceDuCinquieme place = _PlaceDuCinquieme(
+          tester,
+          _petit,
+          avecFiche ? _ficheKey : null,
+        );
+        // L'invariant : dans l'écran, ni désignation, ni attribution, ni
+        // fiche.
+        place.exigerHorsLegende();
+        // Le constat : la morsure sur la boîte de la légende.
+        expect(
+          place.morsure,
+          moreOrLessEquals(morsure360[scale]!, epsilon: 0.1),
+          reason: 'morsure sur la boîte de la légende : ${place.mesure}',
+        );
+        // Ce dont la légende dépasse déjà sa fenêtre, sans le cinquième bouton.
+        expect(
+          place.legende.bottom - place.fenetre.bottom,
+          moreOrLessEquals(auRepos360[scale]!, epsilon: 0.1),
+          reason: 'dépassement au repos : ${place.mesure}',
+        );
+      });
+    }
+  }
+
+  // Sous Windows à 800 × 740, Roboto en substitut de Segoe UI (non mesurée).
+  for (final bool avecFiche in <bool>[false, true]) {
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      _surWindows('F10c : à ${_nom(const Size(800, 740), 1, scale)} (Roboto '
+          'pour Segoe UI), EN MODE, ${avecFiche ? "AVEC" : "SANS"} fiche : '
+          'le groupe des boutons d’entrée étendu d’un bouton ne coupe rien', (
+        WidgetTester tester,
+      ) async {
+        const Size taille = Size(800, 740);
+        await _pumpOverlays(
+          tester,
+          taille,
+          scale: scale,
+          enMode: true,
+          avecAvis: false,
+          avecFiche: avecFiche,
+        );
+        _PlaceDuCinquieme(
+          tester,
+          taille,
+          avecFiche ? _ficheKey : null,
+        ).exiger();
+      });
+    }
+  }
+
+  // 640 × 360 (téléphone en paysage, disposition large) : MESURÉ, pas exigé.
+  for (final MapScaleKind scale in MapScaleKind.values) {
+    _surAndroid(
+      'CONSTAT — F10c : à ${_nom(const Size(640, 360), 1, scale)}, EN MODE : '
+      'le groupe étendu mord de 92 px sur la boîte de la légende, sans '
+      'toucher le reste',
+      (WidgetTester tester) async {
+        const Size taille = Size(640, 360);
+        await _pumpOverlays(
+          tester,
+          taille,
+          scale: scale,
+          enMode: true,
+          avecAvis: false,
+        );
+        final _PlaceDuCinquieme place = _PlaceDuCinquieme(tester, taille, null);
+        // ⚠️ FAIT CONSTATÉ, pas un invariant voulu (Roboto, Android, mesuré le
+        // 2026-10-14) : le groupe étendu mord sur la boîte de la légende des
+        // deux échelles ; elle aurait à défiler de ce que dit `morsure`.
+        expect(
+          place.groupe,
+          rectMoreOrLessEquals(
+            const Rect.fromLTRB(584, 108, 632, 156),
+            epsilon: 0.1,
+          ),
+          reason: place.mesure,
+        );
+        // Le haut de l'étendu se déduit des constantes, il n'est pas recopié.
+        expect(
+          place.etendu,
+          rectMoreOrLessEquals(
+            Rect.fromLTRB(
+              584,
+              108 - (minimumTapTarget + mapControlsSpacing),
+              632,
+              156,
+            ),
+            epsilon: 0.1,
+          ),
+          reason: place.mesure,
+        );
+        // La fenêtre de la légende : 8 à 100.
+        expect(place.fenetre.top, moreOrLessEquals(8, epsilon: 0.1));
+        expect(place.fenetre.bottom, moreOrLessEquals(100, epsilon: 0.1));
+        place.exigerHorsLegende();
+        expect(place.morsure, moreOrLessEquals(92, epsilon: 0.1));
+      },
+    );
+  }
 }
