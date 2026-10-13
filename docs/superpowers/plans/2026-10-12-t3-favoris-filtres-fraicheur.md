@@ -2074,6 +2074,55 @@ git add -- lib/features/restrictions/view/restrictions_screen.dart docs/project-
 - [ ] **Étape 2** — trier chaque rouge d'après la règle de la colonne : arrêt aux deux tailles d'arrêt, « CONSTAT » remonté ailleurs.
 - [ ] **Étape 3** — `04-ui.md` et `project-state.md` : hauteurs mesurées, police de mesure (Roboto ; Segoe UI non mesurée), la mesure du paysage court citée de `S10`, ce qui reste dû à l'écran (constat `f`). Critère de fin, commit : `test(map) : la colonne à cinq boutons mesurée à 390 × 844, à 200 % et aux tailles intermédiaires (K3 de T3)`.
 
+> **Deux tâches ajoutées le 2026-10-13 — `K4` et `K5`** (arbitrage du commanditaire du même jour, question fermée : « Les deux, au lot 9 »). Elles soldent les deux défauts relevés à la relecture du correctif « une fiche plus haute que la carte ne déborde plus » (commit `dbf2b2a`, intégré à cette branche après `F10b` ; `docs/project-state.md`, point 60, (i) et (j)). Elles s'exécutent **avant `F10c`** : la géométrie de la fiche qu'elles fixent est celle que `F10c`, `S10` et `K3` mesurent. Ordre : `K5` puis `K4`.
+
+### Task K5 : La marge basse de la fiche suit la hauteur réelle de l'attribution IGN
+
+**Agent :** **raisonnement** (géométrie, tri entre ce qui bouge et ce qui ne doit pas bouger).
+**Files:** modifiés `lib/features/map/view/map_view.dart`, `test/features/map/view/map_sheet_height_test.dart`, `docs/04-ui.md`, `docs/project-state.md` (point 60) ; au besoin, et seulement pour une attente à 200 % que la marge déplace, `test/features/map/view/map_view_test.dart` et `test/features/map/view/map_overlays_phone_test.dart`
+
+**Le défaut, mesuré** (relecture du 2026-10-13, Roboto, test jetable) — hors mode, la zone des fiches réserve une marge basse **fixe** de 32 px (`_sheetBottomPadding`) ; le bandeau d'attribution (`IgnAttributionBadge`, 11 pt mis à l'échelle, opaque, peint après la fiche) grandit avec la police et passe à la ligne sur une largeur de téléphone. À 360 × 640, 200 %, fiche ONDE prête défilée au bout : fenêtre du défilement (8, 8, 296, 608), bandeau (8, 566, 352, 632), dernière ligne (20, 156, 228, 596) — une trentaine de pixels du rappel de rythme (`BR-010`) sous le bandeau. De même à 390 × 844 ; et **en mode « Restrictions »** à 640 × 360, où la fiche prend toute la hauteur et où la bande du bouton, qui porte la marge, n'a plus de place. La bande, elle, mesure déjà la hauteur exacte de l'attribution (`_DesignationPlacement`, `TextPainter`).
+
+**La règle** — ce qu'on voit de la fiche ne passe **jamais** sous le bandeau d'attribution :
+- hors mode, la marge basse de la zone des fiches vaut **au moins `_sheetBottomPadding`** et **au moins la hauteur réelle du bandeau plus sa marge basse** (`_overlayPadding`) ;
+- en mode, la borne de hauteur de la zone des fiches laisse cette même hauteur libre en bas (la bande du bouton reçoit toujours le reste, rien ne lui est réservé de plus : le point (a) du point 60 est inchangé) ;
+- la hauteur du bandeau est **mesurée**, par le calcul que fait déjà `_DesignationPlacement` — **un seul calcul, partagé** (une fonction privée du fichier), jamais recopié ; la bande garde exactement sa marge d'aujourd'hui ;
+- **à 100 %, quand le bandeau tient sur une ligne, rien ne bouge** : la marge reste de 32 px. Si la mesure dit le contraire, **arrêt et question** — ne décale aucune attente à 100 %.
+
+**Cas de test** (`map_sheet_height_test.dart`, Roboto, plateformes nommées) :
+1. Le « CONSTAT » « à 200 % en portrait, le bas de la fiche défilée au bout reste en partie sous l'attribution IGN » devient un **invariant inverse** : fiche défilée au bout, le rectangle de `IgnAttributionBadge` ne recoupe ni la dernière ligne ni ce qu'on voit de la fiche — fiche ONDE prête et fiche station prête, 200 %, aux quatre tailles (360 × 640, 390 × 844, 640 × 360 sous Android ; 800 × 740 sous Windows), hors mode **et en mode**.
+2. Les égalités de la fenêtre de défilement (groupes B et B bis) : le bas de la fenêtre vaut la hauteur de la carte moins la marge **calculée** (dans le test : d'après le rectangle réel du bandeau, jamais 32 en dur à 200 %).
+3. À 100 % : les cas B ter (bas du cadre à hauteur − 32 pour l'ONDE, − 40 pour la station) restent **inchangés et verts** — c'est la preuve que rien ne bouge.
+4. La bande du bouton de désignation : un cas qui tient sa marge basse d'avant (hauteur mesurée du bandeau), **vert avant comme après**.
+
+- [ ] **Étape 1** — écrire les cas, lancer `flutter test test/features/map/view/map_sheet_height_test.dart`, recopier la **sortie rouge brute** (cas 1 et 2 rouges, 3 et 4 verts).
+- [ ] **Étape 2** — le minimum dans `map_view.dart` ; lancer la suite entière ; une attente d'un autre fichier qui rougit se **lit et se classe** : à 200 %, déplacée par la marge, elle se réécrit à la nouvelle vérité (dire l'ancienne et la nouvelle valeur) ; à 100 %, **arrêt**.
+- [ ] **Étape 3** — contre-épreuve : remettre la marge fixe, constater le rouge du cas 1, rétablir. Documents : `04-ui.md` (note du 2026-10-13 : le défaut est corrigé, la règle), `project-state.md` point 60 (j) barré et daté. Critère de fin, commit : `fix(map): le bas de la fiche ne passe plus sous l attribution IGN (K5 de T3)`.
+
+### Task K4 : La fiche revient en haut à chaque ouverture
+
+**Agent :** **raisonnement** (racine de composition, ordre des événements).
+**Files:** modifiés `lib/main.dart`, `lib/features/map/view/map_view.dart`, `test/main_test.dart`, `test/features/map/view/map_sheet_height_test.dart`, `docs/04-ui.md`, `docs/project-state.md` (point 60)
+
+**Le défaut, mesuré** (relecture du 2026-10-13, test jetable, vrai `StationSheetViewModel` et son cache, Android 360 × 640, 200 %) — une fiche défilée au bout, puis l'ouverture d'une station déjà en cache : la nouvelle fiche s'ouvre sur son bas (556 px conservés), « ⚠ Avertissement » et le nom du lieu hors champ. `open()` émet « en cours » puis « prête » sans trame entre les deux quand la donnée est en cache ; à la première ouverture, la trame « en cours », courte, ramène la position en haut. `buildMapOverlays` ignore quand la fiche change : seule la racine de composition le sait.
+
+**La règle** — toute ouverture de fiche, **d'où qu'elle vienne** (tap d'un marqueur aujourd'hui, écran « Favoris » après `S11`), montre la fiche depuis son haut.
+
+**Construction arbitrée** (commanditaire, 2026-10-13 : « contrôleur de défilement remis à zéro depuis `main.dart` ») :
+- `buildMapOverlays` et `MapView` reçoivent un paramètre nommé **optionnel**, `ScrollController? sheetScrollController`, passé au défilement de la zone des fiches ; `null` : comportement d'aujourd'hui (les tests existants ne changent pas) ;
+- `main.dart` crée ce contrôleur, le passe à `MapView`, et **écoute les deux ViewModels de fiche** : quand l'un passe à l'état « en cours » (`EnCours`, `OndeSheetEnCours`) — ce que `open()` émet de façon synchrone, avant toute attente —, il remet la position à 0 (`jumpTo(0)` si le contrôleur a un client). Un seul endroit, toutes les entrées ; aucune tranche n'en importe une autre ; les deux fiches ne sont pas modifiées.
+- Rien d'autre : pas de clé, pas d'animation, pas de remise à zéro sur une autre notification (une bascule de favori, un rafraîchissement ne déplacent pas la fiche).
+
+**Cas de test** :
+1. **Composition réelle** (`test/main_test.dart`, sur le précédent du cas de `S7a`), « Android : » 360 × 640, 200 %, dépôts en mémoire qui répondent sans attente : ouvrir la station A, faire défiler la fiche au bout, ouvrir la station B → à la première trame où B est prête, la position vaut 0 et le haut du contrôle « ⚠ Avertissement » de la fiche est dans la fenêtre. **Rouge avant** (position conservée).
+2. Même scénario, fiche station défilée puis ouverture d'un point ONDE, et l'inverse.
+3. Une bascule de favori sur une fiche défilée **ne** remet **pas** la position à 0 (vert avant comme après).
+4. `map_sheet_height_test.dart` : le « CONSTAT » « la position de défilement survit au changement de fiche » reste — il parle de `buildMapOverlays` seul, sans contrôleur — ; son commentaire dit désormais que la racine remet la position à zéro (`K4`) ; un cas de plus : avec un contrôleur fourni, `jumpTo(0)` entre deux poses ramène la fiche en haut.
+
+- [ ] **Étape 1** — cas 1 et 2 écrits, lancés, **sortie rouge brute** recopiée.
+- [ ] **Étape 2** — le minimum ; cas 3 et 4 ; suite entière.
+- [ ] **Étape 3** — contre-épreuve : retirer l'écoute dans `main.dart`, constater le rouge du cas 1, rétablir. Documents : `04-ui.md`, `project-state.md` point 60 (i) barré et daté. Critère de fin, commit : `fix(ui): une fiche s ouvre toujours par le haut, la racine remet le défilement à zéro (K4 de T3)`.
+
 ### Task X1 : Complétude des documents de T3 ; `02`, `03`, `04`
 
 **Agent :** mécanique, relu par un second agent.
@@ -2248,7 +2297,7 @@ Attendu, **inconnu d'avance** : la construction Gradle aboutit (premier passage 
 
 ## Récapitulatif
 
-**48 tâches**, dont 3 lancées par le commanditaire (`C1`, `P1`, `P2`).
+**50 tâches** (48 au plan approuvé le 2026-10-12, plus `K4` et `K5` ajoutées le 2026-10-13 par arbitrage du commanditaire), dont 3 lancées par le commanditaire (`C1`, `P1`, `P2`).
 
 | Lot | Tâches | Contenu |
 |---|---|---|
@@ -2261,7 +2310,7 @@ Attendu, **inconnu d'avance** : la construction Gradle aboutit (premier passage 
 | 6 | `S4` à `S6`, `S7a`, `S7b` | favoris — étoile des deux fiches, dépôt câblé dans `main.dart`, Gherkin et `UC-008` |
 | 7 | `S8` à `S11` | favoris — écran, bouton d'entrée, route et test de la racine |
 | 8 | `R1` à `R3` | dette 2 (décisions sorties de la vue des restrictions) |
-| 9 | `K1` à `K3`, `X1` à `X3` | clavier, cibles, recouvrements ; documents |
+| 9 | `K1` à `K5`, `X1` à `X3` | clavier, cibles, recouvrements ; la fiche sous l'attribution et sa position de défilement (`K5`, `K4`, ajoutées le 2026-10-13) ; documents |
 | 10 | `P1` à `P3` | porte sur Windows et Android, version datée |
 
 ## Ordre d'exécution
@@ -2272,6 +2321,14 @@ O1 → N1 → B1 → N2 → N3 → N4 → N5 → N6 → N7 → N8 → N9
 N9, F7 → F8 → F9 → F10a → F10b → C1 (commanditaire)
                            └→ F10c
 F10c → R1 → R2 → R3 → S1 → S2 → S3 → S4 → S5 → S6 → S7a → S7b → S8 → S9 → S10 → S11
+S11 → K1 → K2 → K3 → X1 → X2 → X3 → P1 → P2 → P3
+```
+
+**Reprise du 2026-10-13** (la session du 2026-10-12 s'est arrêtée pendant `F10b`, `S9` écrite sans ses documents ; `F10c` n'était pas faite, les lots 5, 6 et 8 l'étaient) — ordre de ce qui reste :
+
+```
+F10b → C1 (commanditaire)
+F10b → S9 → intégration du correctif des fiches (dbf2b2a) → K5 → K4 → F10c → S10 → S11
 S11 → K1 → K2 → K3 → X1 → X2 → X3 → P1 → P2 → P3
 ```
 
