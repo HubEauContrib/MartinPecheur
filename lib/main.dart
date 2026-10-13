@@ -21,6 +21,7 @@ import 'package:martinpecheur/diagnostics/counting_station_point_repository.dart
 import 'package:martinpecheur/diagnostics/fluidity_probe_panel.dart';
 import 'package:martinpecheur/diagnostics/fluidity_wiring.dart';
 import 'package:martinpecheur/diagnostics/frame_timing_probe.dart';
+import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
@@ -30,6 +31,8 @@ import 'package:martinpecheur/domain/restrictions/alert_zone.dart'
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
+import 'package:martinpecheur/features/favorites/view_model/favorites_view_model.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
@@ -156,6 +159,7 @@ Future<void> main() async {
       // tranche (CLAUDE.md, invariants).
       // Les favoris : la MÊME instance que celle de la fiche station.
       ondeSheetViewModel: OndeSheetViewModel(onde: onde, favorites: favorites),
+      favoritesViewModel: FavoritesViewModel(favorites: favorites),
       restrictionsViewModel: RestrictionsViewModel(
         source: restrictionSource,
         links: const UrlLauncherExternalLinkOpener(),
@@ -187,6 +191,7 @@ class MartinPecheurApp extends StatefulWidget {
     required this.stationSheetViewModel,
     required this.ondeSheetViewModel,
     required this.restrictionsViewModel,
+    required this.favoritesViewModel,
     this.fluidityProbe,
     this.fluidityStationPoints,
     super.key,
@@ -214,6 +219,12 @@ class MartinPecheurApp extends StatefulWidget {
   /// racine : de session, il garde le profil d'usager. L'écran est une
   /// ROUTE poussée à la désignation d'un point ; son retrait la ferme.
   final RestrictionsViewModel restrictionsViewModel;
+
+  /// Le ViewModel de l'écran « Favoris » (T3, `S11`), possédé par cette
+  /// racine, sur la MÊME instance du dépôt que les deux fiches. L'écran est
+  /// une ROUTE poussée par le bouton « Favoris » de la carte ; son retrait la
+  /// ferme.
+  final FavoritesViewModel favoritesViewModel;
 
   /// `NFR-01` (Task X3) : `null` sans `--dart-define=FLUIDITY_PROBE=true`
   /// (« la sonde est inerte sans son drapeau », `CLAUDE.md`) — dans ce cas
@@ -332,6 +343,7 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
     final OndeSheetViewModel ondeSheetViewModel = widget.ondeSheetViewModel;
     final RestrictionsViewModel restrictionsViewModel =
         widget.restrictionsViewModel;
+    final FavoritesViewModel favoritesViewModel = widget.favoritesViewModel;
     final FrameTimingProbe? fluidityProbe = widget.fluidityProbe;
     final CountingStationPointRepository? fluidityStationPoints =
         widget.fluidityStationPoints;
@@ -365,8 +377,10 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
             // cette racine de composition qui garantit l'exclusivité — les
             // deux ViewModels s'ignorent l'un l'autre (règle
             // `feature-vers-feature`) et ne peuvent pas se fermer
-            // eux-mêmes. Cette garantie n'est, elle, pas verrouillée par un
-            // test — seule la garde d'acquittement l'est.
+            // eux-mêmes. Cette garantie est verrouillée par un test pour
+            // l'ouverture d'un favori, qui passe par le même chemin (`S11` de
+            // T3, `test/main_test.dart`), et pour les deux rappels de tap
+            // ci-dessous (`K4` de T3).
             onStationTap: (StationCode code) {
               ondeSheetViewModel.close();
               unawaited(stationSheetViewModel.open(code));
@@ -490,6 +504,106 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                     .then((_) {
                       leaving = true;
                       restrictionsViewModel.close();
+                    }),
+              );
+            },
+            // Le bouton « Favoris » (`S11` de T3) : ferme les deux fiches,
+            // relit le dépôt et pousse l'écran plein des favoris. Même
+            // construction que la route des restrictions ci-dessus : une
+            // garde contre une seconde route, ce que la route montre retenu
+            // pendant sa sortie, et son retrait qui ferme le ViewModel.
+            onOpenFavorites: () {
+              stationSheetViewModel.close();
+              ondeSheetViewModel.close();
+              // L'écran est ouvert tant que le ViewModel n'est pas fermé (il
+              // ne l'est qu'au retrait de la route) : un second appel ne fait
+              // alors que relire la liste, sans empiler une seconde route
+              // dont le retrait fermerait le ViewModel sous l'écran encore
+              // affiché. Lu AVANT `load()`, qui quitte « fermés » de façon
+              // synchrone.
+              final bool screenOpen =
+                  favoritesViewModel.state is! FavorisFermes;
+              unawaited(favoritesViewModel.load());
+              if (screenOpen) {
+                return;
+              }
+              FavoritesState shownState = favoritesViewModel.state;
+              bool shownBusy = favoritesViewModel.busy;
+              bool shownWriteFailed = favoritesViewModel.writeFailed;
+              bool leaving = false;
+              unawaited(
+                Navigator.of(context)
+                    .push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext routeContext) =>
+                            ListenableBuilder(
+                              listenable: favoritesViewModel,
+                              builder: (BuildContext context, Widget? child) {
+                                if (!leaving) {
+                                  shownState = favoritesViewModel.state;
+                                  shownBusy = favoritesViewModel.busy;
+                                  shownWriteFailed =
+                                      favoritesViewModel.writeFailed;
+                                }
+                                return FavoritesScreen(
+                                  state: shownState,
+                                  busy: shownBusy,
+                                  writeFailed: shownWriteFailed,
+                                  onRemove: (Favorite favorite) => unawaited(
+                                    favoritesViewModel.remove(favorite),
+                                  ),
+                                  onStartOver: () =>
+                                      unawaited(favoritesViewModel.startOver()),
+                                  // Ouvrir un favori : la route se retire,
+                                  // puis la fiche s'ouvre par le chemin d'un
+                                  // tap de marqueur — l'autre fiche fermée
+                                  // d'abord. AUCUN appel à `mapViewModel` : ni
+                                  // la caméra, ni l'échelle, ni le filtre ne
+                                  // changent (arbitrage 6 du cadrage), une
+                                  // fiche ONDE s'ouvre donc aussi sur
+                                  // l'échelle débit.
+                                  onOpen: (Favorite favorite) {
+                                    // Une seconde activation avant la trame
+                                    // suivante ne retire rien : `pop()` rend
+                                    // `isCurrent` faux de façon synchrone, et
+                                    // un second `pop()` retirerait la route
+                                    // de la CARTE.
+                                    if (ModalRoute.of(routeContext)
+                                            ?.isCurrent !=
+                                        true) {
+                                      return;
+                                    }
+                                    Navigator.of(routeContext).pop();
+                                    switch (favorite) {
+                                      case StationFavorite(
+                                        :final StationCode code,
+                                      ):
+                                        ondeSheetViewModel.close();
+                                        unawaited(
+                                          stationSheetViewModel.open(code),
+                                        );
+                                      case OndePointFavorite(
+                                        :final OndePoint point,
+                                      ):
+                                        stationSheetViewModel.close();
+                                        unawaited(
+                                          ondeSheetViewModel.open(point),
+                                        );
+                                      // Une entrée non lisible ne s'ouvre pas
+                                      // (`BR-011`) : l'écran ne la propose
+                                      // d'ailleurs pas.
+                                      case UnreadableFavorite():
+                                        break;
+                                    }
+                                  },
+                                );
+                              },
+                            ),
+                      ),
+                    )
+                    .then((_) {
+                      leaving = true;
+                      favoritesViewModel.close();
                     }),
               );
             },

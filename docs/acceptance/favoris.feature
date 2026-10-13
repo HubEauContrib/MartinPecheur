@@ -79,3 +79,22 @@ Fonctionnalité: Suivre un lieu en favori
     Quand l'écran des favoris s'affiche
     Alors il dit que les favoris n'ont pas pu être lus, jamais que la liste est vide (BR-007)
     Et rien n'est effacé avant l'action « Repartir d'une liste vide »
+
+  # ── US-14 — retrouver et ouvrir un favori ────────────────────────────────
+
+  Scénario: Après relancement, la liste est celle d'avant
+    Étant donné deux favoris enregistrés et une entrée non lisible
+    Quand l'usager ferme l'application, la relance et active le bouton « Favoris » de la carte
+    Alors la liste montre les mêmes lieux, dans le même ordre, entrée non lisible comprise (BR-011)
+
+  Scénario: Ouvrir un favori ouvre sa fiche sans déplacer la carte
+    Étant donné un point ONDE en favori et la carte sur l'échelle débit
+    Quand l'usager choisit ce favori dans la liste
+    Alors la fiche du point s'ouvre, avec la date et la source de son observation (BR-001)
+    Et la carte n'a pas bougé et l'échelle affichée reste le débit
+
+  Scénario: Ouvrir l'écran des favoris ferme la fiche ouverte
+    Étant donné une fiche station ouverte sur la carte
+    Quand l'usager active le bouton « Favoris » de la carte
+    Alors la fiche est fermée et l'écran des favoris s'affiche
+    Et aucune valeur mesurée n'y apparaît : elle ne se lit que sur une fiche, avec sa date (BR-001)

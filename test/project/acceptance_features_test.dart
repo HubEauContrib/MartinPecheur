@@ -30,7 +30,7 @@ import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show clearFiltersLabel, filterHidesEverythingText;
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
-    show mapFiltersActiveLabel, mapFiltersLabel;
+    show mapFavoritesLabel, mapFiltersActiveLabel, mapFiltersLabel;
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -384,8 +384,11 @@ void main() {
     final String contenu = contenusParFichier['favoris.feature'] ?? '';
     expect(
       _scenariosByStory(contenu)['US-14'] ?? 0,
-      greaterThan(0),
-      reason: 'aucun scénario de favoris.feature sous la section US-14',
+      14,
+      reason:
+          'favoris.feature porte quatorze scénarios sous US-14 : sept pour '
+          "l'étoile (S7b), quatre pour la liste (S9), trois pour retrouver "
+          'et ouvrir un favori (S11)',
     );
   });
 
@@ -715,8 +718,8 @@ void main() {
   });
 
   // Même lien pour `favoris.feature` (T3) : libellés lus dans le code,
-  // cherchés entre guillemets français. `S9` a allongé la table ; `S11` la
-  // rallongera.
+  // cherchés entre guillemets français. `S9` a allongé la table, `S11` y
+  // ajoute le bouton de la carte.
   group('les libellés portés par le code figurent dans favoris.feature', () {
     final String favoris = contenusParFichier['favoris.feature'] ?? '';
 
@@ -728,6 +731,7 @@ void main() {
       'liste vide': favoritesEmptyText,
       'entrée non lisible': unreadableFavoriteText,
       'action de liste illisible': favoritesStartOverLabel,
+      'bouton de la carte': mapFavoritesLabel,
     };
     for (final MapEntry<String, String> libelle in libellesFavoris.entries) {
       test('favoris.feature cite « ${libelle.value} » (${libelle.key})', () {

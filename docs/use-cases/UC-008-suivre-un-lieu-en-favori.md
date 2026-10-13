@@ -15,7 +15,7 @@ Garder quelques lieux — stations hydrométriques et points ONDE — pour rouvr
 
 ## Déclencheur
 
-L'usager active l'étoile d'une fiche.
+L'usager active l'étoile d'une fiche, ou ouvre un favori depuis la liste.
 
 ## Flux nominal
 
@@ -24,8 +24,9 @@ L'étoile est dans le cadre de la fiche, **sous le bouton de fermeture**, dans l
 1. **Ajouter.** Le lieu n'est pas en favori : l'usager active l'étoile « Ajouter aux favoris ». Le favori copie l'identité du lieu et la date d'ajout : pour une station, son code et son libellé ; pour un point ONDE, le point entier — code, libellé, coordonnées, cours d'eau, département, région. Aucune valeur mesurée.
 2. L'étoile devient pleine et s'annonce « Retirer des favoris ».
 3. **Retirer.** Le lieu est en favori : l'usager active l'étoile « Retirer des favoris ». L'étoile redevient vide.
-4. 🔄 *Livré par `T3-S11` :* les favoris se retrouvent dans l'écran « Favoris », en liste ; ouvrir un favori rouvre la fiche du lieu.
-5. 🔄 *Livré par `T3-S11` :* depuis la liste, l'usager peut retirer un favori sans rouvrir sa fiche.
+4. **Retrouver.** Le bouton « Favoris » de la carte ouvre l'écran « Favoris » : la fiche ouverte se ferme, la liste est relue. Elle ne porte que l'identité des lieux, aucune valeur mesurée (`BR-001`).
+5. **Ouvrir.** L'usager choisit un favori dans la liste : l'écran se retire et la fiche du lieu s'ouvre. La carte ne bouge pas, l'échelle et les filtres restent tels quels — la fiche d'un point ONDE s'ouvre donc aussi quand la carte est sur l'échelle débit.
+6. Depuis la liste, l'usager peut retirer un favori sans rouvrir sa fiche.
 
 ```mermaid
 sequenceDiagram
