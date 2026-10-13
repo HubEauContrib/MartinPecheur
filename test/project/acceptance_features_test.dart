@@ -25,6 +25,7 @@ import 'package:martinpecheur/domain/restrictions/user_profile.dart';
 import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show clearFiltersLabel, filterHidesEverythingText;
@@ -714,7 +715,8 @@ void main() {
   });
 
   // Même lien pour `favoris.feature` (T3) : libellés lus dans le code,
-  // cherchés entre guillemets français. `S9` et `S11` allongent la table.
+  // cherchés entre guillemets français. `S9` a allongé la table ; `S11` la
+  // rallongera.
   group('les libellés portés par le code figurent dans favoris.feature', () {
     final String favoris = contenusParFichier['favoris.feature'] ?? '';
 
@@ -722,6 +724,10 @@ void main() {
       'étoile vide': addFavoriteLabel,
       'étoile pleine': removeFavoriteLabel,
       'écriture en échec': favoriteWriteFailedText,
+      'avis de liste sans mesure': favoritesNoMeasureNotice,
+      'liste vide': favoritesEmptyText,
+      'entrée non lisible': unreadableFavoriteText,
+      'action de liste illisible': favoritesStartOverLabel,
     };
     for (final MapEntry<String, String> libelle in libellesFavoris.entries) {
       test('favoris.feature cite « ${libelle.value} » (${libelle.key})', () {

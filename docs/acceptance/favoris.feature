@@ -53,3 +53,29 @@ Fonctionnalité: Suivre un lieu en favori
     Quand un lecteur d'écran atteint l'étoile
     Alors il annonce « Retirer des favoris » pour la première et « Ajouter aux favoris » pour la seconde
     Et la forme de l'étoile, pleine ou vide, suffit à les distinguer ; aucun libellé ne porte sur un usage de l'eau (BR-014)
+
+  # ── US-14 — la liste des favoris ─────────────────────────────────────────
+
+  Scénario: La liste n'affiche aucune valeur mesurée, et le dit
+    Étant donné deux favoris enregistrés, une station et un point ONDE
+    Quand l'écran des favoris s'affiche
+    Alors chaque ligne porte le libellé du lieu, sa nature et sa date d'ajout
+    Et la liste s'ouvre sur « Cette liste ne montre aucune mesure. La fiche d'un lieu donne sa dernière mesure connue, avec sa date. » (BR-001)
+
+  Scénario: Une liste vide dit comment un favori s'ajoute
+    Étant donné aucun favori enregistré
+    Quand l'écran des favoris s'affiche
+    Alors il affiche « Aucun favori enregistré. L'étoile d'une fiche — station de mesure ou point d'observation — ajoute ce lieu à cette liste. »
+    Et rien ne suggère un état des cours d'eau (BR-007)
+
+  Scénario: Une entrée que cette version ne sait pas lire reste affichée et retirable
+    Étant donné une liste enregistrée dont une entrée est d'un type inconnu
+    Quand l'écran des favoris s'affiche
+    Alors cette entrée porte la mention « Favori non lisible par cette version de l'application »
+    Et elle se retire, ne s'ouvre pas, et reste enregistrée après l'ajout d'un autre favori (BR-011)
+
+  Scénario: Une liste illisible est dite telle et n'est remplacée que sur demande
+    Étant donné une valeur enregistrée que l'application ne sait pas lire
+    Quand l'écran des favoris s'affiche
+    Alors il dit que les favoris n'ont pas pu être lus, jamais que la liste est vide (BR-007)
+    Et rien n'est effacé avant l'action « Repartir d'une liste vide »
