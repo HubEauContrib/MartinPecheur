@@ -13,6 +13,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -3568,6 +3569,109 @@ void main() {
         expect(find.byType(SourceUnavailableNotice), findsOneWidget);
         expect(find.text(filterHidesEverythingText), findsNothing);
         expect(find.byKey(clearFiltersKey), findsNothing);
+      },
+    );
+  });
+
+  // Le bouton « Favoris » (`S10` de T3, arbitrage 8 du cadrage de T3). La
+  // carte rend un rappel injecté et ignore qui l'écoute (`feature-vers-feature`
+  // : la tranche carte ne nomme pas la tranche favoris).
+  group('MapView — le bouton « Favoris » (S10 de T3)', () {
+    bool focusedWithin(WidgetTester tester, Finder ancestor) {
+      final BuildContext? focusedContext =
+          FocusManager.instance.primaryFocus?.context;
+      if (focusedContext == null) {
+        return false;
+      }
+      bool found = false;
+      void visit(Element element) {
+        if (element == focusedContext) {
+          found = true;
+        }
+        element.visitChildren(visit);
+      }
+
+      visit(tester.element(ancestor));
+      return found;
+    }
+
+    testWidgetsOnWindows(
+      'MapView(onOpenFavorites: rappel) : un tap sur le bouton de la carte '
+      'appelle le rappel, une fois',
+      (WidgetTester tester) async {
+        int appels = 0;
+        final MapViewModel viewModel = _viewModel();
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onOpenFavorites: () => appels++,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(mapFavoritesButtonKey), findsOneWidget);
+        await tester.tap(find.byKey(mapFavoritesButtonKey));
+        await tester.pump();
+
+        expect(appels, 1);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'MapView sans rappel : aucun bouton « Favoris », « Filtres » seul dans '
+      'le groupe',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = _viewModel();
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(mapFavoritesButtonKey), findsNothing);
+        expect(find.byKey(mapFiltersButtonKey), findsOneWidget);
+        expect(
+          tester.getRect(find.byType(MapEntryButtons)),
+          tester.getRect(find.byKey(mapFiltersButtonKey)),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'Tab : puces (2) → « Favoris » → « Filtres » → contrôles de zoom ; '
+      '« Favoris » est le groupe d’entrée, juste avant « Filtres »',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = _viewModel();
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(viewModel: viewModel, onOpenFavorites: () {}),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final List<Finder> ordreAttendu = <Finder>[
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(mapFavoritesButtonKey),
+          find.byKey(mapFiltersButtonKey),
+          find.byKey(mapZoomInButtonKey),
+        ];
+        for (final Finder attendu in ordreAttendu) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(
+            focusedWithin(tester, attendu),
+            isTrue,
+            reason: 'attendu à ce Tab : $attendu',
+          );
+        }
       },
     );
   });

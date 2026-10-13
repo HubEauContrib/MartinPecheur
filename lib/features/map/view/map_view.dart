@@ -812,8 +812,8 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    de la légende** en disposition compacte ;
 /// 4. les **panneaux de fiche** — station ([stationSheet]) et point ONDE
 ///    ([ondeSheet]) —, chacun s'il est fourni, en bas à gauche et dans cet
-///    ordre. Les deux dépendent d'échelles différentes et ne sont jamais
-///    ouverts ensemble en production ; fournis ensemble, ils s'empilent
+///    ordre. Ils ne sont jamais ouverts ensemble : la racine de composition
+///    ferme l'un avant d'ouvrir l'autre ; fournis ensemble, ils s'empilent
 ///    plutôt que de se masquer (`BR-007`). Leur zone est bornée à la hauteur
 ///    de la carte et défile au-delà (arbitrage du commanditaire du
 ///    2026-10-13) : une fiche plus haute que la carte ne déborde plus de
@@ -823,8 +823,9 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    chaque ouverture, par [sheetScrollController] (`K4` de T3 ;
 ///    `docs/project-state.md`, point 60). Elle garde la priorité sur la bande
 ///    du bouton de désignation, qui reçoit le reste ;
-/// 5. le **groupe des boutons d'entrée** ([MapEntryButtons], `F10b` de T3 :
-///    « Filtres »), puis, dessous, les **boutons de zoom et de recentrage**
+/// 5. le **groupe des boutons d'entrée** ([MapEntryButtons]) : « Favoris »
+///    (`S10` de T3, [onOpenFavorites], absent si nul) au-dessus de « Filtres »
+///    (`F10b` de T3), puis, dessous, les **boutons de zoom et de recentrage**
 ///    ([MapControls], `K1`), en bas
 ///    à droite, AU-DESSUS de l'attribution — jamais l'inverse, l'attribution
 ///    reste la dernière chose qu'un empilement pourrait masquer ;
@@ -892,6 +893,10 @@ List<Widget> buildMapOverlays({
   // la racine de composition, qui remet la position à zéro à chaque
   // ouverture de fiche. `null` : le défilement garde son contrôleur interne.
   ScrollController? sheetScrollController,
+  // `S10` de T3 : l'ouverture de l'écran « Favoris », injectée par la racine
+  // de composition. `null` : le bouton « Favoris » est absent du groupe des
+  // boutons d'entrée.
+  VoidCallback? onOpenFavorites,
 }) {
   final Widget? sheet = stationSheet;
   final Widget? onde = ondeSheet;
@@ -1128,6 +1133,7 @@ List<Widget> buildMapOverlays({
             order: const NumericFocusOrder(mapTraversalOrderEntryButtons),
             child: MapEntryButtons(
               onOpenFilters: onOpenFilters,
+              onOpenFavorites: onOpenFavorites,
               filterActive: filterActive,
             ),
           ),
@@ -1574,6 +1580,7 @@ class MapView extends StatefulWidget {
     this.onCloseSheets,
     this.onPointDesignated,
     this.sheetScrollController,
+    this.onOpenFavorites,
     super.key,
   }) : assert(
          (onStationTap == null) == (stationSheet == null),
@@ -1616,9 +1623,10 @@ class MapView extends StatefulWidget {
   /// par `main.dart`, et affiché au même endroit que [stationSheet]. `null`
   /// tant qu'aucune fiche ONDE n'est branchée.
   ///
-  /// Les deux panneaux ne sont jamais ouverts en même temps en production :
-  /// ils dépendent d'échelles différentes, et un seul jeu de marqueurs est
-  /// tapable à la fois.
+  /// Les deux panneaux ne sont jamais ouverts en même temps : `main.dart`
+  /// ferme l'un avant d'ouvrir l'autre. Depuis T3 une fiche s'ouvre aussi
+  /// depuis l'écran « Favoris » : une fiche ONDE peut donc être ouverte alors
+  /// que l'échelle affichée est le débit, et inversement.
   final Widget? ondeSheet;
 
   /// Appelé par `Échap` (`K2`) pour fermer la fiche ouverte — station OU
@@ -1650,6 +1658,13 @@ class MapView extends StatefulWidget {
   /// passe, elle ne le dispose pas. `null` : aucune remise à zéro, le
   /// défilement garde son contrôleur interne.
   final ScrollController? sheetScrollController;
+
+  /// Appelé par un tap, Entrée ou Espace sur le bouton « Favoris » du groupe
+  /// des boutons d'entrée (`S10` de T3, arbitrage 8 du cadrage) : ouvre
+  /// l'écran des favoris. Injecté par `main.dart` : la carte ne connaît ni
+  /// l'écran ni sa tranche (règle `feature-vers-feature`). `null` : le bouton
+  /// est absent.
+  final VoidCallback? onOpenFavorites;
 
   @override
   State<MapView> createState() => _MapViewState();
@@ -2288,6 +2303,7 @@ class _MapViewState extends State<MapView> {
                       stationSheet: widget.stationSheet,
                       ondeSheet: widget.ondeSheet,
                       sheetScrollController: widget.sheetScrollController,
+                      onOpenFavorites: widget.onOpenFavorites,
                     ),
                   ],
                 ),

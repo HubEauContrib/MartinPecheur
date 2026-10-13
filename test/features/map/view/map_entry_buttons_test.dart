@@ -1,7 +1,8 @@
 // Verrouille `MapRoundButton` (extrait de `MapControls`, `F10a` de T3) et
-// `MapEntryButtons` : le bouton « Filtres » et sa forme active. Widgets de
-// CONTENU purs — ni `MapViewModel` ni caméra ; le branchement dans la carte
-// est vérifié avec `F10b`.
+// `MapEntryButtons` : le bouton « Filtres » et sa forme active, puis le bouton
+// « Favoris » posé au-dessus (`S10` de T3). Widgets de CONTENU purs — ni
+// `MapViewModel` ni caméra ; le branchement dans la carte est vérifié avec
+// `F10b` (« Filtres ») et `S10` (« Favoris »).
 //
 // La forme active se lit sans se fier à la couleur seule (`04-ui.md § 3`) :
 // l'icône change (`filter_alt` pleine au lieu de `filter_list`), le fond
@@ -9,6 +10,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/features/map/view/map_controls.dart'
+    show mapControlsSpacing;
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_round_button.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
@@ -53,6 +56,7 @@ void main() {
   Future<void> pumpEntries(
     WidgetTester tester, {
     VoidCallback? onOpenFilters,
+    VoidCallback? onOpenFavorites,
     bool filterActive = false,
   }) {
     return tester.pumpWidget(
@@ -62,12 +66,34 @@ void main() {
             alignment: Alignment.bottomRight,
             child: MapEntryButtons(
               onOpenFilters: onOpenFilters ?? () {},
+              onOpenFavorites: onOpenFavorites,
               filterActive: filterActive,
             ),
           ),
         ),
       ),
     );
+  }
+
+  // Le focus courant est-il porté par un élément du sous-arbre de [ancestor] ?
+  // Même construction que `map_keyboard_test.dart` : [Focus.of] ne cherche que
+  // des ANCÊTRES, jamais l'inverse.
+  bool focusedWithin(WidgetTester tester, Finder ancestor) {
+    final BuildContext? focusedContext =
+        FocusManager.instance.primaryFocus?.context;
+    if (focusedContext == null) {
+      return false;
+    }
+    bool found = false;
+    void visit(Element element) {
+      if (element == focusedContext) {
+        found = true;
+      }
+      element.visitChildren(visit);
+    }
+
+    visit(tester.element(ancestor));
+    return found;
   }
 
   // Le disque du bouton : le `DecoratedBox` rond qui porte une couleur de
@@ -349,6 +375,142 @@ void main() {
         final Size active = tester.getSize(find.byType(MapEntryButtons));
 
         expect(active, inactive);
+      },
+    );
+  });
+
+  // « Favoris » (`S10` de T3, arbitrage 8 du cadrage) : le second bouton du
+  // groupe, AU-DESSUS de « Filtres ». `onOpenFavorites` nul : le bouton est
+  // absent et le groupe est celui du lot 4.
+  group('MapEntryButtons : « Favoris »', () {
+    testWidgetsOnWindows(
+      'posé : nœud « Favoris », bouton, icône étoile, fond blanc (jamais '
+      'plein)',
+      (WidgetTester tester) async {
+        await pumpEntries(tester, onOpenFavorites: () {});
+
+        expect(mapFavoritesLabel, 'Favoris');
+        final Semantics semantics = tester.widget<Semantics>(
+          find.byKey(mapFavoritesButtonKey),
+        );
+        expect(semantics.properties.label, 'Favoris');
+        expect(semantics.properties.button, isTrue);
+        expect(
+          find.descendant(
+            of: find.byKey(mapFavoritesButtonKey),
+            matching: find.byIcon(Icons.star),
+          ),
+          findsOneWidget,
+        );
+        expect(discColor(tester, mapFavoritesButtonKey), Colors.white);
+        expect(iconColor(tester, mapFavoritesButtonKey), Colors.black);
+        expect(whiteSeparation(mapFavoritesButtonKey), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows('un tap appelle onOpenFavorites UNE fois, et pas '
+        'onOpenFilters', (WidgetTester tester) async {
+      int favoris = 0;
+      int filtres = 0;
+      await pumpEntries(
+        tester,
+        onOpenFavorites: () => favoris++,
+        onOpenFilters: () => filtres++,
+      );
+
+      await tester.tap(find.byKey(mapFavoritesButtonKey));
+      await tester.pump();
+
+      expect(favoris, 1);
+      expect(filtres, 0);
+    });
+
+    testWidgetsOnWindows(
+      'Tab atteint « Favoris » JUSTE AVANT « Filtres » ; Entrée l’appelle '
+      'UNE fois',
+      (WidgetTester tester) async {
+        int favoris = 0;
+        await pumpEntries(tester, onOpenFavorites: () => favoris++);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          focusedWithin(tester, find.byKey(mapFavoritesButtonKey)),
+          isTrue,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(favoris, 1);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(focusedWithin(tester, find.byKey(mapFiltersButtonKey)), isTrue);
+        expect(
+          focusedWithin(tester, find.byKey(mapFavoritesButtonKey)),
+          isFalse,
+        );
+      },
+    );
+
+    testWidgetsOnWindows('Espace, bouton focalisé : UNE fois', (
+      WidgetTester tester,
+    ) async {
+      int favoris = 0;
+      await pumpEntries(tester, onOpenFavorites: () => favoris++);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+
+      expect(favoris, 1);
+    });
+
+    testWidgetsOnWindows(
+      'au-dessus de « Filtres » : même abscisse, séparé de lui par '
+      'mapControlsSpacing ; taille minimumTapTargetFor(windows) de côté',
+      (WidgetTester tester) async {
+        await pumpEntries(tester, onOpenFavorites: () {});
+
+        final Rect favoris = tester.getRect(find.byKey(mapFavoritesButtonKey));
+        final Rect filtres = tester.getRect(find.byKey(mapFiltersButtonKey));
+        expect(favoris.right, filtres.right);
+        expect(favoris.left, filtres.left);
+        expect(favoris.bottom + mapControlsSpacing, filtres.top);
+        expect(favoris.size, filtres.size);
+        expect(
+          favoris.size,
+          Size.square(minimumTapTargetFor(TargetPlatform.windows)),
+        );
+        expect(favoris.size, const Size(44, 44));
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : « Favoris » mesure minimumTapTargetFor(android) de côté, '
+      '48 × 48',
+      (WidgetTester tester) async {
+        await pumpEntries(tester, onOpenFavorites: () {});
+
+        final Size size = tester.getSize(find.byKey(mapFavoritesButtonKey));
+        expect(size, Size.square(minimumTapTargetFor(TargetPlatform.android)));
+        expect(size, const Size(48, 48));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'onOpenFavorites nul : aucun bouton « Favoris » ; « Filtres » est à la '
+      'place qu’il avait au lot 4 (le groupe n’est que lui)',
+      (WidgetTester tester) async {
+        await pumpEntries(tester);
+
+        expect(find.byKey(mapFavoritesButtonKey), findsNothing);
+        expect(find.byIcon(Icons.star), findsNothing);
+        final Rect groupe = tester.getRect(find.byType(MapEntryButtons));
+        final Rect filtres = tester.getRect(find.byKey(mapFiltersButtonKey));
+        expect(filtres, groupe);
+        expect(groupe.size, const Size(44, 44));
+        expect(groupe.bottomRight, const Offset(800, 600));
       },
     );
   });
