@@ -813,7 +813,13 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    ([ondeSheet]) —, chacun s'il est fourni, en bas à gauche et dans cet
 ///    ordre. Les deux dépendent d'échelles différentes et ne sont jamais
 ///    ouverts ensemble en production ; fournis ensemble, ils s'empilent
-///    plutôt que de se masquer (`BR-007`) ;
+///    plutôt que de se masquer (`BR-007`). Leur zone est bornée à la hauteur
+///    de la carte et défile au-delà (arbitrage du commanditaire du
+///    2026-10-13) : une fiche plus haute que la carte ne déborde plus de
+///    l'écran, son bas s'amène dans la fenêtre de défilement en la faisant
+///    défiler ; à 200 % en portrait il reste en partie sous l'attribution IGN
+///    (`docs/project-state.md`, point 60). Elle garde la priorité sur la bande
+///    du bouton de désignation, qui reçoit le reste ;
 /// 5. le **groupe des boutons d'entrée** ([MapEntryButtons], `F10b` de T3 :
 ///    « Filtres »), puis, dessous, les **boutons de zoom et de recentrage**
 ///    ([MapControls], `K1`), en bas
@@ -937,71 +943,123 @@ List<Widget> buildMapOverlays({
   // passe toujours les deux panneaux, vides à l'état fermé — : le bouton est
   // au centre en toutes circonstances, et une fiche ouverte se pose sur la
   // bande, jamais dessous ni dessus le bouton, quelle que soit la largeur.
+  //
+  // La zone des fiches est BORNÉE à la hauteur dont la carte dispose (celle
+  // du `LayoutBuilder`) et DÉFILE au-delà (arbitrage du commanditaire du
+  // 2026-10-13). Un enfant non flexible d'une `Column` n'a aucune borne de
+  // hauteur : une fiche plus haute que la carte — police à 200 %, téléphone
+  // en paysage — débordait de l'écran (« A RenderFlex overflowed … on the
+  // bottom ») et son bas était inatteignable. La borne est posée À
+  // L'INTÉRIEUR de l'`Align` : un `Align` qui reçoit une hauteur bornée
+  // s'étire à cette hauteur. Le bouton de fermeture défile avec la fiche.
+  //
+  // La priorité est conservée : la fiche prend ce qu'il lui faut jusqu'à la
+  // hauteur de la carte, la bande du bouton de désignation (`Flexible`)
+  // reçoit le reste — rien ne lui est réservé.
+  //
+  // Deux limites connues, hors du périmètre arbitré (`docs/project-state.md`,
+  // point 60) : la position de défilement est conservée d'une fiche à
+  // l'autre quand la nouvelle arrive sans trame courte entre les deux (donnée
+  // en cache), cette fonction ignorant quand la fiche change ; et à 200 % en
+  // portrait, le bas de la fiche défilée au bout reste en partie sous
+  // l'attribution IGN, la marge fixe de `_sheetBottomPadding` ne suivant pas
+  // la police.
   final Widget? bottomArea =
       sheet != null || onde != null || designation != null
       ? Align(
           alignment: Alignment.bottomCenter,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              if (sheet != null || onde != null)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    // Marge basse plus épaisse SANS bouton : elle dégage le
-                    // bandeau d'attribution IGN, qui reste lisible en toutes
-                    // circonstances (Licence Ouverte, `04-ui.md` § 3). Avec le
-                    // bouton, c'est la bande qui la porte (et réserve sa
-                    // hauteur réelle).
-                    //
-                    // Marge DROITE réservée à la colonne des boutons de zoom
-                    // (arbitrage du coordinateur du 2026-09-23, « décaler la
-                    // fiche ») : sur un écran étroit, le panneau de fiche
-                    // s'étend sur toute la largeur disponible — sans cette
-                    // réserve, il passerait SOUS `MapControls`, posés en bas à
-                    // droite. Même schéma que la réserve de la légende pour les
-                    // puces d'échelle, plus haut dans cette fonction.
-                    padding: EdgeInsets.fromLTRB(
-                      _overlayPadding,
-                      _overlayPadding,
-                      _sheetRightPadding,
-                      designation == null ? _sheetBottomPadding : 0,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _sheetMaxWidth,
-                      ),
-                      // Les deux fiches partagent le MÊME emplacement : elles ne
-                      // sont jamais ouvertes ensemble, mais cette garantie vient
-                      // de la racine de composition (`main.dart` : chaque rappel
-                      // de tap ferme l'autre fiche avant d'ouvrir la sienne),
-                      // pas des échelles (relecture 2026-09-14). Une `Column`
-                      // plutôt qu'une superposition tout de même : si les deux
-                      // panneaux arrivaient ensemble, aucun n'écraserait l'autre
-                      // — un panneau masqué serait pire qu'un panneau de trop
-                      // (`BR-007`). L'ordre est fixé — station au-dessus, ONDE
-                      // en dessous — pour que l'empilement soit une décision
-                      // testée et non un hasard de `Stack`.
-                      child: FocusTraversalOrder(
-                        order: const NumericFocusOrder(mapTraversalOrderSheet),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            ?sheet,
-                            if (sheet != null && onde != null)
-                              const SizedBox(height: _overlayPadding),
-                            ?onde,
-                          ],
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (sheet != null || onde != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: constraints.maxHeight,
+                        ),
+                        child: Padding(
+                          // Marge basse plus épaisse SANS bouton : elle dégage
+                          // le bandeau d'attribution IGN, qui reste lisible en
+                          // toutes circonstances (Licence Ouverte, `04-ui.md`
+                          // § 3). Avec le bouton, c'est la bande qui la porte
+                          // (et réserve sa hauteur réelle).
+                          //
+                          // Marge DROITE réservée à la colonne des boutons de
+                          // zoom (arbitrage du coordinateur du 2026-09-23,
+                          // « décaler la fiche ») : sur un écran étroit, le
+                          // panneau de fiche s'étend sur toute la largeur
+                          // disponible — sans cette réserve, il passerait SOUS
+                          // `MapControls`, posés en bas à droite. Même schéma
+                          // que la réserve de la légende pour les puces
+                          // d'échelle, plus haut dans cette fonction.
+                          padding: EdgeInsets.fromLTRB(
+                            _overlayPadding,
+                            _overlayPadding,
+                            _sheetRightPadding,
+                            designation == null ? _sheetBottomPadding : 0,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: _sheetMaxWidth,
+                            ),
+                            // Les deux fiches partagent le MÊME emplacement :
+                            // elles ne sont jamais ouvertes ensemble, mais cette
+                            // garantie vient de la racine de composition
+                            // (`main.dart` : chaque rappel de tap ferme l'autre
+                            // fiche avant d'ouvrir la sienne), pas des échelles
+                            // (relecture 2026-09-14). Une `Column` plutôt
+                            // qu'une superposition tout de même : si les deux
+                            // panneaux arrivaient ensemble, aucun n'écraserait
+                            // l'autre — un panneau masqué serait pire qu'un
+                            // panneau de trop (`BR-007`). L'ordre est fixé —
+                            // station au-dessus, ONDE en dessous — pour que
+                            // l'empilement soit une décision testée et non un
+                            // hasard de `Stack`.
+                            //
+                            // Le défilement a la même enveloppe que les autres
+                            // de surcouche (voir la colonne de droite du haut,
+                            // plus haut dans cette fonction, pour le détail) :
+                            // il ne capte les gestes que SUR la fiche
+                            // (`HitTestBehavior.deferToChild`,
+                            // `_WithoutScrollbar`) — vérifié : tap et molette
+                            // posés à droite de la fiche, et tap posé dans
+                            // l'écart entre les deux panneaux, atteignent la
+                            // carte — et `primary: false`.
+                            child: FocusTraversalOrder(
+                              order: const NumericFocusOrder(
+                                mapTraversalOrderSheet,
+                              ),
+                              child: _WithoutScrollbar(
+                                child: SingleChildScrollView(
+                                  primary: false,
+                                  hitTestBehavior: HitTestBehavior.deferToChild,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      ?sheet,
+                                      if (sheet != null && onde != null)
+                                        const SizedBox(height: _overlayPadding),
+                                      ?onde,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              if (designation != null)
-                Flexible(child: _DesignationPlacement(child: designation)),
-            ],
+                  if (designation != null)
+                    Flexible(child: _DesignationPlacement(child: designation)),
+                ],
+              );
+            },
           ),
         )
       : null;
@@ -1126,7 +1184,7 @@ List<Widget> buildMapOverlays({
                     // sans la `Scrollbar` automatique de Windows, dont le
                     // `MouseRegion` opaque absorbe le toucher sur toute la boîte.
                     //
-                    // `primary: false`, ici comme sur les quatre autres défilements
+                    // `primary: false`, ici comme sur les cinq autres défilements
                     // de surcouche : sur Android, un défilement vertical sans
                     // contrôleur s'attache au `PrimaryScrollController` de la
                     // route (`PrimaryScrollController.shouldInherit`). Les
