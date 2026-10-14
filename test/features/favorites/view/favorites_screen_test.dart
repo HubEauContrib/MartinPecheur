@@ -27,6 +27,7 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 
 import '../../../project/vocabulary_lists.dart';
 import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/in_memory_favorite_repository.dart';
 import '../../../support/windows_platform.dart';
 
@@ -431,6 +432,57 @@ void main() {
       expect(calls.removed, <Favorite>[_station()]);
       expect(calls.opened, isEmpty);
     });
+
+    // `K1` de T3 : l'ordre nommé arrêt par arrêt. La ligne porte son retrait :
+    // l'arrêt « ligne » est sous la ligne ET hors de son retrait.
+    testWidgetsOnWindows(
+      'deux favoris : Tab atteint le retour, la ligne 0, son retrait, la '
+      'ligne 1, son retrait, puis le tour repart sur le retour ; le focus de '
+      "l'écran n'est jamais un arrêt (K1 de T3)",
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          _app(FavorisLus(<Favorite>[_onde(), _station()])),
+        );
+        await tester.pumpAndSettle();
+        // À l'ouverture, le focus est celui de l'écran (`autofocus`), sauté
+        // par Tab (`skipTraversal`).
+        expect(FocusManager.instance.primaryFocus?.skipTraversal, isTrue);
+
+        final Finder retour = find.byType(BackButton);
+        // (arrêt, ce qui le porte, ce qui ne doit pas le porter)
+        final List<(String, Finder, Finder?)> arrets =
+            <(String, Finder, Finder?)>[
+              ('retour', retour, null),
+              ('ligne 0', _row(0), _remove(0)),
+              ('retrait 0', _remove(0), null),
+              ('ligne 1', _row(1), _remove(1)),
+              ('retrait 1', _remove(1), null),
+              ('retour, le tour repart', retour, null),
+            ];
+        for (final (String, Finder, Finder?) arret in arrets) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(
+            focusedWithin(tester, arret.$2),
+            isTrue,
+            reason: 'attendu à ce Tab : ${arret.$1}',
+          );
+          final Finder? hors = arret.$3;
+          if (hors != null) {
+            expect(
+              focusedWithin(tester, hors),
+              isFalse,
+              reason: '${arret.$1} : le focus est sur le retrait',
+            );
+          }
+          expect(
+            FocusManager.instance.primaryFocus?.skipTraversal,
+            isFalse,
+            reason: '${arret.$1} : le focus de l’écran n’est pas un arrêt',
+          );
+        }
+      },
+    );
 
     testWidgetsOnWindows('le bouton de retrait mesure 44 × 44', (
       WidgetTester tester,
