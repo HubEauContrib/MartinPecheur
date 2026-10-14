@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Vigicrues : Tronçon(s) de cours d'eau en vigilance crues</title>
+        <link>http://www.vigicrues.gouv.fr/</link>
+        <atom:link href="http://www.vigicrues.gouv.fr/rss/" rel="self" type="application/rss+xml" />
+        <description>MTE/DGPR/SRNH/SCHAPI-SPC : RSS personnalisé de vigilance crues v1.7.0b1</description>
+        <docs>http://www.vigicrues.gouv.fr/faq.php?rub=19#q_51</docs>
+        <category>vigilance crues</category>
+        <language>fr-fr</language>
+        <image>
+            <title>Vigicrues : Tronçon(s) de cours d'eau en vigilance crues</title>
+            <link>http://www.vigicrues.gouv.fr/</link>
+            <url>http://www.vigicrues.gouv.fr/ftp/cruemax.png</url>
+        </image>
+        <pubDate>Tue, 13 Oct 2026 16:27:20 +0200</pubDate>
+        <lastBuildDate>Tue, 13 Oct 2026 16:27:20 +0200</lastBuildDate>
+        <ttl>15</ttl>
+        <item>
+            <title>Blavet : vert</title>
+            <link>http://www.vigicrues.gouv.fr/bulletin-local.php?CdEntVigiCru=8</link>
+            <description>Actualisation de la page du territoire le mardi 13 octobre 2026 à 16h27 HL
+            &lt;p&gt;Nom du tronçon : &lt;b&gt;Blavet&lt;/b&gt; (BT5)
+            &lt;br /&gt;Couleur de vigilance crues du tronçon : &lt;b&gt;vert&lt;/b&gt;
+            &lt;br/&gt;Nom du territoire de vigilance crues : Vilaine-Côtiers Bretons&lt;/p&gt;
+            &lt;p&gt;Tenez vous régulièrement informé de la situation.
+            &lt;br /&gt;Abonnez vous à ce flux ou consultez le site &lt;a href=&quot;http://www.vigicrues.gouv.fr/&quot; target=&quot;_blank&quot;&gt;Vigicrues&lt;/a&gt;.
+            &lt;br /&gt;Pour plus d&apos;informations sur le fil RSS, cliquez &lt;a href=&quot;http://www.vigicrues.gouv.fr/categorie/4&quot; target=&quot;_blank&quot;&gt;ici&lt;/a&gt;.&lt;br /&gt;&lt;/p&gt;
+            </description>
+            <comments>http://www.vigicrues.gouv.fr/bulletin-local.php?CdEntVigiCru=8</comments>
+            <pubDate>Tue, 13 Oct 2026 16:27:20 +0200</pubDate>
+            <guid>http://www.vigicrues.gouv.fr/bulletin-local.php?CdEntVigiCru=8</guid>
+        </item>
+    </channel>
+</rss>

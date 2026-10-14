@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Vigicrues : Tronçon(s) de cours d'eau en vigilance crues</title>
+        <link>http://www.vigicrues.gouv.fr/</link>
+        <atom:link href="http://www.vigicrues.gouv.fr/rss/" rel="self" type="application/rss+xml" />
+        <description>MTE/DGPR/SRNH/SCHAPI-SPC : RSS personnalisé de vigilance crues v1.7.0b1</description>
+        <docs>http://www.vigicrues.gouv.fr/faq.php?rub=19#q_51</docs>
+        <category>vigilance crues</category>
+        <language>fr-fr</language>
+        <image>
+            <title>Vigicrues : Tronçon(s) de cours d'eau en vigilance crues</title>
+            <link>http://www.vigicrues.gouv.fr/</link>
+            <url>http://www.vigicrues.gouv.fr/ftp/cruemax.png</url>
+        </image>
+        <pubDate>Wed, 14 Oct 2026 15:55:31 +0200</pubDate>
+        <lastBuildDate>Wed, 14 Oct 2026 15:55:31 +0200</lastBuildDate>
+        <ttl>15</ttl>
+        <item>
+            <title>Pas de vigilance particulière requise</title>
+            <link>http://www.vigicrues.gouv.fr/</link>
+            <description>mercredi 14 octobre 2026 à 15h55 HL                &lt;p&gt;Pas de vigilance particulière requise.&lt;/p&gt;
+            &lt;p&gt;Tenez vous régulièrement informé de la situation.
+            &lt;br /&gt;Abonnez vous à ce flux ou consultez le site &lt;a href=&quot;http://www.vigicrues.gouv.fr/&quot; target=&quot;_blank&quot;&gt;Vigicrues&lt;/a&gt;.
+            &lt;br /&gt;Pour plus d&apos;informations sur le fil RSS, cliquez &lt;a href=&quot;http://www.vigicrues.gouv.fr/categorie/4&quot; target=&quot;_blank&quot;&gt;ici&lt;/a&gt;.&lt;br /&gt;&lt;/p&gt;</description>
+            <pubDate>Wed, 14 Oct 2026 15:55:31 +0200</pubDate>
+            <guid>http://www.vigicrues.gouv.fr/_1791986131p</guid>
+        </item>
+    </channel>
+</rss>
