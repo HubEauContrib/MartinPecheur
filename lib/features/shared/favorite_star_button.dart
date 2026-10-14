@@ -42,11 +42,17 @@ class FavoriteStarButton extends StatelessWidget {
   const FavoriteStarButton({
     required this.star,
     required this.onToggle,
+    this.label,
     super.key,
   });
 
   final FavoriteStar star;
   final VoidCallback onToggle;
+
+  /// Le libellé annoncé. `null` (les fiches) : celui de l'état de l'étoile,
+  /// [removeFavoriteLabel] ou [addFavoriteLabel]. L'écran « Favoris » y nomme
+  /// le lieu que la ligne retire (arbitrage du commanditaire du 2026-10-14).
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +60,7 @@ class FavoriteStarButton extends StatelessWidget {
     final double size = minimumTapTarget;
     return Semantics(
       button: true,
-      label: star.filled ? removeFavoriteLabel : addFavoriteLabel,
+      label: label ?? (star.filled ? removeFavoriteLabel : addFavoriteLabel),
       enabled: star.enabled,
       // Sans ce rappel, `excludeSemantics` masque l'action de tap qu'`InkWell`
       // porterait sinon.

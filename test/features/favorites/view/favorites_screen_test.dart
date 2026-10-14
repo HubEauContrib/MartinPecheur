@@ -183,6 +183,9 @@ void main() {
       expect(favoriteAddedOnPrefix, 'Ajouté le ');
       expect(favoritesReplaceFailedText, _replaceFailed);
       expect(favoritesStartOverButtonKey, const Key('favorites-start-over'));
+      // Arbitrage du commanditaire du 2026-10-14.
+      expect(removeNamedFavoritePrefix, 'Retirer des favoris : ');
+      expect(removeUnreadableFavoriteLabel, 'Retirer ce favori non lisible');
     });
   });
 
@@ -385,9 +388,8 @@ void main() {
     });
 
     testWidgetsOnWindows('un tap sur le bouton de retrait rappelle onRemove, '
-        'jamais onOpen ; il est annoncé « Retirer des favoris »', (
-      WidgetTester tester,
-    ) async {
+        'jamais onOpen ; il est annoncé « Retirer des favoris : » suivi du '
+        'nom du lieu', (WidgetTester tester) async {
       final _Calls calls = _Calls();
       await tester.pumpWidget(
         _app(FavorisLus(<Favorite>[_onde(), _station()]), calls: calls),
@@ -401,7 +403,7 @@ void main() {
           ),
         ),
         matchesSemantics(
-          label: 'Retirer des favoris',
+          label: 'Retirer des favoris : La Loire à Blois',
           isButton: true,
           isEnabled: true,
           hasEnabledState: true,
@@ -524,6 +526,165 @@ void main() {
       expect(_openZone(0), findsOneWidget);
       expect(tester.getSize(_openZone(0)).height, greaterThanOrEqualTo(48));
     });
+  });
+
+  // Arbitrage du commanditaire du 2026-10-14 (revue finale de T3) : sur cet
+  // écran, le retrait nomme le lieu que sa ligne affiche. Les lignes se
+  // suivent par rang : après un retrait au clavier, le focus reste au même
+  // rang, sur le retrait du favori suivant, qui doit alors dire quel lieu il
+  // retire. Les étoiles des fiches ne changent pas
+  // (`test/features/shared/favorite_star_button_test.dart`).
+  group('FavoritesScreen — le retrait nomme le lieu (arbitrage du '
+      'commanditaire du 2026-10-14)', () {
+    String removeLabel(WidgetTester tester, int i) => tester
+        .getSemantics(
+          find.descendant(
+            of: _remove(i),
+            matching: find.byKey(favoriteStarButtonKey),
+          ),
+        )
+        .getSemanticsData()
+        .label;
+
+    testWidgetsOnWindows(
+      "chaque retrait s'annonce « Retirer des favoris : » suivi du nom que "
+      'sa ligne affiche, station comme point ONDE',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          _app(FavorisLus(<Favorite>[_onde(), _station()])),
+        );
+
+        expect(
+          removeLabel(tester, 0),
+          'Retirer des favoris : LA BONNEURE A MILLANCAY',
+        );
+        expect(
+          removeLabel(tester, 1),
+          'Retirer des favoris : La Loire à Blois',
+        );
+        expect(
+          tester.getSemantics(
+            find.descendant(
+              of: _remove(0),
+              matching: find.byKey(favoriteStarButtonKey),
+            ),
+          ),
+          matchesSemantics(
+            label: 'Retirer des favoris : LA BONNEURE A MILLANCAY',
+            isButton: true,
+            isEnabled: true,
+            hasEnabledState: true,
+            hasTapAction: true,
+          ),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'deux stations de noms différents : deux annonces différentes',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          _app(
+            FavorisLus(<Favorite>[
+              StationFavorite(
+                code: StationCode('K447001001'),
+                label: 'La Loire à Blois',
+                addedAt: DateTime.utc(2026, 10, 11, 17, 5),
+              ),
+              StationFavorite(
+                code: StationCode('K447001002'),
+                label: 'La Loire à Orléans',
+                addedAt: DateTime.utc(2026, 10, 11, 17, 5),
+              ),
+            ]),
+          ),
+        );
+
+        expect(
+          removeLabel(tester, 0),
+          'Retirer des favoris : La Loire à Blois',
+        );
+        expect(
+          removeLabel(tester, 1),
+          'Retirer des favoris : La Loire à Orléans',
+        );
+        expect(removeLabel(tester, 0), isNot(removeLabel(tester, 1)));
+      },
+    );
+
+    testWidgetsOnWindows(
+      "une entrée non lisible, avec ou sans libellé : « Retirer ce favori non "
+      'lisible »',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          _app(
+            FavorisLus(const <Favorite>[
+              _unreadable,
+              UnreadableFavorite(raw: '{"type":"point_designe"}'),
+            ]),
+          ),
+        );
+
+        expect(removeLabel(tester, 0), 'Retirer ce favori non lisible');
+        expect(removeLabel(tester, 1), 'Retirer ce favori non lisible');
+      },
+    );
+
+    testWidgetsOnWindows(
+      'après un retrait au clavier, le bouton qui garde le focus annonce le '
+      'nom du favori suivant',
+      (WidgetTester tester) async {
+        final InMemoryFavoriteRepository repository =
+            InMemoryFavoriteRepository(<Favorite>[_onde(), _station()]);
+        final FavoritesViewModel viewModel = FavoritesViewModel(
+          favorites: repository,
+        );
+        addTearDown(viewModel.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ListenableBuilder(
+              listenable: viewModel,
+              builder: (BuildContext context, Widget? child) => FavoritesScreen(
+                state: viewModel.state,
+                busy: viewModel.busy,
+                writeFailed: viewModel.writeFailed,
+                onOpen: (Favorite favorite) {},
+                onRemove: viewModel.remove,
+                onStartOver: viewModel.startOver,
+                utcOffsetOf: _noOffset,
+              ),
+            ),
+          ),
+        );
+        await viewModel.load();
+        await tester.pumpAndSettle();
+
+        // Le nœud sémantique du bouton qui porte le focus.
+        String focusedLabel() {
+          final BuildContext? focused =
+              FocusManager.instance.primaryFocus?.context;
+          expect(focused, isNotNull);
+          return tester
+              .getSemantics(
+                find.byElementPredicate(
+                  (Element element) => identical(element, focused),
+                ),
+              )
+              .getSemanticsData()
+              .label;
+        }
+
+        await _tabUntilInside(tester, _remove(0));
+        expect(focusedLabel(), 'Retirer des favoris : LA BONNEURE A MILLANCAY');
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(repository.stored, <Favorite>[_station()]);
+        expect(focusedWithin(tester, _remove(0)), isTrue);
+        expect(focusedLabel(), 'Retirer des favoris : La Loire à Blois');
+      },
+    );
   });
 
   group('FavoritesScreen — entrée non lisible (critère 11)', () {
@@ -745,7 +906,7 @@ void main() {
             ),
           ),
           matchesSemantics(
-            label: 'Retirer des favoris',
+            label: 'Retirer des favoris : La Loire à Blois',
             isButton: true,
             hasEnabledState: true,
           ),

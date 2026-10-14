@@ -48,18 +48,21 @@ pas.
   identité seule — libellé, nature (« Station hydrométrique », « Point
   ONDE »), cours d'eau et département d'un point ONDE, « Ajouté le
   JJ/MM/AAAA » —, et **aucune valeur mesurée**, ce que la liste dit en tête.
-  Un favori se retire depuis sa ligne ; l'ouvrir referme l'écran et ouvre sa
-  fiche, sans déplacer la carte ni changer l'échelle ou le filtre. Ouvrir
-  l'écran ferme la fiche ouverte. Liste vide : une phrase dit comment un
-  favori s'ajoute. Liste enregistrée illisible : elle est dite telle, jamais
-  montrée vide, gardée telle quelle, et ne se remplace que par l'action
-  explicite « Repartir d'une liste vide », qui annonce l'effacement des
-  favoris enregistrés. Une entrée que cette version ne sait pas lire reste
-  affichée (« Favori non lisible par cette version de l'application »),
-  retirable, non ouvrable, et réécrite telle quelle (`BR-011`). Lignes et
-  actions atteintes au clavier, cibles de 44 (48 sur Android). L'écran n'a
-  pas de contrôle « ⚠ Avertissement » : il ne montre ni mesure ni état ; les
-  fiches qu'il ouvre le portent (arbitrage du commanditaire du 2026-10-14).
+  Un favori se retire depuis sa ligne, par un bouton que le lecteur d'écran
+  annonce « Retirer des favoris : » suivi du nom du lieu, ou « Retirer ce
+  favori non lisible » (arbitrage du commanditaire du 2026-10-14) ; l'ouvrir
+  referme l'écran et ouvre sa fiche, sans déplacer la carte ni changer
+  l'échelle ou le filtre. Ouvrir l'écran ferme la fiche ouverte. Liste vide :
+  une phrase dit comment un favori s'ajoute. Liste enregistrée illisible :
+  elle est dite telle, jamais montrée vide, gardée telle quelle, et ne se
+  remplace que par l'action explicite « Repartir d'une liste vide », qui
+  annonce l'effacement des favoris enregistrés. Une entrée que cette version
+  ne sait pas lire reste affichée (« Favori non lisible par cette version de
+  l'application »), retirable, non ouvrable, et réécrite telle quelle
+  (`BR-011`). Lignes et actions atteintes au clavier, cibles de 44 (48 sur
+  Android). L'écran n'a pas de contrôle « ⚠ Avertissement » : il ne montre ni
+  mesure ni état ; les fiches qu'il ouvre le portent (arbitrage du
+  commanditaire du 2026-10-14).
 - Favoris retrouvés d'un lancement à l'autre, sur l'appareil, sans compte ni
   serveur : `shared_preferences`, une clé, une forme JSON versionnée
   (`ADR-011` amendé le 2026-10-12, aucune dépendance ajoutée).
@@ -189,9 +192,9 @@ pas.
   sous Windows, enregistrée sous le nom « Segoe UI », un substitut : **Segoe
   UI réelle n'est pas mesurée**.
 - **Aucune annonce au lecteur d'écran constatée** : ni l'étoile, ni
-  « Filtres — un filtre est actif », ni les états de la liste. Chaque retrait
-  de la liste s'annonce « Retirer des favoris » sans nommer le lieu (relevé
-  de relecture, non arbitré).
+  « Filtres — un filtre est actif », ni les états de la liste, ni le retrait
+  d'un favori de la liste, qui nomme le lieu depuis l'arbitrage du
+  commanditaire du 2026-10-14.
 - **Stockage des favoris** : la tenue d'un lancement à l'autre n'est éprouvée
   que par les tests du dépôt, contre un double et contre le magasin de test
   du paquet ; aucune écriture refusée n'est provoquée sur une cible. Non

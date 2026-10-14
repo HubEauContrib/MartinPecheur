@@ -319,6 +319,7 @@ Futurs scénarios de `docs/acceptance/favoris.feature` et `filtres.feature`, éc
 | Ligne d'un favori non lisible | « Favori non lisible par cette version de l'application » |
 | Ligne d'un favori | nature : « Station hydrométrique » / « Point ONDE » (`glossary.md`) · « Ajouté le JJ/MM/AAAA » |
 | Étoile, libellés annoncés | « Ajouter aux favoris » · « Retirer des favoris » ; écriture en échec : « Le favori n'a pas pu être enregistré. » |
+| Liste de favoris, retrait annoncé — **ajouté le 2026-10-14, arbitrage du commanditaire** (revue finale de T3, « Nommer le lieu ») | « Retirer des favoris : » suivi du nom du lieu que la ligne affiche · entrée non lisible : « Retirer ce favori non lisible ». Sur cet écran seulement : les étoiles des fiches gardent « Retirer des favoris » et « Ajouter aux favoris » ; le focus n'est pas déplacé après un retrait |
 | Boutons de la carte | « Favoris » · « Filtres » ; filtre actif, annoncé : « Filtres — un filtre est actif » |
 
 ### 10.2 Décisions de la boucle principale, réversibles

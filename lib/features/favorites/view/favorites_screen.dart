@@ -78,6 +78,15 @@ const String favoriteAddedOnPrefix = 'Ajouté le ';
 /// Avis de « Repartir d'une liste vide » en échec.
 const String favoritesReplaceFailedText = "La liste n'a pas pu être remplacée.";
 
+/// Annonce du retrait d'un favori lisible, suivie du nom du lieu que sa ligne
+/// affiche (arbitrage du commanditaire du 2026-10-14). Les étoiles des fiches
+/// gardent « Retirer des favoris » : le lieu y est celui de la fiche.
+const String removeNamedFavoritePrefix = 'Retirer des favoris : ';
+
+/// Annonce du retrait d'une entrée non lisible (arbitrage du commanditaire du
+/// 2026-10-14).
+const String removeUnreadableFavoriteLabel = 'Retirer ce favori non lisible';
+
 /// Posée sur le bouton « Repartir d'une liste vide ».
 const Key favoritesStartOverButtonKey = Key('favorites-start-over');
 
@@ -283,16 +292,21 @@ class _FavoriteRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Favorite favorite = this.favorite;
-    // Le libellé d'abord, en gras ; `null` : l'entrée n'en porte pas.
+    // Le libellé d'abord, en gras ; `null` : l'entrée n'en porte pas. Le
+    // retrait nomme le lieu que la ligne affiche : les lignes se suivent par
+    // rang, et après un retrait le focus reste au même rang, sur le favori
+    // suivant (arbitrage du commanditaire du 2026-10-14).
     final (
       String? label,
       List<String> details,
       bool opens,
+      String removeLabel,
     ) = switch (favorite) {
       StationFavorite(:final String label, :final DateTime addedAt) => (
         label,
         <String>[stationFavoriteKind, _addedOn(addedAt)],
         true,
+        '$removeNamedFavoritePrefix$label',
       ),
       OndePointFavorite(:final OndePoint point, :final DateTime addedAt) => (
         point.label,
@@ -304,12 +318,14 @@ class _FavoriteRow extends StatelessWidget {
           _addedOn(addedAt),
         ],
         true,
+        '$removeNamedFavoritePrefix${point.label}',
       ),
       // Ni date, ni ouverture : rien d'autre ne se lit de cette entrée.
       UnreadableFavorite(:final String? label) => (
         label,
         const <String>[unreadableFavoriteText],
         false,
+        removeUnreadableFavoriteLabel,
       ),
     };
 
@@ -337,13 +353,14 @@ class _FavoriteRow extends StatelessWidget {
               : identity,
         ),
         const SizedBox(width: 8),
-        // L'étoile pleine des fiches : même forme, même libellé annoncé
-        // (`removeFavoriteLabel`), inactive tant qu'une écriture court.
+        // L'étoile pleine des fiches : même forme, inactive tant qu'une
+        // écriture court ; son annonce nomme le lieu ([removeLabel]).
         KeyedSubtree(
           key: removeKey,
           child: FavoriteStarButton(
             star: FavoriteStar(filled: true, enabled: !busy),
             onToggle: () => onRemove(favorite),
+            label: removeLabel,
           ),
         ),
       ],
