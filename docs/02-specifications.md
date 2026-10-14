@@ -103,12 +103,12 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 
 | ID | Persona | Story |
 |---|---|---|
-| US-11 | P4 | Je vois la **courbe d'évolution du débit** sur 7 / 30 / 90 jours |
+| US-11 | P4 | Je vois la **courbe d'évolution du débit** sur 7 / 30 / 90 jours · 🔄 **Tranche ultérieure, non nommée** (arbitrage 1 du 2026-10-12, T3 « le titre seul » : le plan de T1 la renvoyait à T3) |
 | US-12 | P4 | Je vois si le débit est **inhabituel pour la saison** (percentile), avec ses limites explicitées |
-| US-13 | P3, P5 | Je **filtre** par type de donnée, état, département et fraîcheur |
-| US-14 | P1, P3 | J'enregistre des **favoris** et les retrouve en liste |
+| US-13 | P3, P5 | Je **filtre** par type de donnée, état, département et fraîcheur · ✅ **Codé en T3** ([`UC-007`](use-cases/UC-007-filtrer-la-carte.md), [`filtres.feature`](acceptance/filtres.feature)), vérifié par test, **non constaté à l'écran** (la porte de T3, Windows et Android, est due). ⚠️ **Précisé le 2026-10-12 (cadrage de T3, § 6)** : **« type de donnée » est l'échelle**, choisie par les puces d'échelle ([`BR-008`](br/BR-008-une-seule-echelle-a-la-fois.md)), pas par la feuille « Filtres » ; **les états** portent sur l'écoulement seul (six catégories) — jamais sur un débit ([`BR-003`](br/BR-003-jamais-qualifier-un-debit-de-suffisant.md)) ; **le département** vaut pour les deux échelles ; **la fraîcheur** porte sur le débit seul — Toutes · Moins de 2 h · Moins de 24 h, les bornes de [`BR-005`](br/BR-005-donnee-perimee-signalee.md) —, aucun critère sur l'écoulement, la carte ne montrant que les campagnes des 60 derniers jours ([`BR-010`](br/BR-010-age-de-campagne-onde-affiche.md), arbitrage 5). Un lieu masqué par un filtre n'est pas une absence de donnée ([`BR-007`](br/BR-007-absence-de-donnee-jamais-neutre.md)) |
+| US-14 | P1, P3 | J'enregistre des **favoris** et les retrouve en liste · ✅ **Codé en T3** ([`UC-008`](use-cases/UC-008-suivre-un-lieu-en-favori.md), [`favoris.feature`](acceptance/favoris.feature)), vérifié par test, **non constaté à l'écran** (la porte de T3 est due). Une station hydrométrique ou un point ONDE, par l'étoile de sa fiche ; la liste ne montre que l'identité du lieu, **aucune mesure** ; ouvrir un favori ouvre sa fiche, la carte ne bouge pas (arbitrage 6) ; stockage local, sans compte ([`ADR-011`](adr/ADR-011-stockage-local.md), amendé le 2026-10-12) |
 | US-15 | P3 | Je consulte l'**historique des campagnes** d'un point ONDE |
-| US-16 | Tous | Je recherche une **station ou un cours d'eau** par son nom |
+| US-16 | Tous | Je recherche une **station ou un cours d'eau** par son nom · 🔄 **Tranche ultérieure, non nommée** (arbitrage 1 du 2026-10-12, T3 « le titre seul ») |
 
 ### Could
 

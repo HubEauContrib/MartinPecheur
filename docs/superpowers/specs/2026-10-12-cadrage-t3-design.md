@@ -58,7 +58,7 @@ Compris aussi, sans objection : T3 s'ouvre alors que **la porte de T2 reste due*
 | Échelle 3 sur la carte, option « Sécheresse » du croquis (`04-ui.md` l. 543) | `US-17`, non planifiée | cadrage de T2, Q6 ; `04-ui.md` l. 229-230 |
 | Favori sur un point désigné ; seuil d'avis par lieu, dernier niveau connu, avis | T5 | arbitrage 3 ; § 5.5 |
 | Moteur de stockage structuré, hors-ligne (`US-10`, `UC-005`) | tranche du hors-ligne | arbitrage 2 |
-| Filtre persisté ; synchronisation, export ou partage des favoris | non prévu | § 6.6 ; `context-map.md` l. 95 |
+| Filtre persisté ; synchronisation, export ou partage des favoris | non prévu | § 6.6 ; `context-map.md`, ligne « Compte utilisateur » |
 | Passerelle fiche → restrictions | exclu | cadrage de T2, Q1-B, maintenu le 2026-10-03 |
 
 ## 4. État des lieux — lu le 2026-10-12
