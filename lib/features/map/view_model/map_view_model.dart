@@ -582,7 +582,9 @@ final class MapViewModel extends ChangeNotifier {
 
   /// Pose [filter] et notifie une fois. Ne fait **rien** — pas même une
   /// notification — si [filter] est égal au filtre courant. N'appelle aucun
-  /// dépôt : les prédicats du domaine jouent sur ce qui est déjà lu.
+  /// dépôt lui-même : les prédicats du domaine jouent sur ce qui est déjà lu ;
+  /// sur le débit, au niveau individuel, relance le préchargement borné
+  /// (`NFR-07`, [preloadVisibleStations]).
   void applyFilter(MapFilter filter) {
     if (filter == _filter) {
       return;

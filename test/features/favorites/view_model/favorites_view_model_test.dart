@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/data/preferences/shared_preferences_favorite_repository.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
@@ -11,6 +12,7 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/features/favorites/view_model/favorites_view_model.dart';
 
+import '../../../support/fake_shared_preferences.dart';
 import '../../../support/in_memory_favorite_repository.dart';
 
 StationFavorite _station() => StationFavorite(
@@ -342,6 +344,40 @@ void main() {
       expect(viewModel.writeFailed, isFalse);
       expect(viewModel.state, isA<FavorisFermes>());
       expect(notified, isEmpty);
+    });
+
+    // Revue finale de T3 (M9a) : `close()` puis `load()` aussitôt, pendant un
+    // retrait encore en vol (relevé de S8). La lecture du nouveau `load()`
+    // voit le retrait parce que `_write` appelle le dépôt AVANT son premier
+    // `await`, et que le dépôt réel ne lance une opération qu'une fois la
+    // précédente terminée. Le double en mémoire ne sérialise rien : seul le
+    // dépôt réel verrouille cet ordre.
+    test('dépôt réel : retrait en vol, close puis load — la lecture voit le '
+        'retrait', () async {
+      final FakeSharedPreferences preferences = FakeSharedPreferences();
+      final SharedPreferencesFavoriteRepository real =
+          SharedPreferencesFavoriteRepository(
+            preferences: () async => preferences,
+          );
+      await real.add(_station());
+      await real.add(_onde());
+      final FavoritesViewModel screen = FavoritesViewModel(favorites: real);
+      addTearDown(screen.dispose);
+      await screen.load();
+      expect((screen.state as FavorisLus).favorites, <Favorite>[
+        _onde(),
+        _station(),
+      ]);
+
+      final Future<void> removing = screen.remove(_station());
+      screen.close();
+      final Future<void> loading = screen.load();
+      await loading;
+      await removing;
+
+      expect(screen.state, isA<FavorisLus>());
+      expect((screen.state as FavorisLus).favorites, <Favorite>[_onde()]);
+      expect(await real.readAll(), <Favorite>[_onde()]);
     });
 
     test(

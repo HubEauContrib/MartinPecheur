@@ -31,10 +31,11 @@ Fonctionnalité: Suivre un lieu en favori
     Et la fiche garde son message d'échec, jamais un état neutre (BR-007)
 
   Scénario: Une station absente du référentiel embarqué n'offre pas d'ajout
-    Étant donné une station présente sur la carte et absente du référentiel embarqué
+    Étant donné une station présente sur la carte et absente du référentiel embarqué, que la liste de favoris, lisible, ne porte pas
     Quand sa fiche s'affiche
     Alors la fiche dit que la station n'est pas dans le référentiel (BR-007)
     Et aucune étoile n'est proposée : il n'y a aucun libellé à copier
+    Mais une liste de favoris enregistrée illisible laisse l'étoile proposée, vide et inactive, comme dans tous les états de la fiche : elle ne dit pas si la station y est (BR-007)
 
   Scénario: Une station et un point ONDE de même code sont deux favoris
     Étant donné une station en favori et un point ONDE qui porte le même code

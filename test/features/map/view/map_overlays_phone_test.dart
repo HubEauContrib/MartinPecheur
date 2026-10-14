@@ -3867,15 +3867,17 @@ void main() {
         'de la fenêtre de la colonne du bas ; la fenêtre de la légende va de '
         '8 à 56 et la légende a à défiler de '
         '${legendeADefiler600[scale]!.toInt()} px au repos ; la colonne ne '
-        'recoupe rien', (WidgetTester tester) async {
+        'recoupe rien ; « Favoris » s’atteint en faisant défiler la fenêtre '
+        'de la colonne du bas', (WidgetTester tester) async {
       const Size taille = Size(600, 360);
+      int ouvertures = 0;
       await _pumpOverlays(
         tester,
         taille,
         scale: scale,
         enMode: true,
         avecAvis: false,
-        onOuvrirFavoris: () {},
+        onOuvrirFavoris: () => ouvertures++,
       );
       final _ColonneACinq c = _ColonneACinq(tester, taille);
       printOnFailure(c.mesure);
@@ -3916,6 +3918,43 @@ void main() {
         moreOrLessEquals(legendeADefiler600[scale]!, epsilon: 0.1),
         reason: detail,
       );
+
+      // Revue finale de T3 (M9c) : ce que le CHANGELOG de 0.4.0 écrit,
+      // « Favoris » s'atteint en faisant défiler. La fenêtre de la colonne du
+      // bas défile (elle est ancrée en bas) ; « Favoris » y est alors entier,
+      // rien ne le recouvre, et un tap l'active.
+      final Finder favoris = find.byKey(mapFavoritesButtonKey);
+      await tester.ensureVisible(favoris);
+      await tester.pumpAndSettle();
+      final Rect fenetreBas = _fenetreDuBas(tester);
+      final Rect favorisDefile = _rectOf(tester, favoris);
+      final String apres =
+          'après défilement : Favoris=$favorisDefile, fenêtre du bas='
+          '$fenetreBas';
+      expect(
+        favorisDefile.top,
+        greaterThanOrEqualTo(fenetreBas.top - 0.1),
+        reason: apres,
+      );
+      expect(
+        favorisDefile.bottom,
+        lessThanOrEqualTo(fenetreBas.bottom + 0.1),
+        reason: apres,
+      );
+      expect(
+        favorisDefile.left,
+        greaterThanOrEqualTo(fenetreBas.left - 0.1),
+        reason: apres,
+      );
+      expect(
+        favorisDefile.right,
+        lessThanOrEqualTo(fenetreBas.right + 0.1),
+        reason: apres,
+      );
+      expect(_atteignable(favoris), isTrue, reason: apres);
+      await tester.tap(favoris);
+      await tester.pumpAndSettle();
+      expect(ouvertures, 1, reason: apres);
     });
   }
 

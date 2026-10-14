@@ -11,7 +11,8 @@
 //   retirer lèvent ; seul `clear` l'écrase, sans la décoder.
 // - ÉCRITURE COMPENSATOIRE : le paquet écrit son cache mémoire AVANT
 //   d'appeler le magasin (`shared_preferences` 2.5.5,
-//   `lib/src/shared_preferences_legacy.dart`, `_setValue`). Après un
+//   `lib/src/shared_preferences_legacy.dart`, `_setValue` ; inchangé en 2.5.6,
+//   relu dans le paquet installé le 2026-10-14). Après un
 //   `setString` refusé, `getString` rendrait donc la valeur non écrite jusqu'à
 //   la fin de la session. Sur une écriture en échec, le dépôt réécrit la
 //   valeur d'avant — ce qui remet le cache —, puis lève.

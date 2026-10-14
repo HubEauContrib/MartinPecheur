@@ -283,13 +283,15 @@ bool _recoupe(Rect a, Rect b) =>
 
 /// Monte [MapView] en entier au format [size], police à 100 %, EN MODE
 /// « Restrictions » (le bouton de désignation et son indice existent), l'échelle
-/// [scale] affichée, la fiche [fiche] injectée, « Favoris » branché. La carte
-/// porte une station et un point ONDE : aucun avis.
+/// [scale] affichée, la fiche [fiche] injectée, « Favoris » branché (sur
+/// [onOpenFavorites] s'il est fourni). La carte porte une station et un point
+/// ONDE : aucun avis.
 Future<_Mesure> _monter(
   WidgetTester tester,
   Size size, {
   required MapScaleKind scale,
   required _Fiche fiche,
+  VoidCallback? onOpenFavorites,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -313,7 +315,7 @@ Future<_Mesure> _monter(
       debugShowCheckedModeBanner: false,
       home: MapView(
         viewModel: viewModel,
-        onOpenFavorites: () {},
+        onOpenFavorites: onOpenFavorites ?? () {},
         onPointDesignated: (GeoPoint _) {},
         onStationTap: fiche == _Fiche.station ? (StationCode _) {} : null,
         stationSheet: fiche == _Fiche.station
@@ -618,13 +620,16 @@ void main() {
   // débit : cas « CONSTAT — 640 × 360, échelle … » ci-dessous).
   _surAndroid(
     'CONSTAT — 640 × 360, EN MODE : « Favoris » dépasse de la fenêtre de la '
-    'colonne du bas de 12 px par le haut, au repos',
+    'colonne du bas de 12 px par le haut, au repos ; il s’atteint en faisant '
+    'défiler cette fenêtre',
     (WidgetTester tester) async {
+      int ouvertures = 0;
       final _Mesure m = await _monter(
         tester,
         _telephoneCouche,
         scale: MapScaleKind.ecoulement,
         fiche: _Fiche.aucune,
+        onOpenFavorites: () => ouvertures++,
       );
       final Rect favoris = m.boutons['Favoris']!;
       expect(m.fenetreBas.bottom, m.attribution.bottom, reason: m.texte);
@@ -633,6 +638,45 @@ void main() {
         moreOrLessEquals(12, epsilon: 0.1),
         reason: m.texte,
       );
+
+      // Revue finale de T3 (M9c) : ce que le CHANGELOG de 0.4.0 écrit,
+      // « Favoris » s'atteint en faisant défiler. La fenêtre de la colonne du
+      // bas défile (elle est ancrée en bas) ; « Favoris » y est alors entier,
+      // rien ne le recouvre, et un tap l'active.
+      final Finder bouton = find.byKey(mapFavoritesButtonKey);
+      await tester.ensureVisible(bouton);
+      await tester.pumpAndSettle();
+      final _Mesure apres = _Mesure(
+        tester,
+        _telephoneCouche,
+        MapScaleKind.ecoulement,
+        _Fiche.aucune,
+      );
+      final Rect defile = apres.boutons['Favoris']!;
+      expect(
+        defile.top,
+        greaterThanOrEqualTo(apres.fenetreBas.top - 0.1),
+        reason: apres.texte,
+      );
+      expect(
+        defile.bottom,
+        lessThanOrEqualTo(apres.fenetreBas.bottom + 0.1),
+        reason: apres.texte,
+      );
+      expect(
+        defile.left,
+        greaterThanOrEqualTo(apres.fenetreBas.left - 0.1),
+        reason: apres.texte,
+      );
+      expect(
+        defile.right,
+        lessThanOrEqualTo(apres.fenetreBas.right + 0.1),
+        reason: apres.texte,
+      );
+      expect(bouton.hitTestable(), findsOneWidget, reason: apres.texte);
+      await tester.tap(bouton);
+      await tester.pumpAndSettle();
+      expect(ouvertures, 1, reason: apres.texte);
     },
   );
 

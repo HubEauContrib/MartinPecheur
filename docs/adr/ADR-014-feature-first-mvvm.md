@@ -81,6 +81,12 @@ d'état** : `ChangeNotifier` est fourni par le framework.
   endroit » survit ; seul le point d'accrochage change.
 - Le *domain layer* de *use-cases* du guide reste **écarté** : six cas d'usage, aucun n'orchestre
   plusieurs dépôts pour l'instant. À réintroduire si un écran le réclame, pas avant.
+  *Note du 2026-10-14 (revue finale de T3), la décision n'est pas réécrite :* les deux constats de
+  cette phrase ne tiennent plus. Les cas d'usage sont huit (`UC-001` à `UC-008`). Des ViewModels
+  lisent plusieurs dépôts, chacun par son appel typé, sans couche de cas d'usage : depuis T1,
+  `MapViewModel` trois (points de stations, observations hydrométriques, observations ONDE) et
+  `StationSheetViewModel` deux (stations, observations) ; depuis T3, les deux fiches lisent aussi
+  les favoris (`StationSheetViewModel` trois dépôts, `OndeSheetViewModel` deux).
 
 ```mermaid
 flowchart LR
@@ -221,6 +227,9 @@ seul son dossier change.
   déléguer immédiatement. Elle redeviendra la bonne réponse le jour où un écran croisera
   hydrométrie, écoulement et restrictions — et elle se réintroduira alors **entre** ViewModel et
   dépôt, sans rien défaire de cette décision.
+  *Note du 2026-10-14 (revue finale de T3), l'alternative reste écartée :* « six cas d'usage dont
+  aucun n'orchestre plusieurs dépôts » ne tient plus — huit cas d'usage, et des ViewModels qui
+  lisent plusieurs dépôts sans couche de cas d'usage (voir la note du même jour sous « Décision »).
 - **Passer les dépôts directement aux widgets, sans ViewModel.** Le moins de cérémonie possible,
   mais l'état d'écran retourne dans des `State` de widgets, et la logique redevient intestable sans
   rendu. C'est l'erreur que `ADR-008` avait raison de refuser.

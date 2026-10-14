@@ -867,6 +867,48 @@ void main() {
       expect(favorites.writeCalls, 0);
     });
 
+    // Revue finale de T3 (M3) : une liste illisible ne dit pas si la station
+    // y est. L'étoile vide et inactive est donc rendue AVANT la règle « pas en
+    // favori et rien à ajouter : aucune étoile », dans tous les états de la
+    // fiche, Introuvable et EnCours compris.
+    test('liste illisible, fiche Introuvable : etoile vide et inactive, la '
+        'bascule n appelle pas le depot', () async {
+      favorites.readError = const ListeDeFavorisIllisible('x');
+      stations.answer = (StationCode code) async => null;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<Introuvable>());
+      expect(viewModel.favoriteStar, _emptyInactive);
+
+      await viewModel.toggleFavorite();
+      expect(favorites.writeCalls, 0);
+    });
+
+    test('liste illisible, fiche EnCours : etoile vide et inactive, la '
+        'bascule n appelle pas le depot', () async {
+      favorites.readError = const ListeDeFavorisIllisible('x');
+      final Completer<HydroObservation?> pending =
+          Completer<HydroObservation?>();
+      observations.answer = (StationCode code, Grandeur grandeur) =>
+          pending.future;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      final Future<void> opening = viewModel.open(_codeBlois());
+      await pumpEventQueue();
+
+      expect(viewModel.state, isA<EnCours>());
+      expect(favorites.readCalls, 1);
+      expect(viewModel.favoriteStar, _emptyInactive);
+      await viewModel.toggleFavorite();
+      expect(favorites.writeCalls, 0);
+
+      pending.complete(null);
+      await opening;
+    });
+
     test('toute autre levee de la lecture vaut liste illisible, et la fiche '
         'reste Prete', () async {
       favorites.readError = StateError('autre');

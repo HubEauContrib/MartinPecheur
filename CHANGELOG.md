@@ -36,11 +36,14 @@ pas.
   libellé ; pour un point ONDE, aussi son cours d'eau et son département — et
   sa date d'ajout, jamais une mesure. Ajouter une station demande que sa
   fiche soit prête ; une station déjà en favori garde son étoile pleine et se
-  retire depuis sa fiche dans tous les états, même en échec ; une station
-  absente du référentiel embarqué n'a pas d'étoile. Un point ONDE s'ajoute
-  quel que soit l'état de sa fiche. Une station et un point ONDE de même code
-  sont deux favoris. L'étoile est inactive pendant une écriture et tant que
-  la liste enregistrée est illisible ; une écriture en échec laisse l'étoile
+  retire depuis sa fiche dans tous les états, même en échec ; sur une liste
+  lisible, une station absente du référentiel embarqué qui n'est pas en
+  favori n'a pas d'étoile. Un point ONDE s'ajoute quel que soit l'état de sa
+  fiche. Une station et un point ONDE de même code sont deux favoris.
+  L'étoile est inactive pendant une écriture ; tant que la liste enregistrée
+  est illisible, elle est vide et inactive dans tous les états des deux
+  fiches, station absente du référentiel ou fiche en chargement compris : la
+  liste ne dit pas si le lieu y est. Une écriture en échec laisse l'étoile
   dans son état et le dit (« Le favori n'a pas pu être enregistré. », « Le
   favori n'a pas pu être retiré. »).
 - Écran « Favoris » (`US-14`, `UC-008`), ouvert par le bouton « Favoris » de
@@ -113,13 +116,14 @@ pas.
   plus : rien de ce qui s'y voit ne passe plus sous les contrôles de zoom ni
   sous l'attribution. L'écart à `BR-008` accepté le 2026-10-03 demeure — sous
   600 px, un avis affiché repousse toujours la légende, qui se lit alors en
-  faisant défiler la colonne ; seul le recouvrement de la légende repoussée
-  par les contrôles de zoom disparaît. Sur une fenêtre trop courte pour elle,
-  la légende n'est plus entière au repos, avis ou non, et défile. Au
-  téléphone à 200 %, un avis n'est plus entier au repos : il s'amène en
-  faisant défiler la colonne. Sur une fenêtre de téléphone très courte
-  (écran divisé), le haut ne garde que « ⚠ Avertissement » et la colonne du
-  bas à droite défile, ancrée en bas (décision de la boucle principale).
+  faisant défiler la colonne ; seul disparaît le recouvrement de la légende
+  repoussée, par les contrôles de zoom (et, à 200 %, par l'attribution). Sur
+  une fenêtre trop courte pour elle, la légende n'est plus entière au repos,
+  avis ou non, et défile. Au téléphone à 200 %, un avis n'est plus entier au
+  repos : il s'amène en faisant défiler la colonne. Sur une fenêtre de
+  téléphone très courte (écran divisé), le haut ne garde que
+  « ⚠ Avertissement » et la colonne du bas à droite défile, ancrée en bas
+  (décision de la boucle principale).
 - Ordre de tabulation de la carte : les puces d'échelle, l'action de l'avis
   affiché (« Effacer les filtres » ou « Élargir la recherche » ; rang arbitré
   par le commanditaire le 2026-10-14), « Favoris », « Filtres » (rang posé
@@ -127,9 +131,17 @@ pas.
   mode « Restrictions », la carte, la fiche ouverte, puis
   « ⚠ Avertissement ».
 - Outillage, pour l'intégrateur : Flutter 3.47.7 et Dart 3.13.5 (3.47.4 et
-  3.13.3 pour `0.3.0`) ; `pubspec.lock` résout `shared_preferences` 2.5.6 et
-  `url_launcher` 6.3.3 (arbitrage du commanditaire du 2026-10-14) ;
-  `pubspec.yaml` ne change que de version.
+  3.13.3 pour `0.3.0`), gardés par arbitrage du commanditaire du 2026-10-14 ;
+  `pubspec.yaml` ne change que de version. `pubspec.lock` change la version
+  de onze paquets — les deux directs, `shared_preferences` 2.5.6 et
+  `url_launcher` 6.3.3, et neuf transitifs, `archive`, `code_assets`,
+  `hooks`, `jni`, `jni_flutter`, `meta`, `objective_c`, `record_use` et
+  `vector_math` —, dont six servent à la construction native (`jni`, greffon
+  natif compilé pour Windows et Android ; `jni_flutter`, Android ;
+  `objective_c`, cibles Apple ; `hooks`, `code_assets` et `record_use`,
+  protocole des hooks de construction du code natif) : la prochaine
+  construction Windows de release et la première construction Android se
+  feront avec eux.
 
 ### Corrigé
 
