@@ -28,6 +28,7 @@ import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 /// Instant de mesure des deux fixtures : `date_obs` 2026-08-27T08:00:00Z.
@@ -1112,6 +1113,105 @@ void main() {
         await tester.pump();
 
         expect(toggled, 0);
+      },
+    );
+
+    // `K1` de T3 : le clavier dans une fiche prête. Deux arrêts — le contrôle
+    // « ⚠ Avertissement » du contenu, puis l'étoile — et le bouton de
+    // fermeture n'en est pas un (décision antérieure : Échap ferme).
+    testWidgetsOnWindows(
+      'Prete, étoile active : deux arrêts de Tab, « ⚠ Avertissement » puis '
+      "l'étoile, puis le tour repart ; le bouton de fermeture ne reçoit "
+      'jamais le focus (K1 de T3)',
+      (WidgetTester tester) async {
+        await _pump(tester, panel(prete(), star: empty));
+
+        final Finder avertissement = find.byType(WarningLink);
+        final Finder etoile = find.byType(FavoriteStarButton);
+        for (final Finder attendu in <Finder>[
+          avertissement,
+          etoile,
+          avertissement,
+        ]) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(
+            focusedWithin(tester, attendu),
+            isTrue,
+            reason: 'attendu à ce Tab : $attendu',
+          );
+          expect(
+            focusedWithin(tester, find.byKey(stationSheetCloseButtonKey)),
+            isFalse,
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      'Prete, étoile focalisée : Entrée puis Espace appellent '
+      'onToggleFavorite UNE fois chacune, jamais onClose (K1 de T3)',
+      (WidgetTester tester) async {
+        int toggled = 0;
+        int closed = 0;
+        await _pump(
+          tester,
+          panel(
+            prete(),
+            star: empty,
+            onToggle: () => toggled++,
+            onClose: () => closed++,
+          ),
+        );
+        for (int i = 0; i < 2; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(focusedWithin(tester, find.byType(FavoriteStarButton)), isTrue);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(toggled, 1, reason: 'Entrée');
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(toggled, 2, reason: 'Espace');
+        expect(closed, 0);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "Prete, étoile DÉJÀ inactive à l'ouverture (liste illisible) : Tab s'y "
+      "arrête ; Entrée et Espace n'appellent ni onToggleFavorite ni onClose "
+      '(K1 de T3)',
+      (WidgetTester tester) async {
+        int toggled = 0;
+        int closed = 0;
+        await _pump(
+          tester,
+          panel(
+            prete(),
+            star: const FavoriteStar(filled: false, enabled: false),
+            onToggle: () => toggled++,
+            onClose: () => closed++,
+          ),
+        );
+        for (int i = 0; i < 2; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(focusedWithin(tester, find.byType(FavoriteStarButton)), isTrue);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(toggled, 0);
+        expect(closed, 0);
+        expect(
+          focusedWithin(tester, find.byType(FavoriteStarButton)),
+          isTrue,
+          reason: 'le focus reste sur l’étoile inactive',
+        );
       },
     );
 
