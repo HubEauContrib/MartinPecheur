@@ -10,9 +10,11 @@ import 'package:martinpecheur/domain/sources/source_names.dart'
     show ignAttribution;
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 
+import '../../../support/windows_platform.dart';
+
 void main() {
   group('IgnAttributionBadge', () {
-    testWidgets('affiche l\'attribution IGN et Licence Ouverte', (
+    testWidgetsOnWindows('affiche l\'attribution IGN et Licence Ouverte', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
@@ -24,7 +26,9 @@ void main() {
       expect(ignAttribution, contains('Licence Ouverte'));
     });
 
-    testWidgets('porte son propre fond opaque', (WidgetTester tester) async {
+    testWidgetsOnWindows('porte son propre fond opaque', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: IgnAttributionBadge())),
       );

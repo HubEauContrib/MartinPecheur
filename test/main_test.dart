@@ -16,6 +16,7 @@
 // permis : `test/architecture/layers_test.dart` (règle `features-vers-data`)
 // contraint `lib/`, pas `test/`.
 import 'dart:async' show Completer;
+import 'dart:io' show File;
 import 'dart:ui' show Rect, Size;
 
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -23,6 +24,8 @@ import 'package:flutter/material.dart'
     show
         Checkbox,
         ListView,
+        Navigator,
+        ScrollPosition,
         Scrollable,
         ScrollableState,
         Semantics,
@@ -30,6 +33,9 @@ import 'package:flutter/material.dart'
         ValueKey;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/favorites/favorite.dart'
+    show Favorite, OndePointFavorite, StationFavorite;
+import 'package:martinpecheur/domain/filters/map_filter.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
@@ -37,6 +43,7 @@ import 'package:martinpecheur/domain/geo/viewport_filter.dart'
 import 'package:martinpecheur/domain/links/external_link_opener.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
@@ -46,27 +53,39 @@ import 'package:martinpecheur/domain/sources/source_names.dart'
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
+import 'package:martinpecheur/features/favorites/view_model/favorites_view_model.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart'
     show mapDesignateCenterButtonKey, mapDesignateCenterHintKey;
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart'
     show mapCenterReticleKey;
+import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
+    show mapFavoritesButtonKey, mapFiltersActiveMarkKey, mapFiltersButtonKey;
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart'
     show mapDesignationChipKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
+    show OndeSheetPanel;
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/shared/data_sources_view.dart';
+import 'package:martinpecheur/features/shared/favorite_star_button.dart'
+    show favoriteRemoveFailedText, favoriteStarButtonKey;
 import 'package:martinpecheur/features/shared/warning_link.dart'
     show warningLinkKey, warningWindowRegionKey, warningWindowSourcesLinkKey;
+import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart'
+    show StationSheetPanel;
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 import 'package:martinpecheur/features/warnings/view/initial_warning_view.dart';
 import 'package:martinpecheur/features/warnings/view_model/warnings_view_model.dart';
 import 'package:martinpecheur/main.dart';
 
 import 'features/restrictions/zones_samples.dart';
+import 'support/android_platform.dart';
+import 'support/in_memory_favorite_repository.dart';
 import 'support/windows_platform.dart';
 
 /// Dépôts vides, juste assez pour CONSTRUIRE les trois autres ViewModels :
@@ -112,6 +131,44 @@ final class _EmptyOndeObservationRepository
 final class _EmptyStationRepository implements StationRepository {
   @override
   Future<Station?> findByCode(StationCode code) async => null;
+}
+
+/// Une station du référentiel : celle des fixtures, `K447001001`.
+final class _BloisStationRepository implements StationRepository {
+  @override
+  Future<Station?> findByCode(StationCode code) async => Station(
+    code: code,
+    label: 'La Loire à Blois',
+    latitude: 47.584957074,
+    longitude: 1.335147948,
+    departement: DepartementCode('41'),
+    riverLabel: 'la Loire',
+    inService: true,
+  );
+}
+
+/// Un référentiel qui ne répond pas : la fiche station reste « en cours ».
+final class _PendingStationRepository implements StationRepository {
+  @override
+  Future<Station?> findByCode(StationCode code) => Completer<Station?>().future;
+}
+
+/// Une source ONDE dont l'historique ne répond pas : la fiche ONDE reste
+/// « en cours ». Le balayage de la carte, lui, répond vide.
+final class _PendingOndeObservationRepository
+    implements OndeObservationRepository {
+  @override
+  Future<OndeSweep> latestWithinBounds(
+    Bounds bounds, {
+    required DateTime since,
+  }) async =>
+      const OndeSweep(observations: <OndeObservation>[], unreadableRows: 0);
+
+  @override
+  Future<List<OndeObservation>> historyFor(
+    OndeStationCode station, {
+    int limit = 5,
+  }) => Completer<List<OndeObservation>>().future;
 }
 
 /// Double de [AcknowledgementRepository], programmable en lecture — même
@@ -181,22 +238,59 @@ RestrictionsViewModel _restrictions([RestrictionSource? source]) =>
 MartinPecheurApp _app(
   WarningsViewModel warningsViewModel, [
   RestrictionsViewModel? restrictionsViewModel,
-]) => MartinPecheurApp(
-  warningsViewModel: warningsViewModel,
-  restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
-  mapViewModel: MapViewModel(
-    stationPoints: _EmptyStationPointRepository(),
-    observations: _EmptyHydroObservationRepository(),
-    onde: _EmptyOndeObservationRepository(),
-  ),
-  stationSheetViewModel: StationSheetViewModel(
-    observations: _EmptyHydroObservationRepository(),
-    stations: _EmptyStationRepository(),
-  ),
-  ondeSheetViewModel: OndeSheetViewModel(
-    onde: _EmptyOndeObservationRepository(),
-  ),
-);
+  StationSheetViewModel? stationSheetViewModel,
+  OndeSheetViewModel? ondeSheetViewModel,
+  FavoritesViewModel? favoritesViewModel,
+  MapViewModel? mapViewModel,
+]) {
+  // Comme la racine : UN dépôt des favoris, partagé par les deux fiches et
+  // par l'écran « Favoris ».
+  final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository();
+  return MartinPecheurApp(
+    warningsViewModel: warningsViewModel,
+    restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
+    favoritesViewModel:
+        favoritesViewModel ?? FavoritesViewModel(favorites: favorites),
+    mapViewModel:
+        mapViewModel ??
+        MapViewModel(
+          stationPoints: _EmptyStationPointRepository(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: _EmptyOndeObservationRepository(),
+        ),
+    stationSheetViewModel:
+        stationSheetViewModel ??
+        StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _EmptyStationRepository(),
+          favorites: favorites,
+        ),
+    ondeSheetViewModel:
+        ondeSheetViewModel ??
+        OndeSheetViewModel(
+          onde: _EmptyOndeObservationRepository(),
+          favorites: favorites,
+        ),
+  );
+}
+
+/// Ce que les cas de `K4` tiennent de la racine montée : les deux VRAIS
+/// ViewModels de fiche et le dépôt des favoris qu'ils partagent.
+typedef _SheetsRoot = ({
+  StationSheetViewModel station,
+  OndeSheetViewModel onde,
+  InMemoryFavoriteRepository favorites,
+});
+
+/// Ce que les cas de `S11` tiennent de la racine montée : les VRAIS
+/// ViewModels, et le dépôt des favoris que trois d'entre eux partagent.
+typedef _FavoritesRoot = ({
+  InMemoryFavoriteRepository favorites,
+  StationSheetViewModel station,
+  OndeSheetViewModel onde,
+  FavoritesViewModel list,
+  MapViewModel map,
+});
 
 /// Un point DANS la bande du bouton de désignation (la boîte du `ListView` de
 /// `_DesignationPlacement`, seul `ListView` au-dessus du bouton), sur la
@@ -227,21 +321,622 @@ Offset _pointDansLaBande(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('requiresAcknowledgement vrai : InitialWarningView est affiche, '
-      'MapView n\'est jamais construit', (WidgetTester tester) async {
-    final WarningsViewModel warningsViewModel = WarningsViewModel(
-      acknowledgements: _AcknowledgementRepositoryDouble(),
-      currentWarningVersion: warningTextVersion,
+  // `main()` ne s'appelle pas ici (voir l'en-tête) : ce verrou-ci LIT le
+  // texte de la racine. Le dépôt des favoris sérialise ses écritures par
+  // instance ; une seconde instance, câblée à un autre ViewModel, croiserait
+  // ses lire-puis-écrire avec la première et perdrait un favori (`S5` de T3).
+  test('la racine ne construit qu une seule instance du depot des favoris, '
+      'et la passe aux fiches station et ONDE', () {
+    final String root = File('lib/main.dart').readAsStringSync();
+
+    expect(
+      RegExp(r'SharedPreferencesFavoriteRepository\(').allMatches(root),
+      hasLength(1),
+      reason: 'une seule construction, partagee par tous ses clients',
     );
-    await warningsViewModel.load();
-
-    await tester.pumpWidget(_app(warningsViewModel));
-
-    expect(find.byType(InitialWarningView), findsOneWidget);
-    expect(find.byType(MapView), findsNothing);
+    expect(
+      root,
+      contains(
+        'final FavoriteRepository favorites = '
+        'SharedPreferencesFavoriteRepository();',
+      ),
+    );
+    expect(
+      RegExp(
+        // Sans traverser la construction d'un AUTRE ViewModel.
+        r'StationSheetViewModel\((?:(?!ViewModel\()[^;])*?favorites: favorites,',
+      ).hasMatch(root),
+      isTrue,
+      reason: 'la fiche station recoit CETTE instance',
+    );
+    expect(
+      RegExp(
+        r'OndeSheetViewModel\((?:(?!ViewModel\()[^;])*?favorites: favorites[,)]',
+      ).hasMatch(root),
+      isTrue,
+      reason: 'la fiche ONDE recoit CETTE MEME instance',
+    );
+    expect(
+      root,
+      contains('favoritesViewModel: FavoritesViewModel(favorites: favorites)'),
+      reason: 'l ecran « Favoris » recoit CETTE MEME instance (S11)',
+    );
   });
 
-  testWidgets('requiresAcknowledgement faux : MapView est affiche', (
+  // `S7a` de T3 : l'étoile des fiches par la composition RÉELLE de
+  // `MartinPecheurApp`. Un `MaterialApp` de banc ne prouverait pas que la
+  // racine passe `favoriteStar` et `onToggleFavorite` aux deux panneaux.
+  group("l'étoile de favori des fiches (S7a de T3) — composition reelle", () {
+    Future<WarningsViewModel> acknowledged() async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      return viewModel;
+    }
+
+    /// La taille minimale de la fenêtre Windows (800 x 740, `K3`) : la fiche
+    /// ouverte doit y tenir, étoile comprise, sans débordement.
+    void minimumWindow(WidgetTester tester) {
+      tester.view.physicalSize = const Size(800, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    String? starLabel(WidgetTester tester) =>
+        tester.getSemantics(find.byKey(favoriteStarButtonKey)).label;
+
+    testWidgetsOnWindows(
+      'fiche station Prete : l etoile est la ; un tap ajoute la station '
+      'au depot et l etoile annonce « Retirer des favoris »',
+      (WidgetTester tester) async {
+        final InMemoryFavoriteRepository favorites =
+            InMemoryFavoriteRepository();
+        final StationSheetViewModel sheet = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _BloisStationRepository(),
+          favorites: favorites,
+        );
+        minimumWindow(tester);
+        await tester.pumpWidget(_app(await acknowledged(), null, sheet, null));
+        expect(find.byKey(favoriteStarButtonKey), findsNothing);
+
+        await sheet.open(StationCode('K447001001'));
+        await tester.pump();
+
+        expect(sheet.state, isA<Prete>());
+        expect(find.byKey(favoriteStarButtonKey), findsOneWidget);
+        expect(starLabel(tester), 'Ajouter aux favoris');
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pump();
+        await tester.pump();
+
+        expect(favorites.stored, hasLength(1));
+        expect(favorites.stored.single, isA<StationFavorite>());
+        expect(
+          (favorites.stored.single as StationFavorite).code.value,
+          'K447001001',
+        );
+        expect(starLabel(tester), 'Retirer des favoris');
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche ONDE Prete : l etoile est la ; un tap ajoute le point au '
+      'depot et l etoile annonce « Retirer des favoris »',
+      (WidgetTester tester) async {
+        final InMemoryFavoriteRepository favorites =
+            InMemoryFavoriteRepository();
+        final OndeSheetViewModel sheet = OndeSheetViewModel(
+          onde: _EmptyOndeObservationRepository(),
+          favorites: favorites,
+        );
+        minimumWindow(tester);
+        await tester.pumpWidget(_app(await acknowledged(), null, null, sheet));
+        expect(find.byKey(favoriteStarButtonKey), findsNothing);
+
+        await sheet.open(
+          OndePoint(
+            code: OndeStationCode('K4520001'),
+            label: 'LA RIVIERE AUX LOCHES A CHAON',
+            latitude: 47.610620493,
+            longitude: 2.173858157,
+            waterCourseLabel: 'ruisseau la rivière aux loches',
+            departement: null,
+          ),
+        );
+        await tester.pump();
+
+        expect(sheet.state, isA<OndeSheetPrete>());
+        expect(find.byKey(favoriteStarButtonKey), findsOneWidget);
+        expect(starLabel(tester), 'Ajouter aux favoris');
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pump();
+        await tester.pump();
+
+        expect(favorites.stored, hasLength(1));
+        expect(favorites.stored.single, isA<OndePointFavorite>());
+        expect(starLabel(tester), 'Retirer des favoris');
+      },
+    );
+  });
+
+  // `K4` de T3 : toute ouverture de fiche montre la fiche depuis son haut. La
+  // zone des fiches défile (2026-10-13) et sa position survivait au changement
+  // de fiche quand la donnée arrive sans trame entre « en cours » et
+  // « prête » (dépôt qui répond sans attente : la donnée en cache). Seule la
+  // racine sait quand une fiche s'ouvre : c'est sa composition RÉELLE qui est
+  // éprouvée, par les rappels de tap qu'elle passe à `MapView`.
+  //
+  // La police est celle de test (un glyphe vaut un em) : à 360 × 640 et 200 %,
+  // les fiches prêtes y sont plus hautes que la carte, c'est tout ce qu'il
+  // faut ici — aucun pixel n'est mesuré.
+  group('une fiche s ouvre par le haut (K4 de T3) — composition reelle', () {
+    Future<WarningsViewModel> acknowledged() async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      return viewModel;
+    }
+
+    // `_BloisStationRepository` répond pour tout code : le second est un
+    // double de test, pas une station réelle.
+    StationCode stationA() => StationCode('K447001001');
+    StationCode stationB() => StationCode('K000000002');
+    OndePoint chaon() => OndePoint(
+      code: OndeStationCode('K4520001'),
+      label: 'LA RIVIERE AUX LOCHES A CHAON',
+      latitude: 47.610620493,
+      longitude: 2.173858157,
+      waterCourseLabel: 'ruisseau la rivière aux loches',
+      departement: null,
+    );
+
+    /// Monte la racine sur un téléphone, 360 × 640, police à 200 %, avec les
+    /// VRAIS ViewModels de fiche et des dépôts qui répondent sans attente.
+    Future<_SheetsRoot> pumpPhone(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository();
+      final StationSheetViewModel station = StationSheetViewModel(
+        observations: _EmptyHydroObservationRepository(),
+        stations: _BloisStationRepository(),
+        favorites: favorites,
+      );
+      final OndeSheetViewModel onde = OndeSheetViewModel(
+        onde: _EmptyOndeObservationRepository(),
+        favorites: favorites,
+      );
+      await tester.pumpWidget(_app(await acknowledged(), null, station, onde));
+      return (station: station, onde: onde, favorites: favorites);
+    }
+
+    /// Le défilement de la zone des fiches : les deux panneaux y sont, l'un
+    /// des deux fermé.
+    Finder sheetScrollable() => find
+        .ancestor(
+          of: find.byType(StationSheetPanel),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+
+    ScrollPosition sheetPosition(WidgetTester tester) =>
+        tester.state<ScrollableState>(sheetScrollable()).position;
+
+    /// Ouvre une fiche PAR LA RACINE — le rappel de tap qu'elle passe à
+    /// `MapView` — et laisse le ViewModel aller au bout SANS trame : aucune
+    /// image n'est dessinée entre « en cours » et « prête ».
+    Future<void> openWithoutFrame(
+      WidgetTester tester,
+      void Function(MapView map) tap,
+    ) async {
+      tap(tester.widget<MapView>(find.byType(MapView)));
+      await tester.idle();
+    }
+
+    /// Fait défiler la fiche ouverte au bout, et rend la position atteinte.
+    Future<double> scrollToEnd(WidgetTester tester) async {
+      final ScrollPosition position = sheetPosition(tester);
+      expect(
+        position.maxScrollExtent,
+        greaterThan(0),
+        reason: 'la fiche doit être plus haute que la carte',
+      );
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pump();
+      expect(position.pixels, greaterThan(0), reason: 'défilée au bout');
+      return position.pixels;
+    }
+
+    /// La position vaut 0 et le haut du contrôle « ⚠ Avertissement » de la
+    /// fiche [panel] est dans la fenêtre de défilement.
+    void expectShownFromTop(WidgetTester tester, Finder panel, double before) {
+      expect(
+        sheetPosition(tester).pixels,
+        0,
+        reason: 'la position de défilement est conservée (avant : $before)',
+      );
+      final Rect window = tester.getRect(sheetScrollable());
+      final double top = tester
+          .getRect(
+            find.descendant(of: panel, matching: find.byKey(warningLinkKey)),
+          )
+          .top;
+      expect(
+        top >= window.top && top < window.bottom,
+        isTrue,
+        reason: 'haut de « ⚠ Avertissement » à $top, fenêtre $window',
+      );
+    }
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : station A defilee au bout, puis station '
+      'B ouverte sans trame entre « en cours » et « prete » — a la premiere '
+      'trame ou B est prete, la position vaut 0 et « Avertissement » est '
+      'dans la fenetre',
+      (WidgetTester tester) async {
+        final _SheetsRoot root = await pumpPhone(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationB()),
+        );
+        final StationSheetState state = root.station.state;
+        expect(state, isA<Prete>(), reason: 'B prête avant toute trame');
+        expect((state as Prete).data.station.code, stationB());
+        await tester.pump();
+
+        expectShownFromTop(tester, find.byType(StationSheetPanel), before);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : fiche station defilee au bout, puis un '
+      'point ONDE ouvert sans trame — la fiche ONDE est montree depuis son '
+      'haut',
+      (WidgetTester tester) async {
+        final _SheetsRoot root = await pumpPhone(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onOndeTap!(chaon()),
+        );
+        expect(root.station.state, isA<Fermee>());
+        expect(root.onde.state, isA<OndeSheetPrete>());
+        await tester.pump();
+
+        expectShownFromTop(tester, find.byType(OndeSheetPanel), before);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : fiche ONDE defilee au bout, puis une '
+      'station ouverte sans trame — la fiche station est montree depuis son '
+      'haut',
+      (WidgetTester tester) async {
+        final _SheetsRoot root = await pumpPhone(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onOndeTap!(chaon()),
+        );
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        expect(root.onde.state, isA<OndeSheetFermee>());
+        expect(root.station.state, isA<Prete>());
+        await tester.pump();
+
+        expectShownFromTop(tester, find.byType(StationSheetPanel), before);
+      },
+    );
+
+    // Vert avant comme après `K4` : seule une OUVERTURE ramène la fiche en
+    // haut.
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : une bascule de favori sur une fiche '
+      'defilee ne remet pas la position a 0',
+      (WidgetTester tester) async {
+        final _SheetsRoot root = await pumpPhone(tester);
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        // Par le ViewModel, non par l'étoile de la racine : elle a défilé hors
+        // champ avec la fiche, et son câblage est tenu par les cas de `S7a`.
+        await root.station.toggleFavorite();
+        await tester.pump();
+
+        expect(root.favorites.stored, hasLength(1), reason: 'bascule faite');
+        expect(sheetPosition(tester).pixels, before);
+      },
+    );
+
+    // La remise à zéro ne joue qu'au PASSAGE à « en cours ». Deux
+    // notifications arrivent PENDANT cet état sans que la fiche change : la
+    // réponse du dépôt des favoris quand la station est déjà en favori
+    // (l'étoile pleine apparaît), et la bascule de cette étoile. La fenêtre
+    // est courte et la police grande pour que la fiche « en cours » elle-même
+    // dépasse et défile ; le référentiel ne répond pas, elle le reste.
+    testWidgetsOnAndroid(
+      'Android : 360 x 200, 300 % : fiche station « en cours » defilee — la '
+      'reponse du depot des favoris, puis une bascule de favori, notifient '
+      'sans changer d etat et ne remettent pas la position a 0',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = 3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+          <Favorite>[
+            StationFavorite(
+              code: stationA(),
+              label: 'La Loire à Blois',
+              addedAt: DateTime.utc(2026, 10, 14),
+            ),
+          ],
+        );
+        final Completer<void> favoritesAnswer = Completer<void>();
+        favorites.readGate = favoritesAnswer;
+        final StationSheetViewModel station = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _PendingStationRepository(),
+          favorites: favorites,
+        );
+        int notifications = 0;
+        station.addListener(() => notifications++);
+        await tester.pumpWidget(_app(await acknowledged(), null, station));
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(station.favoriteStar, isNull, reason: 'favoris pas encore lus');
+        final double before = await scrollToEnd(tester);
+
+        // La réponse du dépôt des favoris : l'étoile pleine apparaît.
+        int seen = notifications;
+        favoritesAnswer.complete();
+        await tester.idle();
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(station.favoriteStar?.filled, isTrue);
+        expect(notifications, greaterThan(seen), reason: 'a notifié');
+        expect(sheetPosition(tester).pixels, before);
+
+        // La bascule de l'étoile pleine, active en « en cours » : un retrait.
+        seen = notifications;
+        await station.toggleFavorite();
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(favorites.stored, isEmpty, reason: 'bascule faite');
+        expect(notifications, greaterThan(seen), reason: 'a notifié');
+        expect(sheetPosition(tester).pixels, before);
+      },
+    );
+
+    // La bascule SEULE : les favoris sont lus avant le défilement, la seule
+    // notification reçue ensuite pendant « en cours » est celle de la bascule.
+    testWidgetsOnAndroid(
+      'Android : 360 x 200, 300 % : fiche station « en cours » defilee, '
+      'favoris deja lus — la bascule de l etoile pleine ne remet pas la '
+      'position a 0',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = 3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+          <Favorite>[
+            StationFavorite(
+              code: stationA(),
+              label: 'La Loire à Blois',
+              addedAt: DateTime.utc(2026, 10, 14),
+            ),
+          ],
+        );
+        final StationSheetViewModel station = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _PendingStationRepository(),
+          favorites: favorites,
+        );
+        await tester.pumpWidget(_app(await acknowledged(), null, station));
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(station.favoriteStar?.filled, isTrue, reason: 'favoris lus');
+        final double before = await scrollToEnd(tester);
+
+        int notifications = 0;
+        station.addListener(() => notifications++);
+        await station.toggleFavorite();
+        await tester.pump();
+        expect(station.state, isA<EnCours>());
+        expect(favorites.stored, isEmpty, reason: 'bascule faite');
+        expect(notifications, greaterThan(0), reason: 'a notifié');
+        expect(sheetPosition(tester).pixels, before);
+      },
+    );
+
+    // Le même fait pour la fiche ONDE, dont la garde est écrite à part : la
+    // source ONDE ne répond pas, la fiche reste « en cours » ; le point est
+    // déjà en favori et la réponse du dépôt des favoris fait apparaître
+    // l'étoile pleine sans changer l'état.
+    testWidgetsOnAndroid(
+      'Android : 360 x 200, 300 % : fiche ONDE « en cours » defilee — la '
+      'reponse du depot des favoris notifie sans changer d etat et ne remet '
+      'pas la position a 0',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = 3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+          <Favorite>[
+            OndePointFavorite(
+              point: chaon(),
+              addedAt: DateTime.utc(2026, 10, 14),
+            ),
+          ],
+        );
+        final Completer<void> favoritesAnswer = Completer<void>();
+        favorites.readGate = favoritesAnswer;
+        final OndeSheetViewModel onde = OndeSheetViewModel(
+          onde: _PendingOndeObservationRepository(),
+          favorites: favorites,
+        );
+        int notifications = 0;
+        onde.addListener(() => notifications++);
+        await tester.pumpWidget(_app(await acknowledged(), null, null, onde));
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onOndeTap!(chaon()),
+        );
+        await tester.pump();
+        expect(onde.state, isA<OndeSheetEnCours>());
+        expect(onde.favoriteStar, isNull, reason: 'favoris pas encore lus');
+        final double before = await scrollToEnd(tester);
+
+        final int seen = notifications;
+        favoritesAnswer.complete();
+        await tester.idle();
+        await tester.pump();
+        expect(onde.state, isA<OndeSheetEnCours>());
+        expect(onde.favoriteStar?.filled, isTrue);
+        expect(notifications, greaterThan(seen), reason: 'a notifié');
+        expect(sheetPosition(tester).pixels, before);
+      },
+    );
+
+    // La racine s'abonne à des ViewModels reçus par son constructeur : s'ils
+    // changent, ses écoutes les suivent (`didUpdateWidget`).
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : racine remontee avec d autres ViewModels '
+      'de fiche — une ouverture sur les nouveaux ramene la fiche en haut',
+      (WidgetTester tester) async {
+        await pumpPhone(tester);
+
+        final InMemoryFavoriteRepository favorites =
+            InMemoryFavoriteRepository();
+        final StationSheetViewModel station = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _BloisStationRepository(),
+          favorites: favorites,
+        );
+        final OndeSheetViewModel onde = OndeSheetViewModel(
+          onde: _EmptyOndeObservationRepository(),
+          favorites: favorites,
+        );
+        final MartinPecheurApp first = tester.widget<MartinPecheurApp>(
+          find.byType(MartinPecheurApp),
+        );
+        // La MÊME racine, aux deux ViewModels de fiche près.
+        await tester.pumpWidget(
+          MartinPecheurApp(
+            warningsViewModel: first.warningsViewModel,
+            mapViewModel: first.mapViewModel,
+            restrictionsViewModel: first.restrictionsViewModel,
+            favoritesViewModel: first.favoritesViewModel,
+            stationSheetViewModel: station,
+            ondeSheetViewModel: onde,
+          ),
+        );
+
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationA()),
+        );
+        await tester.pump();
+        expect(station.state, isA<Prete>(), reason: 'ouverte sur les nouveaux');
+        final double before = await scrollToEnd(tester);
+
+        // Une ouverture sur les NOUVEAUX ramène la fiche en haut.
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onStationTap!(stationB()),
+        );
+        expect(station.state, isA<Prete>());
+        await tester.pump();
+        expectShownFromTop(tester, find.byType(StationSheetPanel), before);
+
+        await scrollToEnd(tester);
+        await openWithoutFrame(
+          tester,
+          (MapView map) => map.onOndeTap!(chaon()),
+        );
+        expect(onde.state, isA<OndeSheetPrete>());
+        await tester.pump();
+        expectShownFromTop(tester, find.byType(OndeSheetPanel), before);
+      },
+    );
+  });
+
+  testWidgetsOnWindows(
+    'requiresAcknowledgement vrai : InitialWarningView est affiche, '
+    'MapView n\'est jamais construit',
+    (WidgetTester tester) async {
+      final WarningsViewModel warningsViewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(),
+        currentWarningVersion: warningTextVersion,
+      );
+      await warningsViewModel.load();
+
+      await tester.pumpWidget(_app(warningsViewModel));
+
+      expect(find.byType(InitialWarningView), findsOneWidget);
+      expect(find.byType(MapView), findsNothing);
+    },
+  );
+
+  testWidgetsOnWindows('requiresAcknowledgement faux : MapView est affiche', (
     WidgetTester tester,
   ) async {
     final WarningsViewModel warningsViewModel = WarningsViewModel(
@@ -258,7 +953,7 @@ void main() {
     expect(find.byType(InitialWarningView), findsNothing);
   });
 
-  testWidgets(
+  testWidgetsOnWindows(
     'usager deja acquitte : InitialWarningView n\'est jamais rendu, pas '
     'meme une image — assertion des le tout premier pump',
     (WidgetTester tester) async {
@@ -283,7 +978,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'cocher puis presser le bouton bascule vers la carte sans redemarrer '
     'l\'app, MapView n\'est construit qu\'apres',
     (WidgetTester tester) async {
@@ -307,7 +1002,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'echec de lecture du stockage : le modal reste affiche, l\'app ne '
     'plante pas',
     (WidgetTester tester) async {
@@ -327,7 +1022,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'echec d\'ecriture de l\'acquittement (UC-006 A6) : le modal reste '
     'affiche, MapView n\'est jamais construit',
     (WidgetTester tester) async {
@@ -367,94 +1062,104 @@ void main() {
       await tester.pumpWidget(_app(viewModel));
     }
 
-    testWidgets('modal : le lien ouvre l ecran, rien n est acquitte, la '
-        'carte n est toujours pas construite', (WidgetTester tester) async {
-      await pumpUnacknowledged(tester);
+    testWidgetsOnWindows(
+      'modal : le lien ouvre l ecran, rien n est acquitte, la '
+      'carte n est toujours pas construite',
+      (WidgetTester tester) async {
+        await pumpUnacknowledged(tester);
 
-      await tester.tap(find.byKey(initialWarningSourcesLinkKey));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(find.byType(DataSourcesView), findsOneWidget);
-      expect(find.text(dataSourcesTitle), findsOneWidget);
-      // Ni visible NI cachee sous la route : la carte n'existe pas.
-      expect(find.byType(MapView, skipOffstage: false), findsNothing);
-    });
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DataSourcesView), findsOneWidget);
+        expect(find.text(dataSourcesTitle), findsOneWidget);
+        // Ni visible NI cachee sous la route : la carte n'existe pas.
+        expect(find.byType(MapView, skipOffstage: false), findsNothing);
+      },
+    );
 
     for (final bool checked in <bool>[false, true]) {
-      testWidgets('modal, case ${checked ? 'cochee' : 'decochee'} : le retour '
-          'rend le modal tel qu il etait laisse, toujours bloquant', (
-        WidgetTester tester,
-      ) async {
+      testWidgetsOnWindows(
+        'modal, case ${checked ? 'cochee' : 'decochee'} : le retour '
+        'rend le modal tel qu il etait laisse, toujours bloquant',
+        (WidgetTester tester) async {
+          await pumpUnacknowledged(tester);
+          if (checked) {
+            await tester.tap(find.byKey(initialWarningCheckboxKey));
+            await tester.pump();
+          }
+
+          await tester.tap(find.byKey(initialWarningSourcesLinkKey));
+          await tester.pumpAndSettle();
+          await tester.pageBack();
+          await tester.pumpAndSettle();
+
+          expect(find.byType(DataSourcesView), findsNothing);
+          expect(find.byType(InitialWarningView), findsOneWidget);
+          expect(find.byType(MapView, skipOffstage: false), findsNothing);
+          expect(
+            tester
+                .widget<Checkbox>(find.byKey(initialWarningCheckboxKey))
+                .value,
+            checked,
+          );
+        },
+      );
+    }
+
+    testWidgetsOnWindows(
+      'apres acquittement : la fenetre d avertissement de la carte '
+      'porte le lien, qui ouvre l ecran',
+      (WidgetTester tester) async {
+        final WarningsViewModel viewModel = WarningsViewModel(
+          acknowledgements: _AcknowledgementRepositoryDouble(
+            storedVersion: warningTextVersion,
+          ),
+          currentWarningVersion: warningTextVersion,
+        );
+        await viewModel.load();
+        await tester.pumpWidget(_app(viewModel));
+
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DataSourcesView), findsOneWidget);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(DataSourcesView), findsNothing);
+        expect(find.byKey(warningWindowRegionKey), findsOneWidget);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'de bout en bout : relire les sources depuis le modal, '
+      'acquitter, puis les relire depuis la carte',
+      (WidgetTester tester) async {
         await pumpUnacknowledged(tester);
-        if (checked) {
-          await tester.tap(find.byKey(initialWarningCheckboxKey));
-          await tester.pump();
-        }
 
         await tester.tap(find.byKey(initialWarningSourcesLinkKey));
         await tester.pumpAndSettle();
         await tester.pageBack();
         await tester.pumpAndSettle();
+        await tester.tap(find.byKey(initialWarningCheckboxKey));
+        await tester.pump();
+        await tester.tap(find.byKey(initialWarningButtonKey));
+        await tester.pumpAndSettle();
+        expect(find.byType(MapView), findsOneWidget);
 
-        expect(find.byType(DataSourcesView), findsNothing);
-        expect(find.byType(InitialWarningView), findsOneWidget);
-        expect(find.byType(MapView, skipOffstage: false), findsNothing);
-        expect(
-          tester.widget<Checkbox>(find.byKey(initialWarningCheckboxKey)).value,
-          checked,
-        );
-      });
-    }
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningWindowSourcesLinkKey));
+        await tester.pumpAndSettle();
 
-    testWidgets('apres acquittement : la fenetre d avertissement de la carte '
-        'porte le lien, qui ouvre l ecran', (WidgetTester tester) async {
-      final WarningsViewModel viewModel = WarningsViewModel(
-        acknowledgements: _AcknowledgementRepositoryDouble(
-          storedVersion: warningTextVersion,
-        ),
-        currentWarningVersion: warningTextVersion,
-      );
-      await viewModel.load();
-      await tester.pumpWidget(_app(viewModel));
-
-      await tester.tap(find.byKey(warningLinkKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(warningWindowSourcesLinkKey));
-      await tester.pumpAndSettle();
-
-      expect(tester.takeException(), isNull);
-      expect(find.byType(DataSourcesView), findsOneWidget);
-
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.byType(DataSourcesView), findsNothing);
-      expect(find.byKey(warningWindowRegionKey), findsOneWidget);
-    });
-
-    testWidgets('de bout en bout : relire les sources depuis le modal, '
-        'acquitter, puis les relire depuis la carte', (
-      WidgetTester tester,
-    ) async {
-      await pumpUnacknowledged(tester);
-
-      await tester.tap(find.byKey(initialWarningSourcesLinkKey));
-      await tester.pumpAndSettle();
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(initialWarningCheckboxKey));
-      await tester.pump();
-      await tester.tap(find.byKey(initialWarningButtonKey));
-      await tester.pumpAndSettle();
-      expect(find.byType(MapView), findsOneWidget);
-
-      await tester.tap(find.byKey(warningLinkKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(warningWindowSourcesLinkKey));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DataSourcesView), findsOneWidget);
-    });
+        expect(find.byType(DataSourcesView), findsOneWidget);
+      },
+    );
   });
 
   group('ecran des restrictions (E3)', () {
@@ -487,40 +1192,47 @@ void main() {
         .properties
         .selected!;
 
-    testWidgets('composition reelle, au lancement : la puce Restrictions est '
-        'la, ni bouton, ni indice, ni reticule', (WidgetTester tester) async {
-      await tester.pumpWidget(_app(await acknowledged()));
+    testWidgetsOnWindows(
+      'composition reelle, au lancement : la puce Restrictions est '
+      'la, ni bouton, ni indice, ni reticule',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app(await acknowledged()));
 
-      expect(find.byKey(mapDesignationChipKey), findsOneWidget);
-      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
-      expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
-      expect(find.byKey(mapCenterReticleKey), findsNothing);
-    });
+        expect(find.byKey(mapDesignationChipKey), findsOneWidget);
+        expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+        expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
+        expect(find.byKey(mapCenterReticleKey), findsNothing);
+      },
+    );
 
-    testWidgets('composition reelle : apres la puce, le bouton et son indice '
-        'sont centres sur la carte (fiches fermees)', (
-      WidgetTester tester,
-    ) async {
-      tester.view.physicalSize = const Size(1920, 1032);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        _app(await acknowledged(), _restrictions(_PendingRestrictionSource())),
-      );
-      await tester.tap(find.byKey(mapDesignationChipKey));
-      await tester.pumpAndSettle();
+    testWidgetsOnWindows(
+      'composition reelle : apres la puce, le bouton et son indice '
+      'sont centres sur la carte (fiches fermees)',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1920, 1032);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _app(
+            await acknowledged(),
+            _restrictions(_PendingRestrictionSource()),
+          ),
+        );
+        await tester.tap(find.byKey(mapDesignationChipKey));
+        await tester.pumpAndSettle();
 
-      expect(
-        tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
-        closeTo(960, 1),
-      );
-      expect(
-        tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
-        closeTo(960, 1),
-      );
-    });
+        expect(
+          tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
+          closeTo(960, 1),
+        );
+        expect(
+          tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
+          closeTo(960, 1),
+        );
+      },
+    );
 
-    testWidgets('designation : la route de l ecran est poussee et le '
+    testWidgetsOnWindows('designation : la route de l ecran est poussee et le '
         'ViewModel interroge le point designe', (WidgetTester tester) async {
       final _PendingRestrictionSource source = _PendingRestrictionSource();
       final RestrictionsViewModel restrictions = _restrictions(source);
@@ -534,136 +1246,146 @@ void main() {
       expect(restrictions.state, isA<RestrictionsEnCours>());
     });
 
-    testWidgets('bouton de retour : route retiree, ViewModel ferme, carte '
-        'de nouveau visible', (WidgetTester tester) async {
-      final RestrictionsViewModel restrictions = _restrictions();
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
+    testWidgetsOnWindows(
+      'bouton de retour : route retiree, ViewModel ferme, carte '
+      'de nouveau visible',
+      (WidgetTester tester) async {
+        final RestrictionsViewModel restrictions = _restrictions();
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsNothing);
-      expect(restrictions.state, isA<RestrictionsFermees>());
-      expect(find.byType(MapView), findsOneWidget);
-    });
+        expect(find.byType(RestrictionsScreen), findsNothing);
+        expect(restrictions.state, isA<RestrictionsFermees>());
+        expect(find.byType(MapView), findsOneWidget);
+      },
+    );
 
     // Constat A de la revue : le futur de `push` se complete a l'appel de
     // `pop`, AVANT l'animation de sortie ; `close()` passait alors l'etat a
     // `RestrictionsFermees` et la route, encore montee, se vidait.
-    testWidgets('retour : pendant la sortie de la route, l ecran garde son '
-        'dernier contenu, le ViewModel est deja ferme', (
-      WidgetTester tester,
-    ) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
-      source.completers.single.complete(zonesAin());
-      await tester.pumpAndSettle();
-      expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
-      expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
+    testWidgetsOnWindows(
+      'retour : pendant la sortie de la route, l ecran garde son '
+      'dernier contenu, le ViewModel est deja ferme',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
+        source.completers.single.complete(zonesAin());
+        await tester.pumpAndSettle();
+        expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
+        expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
 
-      await tester.pageBack();
-      await tester.pump(const Duration(milliseconds: 50));
+        await tester.pageBack();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      // Le verrou contre une reponse tardive reste pose des le retrait...
-      expect(restrictions.state, isA<RestrictionsFermees>());
-      // ... mais la route, encore a l'ecran, n'est pas vide.
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
-      expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
+        // Le verrou contre une reponse tardive reste pose des le retrait...
+        expect(restrictions.state, isA<RestrictionsFermees>());
+        // ... mais la route, encore a l'ecran, n'est pas vide.
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
+        expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
 
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsNothing);
-    });
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsNothing);
+      },
+    );
 
     // La route sortante est sous `IgnorePointer`, mais la carte DESSOUS recoit
     // les gestes : une nouvelle designation 50 ms apres le retour relance la
     // requete (le ViewModel quitte `RestrictionsFermees`) pendant que la
     // route sortante est encore a l'ecran. Elle ne doit pas se vider pour
     // autant : seule la NOUVELLE route montre « Recherche des zones… ».
-    testWidgets('retour puis nouvelle designation pendant la sortie : la '
-        'route SORTANTE garde ses cartes de zone', (WidgetTester tester) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
-      source.completers.single.complete(zonesAin());
-      await tester.pumpAndSettle();
-      expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
+    testWidgetsOnWindows(
+      'retour puis nouvelle designation pendant la sortie : la '
+      'route SORTANTE garde ses cartes de zone',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
+        source.completers.single.complete(zonesAin());
+        await tester.pumpAndSettle();
+        expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
 
-      await tester.pageBack();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(restrictions.state, isA<RestrictionsFermees>());
-      // Le bouton de la carte, dessous, recoit l'appui (le mode est reste
-      // actif au retour).
-      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
-      await tester.pump();
+        await tester.pageBack();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(restrictions.state, isA<RestrictionsFermees>());
+        // Le bouton de la carte, dessous, recoit l'appui (le mode est reste
+        // actif au retour).
+        await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+        await tester.pump();
 
-      // La requete est bien repartie...
-      expect(source.requested, hasLength(2));
-      expect(restrictions.state, isA<RestrictionsEnCours>());
-      // ... la nouvelle route cherche, et la SORTANTE garde ses cartes. La
-      // nouvelle route est encore hors scene a sa premiere image : on compte
-      // hors scene aussi.
-      expect(
-        find.byType(RestrictionsScreen, skipOffstage: false),
-        findsNWidgets(2),
-      );
-      expect(
-        find.byKey(restrictionsZoneCardKey(0), skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(
-        find.text(
-          "Recherche des zones d'alerte pour ce point…",
-          skipOffstage: false,
-        ),
-        findsOneWidget,
-      );
+        // La requete est bien repartie...
+        expect(source.requested, hasLength(2));
+        expect(restrictions.state, isA<RestrictionsEnCours>());
+        // ... la nouvelle route cherche, et la SORTANTE garde ses cartes. La
+        // nouvelle route est encore hors scene a sa premiere image : on compte
+        // hors scene aussi.
+        expect(
+          find.byType(RestrictionsScreen, skipOffstage: false),
+          findsNWidgets(2),
+        );
+        expect(
+          find.byKey(restrictionsZoneCardKey(0), skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            "Recherche des zones d'alerte pour ce point…",
+            skipOffstage: false,
+          ),
+          findsOneWidget,
+        );
 
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(find.byKey(restrictionsZoneCardKey(0)), findsNothing);
-      expect(
-        find.text("Recherche des zones d'alerte pour ce point…"),
-        findsOneWidget,
-      );
-    });
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(find.byKey(restrictionsZoneCardKey(0)), findsNothing);
+        expect(
+          find.text("Recherche des zones d'alerte pour ce point…"),
+          findsOneWidget,
+        );
+      },
+    );
 
     // `close()` vide `unopenedLink` du ViewModel des le retrait : la route
     // sortante doit garder, elle, l'avis qu'elle affichait.
-    testWidgets('retour : un avis de lien non ouvert reste affiche pendant la '
-        'sortie de la route', (WidgetTester tester) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
-      source.completers.single.complete(zonesAin());
-      await tester.pumpAndSettle();
+    testWidgetsOnWindows(
+      'retour : un avis de lien non ouvert reste affiche pendant la '
+      'sortie de la route',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
+        source.completers.single.complete(zonesAin());
+        await tester.pumpAndSettle();
 
-      // L'action de l'encart, par la composition reelle : `_NeverOpensLinks`
-      // refuse, l'avis apparait.
-      await tester.tap(find.text(reinforcedWarningActionLabel));
-      await tester.pumpAndSettle();
-      expect(restrictions.unopenedLink?.raw, restrictionsPublicSiteUrl);
-      final Finder notice = find.textContaining(
-        "Ce lien n'a pas pu être ouvert",
-      );
-      expect(notice, findsOneWidget);
+        // L'action de l'encart, par la composition reelle : `_NeverOpensLinks`
+        // refuse, l'avis apparait.
+        await tester.tap(find.text(reinforcedWarningActionLabel));
+        await tester.pumpAndSettle();
+        expect(restrictions.unopenedLink?.raw, restrictionsPublicSiteUrl);
+        final Finder notice = find.textContaining(
+          "Ce lien n'a pas pu être ouvert",
+        );
+        expect(notice, findsOneWidget);
 
-      await tester.pageBack();
-      await tester.pump(const Duration(milliseconds: 50));
+        await tester.pageBack();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      expect(restrictions.state, isA<RestrictionsFermees>());
-      expect(restrictions.unopenedLink, isNull);
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(notice, findsOneWidget);
+        expect(restrictions.state, isA<RestrictionsFermees>());
+        expect(restrictions.unopenedLink, isNull);
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(notice, findsOneWidget);
 
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsNothing);
-    });
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsNothing);
+      },
+    );
 
     // Defaut 2, par la composition reelle : l'usager redescend, rappuie sur
     // l'action de l'encart, nouvel echec du meme lien ; l'avis revient dans
@@ -769,7 +1491,7 @@ void main() {
       expect(notice, findsOneWidget);
     });
 
-    testWidgets('Echap : route retiree, ViewModel ferme', (
+    testWidgetsOnWindows('Echap : route retiree, ViewModel ferme', (
       WidgetTester tester,
     ) async {
       final RestrictionsViewModel restrictions = _restrictions();
@@ -783,125 +1505,136 @@ void main() {
       expect(restrictions.state, isA<RestrictionsFermees>());
     });
 
-    testWidgets('retour pendant un chargement : la reponse tardive laisse '
-        'le ViewModel ferme', (WidgetTester tester) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      await designate(tester);
+    testWidgetsOnWindows(
+      'retour pendant un chargement : la reponse tardive laisse '
+      'le ViewModel ferme',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        await designate(tester);
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      source.completers.single.complete(
-        ZonesAtPoint(
-          point: source.requested.single,
-          retrievedAt: DateTime.utc(2026, 9, 27, 11, 25),
-          zones: const [],
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        source.completers.single.complete(
+          ZonesAtPoint(
+            point: source.requested.single,
+            retrievedAt: DateTime.utc(2026, 9, 27, 11, 25),
+            zones: const [],
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(restrictions.state, isA<RestrictionsFermees>());
-    });
+        expect(restrictions.state, isA<RestrictionsFermees>());
+      },
+    );
 
-    testWidgets('deux designations sans retour : une seule route, etat du '
-        'second point, un retour ramene a la carte ViewModel ferme', (
-      WidgetTester tester,
-    ) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+    testWidgetsOnWindows(
+      'deux designations sans retour : une seule route, etat du '
+      'second point, un retour ramene a la carte ViewModel ferme',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
 
-      await tester.tap(find.byKey(mapDesignationChipKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(mapDesignateCenterButtonKey));
-      await tester.pump();
-      // La route couvre deja la carte : le second geste (appui long, clic
-      // droit) arrive par le rappel de la carte, sans retour entre les deux.
-      tester
-          .widget<MapView>(find.byType(MapView, skipOffstage: false))
-          .onPointDesignated!(GeoPoint(latitude: 45, longitude: 3));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapDesignationChipKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapDesignateCenterButtonKey));
+        await tester.pump();
+        // La route couvre deja la carte : le second geste (appui long, clic
+        // droit) arrive par le rappel de la carte, sans retour entre les deux.
+        tester
+            .widget<MapView>(find.byType(MapView, skipOffstage: false))
+            .onPointDesignated!(GeoPoint(latitude: 45, longitude: 3));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(source.requested, hasLength(2));
-      final RestrictionsState state = restrictions.state;
-      expect(state, isA<RestrictionsEnCours>());
-      expect((state as RestrictionsEnCours).point, source.requested.last);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsNothing);
-      expect(find.byType(MapView), findsOneWidget);
-      expect(restrictions.state, isA<RestrictionsFermees>());
-    });
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(source.requested, hasLength(2));
+        final RestrictionsState state = restrictions.state;
+        expect(state, isA<RestrictionsEnCours>());
+        expect((state as RestrictionsEnCours).point, source.requested.last);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsNothing);
+        expect(find.byType(MapView), findsOneWidget);
+        expect(restrictions.state, isA<RestrictionsFermees>());
+      },
+    );
 
-    testWidgets('re-designation apres retour : une seule route, l etat '
-        'est celui du second point', (WidgetTester tester) async {
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
+    testWidgetsOnWindows(
+      're-designation apres retour : une seule route, l etat '
+      'est celui du second point',
+      (WidgetTester tester) async {
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
 
-      await designate(tester);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      // Le mode est resté actif au retour : le bouton est là, sans rappuyer
-      // sur la puce.
-      await designate(tester, allumer: false);
+        await designate(tester);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        // Le mode est resté actif au retour : le bouton est là, sans rappuyer
+        // sur la puce.
+        await designate(tester, allumer: false);
 
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(source.requested, hasLength(2));
-      final RestrictionsState state = restrictions.state;
-      expect(state, isA<RestrictionsEnCours>());
-      expect((state as RestrictionsEnCours).point, source.requested.last);
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(source.requested, hasLength(2));
+        final RestrictionsState state = restrictions.state;
+        expect(state, isA<RestrictionsEnCours>());
+        expect((state as RestrictionsEnCours).point, source.requested.last);
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.byType(RestrictionsScreen), findsNothing);
-    });
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(RestrictionsScreen), findsNothing);
+      },
+    );
 
-    testWidgets('au retour de l ecran des restrictions, le mode est toujours '
-        'actif (bouton present) et l echelle inchangee (E5)', (
-      WidgetTester tester,
-    ) async {
-      final RestrictionsViewModel restrictions = _restrictions();
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
+    testWidgetsOnWindows(
+      'au retour de l ecran des restrictions, le mode est toujours '
+      'actif (bouton present) et l echelle inchangee (E5)',
+      (WidgetTester tester) async {
+        final RestrictionsViewModel restrictions = _restrictions();
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
 
-      await designate(tester);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+        await designate(tester);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsNothing);
-      expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
-      expect(find.byKey(mapCenterReticleKey), findsOneWidget);
-      expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
-      expect(echelleSelectionnee(tester, MapScaleKind.debit), isFalse);
-    });
+        expect(find.byType(RestrictionsScreen), findsNothing);
+        expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
+        expect(find.byKey(mapCenterReticleKey), findsOneWidget);
+        expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
+        expect(echelleSelectionnee(tester, MapScaleKind.debit), isFalse);
+      },
+    );
 
-    testWidgets('une designation par appui long, hors mode, ouvre l ecran et '
-        'laisse le mode eteint au retour (E5)', (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1920, 1032);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final _PendingRestrictionSource source = _PendingRestrictionSource();
-      final RestrictionsViewModel restrictions = _restrictions(source);
-      await tester.pumpWidget(_app(await acknowledged(), restrictions));
-      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+    testWidgetsOnWindows(
+      'une designation par appui long, hors mode, ouvre l ecran et '
+      'laisse le mode eteint au retour (E5)',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1920, 1032);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final _PendingRestrictionSource source = _PendingRestrictionSource();
+        final RestrictionsViewModel restrictions = _restrictions(source);
+        await tester.pumpWidget(_app(await acknowledged(), restrictions));
+        expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
 
-      await tester.longPressAt(const Offset(1200, 500));
-      await tester.pumpAndSettle();
+        await tester.longPressAt(const Offset(1200, 500));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsOneWidget);
-      expect(source.requested, hasLength(1));
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(source.requested, hasLength(1));
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
 
-      expect(find.byType(RestrictionsScreen), findsNothing);
-      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
-      expect(find.byKey(mapCenterReticleKey), findsNothing);
-      expect(find.byKey(mapDesignationChipKey), findsOneWidget);
-    });
+        expect(find.byType(RestrictionsScreen), findsNothing);
+        expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+        expect(find.byKey(mapCenterReticleKey), findsNothing);
+        expect(find.byKey(mapDesignationChipKey), findsOneWidget);
+      },
+    );
 
     // Windows est la première cible, et `flutter test` tourne par défaut en
     // Android : la désignation par appui long ET par clic droit, hors mode,
@@ -1010,5 +1743,628 @@ void main() {
       expect(find.byType(RestrictionsScreen), findsOneWidget);
       expect(source.requested, hasLength(1));
     });
+  });
+
+  // `S11` de T3 : l'écran « Favoris » est une ROUTE poussée par la racine.
+  // L'ouvrir ferme les deux fiches et relit le dépôt ; une garde empêche d'en
+  // empiler deux ; ouvrir un favori retire la route et ouvre la bonne fiche,
+  // sans toucher à la carte. Ces règles vivent dans `main.dart` : c'est sa
+  // composition RÉELLE qui est éprouvée, avec UN dépôt en mémoire partagé par
+  // les trois ViewModels de favoris.
+  group('ecran des favoris (S11)', () {
+    Future<WarningsViewModel> acknowledged() async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      return viewModel;
+    }
+
+    StationFavorite blois() => StationFavorite(
+      code: StationCode('K447001001'),
+      label: 'La Loire à Blois',
+      addedAt: DateTime.utc(2026, 10, 14),
+    );
+    OndePoint chaon() => OndePoint(
+      code: OndeStationCode('K4520001'),
+      label: 'LA RIVIERE AUX LOCHES A CHAON',
+      latitude: 47.610620493,
+      longitude: 2.173858157,
+      waterCourseLabel: 'ruisseau la rivière aux loches',
+      departement: null,
+    );
+    OndePointFavorite chaonFavorite() =>
+        OndePointFavorite(point: chaon(), addedAt: DateTime.utc(2026, 10, 13));
+
+    /// La racine à la taille minimale de la fenêtre Windows (800 × 740, `K3`),
+    /// usager acquitté, avec les VRAIS ViewModels sur UN dépôt des favoris.
+    /// [stations] : le référentiel de la fiche station (vide par défaut, la
+    /// fiche est alors « introuvable »).
+    Future<_FavoritesRoot> pumpRoot(
+      WidgetTester tester, {
+      List<Favorite> initial = const <Favorite>[],
+      StationRepository? stations,
+    }) async {
+      tester.view.physicalSize = const Size(800, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+        initial,
+      );
+      final StationSheetViewModel station = StationSheetViewModel(
+        observations: _EmptyHydroObservationRepository(),
+        stations: stations ?? _EmptyStationRepository(),
+        favorites: favorites,
+      );
+      final OndeSheetViewModel onde = OndeSheetViewModel(
+        onde: _EmptyOndeObservationRepository(),
+        favorites: favorites,
+      );
+      final FavoritesViewModel list = FavoritesViewModel(favorites: favorites);
+      final MapViewModel map = MapViewModel(
+        stationPoints: _EmptyStationPointRepository(),
+        observations: _EmptyHydroObservationRepository(),
+        onde: _EmptyOndeObservationRepository(),
+      );
+      await tester.pumpWidget(
+        _app(await acknowledged(), null, station, onde, list, map),
+      );
+      return (
+        favorites: favorites,
+        station: station,
+        onde: onde,
+        list: list,
+        map: map,
+      );
+    }
+
+    /// Le bouton « Favoris » de la carte, puis la route installée.
+    Future<void> openFavorites(WidgetTester tester) async {
+      await tester.tap(find.byKey(mapFavoritesButtonKey));
+      await tester.pumpAndSettle();
+    }
+
+    MapView mapView(WidgetTester tester) =>
+        tester.widget<MapView>(find.byType(MapView, skipOffstage: false));
+
+    const ValueKey<String> firstRemove = ValueKey<String>('favorite-remove-0');
+
+    testWidgetsOnWindows(
+      'au lancement : le bouton « Favoris » est la, l ecran absent',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(tester);
+
+        expect(find.byKey(mapFavoritesButtonKey), findsOneWidget);
+        expect(find.byType(FavoritesScreen), findsNothing);
+        expect(root.list.state, isA<FavorisFermes>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'ouvrir « Favoris » ferme la fiche station ouverte et montre l ecran',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(tester);
+        await root.station.open(StationCode('K447001001'));
+        await tester.pump();
+        expect(root.station.state, isA<Introuvable>());
+
+        await openFavorites(tester);
+
+        expect(find.byType(FavoritesScreen), findsOneWidget);
+        expect(root.station.state, isA<Fermee>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'ouvrir « Favoris » ferme la fiche ONDE ouverte et montre l ecran',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(tester);
+        await root.onde.open(chaon());
+        await tester.pump();
+        expect(root.onde.state, isA<OndeSheetPrete>());
+
+        await openFavorites(tester);
+
+        expect(find.byType(FavoritesScreen), findsOneWidget);
+        expect(root.onde.state, isA<OndeSheetFermee>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'chaque ouverture relit le depot : un favori ajoute entre deux '
+      'ouvertures apparait a la seconde',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(tester);
+
+        int reads = root.favorites.readCalls;
+        await openFavorites(tester);
+        expect(root.favorites.readCalls, reads + 1);
+        expect(find.text(favoritesEmptyText), findsOneWidget);
+        expect(find.text('La Loire à Blois'), findsNothing);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        await root.favorites.add(blois());
+
+        reads = root.favorites.readCalls;
+        await openFavorites(tester);
+        expect(root.favorites.readCalls, reads + 1);
+        expect(find.text('La Loire à Blois'), findsOneWidget);
+      },
+    );
+
+    // Précédent de la route des restrictions : un second retrait fermerait le
+    // ViewModel sous un écran encore affiché.
+    testWidgetsOnWindows(
+      'deux appels de onOpenFavorites dans la meme trame : une seule route, '
+      'un seul retour ramene a la carte',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois()],
+        );
+
+        final MapView map = mapView(tester);
+        map.onOpenFavorites!();
+        map.onOpenFavorites!();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byType(FavoritesScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(find.text('La Loire à Blois'), findsOneWidget);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FavoritesScreen, skipOffstage: false), findsNothing);
+        expect(find.byType(MapView), findsOneWidget);
+        expect(root.list.state, isA<FavorisFermes>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'retour : le ViewModel est ferme des le retrait, la route sortante '
+      'garde sa liste ; rouvrir donne une route, liste relue',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois()],
+        );
+        await openFavorites(tester);
+        expect(find.text('La Loire à Blois'), findsOneWidget);
+
+        await tester.pageBack();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(root.list.state, isA<FavorisFermes>());
+        expect(find.byType(FavoritesScreen), findsOneWidget);
+        expect(find.text('La Loire à Blois'), findsOneWidget);
+        expect(find.text(favoritesNoMeasureNotice), findsOneWidget);
+
+        await tester.pumpAndSettle();
+        expect(find.byType(FavoritesScreen), findsNothing);
+
+        final int reads = root.favorites.readCalls;
+        await openFavorites(tester);
+        expect(
+          find.byType(FavoritesScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(root.favorites.readCalls, reads + 1);
+        expect(find.text('La Loire à Blois'), findsOneWidget);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'depot vide : la liste vide est dite ; le bouton de retour, puis '
+      'Echap, retirent la route',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(tester);
+
+        await openFavorites(tester);
+        expect(find.text(favoritesEmptyText), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(FavoritesScreen), findsNothing);
+        expect(find.byType(MapView), findsOneWidget);
+        expect(root.list.state, isA<FavorisFermes>());
+
+        await openFavorites(tester);
+        expect(find.text(favoritesEmptyText), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(FavoritesScreen), findsNothing);
+        expect(find.byType(MapView), findsOneWidget);
+        expect(root.list.state, isA<FavorisFermes>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'ouvrir un favori station : la route est retiree, la fiche station '
+      'porte son code, la fiche ONDE est fermee',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois()],
+          stations: _BloisStationRepository(),
+        );
+        await openFavorites(tester);
+
+        await tester.tap(find.text('La Loire à Blois'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FavoritesScreen), findsNothing);
+        expect(root.list.state, isA<FavorisFermes>());
+        final StationSheetState state = root.station.state;
+        expect(state, isA<Prete>());
+        expect((state as Prete).data.station.code.value, 'K447001001');
+        expect(root.onde.state, isA<OndeSheetFermee>());
+      },
+    );
+
+    // Arbitrage 6 du cadrage : ni la caméra, ni l'échelle ne bougent. Une
+    // fiche ONDE s'ouvre donc aussi sur l'échelle débit.
+    testWidgetsOnWindows(
+      'ouvrir un favori ONDE sur l echelle debit : la fiche porte CE point, '
+      'l echelle reste le debit, le zoom n a pas bouge',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[chaonFavorite()],
+        );
+        root.map.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        final double? zoom = root.map.zoom;
+        expect(zoom, isNotNull, reason: 'la carte a rapporté son zoom');
+
+        await openFavorites(tester);
+        await tester.tap(find.text('LA RIVIERE AUX LOCHES A CHAON'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FavoritesScreen), findsNothing);
+        final OndeSheetState state = root.onde.state;
+        expect(state, isA<OndeSheetPrete>());
+        expect((state as OndeSheetPrete).data.point.code.value, 'K4520001');
+        expect(
+          state.data.point,
+          same((root.favorites.stored.single as OndePointFavorite).point),
+        );
+        expect(root.map.scale, MapScaleKind.debit);
+        expect(root.map.zoom, zoom);
+        expect(root.station.state, isA<Fermee>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'une fiche ONDE ouverte, puis « Favoris », puis un favori station : '
+      'seule la fiche station est ouverte',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois()],
+          stations: _BloisStationRepository(),
+        );
+        mapView(tester).onOndeTap!(chaon());
+        await tester.pumpAndSettle();
+        expect(root.onde.state, isA<OndeSheetPrete>());
+
+        await openFavorites(tester);
+        await tester.tap(find.text('La Loire à Blois'));
+        await tester.pumpAndSettle();
+
+        expect(root.station.state, isA<Prete>());
+        expect(root.onde.state, isA<OndeSheetFermee>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'retirer un favori depuis la liste : la ligne disparait, le depot ne '
+      'le porte plus, la route reste',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois(), chaonFavorite()],
+        );
+        await openFavorites(tester);
+
+        await tester.tap(find.byKey(firstRemove));
+        await tester.pumpAndSettle();
+
+        expect(find.text('La Loire à Blois'), findsNothing);
+        expect(find.text('LA RIVIERE AUX LOCHES A CHAON'), findsOneWidget);
+        expect(root.favorites.stored, hasLength(1));
+        expect(root.favorites.stored.single, isA<OndePointFavorite>());
+        expect(find.byType(FavoritesScreen), findsOneWidget);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'retrait en echec : « Le favori n a pas pu etre retire. », la ligne '
+      'reste',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois()],
+        );
+        await openFavorites(tester);
+        root.favorites.writeError = StateError('ecriture ko');
+
+        await tester.tap(find.byKey(firstRemove));
+        await tester.pumpAndSettle();
+
+        expect(favoriteRemoveFailedText, "Le favori n'a pas pu être retiré.");
+        expect(find.text(favoriteRemoveFailedText), findsOneWidget);
+        expect(find.text('La Loire à Blois'), findsOneWidget);
+        expect(root.favorites.stored, hasLength(1));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'liste illisible : elle est dite telle ; « Repartir d une liste vide » '
+      'mene a la liste vide',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois()],
+        );
+        root.favorites.readError = const FormatException('illisible');
+        await openFavorites(tester);
+        expect(find.text(favoritesUnreadableText), findsOneWidget);
+        expect(find.text(favoritesEmptyText), findsNothing);
+
+        // Le dépôt réel remplace la valeur illisible ; le double garde son
+        // `readError` même après son propre `clear()` : on le remet à `null`,
+        // comme le `clear()` du dépôt réel, qui remplace la valeur illisible.
+        root.favorites.readError = null;
+        await tester.tap(find.byKey(favoritesStartOverButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(find.text(favoritesEmptyText), findsOneWidget);
+        expect(find.text(favoritesUnreadableText), findsNothing);
+        expect(root.favorites.stored, isEmpty);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'liste illisible, remise a zero en echec : « La liste n a pas pu etre '
+      'remplacee. », l avis de liste illisible reste',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois()],
+        );
+        root.favorites.readError = const FormatException('illisible');
+        await openFavorites(tester);
+        root.favorites.writeError = StateError('ecriture ko');
+
+        await tester.tap(find.byKey(favoritesStartOverButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(
+          favoritesReplaceFailedText,
+          "La liste n'a pas pu être remplacée.",
+        );
+        expect(find.text(favoritesReplaceFailedText), findsOneWidget);
+        expect(find.text(favoritesUnreadableText), findsOneWidget);
+        expect(root.favorites.stored, hasLength(1));
+      },
+    );
+
+    // Critères 1 et 6, à la persistance près (`S3`).
+    testWidgetsOnWindows(
+      'de bout en bout : l etoile d une fiche station prete, la fiche '
+      'fermee, puis « Favoris » — la ligne « La Loire a Blois » est la',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          stations: _BloisStationRepository(),
+        );
+        mapView(tester).onStationTap!(StationCode('K447001001'));
+        await tester.pumpAndSettle();
+        expect(root.station.state, isA<Prete>());
+
+        await tester.tap(find.byKey(favoriteStarButtonKey));
+        await tester.pumpAndSettle();
+        expect(root.favorites.stored, hasLength(1));
+        mapView(tester).onCloseSheets!();
+        await tester.pumpAndSettle();
+        expect(root.station.state, isA<Fermee>());
+
+        await openFavorites(tester);
+
+        expect(find.text('La Loire à Blois'), findsOneWidget);
+        expect(find.text(stationFavoriteKind), findsOneWidget);
+      },
+    );
+
+    // Cadrage § 6.6 : le filtre est de session, l'aller-retour ne le touche
+    // pas.
+    testWidgetsOnWindows(
+      'le filtre survit a l aller-retour par « Favoris » : meme filtre, '
+      'bouton « Filtres » toujours en forme active',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(tester);
+        const MapFilter filter = MapFilter(assec: false);
+        root.map.applyFilter(filter);
+        await tester.pumpAndSettle();
+        expect(find.byKey(mapFiltersActiveMarkKey), findsOneWidget);
+
+        await openFavorites(tester);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        expect(root.map.filter, filter);
+        expect(find.byKey(mapFiltersButtonKey), findsOneWidget);
+        expect(find.byKey(mapFiltersActiveMarkKey), findsOneWidget);
+      },
+    );
+
+    // Deux activations d'une ligne avant la trame suivante : la seconde ne
+    // doit rien retirer — un second `pop()` retirerait la route de la CARTE.
+    testWidgetsOnWindows(
+      'deux appels de onOpen dans la meme trame : la route « Favoris » seule '
+      'est retiree, la carte reste, la fiche du PREMIER favori est ouverte',
+      (WidgetTester tester) async {
+        final _FavoritesRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[blois(), chaonFavorite()],
+          stations: _BloisStationRepository(),
+        );
+        await openFavorites(tester);
+
+        final FavoritesScreen screen = tester.widget<FavoritesScreen>(
+          find.byType(FavoritesScreen),
+        );
+        screen.onOpen(blois());
+        screen.onOpen(chaonFavorite());
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(FavoritesScreen), findsNothing);
+        expect(find.byType(MapView), findsOneWidget);
+        // Plus rien à retirer : la carte est la seule route.
+        expect(
+          Navigator.of(tester.element(find.byType(MapView))).canPop(),
+          isFalse,
+        );
+        final StationSheetState state = root.station.state;
+        expect(state, isA<Prete>());
+        expect((state as Prete).data.station.code.value, 'K447001001');
+        expect(root.onde.state, isA<OndeSheetFermee>());
+        expect(root.list.state, isA<FavorisFermes>());
+      },
+    );
+
+    // Ouvrir un favori passe par `open()` des ViewModels de fiche, hors d'une
+    // phase de construction — la fiche d'un AUTRE lieu se montre donc aussi
+    // depuis son haut. Non-régression, verte dès son écriture, et encore verte
+    // SANS l'écoute de `K4` (contre-épreuve du 2026-10-14) : ouvrir « Favoris »
+    // ferme les deux fiches, la zone des fiches se vide sous la route et sa
+    // position retombe à 0 d'elle-même. Ce cas tient donc le résultat pour le
+    // chemin des favoris, par quelque moyen que ce soit ; l'écoute de `K4` a
+    // ses propres verrous, dans son groupe.
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : station A defilee au bout, puis '
+      '« Favoris », puis le favori d une AUTRE station — a la premiere trame '
+      'ou sa fiche est prete, la position vaut 0',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        // `_BloisStationRepository` répond pour tout code : le second est un
+        // double de test, pas une station réelle.
+        final StationCode stationB = StationCode('K000000002');
+        final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+          <Favorite>[
+            StationFavorite(
+              code: stationB,
+              label: 'Station B',
+              addedAt: DateTime.utc(2026, 10, 14),
+            ),
+          ],
+        );
+        final StationSheetViewModel station = StationSheetViewModel(
+          observations: _EmptyHydroObservationRepository(),
+          stations: _BloisStationRepository(),
+          favorites: favorites,
+        );
+        await tester.pumpWidget(
+          _app(
+            await acknowledged(),
+            null,
+            station,
+            OndeSheetViewModel(
+              onde: _EmptyOndeObservationRepository(),
+              favorites: favorites,
+            ),
+            FavoritesViewModel(favorites: favorites),
+          ),
+        );
+        Finder sheetScrollable() => find
+            .ancestor(
+              of: find.byType(StationSheetPanel),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        ScrollPosition sheetPosition() =>
+            tester.state<ScrollableState>(sheetScrollable()).position;
+
+        mapView(tester).onStationTap!(StationCode('K447001001'));
+        await tester.pumpAndSettle();
+        expect(
+          sheetPosition().maxScrollExtent,
+          greaterThan(0),
+          reason: 'la fiche doit être plus haute que la carte',
+        );
+        sheetPosition().jumpTo(sheetPosition().maxScrollExtent);
+        await tester.pump();
+        final double before = sheetPosition().pixels;
+        expect(before, greaterThan(0), reason: 'défilée au bout');
+
+        mapView(tester).onOpenFavorites!();
+        await tester.pumpAndSettle();
+        expect(find.byType(FavoritesScreen), findsOneWidget);
+        expect(station.state, isA<Fermee>());
+
+        await tester.ensureVisible(find.text('Station B'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Station B'));
+        await tester.idle();
+        final StationSheetState state = station.state;
+        expect(state, isA<Prete>(), reason: 'B prête avant toute trame');
+        expect((state as Prete).data.station.code, stationB);
+        await tester.pump();
+        expect(
+          sheetPosition().pixels,
+          0,
+          reason: 'première trame où B est prête (avant : $before)',
+        );
+
+        await tester.pumpAndSettle();
+        expect(find.byType(FavoritesScreen), findsNothing);
+        expect(sheetPosition().pixels, 0);
+        final Rect window = tester.getRect(sheetScrollable());
+        final double top = tester
+            .getRect(
+              find.descendant(
+                of: find.byType(StationSheetPanel),
+                matching: find.byKey(warningLinkKey),
+              ),
+            )
+            .top;
+        expect(
+          top >= window.top && top < window.bottom,
+          isTrue,
+          reason: 'haut de « ⚠ Avertissement » à $top, fenêtre $window',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'usager non acquitte : ni carte, ni bouton « Favoris », ni ecran',
+      (WidgetTester tester) async {
+        final WarningsViewModel warnings = WarningsViewModel(
+          acknowledgements: _AcknowledgementRepositoryDouble(),
+          currentWarningVersion: warningTextVersion,
+        );
+        await warnings.load();
+
+        await tester.pumpWidget(_app(warnings));
+
+        expect(find.byType(InitialWarningView), findsOneWidget);
+        expect(find.byType(MapView, skipOffstage: false), findsNothing);
+        expect(find.byKey(mapFavoritesButtonKey), findsNothing);
+        expect(find.byType(FavoritesScreen), findsNothing);
+      },
+    );
   });
 }

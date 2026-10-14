@@ -1,12 +1,17 @@
 // Verrouille la cible tactile minimale (`K4` de T2, arbitrage du commanditaire
 // du 2026-09-29) : 48 sur Android, 44 partout ailleurs, Windows et iOS
-// compris. Sous `flutter test` la plateforme par défaut est android.
+// compris. Chaque test nomme sa plateforme (`testWidgetsOnAndroid`,
+// `testWidgetsOnWindows`) : aucun ne se repose sur le défaut de
+// `flutter test`.
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
+
+import '../../support/android_platform.dart';
+import '../../support/windows_platform.dart';
 
 void main() {
   group('minimumTapTargetFor', () {
@@ -52,16 +57,20 @@ void main() {
       return tester.getSize(find.byKey(warningLinkKey));
     }
 
-    testWidgets('android : au moins 48 × 48 dp', (WidgetTester tester) async {
+    testWidgetsOnAndroid('android : au moins 48 × 48 dp', (
+      WidgetTester tester,
+    ) async {
       final Size size = await sizeOf(tester);
       expect(size.width, greaterThanOrEqualTo(48));
       expect(size.height, greaterThanOrEqualTo(48));
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+    });
 
-    testWidgets('windows : au moins 44 × 44 pt', (WidgetTester tester) async {
+    testWidgetsOnWindows('windows : au moins 44 × 44 pt', (
+      WidgetTester tester,
+    ) async {
       final Size size = await sizeOf(tester);
       expect(size.width, greaterThanOrEqualTo(44));
       expect(size.height, greaterThanOrEqualTo(44));
-    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+    });
   });
 }

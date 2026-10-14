@@ -30,7 +30,7 @@ aux deux.
 | Rendu | Widgets Flutter, compilés nativement sur chaque cible |
 
 **Fond de carte** : IGN Géoplateforme WMTS (Licence Ouverte, cohérent avec des données françaises), OSM en repli (ODbL). *Inchangé à travers les trois stacks — ce choix ne dépendait d'aucune d'elles.*
-**Stockage local** : `shared_preferences` pour la préférence simple ([`ADR-011`](adr/ADR-011-stockage-local.md)) ; moteur structuré (favoris, cache persistant) encore à trancher.
+**Stockage local** : `shared_preferences` pour la préférence simple ([`ADR-011`](adr/ADR-011-stockage-local.md)) ; ~~moteur structuré (favoris, cache persistant) encore à trancher.~~ **Depuis T3 (arbitrage 2 du 2026-10-12, `ADR-011` amendé), les favoris y sont aussi** : une clé, une chaîne JSON versionnée (`{ "version": 1, "favoris": [ … ] }`), derrière l'interface `FavoriteRepository` du domaine ; ✅ codé, vérifié par test, non constaté à l'écran. Le **moteur structuré** (cache persistant, hors-ligne) reste **à trancher, ouvert jusqu'au hors-ligne** ([`US-10`](02-specifications.md), [`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md)) : T3 ne le tranche pas.
 
 ## 2. Architecture
 
@@ -46,9 +46,9 @@ aux deux.
 | **Service / DataSource** | `lib/data/` | enveloppe une source : Hub'Eau v2, ONDE v1, VigiEau derrière `RestrictionSource`, asset des percentiles, stockage local |
 | **`domain/`** | `lib/domain/` | Dart pur, **transverse** : entités, unités typées, nomenclatures, interfaces de dépôt. Ne dépend de rien |
 
-**Zéro bibliothèque de gestion d'état** : `ChangeNotifier` et `ListenableBuilder` sont dans Flutter. **Aucune couche de cas d'usage** non plus — le guide l'annonce optionnelle, et aucun des six cas d'usage n'orchestre encore deux dépôts ; elle se réintroduirait **entre** ViewModel et dépôt, sans rien défaire.
+**Zéro bibliothèque de gestion d'état** : `ChangeNotifier` et `ListenableBuilder` sont dans Flutter. **Aucune couche de cas d'usage** non plus — le guide l'annonce optionnelle~~, et aucun des six cas d'usage n'orchestre encore deux dépôts~~ ; elle se réintroduirait **entre** ViewModel et dépôt, sans rien défaire. *Barré le 2026-10-14 (revue finale de T3), faux depuis T1 :* les cas d'usage sont huit (`UC-001` à `UC-008`), et des ViewModels lisent plusieurs dépôts, chacun par son appel typé, sans couche de cas d'usage — `MapViewModel` trois (points de stations, observations hydrométriques, observations ONDE) et `StationSheetViewModel` deux (stations, observations) depuis T1 ; depuis T3, les deux fiches lisent aussi les favoris (`StationSheetViewModel` trois dépôts, `OndeSheetViewModel` deux : observations ONDE, favoris).
 
-Tranches **présentes dans le code** (✅, 2026-10-04) : `features/{map,station_sheet,onde_sheet,warnings,restrictions}` — `restrictions` livrée par T2 (`RestrictionsViewModel`, l'écran plein, l'encart renforcé, le badge de gravité ; vérifiée par test ; ~~jamais constatée à l'écran~~ constatée en partie le 2026-10-04, par le commanditaire, en débogage sur Windows (`project-state.md`, point 48), rien en release ni sur Android) —, plus `features/shared/` — widgets communs à plusieurs tranches, n'important aucune tranche (règle `shared-sans-tranche`, amendement d'[`ADR-014`](adr/ADR-014-feature-first-mvvm.md) du 2026-09-18), qui porte aussi, depuis T2, l'écran « D'où vient cette donnée ? » (`data_sources_view.dart`, deux consommateurs : le modal et la fenêtre « ⚠ Avertissement »). Tranches **prévues** : ~~🔄 `features/restrictions` (T2),~~ 🔄 `features/{favorites,settings}` (T3). `data/` et `domain/` restent partagés.
+Tranches **présentes dans le code** (✅, 2026-10-04 ; **`favorites` ajoutée le 2026-10-14**) : `features/{map,station_sheet,onde_sheet,warnings,restrictions,favorites}` — `restrictions` livrée par T2 (`RestrictionsViewModel`, l'écran plein, l'encart renforcé, le badge de gravité ; vérifiée par test ; ~~jamais constatée à l'écran~~ constatée en partie le 2026-10-04, par le commanditaire, en débogage sur Windows (`project-state.md`, point 48), rien en release ni sur Android) —, plus `features/shared/` — widgets communs à plusieurs tranches, n'important aucune tranche (règle `shared-sans-tranche`, amendement d'[`ADR-014`](adr/ADR-014-feature-first-mvvm.md) du 2026-09-18), qui porte aussi, depuis T2, l'écran « D'où vient cette donnée ? » (`data_sources_view.dart`, deux consommateurs : le modal et la fenêtre « ⚠ Avertissement »). `favorites`, livrée par T3 : `FavoritesViewModel` et l'écran « Favoris », route poussée par `main.dart` ; l'étoile des deux fiches vit dans `features/shared/` (`favorite_star.dart`, `favorite_star_button.dart`) ; vérifiée par test, **jamais constatée à l'écran** (porte de T3 due). Tranches **prévues** : ~~🔄 `features/restrictions` (T2),~~ ~~🔄 `features/{favorites,settings}` (T3).~~ (barré le 2026-10-14 : `favorites` est présente, ci-dessus) 🔄 `features/settings` est **hors T3** (cadrage de T3, § 3 : hors « le titre seul »), **tranche ultérieure, non nommée**. Les filtres de T3 ne forment pas de tranche : ils vivent dans `features/map/` (feuille, groupe de boutons, avis) et dans `lib/domain/filters/`. `data/` et `domain/` restent partagés.
 
 ```mermaid
 flowchart LR
@@ -97,12 +97,14 @@ flowchart LR
 | `ObservationOnde` | `Id` (PK), `CodeStation` (idx), `CodeCampagne` (idx), `CodeEcoulement` (**string**), `LibelleEcoulement`, `Categorie` (`Normal`\|`Faible`\|`NonVisible`\|`Assec`\|`NonObserve`), `DateObservation` | → `PointOnde`, `CampagneOnde` — **échelle 1** |
 | 💭 `ZoneRestriction` | `IdZone` (PK), `CodeDepartement` (idx), `Nom`, `TypeZone` (`SUP`\|`SOU`\|`AEP`), `NiveauGravite`, `DateDebut`, `DateFin`, `UrlArrete`, `UrlArreteCadre` | **échelle 3** — ~~filtrée sur `SUP` pour l'usage rivière~~ schéma de stockage **non retenu en T2** : aucune persistance, voir la note sous ce tableau |
 | 💭 `UsageRestreint` | `Id` (PK), `IdZone` (idx), `Nom`, `Thematique`, `Description`, `ConcerneParticulier`, `ConcerneExploitation`, `ConcerneCollectivite`, `ConcerneEntreprise` | → `ZoneRestriction` — idem |
-| `Favori` | `CodeEntite` (PK), `TypeEntite`, `DateAjout` | Polymorphe |
+| `Favori` | ~~`CodeEntite` (PK), `TypeEntite`, `DateAjout`~~ **Clé : le couple (`TypeEntite`, code)** — jamais `CodeEntite` seul ; `DateAjout` ; un libellé copié à l'ajout. Voir la note sous ce tableau | ~~Polymorphe~~ **Stations hydrométriques et points ONDE**, type clos : ni jointure ni table, la forme stockée est une chaîne JSON (note du 2026-10-14 ci-dessous) |
 | `CacheMeta` | `CleCache` (PK), `TypeDonnee`, `DateRecuperation`, `TtlSecondes`, `TailleOctets` | Pilote la purge |
 | `DerniereVueCarte` | `Id` (PK, unique), `BboxMinLat/Lon`, `BboxMaxLat/Lon`, `Zoom`, `DateSnapshot` | Ancre du hors-ligne |
 | `TuilePack` | `Id` (PK), `BboxRef`, `ZoomMin`, `ZoomMax`, `CheminFichier`, `DateTelechargement` | Fichiers hors base |
 
 > **Note du 2026-10-04 (`X3` de T2) — les deux lignes 💭 ci-dessus ne sont pas celles du code.** T2 ne persiste rien : la réponse de VigiEau est un instantané daté tenu **en mémoire** (cache de session, perdu au relancement), jamais une table. Le modèle réellement écrit est celui de `lib/domain/restrictions/` — `ZonesAtPoint` (le point, la date de récupération, **toutes** les zones, sans filtre sur `SUP`), `AlertZone`, `RestrictionDecree`, `DocumentLink`, `RestrictedUsage`, `DroughtSeverity`, `ZoneKind`, `UserProfile` — décrit par [`domain-model.md`](domain-model.md). Il n'a **ni `IdZone` ni `CodeDepartement`** (`code` vaut `null` sur une zone et se partage entre types : il n'aurait rien identifié), et la partition « eaux superficielles d'abord, autres zones ensuite » vit dans le domaine (`ZonesAtPoint.surfaceWaterZones` / `otherZones`). Le schéma de stockage ci-dessus ne servira que si un moteur structuré est tranché ([`ADR-011`](adr/ADR-011-stockage-local.md)).
+
+> **Note du 2026-10-14 (`X1` de T3) — la ligne `Favori` ci-dessus n'est pas celle du code.** Le modèle réellement écrit est celui de `lib/domain/favorites/`, décrit par [`domain-model.md`](domain-model.md) : `Favorite`, une `sealed class` à trois branches (`BR-011`) — `StationFavorite` (le `StationCode`, le libellé copié à l'ajout, la date d'ajout en UTC ; **sans coordonnées**), `OndePointFavorite` (le `OndePoint` entier, parce que l'ouverture de la fiche l'exige, et la date d'ajout) et `UnreadableFavorite` (le texte brut tel que stocké et son libellé s'il se lit : affiché, retirable, non ouvrable, réécrit tel quel à chaque écriture). **La clé d'un lieu est le couple (type, code), jamais `CodeEntite` seul** : un code ONDE est une chaîne libre, un code station compte dix caractères, et rien n'interdit la même valeur dans les deux ; un favori illisible s'identifie par son texte brut. Un favori est une **identité copiée à l'ajout, jamais une mesure**. Rien n'est une table : `FavoriteRepository` (contrat dans `lib/domain/favorites/` : lire tout, ajouter, retirer, tout effacer ; réalisation `SharedPreferencesFavoriteRepository` sous `lib/data/preferences/`) lit et écrit **une chaîne JSON sous la clé `favorites`**, `{ "version": 1, "favoris": [ … ] }`, chaque entrée portant son `type`. Le dernier ajouté est en tête. Le filtre de la carte (`MapFilter`, `lib/domain/filters/`) n'est, lui, **jamais enregistré** : gardé le temps de la session.
 
 ## 4. Cache et rafraîchissement
 
@@ -165,27 +167,32 @@ Le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste 
 Navigateur racine
 ├── Avertissement initial (modal bloquant, hors navigation, acquittement requis)
 ├── Carte ......................... écran d'accueil
-│   ├── Recherche (station / cours d'eau)
-│   ├── Filtres (feuille) : type · état · département · fraîcheur
+│   ├── Recherche (station / cours d'eau) ...... 🔄 tranche ultérieure, non nommée (arbitrage 1 du 2026-10-12, `US-16`)
+│   ├── Favoris (bouton, groupe en bas à droite) ...... ✅ T3 : pousse l'écran « Favoris » ci-dessous
+│   ├── Filtres (feuille) ✅ T3 : ~~type ·~~ état · département · fraîcheur  ←  « type » = l'échelle, choisie par les puces d'échelle, non par la feuille ; états sur l'écoulement seul, fraîcheur (2 h, 24 h) sur le débit seul ; ouverte par le bouton « Filtres » du même groupe
 │   ├── Légende de l'échelle active
 │   ├── Contrôle « ⚠ Avertissement » → fenêtre (remplace le bandeau permanent, W3c, 2026-09-23)
 │   └── Résumé au tap (feuille) → fiche
 ├── Fiche station hydrométrique .... route paramétrée par CodeStation
 │   ├── Débit (m³/s) + date + statut de qualification
 │   ├── Niveau relatif à l'historique + limites
-│   ├── Courbe 7 / 30 / 90 j
-│   └── Actions : favori, télécharger la zone, partager
+│   ├── Courbe 7 / 30 / 90 j ...... 🔄 tranche ultérieure, non nommée (arbitrage 1 du 2026-10-12, `US-11`)
+│   └── Actions : favori ✅ T3 (étoile, dans le cadre de la fiche), télécharger la zone, partager
 ├── Fiche point ONDE ............... route paramétrée par CodeStation
 │   ├── Catégorie + modalité officielle + date de campagne
 │   ├── Historique des campagnes
+│   ├── Action : favori ✅ T3 (étoile, dans le cadre de la fiche)
 │   └── Avertissement renforcé
 ├── Sécheresse et restrictions ..... écran plein poussé par la désignation d'un point sur la carte (choix « Restrictions » puis bouton, appui long ou clic droit) ; avertissement renforcé en tête
 │   ├── Point désigné, date de récupération, **toutes** les zones du point (eaux superficielles d'abord) et leur niveau de gravité
 │   ├── Arrêtés : PDF de l'arrêté et de l'arrêté-cadre, dédoublonnés
 │   └── Choix du profil, puis usages restreints groupés par zone
-├── Favoris
+├── Favoris ........................ ✅ écran plein livré par T3 (`lib/features/favorites/`, `S9`), route poussée par `main.dart` depuis le bouton « Favoris » de la carte, qui ferme les fiches ouvertes ; vérifié par test, non constaté à l'écran
+│   ├── Liste : l'identité de chaque lieu (libellé, nature, date d'ajout), **aucune mesure** ; retrait depuis la ligne
+│   ├── Ouvrir un favori : la fiche seule, la carte ne bouge pas (arbitrage 6 du 2026-10-12)
+│   └── États : lecture en cours · liste · vide · illisible (avis et « Repartir d'une liste vide »)
 ├── D'où vient cette donnée ? ...... ✅ écran plein livré par T2 (`S1`, `lib/features/shared/data_sources_view.dart`), réduit aux sources livrées : quatre sources, licences, `L-06`, limites propres aux restrictions ; ~~limites L-01 à L-06, glossaire~~ `L-01` à `L-05` n'y figurent pas tant qu'aucun percentile n'est affiché (Q8-A, `C1` de T2), et le glossaire n'y figure pas
-└── Réglages
+└── Réglages ...................... 🔄 hors T3, tranche `settings` ultérieure, non nommée (comme au § 2)
     ├── Cache et zones hors-ligne
     └── À propos — sources, licences, date de génération de l'asset
 ```

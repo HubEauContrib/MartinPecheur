@@ -4,6 +4,9 @@
 // de génération contre une réponse tardive, `_disposed` contre une
 // notification après `dispose()`.
 //
+// Il sait aussi si le point est en favori (`S6` de T3) : [FavoriteStar], lue à
+// chaque ouverture, basculée par `toggleFavorite`.
+//
 // ⚠️ Un ViewModel ne connaît aucun widget : ce fichier n'importe ni
 // `package:flutter/material.dart`, ni `widgets.dart`, ni `cupertino.dart` —
 // seul `foundation.dart`, pour [ChangeNotifier]. Il n'importe pas non plus
@@ -31,10 +34,13 @@
 // un usage de l'eau (`BR-014`).
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:martinpecheur/domain/favorites/favorite.dart';
+import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
+import 'package:martinpecheur/features/shared/favorite_star.dart';
 
 /// Rappel permanent du rythme réel des campagnes ONDE, mot pour mot comme
 /// `BR-010` et `UC-004 § 5` le fixent. Affiché dans TOUS les cas : c'est ce
@@ -169,10 +175,14 @@ final class OndeSheetData {
 /// ViewModel de la fiche ONDE : porte l'état de l'écran et le seul chemin par
 /// lequel il est chargé.
 final class OndeSheetViewModel extends ChangeNotifier {
-  OndeSheetViewModel({required this._onde, DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+  OndeSheetViewModel({
+    required this._onde,
+    required this._favorites,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   final OndeObservationRepository _onde;
+  final FavoriteRepository _favorites;
   final DateTime Function() _now;
 
   OndeSheetState _state = const OndeSheetFermee();
@@ -190,6 +200,52 @@ final class OndeSheetViewModel extends ChangeNotifier {
   /// `StationSheetViewModel` et `MapViewModel`).
   int _generation = 0;
 
+  /// Le point de l'`open()` courant, tel que reçu : c'est lui, ENTIER, que
+  /// [toggleFavorite] copie dans le favori. `null` fiche fermée.
+  OndePoint? _point;
+
+  /// Vrai dès que la lecture des favoris de l'`open()` courant a abouti —
+  /// en liste ou en échec. Tant qu'il est faux, aucune étoile n'est due.
+  bool _favoritesRead = false;
+
+  /// La lecture des favoris de l'`open()` courant a levé : rien n'est su du
+  /// point, et rien ne s'écrit par-dessus une liste illisible.
+  bool _favoritesUnreadable = false;
+
+  /// Le favori du point ouvert, tel que lu — ou tel qu'ajouté par
+  /// [toggleFavorite] ; `null` : il n'est pas en favori.
+  OndePointFavorite? _favorite;
+
+  /// Une écriture (ajout ou retrait) court pour l'`open()` courant.
+  bool _writing = false;
+
+  /// La dernière écriture de l'`open()` courant a échoué.
+  bool _writeFailed = false;
+
+  /// L'étoile de favori à dessiner, ou `null` s'il n'y en a aucune : fiche
+  /// fermée, ou favoris pas encore lus. Le point est connu dans les trois
+  /// états visibles, donc l'étoile y est présente dans tous : vide ou pleine,
+  /// active sauf pendant une écriture et quand la liste stockée est illisible.
+  FavoriteStar? get favoriteStar {
+    switch (_state) {
+      case OndeSheetFermee():
+        return null;
+      case OndeSheetEnCours() || OndeSheetPrete() || OndeSheetEnEchec():
+        break;
+    }
+    if (!_favoritesRead) {
+      return null;
+    }
+    if (_favoritesUnreadable) {
+      return const FavoriteStar(filled: false, enabled: false);
+    }
+    return FavoriteStar(
+      filled: _favorite != null,
+      enabled: !_writing,
+      writeFailed: _writeFailed,
+    );
+  }
+
   /// Charge la fiche du point [point] : l'historique de ses dernières
   /// campagnes, par son code ONDE.
   ///
@@ -201,10 +257,22 @@ final class OndeSheetViewModel extends ChangeNotifier {
   /// Un historique vide est un succès : l'état devient [OndeSheetPrete] avec
   /// [OndeSheetData.latest] à `null`. Seule une levée du dépôt fait basculer
   /// en [OndeSheetEnEchec].
+  ///
+  /// Les favoris sont relus EN MÊME TEMPS, à chaque appel (le dépôt n'a pas de
+  /// mémo) : l'état de la fiche ne les attend pas, mais le futur rendu ne se
+  /// complète qu'après les deux.
   Future<void> open(OndePoint point) async {
     final int generation = ++_generation;
+    _point = point;
+    _resetFavorite();
     _emit(generation, OndeSheetEnCours(point));
 
+    final Future<void> favoritesRead = _readFavorite(generation, point);
+    await _load(generation, point);
+    await favoritesRead;
+  }
+
+  Future<void> _load(int generation, OndePoint point) async {
     try {
       // `Future.sync` enveloppe un appel qui lèverait de façon SYNCHRONE :
       // `CachedOndeObservationRepository.historyFor` n'est pas `async` et
@@ -250,11 +318,103 @@ final class OndeSheetViewModel extends ChangeNotifier {
     }
   }
 
+  /// Lit les favoris pour l'`open()` de numéro [generation]. Toute levée —
+  /// les deux branches de `FavoriteStorageFailure` comme une autre — vaut
+  /// « liste illisible ». Ne lève jamais.
+  Future<void> _readFavorite(int generation, OndePoint point) async {
+    OndePointFavorite? favorite;
+    bool unreadable = false;
+    try {
+      favorite = ondePointFavoriteIn(await _favorites.readAll(), point.code);
+    } on Object {
+      unreadable = true;
+    }
+    _changeStar(generation, () {
+      _favoritesRead = true;
+      _favoritesUnreadable = unreadable;
+      _favorite = favorite;
+    });
+  }
+
+  /// Ajoute le point aux favoris, ou l'en retire. Sans effet — et sans appel
+  /// au dépôt — quand aucune étoile n'est due, qu'elle est inactive
+  /// ([favoriteStar]) ou que ce ViewModel est disposé. L'échec ne se lève pas :
+  /// il se lit dans `favoriteStar.writeFailed`, l'étoile gardant sa forme
+  /// d'avant.
+  Future<void> toggleFavorite() async {
+    if (_disposed) {
+      return;
+    }
+    final FavoriteStar? star = favoriteStar;
+    final OndePoint? point = _point;
+    if (star == null || !star.enabled || point == null) {
+      return;
+    }
+    final OndePointFavorite? current = _favorite;
+    final int generation = _generation;
+    _changeStar(generation, () {
+      _writing = true;
+      _writeFailed = false;
+    });
+
+    OndePointFavorite? next;
+    try {
+      if (current != null) {
+        await _favorites.remove(current);
+      } else {
+        // Le point TEL QUE REÇU, entier : la fiche s'ouvre avec lui depuis la
+        // liste, sans référentiel ONDE embarqué.
+        final OndePointFavorite added = OndePointFavorite(
+          point: point,
+          addedAt: _now().toUtc(),
+        );
+        await _favorites.add(added);
+        next = added;
+      }
+    } on Object {
+      _changeStar(generation, () {
+        _writing = false;
+        _writeFailed = true;
+      });
+      return;
+    }
+    _changeStar(generation, () {
+      _writing = false;
+      _favorite = next;
+    });
+  }
+
   /// Ferme la fiche : toute réponse d'un `open()` en cours devient tardive et
   /// n'écrira plus rien (le jeton de génération change ici aussi).
   void close() {
     final int generation = ++_generation;
+    _point = null;
+    _resetFavorite();
     _emit(generation, const OndeSheetFermee());
+  }
+
+  /// Oublie ce qui était su du favori : un `open()` relit, un `close()` n'a
+  /// plus d'étoile. Ne notifie pas — l'appelant émet l'état juste après.
+  void _resetFavorite() {
+    _favoritesRead = false;
+    _favoritesUnreadable = false;
+    _favorite = null;
+    _writing = false;
+    _writeFailed = false;
+  }
+
+  /// Applique [change] à ce qui est su du favori si [generation] est toujours
+  /// la dernière demandée et que ce ViewModel n'est pas disposé (même garde que
+  /// [_emit]) ; ne notifie que si [favoriteStar] en sort changée.
+  void _changeStar(int generation, void Function() change) {
+    if (_disposed || generation != _generation) {
+      return;
+    }
+    final FavoriteStar? before = favoriteStar;
+    change();
+    if (favoriteStar != before) {
+      notifyListeners();
+    }
   }
 
   /// Applique [next] si [generation] est toujours la dernière demandée et que

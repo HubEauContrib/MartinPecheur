@@ -35,6 +35,7 @@ Immuables, sans identité — deux instances aux mêmes champs sont interchangea
 | `Qualification` | Statut et qualification d'une observation, transportés tels quels (`BR-006`) — aucun champ n'est interprété ni filtré ici. |
 | `Bounds` | Emprise rectangulaire WGS 84 (`lib/domain/geo/bounds.dart`). Refuse une emprise inversée (`west >= east` ou `south >= north`) à la construction. Rangée sous `geo/` et non dans le fichier des contrats de dépôt : la vue en construit une à chaque relâchement de geste, et elle n'a pas à importer `StationRepository` pour cela. |
 | `GeoPoint` | Point désigné par l'usager sur la carte (`lib/domain/geo/geo_point.dart`, T2). Refuse une latitude hors `[-90, 90]`, une longitude hors `[-180, 180]`, `NaN` ou une valeur infinie sur l'une ou l'autre — à la construction, aucun arrondi. Seule entrée géographique de T2 (Q1-A) : une paire de `double` nus ouvrirait la porte à une inversion latitude/longitude. |
+| `MapFilter` | Filtre de la carte (`lib/domain/filters/map_filter.dart`, T3). Six booléens, un par branche de `FlowCategory`, un code de département ou aucun, un `DischargeFreshnessCriterion`. Aucun critère actif au départ (`MapFilter.none`). La décision se prend par `switch` sur le **type** : `Inconnu` est égal par code brut, un ensemble laisserait passer `Inconnu('9')`. Deux membres, `isActiveForFlow` et `isActiveForDischarge`, et aucun paramètre d'échelle : `MapScaleKind` vit dans la tranche carte. Gardé le temps de la session, jamais enregistré. Ses prédicats purs (`lib/domain/filters/map_filter_predicates.dart`) suivent une règle : l'inconnu reste affiché — un filtre ne masque que ce qui est connu comme hors critère (lieu sans département, station non chargée, en échec ou sans donnée : gardés). |
 
 `StationCode`, `DepartementCode`, `Qualification`, `Bounds` et `GeoPoint` sont des classes, et
 non des `extension type` comme les unités, précisément **parce qu'elles valident**.
@@ -46,6 +47,10 @@ non des `extension type` comme les unités, précisément **parce qu'elles valid
 
 - `Freshness` — fraîcheur d'une observation, calculée (`fraiche` / `ancienne` / `perimee`), sans
   objet propre.
+- `DischargeFreshnessCriterion` — `enum` fermé du filtre (`toutes` / `moinsDe2h` / `moinsDe24h`),
+  sans branche inconnue : choisi par l'usager, jamais reçu d'une API. Ses bornes sont celles de
+  `Freshness` (`BR-005`), lues et non recopiées ; `dischargeFreshnessAdmits` et
+  `dischargeFreshnessCriterionLabel` en sont le prédicat et le libellé.
 - `Grandeur` — hauteur / débit / **`inconnu`** : un code non reconnu ne s'assimile jamais à
   `debit`, ce qui afficherait des mètres comme des m³/s.
 - `FlowCategory` — sealed, branche par défaut `Inconnu`, porteur du code brut reçu (`rawCode`) —
@@ -143,7 +148,12 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
   la source, `otherZones` garde toutes les autres dans un **ordre fixe par type**
   (`EauxSouterraines`, puis `EauPotable`, puis `TypeZoneInconnu`) et dans l'ordre de la source à
   l'intérieur d'un même type. **Aucun tri par sévérité** : chaque zone régit ses propres usages,
-  rien ne fonde une zone « principale » (`Q5-B`).
+  rien ne fonde une zone « principale » (`Q5-B`). `lacksSurfaceWaterZone` dit que le point porte des
+  zones dont aucune n'est d'eaux superficielles ; `canStateSurfaceWaterAbsence` ajoute qu'aucune
+  n'est de type non reconnu : d'une telle zone l'application ne sait pas ce qu'elle est, elle
+  n'affirme donc pas l'absence (`BR-011`, T3, `R2`).
+- `DecreeDocument` — un document distinct cité par les zones d'un point ; dédoublonnage par
+  adresse exacte et par rôle, dates partagées (T3, `R1`).
 - `RestrictionSource` — le contrat qui rend un `ZonesAtPoint` pour un `GeoPoint` (T2, M4). Passé au
   domaine depuis `lib/data/` (`ADR-014`, règle `features-vers-data`) : un ViewModel ne pouvait pas
   l'importer autrement. L'ancienne couture `lib/data/restrictions/restriction_source.dart`
@@ -169,6 +179,46 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
   sous `lib/data/links/` autour de `url_launcher`, choisi par `main.dart`. Un échec d'ouverture
   est un **résultat** (`false`), jamais une exception : l'adresse brute reste à l'écran
   (`UC-002 A6`).
+
+## Contexte Favoris — une identité copiée à l'ajout (T3, S1)
+
+Un **favori** est un lieu que l'usager choisit de retrouver. L'application en garde l'identité
+copiée à l'ajout — nom, code, date d'ajout —, jamais une mesure. `Favorite` est un type clos à
+trois branches (`BR-011`) :
+
+- `StationFavorite` — code station et libellé, **sans coordonnées** ;
+- `OndePointFavorite` — le point ONDE **entier** (la fiche s'ouvre avec lui) ;
+- `UnreadableFavorite` — une entrée que cette version ne sait pas lire : gardée, affichée par son
+  libellé s'il est connu, retirable par son texte brut.
+
+La clé d'un lieu est le **couple type et code** (`sameFavoritePlace`) : un code ONDE est une chaîne
+libre, rien n'interdit qu'il égale un code station. `addedAt` est en UTC. L'égalité est
+structurelle ; `OndePoint` n'a pas d'égalité et n'en reçoit pas, `OndePointFavorite` compare ses
+sept champs un à un.
+
+`FavoriteRepository` (`lib/domain/favorites/`) : `readAll` (liste non modifiable, dernier ajouté
+en tête), `add` (en tête ; un lieu déjà présent ne change rien), `remove`, `clear` (sans lire). Son
+échec, `FavoriteStorageFailure`, est **levé** : `ListeDeFavorisIllisible` ou
+`EcritureDeFavorisEnEchec`.
+
+```mermaid
+classDiagram
+    class Favorite { <<sealed>> }
+    class StationFavorite { +StationCode code +String label +DateTime addedAt }
+    class OndePointFavorite { +OndePoint point +DateTime addedAt }
+    class UnreadableFavorite { +String raw +String? label }
+    class FavoriteRepository { <<interface>> readAll() add() remove() clear() }
+    class FavoriteStorageFailure { <<sealed>> +String diagnostic }
+    class ListeDeFavorisIllisible
+    class EcritureDeFavorisEnEchec
+    Favorite <|-- StationFavorite
+    Favorite <|-- OndePointFavorite
+    Favorite <|-- UnreadableFavorite
+    FavoriteRepository ..> Favorite
+    FavoriteRepository ..> FavoriteStorageFailure : lève
+    FavoriteStorageFailure <|-- ListeDeFavorisIllisible
+    FavoriteStorageFailure <|-- EcritureDeFavorisEnEchec
+```
 
 ## Agrégats
 

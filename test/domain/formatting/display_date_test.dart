@@ -83,6 +83,38 @@ void main() {
     });
   });
 
+  group("formatLocalDate — jour local d'un instant", () {
+    test('+2 h passe au lendemain : 12/10 22:30Z → 13/10/2026', () {
+      expect(
+        formatLocalDate(
+          DateTime.utc(2026, 10, 12, 22, 30),
+          offsetOf: (DateTime _) => const Duration(hours: 2),
+        ),
+        '13/10/2026',
+      );
+    });
+
+    test('décalage nul → 12/10/2026', () {
+      expect(
+        formatLocalDate(
+          DateTime.utc(2026, 10, 12, 22, 30),
+          offsetOf: (DateTime _) => Duration.zero,
+        ),
+        '12/10/2026',
+      );
+    });
+
+    test('zéros initiaux : 05/01/2026', () {
+      expect(
+        formatLocalDate(
+          DateTime.utc(2026, 1, 5),
+          offsetOf: (DateTime _) => Duration.zero,
+        ),
+        '05/01/2026',
+      );
+    });
+  });
+
   group('systemUtcOffsetOf — la seule lecture du fuseau de la machine', () {
     test('rend une Duration, utilisée par défaut en production', () {
       expect(systemUtcOffsetOf(DateTime.utc(2026, 8, 27, 8)), isA<Duration>());

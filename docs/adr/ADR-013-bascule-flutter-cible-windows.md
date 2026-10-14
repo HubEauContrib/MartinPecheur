@@ -107,6 +107,11 @@ Android du 2026-09-12 est levé.** Android redevient une **cible active**.
 - 🚨 **Rien n'a été construit ni lancé sur Android.** Le bac à sable ne compile pas de natif (socket
   AF_UNIX fermée, Gradle ne démarre pas) : `flutter run -d emulator-5554` est à lancer **par le
   commanditaire**. **Aucun écran de l'application n'a été vu sur Android sous Flutter.**
+  *Note du 2026-10-14 (`P3` de T3), l'état du 2026-09-18 ci-dessus est conservé :* ~~Rien n'a été
+  construit ni lancé sur Android~~ ne vaut plus. Une construction de débogage est lancée sur
+  l'émulateur `Pixel_7`, confirmée en bloc par le commanditaire (voir la note du 2026-10-14 sous le
+  schéma, plus bas). Le NDK exigé par Flutter n'y est pas relevé : ce qu'il a servi à construire n'est
+  consigné nulle part.
 - Le NDK est donc **présent, pas éprouvé**. La tâche `A⏸2` du plan T0 exige de le *« constater par
   une construction réussie, pas par un raisonnement »* : elle passe de ⏸ à **🔄**, pas à ✅.
 - `adb` **ne voit toujours pas** le Galaxy A54 réel ; `NV-5` (tenue sur Android d'entrée de gamme
@@ -179,6 +184,14 @@ flowchart TD
     style AND fill:#95a5a6,color:#fff
 ```
 
+> **Note du 2026-10-14** (le schéma ci-dessus date du 2026-09-18 et n'est pas réécrit) : la mention
+> ~~« jamais construite ni lancée »~~ pour `android/` ne vaut plus. Une construction Android en
+> débogage est constatée le 2026-10-14 (APK du 2026-10-14 à 15:11:49, code de `0.4.0`), et le
+> commanditaire confirme en bloc qu'elle s'est lancée sur l'émulateur `Pixel_7` et que « les écrans de
+> T3 fonctionnent au toucher » (`P2` de T3, `docs/project-state.md`, points 9 et 62). Non dit : la durée
+> et la dernière ligne de la construction, le premier écran vu. La publication reste différée
+> (`A⏸3`, `A⏸5`), aucun appareil réel (`A⏸4`), aucune release Android.
+
 ### Ce que la bascule ne touche pas
 
 Le **cadrage produit est indépendant de la stack** et n'a pas été refait : les quatre documents de
@@ -233,6 +246,11 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
   `28.2.13676358` est présent sur le poste**, l'épingle `27.1.12297006` est abandonnée et
   `ndkVersion = flutter.ndkVersion` conservé, **sans qu'une construction l'ait encore confirmé**.
   Restent dues : `adb` ne voyant pas le Galaxy A54, et `NV-5` (tenue sur Android réel) ouvert.
+  *Note du 2026-10-14 (`P3` de T3) :* ~~Android n'a jamais été construit~~ ne vaut plus — une
+  construction de débogage est lancée sur l'émulateur `Pixel_7` (confirmation en bloc du
+  commanditaire, `P2` de T3 ; note sous le schéma, plus bas). **iOS n'a toujours jamais été
+  compilé.** Ce qui reste dû est inchangé : `adb` ne voit pas le Galaxy A54, `NV-5` est ouvert, la
+  publication Android (`A⏸3`, `A⏸5`) est différée.
 - **La spec d'UI est écrite pour le mobile.** [`04-ui.md`](../04-ui.md) suppose un écran étroit et le
   tactile ; le lot clavier/souris et responsive qu'`ADR-009` signalait comme à chiffrer reste dû. Premier élément
   de ce lot déjà instruit : la molette. Elle **ne zoomait pas** au spike (2026-09-09) ; elle **zoome**

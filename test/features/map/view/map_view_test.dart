@@ -13,9 +13,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:martinpecheur/domain/filters/map_filter.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/area_cluster.dart' show AreaLevel;
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -40,6 +42,7 @@ import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
+import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
@@ -52,6 +55,8 @@ import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 StationPoint _blois() => StationPoint(
@@ -336,114 +341,119 @@ void main() {
   });
 
   group('buildMapLayers — le tap sur un marqueur (T1-U1)', () {
-    testWidgets('le rappel onStationTap reçoit le code de la station tapée — '
-        'le `child` du marqueur est rendu SEUL, jamais dans un FlutterMap', (
-      WidgetTester tester,
-    ) async {
-      final List<StationCode> tapped = <StationCode>[];
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois(), _guadeloupe()],
-        onStationTap: tapped.add,
-      );
+    testWidgetsOnWindows(
+      'le rappel onStationTap reçoit le code de la station tapée — '
+      'le `child` du marqueur est rendu SEUL, jamais dans un FlutterMap',
+      (WidgetTester tester) async {
+        final List<StationCode> tapped = <StationCode>[];
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois(), _guadeloupe()],
+          onStationTap: tapped.add,
+        );
 
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: minimumTapTarget,
-                height: minimumTapTarget,
-                child: markerLayer.markers[1].child,
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: minimumTapTarget,
+                  height: minimumTapTarget,
+                  child: markerLayer.markers[1].child,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.tap(find.byType(StationMarkerDot));
-      await tester.pump();
+        await tester.tap(find.byType(StationMarkerDot));
+        await tester.pump();
 
-      expect(tapped, hasLength(1));
-      expect(tapped.single, StationCode('1011000101'));
-    });
+        expect(tapped, hasLength(1));
+        expect(tapped.single, StationCode('1011000101'));
+      },
+    );
 
-    testWidgets("le marqueur garde son action tap pour le lecteur d'écran — "
-        'le geste est l ANCÊTRE du `Semantics`, que `excludeSemantics` ne '
-        'masque donc pas (non-régression, relecture du 2026-09-23)', (
-      WidgetTester tester,
-    ) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
-      final List<StationCode> tapped = <StationCode>[];
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois()],
-        onStationTap: tapped.add,
-      );
+    testWidgetsOnWindows(
+      "le marqueur garde son action tap pour le lecteur d'écran — "
+      'le geste est l ANCÊTRE du `Semantics`, que `excludeSemantics` ne '
+      'masque donc pas (non-régression, relecture du 2026-09-23)',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        final List<StationCode> tapped = <StationCode>[];
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois()],
+          onStationTap: tapped.add,
+        );
 
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: minimumTapTarget,
-                height: minimumTapTarget,
-                child: markerLayer.markers.single.child,
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: minimumTapTarget,
+                  height: minimumTapTarget,
+                  child: markerLayer.markers.single.child,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      final SemanticsNode node = tester.getSemantics(
-        find.byType(StationMarkerDot),
-      );
-      // Le nœud atteint est bien celui du marqueur, pas un ancêtre fusionné.
-      expect(node.label, contains('La Loire à Blois'));
-      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+        final SemanticsNode node = tester.getSemantics(
+          find.byType(StationMarkerDot),
+        );
+        // Le nœud atteint est bien celui du marqueur, pas un ancêtre fusionné.
+        expect(node.label, contains('La Loire à Blois'));
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-      node.owner!.performAction(node.id, SemanticsAction.tap);
-      await tester.pump();
-      expect(tapped, <StationCode>[StationCode('K447001001')]);
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pump();
+        expect(tapped, <StationCode>[StationCode('K447001001')]);
 
-      handle.dispose();
-    });
+        handle.dispose();
+      },
+    );
 
-    testWidgets('sans rappel, le marqueur reste inerte — aucune exception au '
-        'tap', (WidgetTester tester) async {
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois()],
-      );
+    testWidgetsOnWindows(
+      'sans rappel, le marqueur reste inerte — aucune exception au '
+      'tap',
+      (WidgetTester tester) async {
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois()],
+        );
 
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: minimumTapTarget,
-                height: minimumTapTarget,
-                child: markerLayer.markers.single.child,
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: minimumTapTarget,
+                  height: minimumTapTarget,
+                  child: markerLayer.markers.single.child,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.tap(find.byType(StationMarkerDot));
-      await tester.pump();
+        await tester.tap(find.byType(StationMarkerDot));
+        await tester.pump();
 
-      expect(tester.takeException(), isNull);
-    });
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgetsOnWindows(
       'la pastille garde sa taille de 12 px au centre de la zone '
@@ -645,58 +655,24 @@ void main() {
   });
 
   group('buildMapLayers — l état de chaque station (T1-U2)', () {
-    testWidgets('la pastille rend l état que stateOf donne pour SA station', (
-      WidgetTester tester,
-    ) async {
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois()],
-        stateOf: (StationCode code) => const SansDonnee(),
-      );
+    testWidgetsOnWindows(
+      'la pastille rend l état que stateOf donne pour SA station',
+      (WidgetTester tester) async {
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois()],
+          stateOf: (StationCode code) => const SansDonnee(),
+        );
 
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: minimumTapTarget,
-              height: minimumTapTarget,
-              child: markerLayer.markers.single.child,
-            ),
-          ),
-        ),
-      );
-
-      expect(
-        tester.widget<StationMarkerDot>(find.byType(StationMarkerDot)).state,
-        const SansDonnee(),
-      );
-    });
-
-    testWidgets('stateOf est interrogé station par station : deux stations, '
-        'deux états', (WidgetTester tester) async {
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois(), _guadeloupe()],
-        stateOf: (StationCode code) => code == StationCode('K447001001')
-            ? const Chargee(Freshness.perimee)
-            : const SansDonnee(),
-      );
-
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      for (final (int index, StationMapState expected) in <StationMapState>[
-        const Chargee(Freshness.perimee),
-        const SansDonnee(),
-      ].indexed) {
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
               body: SizedBox(
                 width: minimumTapTarget,
                 height: minimumTapTarget,
-                child: markerLayer.markers[index].child,
+                child: markerLayer.markers.single.child,
               ),
             ),
           ),
@@ -704,133 +680,176 @@ void main() {
 
         expect(
           tester.widget<StationMarkerDot>(find.byType(StationMarkerDot)).state,
-          expected,
+          const SansDonnee(),
         );
-      }
-    });
+      },
+    );
 
-    testWidgets("l'annonce du marqueur NOMME la station, puis son état — "
-        '« La Loire à Blois, Aucune donnée disponible ici. » ; un seul '
-        'nœud sémantique par marqueur (04-ui.md § 3)', (
-      WidgetTester tester,
-    ) async {
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois()],
-        stateOf: (StationCode code) => const SansDonnee(),
-      );
+    testWidgetsOnWindows(
+      'stateOf est interrogé station par station : deux stations, '
+      'deux états',
+      (WidgetTester tester) async {
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois(), _guadeloupe()],
+          stateOf: (StationCode code) => code == StationCode('K447001001')
+              ? const Chargee(Freshness.perimee)
+              : const SansDonnee(),
+        );
 
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: minimumTapTarget,
-              height: minimumTapTarget,
-              child: markerLayer.markers.single.child,
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        for (final (int index, StationMapState expected) in <StationMapState>[
+          const Chargee(Freshness.perimee),
+          const SansDonnee(),
+        ].indexed) {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: minimumTapTarget,
+                  height: minimumTapTarget,
+                  child: markerLayer.markers[index].child,
+                ),
+              ),
+            ),
+          );
+
+          expect(
+            tester
+                .widget<StationMarkerDot>(find.byType(StationMarkerDot))
+                .state,
+            expected,
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      "l'annonce du marqueur NOMME la station, puis son état — "
+      '« La Loire à Blois, Aucune donnée disponible ici. » ; un seul '
+      'nœud sémantique par marqueur (04-ui.md § 3)',
+      (WidgetTester tester) async {
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois()],
+          stateOf: (StationCode code) => const SansDonnee(),
+        );
+
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: minimumTapTarget,
+                height: minimumTapTarget,
+                child: markerLayer.markers.single.child,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final Semantics semantics = tester.widget<Semantics>(
-        find
-            .ancestor(
-              of: find.byType(StationMarkerDot),
-              matching: find.byType(Semantics),
-            )
-            .first,
-      );
-      expect(
-        semantics.properties.label,
-        startsWith('${mapScaleLabel(MapScaleKind.debit)} : '),
-        reason: "l'annonce nomme l'echelle active en tete (BR-008)",
-      );
-      expect(semantics.properties.label, contains('La Loire à Blois'));
-      expect(
-        semantics.properties.label,
-        contains(stationMapStateLabel(const SansDonnee())),
-      );
-      expect(semantics.properties.button, isTrue);
-      expect(
-        semantics.excludeSemantics,
-        isTrue,
-        reason:
-            'la pastille garde son propre Semantics pour la légende ; sur '
-            'la carte le marqueur le masque, sinon chaque station porterait '
-            'deux nœuds',
-      );
-    });
+        final Semantics semantics = tester.widget<Semantics>(
+          find
+              .ancestor(
+                of: find.byType(StationMarkerDot),
+                matching: find.byType(Semantics),
+              )
+              .first,
+        );
+        expect(
+          semantics.properties.label,
+          startsWith('${mapScaleLabel(MapScaleKind.debit)} : '),
+          reason: "l'annonce nomme l'echelle active en tete (BR-008)",
+        );
+        expect(semantics.properties.label, contains('La Loire à Blois'));
+        expect(
+          semantics.properties.label,
+          contains(stationMapStateLabel(const SansDonnee())),
+        );
+        expect(semantics.properties.button, isTrue);
+        expect(
+          semantics.excludeSemantics,
+          isTrue,
+          reason:
+              'la pastille garde son propre Semantics pour la légende ; sur '
+              'la carte le marqueur le masque, sinon chaque station porterait '
+              'deux nœuds',
+        );
+      },
+    );
 
-    testWidgets("une station fraîche n'annonce QUE son nom : une mesure "
-        "récente n'a pas de libellé d'état (BR-005, BR-007)", (
-      WidgetTester tester,
-    ) async {
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois()],
-        stateOf: (StationCode code) => const Chargee(Freshness.fraiche),
-      );
+    testWidgetsOnWindows(
+      "une station fraîche n'annonce QUE son nom : une mesure "
+      "récente n'a pas de libellé d'état (BR-005, BR-007)",
+      (WidgetTester tester) async {
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois()],
+          stateOf: (StationCode code) => const Chargee(Freshness.fraiche),
+        );
 
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: minimumTapTarget,
-              height: minimumTapTarget,
-              child: markerLayer.markers.single.child,
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: minimumTapTarget,
+                height: minimumTapTarget,
+                child: markerLayer.markers.single.child,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(
-        tester
-            .widget<Semantics>(
-              find
-                  .ancestor(
-                    of: find.byType(StationMarkerDot),
-                    matching: find.byType(Semantics),
-                  )
-                  .first,
-            )
-            .properties
-            .label,
-        '${mapScaleLabel(MapScaleKind.debit)} : La Loire à Blois',
-      );
-    });
+        expect(
+          tester
+              .widget<Semantics>(
+                find
+                    .ancestor(
+                      of: find.byType(StationMarkerDot),
+                      matching: find.byType(Semantics),
+                    )
+                    .first,
+              )
+              .properties
+              .label,
+          '${mapScaleLabel(MapScaleKind.debit)} : La Loire à Blois',
+        );
+      },
+    );
 
-    testWidgets('sans stateOf, toute station est NonChargee — jamais un état '
-        'par défaut qui ressemblerait à une absence constatée (BR-007)', (
-      WidgetTester tester,
-    ) async {
-      final List<Widget> layers = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: <StationPoint>[_blois()],
-      );
+    testWidgetsOnWindows(
+      'sans stateOf, toute station est NonChargee — jamais un état '
+      'par défaut qui ressemblerait à une absence constatée (BR-007)',
+      (WidgetTester tester) async {
+        final List<Widget> layers = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: <StationPoint>[_blois()],
+        );
 
-      final MarkerLayer markerLayer = layers[1] as MarkerLayer;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: minimumTapTarget,
-              height: minimumTapTarget,
-              child: markerLayer.markers.single.child,
+        final MarkerLayer markerLayer = layers[1] as MarkerLayer;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: minimumTapTarget,
+                height: minimumTapTarget,
+                child: markerLayer.markers.single.child,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(
-        tester.widget<StationMarkerDot>(find.byType(StationMarkerDot)).state,
-        const NonChargee(),
-      );
-    });
+        expect(
+          tester.widget<StationMarkerDot>(find.byType(StationMarkerDot)).state,
+          const NonChargee(),
+        );
+      },
+    );
   });
 
   group('buildMapOverlays — les surcouches, sans FlutterMap (T1-U2)', () {
@@ -856,6 +875,10 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
+                filterActive: false,
+                onOpenFilters: () {},
                 scale: scale,
                 onSelect: onSelect ?? (MapScaleKind kind) {},
                 onWiden: onWiden ?? () {},
@@ -876,16 +899,19 @@ void main() {
       );
     }
 
-    testWidgets('la légende est présente QUEL QUE SOIT error — toujours '
-        'visible, jamais repliée (BR-008)', (WidgetTester tester) async {
-      for (final Object? error in <Object?>[null, StateError('panne')]) {
-        await pumpOverlays(tester, error: error);
+    testWidgetsOnWindows(
+      'la légende est présente QUEL QUE SOIT error — toujours '
+      'visible, jamais repliée (BR-008)',
+      (WidgetTester tester) async {
+        for (final Object? error in <Object?>[null, StateError('panne')]) {
+          await pumpOverlays(tester, error: error);
 
-        expect(find.byType(MapLegend), findsOneWidget);
-      }
-    });
+          expect(find.byType(MapLegend), findsOneWidget);
+        }
+      },
+    );
 
-    testWidgets("l'échelle passée est celle que la légende rend", (
+    testWidgetsOnWindows("l'échelle passée est celle que la légende rend", (
       WidgetTester tester,
     ) async {
       for (final MapScaleKind scale in MapScaleKind.values) {
@@ -895,113 +921,123 @@ void main() {
       }
     });
 
-    testWidgets("l'avis de panne n'est présent que si error != null, et il "
-        'NOMME sa source (BR-007, U6)', (WidgetTester tester) async {
-      await pumpOverlays(tester, ondeObservations: _uneObservation());
-      expect(find.byType(SourceUnavailableNotice), findsNothing);
+    testWidgetsOnWindows(
+      "l'avis de panne n'est présent que si error != null, et il "
+      'NOMME sa source (BR-007, U6)',
+      (WidgetTester tester) async {
+        await pumpOverlays(tester, ondeObservations: _uneObservation());
+        expect(find.byType(SourceUnavailableNotice), findsNothing);
 
-      await pumpOverlays(
-        tester,
-        error: StateError('Aucun asset'),
-        errorSource: MapErrorSource.referentiel,
-      );
-      expect(find.byType(SourceUnavailableNotice), findsOneWidget);
-      expect(
-        tester
-            .widget<SourceUnavailableNotice>(
-              find.byType(SourceUnavailableNotice),
-            )
-            .sourceName,
-        mapSourceName(MapErrorSource.referentiel),
-      );
-      expect(
-        find.textContaining('Aucun asset'),
-        findsNothing,
-        reason:
-            "la cause technique ne traverse pas l'avis : donnée de "
-            "diagnostic, pas texte d'interface — même convention que les "
-            'deux fiches',
-      );
-    });
+        await pumpOverlays(
+          tester,
+          error: StateError('Aucun asset'),
+          errorSource: MapErrorSource.referentiel,
+        );
+        expect(find.byType(SourceUnavailableNotice), findsOneWidget);
+        expect(
+          tester
+              .widget<SourceUnavailableNotice>(
+                find.byType(SourceUnavailableNotice),
+              )
+              .sourceName,
+          mapSourceName(MapErrorSource.referentiel),
+        );
+        expect(
+          find.textContaining('Aucun asset'),
+          findsNothing,
+          reason:
+              "la cause technique ne traverse pas l'avis : donnée de "
+              "diagnostic, pas texte d'interface — même convention que les "
+              'deux fiches',
+        );
+      },
+    );
 
-    testWidgets("le panneau de fiche n'est présent que s'il est fourni", (
-      WidgetTester tester,
-    ) async {
-      const Key sheet = Key('fiche');
+    testWidgetsOnWindows(
+      "le panneau de fiche n'est présent que s'il est fourni",
+      (WidgetTester tester) async {
+        const Key sheet = Key('fiche');
 
-      await pumpOverlays(tester);
-      expect(find.byKey(sheet), findsNothing);
+        await pumpOverlays(tester);
+        expect(find.byKey(sheet), findsNothing);
 
-      await pumpOverlays(
-        tester,
-        stationSheet: const SizedBox.shrink(key: sheet),
-      );
-      expect(find.byKey(sheet), findsOneWidget);
-    });
+        await pumpOverlays(
+          tester,
+          stationSheet: const SizedBox.shrink(key: sheet),
+        );
+        expect(find.byKey(sheet), findsOneWidget);
+      },
+    );
 
-    testWidgets("le panneau ONDE n'est présent que s'il est fourni (T1-U4)", (
-      WidgetTester tester,
-    ) async {
-      const Key onde = Key('fiche-onde');
+    testWidgetsOnWindows(
+      "le panneau ONDE n'est présent que s'il est fourni (T1-U4)",
+      (WidgetTester tester) async {
+        const Key onde = Key('fiche-onde');
 
-      await pumpOverlays(tester);
-      expect(find.byKey(onde), findsNothing);
+        await pumpOverlays(tester);
+        expect(find.byKey(onde), findsNothing);
 
-      await pumpOverlays(tester, ondeSheet: const SizedBox.shrink(key: onde));
-      expect(find.byKey(onde), findsOneWidget);
-    });
+        await pumpOverlays(tester, ondeSheet: const SizedBox.shrink(key: onde));
+        expect(find.byKey(onde), findsOneWidget);
+      },
+    );
 
     // Les deux fiches dépendent d'échelles différentes et ne sont jamais
     // ouvertes ensemble en production ; l'empilement reste néanmoins défini
     // et testé, plutôt que laissé au hasard d'un `Stack`.
-    testWidgets('les deux panneaux fournis ensemble sont rendus TOUS LES DEUX, '
-        "empilés, aucun n'écrase l'autre", (WidgetTester tester) async {
-      const Key station = Key('fiche-station');
-      const Key onde = Key('fiche-onde');
+    testWidgetsOnWindows(
+      'les deux panneaux fournis ensemble sont rendus TOUS LES DEUX, '
+      "empilés, aucun n'écrase l'autre",
+      (WidgetTester tester) async {
+        const Key station = Key('fiche-station');
+        const Key onde = Key('fiche-onde');
 
-      await pumpOverlays(
-        tester,
-        stationSheet: const SizedBox(width: 10, height: 10, key: station),
-        ondeSheet: const SizedBox(width: 10, height: 10, key: onde),
-      );
+        await pumpOverlays(
+          tester,
+          stationSheet: const SizedBox(width: 10, height: 10, key: station),
+          ondeSheet: const SizedBox(width: 10, height: 10, key: onde),
+        );
 
-      expect(find.byKey(station), findsOneWidget);
-      expect(find.byKey(onde), findsOneWidget);
-      expect(
-        tester.getTopLeft(find.byKey(station)).dy,
-        lessThan(tester.getTopLeft(find.byKey(onde)).dy),
-        reason: 'le panneau ONDE se pose SOUS le panneau station',
-      );
-    });
+        expect(find.byKey(station), findsOneWidget);
+        expect(find.byKey(onde), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.byKey(station)).dy,
+          lessThan(tester.getTopLeft(find.byKey(onde)).dy),
+          reason: 'le panneau ONDE se pose SOUS le panneau station',
+        );
+      },
+    );
 
-    testWidgets("l'attribution IGN est TOUJOURS présente — une condition "
-        "d'usage de la Licence Ouverte, jamais une finition", (
-      WidgetTester tester,
-    ) async {
-      for (final Object? error in <Object?>[null, StateError('panne')]) {
-        await pumpOverlays(tester, error: error);
+    testWidgetsOnWindows(
+      "l'attribution IGN est TOUJOURS présente — une condition "
+      "d'usage de la Licence Ouverte, jamais une finition",
+      (WidgetTester tester) async {
+        for (final Object? error in <Object?>[null, StateError('panne')]) {
+          await pumpOverlays(tester, error: error);
 
-        expect(find.byType(IgnAttributionBadge), findsOneWidget);
-      }
-    });
+          expect(find.byType(IgnAttributionBadge), findsOneWidget);
+        }
+      },
+    );
 
-    testWidgets("l'avis de panne ne recouvre jamais la légende : sans elle "
-        "l'usager ne sait plus quelle échelle il lit (BR-008)", (
-      WidgetTester tester,
-    ) async {
-      await pumpOverlays(
-        tester,
-        error: StateError('panne de lecture'),
-        errorSource: MapErrorSource.referentiel,
-      );
+    testWidgetsOnWindows(
+      "l'avis de panne ne recouvre jamais la légende : sans elle "
+      "l'usager ne sait plus quelle échelle il lit (BR-008)",
+      (WidgetTester tester) async {
+        await pumpOverlays(
+          tester,
+          error: StateError('panne de lecture'),
+          errorSource: MapErrorSource.referentiel,
+        );
 
-      expect(
-        tester.getTopRight(find.byType(SourceUnavailableNotice)).dx,
-        lessThanOrEqualTo(tester.getTopLeft(find.byType(MapLegend)).dx),
-      );
-    });
+        expect(
+          tester.getTopRight(find.byType(SourceUnavailableNotice)).dx,
+          lessThanOrEqualTo(tester.getTopLeft(find.byType(MapLegend)).dx),
+        );
+      },
+    );
 
-    testWidgets('le contrôle d\'avertissement est TOUJOURS présent, '
+    testWidgetsOnWindows('le contrôle d\'avertissement est TOUJOURS présent, '
         'au-dessus de la légende (W3c)', (WidgetTester tester) async {
       await pumpOverlays(tester);
 
@@ -1012,44 +1048,57 @@ void main() {
       );
     });
 
-    testWidgets('le contrôle d\'avertissement ne recouvre ni les puces ni '
-        "l'attribution IGN (W3c)", (WidgetTester tester) async {
-      await pumpOverlays(tester);
+    testWidgetsOnWindows(
+      'le contrôle d\'avertissement ne recouvre ni les puces ni '
+      "l'attribution IGN (W3c)",
+      (WidgetTester tester) async {
+        await pumpOverlays(tester);
 
-      final Rect link = tester.getRect(find.byType(WarningLink));
-      final Rect chips = tester.getRect(find.byType(MapScaleChips));
-      final Rect attribution = tester.getRect(find.byType(IgnAttributionBadge));
+        final Rect link = tester.getRect(find.byType(WarningLink));
+        final Rect chips = tester.getRect(find.byType(MapScaleChips));
+        final Rect attribution = tester.getRect(
+          find.byType(IgnAttributionBadge),
+        );
 
-      expect(link.overlaps(chips), isFalse);
-      expect(link.overlaps(attribution), isFalse);
-    });
+        expect(link.overlaps(chips), isFalse);
+        expect(link.overlaps(attribution), isFalse);
+      },
+    );
 
-    testWidgets('les contrôles de zoom (K1) ne recouvrent ni le contrôle '
-        "d'avertissement, ni la légende, ni les puces d'échelle, ni "
-        "l'attribution IGN", (WidgetTester tester) async {
-      await pumpOverlays(tester, stations: <StationPoint>[_blois()]);
+    testWidgetsOnWindows(
+      'les contrôles de zoom (K1) ne recouvrent ni le contrôle '
+      "d'avertissement, ni la légende, ni les puces d'échelle, ni "
+      "l'attribution IGN",
+      (WidgetTester tester) async {
+        await pumpOverlays(tester, stations: <StationPoint>[_blois()]);
 
-      final Rect controls = tester.getRect(find.byType(MapControls));
-      final Rect link = tester.getRect(find.byType(WarningLink));
-      final Rect legend = tester.getRect(find.byType(MapLegend));
-      final Rect chips = tester.getRect(find.byType(MapScaleChips));
-      final Rect attribution = tester.getRect(find.byType(IgnAttributionBadge));
+        final Rect controls = tester.getRect(find.byType(MapControls));
+        final Rect link = tester.getRect(find.byType(WarningLink));
+        final Rect legend = tester.getRect(find.byType(MapLegend));
+        final Rect chips = tester.getRect(find.byType(MapScaleChips));
+        final Rect attribution = tester.getRect(
+          find.byType(IgnAttributionBadge),
+        );
 
-      expect(controls.overlaps(link), isFalse);
-      expect(controls.overlaps(legend), isFalse);
-      expect(controls.overlaps(chips), isFalse);
-      expect(controls.overlaps(attribution), isFalse);
-    });
+        expect(controls.overlaps(link), isFalse);
+        expect(controls.overlaps(legend), isFalse);
+        expect(controls.overlaps(chips), isFalse);
+        expect(controls.overlaps(attribution), isFalse);
+      },
+    );
 
-    testWidgets("le tap sur le contrôle d'avertissement ouvre la fenêtre "
-        '(W3c)', (WidgetTester tester) async {
-      await pumpOverlays(tester);
+    testWidgetsOnWindows(
+      "le tap sur le contrôle d'avertissement ouvre la fenêtre "
+      '(W3c)',
+      (WidgetTester tester) async {
+        await pumpOverlays(tester);
 
-      await tester.tap(find.byKey(warningLinkKey));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(warningLinkKey));
+        await tester.pumpAndSettle();
 
-      expect(find.text(initialWarningTitle), findsOneWidget);
-    });
+        expect(find.text(initialWarningTitle), findsOneWidget);
+      },
+    );
   });
 
   group(
@@ -1073,6 +1122,10 @@ void main() {
             home: Scaffold(
               body: Stack(
                 children: buildMapOverlays(
+                  filterHidesEverything: false,
+                  onClearFilters: () {},
+                  filterActive: false,
+                  onOpenFilters: () {},
                   scale: MapScaleKind.debit,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: () {},
@@ -1112,12 +1165,14 @@ void main() {
         }
       }
 
-      testWidgets('400 × 800 (portrait étroit)', (WidgetTester tester) async {
+      testWidgetsOnAndroid('Android : 400 × 800 (portrait étroit)', (
+        WidgetTester tester,
+      ) async {
         await pumpWithSheet(tester, size: const Size(400, 800));
         await expectNoOverlapWithControls(tester);
       });
 
-      testWidgets('800 × 600', (WidgetTester tester) async {
+      testWidgetsOnWindows('800 × 600', (WidgetTester tester) async {
         await pumpWithSheet(tester, size: const Size(800, 600));
         await expectNoOverlapWithControls(tester);
       });
@@ -1136,6 +1191,10 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
+                filterActive: false,
+                onOpenFilters: () {},
                 scale: MapScaleKind.ecoulement,
                 onSelect: (MapScaleKind kind) {},
                 onWiden: () {},
@@ -1153,7 +1212,7 @@ void main() {
       );
     }
 
-    testWidgets("les contrôles de zoom ne recouvrent pas le contrôle "
+    testWidgetsOnWindows("les contrôles de zoom ne recouvrent pas le contrôle "
         "d'avertissement, même sur cette hauteur réduite", (
       WidgetTester tester,
     ) async {
@@ -1166,32 +1225,270 @@ void main() {
       expect(controls.overlaps(link), isFalse);
     });
 
-    testWidgets('CONSTAT — à 800 × 400, la légende de six lignes (échelle '
-        "écoulement) déborde jusque dans la colonne des contrôles de zoom : "
-        'ni corrigé ni masqué ici (signalé au coordinateur, K3 traite la '
-        'taille minimale de fenêtre, pas ce fichier)', (
+    testWidgetsOnWindows(
+      'CONSTAT — à 800 × 400, la légende de six lignes (échelle '
+      "écoulement) ne tient pas : sa boîte dépasse jusque dans la zone "
+      'des contrôles de zoom, mais sa partie VISIBLE s’arrête au-dessus '
+      'd’eux : sa fenêtre la coupe (2026-10-12 ; avant, elle passait dessous)',
+      (WidgetTester tester) async {
+        await pumpOverlaysAt(tester, const Size(800, 400));
+        await tester.pumpAndSettle();
+
+        final Rect controls = tester.getRect(find.byType(MapControls));
+        final Rect legend = tester.getRect(find.byType(MapLegend));
+
+        // ⚠️ Ce test verrouille un FAIT CONSTATÉ, pas un invariant désiré :
+        // si une tâche future (K3 ou une révision de disposition) fait
+        // passer cette expression à `false`, ce test doit être corrigé À
+        // LA MAIN — jamais supprimé en silence — pour dire ce que
+        // l'écran fait vraiment.
+        expect(
+          controls.overlaps(legend),
+          isTrue,
+          reason:
+              'Mesuré le 2026-09-23 : controls=$controls, legend=$legend. '
+              "Si ceci devient faux, l'écran s'est amélioré : mettre à "
+              'jour ce test pour le dire.',
+        );
+        // Depuis le 2026-10-12 (arbitrage du commanditaire, « La légende
+        // défile », `F10b` de T3) : la boîte de la légende dépasse toujours,
+        // mais sa fenêtre s'arrête au-dessus de la colonne du bas à droite.
+        // Ce qui se VOIT de la légende ne passe plus sous les contrôles :
+        // elle défile.
+        final Rect fenetre = tester.getRect(
+          find.ancestor(
+            of: find.byType(MapLegend),
+            matching: find.byType(SingleChildScrollView),
+          ),
+        );
+        expect(legend.bottom, greaterThan(fenetre.bottom));
+        expect(
+          legend.intersect(fenetre).overlaps(controls),
+          isFalse,
+          reason:
+              'légende visible=${legend.intersect(fenetre)}, controls=$controls',
+        );
+      },
+    );
+  });
+
+  // `F10c` de T3 : la place du cinquième bouton, « Favoris », que le lot 7
+  // posera au-dessus de « Filtres » dans `MapEntryButtons`. MESURE anticipée :
+  // le rectangle du groupe, étendu vers le haut d'un bouton et d'un
+  // espacement, est mis en regard de la BOÎTE ENTIÈRE de la légende (qui peut
+  // dépasser de sa fenêtre), du bouton de désignation, de l'attribution et de
+  // la fiche. Police de test, plateforme Windows ; Segoe UI non mesurée.
+  //
+  // Arbitrage du commanditaire du 2026-10-14 : « Favoris » reste AU-DESSUS de
+  // « Filtres » (arbitrage 8, inchangé). La taille d'arrêt se juge en Roboto
+  // (`map_overlays_phone_test.dart`, INVARIANT). Ici, en police de test, la
+  // légende « débit » mesure 434 px de haut (247 en Roboto) : sa morsure de
+  // 42 px est un CONSTAT, un artefact de la police. `S10` (rendu réel à cinq
+  // boutons) et `K3` remesureront avec le vrai bouton.
+  group('F10c de T3 — la place du cinquième bouton, à 800 × 740 (Windows)', () {
+    const Key ficheKey = Key('fiche-de-test-F10c');
+
+    Future<void> pump(
       WidgetTester tester,
-    ) async {
-      await pumpOverlaysAt(tester, const Size(800, 400));
-      await tester.pumpAndSettle();
-
-      final Rect controls = tester.getRect(find.byType(MapControls));
-      final Rect legend = tester.getRect(find.byType(MapLegend));
-
-      // ⚠️ Ce test verrouille un FAIT CONSTATÉ, pas un invariant désiré :
-      // si une tâche future (K3 ou une révision de disposition) fait
-      // passer cette expression à `false`, ce test doit être corrigé À
-      // LA MAIN — jamais supprimé en silence — pour dire ce que
-      // l'écran fait vraiment.
-      expect(
-        controls.overlaps(legend),
-        isTrue,
-        reason:
-            'Mesuré le 2026-09-23 : controls=$controls, legend=$legend. '
-            "Si ceci devient faux, l'écran s'est amélioré : mettre à "
-            'jour ce test pour le dire.',
+      MapScaleKind scale, {
+      required bool avecFiche,
+    }) async {
+      const Size taille = Size(800, 740);
+      tester.view.physicalSize = taille;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            body: Stack(
+              children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
+                filterActive: false,
+                onOpenFilters: () {},
+                scale: scale,
+                onSelect: (MapScaleKind kind) {},
+                onWiden: () {},
+                error: null,
+                stations: const <StationPoint>[],
+                ondeObservations: const <OndeStationCode, OndeObservation>{},
+                ondeUnreadableRows: 0,
+                onZoomIn: () {},
+                onZoomOut: () {},
+                onRecenter: () {},
+                onToggleDesignationMode: () {},
+                onDesignateCenter: () {},
+                stationSheet: avecFiche
+                    ? Container(
+                        key: ficheKey,
+                        width: double.infinity,
+                        height: 320,
+                        color: Colors.red,
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ),
       );
-    });
+      await tester.pumpAndSettle();
+    }
+
+    for (final bool avecFiche in <bool>[false, true]) {
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        final bool constat = scale == MapScaleKind.debit;
+        testWidgetsOnWindows(
+          '${constat ? "CONSTAT — " : ""}(police de test) échelle ${scale.name}, '
+          '${avecFiche ? "AVEC" : "SANS"} fiche : le groupe des boutons '
+          'd’entrée étendu d’un bouton et d’un espacement vers le haut reste '
+          'dans l’écran et ne coupe ni le bouton de désignation, ni '
+          'l’attribution, ni la fiche'
+          '${constat ? ", mais mord de 42 px sur la boîte de la légende" : ", ni la légende (boîte entière)"}',
+          (WidgetTester tester) async {
+            const Size taille = Size(800, 740);
+            await pump(tester, scale, avecFiche: avecFiche);
+
+            final Rect groupe = tester.getRect(find.byType(MapEntryButtons));
+            final Rect etendu =
+                groupe.topLeft.translate(
+                  0,
+                  -(minimumTapTarget + mapControlsSpacing),
+                ) &
+                Size(
+                  groupe.width,
+                  groupe.height + minimumTapTarget + mapControlsSpacing,
+                );
+            final Rect legende = tester.getRect(find.byType(MapLegend));
+            final Rect fenetre = tester.getRect(
+              find.ancestor(
+                of: find.byType(MapLegend),
+                matching: find.byType(SingleChildScrollView),
+              ),
+            );
+            final Rect visible = legende.intersect(fenetre);
+            final double morsure = etendu.overlaps(legende)
+                ? etendu.intersect(legende).height
+                : 0;
+            final String mesure =
+                'écran=$taille, échelle=${scale.name}, fiche=$avecFiche, '
+                'groupe=$groupe, étendu=$etendu, légende(boîte)=$legende, '
+                'légende(visible)=$visible, fenêtre=$fenetre, '
+                'morsure sur la boîte=$morsure px';
+
+            expect(etendu.top, greaterThanOrEqualTo(0), reason: mesure);
+            expect(
+              etendu.right,
+              lessThanOrEqualTo(taille.width),
+              reason: mesure,
+            );
+            if (constat) {
+              // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : un ARTEFACT de la
+              // police de test (légende « débit » de 434 px de haut, 247 en
+              // Roboto). La mesure qui fait foi est celle de
+              // `map_overlays_phone_test.dart` (Roboto) : là, aucune morsure.
+              expect(
+                morsure,
+                moreOrLessEquals(42, epsilon: 0.1),
+                reason: 'morsure sur la boîte de la légende : $mesure',
+              );
+            } else {
+              expect(
+                etendu.overlaps(legende),
+                isFalse,
+                reason: 'MapLegend : $mesure',
+              );
+            }
+            expect(
+              etendu.overlaps(
+                tester.getRect(find.byType(DesignateCenterControl)),
+              ),
+              isFalse,
+              reason: 'DesignateCenterControl : $mesure',
+            );
+            expect(
+              etendu.overlaps(tester.getRect(find.byType(IgnAttributionBadge))),
+              isFalse,
+              reason: 'IgnAttributionBadge : $mesure',
+            );
+            if (avecFiche) {
+              expect(
+                etendu.overlaps(tester.getRect(find.byKey(ficheKey))),
+                isFalse,
+                reason: 'fiche : $mesure',
+              );
+            }
+          },
+        );
+      }
+    }
+  });
+
+  // `K3` de T3 : la hauteur RÉELLE de la colonne à cinq boutons, « Favoris »
+  // posé (comme la racine de composition depuis `S11`), sous Windows. Ce sont
+  // des icônes, pas du texte : la police de test suffit, et la hauteur ne
+  // bouge pas à 200 %. Les recouvrements, eux, se mesurent en Roboto
+  // (`map_overlays_phone_test.dart`, section `K3`).
+  group('K3 de T3 — la colonne à cinq boutons, à 800 × 740 (Windows)', () {
+    for (final double textScale in <double>[1, 2]) {
+      testWidgetsOnWindows(
+        '(police de test) police ${(textScale * 100).toInt()} %, EN MODE, '
+        '« Favoris » posé : du haut de « Favoris » au bas de recentrer, la '
+        'colonne mesure 5 × minimumTapTarget + 4 × mapControlsSpacing',
+        (WidgetTester tester) async {
+          tester.view.physicalSize = const Size(800, 740);
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(tester.view.reset);
+          tester.platformDispatcher.textScaleFactorTestValue = textScale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await tester.pumpWidget(
+            MaterialApp(
+              debugShowCheckedModeBanner: false,
+              home: Scaffold(
+                body: Stack(
+                  children: buildMapOverlays(
+                    filterHidesEverything: false,
+                    onClearFilters: () {},
+                    filterActive: false,
+                    onOpenFilters: () {},
+                    onOpenFavorites: () {},
+                    scale: MapScaleKind.ecoulement,
+                    onSelect: (MapScaleKind kind) {},
+                    onWiden: () {},
+                    error: null,
+                    stations: const <StationPoint>[],
+                    ondeObservations:
+                        const <OndeStationCode, OndeObservation>{},
+                    ondeUnreadableRows: 0,
+                    onZoomIn: () {},
+                    onZoomOut: () {},
+                    onRecenter: () {},
+                    onToggleDesignationMode: () {},
+                    onDesignateCenter: () {},
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final double haut = tester
+              .getRect(find.byKey(mapFavoritesButtonKey))
+              .top;
+          final double bas = tester
+              .getRect(find.byKey(mapRecenterButtonKey))
+              .bottom;
+          expect(
+            bas - haut,
+            moreOrLessEquals(
+              5 * minimumTapTarget + 4 * mapControlsSpacing,
+              epsilon: 0.5,
+            ),
+            reason: 'Favoris en haut à $haut, recentrer en bas à $bas',
+          );
+        },
+      );
+    }
   });
 
   // `MapErrorBanner` est retiré depuis `U6` : un bandeau rouge portant
@@ -1199,462 +1496,611 @@ void main() {
   // « message par source ». `SourceUnavailableNotice` le remplace, et ses
   // cas vivent dans `map_empty_states_test.dart`.
 
-  group(
-    'buildMapOverlays — à la taille minimale de fenêtre Windows (800 × 740, '
-    'décision 8, K3, amendée le 2026-09-23 : 600 → 700 → 740, 2026-09-29)',
-    () {
-      /// Clé de la fiche de test, quand [pumpOverlaysAt] en reçoit une —
-      /// une hauteur réaliste (320, proche des fiches réelles de
-      /// `station_sheet`/`onde_sheet`, largement plus qu'un `SizedBox`
-      /// symbolique) : c'est CETTE hauteur qui doit tenir sans recouvrir
-      /// les autres surcouches à 800 × 740 (relecture du coordinateur du
-      /// 2026-09-23).
-      const Key ficheDeTestKey = Key('fiche-de-test-K3');
-      const double hauteurFicheRealiste = 320;
+  group('buildMapOverlays — à la taille minimale de fenêtre Windows (800 × 740, '
+      'décision 8, K3, amendée le 2026-09-23 : 600 → 700 → 740, 2026-09-29)', () {
+    /// Clé de la fiche de test, quand [pumpOverlaysAt] en reçoit une —
+    /// une hauteur réaliste (320, proche des fiches réelles de
+    /// `station_sheet`/`onde_sheet`, largement plus qu'un `SizedBox`
+    /// symbolique) : c'est CETTE hauteur qui doit tenir sans recouvrir
+    /// les autres surcouches à 800 × 740 (relecture du coordinateur du
+    /// 2026-09-23).
+    const Key ficheDeTestKey = Key('fiche-de-test-K3');
+    const double hauteurFicheRealiste = 320;
 
-      Future<void> pumpOverlaysAt(
-        WidgetTester tester,
-        Size size, {
-        required MapScaleKind scale,
-        bool debugBanner = false,
-        bool avecFiche = false,
-        bool avecDesignation = false,
-      }) {
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
+    Future<void> pumpOverlaysAt(
+      WidgetTester tester,
+      Size size, {
+      required MapScaleKind scale,
+      bool debugBanner = false,
+      bool avecFiche = false,
+      bool avecDesignation = false,
+    }) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-        return tester.pumpWidget(
-          MaterialApp(
-            debugShowCheckedModeBanner: debugBanner,
-            home: Scaffold(
-              body: Stack(
-                children: buildMapOverlays(
-                  scale: scale,
-                  onSelect: (MapScaleKind kind) {},
-                  onWiden: () {},
-                  error: null,
-                  stations: const <StationPoint>[],
-                  ondeObservations: const <OndeStationCode, OndeObservation>{},
-                  ondeUnreadableRows: 0,
-                  onZoomIn: () {},
-                  onZoomOut: () {},
-                  onRecenter: () {},
-                  // E5 : la puce « Restrictions » est TOUJOURS fournie
-                  // (désignation câblée) ; `avecDesignation` dit si le mode
-                  // est actif, donc si le bouton, l'indice et le réticule
-                  // existent.
-                  onToggleDesignationMode: () {},
-                  onDesignateCenter: avecDesignation ? () {} : null,
-                  stationSheet: avecFiche
-                      ? Container(
-                          key: ficheDeTestKey,
-                          width: double.infinity,
-                          height: hauteurFicheRealiste,
-                          color: Colors.red,
-                        )
-                      : null,
-                ),
+      return tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: debugBanner,
+          home: Scaffold(
+            body: Stack(
+              children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
+                filterActive: false,
+                onOpenFilters: () {},
+                scale: scale,
+                onSelect: (MapScaleKind kind) {},
+                onWiden: () {},
+                error: null,
+                stations: const <StationPoint>[],
+                ondeObservations: const <OndeStationCode, OndeObservation>{},
+                ondeUnreadableRows: 0,
+                onZoomIn: () {},
+                onZoomOut: () {},
+                onRecenter: () {},
+                // E5 : la puce « Restrictions » est TOUJOURS fournie
+                // (désignation câblée) ; `avecDesignation` dit si le mode
+                // est actif, donc si le bouton, l'indice et le réticule
+                // existent.
+                onToggleDesignationMode: () {},
+                onDesignateCenter: avecDesignation ? () {} : null,
+                stationSheet: avecFiche
+                    ? Container(
+                        key: ficheDeTestKey,
+                        width: double.infinity,
+                        height: hauteurFicheRealiste,
+                        color: Colors.red,
+                      )
+                    : null,
               ),
             ),
           ),
-        );
-      }
-
-      /// [rect] est ENTIÈREMENT dans l'écran [size] — aucun bord coupé.
-      void expectWithinScreen(Rect rect, Size size, String nom) {
-        expect(
-          rect.left,
-          greaterThanOrEqualTo(0),
-          reason: '$nom déborde à gauche : $rect',
-        );
-        expect(
-          rect.top,
-          greaterThanOrEqualTo(0),
-          reason: '$nom déborde en haut : $rect',
-        );
-        expect(
-          rect.right,
-          lessThanOrEqualTo(size.width),
-          reason: '$nom déborde à droite : $rect',
-        );
-        expect(
-          rect.bottom,
-          lessThanOrEqualTo(size.height),
-          reason: '$nom déborde en bas : $rect',
-        );
-      }
-
-      /// Les cinq surcouches, nommées — même liste pour les deux tests
-      /// ci-dessous, pour ne jamais diverger sur ce qui est comparé.
-      Map<String, Rect> rectsAt(WidgetTester tester) => <String, Rect>{
-        'WarningLink': tester.getRect(find.byType(WarningLink)),
-        'MapLegend': tester.getRect(find.byType(MapLegend)),
-        'MapScaleChips': tester.getRect(find.byType(MapScaleChips)),
-        'MapControls': tester.getRect(find.byType(MapControls)),
-        'IgnAttributionBadge': tester.getRect(find.byType(IgnAttributionBadge)),
-        // Le bouton de désignation ET son indice (canvas du 2026-09-29) :
-        // hors de la colonne des contrôles, en bas au centre.
-        if (find.byType(DesignateCenterControl).evaluate().isNotEmpty)
-          'DesignateCenterControl': tester.getRect(
-            find.byType(DesignateCenterControl),
-          ),
-      };
-
-      for (final (bool, MapScaleKind) cas in <(bool, MapScaleKind)>[
-        for (final bool b in <bool>[false, true])
-          for (final MapScaleKind k in MapScaleKind.values) (b, k),
-      ]) {
-        final bool avecDesignation = cas.$1;
-        final MapScaleKind scale = cas.$2;
-        testWidgetsOnWindows(
-          '${avecDesignation ? "[en mode Restrictions] " : "[hors mode] "}'
-          'échelle ${scale.name} : puces, légende, contrôles de zoom, '
-          "contrôle d'avertissement et attribution IGN tiennent SANS se "
-          'recouvrir et sans déborder de 800 × 740',
-          (WidgetTester tester) async {
-            const Size taille = Size(800, 740);
-            await pumpOverlaysAt(
-              tester,
-              taille,
-              scale: scale,
-              avecDesignation: avecDesignation,
-            );
-            await tester.pumpAndSettle();
-
-            // La troisième puce est là dans les deux modes (E5).
-            expect(find.byKey(mapDesignationChipKey), findsOneWidget);
-            expect(
-              find.byType(DesignateCenterControl).evaluate().isNotEmpty,
-              avecDesignation,
-            );
-            final Map<String, Rect> rects = rectsAt(tester);
-            rects.forEach(
-              (String nom, Rect rect) => expectWithinScreen(rect, taille, nom),
-            );
-
-            for (final MapEntry<String, Rect> a in rects.entries) {
-              for (final MapEntry<String, Rect> b in rects.entries) {
-                if (a.key == b.key) {
-                  continue;
-                }
-                expect(
-                  a.value.overlaps(b.value),
-                  isFalse,
-                  reason:
-                      '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
-                      'à 800 × 740, échelle ${scale.name}',
-                );
-              }
-            }
-          },
-        );
-      }
-
-      for (final (bool, MapScaleKind) cas in <(bool, MapScaleKind)>[
-        for (final bool b in <bool>[false, true])
-          for (final MapScaleKind k in MapScaleKind.values) (b, k),
-      ]) {
-        final bool avecDesignation = cas.$1;
-        final MapScaleKind scale = cas.$2;
-        testWidgetsOnWindows(
-          '${avecDesignation ? "[en mode Restrictions] " : "[hors mode] "}'
-          'échelle ${scale.name}, AVEC une fiche ouverte (hauteur réaliste, '
-          '$hauteurFicheRealiste) : rien ne se recouvre, rien ne déborde de '
-          '800 × 740',
-          (WidgetTester tester) async {
-            const Size taille = Size(800, 740);
-            await pumpOverlaysAt(
-              tester,
-              taille,
-              scale: scale,
-              avecFiche: true,
-              avecDesignation: avecDesignation,
-            );
-            await tester.pumpAndSettle();
-
-            expect(find.byKey(mapDesignationChipKey), findsOneWidget);
-            final Map<String, Rect> rects = <String, Rect>{
-              ...rectsAt(tester),
-              'StationSheet': tester.getRect(find.byKey(ficheDeTestKey)),
-            };
-            rects.forEach(
-              (String nom, Rect rect) => expectWithinScreen(rect, taille, nom),
-            );
-
-            for (final MapEntry<String, Rect> a in rects.entries) {
-              for (final MapEntry<String, Rect> b in rects.entries) {
-                if (a.key == b.key) {
-                  continue;
-                }
-                expect(
-                  a.value.overlaps(b.value),
-                  isFalse,
-                  reason:
-                      '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
-                      'à 800 × 740, échelle ${scale.name}, fiche ouverte',
-                );
-              }
-            }
-          },
-        );
-      }
-
-      // Petits écrans (canvas du 2026-09-29) : le bouton de désignation et
-      // son indice ne recouvrent ni les contrôles, ni l'attribution, ni la
-      // fiche, et ne débordent pas — police à 100 % comme à 200 %.
-      for (final (Size, double, bool) cas in <(Size, double, bool)>[
-        (const Size(800, 740), 1, false),
-        (const Size(800, 740), 2, false),
-        (const Size(390, 844), 1, false),
-        (const Size(390, 844), 2, false),
-        (const Size(360, 640), 1, false),
-        (const Size(360, 640), 2, false),
-        (const Size(390, 844), 1, true),
-        (const Size(800, 740), 1, true),
-        (const Size(1920, 1032), 1, true),
-        (const Size(1920, 1032), 1, false),
-      ]) {
-        testWidgets(
-          'bouton de désignation à ${cas.$1.width.toInt()} × '
-          '${cas.$1.height.toInt()}, police ${cas.$2 * 100} %'
-          '${cas.$3 ? ", fiche ouverte" : ""} : dans l’écran, disjoint '
-          'des contrôles, de l’attribution${cas.$3 ? " et de la fiche" : ""}',
-          (WidgetTester tester) async {
-            tester.platformDispatcher.textScaleFactorTestValue = cas.$2;
-            addTearDown(
-              tester.platformDispatcher.clearTextScaleFactorTestValue,
-            );
-            await pumpOverlaysAt(
-              tester,
-              cas.$1,
-              scale: MapScaleKind.ecoulement,
-              avecDesignation: true,
-              avecFiche: cas.$3,
-            );
-            await tester.pumpAndSettle();
-
-            // Aucune erreur de rendu, d'AUCUNE surcouche : les débordements
-            // des puces et du contrôle d'avertissement aux largeurs de
-            // téléphone sont corrigés (`map_overlays_phone_test.dart`).
-            expect(tester.takeException(), isNull);
-            // Partie VISIBLE : si le contenu dépasse la hauteur restante il
-            // défile dans un `ListView`, dont la fenêtre borne ce qu'on voit.
-            final Finder fenetre = find.ancestor(
-              of: find.byType(DesignateCenterControl),
-              matching: find.byType(ListView),
-            );
-            final Rect contenu = tester.getRect(
-              find.byType(DesignateCenterControl),
-            );
-            final Rect groupe = fenetre.evaluate().isEmpty
-                ? contenu
-                : contenu.intersect(tester.getRect(fenetre.first));
-            expectWithinScreen(groupe, cas.$1, 'DesignateCenterControl');
-            final Map<String, Rect> autres = <String, Rect>{
-              'MapControls': tester.getRect(find.byType(MapControls)),
-              'IgnAttributionBadge': tester.getRect(
-                find.byType(IgnAttributionBadge),
-              ),
-              if (cas.$3)
-                'StationSheet': tester.getRect(find.byKey(ficheDeTestKey)),
-            };
-            // Assez large : centré sur la carte, fiche ouverte ou non.
-            if (cas.$1.width >= 540) {
-              expect(contenu.center.dx, closeTo(cas.$1.width / 2, 1));
-              expect(
-                tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
-                closeTo(cas.$1.width / 2, 1),
-              );
-            }
-            autres.forEach((String nom, Rect r) {
-              expect(
-                groupe.overlaps(r),
-                isFalse,
-                reason: 'DesignateCenterControl ($groupe) recouvre $nom ($r)',
-              );
-            });
-          },
-        );
-      }
-
-      testWidgets(
-        'le bouton de désignation est CENTRÉ horizontalement sur la carte '
-        '(sans fiche ouverte)',
-        (WidgetTester tester) async {
-          await pumpOverlaysAt(
-            tester,
-            const Size(800, 740),
-            scale: MapScaleKind.ecoulement,
-            avecDesignation: true,
-          );
-          await tester.pumpAndSettle();
-
-          expect(
-            tester.getCenter(find.byType(DesignateCenterControl)).dx,
-            closeTo(400, 0.5),
-          );
-        },
+        ),
       );
+    }
 
-      testWidgets(
-        'MapControls ne porte plus que +, − et recentrer : le bouton de '
-        'désignation n’est PAS dans la colonne',
-        (WidgetTester tester) async {
-          await pumpOverlaysAt(
-            tester,
-            const Size(800, 740),
-            scale: MapScaleKind.ecoulement,
-            avecDesignation: true,
-          );
-          await tester.pumpAndSettle();
-
-          expect(
-            find.descendant(
-              of: find.byType(MapControls),
-              matching: find.byKey(mapDesignateCenterButtonKey),
-            ),
-            findsNothing,
-          );
-          expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
-          expect(
-            tester.getSize(find.byType(MapControls)).height,
-            minimumTapTarget * 3 + 16,
-          );
-        },
+    /// [rect] est ENTIÈREMENT dans l'écran [size] — aucun bord coupé.
+    void expectWithinScreen(Rect rect, Size size, String nom) {
+      expect(
+        rect.left,
+        greaterThanOrEqualTo(0),
+        reason: '$nom déborde à gauche : $rect',
       );
+      expect(
+        rect.top,
+        greaterThanOrEqualTo(0),
+        reason: '$nom déborde en haut : $rect',
+      );
+      expect(
+        rect.right,
+        lessThanOrEqualTo(size.width),
+        reason: '$nom déborde à droite : $rect',
+      );
+      expect(
+        rect.bottom,
+        lessThanOrEqualTo(size.height),
+        reason: '$nom déborde en bas : $rect',
+      );
+    }
 
+    /// Les six surcouches, nommées — même liste pour les deux tests
+    /// ci-dessous, pour ne jamais diverger sur ce qui est comparé.
+    Map<String, Rect> rectsAt(WidgetTester tester) => <String, Rect>{
+      'WarningLink': tester.getRect(find.byType(WarningLink)),
+      'MapLegend': tester.getRect(find.byType(MapLegend)),
+      'MapScaleChips': tester.getRect(find.byType(MapScaleChips)),
+      'MapControls': tester.getRect(find.byType(MapControls)),
+      // Le groupe des boutons d'entrée (`F10b` de T3, arbitrage 8) : au-dessus
+      // des contrôles de zoom, dans la même colonne.
+      'MapEntryButtons': tester.getRect(find.byType(MapEntryButtons)),
+      'IgnAttributionBadge': tester.getRect(find.byType(IgnAttributionBadge)),
+      // Le bouton de désignation ET son indice (canvas du 2026-09-29) :
+      // hors de la colonne des contrôles, en bas au centre.
+      if (find.byType(DesignateCenterControl).evaluate().isNotEmpty)
+        'DesignateCenterControl': tester.getRect(
+          find.byType(DesignateCenterControl),
+        ),
+    };
+
+    for (final (bool, MapScaleKind) cas in <(bool, MapScaleKind)>[
+      for (final bool b in <bool>[false, true])
+        for (final MapScaleKind k in MapScaleKind.values) (b, k),
+    ]) {
+      final bool avecDesignation = cas.$1;
+      final MapScaleKind scale = cas.$2;
       testWidgetsOnWindows(
-        "AMENDEMENT DU 2026-09-29 (bouton hors de la colonne) — échelle "
-        'débit : à 800 × 700, le bouton de désignation (E1 de T2) ne fait '
-        'plus recouvrir la légende par les contrôles. Avant, posé dans la '
-        'colonne, il les faisait se recouvrir sur 30 px (ce qui avait porté '
-        'la décision 8 de 700 à 740) ; il est désormais en bas au centre. '
-        'La décision 8 reste à 740, non révisée ici',
+        '${avecDesignation ? "[en mode Restrictions] " : "[hors mode] "}'
+        'échelle ${scale.name} : puces, légende, contrôles de zoom, '
+        "contrôle d'avertissement et attribution IGN tiennent SANS se "
+        'recouvrir et sans déborder de 800 × 740',
         (WidgetTester tester) async {
+          const Size taille = Size(800, 740);
           await pumpOverlaysAt(
             tester,
-            const Size(800, 700),
-            scale: MapScaleKind.debit,
-            avecDesignation: true,
+            taille,
+            scale: scale,
+            avecDesignation: avecDesignation,
           );
           await tester.pumpAndSettle();
 
-          final Rect legende = tester.getRect(find.byType(MapLegend));
+          // La troisième puce est là dans les deux modes (E5).
+          expect(find.byKey(mapDesignationChipKey), findsOneWidget);
+          expect(
+            find.byType(DesignateCenterControl).evaluate().isNotEmpty,
+            avecDesignation,
+          );
+          final Map<String, Rect> rects = rectsAt(tester);
+          rects.forEach(
+            (String nom, Rect rect) => expectWithinScreen(rect, taille, nom),
+          );
+
+          for (final MapEntry<String, Rect> a in rects.entries) {
+            for (final MapEntry<String, Rect> b in rects.entries) {
+              if (a.key == b.key) {
+                continue;
+              }
+              expect(
+                a.value.overlaps(b.value),
+                isFalse,
+                reason:
+                    '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
+                    'à 800 × 740, échelle ${scale.name}',
+              );
+            }
+          }
+        },
+      );
+    }
+
+    for (final (bool, MapScaleKind) cas in <(bool, MapScaleKind)>[
+      for (final bool b in <bool>[false, true])
+        for (final MapScaleKind k in MapScaleKind.values) (b, k),
+    ]) {
+      final bool avecDesignation = cas.$1;
+      final MapScaleKind scale = cas.$2;
+      testWidgetsOnWindows(
+        '${avecDesignation ? "[en mode Restrictions] " : "[hors mode] "}'
+        'échelle ${scale.name}, AVEC une fiche ouverte (hauteur réaliste, '
+        '$hauteurFicheRealiste) : rien ne se recouvre, rien ne déborde de '
+        '800 × 740',
+        (WidgetTester tester) async {
+          const Size taille = Size(800, 740);
+          await pumpOverlaysAt(
+            tester,
+            taille,
+            scale: scale,
+            avecFiche: true,
+            avecDesignation: avecDesignation,
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.byKey(mapDesignationChipKey), findsOneWidget);
+          final Map<String, Rect> rects = <String, Rect>{
+            ...rectsAt(tester),
+            'StationSheet': tester.getRect(find.byKey(ficheDeTestKey)),
+          };
+          rects.forEach(
+            (String nom, Rect rect) => expectWithinScreen(rect, taille, nom),
+          );
+
+          for (final MapEntry<String, Rect> a in rects.entries) {
+            for (final MapEntry<String, Rect> b in rects.entries) {
+              if (a.key == b.key) {
+                continue;
+              }
+              expect(
+                a.value.overlaps(b.value),
+                isFalse,
+                reason:
+                    '${a.key} (${a.value}) recouvre ${b.key} (${b.value}) '
+                    'à 800 × 740, échelle ${scale.name}, fiche ouverte',
+              );
+            }
+          }
+        },
+      );
+    }
+
+    // Le groupe des boutons d'entrée (`F10b` de T3, arbitrage 8 du cadrage
+    // de T3) : « Filtres » au-dessus de `+`, dans la colonne du bas à
+    // droite, l'attribution toujours dessous.
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      testWidgetsOnWindows(
+        'échelle ${scale.name} : « Filtres » est juste au-dessus de +, à '
+        'mapControlsSpacing, bords droits alignés ; l’attribution reste '
+        'sous les contrôles de zoom',
+        (WidgetTester tester) async {
+          await pumpOverlaysAt(tester, const Size(800, 740), scale: scale);
+          await tester.pumpAndSettle();
+
+          final Rect filtres = tester.getRect(find.byKey(mapFiltersButtonKey));
+          final Rect plus = tester.getRect(find.byKey(mapZoomInButtonKey));
           final Rect controles = tester.getRect(find.byType(MapControls));
-          expect(legende.overlaps(controles), isFalse);
-        },
-      );
+          final Rect attribution = tester.getRect(
+            find.byType(IgnAttributionBadge),
+          );
 
-      testWidgets(
-        'RAISON DE L\'AMENDEMENT (2026-09-23) — échelle débit : à 800 × '
-        '600, la légende (paragraphe « comparaison statistique », BR-003) '
-        'débordait jusque dans la colonne des contrôles de zoom, ce qui a '
-        'fait remonter la décision 8 de 600 à 700 (voir le groupe '
-        'ci-dessus, désormais vert à 700)',
-        (WidgetTester tester) async {
-          const Size taille = Size(800, 600);
-          await pumpOverlaysAt(tester, taille, scale: MapScaleKind.debit);
-          await tester.pumpAndSettle();
-
-          final Rect legend = tester.getRect(find.byType(MapLegend));
-          final Rect controls = tester.getRect(find.byType(MapControls));
-
-          // ⚠️ Ce test verrouille un FAIT CONSTATÉ à l'ANCIENNE taille
-          // minimale (800 × 600), gardé volontairement pour documenter LA
-          // RAISON de l'amendement du 2026-09-23 : si une révision de
-          // disposition fait passer cette expression à `false`, ce test
-          // doit être corrigé À LA MAIN — jamais supprimé en silence —
-          // pour dire ce que l'écran fait vraiment.
           expect(
-            controls.overlaps(legend),
-            isTrue,
-            reason:
-                'Mesuré le 2026-09-23 (K3) : controls=$controls, '
-                'legend=$legend. Si ceci devient faux, l\'écran s\'est '
-                'amélioré : mettre à jour ce test pour le dire. La légende '
-                '« débit » porte un paragraphe entier (BR-003) en plus des '
-                'six lignes de l\'échelle « écoulement », d\'où un '
-                'débordement qui persiste à 800 × 600 alors que '
-                '« écoulement » tient — c\'est ce chiffre qui a motivé '
-                'l\'amendement de la décision 8 (600 → 700).',
+            filtres.bottom + mapControlsSpacing,
+            plus.top,
+            reason: 'filtres=$filtres, plus=$plus',
           );
-        },
-      );
-
-      testWidgets(
-        'point 44 — le libellé du contrôle « ⚠ Avertissement » N\'EST PAS '
-        'tronqué par la mise en page à 800 × 740 (04-ui.md § 3)',
-        (WidgetTester tester) async {
-          await pumpOverlaysAt(
-            tester,
-            const Size(800, 740),
-            scale: MapScaleKind.ecoulement,
-          );
-          await tester.pumpAndSettle();
-
-          expect(find.text(warningLinkLabel), findsOneWidget);
-          final Rect texte = tester.getRect(find.text(warningLinkLabel));
-          expectWithinScreen(texte, const Size(800, 740), 'warningLinkLabel');
-        },
-      );
-
-      testWidgets(
-        'point 44 — même constat à 1 266 × 713 (taille des captures du '
-        '2026-09-23)',
-        (WidgetTester tester) async {
-          await pumpOverlaysAt(
-            tester,
-            const Size(1266, 713),
-            scale: MapScaleKind.ecoulement,
-          );
-          await tester.pumpAndSettle();
-
-          expect(find.text(warningLinkLabel), findsOneWidget);
-          final Rect texte = tester.getRect(find.text(warningLinkLabel));
-          expectWithinScreen(texte, const Size(1266, 713), 'warningLinkLabel');
-        },
-      );
-
-      testWidgets(
-        'point 44 — avec le ruban DEBUG (mode debug de `flutter run`), le '
-        'ruban se pose EN HAUT À DROITE, PAR-DESSUS le contrôle '
-        "d'avertissement, sans changer sa mise en page : c'est un "
-        'recouvrement de PEINTURE, pas une troncature de mise en page',
-        (WidgetTester tester) async {
-          await pumpOverlaysAt(
-            tester,
-            const Size(1266, 713),
-            scale: MapScaleKind.ecoulement,
-            debugBanner: true,
-          );
-          await tester.pumpAndSettle();
-
-          // Le ruban existe bien (mode debug de la suite de test) et
-          // occupe le coin haut-droit — même coin que `WarningLink`
-          // (`Align(alignment: Alignment.topRight, …)` dans
-          // `buildMapOverlays`).
-          expect(find.byType(Banner), findsOneWidget);
-          final Rect ruban = tester.getRect(find.byType(Banner));
-          final Rect lien = tester.getRect(find.byType(WarningLink));
+          expect(filtres.right, plus.right);
+          expect(filtres.right, controles.right);
           expect(
-            ruban.overlaps(lien),
-            isTrue,
-            reason:
-                'ruban=$ruban, WarningLink=$lien : sans ce recouvrement de '
-                "peinture, rien n'expliquerait le constat des captures du "
-                '2026-09-23',
+            attribution.top,
+            greaterThanOrEqualTo(controles.bottom),
+            reason: 'attribution=$attribution, contrôles=$controles',
           );
-
-          // Le texte du contrôle, lui, garde sa taille et sa position
-          // pleines : le ruban PEINT par-dessus, il ne réduit ni ne
-          // déplace la boîte de layout du libellé.
-          final Rect texte = tester.getRect(find.text(warningLinkLabel));
-          expectWithinScreen(texte, const Size(1266, 713), 'warningLinkLabel');
+          expect(attribution.right, controles.right);
         },
       );
-    },
-  );
+    }
+
+    // Le haut de la carte ne bouge pas (arbitrage 8). Rectangles relevés
+    // le 2026-10-12 AVANT le branchement du groupe (`F10b`, étape 0), en
+    // police de test, plateforme Windows, hors mode, carte vide : ils sont
+    // comparés tels quels.
+    for (final (MapScaleKind, Rect) cas in <(MapScaleKind, Rect)>[
+      (MapScaleKind.ecoulement, const Rect.fromLTRB(545.8, 60.0, 792.0, 225.0)),
+      (MapScaleKind.debit, const Rect.fromLTRB(532.0, 60.0, 792.0, 494.0)),
+    ]) {
+      testWidgetsOnWindows(
+        'échelle ${cas.$1.name} : le contrôle d’avertissement, les puces et '
+        'la légende sont où ils étaient avant le groupe des boutons d’entrée',
+        (WidgetTester tester) async {
+          await pumpOverlaysAt(tester, const Size(800, 740), scale: cas.$1);
+          await tester.pumpAndSettle();
+
+          // Le groupe est bien là : sans lui, ce test ne dirait rien.
+          expect(find.byType(MapEntryButtons), findsOneWidget);
+          expect(
+            tester.getRect(find.byType(WarningLink)),
+            rectMoreOrLessEquals(
+              const Rect.fromLTRB(562.8, 8.0, 792.0, 52.0),
+              epsilon: 0.1,
+            ),
+          );
+          expect(
+            tester.getRect(find.byType(MapScaleChips)),
+            rectMoreOrLessEquals(
+              const Rect.fromLTRB(8.0, 8.0, 375.0, 156.0),
+              epsilon: 0.1,
+            ),
+          );
+          expect(
+            tester.getRect(find.byType(MapLegend)),
+            rectMoreOrLessEquals(cas.$2, epsilon: 0.1),
+          );
+        },
+      );
+    }
+
+    // La marge sous la légende (arbitrage du commanditaire du 2026-10-12,
+    // « La légende défile ») : la fenêtre de la colonne du haut à droite
+    // s'arrête au-dessus du groupe des boutons d'entrée. À 800 × 740,
+    // échelle débit, la légende y tient encore ENTIÈRE, de peu.
+    testWidgetsOnWindows(
+      'CONSTAT — échelle débit : la légende tient entière dans sa fenêtre, '
+      'à 10 px au-dessus du groupe des boutons d’entrée (police de test)',
+      (WidgetTester tester) async {
+        await pumpOverlaysAt(
+          tester,
+          const Size(800, 740),
+          scale: MapScaleKind.debit,
+        );
+        await tester.pumpAndSettle();
+
+        final Rect legende = tester.getRect(find.byType(MapLegend));
+        final Rect fenetre = tester.getRect(
+          find.ancestor(
+            of: find.byType(MapLegend),
+            matching: find.byType(SingleChildScrollView),
+          ),
+        );
+        final Rect groupe = tester.getRect(find.byType(MapEntryButtons));
+
+        // Entière : rien à défiler à cette taille.
+        expect(
+          fenetre.intersect(legende),
+          legende,
+          reason: 'légende=$legende, fenêtre=$fenetre',
+        );
+        // ⚠️ MESURE (police de test, plateforme Windows ; Segoe UI non
+        // mesurée) : 10 px entre le bas de la légende (494) et le haut du
+        // groupe (504). Elle se corrige À LA MAIN quand le groupe gagne un
+        // bouton : la légende ne tiendra plus et défilera — la fenêtre,
+        // elle, restera au-dessus du groupe, par construction.
+        expect(
+          groupe.top - legende.bottom,
+          moreOrLessEquals(10, epsilon: 0.1),
+          reason: 'légende=$legende, groupe=$groupe',
+        );
+        // La place que la fenêtre peut prendre : jusqu'à la marge
+        // au-dessus du groupe, la même que celle du bord de la carte.
+        expect(
+          fenetre.bottom,
+          lessThanOrEqualTo(groupe.top - fenetre.top),
+          reason: 'fenêtre=$fenetre, groupe=$groupe',
+        );
+      },
+    );
+
+    // Petits écrans (canvas du 2026-09-29) : le bouton de désignation et
+    // son indice ne recouvrent ni les contrôles, ni l'attribution, ni la
+    // fiche, et ne débordent pas — police à 100 % comme à 200 %.
+    for (final (Size, double, bool) cas in <(Size, double, bool)>[
+      (const Size(800, 740), 1, false),
+      (const Size(800, 740), 2, false),
+      (const Size(390, 844), 1, false),
+      (const Size(390, 844), 2, false),
+      (const Size(360, 640), 1, false),
+      (const Size(360, 640), 2, false),
+      (const Size(390, 844), 1, true),
+      (const Size(800, 740), 1, true),
+      (const Size(1920, 1032), 1, true),
+      (const Size(1920, 1032), 1, false),
+    ]) {
+      // Sous 600 px de large, c'est un téléphone : le cas tourne sous
+      // Android et son titre le dit.
+      final bool telephone = cas.$1.width < 600;
+      (telephone ? testWidgetsOnAndroid : testWidgetsOnWindows)(
+        '${telephone ? "Android : " : ""}'
+        'bouton de désignation à ${cas.$1.width.toInt()} × '
+        '${cas.$1.height.toInt()}, police ${cas.$2 * 100} %'
+        '${cas.$3 ? ", fiche ouverte" : ""} : dans l’écran, disjoint '
+        'des contrôles, de l’attribution${cas.$3 ? " et de la fiche" : ""}',
+        (WidgetTester tester) async {
+          tester.platformDispatcher.textScaleFactorTestValue = cas.$2;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await pumpOverlaysAt(
+            tester,
+            cas.$1,
+            scale: MapScaleKind.ecoulement,
+            avecDesignation: true,
+            avecFiche: cas.$3,
+          );
+          await tester.pumpAndSettle();
+
+          // Aucune erreur de rendu, d'AUCUNE surcouche : les débordements
+          // des puces et du contrôle d'avertissement aux largeurs de
+          // téléphone sont corrigés (`map_overlays_phone_test.dart`).
+          expect(tester.takeException(), isNull);
+          // Partie VISIBLE : si le contenu dépasse la hauteur restante il
+          // défile dans un `ListView`, dont la fenêtre borne ce qu'on voit.
+          final Finder fenetre = find.ancestor(
+            of: find.byType(DesignateCenterControl),
+            matching: find.byType(ListView),
+          );
+          final Rect contenu = tester.getRect(
+            find.byType(DesignateCenterControl),
+          );
+          final Rect groupe = fenetre.evaluate().isEmpty
+              ? contenu
+              : contenu.intersect(tester.getRect(fenetre.first));
+          expectWithinScreen(groupe, cas.$1, 'DesignateCenterControl');
+          final Map<String, Rect> autres = <String, Rect>{
+            'MapControls': tester.getRect(find.byType(MapControls)),
+            'IgnAttributionBadge': tester.getRect(
+              find.byType(IgnAttributionBadge),
+            ),
+            if (cas.$3)
+              'StationSheet': tester.getRect(find.byKey(ficheDeTestKey)),
+          };
+          // Assez large : centré sur la carte, fiche ouverte ou non.
+          if (cas.$1.width >= 540) {
+            expect(contenu.center.dx, closeTo(cas.$1.width / 2, 1));
+            expect(
+              tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
+              closeTo(cas.$1.width / 2, 1),
+            );
+          }
+          autres.forEach((String nom, Rect r) {
+            expect(
+              groupe.overlaps(r),
+              isFalse,
+              reason: 'DesignateCenterControl ($groupe) recouvre $nom ($r)',
+            );
+          });
+        },
+      );
+    }
+
+    testWidgetsOnWindows(
+      'le bouton de désignation est CENTRÉ horizontalement sur la carte '
+      '(sans fiche ouverte)',
+      (WidgetTester tester) async {
+        await pumpOverlaysAt(
+          tester,
+          const Size(800, 740),
+          scale: MapScaleKind.ecoulement,
+          avecDesignation: true,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getCenter(find.byType(DesignateCenterControl)).dx,
+          closeTo(400, 0.5),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'MapControls ne porte plus que +, − et recentrer : le bouton de '
+      'désignation n’est PAS dans la colonne',
+      (WidgetTester tester) async {
+        await pumpOverlaysAt(
+          tester,
+          const Size(800, 740),
+          scale: MapScaleKind.ecoulement,
+          avecDesignation: true,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.descendant(
+            of: find.byType(MapControls),
+            matching: find.byKey(mapDesignateCenterButtonKey),
+          ),
+          findsNothing,
+        );
+        expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
+        expect(
+          tester.getSize(find.byType(MapControls)).height,
+          minimumTapTarget * 3 + 16,
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      "AMENDEMENT DU 2026-09-29 (bouton hors de la colonne) — échelle "
+      'débit : à 800 × 700, le bouton de désignation (E1 de T2) ne fait '
+      'plus recouvrir la légende par les contrôles. Avant, posé dans la '
+      'colonne, il les faisait se recouvrir sur 30 px (ce qui avait porté '
+      'la décision 8 de 700 à 740) ; il est désormais en bas au centre. '
+      'La décision 8 reste à 740, non révisée ici',
+      (WidgetTester tester) async {
+        await pumpOverlaysAt(
+          tester,
+          const Size(800, 700),
+          scale: MapScaleKind.debit,
+          avecDesignation: true,
+        );
+        await tester.pumpAndSettle();
+
+        final Rect legende = tester.getRect(find.byType(MapLegend));
+        final Rect controles = tester.getRect(find.byType(MapControls));
+        expect(legende.overlaps(controles), isFalse);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'RAISON DE L’AMENDEMENT (2026-09-23) — échelle débit : à 800 × '
+      '600, la boîte de la légende (paragraphe « comparaison '
+      'statistique », BR-003) dépasse jusque dans la zone des contrôles '
+      'de zoom, ce qui a fait remonter la décision 8 de 600 à 700 ; '
+      'depuis le 2026-10-12 sa partie VISIBLE s’arrête au-dessus d’eux',
+      (WidgetTester tester) async {
+        const Size taille = Size(800, 600);
+        await pumpOverlaysAt(tester, taille, scale: MapScaleKind.debit);
+        await tester.pumpAndSettle();
+
+        final Rect legend = tester.getRect(find.byType(MapLegend));
+        final Rect controls = tester.getRect(find.byType(MapControls));
+
+        // ⚠️ Ce test verrouille un FAIT CONSTATÉ à l'ANCIENNE taille
+        // minimale (800 × 600), gardé volontairement pour documenter LA
+        // RAISON de l'amendement du 2026-09-23 : si une révision de
+        // disposition fait passer cette expression à `false`, ce test
+        // doit être corrigé À LA MAIN — jamais supprimé en silence —
+        // pour dire ce que l'écran fait vraiment.
+        expect(
+          controls.overlaps(legend),
+          isTrue,
+          reason:
+              'Mesuré le 2026-09-23 (K3) : controls=$controls, '
+              'legend=$legend. Si ceci devient faux, l\'écran s\'est '
+              'amélioré : mettre à jour ce test pour le dire. La légende '
+              '« débit » porte un paragraphe entier (BR-003) en plus des '
+              'six lignes de l\'échelle « écoulement », d\'où un '
+              'débordement qui persiste à 800 × 600 alors que '
+              '« écoulement » tient — c\'est ce chiffre qui a motivé '
+              'l\'amendement de la décision 8 (600 → 700).',
+        );
+        // Depuis le 2026-10-12 (arbitrage du commanditaire, « La légende
+        // défile », `F10b` de T3) : la boîte de la légende dépasse toujours,
+        // mais sa fenêtre s'arrête au-dessus de la colonne du bas à droite.
+        // Ce qui se VOIT de la légende ne passe plus sous les contrôles :
+        // elle défile.
+        final Rect fenetre = tester.getRect(
+          find.ancestor(
+            of: find.byType(MapLegend),
+            matching: find.byType(SingleChildScrollView),
+          ),
+        );
+        expect(legend.bottom, greaterThan(fenetre.bottom));
+        expect(
+          legend.intersect(fenetre).overlaps(controls),
+          isFalse,
+          reason:
+              'légende visible=${legend.intersect(fenetre)}, controls=$controls',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'point 44 — le libellé du contrôle « ⚠ Avertissement » N\'EST PAS '
+      'tronqué par la mise en page à 800 × 740 (04-ui.md § 3)',
+      (WidgetTester tester) async {
+        await pumpOverlaysAt(
+          tester,
+          const Size(800, 740),
+          scale: MapScaleKind.ecoulement,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(warningLinkLabel), findsOneWidget);
+        final Rect texte = tester.getRect(find.text(warningLinkLabel));
+        expectWithinScreen(texte, const Size(800, 740), 'warningLinkLabel');
+      },
+    );
+
+    testWidgetsOnWindows(
+      'point 44 — même constat à 1 266 × 713 (taille des captures du '
+      '2026-09-23)',
+      (WidgetTester tester) async {
+        await pumpOverlaysAt(
+          tester,
+          const Size(1266, 713),
+          scale: MapScaleKind.ecoulement,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(warningLinkLabel), findsOneWidget);
+        final Rect texte = tester.getRect(find.text(warningLinkLabel));
+        expectWithinScreen(texte, const Size(1266, 713), 'warningLinkLabel');
+      },
+    );
+
+    testWidgetsOnWindows(
+      'point 44 — avec le ruban DEBUG (mode debug de `flutter run`), le '
+      'ruban se pose EN HAUT À DROITE, PAR-DESSUS le contrôle '
+      "d'avertissement, sans changer sa mise en page : c'est un "
+      'recouvrement de PEINTURE, pas une troncature de mise en page',
+      (WidgetTester tester) async {
+        await pumpOverlaysAt(
+          tester,
+          const Size(1266, 713),
+          scale: MapScaleKind.ecoulement,
+          debugBanner: true,
+        );
+        await tester.pumpAndSettle();
+
+        // Le ruban existe bien (mode debug de la suite de test) et
+        // occupe le coin haut-droit — même coin que `WarningLink`
+        // (`Align(alignment: Alignment.topRight, …)` dans
+        // `buildMapOverlays`).
+        expect(find.byType(Banner), findsOneWidget);
+        final Rect ruban = tester.getRect(find.byType(Banner));
+        final Rect lien = tester.getRect(find.byType(WarningLink));
+        expect(
+          ruban.overlaps(lien),
+          isTrue,
+          reason:
+              'ruban=$ruban, WarningLink=$lien : sans ce recouvrement de '
+              "peinture, rien n'expliquerait le constat des captures du "
+              '2026-09-23',
+        );
+
+        // Le texte du contrôle, lui, garde sa taille et sa position
+        // pleines : le ruban PEINT par-dessus, il ne réduit ni ne
+        // déplace la boîte de layout du libellé.
+        final Rect texte = tester.getRect(find.text(warningLinkLabel));
+        expectWithinScreen(texte, const Size(1266, 713), 'warningLinkLabel');
+      },
+    );
+  });
 
   // La colonne GAUCHE de la disposition large (puces d'échelle puis avis)
   // défile quand elle dépasse la hauteur, comme la colonne de droite et la
@@ -1702,6 +2148,10 @@ void main() {
                   ),
                 ),
                 ...buildMapOverlays(
+                  filterHidesEverything: false,
+                  onClearFilters: () {},
+                  filterActive: false,
+                  onOpenFilters: () {},
                   scale: MapScaleKind.ecoulement,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: onWiden ?? () {},
@@ -1743,110 +2193,122 @@ void main() {
       return p;
     }
 
-    testWidgets('un tap posé hors des enfants de la colonne gauche atteint la '
-        'carte', (WidgetTester tester) async {
-      int taps = 0;
-      await pumpLarge(tester, onCarteTap: () => taps++);
-      expect(tester.takeException(), isNull);
+    testWidgetsOnWindows(
+      'un tap posé hors des enfants de la colonne gauche atteint la '
+      'carte',
+      (WidgetTester tester) async {
+        int taps = 0;
+        await pumpLarge(tester, onCarteTap: () => taps++);
+        expect(tester.takeException(), isNull);
 
-      await tester.tapAt(pointHorsEnfants(tester));
-      await tester.pump();
+        await tester.tapAt(pointHorsEnfants(tester));
+        await tester.pump();
 
-      expect(taps, 1);
-    });
+        expect(taps, 1);
+      },
+    );
 
-    testWidgets('un glisser posé hors des enfants de la colonne gauche atteint '
-        'la carte', (WidgetTester tester) async {
-      int glissers = 0;
-      await pumpLarge(tester, onCarteGlisser: () => glissers++);
-      expect(tester.takeException(), isNull);
+    testWidgetsOnWindows(
+      'un glisser posé hors des enfants de la colonne gauche atteint '
+      'la carte',
+      (WidgetTester tester) async {
+        int glissers = 0;
+        await pumpLarge(tester, onCarteGlisser: () => glissers++);
+        expect(tester.takeException(), isNull);
 
-      await tester.dragFrom(pointHorsEnfants(tester), const Offset(0, 80));
-      await tester.pump();
+        await tester.dragFrom(pointHorsEnfants(tester), const Offset(0, 80));
+        await tester.pump();
 
-      expect(glissers, greaterThan(0));
-    });
+        expect(glissers, greaterThan(0));
+      },
+    );
 
-    testWidgets('un cran de molette posé hors des enfants de la colonne '
-        'gauche atteint la carte', (WidgetTester tester) async {
-      int crans = 0;
-      await pumpLarge(tester, onCarteMolette: () => crans++);
-      expect(tester.takeException(), isNull);
-      final Offset p = pointHorsEnfants(tester);
+    testWidgetsOnWindows(
+      'un cran de molette posé hors des enfants de la colonne '
+      'gauche atteint la carte',
+      (WidgetTester tester) async {
+        int crans = 0;
+        await pumpLarge(tester, onCarteMolette: () => crans++);
+        expect(tester.takeException(), isNull);
+        final Offset p = pointHorsEnfants(tester);
 
-      final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
-      await tester.sendEventToBinding(souris.hover(p));
-      await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
-      await tester.pump();
+        final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(souris.hover(p));
+        await tester.sendEventToBinding(souris.scroll(const Offset(0, -100)));
+        await tester.pump();
 
-      expect(crans, 1);
-    });
+        expect(crans, 1);
+      },
+    );
 
-    testWidgets('à 200 %, aucune erreur de rendu : la colonne défile au lieu '
-        'de déborder, et l’action de l’avis s’atteint en la faisant défiler', (
-      WidgetTester tester,
-    ) async {
-      int elargir = 0;
-      // Hors mode : la hauteur de la colonne gauche (trois puces et avis) est
-      // la même dans les deux modes ; le bouton de désignation, lui, ne la
-      // concerne pas — son recouvrement est à mesurer en `E5b`.
-      await pumpLarge(tester, textScale: 2, onWiden: () => elargir++);
+    testWidgetsOnWindows(
+      'à 200 %, aucune erreur de rendu : la colonne défile au lieu '
+      'de déborder, et l’action de l’avis s’atteint en la faisant défiler',
+      (WidgetTester tester) async {
+        int elargir = 0;
+        // Hors mode : la hauteur de la colonne gauche (trois puces et avis) est
+        // la même dans les deux modes ; le bouton de désignation, lui, ne la
+        // concerne pas — son recouvrement est à mesurer en `E5b`.
+        await pumpLarge(tester, textScale: 2, onWiden: () => elargir++);
 
-      // Avant la correction : « A RenderFlex overflowed by 50 pixels on the
-      // bottom », la colonne gauche étant plus haute que l'écran.
-      expect(tester.takeException(), isNull);
+        // Avant la correction : « A RenderFlex overflowed by 50 pixels on the
+        // bottom », la colonne gauche étant plus haute que l'écran.
+        expect(tester.takeException(), isNull);
 
-      final Rect fenetre = tester.getRect(colonneGauche());
-      final Finder action = find.text(widenSearchLabel);
-      final Rect repos = tester.getRect(action);
-      // Le contenu dépasse la fenêtre : sans défilement, l'action est coupée.
-      expect(
-        repos.bottom,
-        greaterThan(fenetre.bottom),
-        reason: 'action=$repos, fenêtre=$fenetre',
-      );
-      expect(action.hitTestable().evaluate(), isEmpty);
+        final Rect fenetre = tester.getRect(colonneGauche());
+        final Finder action = find.text(widenSearchLabel);
+        final Rect repos = tester.getRect(action);
+        // Le contenu dépasse la fenêtre : sans défilement, l'action est coupée.
+        expect(
+          repos.bottom,
+          greaterThan(fenetre.bottom),
+          reason: 'action=$repos, fenêtre=$fenetre',
+        );
+        expect(action.hitTestable().evaluate(), isEmpty);
 
-      // Le doigt fait défiler la colonne depuis la puce « débit » (le bord
-      // droit, hors de la zone d'un éventuel recouvrement) ; il perd
-      // `kDragSlopDefault` avant que la colonne ne suive.
-      final Rect puce = tester.getRect(
-        find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
-      );
-      await tester.dragFrom(
-        Offset(puce.right - 12, puce.center.dy),
-        Offset(0, -(repos.bottom - fenetre.bottom + 8 + kDragSlopDefault)),
-      );
-      await tester.pumpAndSettle();
+        // Le doigt fait défiler la colonne depuis la puce « débit » (le bord
+        // droit, hors de la zone d'un éventuel recouvrement) ; il perd
+        // `kDragSlopDefault` avant que la colonne ne suive.
+        final Rect puce = tester.getRect(
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+        );
+        await tester.dragFrom(
+          Offset(puce.right - 12, puce.center.dy),
+          Offset(0, -(repos.bottom - fenetre.bottom + 8 + kDragSlopDefault)),
+        );
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+        expect(tester.takeException(), isNull);
 
-      // Le défilement a amené l'action DANS la fenêtre de la colonne.
-      final Rect bouton = tester.getRect(find.byKey(widenSearchKey));
-      expect(
-        fenetre.top <= bouton.top && bouton.bottom <= fenetre.bottom,
-        isTrue,
-        reason: 'action=$bouton, fenêtre=$fenetre',
-      );
-      // ⚠️ FAIT MESURÉ en police de test, pas un invariant voulu : à 200 %, le
-      // bandeau d'attribution IGN (pleine largeur, 66 px de haut) recouvre le
-      // bas du bouton, comme les surcouches du bas recouvrent la colonne
-      // compacte (`map_overlays_phone_test.dart`). Ce recouvrement est
-      // antérieur à `E5` et distinct du débordement corrigé ici ; `E5b` le
-      // remesure. On touche donc le bouton sur sa bande libre, au-dessus de
-      // l'attribution.
-      final Rect attribution = tester.getRect(find.byType(IgnAttributionBadge));
-      expect(
-        attribution.top,
-        greaterThan(bouton.top),
-        reason: 'attribution=$attribution, action=$bouton',
-      );
-      await tester.tapAt(
-        Offset(bouton.center.dx, (bouton.top + attribution.top) / 2),
-      );
-      await tester.pump();
-      expect(elargir, 1);
-    });
+        // Le défilement a amené l'action DANS la fenêtre de la colonne.
+        final Rect bouton = tester.getRect(find.byKey(widenSearchKey));
+        expect(
+          fenetre.top <= bouton.top && bouton.bottom <= fenetre.bottom,
+          isTrue,
+          reason: 'action=$bouton, fenêtre=$fenetre',
+        );
+        // ⚠️ FAIT MESURÉ en police de test, pas un invariant voulu : à 200 %, le
+        // bandeau d'attribution IGN (pleine largeur, 66 px de haut) recouvre le
+        // bas du bouton, comme les surcouches du bas recouvrent la colonne
+        // compacte (`map_overlays_phone_test.dart`). Ce recouvrement est
+        // antérieur à `E5` et distinct du débordement corrigé ici ; `E5b` le
+        // remesure. On touche donc le bouton sur sa bande libre, au-dessus de
+        // l'attribution.
+        final Rect attribution = tester.getRect(
+          find.byType(IgnAttributionBadge),
+        );
+        expect(
+          attribution.top,
+          greaterThan(bouton.top),
+          reason: 'attribution=$attribution, action=$bouton',
+        );
+        await tester.tapAt(
+          Offset(bouton.center.dx, (bouton.top + attribution.top) / 2),
+        );
+        await tester.pump();
+        expect(elargir, 1);
+      },
+    );
   });
 
   group(
@@ -2009,31 +2471,37 @@ void main() {
       );
     }
 
-    testWidgets('échelle « débit » : aucun marqueur ONDE, même quand des '
-        'observations sont en mémoire', (WidgetTester tester) async {
-      final MarkerLayer markerLayer =
-          layersFor(MapScaleKind.debit)[1] as MarkerLayer;
+    testWidgetsOnWindows(
+      'échelle « débit » : aucun marqueur ONDE, même quand des '
+      'observations sont en mémoire',
+      (WidgetTester tester) async {
+        final MarkerLayer markerLayer =
+            layersFor(MapScaleKind.debit)[1] as MarkerLayer;
 
-      expect(markerLayer.markers, hasLength(2));
-      for (final Marker marker in markerLayer.markers) {
-        await pumpMarkerChild(tester, marker);
-        expect(find.byType(OndeMarkerShape), findsNothing);
-        expect(find.byType(StationMarkerDot), findsOneWidget);
-      }
-    });
+        expect(markerLayer.markers, hasLength(2));
+        for (final Marker marker in markerLayer.markers) {
+          await pumpMarkerChild(tester, marker);
+          expect(find.byType(OndeMarkerShape), findsNothing);
+          expect(find.byType(StationMarkerDot), findsOneWidget);
+        }
+      },
+    );
 
-    testWidgets('échelle « écoulement » : aucun marqueur de station, même '
-        'quand le référentiel est chargé', (WidgetTester tester) async {
-      final MarkerLayer markerLayer =
-          layersFor(MapScaleKind.ecoulement)[1] as MarkerLayer;
+    testWidgetsOnWindows(
+      'échelle « écoulement » : aucun marqueur de station, même '
+      'quand le référentiel est chargé',
+      (WidgetTester tester) async {
+        final MarkerLayer markerLayer =
+            layersFor(MapScaleKind.ecoulement)[1] as MarkerLayer;
 
-      expect(markerLayer.markers, hasLength(2));
-      for (final Marker marker in markerLayer.markers) {
-        await pumpMarkerChild(tester, marker);
-        expect(find.byType(StationMarkerDot), findsNothing);
-        expect(find.byType(OndeMarkerShape), findsOneWidget);
-      }
-    });
+        expect(markerLayer.markers, hasLength(2));
+        for (final Marker marker in markerLayer.markers) {
+          await pumpMarkerChild(tester, marker);
+          expect(find.byType(StationMarkerDot), findsNothing);
+          expect(find.byType(OndeMarkerShape), findsOneWidget);
+        }
+      },
+    );
 
     test('le marqueur ONDE est posé sur les coordonnées de SON point', () {
       final MarkerLayer markerLayer =
@@ -2066,7 +2534,7 @@ void main() {
       expect(layers.single, isA<TileLayer>());
     });
 
-    testWidgets('le tap d un marqueur ONDE rend SON point', (
+    testWidgetsOnWindows('le tap d un marqueur ONDE rend SON point', (
       WidgetTester tester,
     ) async {
       final List<OndePoint> tapped = <OndePoint>[];
@@ -2083,32 +2551,35 @@ void main() {
       expect(tapped.single.label, 'La Seille à Nomeny');
     });
 
-    testWidgets("le marqueur ONDE garde son action tap pour le lecteur "
-        "d'écran — le geste est l ANCÊTRE du `Semantics` (non-régression, "
-        'relecture du 2026-09-23)', (WidgetTester tester) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
-      final List<OndePoint> tapped = <OndePoint>[];
-      final MarkerLayer markerLayer =
-          layersFor(MapScaleKind.ecoulement, onOndeTap: tapped.add)[1]
-              as MarkerLayer;
+    testWidgetsOnWindows(
+      "le marqueur ONDE garde son action tap pour le lecteur "
+      "d'écran — le geste est l ANCÊTRE du `Semantics` (non-régression, "
+      'relecture du 2026-09-23)',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        final List<OndePoint> tapped = <OndePoint>[];
+        final MarkerLayer markerLayer =
+            layersFor(MapScaleKind.ecoulement, onOndeTap: tapped.add)[1]
+                as MarkerLayer;
 
-      await pumpMarkerChild(tester, markerLayer.markers[1]);
+        await pumpMarkerChild(tester, markerLayer.markers[1]);
 
-      final SemanticsNode node = tester.getSemantics(
-        find.byType(OndeMarkerShape),
-      );
-      // Le nœud atteint est bien celui du marqueur, pas un ancêtre fusionné.
-      expect(node.label, contains('La Seille à Nomeny'));
-      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+        final SemanticsNode node = tester.getSemantics(
+          find.byType(OndeMarkerShape),
+        );
+        // Le nœud atteint est bien celui du marqueur, pas un ancêtre fusionné.
+        expect(node.label, contains('La Seille à Nomeny'));
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-      node.owner!.performAction(node.id, SemanticsAction.tap);
-      await tester.pump();
-      expect(tapped.single.code, OndeStationCode('04170002'));
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pump();
+        expect(tapped.single.code, OndeStationCode('04170002'));
 
-      handle.dispose();
-    });
+        handle.dispose();
+      },
+    );
 
-    testWidgets('sans rappel, le marqueur ONDE reste inerte — aucune '
+    testWidgetsOnWindows('sans rappel, le marqueur ONDE reste inerte — aucune '
         'exception au tap', (WidgetTester tester) async {
       final MarkerLayer markerLayer =
           layersFor(MapScaleKind.ecoulement)[1] as MarkerLayer;
@@ -2120,71 +2591,75 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets("l'annonce d'un marqueur ONDE préfixe l'échelle active, puis "
-        'la catégorie, le point et la date de campagne (BR-008, BR-010, '
-        '04-ui.md § 3)', (WidgetTester tester) async {
-      final MarkerLayer markerLayer =
-          layersFor(MapScaleKind.ecoulement)[1] as MarkerLayer;
+    testWidgetsOnWindows(
+      "l'annonce d'un marqueur ONDE préfixe l'échelle active, puis "
+      'la catégorie, le point et la date de campagne (BR-008, BR-010, '
+      '04-ui.md § 3)',
+      (WidgetTester tester) async {
+        final MarkerLayer markerLayer =
+            layersFor(MapScaleKind.ecoulement)[1] as MarkerLayer;
 
-      await pumpMarkerChild(tester, markerLayer.markers.first);
+        await pumpMarkerChild(tester, markerLayer.markers.first);
 
-      final Semantics semantics = tester.widget<Semantics>(
-        find
-            .ancestor(
-              of: find.byType(OndeMarkerShape),
-              matching: find.byType(Semantics),
-            )
-            .first,
-      );
-      expect(
-        semantics.properties.label,
-        '${mapScaleLabel(MapScaleKind.ecoulement)} : À sec — Le Trey à '
-        'Vilcey-sur-Trey, campagne du 01/09/2026, observation visuelle '
-        'ponctuelle',
-      );
-      expect(semantics.properties.button, isTrue);
-      expect(
-        semantics.excludeSemantics,
-        isTrue,
-        reason: 'un marqueur, un seul nœud sémantique',
-      );
-    });
+        final Semantics semantics = tester.widget<Semantics>(
+          find
+              .ancestor(
+                of: find.byType(OndeMarkerShape),
+                matching: find.byType(Semantics),
+              )
+              .first,
+        );
+        expect(
+          semantics.properties.label,
+          '${mapScaleLabel(MapScaleKind.ecoulement)} : À sec — Le Trey à '
+          'Vilcey-sur-Trey, campagne du 01/09/2026, observation visuelle '
+          'ponctuelle',
+        );
+        expect(semantics.properties.button, isTrue);
+        expect(
+          semantics.excludeSemantics,
+          isTrue,
+          reason: 'un marqueur, un seul nœud sémantique',
+        );
+      },
+    );
 
-    testWidgets('passé 60 jours, l annonce porte la date de la dernière '
-        'observation et la forme vire au gris (BR-010)', (
-      WidgetTester tester,
-    ) async {
-      // 2026-06-01 vu le 2026-09-14 : 105 jours calendaires.
-      final MarkerLayer markerLayer =
-          layersFor(
-                MapScaleKind.ecoulement,
-                observedAt: DateTime.utc(2026, 6, 1),
-              )[1]
-              as MarkerLayer;
+    testWidgetsOnWindows(
+      'passé 60 jours, l annonce porte la date de la dernière '
+      'observation et la forme vire au gris (BR-010)',
+      (WidgetTester tester) async {
+        // 2026-06-01 vu le 2026-09-14 : 105 jours calendaires.
+        final MarkerLayer markerLayer =
+            layersFor(
+                  MapScaleKind.ecoulement,
+                  observedAt: DateTime.utc(2026, 6, 1),
+                )[1]
+                as MarkerLayer;
 
-      await pumpMarkerChild(tester, markerLayer.markers.first);
+        await pumpMarkerChild(tester, markerLayer.markers.first);
 
-      expect(
-        tester
-            .widget<Semantics>(
-              find
-                  .ancestor(
-                    of: find.byType(OndeMarkerShape),
-                    matching: find.byType(Semantics),
-                  )
-                  .first,
-            )
-            .properties
-            .label,
-        contains('dernière observation le 01/06/2026'),
-      );
-      expect(
-        tester.widget<OndeMarkerShape>(find.byType(OndeMarkerShape)).age,
-        CampaignAge.ancienne,
-      );
-    });
+        expect(
+          tester
+              .widget<Semantics>(
+                find
+                    .ancestor(
+                      of: find.byType(OndeMarkerShape),
+                      matching: find.byType(Semantics),
+                    )
+                    .first,
+              )
+              .properties
+              .label,
+          contains('dernière observation le 01/06/2026'),
+        );
+        expect(
+          tester.widget<OndeMarkerShape>(find.byType(OndeMarkerShape)).age,
+          CampaignAge.ancienne,
+        );
+      },
+    );
 
-    testWidgets("l'âge est calculé avec le `now` injecté, jamais avec "
+    testWidgetsOnWindows("l'âge est calculé avec le `now` injecté, jamais avec "
         "l'horloge du poste — la même observation est récente ou ancienne "
         'selon la date de lecture', (WidgetTester tester) async {
       final List<Widget> layers = buildMapLayers(
@@ -2228,6 +2703,10 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
+                filterActive: false,
+                onOpenFilters: () {},
                 scale: scale,
                 onSelect: (MapScaleKind kind) {},
                 onWiden: onWiden ?? () {},
@@ -2246,131 +2725,142 @@ void main() {
       );
     }
 
-    testWidgets("échelle débit et aucune station : la phrase dédiée de "
-        "l'arbitrage du 2026-09-18, avec son action — « ni station ni "
-        "point » affirmerait une lecture ONDE qui n'a pas eu lieu (BR-008)", (
-      WidgetTester tester,
-    ) async {
-      await pumpNotices(tester, scale: MapScaleKind.debit);
+    testWidgetsOnWindows(
+      "échelle débit et aucune station : la phrase dédiée de "
+      "l'arbitrage du 2026-09-18, avec son action — « ni station ni "
+      "point » affirmerait une lecture ONDE qui n'a pas eu lieu (BR-008)",
+      (WidgetTester tester) async {
+        await pumpNotices(tester, scale: MapScaleKind.debit);
 
-      expect(find.byType(NoStationInAreaNotice), findsOneWidget);
-      expect(find.byType(NoDataInAreaNotice), findsNothing);
-      expect(find.byKey(widenSearchKey), findsOneWidget);
-    });
+        expect(find.byType(NoStationInAreaNotice), findsOneWidget);
+        expect(find.byType(NoDataInAreaNotice), findsNothing);
+        expect(find.byKey(widenSearchKey), findsOneWidget);
+      },
+    );
 
-    testWidgets("« Élargir la recherche » appelle le rappel reçu : la vue ne "
-        'calcule aucune emprise (UC-001 A2)', (WidgetTester tester) async {
-      int elargissements = 0;
-      await pumpNotices(
-        tester,
-        scale: MapScaleKind.debit,
-        onWiden: () => elargissements++,
-      );
+    testWidgetsOnWindows(
+      "« Élargir la recherche » appelle le rappel reçu : la vue ne "
+      'calcule aucune emprise (UC-001 A2)',
+      (WidgetTester tester) async {
+        int elargissements = 0;
+        await pumpNotices(
+          tester,
+          scale: MapScaleKind.debit,
+          onWiden: () => elargissements++,
+        );
 
-      await tester.tap(find.byKey(widenSearchKey));
-      await tester.pump();
+        await tester.tap(find.byKey(widenSearchKey));
+        await tester.pump();
 
-      expect(elargissements, 1);
-    });
+        expect(elargissements, 1);
+      },
+    );
 
-    testWidgets('échelle écoulement, des stations mais aucune observation : '
-        'le périmètre du réseau ONDE est nommé (UC-001 A5)', (
-      WidgetTester tester,
-    ) async {
-      await pumpNotices(tester, stations: <StationPoint>[_blois()]);
+    testWidgetsOnWindows(
+      'échelle écoulement, des stations mais aucune observation : '
+      'le périmètre du réseau ONDE est nommé (UC-001 A5)',
+      (WidgetTester tester) async {
+        await pumpNotices(tester, stations: <StationPoint>[_blois()]);
 
-      expect(find.byType(OutsideOndeCoverageNotice), findsOneWidget);
-      expect(find.byType(NoDataInAreaNotice), findsNothing);
-    });
+        expect(find.byType(OutsideOndeCoverageNotice), findsOneWidget);
+        expect(find.byType(NoDataInAreaNotice), findsNothing);
+      },
+    );
 
-    testWidgets('des lignes ONDE illisibles : leur compte est dit (T-14)', (
-      WidgetTester tester,
-    ) async {
-      await pumpNotices(
-        tester,
-        ondeObservations: _uneObservation(),
-        ondeUnreadableRows: 3,
-      );
+    testWidgetsOnWindows(
+      'des lignes ONDE illisibles : leur compte est dit (T-14)',
+      (WidgetTester tester) async {
+        await pumpNotices(
+          tester,
+          ondeObservations: _uneObservation(),
+          ondeUnreadableRows: 3,
+        );
 
-      expect(
-        tester
-            .widget<UnreadableRowsNotice>(find.byType(UnreadableRowsNotice))
-            .count,
-        3,
-      );
-    });
+        expect(
+          tester
+              .widget<UnreadableRowsNotice>(find.byType(UnreadableRowsNotice))
+              .count,
+          3,
+        );
+      },
+    );
 
-    testWidgets('aucun avis quand la carte a de quoi parler d elle même', (
-      WidgetTester tester,
-    ) async {
-      await pumpNotices(tester, ondeObservations: _uneObservation());
+    testWidgetsOnWindows(
+      'aucun avis quand la carte a de quoi parler d elle même',
+      (WidgetTester tester) async {
+        await pumpNotices(tester, ondeObservations: _uneObservation());
 
-      expect(find.byType(NoDataInAreaNotice), findsNothing);
-      expect(find.byType(NoStationInAreaNotice), findsNothing);
-      expect(find.byType(OutsideOndeCoverageNotice), findsNothing);
-      expect(find.byType(SourceUnavailableNotice), findsNothing);
-      expect(find.byType(UnreadableRowsNotice), findsNothing);
-    });
+        expect(find.byType(NoDataInAreaNotice), findsNothing);
+        expect(find.byType(NoStationInAreaNotice), findsNothing);
+        expect(find.byType(OutsideOndeCoverageNotice), findsNothing);
+        expect(find.byType(SourceUnavailableNotice), findsNothing);
+        expect(find.byType(UnreadableRowsNotice), findsNothing);
+      },
+    );
 
-    testWidgets("une panne ONDE n'efface pas les stations : les marqueurs de "
-        "l'échelle débit sont toujours construits, et l'avis se pose "
-        'par-dessus (UC-001 A4)', (WidgetTester tester) async {
-      final List<StationPoint> stations = <StationPoint>[_blois()];
-      final Object panne = StateError('ONDE indisponible');
+    testWidgetsOnWindows(
+      "une panne ONDE n'efface pas les stations : les marqueurs de "
+      "l'échelle débit sont toujours construits, et l'avis se pose "
+      'par-dessus (UC-001 A4)',
+      (WidgetTester tester) async {
+        final List<StationPoint> stations = <StationPoint>[_blois()];
+        final Object panne = StateError('ONDE indisponible');
 
-      // Les marqueurs : `buildMapLayers` ne reçoit PAS l'erreur — c'est
-      // structurellement ce qui garantit qu'une panne ne vide pas la carte.
-      final List<Widget> couches = buildMapLayers(
-        ageOf: _unusedAgeOf,
-        scale: MapScaleKind.debit,
-        stations: stations,
-      );
-      final MarkerLayer marqueurs = couches.whereType<MarkerLayer>().single;
-      expect(marqueurs.markers, hasLength(1));
+        // Les marqueurs : `buildMapLayers` ne reçoit PAS l'erreur — c'est
+        // structurellement ce qui garantit qu'une panne ne vide pas la carte.
+        final List<Widget> couches = buildMapLayers(
+          ageOf: _unusedAgeOf,
+          scale: MapScaleKind.debit,
+          stations: stations,
+        );
+        final MarkerLayer marqueurs = couches.whereType<MarkerLayer>().single;
+        expect(marqueurs.markers, hasLength(1));
 
-      // L'avis : rendu par-dessus, et il nomme l'écoulement.
-      await pumpNotices(
-        tester,
-        scale: MapScaleKind.debit,
-        stations: stations,
-        error: panne,
-        errorSource: MapErrorSource.ecoulement,
-      );
+        // L'avis : rendu par-dessus, et il nomme l'écoulement.
+        await pumpNotices(
+          tester,
+          scale: MapScaleKind.debit,
+          stations: stations,
+          error: panne,
+          errorSource: MapErrorSource.ecoulement,
+        );
 
-      expect(
-        tester
-            .widget<SourceUnavailableNotice>(
-              find.byType(SourceUnavailableNotice),
-            )
-            .sourceName,
-        mapSourceName(MapErrorSource.ecoulement),
-      );
-      expect(
-        find.byType(NoDataInAreaNotice),
-        findsNothing,
-        reason:
-            'une panne explique l absence : « personne ne mesure ici » '
-            'serait un constat que personne n a fait (BR-007)',
-      );
-      expect(
-        find.byType(NoStationInAreaNotice),
-        findsNothing,
-        reason:
-            'une panne parle seule, la phrase dédiée débit non plus ne l '
-            'accompagne pas',
-      );
-    });
+        expect(
+          tester
+              .widget<SourceUnavailableNotice>(
+                find.byType(SourceUnavailableNotice),
+              )
+              .sourceName,
+          mapSourceName(MapErrorSource.ecoulement),
+        );
+        expect(
+          find.byType(NoDataInAreaNotice),
+          findsNothing,
+          reason:
+              'une panne explique l absence : « personne ne mesure ici » '
+              'serait un constat que personne n a fait (BR-007)',
+        );
+        expect(
+          find.byType(NoStationInAreaNotice),
+          findsNothing,
+          reason:
+              'une panne parle seule, la phrase dédiée débit non plus ne l '
+              'accompagne pas',
+        );
+      },
+    );
 
-    testWidgets('la légende et les puces restent rendues sous un avis : une '
-        'carte sans marqueur reste une carte (BR-008)', (
-      WidgetTester tester,
-    ) async {
-      await pumpNotices(tester, scale: MapScaleKind.debit);
+    testWidgetsOnWindows(
+      'la légende et les puces restent rendues sous un avis : une '
+      'carte sans marqueur reste une carte (BR-008)',
+      (WidgetTester tester) async {
+        await pumpNotices(tester, scale: MapScaleKind.debit);
 
-      expect(find.byType(MapLegend), findsOneWidget);
-      expect(find.byType(MapScaleChips), findsOneWidget);
-      expect(find.byType(IgnAttributionBadge), findsOneWidget);
-    });
+        expect(find.byType(MapLegend), findsOneWidget);
+        expect(find.byType(MapScaleChips), findsOneWidget);
+        expect(find.byType(IgnAttributionBadge), findsOneWidget);
+      },
+    );
   });
 
   group('buildMapOverlays — les puces de bascule (T1-U3)', () {
@@ -2387,6 +2877,10 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: buildMapOverlays(
+                filterHidesEverything: false,
+                onClearFilters: () {},
+                filterActive: false,
+                onOpenFilters: () {},
                 scale: scale,
                 onSelect: onSelect ?? (MapScaleKind kind) {},
                 onWiden: () {},
@@ -2405,7 +2899,7 @@ void main() {
       );
     }
 
-    testWidgets('les puces sont rendues, avec l échelle active', (
+    testWidgetsOnWindows('les puces sont rendues, avec l échelle active', (
       WidgetTester tester,
     ) async {
       await pumpScaleOverlays(tester, scale: MapScaleKind.debit);
@@ -2416,33 +2910,37 @@ void main() {
       );
     });
 
-    testWidgets('les puces sont rendues MÊME en erreur : une carte en panne '
-        "reste une carte dont on change l'échelle (BR-007)", (
-      WidgetTester tester,
-    ) async {
-      await pumpScaleOverlays(tester, error: StateError('panne'));
+    testWidgetsOnWindows(
+      'les puces sont rendues MÊME en erreur : une carte en panne '
+      "reste une carte dont on change l'échelle (BR-007)",
+      (WidgetTester tester) async {
+        await pumpScaleOverlays(tester, error: StateError('panne'));
 
-      expect(find.byType(MapScaleChips), findsOneWidget);
-    });
+        expect(find.byType(MapScaleChips), findsOneWidget);
+      },
+    );
 
-    testWidgets('le rappel passé aux surcouches est celui que les puces '
-        'appellent', (WidgetTester tester) async {
-      final List<MapScaleKind> selected = <MapScaleKind>[];
-      await pumpScaleOverlays(
-        tester,
-        scale: MapScaleKind.ecoulement,
-        onSelect: selected.add,
-      );
+    testWidgetsOnWindows(
+      'le rappel passé aux surcouches est celui que les puces '
+      'appellent',
+      (WidgetTester tester) async {
+        final List<MapScaleKind> selected = <MapScaleKind>[];
+        await pumpScaleOverlays(
+          tester,
+          scale: MapScaleKind.ecoulement,
+          onSelect: selected.add,
+        );
 
-      await tester.tap(
-        find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
-      );
-      await tester.pump();
+        await tester.tap(
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+        );
+        await tester.pump();
 
-      expect(selected, <MapScaleKind>[MapScaleKind.debit]);
-    });
+        expect(selected, <MapScaleKind>[MapScaleKind.debit]);
+      },
+    );
 
-    testWidgets('les puces ne recouvrent jamais la légende (BR-008)', (
+    testWidgetsOnWindows('les puces ne recouvrent jamais la légende (BR-008)', (
       WidgetTester tester,
     ) async {
       await pumpScaleOverlays(tester, error: StateError('panne'));
@@ -2453,17 +2951,20 @@ void main() {
       );
     });
 
-    testWidgets("l'avis de panne ne recouvre pas les puces : il se pose "
-        'dessous', (WidgetTester tester) async {
-      await pumpScaleOverlays(tester, error: StateError('panne'));
+    testWidgetsOnWindows(
+      "l'avis de panne ne recouvre pas les puces : il se pose "
+      'dessous',
+      (WidgetTester tester) async {
+        await pumpScaleOverlays(tester, error: StateError('panne'));
 
-      expect(
-        tester.getBottomLeft(find.byType(MapScaleChips)).dy,
-        lessThanOrEqualTo(
-          tester.getTopLeft(find.byType(SourceUnavailableNotice)).dy,
-        ),
-      );
-    });
+        expect(
+          tester.getBottomLeft(find.byType(MapScaleChips)).dy,
+          lessThanOrEqualTo(
+            tester.getTopLeft(find.byType(SourceUnavailableNotice)).dy,
+          ),
+        );
+      },
+    );
   });
 
   // Depuis `U4`, `onOndeTap` et `ondeSheet` sont couplés comme leurs pendants
@@ -2547,7 +3048,7 @@ void main() {
       departement: null,
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'pastille dessinée au démarrage ; seul le point non rattaché est '
       'individuel ; le tap fait passer le niveau de région à département '
       "et relance latestWithinBounds",
@@ -2633,64 +3134,66 @@ void main() {
       },
     );
 
-    testWidgets('agrégat d un seul membre (CentreOn) : le tap ramène au niveau '
-        'individuel (contre-relecture du coordinateur)', (
-      WidgetTester tester,
-    ) async {
-      // Un seul membre : `AreaCluster.bounds` est plat (nul),
-      // `zoomTargetFor` rend `CentreOn` — pas `CoverBounds`. La cible est
-      // `individualMarkersFromZoom` (9) : `_handleClusterSelect` doit
-      // l'appliquer via `MapController.move`, puis signaler le geste au
-      // ViewModel comme pour `CoverBounds`.
-      final _SpyOndeObservationRepository onde = _SpyOndeObservationRepository(
-        <OndeObservation>[
-          _observation(
-            pointNord(),
-            category: const Assec(),
-            observedAt: DateTime.utc(2026, 9, 1),
+    testWidgetsOnWindows(
+      'agrégat d un seul membre (CentreOn) : le tap ramène au niveau '
+      'individuel (contre-relecture du coordinateur)',
+      (WidgetTester tester) async {
+        // Un seul membre : `AreaCluster.bounds` est plat (nul),
+        // `zoomTargetFor` rend `CentreOn` — pas `CoverBounds`. La cible est
+        // `individualMarkersFromZoom` (9) : `_handleClusterSelect` doit
+        // l'appliquer via `MapController.move`, puis signaler le geste au
+        // ViewModel comme pour `CoverBounds`.
+        final _SpyOndeObservationRepository onde =
+            _SpyOndeObservationRepository(<OndeObservation>[
+              _observation(
+                pointNord(),
+                category: const Assec(),
+                observedAt: DateTime.utc(2026, 9, 1),
+              ),
+            ]);
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: _EmptyStationPointRepository(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: onde,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(viewModel.level, AreaLevel.region);
+        expect(find.byType(AreaClusterMarker), findsOneWidget);
+
+        final GestureDetector detecteur = tester.widget<GestureDetector>(
+          find.byWidgetPredicate(
+            // Voir le commentaire du groupe précédent : `KeyboardFocusRing`
+            // s'intercale désormais entre le `GestureDetector` et
+            // `AreaClusterMarker` (`K2`, 2026-09-23).
+            (Widget widget) =>
+                widget is GestureDetector &&
+                widget.child is FocusTraversalOrder &&
+                (widget.child! as FocusTraversalOrder).child
+                    is KeyboardFocusRing &&
+                ((widget.child! as FocusTraversalOrder).child
+                            as KeyboardFocusRing)
+                        .child
+                    is AreaClusterMarker,
           ),
-        ],
-      );
-      final MapViewModel viewModel = MapViewModel(
-        stationPoints: _EmptyStationPointRepository(),
-        observations: _EmptyHydroObservationRepository(),
-        onde: onde,
-      );
+        );
+        detecteur.onTap!();
+        await tester.pumpAndSettle();
 
-      await tester.pumpWidget(MaterialApp(home: MapView(viewModel: viewModel)));
-      await tester.pumpAndSettle();
-
-      expect(viewModel.level, AreaLevel.region);
-      expect(find.byType(AreaClusterMarker), findsOneWidget);
-
-      final GestureDetector detecteur = tester.widget<GestureDetector>(
-        find.byWidgetPredicate(
-          // Voir le commentaire du groupe précédent : `KeyboardFocusRing`
-          // s'intercale désormais entre le `GestureDetector` et
-          // `AreaClusterMarker` (`K2`, 2026-09-23).
-          (Widget widget) =>
-              widget is GestureDetector &&
-              widget.child is FocusTraversalOrder &&
-              (widget.child! as FocusTraversalOrder).child
-                  is KeyboardFocusRing &&
-              ((widget.child! as FocusTraversalOrder).child
-                          as KeyboardFocusRing)
-                      .child
-                  is AreaClusterMarker,
-        ),
-      );
-      detecteur.onTap!();
-      await tester.pumpAndSettle();
-
-      // Niveau individuel : `levelFor(9)` rend `null` — c'est bien vers
-      // `individualMarkersFromZoom` que `CentreOn` a déplacé la caméra.
-      expect(viewModel.level, isNull);
-    });
+        // Niveau individuel : `levelFor(9)` rend `null` — c'est bien vers
+        // `individualMarkersFromZoom` que `CentreOn` a déplacé la caméra.
+        expect(viewModel.level, isNull);
+      },
+    );
   });
 
   group('MapView — échelle débit, contre-relecture du coordinateur '
       '(seuls les non-rattachés sont des marqueurs individuels)', () {
-    testWidgets(
+    testWidgetsOnWindows(
       'zoom 5, niveau région : une pastille pour la station rattachée, '
       'un seul StationMarkerDot individuel pour la station sans région',
       (WidgetTester tester) async {
@@ -2763,7 +3266,7 @@ void main() {
       ),
     ]);
 
-    testWidgets(
+    testWidgetsOnWindows(
       "au zoom maximal, + est désactivé (Semantics.enabled faux) ; au "
       'zoom minimal, − l est — le test passe par le rendu de MapControls, '
       'pas seulement par MapViewModel.canZoomIn/canZoomOut',
@@ -2834,7 +3337,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       '+ deux fois depuis le zoom initial (5) atteint 7 : level passe de '
       'region à departement',
       (WidgetTester tester) async {
@@ -2865,7 +3368,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       '+ depuis le zoom 8 atteint 9 : clusters vide (niveau individuel) et '
       'le préchargement de la station visible est lancé',
       (WidgetTester tester) async {
@@ -2907,46 +3410,51 @@ void main() {
       },
     );
 
-    testWidgets('− depuis le zoom 9 revient à 8 : pastilles départementales '
-        'revenues, aucun nouvel appel findLatest', (WidgetTester tester) async {
-      final _SpyHydroObservationRepository observations =
-          _SpyHydroObservationRepository();
-      final MapViewModel viewModel = MapViewModel(
-        stationPoints: uneStationAvecDepartement(),
-        observations: observations,
-        onde: _EmptyOndeObservationRepository(),
-      );
+    testWidgetsOnWindows(
+      '− depuis le zoom 9 revient à 8 : pastilles départementales '
+      'revenues, aucun nouvel appel findLatest',
+      (WidgetTester tester) async {
+        final _SpyHydroObservationRepository observations =
+            _SpyHydroObservationRepository();
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: uneStationAvecDepartement(),
+          observations: observations,
+          onde: _EmptyOndeObservationRepository(),
+        );
 
-      await tester.pumpWidget(MaterialApp(home: MapView(viewModel: viewModel)));
-      await tester.pumpAndSettle();
-      viewModel.selectScale(MapScaleKind.debit);
-      await tester.pumpAndSettle();
-
-      // zoom 5 -> ... -> 9 : quatre taps, niveau individuel, un
-      // préchargement.
-      for (int i = 0; i < 4; i++) {
-        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
         await tester.pumpAndSettle();
-      }
-      expect(viewModel.zoom, 9);
-      expect(viewModel.level, isNull);
-      final int callsAtZoomNeuf = observations.callCount;
-      expect(callsAtZoomNeuf, 1);
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(mapZoomOutButtonKey));
-      await tester.pumpAndSettle();
+        // zoom 5 -> ... -> 9 : quatre taps, niveau individuel, un
+        // préchargement.
+        for (int i = 0; i < 4; i++) {
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+        }
+        expect(viewModel.zoom, 9);
+        expect(viewModel.level, isNull);
+        final int callsAtZoomNeuf = observations.callCount;
+        expect(callsAtZoomNeuf, 1);
 
-      expect(viewModel.zoom, 8);
-      expect(viewModel.level, AreaLevel.departement);
-      expect(viewModel.clusters, isNotEmpty);
-      expect(
-        observations.callCount,
-        callsAtZoomNeuf,
-        reason: 'de retour au niveau regroupé, aucun findLatest de plus',
-      );
-    });
+        await tester.tap(find.byKey(mapZoomOutButtonKey));
+        await tester.pumpAndSettle();
 
-    testWidgets(
+        expect(viewModel.zoom, 8);
+        expect(viewModel.level, AreaLevel.departement);
+        expect(viewModel.clusters, isNotEmpty);
+        expect(
+          observations.callCount,
+          callsAtZoomNeuf,
+          reason: 'de retour au niveau regroupé, aucun findLatest de plus',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
       'le recentrage ramène au zoom de démarrage (5) : niveau région',
       (WidgetTester tester) async {
         final MapViewModel viewModel = MapViewModel(
@@ -2976,7 +3484,7 @@ void main() {
       },
     );
 
-    testWidgets(
+    testWidgetsOnWindows(
       'le recentrage ramène aussi le CENTRE (pas seulement le zoom) — '
       "arbitrage du coordinateur du 2026-09-23 : un recentrage décalé "
       "en latitude/longitude ne serait pas un recentrage",
@@ -3031,6 +3539,191 @@ void main() {
         // linéaire) : sa tolérance reste serrée.
         expect(centreLatitude, closeTo(initialMapCenterLatitude, 1.5));
         expect(centreLongitude, closeTo(initialMapCenterLongitude, 0.01));
+      },
+    );
+  });
+
+  group('MapView — un filtre qui masque tout (F8 de T3)', () {
+    /// Deux points ONDE sans région : ils restent des marqueurs individuels à
+    /// tous les niveaux, donc dessinés dès le démarrage.
+    List<OndeObservation> deuxAssecs() => <OndeObservation>[
+      _observation(
+        _leTrey(),
+        category: const Assec(),
+        observedAt: DateTime.utc(2026, 9, 1),
+      ),
+      _observation(
+        _laSeille(),
+        category: const Assec(),
+        observedAt: DateTime.utc(2026, 9, 1),
+      ),
+    ];
+
+    Finder marqueursOnde() => find.descendant(
+      of: find.byType(MarkerLayer),
+      matching: find.byType(OndeMarkerShape),
+    );
+
+    final MapFilter sansAssec = MapFilter.none.withCategory(
+      const Assec(),
+      shown: false,
+    );
+
+    testWidgetsOnWindows(
+      "deux Assec lus, la case « À sec » décochée : l'avis des filtres "
+      "s'affiche seul ; « Effacer les filtres » le retire, ramène le filtre "
+      'à MapFilter.none et redessine les deux marqueurs',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: _EmptyStationPointRepository(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: _SpyOndeObservationRepository(deuxAssecs()),
+        );
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        expect(marqueursOnde(), findsNWidgets(2));
+        expect(find.text(filterHidesEverythingText), findsNothing);
+
+        viewModel.applyFilter(sansAssec);
+        await tester.pumpAndSettle();
+
+        expect(find.text(filterHidesEverythingText), findsOneWidget);
+        expect(find.byKey(clearFiltersKey), findsOneWidget);
+        expect(marqueursOnde(), findsNothing);
+        expect(find.byType(NoDataInAreaNotice), findsNothing);
+        expect(find.byType(OutsideOndeCoverageNotice), findsNothing);
+        expect(find.text(widenSearchLabel), findsNothing);
+
+        await tester.tap(find.byKey(clearFiltersKey));
+        await tester.pumpAndSettle();
+
+        expect(find.text(filterHidesEverythingText), findsNothing);
+        expect(viewModel.filter, MapFilter.none);
+        expect(marqueursOnde(), findsNWidgets(2));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'une panne ONDE après un balayage dont le filtre masque tout : seul '
+      "l'avis de la source tombée est affiché (une panne parle seule)",
+      (WidgetTester tester) async {
+        final _SwitchableOndeObservationRepository onde =
+            _SwitchableOndeObservationRepository(deuxAssecs());
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: _EmptyStationPointRepository(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: onde,
+        );
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+        viewModel.applyFilter(sansAssec);
+        await tester.pumpAndSettle();
+        expect(find.text(filterHidesEverythingText), findsOneWidget);
+
+        onde.fail = true;
+        await viewModel.widenSearch();
+        await tester.pumpAndSettle();
+
+        expect(viewModel.error, isNotNull);
+        expect(viewModel.filterHidesEverything, isTrue);
+        expect(find.byType(SourceUnavailableNotice), findsOneWidget);
+        expect(find.text(filterHidesEverythingText), findsNothing);
+        expect(find.byKey(clearFiltersKey), findsNothing);
+      },
+    );
+  });
+
+  // Le bouton « Favoris » (`S10` de T3, arbitrage 8 du cadrage de T3). La
+  // carte rend un rappel injecté et ignore qui l'écoute (`feature-vers-feature`
+  // : la tranche carte ne nomme pas la tranche favoris).
+  group('MapView — le bouton « Favoris » (S10 de T3)', () {
+    testWidgetsOnWindows(
+      'MapView(onOpenFavorites: rappel) : un tap sur le bouton de la carte '
+      'appelle le rappel, une fois',
+      (WidgetTester tester) async {
+        int appels = 0;
+        final MapViewModel viewModel = _viewModel();
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onOpenFavorites: () => appels++,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(mapFavoritesButtonKey), findsOneWidget);
+        await tester.tap(find.byKey(mapFavoritesButtonKey));
+        await tester.pump();
+
+        expect(appels, 1);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'MapView sans rappel : aucun bouton « Favoris », « Filtres » seul dans '
+      'le groupe',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = _viewModel();
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(home: MapView(viewModel: viewModel)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(mapFavoritesButtonKey), findsNothing);
+        expect(find.byKey(mapFiltersButtonKey), findsOneWidget);
+        expect(
+          tester.getRect(find.byType(MapEntryButtons)),
+          tester.getRect(find.byKey(mapFiltersButtonKey)),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'Tab : puces (2) → « Élargir la recherche » (avis de carte vide, K1 de '
+      'T3) → « Favoris » → « Filtres » → contrôles de zoom ; « Favoris » est '
+      'le groupe d’entrée, juste avant « Filtres »',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = _viewModel();
+        addTearDown(viewModel.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(viewModel: viewModel, onOpenFavorites: () {}),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final List<Finder> ordreAttendu = <Finder>[
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(widenSearchKey),
+          find.byKey(mapFavoritesButtonKey),
+          find.byKey(mapFiltersButtonKey),
+          find.byKey(mapZoomInButtonKey),
+        ];
+        for (final Finder attendu in ordreAttendu) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(
+            focusedWithin(tester, attendu),
+            isTrue,
+            reason: 'attendu à ce Tab : $attendu',
+          );
+        }
       },
     );
   });
@@ -3119,6 +3812,34 @@ final class _SpyOndeObservationRepository implements OndeObservationRepository {
     required DateTime since,
   }) async {
     callCount++;
+    return OndeSweep(observations: observations, unreadableRows: 0);
+  }
+
+  @override
+  Future<List<OndeObservation>> historyFor(
+    OndeStationCode station, {
+    int limit = 5,
+  }) async => const <OndeObservation>[];
+}
+
+/// Comme [_SpyOndeObservationRepository], mais il peut tomber : `fail` à vrai
+/// fait lever chaque balayage suivant.
+final class _SwitchableOndeObservationRepository
+    implements OndeObservationRepository {
+  _SwitchableOndeObservationRepository(this.observations);
+
+  final List<OndeObservation> observations;
+
+  bool fail = false;
+
+  @override
+  Future<OndeSweep> latestWithinBounds(
+    Bounds bounds, {
+    required DateTime since,
+  }) async {
+    if (fail) {
+      throw StateError('Hub\'Eau écoulement : panne simulée');
+    }
     return OndeSweep(observations: observations, unreadableRows: 0);
   }
 

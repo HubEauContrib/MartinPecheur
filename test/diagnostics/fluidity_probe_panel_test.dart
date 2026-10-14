@@ -101,6 +101,10 @@ void main() {
                 // SOUS les puces en haut-gauche — exactement ce que le
                 // panneau ne doit plus recouvrir (point 3).
                 ...buildMapOverlays(
+                  filterHidesEverything: false,
+                  onClearFilters: () {},
+                  filterActive: false,
+                  onOpenFilters: () {},
                   scale: MapScaleKind.debit,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: () {},
@@ -260,7 +264,7 @@ void main() {
 
   group('FluidityProbePanel — boutons SANS animation (contre-relecture du '
       '2026-09-23, point 1)', () {
-    testWidgets('le style de CHAQUE bouton Démarrer/Arrêter porte '
+    testWidgetsOnWindows('le style de CHAQUE bouton Démarrer/Arrêter porte '
         'NoSplash.splashFactory et un overlayColor transparent', (
       WidgetTester tester,
     ) async {
@@ -306,7 +310,7 @@ void main() {
   });
 
   group('FluidityProbePanel — protocole affiché (🟠 3)', () {
-    testWidgets(
+    testWidgetsOnWindows(
       'affiche le protocole (démarrer, attendre 1 s, geste, attendre 1 s, '
       'arrêter), la mention "à compter à la main" pour G2, et son échelle '
       '(écoulement, comme G1)',
@@ -365,52 +369,55 @@ void main() {
 
   group('FluidityProbePanel — compteur G2 remis à zéro à chaque geste '
       '(🟠 5)', () {
-    testWidgets('deux gestes G2 successifs, avec des appels entre les deux, ne '
-        'cumulent pas', (WidgetTester tester) async {
-      final CountingStationPointRepository stationPoints =
-          CountingStationPointRepository(_EmptyStationPointRepository());
-      final FrameTimingProbe probe = FrameTimingProbe(
-        addTimingsCallback: (_) {},
-        removeTimingsCallback: (_) {},
-      );
+    testWidgetsOnWindows(
+      'deux gestes G2 successifs, avec des appels entre les deux, ne '
+      'cumulent pas',
+      (WidgetTester tester) async {
+        final CountingStationPointRepository stationPoints =
+            CountingStationPointRepository(_EmptyStationPointRepository());
+        final FrameTimingProbe probe = FrameTimingProbe(
+          addTimingsCallback: (_) {},
+          removeTimingsCallback: (_) {},
+        );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FluidityProbePanel(
-              probe: probe,
-              stationPoints: stationPoints,
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: FluidityProbePanel(
+                probe: probe,
+                stationPoints: stationPoints,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final Bounds bounds = Bounds(west: 0, south: 0, east: 1, north: 1);
+        final Bounds bounds = Bounds(west: 0, south: 0, east: 1, north: 1);
 
-      // Premier geste G2 : trois appels pendant le geste.
-      await tester.tap(find.widgetWithText(TextButton, 'Démarrer').at(1));
-      await tester.pump();
-      await stationPoints.withinBounds(bounds);
-      await stationPoints.withinBounds(bounds);
-      await stationPoints.withinBounds(bounds);
-      await tester.tap(find.widgetWithText(TextButton, 'Arrêter'));
-      await tester.pump();
+        // Premier geste G2 : trois appels pendant le geste.
+        await tester.tap(find.widgetWithText(TextButton, 'Démarrer').at(1));
+        await tester.pump();
+        await stationPoints.withinBounds(bounds);
+        await stationPoints.withinBounds(bounds);
+        await stationPoints.withinBounds(bounds);
+        await tester.tap(find.widgetWithText(TextButton, 'Arrêter'));
+        await tester.pump();
 
-      expect(find.textContaining('appels withinBounds : 3'), findsOneWidget);
+        expect(find.textContaining('appels withinBounds : 3'), findsOneWidget);
 
-      // Second geste G2 : un seul appel pendant CE geste — le compteur du
-      // décorateur, lui, continue de monter (6), mais le rapport du
-      // panneau ne doit rapporter QUE ce second geste (1), pas le cumul
-      // (9) ni le total du décorateur (6).
-      await tester.tap(find.widgetWithText(TextButton, 'Démarrer').at(1));
-      await tester.pump();
-      await stationPoints.withinBounds(bounds);
-      await tester.tap(find.widgetWithText(TextButton, 'Arrêter'));
-      await tester.pump();
+        // Second geste G2 : un seul appel pendant CE geste — le compteur du
+        // décorateur, lui, continue de monter (6), mais le rapport du
+        // panneau ne doit rapporter QUE ce second geste (1), pas le cumul
+        // (9) ni le total du décorateur (6).
+        await tester.tap(find.widgetWithText(TextButton, 'Démarrer').at(1));
+        await tester.pump();
+        await stationPoints.withinBounds(bounds);
+        await tester.tap(find.widgetWithText(TextButton, 'Arrêter'));
+        await tester.pump();
 
-      expect(stationPoints.withinBoundsCallCount, 4);
-      expect(find.textContaining('appels withinBounds : 1'), findsOneWidget);
-      expect(find.textContaining('appels withinBounds : 4'), findsNothing);
-    });
+        expect(stationPoints.withinBoundsCallCount, 4);
+        expect(find.textContaining('appels withinBounds : 1'), findsOneWidget);
+        expect(find.textContaining('appels withinBounds : 4'), findsNothing);
+      },
+    );
   });
 }

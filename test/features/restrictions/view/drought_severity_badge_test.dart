@@ -15,6 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.dart';
 
+import '../../../support/windows_platform.dart';
+
 double _channel(double c) =>
     c <= 0.03928 ? c / 12.92 : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
 
@@ -181,31 +183,34 @@ void main() {
   });
 
   group('DroughtSeverityBadge — widget', () {
-    testWidgets('dessine la forme sans aucun texte ni sémantique propre : le '
-        'libellé est posé à côté par l écran', (WidgetTester tester) async {
-      for (final DroughtSeverity level in <DroughtSeverity>[
-        ...droughtSeverityScale,
-        const GraviteInconnue(null),
-      ]) {
-        await tester.pumpWidget(
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Center(child: DroughtSeverityBadge(severity: level)),
-          ),
-        );
-        expect(find.byType(Text), findsNothing);
-        expect(
-          find.descendant(
-            of: find.byType(DroughtSeverityBadge),
-            matching: find.byType(CustomPaint),
-          ),
-          findsWidgets,
-        );
-        final Size size = tester.getSize(find.byType(DroughtSeverityBadge));
-        expect(size.width, droughtBadgeSize);
-        expect(size.height, droughtBadgeSize);
-        expect(tester.takeException(), isNull);
-      }
-    });
+    testWidgetsOnWindows(
+      'dessine la forme sans aucun texte ni sémantique propre : le '
+      'libellé est posé à côté par l écran',
+      (WidgetTester tester) async {
+        for (final DroughtSeverity level in <DroughtSeverity>[
+          ...droughtSeverityScale,
+          const GraviteInconnue(null),
+        ]) {
+          await tester.pumpWidget(
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Center(child: DroughtSeverityBadge(severity: level)),
+            ),
+          );
+          expect(find.byType(Text), findsNothing);
+          expect(
+            find.descendant(
+              of: find.byType(DroughtSeverityBadge),
+              matching: find.byType(CustomPaint),
+            ),
+            findsWidgets,
+          );
+          final Size size = tester.getSize(find.byType(DroughtSeverityBadge));
+          expect(size.width, droughtBadgeSize);
+          expect(size.height, droughtBadgeSize);
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
   });
 }

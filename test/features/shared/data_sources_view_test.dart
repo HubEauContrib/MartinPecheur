@@ -25,6 +25,7 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/shared/data_sources_view.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+import '../../support/android_platform.dart';
 import '../../support/windows_platform.dart';
 
 const String _intro =
@@ -94,52 +95,56 @@ double _top(WidgetTester tester, Finder finder) => tester.getTopLeft(finder).dy;
 
 void main() {
   group('DataSourcesView — contenu (conception § 8)', () {
-    testWidgets('le titre est dataSourcesTitle, annonce comme en-tete', (
-      WidgetTester tester,
-    ) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
-      await tester.pumpWidget(_app());
+    testWidgetsOnWindows(
+      'le titre est dataSourcesTitle, annonce comme en-tete',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        await tester.pumpWidget(_app());
 
-      expect(find.text(dataSourcesTitle), findsOneWidget);
-      expect(
-        tester
-            .getSemantics(find.text(dataSourcesTitle))
-            .getSemanticsData()
-            .flagsCollection
-            .isHeader,
-        isTrue,
-      );
-
-      handle.dispose();
-    });
-
-    testWidgets('les quatre sources sont nommees par leurs constantes, '
-        'chacune en en-tete', (WidgetTester tester) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
-      await tester.pumpWidget(_app());
-
-      for (final String name in <String>[
-        hydrometrieSourceName,
-        ondeSourceName,
-        restrictionsSourceName,
-        ignSourceName,
-      ]) {
-        expect(find.text(name), findsOneWidget, reason: name);
+        expect(find.text(dataSourcesTitle), findsOneWidget);
         expect(
           tester
-              .getSemantics(find.text(name))
+              .getSemantics(find.text(dataSourcesTitle))
               .getSemanticsData()
               .flagsCollection
               .isHeader,
           isTrue,
-          reason: name,
         );
-      }
 
-      handle.dispose();
-    });
+        handle.dispose();
+      },
+    );
 
-    testWidgets('chaque section rend le texte retenu, mot pour mot', (
+    testWidgetsOnWindows(
+      'les quatre sources sont nommees par leurs constantes, '
+      'chacune en en-tete',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        await tester.pumpWidget(_app());
+
+        for (final String name in <String>[
+          hydrometrieSourceName,
+          ondeSourceName,
+          restrictionsSourceName,
+          ignSourceName,
+        ]) {
+          expect(find.text(name), findsOneWidget, reason: name);
+          expect(
+            tester
+                .getSemantics(find.text(name))
+                .getSemanticsData()
+                .flagsCollection
+                .isHeader,
+            isTrue,
+            reason: name,
+          );
+        }
+
+        handle.dispose();
+      },
+    );
+
+    testWidgetsOnWindows('chaque section rend le texte retenu, mot pour mot', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(_app());
@@ -200,39 +205,48 @@ void main() {
       );
     });
 
-    testWidgets("l'adresse du site public est un texte selectionnable, "
-        "pas un lien : aucun port d'ouverture, aucune cible actionnable "
-        'hors du retour', (WidgetTester tester) async {
-      await tester.pumpWidget(_app());
+    testWidgetsOnWindows(
+      "l'adresse du site public est un texte selectionnable, "
+      "pas un lien : aucun port d'ouverture, aucune cible actionnable "
+      'hors du retour',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app());
 
-      expect(
-        find.byWidgetPredicate(
-          (Widget widget) =>
-              widget is SelectableText &&
-              widget.data == restrictionsPublicSiteUrl,
-        ),
-        findsOneWidget,
-      );
-      final Finder content = find.byType(SingleChildScrollView);
-      expect(
-        find.descendant(of: content, matching: find.byType(InkWell)),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: content, matching: find.byType(ButtonStyleButton)),
-        findsNothing,
-      );
-    });
+        expect(
+          find.byWidgetPredicate(
+            (Widget widget) =>
+                widget is SelectableText &&
+                widget.data == restrictionsPublicSiteUrl,
+          ),
+          findsOneWidget,
+        );
+        final Finder content = find.byType(SingleChildScrollView);
+        expect(
+          find.descendant(of: content, matching: find.byType(InkWell)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: content,
+            matching: find.byType(ButtonStyleButton),
+          ),
+          findsNothing,
+        );
+      },
+    );
 
-    testWidgets('le mot « percentile » est absent, comme toute limite de '
-        'statistique (Q8-A, Q4-A)', (WidgetTester tester) async {
-      await tester.pumpWidget(_app());
+    testWidgetsOnWindows(
+      'le mot « percentile » est absent, comme toute limite de '
+      'statistique (Q8-A, Q4-A)',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app());
 
-      final String all = _renderedTexts(tester).join('\n').toLowerCase();
-      expect(all, isNot(contains('percentile')));
-    });
+        final String all = _renderedTexts(tester).join('\n').toLowerCase();
+        expect(all, isNot(contains('percentile')));
+      },
+    );
 
-    testWidgets("l'ordre est celui de la conception : introduction, "
+    testWidgetsOnWindows("l'ordre est celui de la conception : introduction, "
         'hydrometrie, ONDE et sa note, restrictions et son adresse, fond de '
         'carte, limite des barrages', (WidgetTester tester) async {
       await tester.pumpWidget(_app());
@@ -292,7 +306,7 @@ void main() {
       expect(find.byType(DataSourcesView), findsOneWidget);
     }
 
-    testWidgets('le bouton de retour retire la route', (
+    testWidgetsOnWindows('le bouton de retour retire la route', (
       WidgetTester tester,
     ) async {
       await pushed(tester);
@@ -303,7 +317,7 @@ void main() {
       expect(find.byType(DataSourcesView), findsNothing);
     });
 
-    testWidgets('Echap retire la route', (WidgetTester tester) async {
+    testWidgetsOnWindows('Echap retire la route', (WidgetTester tester) async {
       await pushed(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -315,76 +329,91 @@ void main() {
     // Constat D de la revue : `Focus(autofocus: true)` porte `Echap` et
     // `PageDown` des l'ouverture ; sans `skipTraversal`, il etait aussi un
     // arret de tabulation sans aucun indicateur visible (`K2`).
-    testWidgets('Tab : le noeud de l ecran n est jamais un arret, le parcours '
-        'boucle sur le bouton de retour', (WidgetTester tester) async {
-      await tester.pumpWidget(_app());
-      await tester.pumpAndSettle();
-      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
-      expect(FocusManager.instance.primaryFocus, same(screen));
+    testWidgetsOnWindows(
+      'Tab : le noeud de l ecran n est jamais un arret, le parcours '
+      'boucle sur le bouton de retour',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app());
+        await tester.pumpAndSettle();
+        final FocusNode screen = Focus.of(
+          tester.element(find.byType(Scaffold)),
+        );
+        expect(FocusManager.instance.primaryFocus, same(screen));
 
-      FocusNode? first;
-      bool looped = false;
-      for (int press = 1; press <= 100 && !looped; press++) {
+        FocusNode? first;
+        bool looped = false;
+        for (int press = 1; press <= 100 && !looped; press++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          final FocusNode? focused = FocusManager.instance.primaryFocus;
+          expect(focused, isNot(same(screen)), reason: 'Tab no $press');
+          if (first == null) {
+            first = focused;
+          } else {
+            looped = identical(focused, first);
+          }
+        }
+        expect(looped, isTrue);
+        expect(
+          first!.context!.findAncestorWidgetOfExactType<BackButton>(),
+          isNotNull,
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'Maj+Tab à l\'ouverture : le nœud de l\'écran n\'est jamais un '
+      'arrêt, le parcours en arrière boucle',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app());
+        await tester.pumpAndSettle();
+        final FocusNode screen = Focus.of(
+          tester.element(find.byType(Scaffold)),
+        );
+        expect(FocusManager.instance.primaryFocus, same(screen));
+
+        FocusNode? first;
+        bool looped = false;
+        for (int press = 1; press <= 100 && !looped; press++) {
+          await _shiftTab(tester);
+          final FocusNode? focused = FocusManager.instance.primaryFocus;
+          expect(focused, isNot(same(screen)), reason: 'Maj+Tab no $press');
+          if (first == null) {
+            first = focused;
+          } else {
+            looped = identical(focused, first);
+          }
+        }
+        expect(looped, isTrue);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'Maj+Tab depuis le premier arrêt : le nœud de l\'écran n\'est '
+      'pas l\'arrêt précédent',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app());
+        await tester.pumpAndSettle();
+        final FocusNode screen = Focus.of(
+          tester.element(find.byType(Scaffold)),
+        );
+
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
-        final FocusNode? focused = FocusManager.instance.primaryFocus;
-        expect(focused, isNot(same(screen)), reason: 'Tab no $press');
-        if (first == null) {
-          first = focused;
-        } else {
-          looped = identical(focused, first);
-        }
-      }
-      expect(looped, isTrue);
-      expect(
-        first!.context!.findAncestorWidgetOfExactType<BackButton>(),
-        isNotNull,
-      );
-    });
+        final FocusNode? first = FocusManager.instance.primaryFocus;
+        expect(
+          first!.context!.findAncestorWidgetOfExactType<BackButton>(),
+          isNotNull,
+        );
 
-    testWidgets('Maj+Tab à l\'ouverture : le nœud de l\'écran n\'est jamais un '
-        'arrêt, le parcours en arrière boucle', (WidgetTester tester) async {
-      await tester.pumpWidget(_app());
-      await tester.pumpAndSettle();
-      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
-      expect(FocusManager.instance.primaryFocus, same(screen));
-
-      FocusNode? first;
-      bool looped = false;
-      for (int press = 1; press <= 100 && !looped; press++) {
+        // Le bouton de retour est le SEUL arrêt de cet écran : en arrière, le
+        // parcours reboucle sur lui, jamais sur le nœud de l'écran.
         await _shiftTab(tester);
-        final FocusNode? focused = FocusManager.instance.primaryFocus;
-        expect(focused, isNot(same(screen)), reason: 'Maj+Tab no $press');
-        if (first == null) {
-          first = focused;
-        } else {
-          looped = identical(focused, first);
-        }
-      }
-      expect(looped, isTrue);
-    });
-
-    testWidgets('Maj+Tab depuis le premier arrêt : le nœud de l\'écran n\'est '
-        'pas l\'arrêt précédent', (WidgetTester tester) async {
-      await tester.pumpWidget(_app());
-      await tester.pumpAndSettle();
-      final FocusNode screen = Focus.of(tester.element(find.byType(Scaffold)));
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      final FocusNode? first = FocusManager.instance.primaryFocus;
-      expect(
-        first!.context!.findAncestorWidgetOfExactType<BackButton>(),
-        isNotNull,
-      );
-
-      // Le bouton de retour est le SEUL arrêt de cet écran : en arrière, le
-      // parcours reboucle sur lui, jamais sur le nœud de l'écran.
-      await _shiftTab(tester);
-      final FocusNode? previous = FocusManager.instance.primaryFocus;
-      expect(previous, isNot(same(screen)));
-      expect(previous, same(first));
-    });
+        final FocusNode? previous = FocusManager.instance.primaryFocus;
+        expect(previous, isNot(same(screen)));
+        expect(previous, same(first));
+      },
+    );
 
     // `PageDown` est une touche de defilement de Flutter sur Windows ; les
     // fleches suivent, elles, le parcours du focus (aucune n'est liee au
@@ -469,7 +498,9 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(minimumTapTarget));
     }
 
-    testWidgets('Android : le retour mesure 48', (WidgetTester tester) async {
+    testWidgetsOnAndroid('Android : le retour mesure 48', (
+      WidgetTester tester,
+    ) async {
       expect(minimumTapTarget, 48);
       await checkBackTarget(tester);
     });
@@ -483,77 +514,84 @@ void main() {
 
     for (final ({String name, Size size}) window
         in <({String name, Size size})>[
-          (name: 'telephone 390 x 844', size: const Size(390, 844)),
+          (name: 'Android, telephone 390 x 844', size: const Size(390, 844)),
           (
             name: 'fenetre Windows minimale 800 x 740',
             size: const Size(800, 740),
           ),
         ]) {
-      testWidgets('a 200 % de police, ${window.name} : aucun debordement, '
-          'l ecran defile, la derniere phrase est atteignable', (
-        WidgetTester tester,
-      ) async {
-        tester.view.physicalSize = window.size;
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
-        // Etendue defilable a 100 % : le repere. A 200 % le texte occupe plus
-        // de place, l'etendue grandit — sans quoi l'echelle n'aurait pas ete
-        // appliquee et la verification ne dirait rien de 200 %.
-        await tester.pumpWidget(_app());
-        await tester.pumpAndSettle();
-        final double extentAt100 = tester
-            .state<ScrollableState>(find.byType(Scrollable).first)
-            .position
-            .maxScrollExtent;
-        // Hauteur du dernier texte a 100 % : l'etendue seule grandirait aussi
-        // si la barre de titre grossissait pendant que le contenu ignore
-        // l'echelle. C'est le texte LU qui doit avoir grandi.
-        final double lastTextHeightAt100 = tester
-            .getSize(find.text(_dams))
-            .height;
-        await tester.pumpWidget(const SizedBox());
-        await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-            child: _app(),
-          ),
-        );
-        await tester.pumpAndSettle();
+      (window.size.width < 600 ? testWidgetsOnAndroid : testWidgetsOnWindows)(
+        'a 200 % de police, ${window.name} : aucun debordement, '
+        'l ecran defile, la derniere phrase est atteignable',
+        (WidgetTester tester) async {
+          tester.view.physicalSize = window.size;
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(tester.view.reset);
+          // Etendue defilable a 100 % : le repere. A 200 % le texte occupe plus
+          // de place, l'etendue grandit — sans quoi l'echelle n'aurait pas ete
+          // appliquee et la verification ne dirait rien de 200 %.
+          await tester.pumpWidget(_app());
+          await tester.pumpAndSettle();
+          final double extentAt100 = tester
+              .state<ScrollableState>(find.byType(Scrollable).first)
+              .position
+              .maxScrollExtent;
+          // Hauteur du dernier texte a 100 % : l'etendue seule grandirait aussi
+          // si la barre de titre grossissait pendant que le contenu ignore
+          // l'echelle. C'est le texte LU qui doit avoir grandi.
+          final double lastTextHeightAt100 = tester
+              .getSize(find.text(_dams))
+              .height;
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpWidget(
+            MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: _app(),
+            ),
+          );
+          await tester.pumpAndSettle();
 
-        expect(tester.takeException(), isNull);
-        final ScrollableState scrollable = tester.state(
-          find.byType(Scrollable).first,
-        );
-        expect(scrollable.position.maxScrollExtent, greaterThan(extentAt100));
-        expect(
-          tester.getSize(find.text(_dams)).height,
-          greaterThan(lastTextHeightAt100),
-        );
+          expect(tester.takeException(), isNull);
+          final ScrollableState scrollable = tester.state(
+            find.byType(Scrollable).first,
+          );
+          expect(scrollable.position.maxScrollExtent, greaterThan(extentAt100));
+          expect(
+            tester.getSize(find.text(_dams)).height,
+            greaterThan(lastTextHeightAt100),
+          );
 
-        await tester.ensureVisible(find.text(_dams));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        final Rect viewport = Offset.zero & window.size;
-        expect(viewport.contains(tester.getTopLeft(find.text(_dams))), isTrue);
-        expect(
-          viewport.contains(tester.getBottomRight(find.text(_dams))),
-          isTrue,
-        );
-      });
+          await tester.ensureVisible(find.text(_dams));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final Rect viewport = Offset.zero & window.size;
+          expect(
+            viewport.contains(tester.getTopLeft(find.text(_dams))),
+            isTrue,
+          );
+          expect(
+            viewport.contains(tester.getBottomRight(find.text(_dams))),
+            isTrue,
+          );
+        },
+      );
     }
 
-    testWidgets("aucun texte n'est tronque : ni nombre de lignes borne, ni "
-        'points de suspension', (WidgetTester tester) async {
-      await tester.pumpWidget(_app());
+    testWidgetsOnWindows(
+      "aucun texte n'est tronque : ni nombre de lignes borne, ni "
+      'points de suspension',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app());
 
-      final Finder scope = find.byType(DataSourcesView);
-      for (final Text text in tester.widgetList<Text>(
-        find.descendant(of: scope, matching: find.byType(Text)),
-      )) {
-        expect(text.maxLines, isNull, reason: '${text.data}');
-        expect(text.overflow, isNot(TextOverflow.ellipsis));
-      }
-    });
+        final Finder scope = find.byType(DataSourcesView);
+        for (final Text text in tester.widgetList<Text>(
+          find.descendant(of: scope, matching: find.byType(Text)),
+        )) {
+          expect(text.maxLines, isNull, reason: '${text.data}');
+          expect(text.overflow, isNot(TextOverflow.ellipsis));
+        }
+      },
+    );
   });
 
   group('DataSourcesLink', () {
@@ -567,7 +605,7 @@ void main() {
       ),
     );
 
-    testWidgets('rend le libelle fourni et ouvre l ecran au tap', (
+    testWidgetsOnWindows('rend le libelle fourni et ouvre l ecran au tap', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(app());
@@ -580,7 +618,7 @@ void main() {
       expect(find.byType(DataSourcesView), findsOneWidget);
     });
 
-    testWidgets('atteignable au Tab, activable a Entree', (
+    testWidgetsOnWindows('atteignable au Tab, activable a Entree', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(app());
@@ -593,7 +631,7 @@ void main() {
       expect(find.byType(DataSourcesView), findsOneWidget);
     });
 
-    testWidgets("porte une action tap pour le lecteur d'ecran", (
+    testWidgetsOnWindows("porte une action tap pour le lecteur d'ecran", (
       WidgetTester tester,
     ) async {
       final SemanticsHandle handle = tester.ensureSemantics();
@@ -618,7 +656,9 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(minimumTapTarget));
     }
 
-    testWidgets('Android : la cible mesure 48', (WidgetTester tester) async {
+    testWidgetsOnAndroid('Android : la cible mesure 48', (
+      WidgetTester tester,
+    ) async {
       expect(minimumTapTarget, 48);
       await checkTarget(tester);
     });

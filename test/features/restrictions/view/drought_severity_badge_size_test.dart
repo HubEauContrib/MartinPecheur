@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/features/restrictions/view/drought_severity_badge.dart';
 
+import '../../../support/windows_platform.dart';
+
 Future<RenderObject> _render(
   WidgetTester tester,
   DroughtSeverity severity,
@@ -44,7 +46,7 @@ Future<RenderObject> _render(
 
 void main() {
   for (final double size in const <double>[22, 28, 48]) {
-    testWidgets('contour de 2 px à la taille $size', (
+    testWidgetsOnWindows('contour de 2 px à la taille $size', (
       WidgetTester tester,
     ) async {
       final RenderObject object = await _render(
@@ -66,26 +68,29 @@ void main() {
       expect(droughtBadgeContourWidth, 2);
     });
 
-    testWidgets('Crise à la taille $size : contour de 2 px et liseré blanc '
-        'de 1 px', (WidgetTester tester) async {
-      final RenderObject object = await _render(tester, const Crise(), size);
-      expect(
-        object,
-        paints
-          // Remplissage, liseré intérieur blanc, puis contour.
-          ..path()
-          ..path(
-            style: PaintingStyle.stroke,
-            strokeWidth: droughtBadgeInnerBorderWidth,
-            color: droughtBadgeInnerBorderColor,
-          )
-          ..path(
-            style: PaintingStyle.stroke,
-            strokeWidth: droughtBadgeContourWidth,
-            color: droughtBadgeContourColor,
-          ),
-      );
-      expect(droughtBadgeInnerBorderWidth, 1);
-    });
+    testWidgetsOnWindows(
+      'Crise à la taille $size : contour de 2 px et liseré blanc '
+      'de 1 px',
+      (WidgetTester tester) async {
+        final RenderObject object = await _render(tester, const Crise(), size);
+        expect(
+          object,
+          paints
+            // Remplissage, liseré intérieur blanc, puis contour.
+            ..path()
+            ..path(
+              style: PaintingStyle.stroke,
+              strokeWidth: droughtBadgeInnerBorderWidth,
+              color: droughtBadgeInnerBorderColor,
+            )
+            ..path(
+              style: PaintingStyle.stroke,
+              strokeWidth: droughtBadgeContourWidth,
+              color: droughtBadgeContourColor,
+            ),
+        );
+        expect(droughtBadgeInnerBorderWidth, 1);
+      },
+    );
   }
 }

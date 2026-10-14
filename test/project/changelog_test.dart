@@ -148,20 +148,6 @@ void main() {
     Iterable<String> puces(String texte) =>
         texte.split('\n').where((String l) => l.startsWith('- '));
 
-    test('pubspec.yaml porte version: 0.3.0+3', () {
-      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
-      expect(
-        RegExp(
-          r'^version:\s*0\.3\.0\+3\s*$',
-          multiLine: true,
-        ).hasMatch(contenuPubspec),
-        isTrue,
-        reason:
-            'un tag et un journal qui divergent laissent personne savoir ce '
-            'que contient le binaire installe',
-      );
-    });
-
     // Task P3 du plan T2 : la version se date. La date est epinglee : le
     // chapeau la redit, et les deux doivent nommer le meme jour.
     test('la version 0.3.0 est datee du 2026-10-09, sans « a publier »', () {
@@ -444,6 +430,267 @@ void main() {
             'borne a la section 0.2.0 : sans cela, le Non verifie de 0.1.0 '
             'suffirait',
       );
+    });
+  });
+
+  // Task O1 du plan T3 ouvre la version 0.4.0 ; X3 ecrit sa sous-section
+  // « Ajoute » en une fois, d'apres le code livre ; P3 la date, le
+  // 2026-10-14, la porte de T3 etant constatee EN BLOC par le commanditaire
+  // sur les deux cibles (P1 : Windows, release ; P2 : Android, emulateur) :
+  // ses constats sont recopies, et ce qu'il n'a pas dit reste ecrit comme non
+  // dit. Trois cas d'O1 sont modifies par P3 : le 2 (ouverte -> datee), le 4
+  // (le chapeau ne dit plus « Version ouverte ») et le 5 (« Non verifie »
+  // reduit a « non vide » : ses affirmations « rien n'est constate » ne sont
+  // plus vraies).
+  group('version 0.4.0 (Tasks O1, X3 et P3 du plan T3)', () {
+    late String contenuChangelog;
+
+    setUpAll(() {
+      contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    });
+
+    // Le texte de la section `## [0.4.0]`, jusqu'a la section suivante.
+    String section040() {
+      final int debut = contenuChangelog.indexOf('## [0.4.0]');
+      expect(debut, isNot(-1), reason: 'aucune section ## [0.4.0]');
+      final int suivante = contenuChangelog.indexOf('\n## [', debut + 1);
+      return contenuChangelog.substring(
+        debut,
+        suivante == -1 ? contenuChangelog.length : suivante,
+      );
+    }
+
+    // Le texte d'une sous-section `### <titre>` de la section 0.4.0.
+    String sousSection(String titre) {
+      final String section = section040();
+      final int debut = section.indexOf('### $titre');
+      expect(debut, isNot(-1), reason: 'aucune sous-section ### $titre');
+      final int suivante = section.indexOf('\n### ', debut + 1);
+      return section.substring(
+        debut,
+        suivante == -1 ? section.length : suivante,
+      );
+    }
+
+    test('pubspec.yaml porte version: 0.4.0+4', () {
+      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        RegExp(
+          r'^version:\s*0\.4\.0\+4\s*$',
+          multiLine: true,
+        ).hasMatch(contenuPubspec),
+        isTrue,
+        reason:
+            'un tag et un journal qui divergent laissent personne savoir ce '
+            'que contient le binaire installe',
+      );
+    });
+
+    // Task P3 : la porte de T3 constatee, la version se date. Une version
+    // sans date n'est pas close ; la date est celle du jour de P3.
+    test(
+      'la version 0.4.0 est datée : une version sans date n\'est pas close',
+      () {
+        final String? ligne = contenuChangelog
+            .split('\n')
+            .map((String l) => l.trimRight())
+            .where((String l) => l.startsWith('## [0.4.0]'))
+            .firstOrNull;
+        expect(ligne, isNotNull);
+        expect(ligne, matches(RegExp(r'^## \[0\.4\.0\] — \d{4}-\d{2}-\d{2}$')));
+        expect(ligne, isNot(contains('à publier')));
+      },
+    );
+
+    test('une section ## [0.4.0], une seule, sous [Non publié] et au-dessus '
+        'de [0.3.0]', () {
+      final int occurrences = RegExp(
+        r'^## \[0\.4\.0\]',
+        multiLine: true,
+      ).allMatches(contenuChangelog).length;
+      expect(occurrences, 1);
+      final int nonPublie = contenuChangelog.indexOf('## [Non publié]');
+      final int v040 = contenuChangelog.indexOf('## [0.4.0]');
+      final int v030 = contenuChangelog.indexOf('## [0.3.0]');
+      expect(nonPublie, lessThan(v040));
+      expect(v040, lessThan(v030));
+    });
+
+    // Task P3 : le chapeau ne dit plus que la version est ouverte. Il dit la
+    // porte de T3 (franchie, sur quelles cibles, et que c'est en bloc), que
+    // la date ne vaut pas mise en production, et que la porte de T2 reste
+    // due : les phrases sont exigees entieres, « Windows » et « Android »
+    // existant aussi ailleurs dans le chapeau.
+    test('le chapeau de 0.4.0 ne dit plus qu\'elle est ouverte ; il dit la '
+        'porte de T3 franchie sur Windows et sur Android, en bloc, et que la '
+        'porte de T2 reste due', () {
+      final String section = section040();
+      final int finTitre = section.indexOf('\n');
+      final int premiereSousSection = section.indexOf('\n### ');
+      expect(premiereSousSection, isNot(-1));
+      final String chapeau = section
+          .substring(finTitre, premiereSousSection)
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(chapeau, isNot(contains('Version ouverte')));
+      expect(chapeau, isNot(contains('pas publiée')));
+      expect(chapeau, isNot(contains("La porte de T3 n'est pas franchie")));
+      expect(
+        chapeau,
+        contains(
+          'La porte de T3 est franchie sur les deux cibles, Windows (exécutable '
+          'de release lancé hors Flutter) et Android (émulateur, en débogage), '
+          'constats confirmés en bloc par le commanditaire',
+        ),
+      );
+      // Datee n'est pas mise en production, et aucun tag n'est pose.
+      expect(chapeau, contains('Aucun tag'));
+      expect(chapeau, contains('mise en production'));
+      expect(chapeau, contains('la porte de T2 reste due'));
+    });
+
+    test('le Non vérifié de 0.4.0 n\'est pas vide', () {
+      final String nonVerifie = sousSection('Non vérifié');
+      expect(
+        nonVerifie.split('\n').where((String l) => l.startsWith('- ')),
+        isNotEmpty,
+        reason: 'une section Non verifie vide ferait croire a un produit fini',
+      );
+    });
+
+    // Task P3 : la confirmation du commanditaire etant EN BLOC, ce qu'elle ne
+    // couvre pas est nomme, pas passe sous silence. Chaque identifiant est
+    // exige dans sa forme de code : un constat « non dit » qui disparait du
+    // journal devient un constat fait.
+    test('le Non vérifié de 0.4.0 nomme ce que la confirmation en bloc ne '
+        'couvre pas : P1-m, P2-g, P2-m, Segoe UI, lecteur d\'écran, porte de '
+        'T2', () {
+      final String nonVerifie = sousSection('Non vérifié')
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(nonVerifie, contains('`P1-m`'));
+      expect(nonVerifie, contains('`P2-g`'));
+      expect(nonVerifie, contains('`P2-m`'));
+      expect(nonVerifie, contains('Segoe UI'));
+      expect(nonVerifie, contains("lecteur d'écran"));
+      expect(nonVerifie, contains("La porte de T2 n'est pas franchie"));
+      expect(nonVerifie, contains('`A1`'));
+      expect(nonVerifie, contains('iOS'));
+      expect(nonVerifie, contains('`A⏸3`'));
+      // Plus aucune phrase qui nierait ce que la porte a constate.
+      expect(
+        nonVerifie,
+        isNot(contains("Aucun écran de T3 n'est constaté")),
+        reason: 'la porte de T3 a ete constatee en bloc le 2026-10-14',
+      );
+    });
+
+    // Task P3 : « Constate a l'execution » existe, avant « Non verifie », et
+    // porte une puce par constat RAPPORTE, chacune datee et nommant sa cible.
+    // Le nombre de puces est epingle expres : ce cas se reecrit le jour ou un
+    // constat s'ajoute.
+    test('la sous-section Constaté à l\'exécution précède Non vérifié', () {
+      final String section = section040();
+      final int constate = section.indexOf("### Constaté à l'exécution");
+      expect(constate, isNot(-1), reason: 'aucune sous-section Constaté');
+      expect(constate, lessThan(section.indexOf('### Non vérifié')));
+      expect(
+        constate,
+        greaterThan(section.indexOf('### Corrigé')),
+        reason: 'meme ordre que 0.2.0 et 0.3.0 : apres Corrigé',
+      );
+    });
+
+    test('Constaté à l\'exécution porte une puce par constat rapporté, datée '
+        'et nommant sa cible : C1, P2, P1 et le poids de l\'exécutable', () {
+      final String constate = sousSection("Constaté à l'exécution");
+      final List<String> morceaux = constate
+          .split('\n- ')
+          .map((String p) => p.replaceAll(RegExp(r'\s+'), ' '))
+          .toList();
+      final String chapeau = morceaux.first;
+      final List<String> constats = morceaux.skip(1).toList();
+
+      // Le chapeau de la sous-section : en bloc, et ce que ca veut dire.
+      expect(chapeau, contains('en bloc'));
+      expect(chapeau, contains('point par point'));
+
+      expect(constats, hasLength(4));
+      for (final String constat in constats) {
+        expect(constat, startsWith('Le 2026-10-14, '));
+        expect(
+          constat.contains('Windows') || constat.contains('Android'),
+          isTrue,
+          reason: 'chaque constat nomme sa cible : $constat',
+        );
+      }
+
+      final String c1 = constats.singleWhere((String c) => c.contains('`C1`'));
+      expect(c1, contains('Windows'));
+      expect(c1, contains('en débogage'));
+      expect(c1, contains('en bloc'));
+      expect(c1, contains("« j'ai testé c'est bon »"));
+
+      final String p2 = constats.singleWhere((String c) => c.contains('`P2`'));
+      expect(p2, contains('Android'));
+      expect(p2, contains('émulateur'));
+      expect(p2, contains('en débogage'));
+      expect(p2, contains('en bloc'));
+      expect(p2, contains('les écrans de T3 fonctionnent au toucher'));
+
+      final String p1 = constats.singleWhere((String c) => c.contains('`P1`'));
+      expect(p1, contains('Windows'));
+      expect(p1, contains('release'));
+      expect(p1, contains('hors Flutter'));
+      expect(p1, contains('en bloc'));
+      expect(p1, contains('« c\'est bon »'));
+
+      final String poids = constats.singleWhere(
+        (String c) => c.contains('35 Mo'),
+      );
+      expect(poids, contains('Windows'));
+      expect(poids, contains('release'));
+      expect(poids, contains('15 fichiers'));
+      expect(poids, contains('`NFR-06`'));
+
+      // Rien de release sur Android, ni d'emulateur sur Windows : une cible
+      // ne se melange pas a une autre.
+      expect(c1, isNot(contains('release')));
+      expect(c1, isNot(contains('Android')));
+      expect(p2, isNot(contains('release')));
+      expect(p2, isNot(contains('Windows')));
+    });
+
+    // Task X3 du plan T3 : « Ajoute » s'ecrit en une fois, a la fin de la
+    // tranche, d'apres ce qui est livre. Les libelles sont ceux de l'ecran ;
+    // les blancs sont normalises, un libelle pouvant passer a la ligne.
+    test('la sous-section Ajouté nomme ce que T3 livre', () {
+      final String ajoute = sousSection('Ajouté');
+      expect(
+        ajoute.split('\n').where((String l) => l.startsWith('- ')),
+        isNotEmpty,
+      );
+      final String texte = ajoute.replaceAll(RegExp(r'\s+'), ' ');
+      expect(texte, contains('Favoris'));
+      expect(texte, contains('Filtres'));
+      expect(texte, contains('étoile'));
+      expect(texte, contains('Effacer les filtres'));
+      expect(texte, contains('Moins de 2 h'));
+      expect(texte, contains('Moins de 24 h'));
+      expect(texte, contains("Repartir d'une liste vide"));
+    });
+
+    test('Ajouté précède Non vérifié dans la section 0.4.0', () {
+      final String section = section040();
+      final int ajoute = section.indexOf('### Ajouté');
+      expect(ajoute, isNot(-1), reason: 'aucune sous-section ### Ajouté');
+      expect(ajoute, lessThan(section.indexOf('### Non vérifié')));
+    });
+
+    test('le chapeau de 0.4.0 ne dit plus que rien n\'en est livré', () {
+      final String section = section040();
+      final String chapeau = section
+          .substring(section.indexOf('\n'), section.indexOf('\n### '))
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(chapeau, isNot(contains("rien n'en est encore livré")));
     });
   });
 }

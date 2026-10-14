@@ -11,10 +11,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 
+import '../../support/windows_platform.dart';
+
 void main() {
   group('KeyboardFocusRing — l anneau de focus est peint EN PREMIER PLAN '
       '(🔴 2, relecture du 2026-09-23)', () {
-    testWidgets("la DecoratedBox porteuse de l'anneau a "
+    testWidgetsOnWindows("la DecoratedBox porteuse de l'anneau a "
         'position == DecorationPosition.foreground', (
       WidgetTester tester,
     ) async {
@@ -51,7 +53,7 @@ void main() {
       );
     });
 
-    testWidgets(
+    testWidgetsOnWindows(
       'le contour devient visible (couleur non transparente) une fois le '
       'focus obtenu',
       (WidgetTester tester) async {

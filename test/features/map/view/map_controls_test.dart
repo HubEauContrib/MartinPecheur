@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+import '../../../support/windows_platform.dart';
+
 void main() {
   Future<void> pumpControls(
     WidgetTester tester, {
@@ -32,7 +34,9 @@ void main() {
     );
   }
 
-  testWidgets('les trois boutons sont rendus', (WidgetTester tester) async {
+  testWidgetsOnWindows('les trois boutons sont rendus', (
+    WidgetTester tester,
+  ) async {
     await pumpControls(tester, onZoomIn: () {}, onZoomOut: () {});
 
     expect(find.byKey(mapZoomInButtonKey), findsOneWidget);
@@ -40,23 +44,24 @@ void main() {
     expect(find.byKey(mapRecenterButtonKey), findsOneWidget);
   });
 
-  testWidgets('chaque bouton mesure au moins 44 × 44 pt (04-ui.md § 3)', (
-    WidgetTester tester,
-  ) async {
-    await pumpControls(tester, onZoomIn: () {}, onZoomOut: () {});
+  testWidgetsOnWindows(
+    'chaque bouton mesure au moins 44 × 44 pt (04-ui.md § 3)',
+    (WidgetTester tester) async {
+      await pumpControls(tester, onZoomIn: () {}, onZoomOut: () {});
 
-    for (final Key key in <Key>[
-      mapZoomInButtonKey,
-      mapZoomOutButtonKey,
-      mapRecenterButtonKey,
-    ]) {
-      final Size size = tester.getSize(find.byKey(key));
-      expect(size.width, greaterThanOrEqualTo(minimumTapTarget));
-      expect(size.height, greaterThanOrEqualTo(minimumTapTarget));
-    }
-  });
+      for (final Key key in <Key>[
+        mapZoomInButtonKey,
+        mapZoomOutButtonKey,
+        mapRecenterButtonKey,
+      ]) {
+        final Size size = tester.getSize(find.byKey(key));
+        expect(size.width, greaterThanOrEqualTo(minimumTapTarget));
+        expect(size.height, greaterThanOrEqualTo(minimumTapTarget));
+      }
+    },
+  );
 
-  testWidgets(
+  testWidgetsOnWindows(
     "l'espacement entre deux boutons consécutifs est d'au moins 8 dp",
     (WidgetTester tester) async {
       await pumpControls(tester, onZoomIn: () {}, onZoomOut: () {});
@@ -70,7 +75,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testWidgetsOnWindows(
     'chaque bouton porte le libellé exact et enabled est vrai quand le '
     'rappel est fourni (relecture du coordinateur du 2026-09-23)',
     (WidgetTester tester) async {
@@ -98,7 +103,7 @@ void main() {
     },
   );
 
-  testWidgets('un tap sur + appelle onZoomIn UNE fois', (
+  testWidgetsOnWindows('un tap sur + appelle onZoomIn UNE fois', (
     WidgetTester tester,
   ) async {
     int calls = 0;
@@ -110,7 +115,7 @@ void main() {
     expect(calls, 1);
   });
 
-  testWidgets('un tap sur − appelle onZoomOut UNE fois', (
+  testWidgetsOnWindows('un tap sur − appelle onZoomOut UNE fois', (
     WidgetTester tester,
   ) async {
     int calls = 0;
@@ -122,7 +127,7 @@ void main() {
     expect(calls, 1);
   });
 
-  testWidgets('un tap sur le recentrage appelle onRecenter UNE fois', (
+  testWidgetsOnWindows('un tap sur le recentrage appelle onRecenter UNE fois', (
     WidgetTester tester,
   ) async {
     int calls = 0;
@@ -140,7 +145,7 @@ void main() {
   });
 
   group('désactivation aux bornes (K1)', () {
-    testWidgets(
+    testWidgetsOnWindows(
       'onZoomIn nul : + est désactivé (Semantics.enabled faux) et un tap '
       "ne fait rien — c'est le ViewModel (canZoomIn) qui décide, pas ce "
       'widget',
@@ -158,15 +163,16 @@ void main() {
       },
     );
 
-    testWidgets('onZoomOut nul : − est désactivé (Semantics.enabled faux)', (
-      WidgetTester tester,
-    ) async {
-      await pumpControls(tester, onZoomIn: () {}, onZoomOut: null);
+    testWidgetsOnWindows(
+      'onZoomOut nul : − est désactivé (Semantics.enabled faux)',
+      (WidgetTester tester) async {
+        await pumpControls(tester, onZoomIn: () {}, onZoomOut: null);
 
-      final Semantics zoomOut = tester.widget<Semantics>(
-        find.byKey(mapZoomOutButtonKey),
-      );
-      expect(zoomOut.properties.enabled, isFalse);
-    });
+        final Semantics zoomOut = tester.widget<Semantics>(
+          find.byKey(mapZoomOutButtonKey),
+        );
+        expect(zoomOut.properties.enabled, isFalse);
+      },
+    );
   });
 }

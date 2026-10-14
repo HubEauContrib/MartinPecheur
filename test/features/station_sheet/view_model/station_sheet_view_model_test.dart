@@ -7,12 +7,19 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/favorites/favorite.dart';
+import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
+import 'package:martinpecheur/domain/onde/onde_point.dart';
+import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
+import 'package:martinpecheur/features/shared/favorite_star.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
+
+import '../../../support/in_memory_favorite_repository.dart';
 
 StationCode _codeBlois() => StationCode('K447001001');
 StationCode _codeGoyaves() => StationCode('1011000101');
@@ -115,13 +122,28 @@ final class _HydroObservationRepositoryDouble
   }
 }
 
+/// L'instant d'ajout d'un favori déjà stocké, distinct de l'horloge des tests.
+final DateTime _addedBefore = DateTime.utc(2026, 10, 1, 8);
+
+StationFavorite _favoriteBlois() => StationFavorite(
+  code: _codeBlois(),
+  label: 'La Loire à Blois',
+  addedAt: _addedBefore,
+);
+
+const FavoriteStar _emptyActive = FavoriteStar(filled: false, enabled: true);
+const FavoriteStar _emptyInactive = FavoriteStar(filled: false, enabled: false);
+const FavoriteStar _filledActive = FavoriteStar(filled: true, enabled: true);
+
 void main() {
   late _StationRepositoryDouble stations;
   late _HydroObservationRepositoryDouble observations;
+  late InMemoryFavoriteRepository favorites;
 
   setUp(() {
     stations = _StationRepositoryDouble();
     observations = _HydroObservationRepositoryDouble();
+    favorites = InMemoryFavoriteRepository();
   });
 
   test(
@@ -134,6 +156,7 @@ void main() {
       final StationSheetViewModel viewModel = StationSheetViewModel(
         observations: observations,
         stations: stations,
+        favorites: favorites,
         now: () => DateTime.utc(2026, 9, 13, 10),
       );
       addTearDown(viewModel.dispose);
@@ -154,6 +177,7 @@ void main() {
       final StationSheetViewModel viewModel = StationSheetViewModel(
         observations: observations,
         stations: stations,
+        favorites: favorites,
       );
       addTearDown(viewModel.dispose);
 
@@ -177,6 +201,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
       now: () => measuredAt,
     );
     addTearDown(viewModel.dispose);
@@ -198,6 +223,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
       now: () => DateTime.utc(2026, 9, 13, 10),
     );
     addTearDown(viewModel.dispose);
@@ -249,6 +275,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
       now: () => DateTime.utc(2026, 9, 13, 10),
       utcOffsetOf: (DateTime _) => const Duration(hours: 2),
     );
@@ -272,6 +299,7 @@ void main() {
     final StationSheetViewModel freshViewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
       now: () => measuredAt.add(const Duration(hours: 1)),
     );
     addTearDown(freshViewModel.dispose);
@@ -283,6 +311,7 @@ void main() {
     final StationSheetViewModel staleViewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
       now: () => measuredAt.add(const Duration(hours: 3)),
     );
     addTearDown(staleViewModel.dispose);
@@ -305,6 +334,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
       now: () => DateTime.utc(2026, 9, 13, 10),
     );
     addTearDown(viewModel.dispose);
@@ -321,6 +351,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     addTearDown(viewModel.dispose);
 
@@ -342,6 +373,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     addTearDown(viewModel.dispose);
 
@@ -369,6 +401,7 @@ void main() {
       final StationSheetViewModel viewModel = StationSheetViewModel(
         observations: observations,
         stations: stations,
+        favorites: favorites,
       );
       addTearDown(viewModel.dispose);
 
@@ -396,6 +429,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     addTearDown(viewModel.dispose);
 
@@ -413,6 +447,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     addTearDown(viewModel.dispose);
 
@@ -428,6 +463,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     addTearDown(viewModel.dispose);
 
@@ -442,6 +478,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     addTearDown(viewModel.dispose);
     int notifications = 0;
@@ -460,6 +497,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     addTearDown(viewModel.dispose);
 
@@ -493,6 +531,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     addTearDown(viewModel.dispose);
 
@@ -516,6 +555,7 @@ void main() {
     final StationSheetViewModel viewModel = StationSheetViewModel(
       observations: observations,
       stations: stations,
+      favorites: favorites,
     );
     int notifications = 0;
     viewModel.addListener(() => notifications++);
@@ -544,5 +584,530 @@ void main() {
     };
 
     expect(label, 'fermee');
+  });
+
+  group('favori', () {
+    final DateTime clock = DateTime.utc(2026, 10, 12, 9, 30);
+
+    StationSheetViewModel build() {
+      final StationSheetViewModel viewModel = StationSheetViewModel(
+        observations: observations,
+        stations: stations,
+        favorites: favorites,
+        // Une horloge LOCALE : l'instant d'ajout doit sortir en UTC.
+        now: () => clock.toLocal(),
+      );
+      return viewModel;
+    }
+
+    test('fiche Prete, liste vide : etoile vide et active ; la bascule ajoute '
+        'la station, son libelle et l instant de l horloge en UTC, puis '
+        'l etoile est pleine et active', () async {
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<Prete>());
+      expect(viewModel.favoriteStar, _emptyActive);
+
+      await viewModel.toggleFavorite();
+
+      expect(favorites.stored, <Favorite>[
+        StationFavorite(
+          code: _codeBlois(),
+          label: 'La Loire à Blois',
+          addedAt: clock,
+        ),
+      ]);
+      expect((favorites.stored.single as StationFavorite).addedAt.isUtc, true);
+      expect(viewModel.favoriteStar, _filledActive);
+    });
+
+    test(
+      'pendant une ecriture l etoile garde sa forme, inactive ; une seconde '
+      'bascule n appelle pas le depot ; porte ouverte : pleine, active',
+      () async {
+        final StationSheetViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+        await viewModel.open(_codeBlois());
+        final Completer<void> gate = Completer<void>();
+        favorites.writeGate = gate;
+
+        final Future<void> toggling = viewModel.toggleFavorite();
+        expect(viewModel.favoriteStar, _emptyInactive);
+
+        await viewModel.toggleFavorite();
+        expect(favorites.writeCalls, 1);
+        expect(viewModel.favoriteStar, _emptyInactive);
+
+        gate.complete();
+        await toggling;
+
+        expect(favorites.writeCalls, 1);
+        expect(viewModel.favoriteStar, _filledActive);
+      },
+    );
+
+    test('ecriture en echec : l etoile garde sa forme d avant, active, et le '
+        'dit ; la fiche reste Prete ; une bascule reussie l efface', () async {
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.open(_codeBlois());
+      favorites.writeError = const EcritureDeFavorisEnEchec('x');
+
+      await viewModel.toggleFavorite();
+
+      expect(
+        viewModel.favoriteStar,
+        const FavoriteStar(filled: false, enabled: true, writeFailed: true),
+      );
+      expect(viewModel.state, isA<Prete>());
+      expect(favorites.stored, isEmpty);
+
+      favorites.writeError = null;
+      await viewModel.toggleFavorite();
+
+      expect(viewModel.favoriteStar, _filledActive);
+      expect(favorites.stored, hasLength(1));
+    });
+
+    test('un retrait en echec laisse l etoile pleine, active, et le dit ; '
+        'une nouvelle ouverture l efface', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.open(_codeBlois());
+      favorites.writeError = const EcritureDeFavorisEnEchec('x');
+
+      await viewModel.toggleFavorite();
+
+      expect(
+        viewModel.favoriteStar,
+        const FavoriteStar(filled: true, enabled: true, writeFailed: true),
+      );
+      expect(favorites.stored, hasLength(1));
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.favoriteStar, _filledActive);
+    });
+
+    test(
+      'station deja en favori, fiche EnEchec : etoile pleine et active ; la '
+      'bascule la retire, l etoile disparait, la fiche reste EnEchec',
+      () async {
+        favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+        observations.answer = (StationCode code, Grandeur grandeur) async =>
+            throw Exception('panne');
+        final StationSheetViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+
+        await viewModel.open(_codeBlois());
+        expect(viewModel.state, isA<EnEchec>());
+        expect(viewModel.favoriteStar, _filledActive);
+
+        await viewModel.toggleFavorite();
+
+        expect(favorites.stored, isEmpty);
+        expect(viewModel.favoriteStar, isNull);
+        expect(viewModel.state, isA<EnEchec>());
+      },
+    );
+
+    test('station deja en favori, fiche EnCours : l etoile est pleine AVANT '
+        'la fin du chargement, et retirable', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final Completer<HydroObservation?> pending =
+          Completer<HydroObservation?>();
+      observations.answer = (StationCode code, Grandeur grandeur) =>
+          pending.future;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      final Future<void> opening = viewModel.open(_codeBlois());
+      await pumpEventQueue();
+
+      expect(viewModel.state, isA<EnCours>());
+      expect(viewModel.favoriteStar, _filledActive);
+
+      await viewModel.toggleFavorite();
+      expect(favorites.stored, isEmpty);
+      expect(viewModel.favoriteStar, isNull);
+      expect(viewModel.state, isA<EnCours>());
+
+      pending.complete(null);
+      await opening;
+      expect(viewModel.state, isA<Prete>());
+      expect(viewModel.favoriteStar, _emptyActive);
+    });
+
+    test('station Introuvable, pas en favori : aucune etoile, et la bascule '
+        'n appelle pas le depot', () async {
+      stations.answer = (StationCode code) async => null;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<Introuvable>());
+      expect(viewModel.favoriteStar, isNull);
+
+      await viewModel.toggleFavorite();
+
+      expect(favorites.writeCalls, 0);
+    });
+
+    test('station Introuvable et deja en favori : etoile pleine, active, '
+        'retirable', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      stations.answer = (StationCode code) async => null;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<Introuvable>());
+      expect(viewModel.favoriteStar, _filledActive);
+
+      await viewModel.toggleFavorite();
+
+      expect(favorites.stored, isEmpty);
+      expect(viewModel.favoriteStar, isNull);
+      expect(viewModel.state, isA<Introuvable>());
+    });
+
+    test(
+      'fiche EnEchec, pas en favori : aucune etoile, aucune ecriture',
+      () async {
+        observations.answer = (StationCode code, Grandeur grandeur) async =>
+            throw Exception('panne');
+        final StationSheetViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+
+        await viewModel.open(_codeBlois());
+        expect(viewModel.state, isA<EnEchec>());
+        expect(viewModel.favoriteStar, isNull);
+
+        await viewModel.toggleFavorite();
+        expect(favorites.writeCalls, 0);
+      },
+    );
+
+    test(
+      'fiche EnCours, pas en favori : aucune etoile, aucune ecriture',
+      () async {
+        final Completer<HydroObservation?> pending =
+            Completer<HydroObservation?>();
+        observations.answer = (StationCode code, Grandeur grandeur) =>
+            pending.future;
+        final StationSheetViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+
+        final Future<void> opening = viewModel.open(_codeBlois());
+        await pumpEventQueue();
+
+        expect(viewModel.state, isA<EnCours>());
+        expect(favorites.readCalls, 1);
+        expect(viewModel.favoriteStar, isNull);
+        await viewModel.toggleFavorite();
+        expect(favorites.writeCalls, 0);
+
+        pending.complete(null);
+        await opening;
+      },
+    );
+
+    test('un point ONDE de meme code que la station, seul dans le depot : '
+        'l etoile de la station est vide', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[
+        OndePointFavorite(
+          point: OndePoint(
+            code: OndeStationCode('K447001001'),
+            label: 'Un point ONDE',
+            latitude: 47.5,
+            longitude: 1.3,
+            waterCourseLabel: null,
+            departement: null,
+          ),
+          addedAt: _addedBefore,
+        ),
+      ]);
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+
+      expect(viewModel.favoriteStar, _emptyActive);
+    });
+
+    test('liste illisible, fiche Prete : etoile vide et inactive, la bascule '
+        'n appelle pas le depot', () async {
+      favorites.readError = const ListeDeFavorisIllisible('x');
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<Prete>());
+      expect(viewModel.favoriteStar, _emptyInactive);
+
+      await viewModel.toggleFavorite();
+      expect(favorites.writeCalls, 0);
+    });
+
+    test('liste illisible, fiche EnEchec : etoile vide et inactive, la bascule '
+        'n appelle pas le depot', () async {
+      favorites.readError = const ListeDeFavorisIllisible('x');
+      observations.answer = (StationCode code, Grandeur grandeur) async =>
+          throw Exception('panne');
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<EnEchec>());
+      expect(viewModel.favoriteStar, _emptyInactive);
+
+      await viewModel.toggleFavorite();
+      expect(favorites.writeCalls, 0);
+    });
+
+    // Revue finale de T3 (M3) : une liste illisible ne dit pas si la station
+    // y est. L'étoile vide et inactive est donc rendue AVANT la règle « pas en
+    // favori et rien à ajouter : aucune étoile », dans tous les états de la
+    // fiche, Introuvable et EnCours compris.
+    test('liste illisible, fiche Introuvable : etoile vide et inactive, la '
+        'bascule n appelle pas le depot', () async {
+      favorites.readError = const ListeDeFavorisIllisible('x');
+      stations.answer = (StationCode code) async => null;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<Introuvable>());
+      expect(viewModel.favoriteStar, _emptyInactive);
+
+      await viewModel.toggleFavorite();
+      expect(favorites.writeCalls, 0);
+    });
+
+    test('liste illisible, fiche EnCours : etoile vide et inactive, la '
+        'bascule n appelle pas le depot', () async {
+      favorites.readError = const ListeDeFavorisIllisible('x');
+      final Completer<HydroObservation?> pending =
+          Completer<HydroObservation?>();
+      observations.answer = (StationCode code, Grandeur grandeur) =>
+          pending.future;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      final Future<void> opening = viewModel.open(_codeBlois());
+      await pumpEventQueue();
+
+      expect(viewModel.state, isA<EnCours>());
+      expect(favorites.readCalls, 1);
+      expect(viewModel.favoriteStar, _emptyInactive);
+      await viewModel.toggleFavorite();
+      expect(favorites.writeCalls, 0);
+
+      pending.complete(null);
+      await opening;
+    });
+
+    test('toute autre levee de la lecture vaut liste illisible, et la fiche '
+        'reste Prete', () async {
+      favorites.readError = StateError('autre');
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+
+      expect(viewModel.state, isA<Prete>());
+      expect(viewModel.favoriteStar, _emptyInactive);
+    });
+
+    test('chaque ouverture relit le depot : un ajout fait par un autre client '
+        'entre deux ouvertures donne une etoile pleine', () async {
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.favoriteStar, _emptyActive);
+
+      await favorites.add(_favoriteBlois());
+      viewModel.close();
+      await viewModel.open(_codeBlois());
+
+      expect(viewModel.favoriteStar, _filledActive);
+      expect(favorites.readCalls, 2);
+    });
+
+    test('la fiche passe a Prete sans attendre la lecture des favoris ; le '
+        'futur d open ne se complete qu apres elle', () async {
+      final Completer<void> gate = Completer<void>();
+      favorites.readGate = gate;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      bool opened = false;
+
+      final Future<void> opening = viewModel
+          .open(_codeBlois())
+          .then((_) => opened = true);
+      await pumpEventQueue();
+
+      expect(viewModel.state, isA<Prete>());
+      expect(viewModel.favoriteStar, isNull);
+      expect(opened, isFalse);
+
+      gate.complete();
+      await opening;
+
+      expect(opened, isTrue);
+      expect(viewModel.favoriteStar, _emptyActive);
+    });
+
+    test('close() pendant la lecture des favoris : aucune etoile, aucune '
+        'notification tardive', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final Completer<void> gate = Completer<void>();
+      favorites.readGate = gate;
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      final Future<void> opening = viewModel.open(_codeBlois());
+      await pumpEventQueue();
+      viewModel.close();
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+
+      gate.complete();
+      await opening;
+
+      expect(viewModel.state, isA<Fermee>());
+      expect(viewModel.favoriteStar, isNull);
+      expect(notifications, 0);
+    });
+
+    test('open(A) puis open(B) avant la fin de la lecture de A : l etoile est '
+        'celle de B', () async {
+      // A (Blois) est en favori, B ne l'est pas.
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      // Une porte par lecture : `readAll` lit `readGate` à l'appel, donc on la
+      // change entre les deux `open`.
+      final Completer<void> gateA = Completer<void>();
+      final Completer<void> gateB = Completer<void>();
+
+      favorites.readGate = gateA;
+      final Future<void> openingA = viewModel.open(_codeBlois());
+      favorites.readGate = gateB;
+      final Future<void> openingB = viewModel.open(_codeGoyaves());
+      expect(favorites.readCalls, 2);
+
+      gateB.complete();
+      await openingB;
+      expect(viewModel.favoriteStar, _emptyActive);
+
+      gateA.complete();
+      await openingA;
+
+      expect((viewModel.state as Prete).data.station.code, _codeGoyaves());
+      expect(viewModel.favoriteStar, _emptyActive);
+    });
+
+    test('une ecriture d une ouverture abandonnee n ecrit rien dans l etoile '
+        'de la suivante', () async {
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.open(_codeBlois());
+      final Completer<void> gate = Completer<void>();
+      favorites.writeGate = gate;
+      favorites.writeError = const EcritureDeFavorisEnEchec('x');
+
+      final Future<void> toggling = viewModel.toggleFavorite();
+      await viewModel.open(_codeGoyaves());
+      expect(viewModel.favoriteStar, _emptyActive);
+
+      gate.complete();
+      await toggling;
+
+      expect(viewModel.favoriteStar, _emptyActive);
+    });
+
+    test('dispose() pendant une ecriture : aucune exception, aucune '
+        'notification', () async {
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      final Completer<void> gate = Completer<void>();
+      favorites.writeGate = gate;
+
+      final Future<void> toggling = viewModel.toggleFavorite();
+      int notifications = 0;
+      viewModel.addListener(() => notifications++);
+      viewModel.dispose();
+      gate.complete();
+
+      await expectLater(toggling, completes);
+      expect(notifications, 0);
+    });
+
+    test('apres dispose(), toggleFavorite n appelle pas le depot', () async {
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      expect(viewModel.favoriteStar, _emptyActive);
+      viewModel.dispose();
+
+      await viewModel.toggleFavorite();
+
+      expect(favorites.writeCalls, 0);
+      expect(favorites.stored, isEmpty);
+    });
+
+    test(
+      'une lecture de favoris qui change l etoile notifie, et elle seule',
+      () async {
+        favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+        final Completer<void> gate = Completer<void>();
+        favorites.readGate = gate;
+        final StationSheetViewModel viewModel = build();
+        addTearDown(viewModel.dispose);
+        final Future<void> opening = viewModel.open(_codeBlois());
+        await pumpEventQueue();
+        expect(viewModel.state, isA<Prete>());
+        final List<FavoriteStar?> seen = <FavoriteStar?>[];
+        viewModel.addListener(() => seen.add(viewModel.favoriteStar));
+
+        gate.complete();
+        await opening;
+
+        expect(seen, <FavoriteStar?>[_filledActive]);
+      },
+    );
+
+    test('chaque bascule notifie : inactive pendant l ecriture, puis la '
+        'nouvelle forme', () async {
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.open(_codeBlois());
+      final List<FavoriteStar?> seen = <FavoriteStar?>[];
+      viewModel.addListener(() => seen.add(viewModel.favoriteStar));
+
+      await viewModel.toggleFavorite();
+
+      expect(seen, <FavoriteStar?>[_emptyInactive, _filledActive]);
+    });
+
+    test('fiche Fermee : aucune etoile, avant toute ouverture comme apres '
+        'close(), et la bascule n appelle pas le depot', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+
+      expect(viewModel.favoriteStar, isNull);
+
+      await viewModel.open(_codeBlois());
+      expect(viewModel.favoriteStar, _filledActive);
+      viewModel.close();
+
+      expect(viewModel.favoriteStar, isNull);
+      await viewModel.toggleFavorite();
+      expect(favorites.writeCalls, 0);
+    });
   });
 }

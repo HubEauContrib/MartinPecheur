@@ -26,11 +26,13 @@
 //   aucune reformulation, aucun `trim`. Le theme (`theme`) n'est pas affiche
 //   en T2 (Q-5e).
 // - Le ViewModel porte l'etat et le profil ; le domaine partitionne les
-//   zones (`ZonesAtPoint`) et filtre les usages (`AlertZone.usagesFor`). La
-//   vue dedoublonne l'AFFICHAGE des arretes (Q-6) et, depuis le 2026-10-06,
-//   decide si l'absence d'eaux superficielles peut s'ecrire (aucune zone de
-//   type non reconnu, `_zonesContent`) : deux decisions qui vivraient mieux
-//   dans le domaine — ecart connu, `docs/project-state.md`, point 57.
+//   zones (`ZonesAtPoint`) et filtre les usages (`AlertZone.usagesFor`). Le
+//   domaine decide aussi (R1 a R3 de T3) des documents distincts
+//   (`decreeDocumentsOf`, Q-6), de l'arrete-cadre aux memes zones
+//   (`coversSameZonesAsSoleRestrictionDecree`), des dates communes
+//   (`DecreeDocument.sharedValidity`) et du droit d'ecrire l'absence d'eaux
+//   superficielles (`ZonesAtPoint.canStateSurfaceWaterAbsence`) : la vue met
+//   en phrases, elle ne decide pas.
 //
 // ENCART RENFORCE (E4, Q-4 (a) amende le 2026-09-29, `BR-013`) : tete
 // epinglee (titre, action) sous la barre de titre tant qu'elle prend au plus
@@ -46,6 +48,7 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/restrictions/alert_zone.dart';
+import 'package:martinpecheur/domain/restrictions/decree_documents.dart';
 import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
@@ -180,7 +183,11 @@ class RestrictionsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    const _TitleBar(),
+                    const ScreenTitleBar(
+                      title: restrictionsScreenTitle,
+                      backgroundColor: droughtScreenBackground,
+                      titleColor: droughtLevelLabelColor,
+                    ),
                     // Encart renforce (E4, Q-4 amende le 2026-09-29) : tete
                     // epinglee tant qu'elle tient dans la moitie de la hauteur
                     // utile, sinon tout l'encart defile en tete.
@@ -303,7 +310,7 @@ class RestrictionsScreen extends StatelessWidget {
     final List<AlertZone> surface = zones.surfaceWaterZones;
     final List<AlertZone> others = zones.otherZones;
     final List<AlertZone> ordered = <AlertZone>[...surface, ...others];
-    final List<_DecreeEntry> decrees = _decreeEntries(ordered);
+    final List<DecreeDocument> decrees = decreeDocumentsOf(ordered);
     final UserProfile? profile = this.profile;
 
     // Sans zone d'eaux superficielles, rien ne precede les autres zones :
@@ -311,16 +318,14 @@ class RestrictionsScreen extends StatelessWidget {
     // 2026-10-06). La phrase d'absence vient d'abord, puis la phrase de
     // `BR-007` : les deux phrases sont posees comme celles de `AucuneZone`,
     // au meme ecart (arbitrage du 2026-10-06).
-    final bool noSurfaceZone = surface.isEmpty && others.isNotEmpty;
+    final bool noSurfaceZone = zones.lacksSurfaceWaterZone;
     // L'absence d'eaux superficielles ne s'affirme que si TOUTES les zones
     // affichees sont d'un type reconnu : d'une zone de type non reconnu,
     // l'application ne sait pas ce qu'elle est (`BR-011`, arbitrage du
     // 2026-10-06). La phrase d'absence est alors tue, et la phrase de
     // `BR-007` avec elle ; le titre « Zones d'alerte a ce point » et sa
     // phrase restent : ils sont vrais.
-    final bool surfaceAbsenceStated =
-        noSurfaceZone &&
-        !others.any((AlertZone zone) => zone.kind is TypeZoneInconnu);
+    final bool surfaceAbsenceStated = zones.canStateSurfaceWaterAbsence;
 
     return <Widget>[
       if (surfaceAbsenceStated) ...<Widget>[
@@ -362,10 +367,13 @@ class RestrictionsScreen extends StatelessWidget {
               : '${decrees.length} documents pour ce point',
         ),
         const SizedBox(height: 16),
-        for (final _DecreeEntry entry in decrees)
+        for (final DecreeDocument entry in decrees)
           _DecreeBlock(
             entry: entry,
-            sameZonesAsDecree: _isSameZonesAsDecree(entry, decrees),
+            sameZonesAsDecree: coversSameZonesAsSoleRestrictionDecree(
+              entry,
+              decrees,
+            ),
             unopenedLink: unopenedLink,
             onOpenDocument: onOpenDocument,
           ),
@@ -640,44 +648,6 @@ String _zoneTitle(AlertZone zone) =>
 String _datedLevel(AlertZone zone) =>
     '${droughtSeverityLabel(zone.severity)} · depuis le '
     '${formatCalendarDate(zone.decree.validFrom)}';
-
-class _TitleBar extends StatelessWidget {
-  const _TitleBar();
-
-  @override
-  Widget build(BuildContext context) {
-    // Pas d'`AppBar` : sa hauteur est fixe, et son titre serait tronque a
-    // 200 % de police sur un telephone. Cette barre grandit avec le texte.
-    return Material(
-      color: droughtScreenBackground,
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          children: <Widget>[
-            BackButton(
-              style: IconButton.styleFrom(
-                minimumSize: Size.square(minimumTapTarget),
-                visualDensity: VisualDensity.standard,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Semantics(
-                header: true,
-                child: Text(
-                  restrictionsScreenTitle,
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(color: droughtLevelLabelColor),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
@@ -1045,86 +1015,19 @@ class _ScaleCase extends StatelessWidget {
   }
 }
 
-/// Un document distinct de la section « Arrêtés » (Q-6) : son role, son
-/// adresse, et les zones qui le citent.
-final class _DecreeEntry {
-  _DecreeEntry({required this.isFramework, required this.link});
-
-  final bool isFramework;
-  final DocumentLink link;
-  final List<AlertZone> zones = <AlertZone>[];
-}
-
-/// Arretes de restriction puis arretes-cadres, chacun UNE fois par adresse
-/// EXACTE (`DocumentLink.raw`, aucune normalisation), dans l'ordre des zones.
-List<_DecreeEntry> _decreeEntries(List<AlertZone> zones) {
-  final Map<String, _DecreeEntry> decrees = <String, _DecreeEntry>{};
-  final Map<String, _DecreeEntry> frameworks = <String, _DecreeEntry>{};
-  for (final AlertZone zone in zones) {
-    final DocumentLink? document = zone.decree.document;
-    if (document != null) {
-      decrees
-          .putIfAbsent(
-            document.raw,
-            () => _DecreeEntry(isFramework: false, link: document),
-          )
-          .zones
-          .add(zone);
-    }
-    final DocumentLink? framework = zone.decree.frameworkDocument;
-    if (framework != null) {
-      frameworks
-          .putIfAbsent(
-            framework.raw,
-            () => _DecreeEntry(isFramework: true, link: framework),
-          )
-          .zones
-          .add(zone);
-    }
-  }
-  return <_DecreeEntry>[...decrees.values, ...frameworks.values];
-}
-
-/// Vrai si [entry] est un arrete-cadre dont l'ensemble de zones est EXACTEMENT
-/// celui de l'UNIQUE arrete de restriction affiche : la liste serait alors une
-/// repetition, la carte dit « mêmes zones ». Des qu'il y a plusieurs arretes
-/// de restriction (apres le dedoublonnage par adresse exacte), on ne saurait
-/// pas « la meme que laquelle » : le raccourci tombe et la carte liste ses
-/// zones (arbitrage du commanditaire du 2026-10-06).
-bool _isSameZonesAsDecree(_DecreeEntry entry, List<_DecreeEntry> all) {
-  if (!entry.isFramework) {
-    return false;
-  }
-  final List<_DecreeEntry> restrictions = all
-      .where((_DecreeEntry other) => !other.isFramework)
-      .toList();
-  if (restrictions.length != 1) {
-    return false;
-  }
-  final _DecreeEntry only = restrictions.single;
-  return only.zones.length == entry.zones.length &&
-      entry.zones.every(
-        (AlertZone zone) => only.zones.any((AlertZone o) => identical(o, zone)),
-      );
-}
-
-/// La ligne de dates d'un arrete de restriction, ou `null` : les dates de
-/// validite ne s'affichent que si TOUTES ses zones les partagent (rien n'est
-/// choisi ni invente a la place d'un desaccord de la source).
-String? _validityLine(List<AlertZone> zones) {
-  final RestrictionDecree first = zones.first.decree;
-  final bool shared = zones.every(
-    (AlertZone zone) =>
-        zone.decree.validFrom == first.validFrom &&
-        zone.decree.validUntil == first.validUntil,
-  );
-  if (!shared) {
+/// La ligne de dates d'un arrete de restriction, ou `null` quand ses zones
+/// ne partagent pas leurs dates de validite : le domaine le dit
+/// (`DecreeDocument.sharedValidity`), la vue met en phrase.
+String? _validityLine(DecreeDocument document) {
+  final ({DateTime validFrom, DateTime? validUntil})? validity =
+      document.sharedValidity;
+  if (validity == null) {
     return null;
   }
-  final DateTime? until = first.validUntil;
+  final DateTime? until = validity.validUntil;
   return until == null
-      ? 'Depuis le ${formatCalendarDate(first.validFrom)}'
-      : 'Du ${formatCalendarDate(first.validFrom)} au '
+      ? 'Depuis le ${formatCalendarDate(validity.validFrom)}'
+      : 'Du ${formatCalendarDate(validity.validFrom)} au '
             '${formatCalendarDate(until)}';
 }
 
@@ -1152,7 +1055,7 @@ class _DecreeBlock extends StatelessWidget {
     required this.onOpenDocument,
   });
 
-  final _DecreeEntry entry;
+  final DecreeDocument entry;
   final bool sameZonesAsDecree;
   final UnopenedLink? unopenedLink;
   final void Function(DocumentLink link, LinkTarget target) onOpenDocument;
@@ -1164,7 +1067,7 @@ class _DecreeBlock extends StatelessWidget {
     final LinkTarget target = framework
         ? LinkTarget.frameworkDecree
         : LinkTarget.decree;
-    final String? secondary = framework ? null : _validityLine(entry.zones);
+    final String? secondary = framework ? null : _validityLine(entry);
     final int zoneCount = entry.zones.length;
 
     return Padding(

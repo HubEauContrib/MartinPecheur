@@ -18,27 +18,39 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/filters/map_filter.dart';
+import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
 import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
+import 'package:martinpecheur/features/map/view/map_empty_states.dart'
+    show clearFiltersLabel, filterHidesEverythingText;
+import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
+    show mapFavoritesLabel, mapFiltersActiveLabel, mapFiltersLabel;
+import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
+import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 
-/// Les cinq fichiers attendus sous `docs/acceptance/` : les quatre de T1
-/// (`Task X1` du plan T1) et `restrictions.feature` (`Task X1` du plan T2).
+/// Les sept fichiers attendus sous `docs/acceptance/` : les quatre de T1
+/// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2),
+/// `filtres.feature` (`Task F7` du plan T3), `favoris.feature` (`Task S7b`).
 const List<String> _featureFiles = <String>[
   'avertissements.feature',
   'fraicheur-d-une-mesure.feature',
   'fiche-station.feature',
   'ecoulement-onde.feature',
   'restrictions.feature',
+  'filtres.feature',
+  'favoris.feature',
 ];
 
-/// Les règles métier que les cinq fichiers doivent couvrir AU MINIMUM,
+/// Les règles métier que les sept fichiers doivent couvrir AU MINIMUM,
 /// ensemble (`Task X1` : « la liste est dans le test, pas seulement dans une
 /// intention »). `BR-013` (l'encart renforcé) y entre avec l'écran des
 /// restrictions de T2 ; l'affirmation inverse, valable en T1 (aucun écran de
@@ -64,6 +76,24 @@ const List<String> _restrictionsRules = <String>[
 
 /// Les trois user stories de T2 que `restrictions.feature` met en scénarios.
 const List<String> _restrictionsStories = <String>['US-09', 'US-07', 'US-08'];
+
+/// Les règles que `filtres.feature` doit citer, chacune par au moins un
+/// SCÉNARIO : la fraîcheur, le lieu masqué qui n'est pas une absence, les
+/// échelles séparées, la pastille comptée sur les retenus, le code inconnu ;
+/// depuis la feuille (`F9`) : le débit qui ne se qualifie pas, la borne des
+/// 60 jours.
+const List<String> _filtresRules = <String>[
+  'BR-003',
+  'BR-005',
+  'BR-007',
+  'BR-008',
+  'BR-009',
+  'BR-010',
+  'BR-011',
+];
+
+/// La user story de T3 que `filtres.feature` met en scénarios.
+const String _filtresStory = 'US-13';
 
 /// Bornes de `BR-005` (fraîcheur d'une observation hydrométrique) : chacune
 /// doit avoir son propre scénario, avec la valeur écrite en toutes lettres
@@ -201,8 +231,8 @@ void main() {
       dossierAcceptance.existsSync(),
       isTrue,
       reason:
-          'docs/acceptance/ doit exister avec les cinq .feature de Task X1 '
-          '(quatre en T1, restrictions.feature en T2)',
+          'docs/acceptance/ doit exister avec ses sept .feature '
+          '(quatre en T1, restrictions.feature en T2, filtres.feature et favoris.feature en T3)',
     );
   });
 
@@ -283,13 +313,13 @@ void main() {
     }
   });
 
-  test('les cinq fichiers couvrent ensemble BR-005, BR-006, BR-007, BR-010, BR-012, BR-013', () {
+  test('les sept fichiers couvrent ensemble BR-005, BR-006, BR-007, BR-010, BR-012, BR-013', () {
     final String tout = contenusParFichier.values.join('\n');
     for (final String regle in _minimumCoveredRules) {
       expect(
         tout.contains(regle),
         isTrue,
-        reason: '$regle doit être citée par au moins un des cinq .feature',
+        reason: '$regle doit être citée par au moins un des sept .feature',
       );
     }
   });
@@ -325,6 +355,41 @@ void main() {
             'aucun scénario de restrictions.feature sous la section $histoire',
       );
     }
+  });
+
+  test('filtres.feature cite BR-003, BR-005, BR-007, BR-008, BR-009, BR-010, '
+      'BR-011, chacune par un scénario', () {
+    final String contenu = contenusParFichier['filtres.feature'] ?? '';
+    final List<String> scenarios = _scenariosOf(contenu);
+    expect(scenarios, isNotEmpty);
+    for (final String regle in _filtresRules) {
+      expect(
+        scenarios.any((String scenario) => scenario.contains(regle)),
+        isTrue,
+        reason: 'aucun scénario de filtres.feature ne cite $regle',
+      );
+    }
+  });
+
+  test('filtres.feature met en scénarios US-13', () {
+    final String contenu = contenusParFichier['filtres.feature'] ?? '';
+    expect(
+      _scenariosByStory(contenu)[_filtresStory] ?? 0,
+      greaterThan(0),
+      reason: 'aucun scénario de filtres.feature sous la section US-13',
+    );
+  });
+
+  test('favoris.feature met en scénarios US-14', () {
+    final String contenu = contenusParFichier['favoris.feature'] ?? '';
+    expect(
+      _scenariosByStory(contenu)['US-14'] ?? 0,
+      14,
+      reason:
+          'favoris.feature porte quatorze scénarios sous US-14 : sept pour '
+          "l'étoile (S7b), quatre pour la liste (S9), trois pour retrouver "
+          'et ouvrir un favori (S11)',
+    );
   });
 
   // Un plan du scénario (`Plan du scénario:` + `Exemples:`) est un seul
@@ -426,6 +491,21 @@ void main() {
           );
         },
       );
+    }
+  });
+
+  // Le critère de fraîcheur du filtre joue sur les mêmes bornes : le plan de
+  // `filtres.feature` porte une ligne d'exemple par borne.
+  group('BR-005 — le filtre de fraîcheur porte chaque borne', () {
+    for (final String borne in _br005Bounds) {
+      test('la borne "$borne" apparaît dans filtres.feature', () {
+        final String contenu = contenusParFichier['filtres.feature'] ?? '';
+        expect(
+          contenu.contains(borne),
+          isTrue,
+          reason: 'filtres.feature ne porte pas la borne BR-005 "$borne"',
+        );
+      });
     }
   });
 
@@ -593,6 +673,73 @@ void main() {
           isTrue,
           reason:
               'avertissements.feature ne contient pas « ${libelle.value} », '
+              'le libellé du code pour ${libelle.key}',
+        );
+      });
+    }
+  });
+
+  // Même lien que pour T2, pour `filtres.feature` (T3) : libellés lus dans le
+  // code, cherchés entre guillemets français.
+  group('les libellés portés par le code figurent dans filtres.feature', () {
+    final String filtres = contenusParFichier['filtres.feature'] ?? '';
+
+    final Map<String, String> libellesFiltres = <String, String>{
+      'échelle écoulement': mapScaleLabel(MapScaleKind.ecoulement),
+      'échelle débit': mapScaleLabel(MapScaleKind.debit),
+      'case du code non reconnu': flowCategoryLabel(const Inconnu(null)),
+      'case Assec': flowCategoryLabel(const Assec()),
+      'texte de l’avis des filtres': filterHidesEverythingText,
+      'action de l’avis des filtres': clearFiltersLabel,
+      'bouton « Filtres », aucun filtre actif': mapFiltersLabel,
+      'bouton « Filtres », un filtre actif': mapFiltersActiveLabel,
+      'titre de la feuille': mapFilterSheetTitle,
+      'action qui applique': mapFilterApplyLabel,
+      'action qui ferme la feuille': warningReviewCloseLabel,
+      'phrase des 60 jours': mapFilterFlowWindowText,
+      'fraîcheur, mesures chargées': mapFilterFreshnessLoadedOnlyText,
+      'fraîcheur, regroupements': mapFilterFreshnessClustersText,
+      for (final DischargeFreshnessCriterion criterion
+          in DischargeFreshnessCriterion.values)
+        'choix de fraîcheur ${criterion.name}':
+            dischargeFreshnessCriterionLabel(criterion),
+    };
+    for (final MapEntry<String, String> libelle in libellesFiltres.entries) {
+      test('filtres.feature cite « ${libelle.value} » (${libelle.key})', () {
+        expect(
+          _containsQuoted(filtres, libelle.value),
+          isTrue,
+          reason:
+              'filtres.feature ne contient pas « ${libelle.value} », '
+              'le libellé du code pour ${libelle.key}',
+        );
+      });
+    }
+  });
+
+  // Même lien pour `favoris.feature` (T3) : libellés lus dans le code,
+  // cherchés entre guillemets français. `S9` a allongé la table, `S11` y
+  // ajoute le bouton de la carte.
+  group('les libellés portés par le code figurent dans favoris.feature', () {
+    final String favoris = contenusParFichier['favoris.feature'] ?? '';
+
+    final Map<String, String> libellesFavoris = <String, String>{
+      'étoile vide': addFavoriteLabel,
+      'étoile pleine': removeFavoriteLabel,
+      'écriture en échec': favoriteWriteFailedText,
+      'avis de liste sans mesure': favoritesNoMeasureNotice,
+      'liste vide': favoritesEmptyText,
+      'entrée non lisible': unreadableFavoriteText,
+      'action de liste illisible': favoritesStartOverLabel,
+      'bouton de la carte': mapFavoritesLabel,
+    };
+    for (final MapEntry<String, String> libelle in libellesFavoris.entries) {
+      test('favoris.feature cite « ${libelle.value} » (${libelle.key})', () {
+        expect(
+          _containsQuoted(favoris, libelle.value),
+          isTrue,
+          reason:
+              'favoris.feature ne contient pas « ${libelle.value} », '
               'le libellé du code pour ${libelle.key}',
         );
       });

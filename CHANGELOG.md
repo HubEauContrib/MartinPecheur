@@ -11,6 +11,273 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [0.4.0] — 2026-10-14
+
+Quatrième tranche (T3) : les favoris, les filtres de la carte et le critère
+de fraîcheur du débit. **Version datée du 2026-10-14**, à la demande du
+commanditaire, après ses confirmations **en bloc** des constats de la porte.
+La porte de T3 est franchie sur les deux cibles, Windows (exécutable de
+release lancé hors Flutter) et Android (émulateur, en débogage), constats
+confirmés en bloc par le commanditaire : « Constaté à l'exécution » dit ce
+qu'il a confirmé, « Non vérifié » ce qu'il n'a pas dit. Aucun tag n'est posé
+et la mise en production reste une décision du commanditaire ; la porte de T2
+reste due (`A1`, `E4`, `P1`, `P2`). « Ajouté », « Modifié » et « Corrigé »
+sont écrits en une fois, d'après le code livré sur
+`feat/t3-favoris-filtres` (50 tâches closes sur 50, dont `C1`, `P1` et `P2`
+dans leur forme en bloc), et vérifiés par `flutter test` ; seul ce que
+« Constaté à l'exécution » dit a été vu à l'écran. « Modifié » et « Corrigé »
+disent ce qui change par rapport à `0.3.0`. Les trois dettes de T2 soldées en
+T3 (plateforme des tests de widget, décisions sorties de la vue des
+restrictions, barre de titre des écrans pleins partagée) sont des
+remaniements sans effet observable : elles n'y figurent pas.
+
+### Ajouté
+
+- Étoile de favori dans le cadre des deux fiches, station hydrométrique et
+  point ONDE (`US-14`, `UC-008`), sous le bouton de fermeture : pleine ou
+  vide, annoncée « Ajouter aux favoris » ou « Retirer des favoris », lisible
+  sans la couleur, atteinte par Tab et basculée par Entrée ou Espace, cible
+  de 44 (48 sur Android). Un favori copie à l'ajout l'identité du lieu — son
+  libellé ; pour un point ONDE, aussi son cours d'eau et son département — et
+  sa date d'ajout, jamais une mesure. Ajouter une station demande que sa
+  fiche soit prête ; une station déjà en favori garde son étoile pleine et se
+  retire depuis sa fiche dans tous les états, même en échec ; sur une liste
+  lisible, une station absente du référentiel embarqué qui n'est pas en
+  favori n'a pas d'étoile. Un point ONDE s'ajoute quel que soit l'état de sa
+  fiche. Une station et un point ONDE de même code sont deux favoris.
+  L'étoile est inactive pendant une écriture ; tant que la liste enregistrée
+  est illisible, elle est vide et inactive dans tous les états des deux
+  fiches, station absente du référentiel ou fiche en chargement compris : la
+  liste ne dit pas si le lieu y est. Une écriture en échec laisse l'étoile
+  dans son état et le dit (« Le favori n'a pas pu être enregistré. », « Le
+  favori n'a pas pu être retiré. »).
+- Écran « Favoris » (`US-14`, `UC-008`), ouvert par le bouton « Favoris » de
+  la carte : les lieux suivis, dernier ajouté en tête, chacun par son
+  identité seule — libellé, nature (« Station hydrométrique », « Point
+  ONDE »), cours d'eau et département d'un point ONDE, « Ajouté le
+  JJ/MM/AAAA » —, et **aucune valeur mesurée**, ce que la liste dit en tête.
+  Un favori se retire depuis sa ligne, par un bouton que le lecteur d'écran
+  annonce « Retirer des favoris : » suivi du nom du lieu, ou « Retirer ce
+  favori non lisible » (arbitrage du commanditaire du 2026-10-14) ; l'ouvrir
+  referme l'écran et ouvre sa fiche, sans déplacer la carte ni changer
+  l'échelle ou le filtre. Ouvrir l'écran ferme la fiche ouverte. Liste vide :
+  une phrase dit comment un favori s'ajoute. Liste enregistrée illisible :
+  elle est dite telle, jamais montrée vide, gardée telle quelle, et ne se
+  remplace que par l'action explicite « Repartir d'une liste vide », qui
+  annonce l'effacement des favoris enregistrés. Une entrée que cette version
+  ne sait pas lire reste affichée (« Favori non lisible par cette version de
+  l'application »), retirable, non ouvrable, et réécrite telle quelle
+  (`BR-011`). Lignes et actions atteintes au clavier, cibles de 44 (48 sur
+  Android). L'écran n'a pas de contrôle « ⚠ Avertissement » : il ne montre ni
+  mesure ni état ; les fiches qu'il ouvre le portent (arbitrage du
+  commanditaire du 2026-10-14).
+- Favoris retrouvés d'un lancement à l'autre, sur l'appareil, sans compte ni
+  serveur : `shared_preferences`, une clé, une forme JSON versionnée
+  (`ADR-011` amendé le 2026-10-12, aucune dépendance ajoutée).
+- Feuille « Filtres » (`US-13`, `UC-007`), ouverte par le bouton « Filtres »
+  de la carte : sur l'échelle écoulement, six cases d'état, une par
+  catégorie, « Non renseigné » comprise, toutes cochées au départ ; sur les
+  deux échelles, un département ou « Tous les départements » ; sur l'échelle
+  débit, la fraîcheur de la mesure : « Toutes », « Moins de 2 h », « Moins de
+  24 h » (bornes de `BR-005`). Aucun critère d'état sur le débit (`BR-003`) ;
+  sur l'écoulement, aucun critère de fraîcheur : la feuille dit que la carte
+  ne montre que les campagnes des 60 derniers jours. « Appliquer »,
+  « Effacer » (tous les critères, des deux échelles) et « Fermer » (rien ne
+  change). Le filtre vaut pour la session : il survit au changement
+  d'échelle et à un écran plein, pas à un relancement. Le type de donnée
+  reste choisi par les puces d'échelle (`BR-008`).
+- Ce que le filtre ne masque pas (`BR-007`, `BR-009`) : un lieu dont l'état
+  n'est pas connu reste affiché — station dont la mesure n'est pas encore
+  chargée, en échec ou sans donnée, lieu sans département. Sous le zoom 9,
+  une pastille ne compte que les lieux retenus et une pastille vidée n'est
+  pas dessinée, sauf pour le critère de fraîcheur, qui ne s'applique pas aux
+  pastilles de débit. La feuille dit ces deux limites du critère de
+  fraîcheur. Une fiche ouverte reste ouverte quand le filtre masque son lieu.
+  Le préchargement des mesures de débit ne porte que sur le département
+  choisi.
+- Bouton « Filtres » qui montre un filtre actif (`BR-007`) : dès qu'un
+  critère est actif pour l'échelle affichée, il change de forme — icône et
+  fond pleins, marque ronde au coin —, à tous les zooms, et s'annonce
+  « Filtres — un filtre est actif ».
+- Avis de carte vidée par le filtre : « Les filtres masquent tous les lieux
+  du secteur affiché. Cela ne dit rien de l'état des cours d'eau. », avec
+  l'action « Effacer les filtres », atteinte au clavier. Il ne prend jamais la
+  place d'un avis d'absence, qui reste décidé sur les lieux lus, filtre actif
+  ou non ; une panne de source parle seule.
+- Deux boutons en bas à droite de la carte, au-dessus de `+`, `−` et
+  recentrer : « Favoris », puis « Filtres » (arbitrage 8 du cadrage, ordre
+  confirmé le 2026-10-14), cibles de 44 (48 sur Android).
+- Documentation : `UC-007` « Filtrer la carte », `UC-008` « Suivre un lieu en
+  favori », `filtres.feature` (21 scénarios) et `favoris.feature` (14),
+  `BR-007`, `BR-008` et `BR-009` amendées pour le filtre de l'usager,
+  `ADR-011` amendé pour les favoris, matrice de traçabilité de T3.
+
+### Modifié
+
+- « La légende défile » (arbitrage du commanditaire du 2026-10-12) : la
+  colonne du haut à droite de la carte (avertissement et légende ; au
+  téléphone, la colonne unique avec les puces et les avis) s'arrête
+  au-dessus de la colonne du bas à droite et défile quand elle ne tient
+  plus : rien de ce qui s'y voit ne passe plus sous les contrôles de zoom ni
+  sous l'attribution. L'écart à `BR-008` accepté le 2026-10-03 demeure — sous
+  600 px, un avis affiché repousse toujours la légende, qui se lit alors en
+  faisant défiler la colonne ; seul disparaît le recouvrement de la légende
+  repoussée, par les contrôles de zoom (et, à 200 %, par l'attribution). Sur
+  une fenêtre trop courte pour elle, la légende n'est plus entière au repos,
+  avis ou non, et défile. Au téléphone à 200 %, un avis n'est plus entier au
+  repos : il s'amène en faisant défiler la colonne. Sur une fenêtre de
+  téléphone très courte (écran divisé), le haut ne garde que
+  « ⚠ Avertissement » et la colonne du bas à droite défile, ancrée en bas
+  (décision de la boucle principale).
+- Ordre de tabulation de la carte : les puces d'échelle, l'action de l'avis
+  affiché (« Effacer les filtres » ou « Élargir la recherche » ; rang arbitré
+  par le commanditaire le 2026-10-14), « Favoris », « Filtres » (rang posé
+  avec le groupe d'entrée), `+`, `−`, recentrer, le bouton de désignation en
+  mode « Restrictions », la carte, la fiche ouverte, puis
+  « ⚠ Avertissement ».
+- Outillage, pour l'intégrateur : Flutter 3.47.7 et Dart 3.13.5 (3.47.4 et
+  3.13.3 pour `0.3.0`), gardés par arbitrage du commanditaire du 2026-10-14 ;
+  `pubspec.yaml` ne change que de version. `pubspec.lock` change la version
+  de onze paquets — les deux directs, `shared_preferences` 2.5.6 et
+  `url_launcher` 6.3.3, et neuf transitifs, `archive`, `code_assets`,
+  `hooks`, `jni`, `jni_flutter`, `meta`, `objective_c`, `record_use` et
+  `vector_math` —, dont six servent à la construction native (`jni`, greffon
+  natif compilé pour Windows et Android ; `jni_flutter`, Android ;
+  `objective_c`, cibles Apple ; `hooks`, `code_assets` et `record_use`,
+  protocole des hooks de construction du code natif) : la prochaine
+  construction Windows de release et la première construction Android se
+  feront avec eux.
+
+### Corrigé
+
+- Une fiche plus haute que la carte (police à 200 %, téléphone en paysage)
+  débordait de l'écran et son bas était hors de portée — défaut antérieur à
+  T3, déjà dans `0.3.0`, mesuré par test : la zone des fiches est bornée à la
+  hauteur de la carte et défile (arbitrage du commanditaire du 2026-10-13).
+  Une fiche s'ouvre toujours par son haut, et ce qui s'en voit ne passe plus
+  sous le bandeau d'attribution IGN, dont la marge suit désormais la hauteur
+  réelle. En mode « Restrictions », une fiche haute masque toujours le bouton
+  de désignation.
+- « Élargir la recherche », l'action de l'avis d'absence, n'était pas
+  atteignable au clavier (depuis `0.2.0`) : c'est désormais un arrêt de Tab,
+  juste après les puces.
+
+### Constaté à l'exécution
+
+Constats du commanditaire du 2026-10-14, tous **confirmés en bloc** : il a
+écrit « j'ai testé c'est bon » pour `C1` et `P2`, puis « c'est bon » pour
+`P1`, sans détail **point par point** ; ce qu'il n'a pas dit est écrit dans
+« Non vérifié ». Le code est celui de la branche à ces heures (sommet
+`e2cd338`, puis `fe793bd`, dont les fichiers sous `lib/` sont ceux de
+`e2cd338`).
+
+- Le 2026-10-14, sur Windows, en débogage (`C1`) : « j'ai testé c'est bon »,
+  et parmi les réponses proposées il confirme en bloc les filtres sur
+  l'écoulement — décocher une catégorie masque ses marqueurs et le bouton
+  « Filtres » change de forme (`a`) ; les pastilles de département et de
+  région suivent le filtre (`b`). Le secteur, les catégories vues, les
+  comptes et les symboles d'une pastille avec et sans filtre, et la pastille
+  disparue ne sont pas relevés.
+- Le 2026-10-14, sur Android, dans l'émulateur Pixel_7, en débogage (`P2`) :
+  « j'ai testé c'est bon », et parmi les réponses proposées il confirme en
+  bloc « L'application s'est construite et lancée sur Pixel_7, et les écrans
+  de T3 fonctionnent au toucher. » C'est la première construction Android dont
+  le lancement est confirmé : l'APK de débogage de `0.4.0` est daté du
+  2026-10-14 à 15:11:49 (71 882 325 octets, relevé par la date de
+  l'artefact). Le détail point par point n'est pas rapporté.
+- Le 2026-10-14, sur Windows, exécutable de release lancé hors Flutter
+  (`P1`) : le commanditaire construit la release (`flutter build windows
+  --release`), lance `./build/windows/x64/runner/Release/martinpecheur.exe`
+  hors de toute session de développement, regarde les écrans de T3 (`P1-c`
+  à `P1-k`) et écrit « c'est bon » : confirmation en bloc, sans détail. La
+  ligne finale `Built …` et la durée de la construction ne sont pas
+  rapportées ; l'exécutable daté du 2026-10-14 à 15:53:06 atteste la
+  construction.
+- Le 2026-10-14, sur Windows, dossier de publication de l'exécutable de
+  release de `0.4.0` : **35 Mo** (`du -sh`), 35 634 194 octets (`du -sb`),
+  15 fichiers, dont `flutter_windows.dll` 21 274 112 octets et le référentiel
+  des stations 6 604 249 octets ; budget de 60 Mo tenu (`NFR-06`). Repère de
+  `0.2.0` : 33 Mo, 14 fichiers. Relevé par la boucle principale sur le poste,
+  non rapporté par le commanditaire.
+
+### Non vérifié
+
+- **Ce que la confirmation en bloc ne dit pas.** Le commanditaire n'a pas
+  rapporté, point par point, `P1-c` à `P1-k` (Windows, release) ni `P2-c` à
+  `P2-j` (Android) ; ces derniers, hors `P2-g`, sont rangés sous « les écrans
+  de T3 fonctionnent au toucher » par la boucle principale, ce que le
+  commanditaire n'a pas dit. **Ne sont pas dits** : `P1-m` (réseau coupé :
+  la liste « Favoris » s'affiche, ouvrir un favori station montre l'échec
+  nommé, l'étoile reste pleine et se retire) ; `P2-g` (deux favoris
+  retrouvés après fermeture et relancement, sur Android) ; `P2-m` (mode
+  avion) ; pour `P2-l`, la durée de la construction, sa dernière ligne et le
+  premier écran ; pour `P1-g`, s'il restait un point ONDE à l'écran. Le
+  secteur, les comptes et les symboles de `C1` ne sont pas relevés non plus.
+- **La porte de T2 n'est pas franchie** : `A1`, les deux constats manquants
+  de `E4` et sa réserve, `P1` et `P2` de T2 restent dus (voir `0.3.0`). Une
+  construction Android est constatée le 2026-10-14, sur le code de `0.4.0` et
+  non de `0.3.0` ; ce qu'il en advient pour `A1` revient au commanditaire.
+  Les écrans de T2 ne sont toujours pas nommés par un constat sur Android ni
+  en release. Aucun exécutable de release de `0.3.0` n'est construit.
+- **Effets de mise en page mesurés en test, à constater à l'écran** : au
+  téléphone à 200 %, « La légende défile » laisse l'avis de carte vidée coupé
+  au repos, son action « Effacer les filtres » hors de vue ; sur une fenêtre
+  de téléphone très courte (360 × 300, écran divisé), le haut ne garde que
+  « ⚠ Avertissement » et l'on ne change d'échelle qu'en faisant glisser
+  depuis lui ; au téléphone en paysage (640 × 360 et 600 × 360), « Favoris »
+  dépasse de 12 px par le haut de sa fenêtre et s'atteint en défilant, la
+  légende n'étant pas visible au repos ; la fiche et le bandeau d'attribution
+  se touchent bord à bord quand la marge suit le bandeau ; en mode
+  « Restrictions », la fiche perd 28 px de hauteur même là où elle ne recoupe
+  pas le bandeau. Trois constats acceptés par le commanditaire le
+  2026-10-14, à voir à la porte Android et que sa confirmation en bloc du
+  même jour ne nomme pas : à 360 × 640 et 100 %, l'avis d'absence
+  « écoulement » dépasse de 8 px, son action restant atteignable ; à 200 %
+  sur fenêtre courte, la puce « Restrictions », seule sortie du mode, est
+  coupée plus tôt (52 % atteignables à 360 × 568, rien à 360 × 540) ; à
+  360 × 640 et 200 %, le constat `d` ne tient pas (193 px à défiler). Aucun
+  de ces effets n'est donc constaté à l'écran.
+- **Mesures en Roboto**, la police d'Android, chargée depuis le SDK Flutter ;
+  sous Windows, enregistrée sous le nom « Segoe UI », un substitut : **Segoe
+  UI réelle n'est pas mesurée**.
+- **Aucune annonce au lecteur d'écran constatée** : ni l'étoile, ni
+  « Filtres — un filtre est actif », ni les états de la liste, ni le retrait
+  d'un favori de la liste, qui nomme le lieu depuis l'arbitrage du
+  commanditaire du 2026-10-14.
+- **Stockage des favoris** : la tenue d'un lancement à l'autre est éprouvée
+  par les tests du dépôt, contre un double et contre le magasin de test du
+  paquet, et confirmée en bloc sous Windows en release (`P1-g` parmi
+  `P1-c` à `P1-k`, sans détail) ; sur Android, `P2-g` n'est pas dit. Aucune
+  écriture refusée n'est provoquée sur une cible. Non trouvés dans les
+  paquets relus le 2026-10-12 (`ADR-011`) : la taille maximale d'une valeur
+  `shared_preferences`, et ce que devient une écriture interrompue par une
+  fermeture brutale.
+- **Départements** : la liste de la feuille vient du référentiel des
+  stations ; qu'un département qui porte un point ONDE porte aussi une
+  station de ce référentiel n'est pas vérifié — un département qui n'en
+  porterait aucune ne serait pas proposé (lu dans le code).
+- **Décisions de la boucle principale, à confirmer à l'écran** : l'étoile
+  sous le bouton de fermeture de la fiche, et non à côté ; « Appliquer » en
+  couleur d'action principale ; sur une fenêtre courte, le haut de la carte
+  qui cède d'abord, jusqu'à une cible tactile ; le texte « La liste n'a pas pu
+  être remplacée. » (échec de « Repartir d'une liste vide »), venu du plan et
+  non du cadrage. La confirmation en bloc de la porte ne les nomme pas : le
+  commanditaire ne les a pas confirmées une à une.
+- Les 21 scénarios de `filtres.feature` et les 14 de `favoris.feature` sont
+  lus et vérifiés en structure par test, **jamais exécutés**.
+- **Android** : une construction de débogage est lancée sur l'émulateur
+  Pixel_7 le 2026-10-14 (voir « Constaté à l'exécution »), en bloc ; ni les
+  cibles de 48, ni la persistance des favoris (`P2-g`), ni le mode avion
+  (`P2-m`) ne sont dits. Aucun appareil réel (`A⏸4`), aucune construction
+  Android de release. La **publication** Android reste différée : signature
+  (`A⏸3`) et préversion (`A⏸5`). **iOS** n'a jamais été compilé, faute
+  d'hôte macOS.
+- **Fluidité de la carte (`NFR-01`)** : la seule mesure date du 2026-09-27
+  (Windows, `--profile`, `docs/nfr.md`) ; aucune mesure n'est consignée depuis.
+- **Hors T3, dits tels** : la courbe de débit (`US-11`), la recherche
+  (`US-16`), `integration_test/` et le recentrage de la carte sur un favori
+  sont renvoyés à une tranche ultérieure.
+
 ## [0.3.0] — 2026-10-09
 
 Troisième tranche (T2) : la sécheresse et les restrictions, lues sur VigiEau

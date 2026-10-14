@@ -42,6 +42,7 @@ const List<String> typesDuDomaine = <String>[
   'DocumentLink',
   'RestrictedUsage',
   'ZonesAtPoint',
+  'DecreeDocument',
   'RestrictionSource',
   'RestrictionLookupFailure',
   'SourceInjoignable',
@@ -54,6 +55,16 @@ const List<String> typesDuDomaine = <String>[
   'Millimetres',
   'CubicMetresPerSecond',
   'Metres',
+  'MapFilter',
+  'DischargeFreshnessCriterion',
+  'Favorite',
+  'StationFavorite',
+  'OndePointFavorite',
+  'UnreadableFavorite',
+  'FavoriteRepository',
+  'FavoriteStorageFailure',
+  'ListeDeFavorisIllisible',
+  'EcritureDeFavorisEnEchec',
 ];
 
 /// Types envisagés mais pas encore écrits sous lib/domain/ (Écoulement

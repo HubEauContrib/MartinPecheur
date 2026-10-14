@@ -58,6 +58,7 @@ sequenceDiagram
 - **A4 — Hub'Eau indisponible :** les données en cache restent affichées avec leur date ; un message nomme la source défaillante. Les autres sources continuent de fonctionner (`BR-007`).
 - **A5 — Zone hors couverture ONDE :** le message nomme le périmètre réel du réseau (France hexagonale et Corse, points choisis sur de petits cours d'eau).
 - **A6 — L'usager change d'échelle :** les marqueurs et la légende changent ensemble ; aucune superposition d'échelles (`BR-008`).
+- **A7 — L'usager filtre la carte :** voir `UC-007` ; un lieu masqué par un filtre n'est pas une absence de donnée (`BR-007`).
 
 ## Postconditions
 

@@ -202,7 +202,7 @@ class DataSourcesView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  const _TitleBar(),
+                  const ScreenTitleBar(title: dataSourcesTitle),
                   // Une seule barre de défilement, toujours visible (la page
                   // défile, cela se voit — constat du 2026-09-29 sur l'écran
                   // des restrictions) ; l'automatique du bureau est retirée
@@ -316,44 +316,6 @@ class _Section extends StatelessWidget {
           paragraphs[i],
         ],
       ],
-    );
-  }
-}
-
-/// La barre de titre : retour et [dataSourcesTitle]. Pas d'`AppBar` — sa
-/// hauteur est fixe, et son titre serait tronqué à 200 % de police sur un
-/// téléphone ; cette barre grandit avec le texte (même choix que l'écran des
-/// restrictions).
-class _TitleBar extends StatelessWidget {
-  const _TitleBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          children: <Widget>[
-            BackButton(
-              style: IconButton.styleFrom(
-                minimumSize: Size.square(minimumTapTarget),
-                visualDensity: VisualDensity.standard,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Semantics(
-                header: true,
-                child: Text(
-                  dataSourcesTitle,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

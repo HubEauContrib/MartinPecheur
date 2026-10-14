@@ -25,6 +25,7 @@ L'usager tape un marqueur ONDE sur la carte, puis « Voir la fiche ».
 3. La **modalité officielle exacte** est affichée en second niveau : *« code 3 — Assec »*. Le regroupement en 4 catégories (`ADR-006`) ne masque jamais la source.
 4. L'historique des campagnes précédentes s'affiche, chacune avec sa date et son état.
 5. Un rappel permanent précise le rythme réel : *« Campagnes de mai à septembre seulement, environ une par mois. Entre deux campagnes, personne n'observe ce point. »*
+6. L'usager peut mettre le point en favori. ⚠️ **Ajout du 2026-10-12 (tranche T3, `S7b`)** : l'étoile est dans le cadre de la fiche, dans tous ses états visibles (`UC-008`).
 
 ```mermaid
 flowchart LR

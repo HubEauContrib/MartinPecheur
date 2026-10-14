@@ -2,9 +2,13 @@
 
 - **Statut :** **Accepté — arbitrage du commanditaire du 2026-09-18**, **portée limitée**
 - **Date :** 2026-09-18
-- **Portée :** la **préférence simple** — une clé, une chaîne. Le **moteur de donnée structurée**
+- **Portée :** ~~la **préférence simple** — une clé, une chaîne. Le **moteur de donnée structurée**
   (favoris, dernière vue, cache d'observations persistant) **n'est pas tranché par cet ADR** : il
-  reste ouvert, `drift` candidat par défaut.
+  reste ouvert, `drift` candidat par défaut.~~ **Amendée le 2026-10-12** : les **favoris** entrent
+  dans la préférence simple — une clé, une chaîne JSON — par l'arbitrage 2 du 2026-10-12 (T3). Voir
+  la section « Amendement du 2026-10-12 », avant « Conséquences ».
+  Le moteur de donnée structurée (dernière vue, cache d'observations persistant) **reste non
+  tranché**, `drift` candidat par défaut.
 - **État du code :** 🔄 **décidé, pas encore codé.** Au 2026-09-18, `shared_preferences`
   **n'est pas** dans `pubspec.yaml` et **aucun fichier de `lib/` ne l'utilise** (constaté par
   lecture de `pubspec.yaml` et `grep` sur `lib/` et `test/`). L'ajout du paquet et
@@ -105,6 +109,84 @@ flowchart LR
     style ITF fill:#27ae60,color:#fff
     style STRUCT fill:#95a5a6,color:#fff
 ```
+
+### Amendement du 2026-10-12 — les favoris en shared_preferences (T3, arbitrage 2 du 2026-10-12)
+
+**La décision.** Les favoris de T3 se persistent dans `shared_preferences`, sans bibliothèque
+nouvelle : **une clé, `favorites`**, portant **une chaîne JSON** de la forme
+`{"version":1,"favoris":[…]}` (`version` 1, chaque entrée avec son `type` ; forme écrite et lue par
+`lib/data/preferences/favorites_codec.dart`). Le tout **derrière `FavoriteRepository`**
+(`lib/domain/favorites/favorite_repository.dart`), réalisé par
+`SharedPreferencesFavoriteRepository` (`lib/data/preferences/`), qui n'emploie que `getString` et
+`setString`. Aucun ViewModel, aucune vue ne connaît le paquet.
+
+**Les faits, relus le 2026-10-12 dans les paquets installés** (versions résolues par
+`.dart_tool/package_config.json` ; lecture des sources, **rien n'est constaté à l'exécution sur une
+cible**) :
+
+| Paquet, fichier, ligne | Fait relu le 2026-10-12 |
+|---|---|
+| `shared_preferences` 2.5.5, `lib/src/shared_preferences_legacy.dart`, l. 129 | `String? getString(String key) => _preferenceCache[key] as String?;` — lecture **synchrone du cache mémoire**, une valeur d'un autre type lève |
+| même fichier, l. 79-97 | `getInstance()` charge ce cache une fois par session ; si le chargement lève, l'erreur est rendue et le chargement sera retenté à l'appel suivant |
+| même fichier, l. 99-107 | commentaire du cache, l. 105-106 : « It is NOT guaranteed that this cache and the device prefs will remain in sync since the setter method might fail for any reason. » |
+| même fichier, l. 157-162 | sur Android, une valeur ne peut pas commencer par trois préfixes réservés (`VGhpcyBpcyB0aGUgcHJlZml4IGZvciBhIGxpc3Qu`, …) — la nôtre commence par `{` |
+| même fichier, l. 163-164 | `Future<bool> setString(String key, String value) => _setValue('String', key, value);` |
+| même fichier, l. 177-187 | `_setValue` **écrit le cache** (`_preferenceCache[key] = value;`, l. 184) **avant** d'appeler le magasin (`return _store.setValue(valueType, prefixedKey, value);`, l. 186) — **inchangé en 2.5.6** (relu dans le paquet installé le 2026-10-14, version résolue depuis le 2026-10-14 : même corps, l. 202-212, cache l. 209, magasin l. 211 ; 2.5.6 ajoute seulement ~~à `setString` un commentaire~~ un commentaire de documentation aux cinq setters (`setBool`, `setInt`, `setDouble`, `setString`, `setStringList`) et à `remove` — correction du 2026-10-14, `P3` de T3, d'après un diff des deux versions installées dans le cache de paquets : `false` quand la plateforme sait que l'écriture (pour `remove`, le retrait) a échoué, `true` aussi quand elle n'en rend pas compte) |
+| `shared_preferences_windows` 2.4.1, `lib/shared_preferences_windows.dart`, l. 129-138 | `setValue` modifie sa **propre copie mémoire** (`_cachedPreferences`, l. 38 et 50-57) puis appelle `_writePreferences` |
+| même fichier, l. 374-400 | `_writePreferences` réécrit **tout le fichier JSON** (`localDataFile.writeAsStringSync(stringMap);`, l. 394) ; toute exception → `debugPrint` et **`false`** (l. 395-398). Aucun fichier temporaire ni renommage n'y est visible |
+| même fichier, l. 349-370 | `_readFromFile` fait `json.decode(stringMap)` (l. 363) **sans `try`** |
+| `shared_preferences_android` 2.4.28, `android/src/main/kotlin/io/flutter/plugins/sharedpreferences/LegacySharedPreferencesPlugin.kt`, l. 66 | `return preferences.edit().putString(key, value).commit()` ; l. 59-65, une valeur à préfixe réservé lève une `RuntimeException` |
+
+**Ce qui en découle.**
+
+- **Le cache est écrit avant le magasin.** Après un `setString` qui rend `false` ou qui lève,
+  `getString` rend **la valeur non écrite** jusqu'à la fin de la session : un dépôt sans mémo ne
+  suffit donc pas à ce qu'une étoile « ne change pas d'état » après une écriture refusée.
+- **Écriture compensatoire** — **décision de la boucle principale du 2026-10-12, réversible**, pas
+  un arbitrage du commanditaire : sur une écriture en échec, le dépôt rappelle
+  `setString('favorites', valeur d'avant)` — la liste vide encodée s'il n'y avait aucune valeur —,
+  résultat et levée ignorés, puis lève `EcritureDeFavorisEnEchec`. Cela remet le cache du paquet,
+  que l'écriture compensatoire atteigne le magasin ou non. Pour « tout effacer », qui ne décode pas
+  la valeur, la valeur d'avant est le texte brut rendu par `getString` ; s'il n'y en a pas, ou s'il
+  n'est pas une chaîne, aucune compensation n'est tentée : après un « tout effacer » en échec sur
+  une valeur qui n'est pas une chaîne, le cache porte la liste vide alors que le magasin garde
+  l'ancienne valeur, jusqu'à la fin de la session. Écartée : la limite documentée, sans
+  compensation.
+- **Sur Windows, le fichier est réécrit en entier, et il est partagé** avec la clé d'acquittement
+  de l'avertissement (`acknowledged_warning_version`). La copie mémoire de l'implémentation Windows
+  est elle aussi modifiée avant l'écriture (l. 131) : sans compensation, une valeur de favoris
+  refusée partirait dans le fichier à la prochaine écriture réussie d'une autre clé. Un fichier qui
+  ne se décode plus fait échouer `getInstance()` : lire, ajouter et retirer sortent en
+  `ListeDeFavorisIllisible`, « tout effacer » en `EcritureDeFavorisEnEchec`, et l'acquittement ne se
+  lit plus non plus — lu dans les sources, **jamais provoqué**.
+- **Le dépôt est sérialisé par instance** (même décision, réversible) : une opération ne commence
+  qu'une fois la précédente terminée, quelle que soit son issue. Sans cela, deux lire-puis-écrire
+  croisés — l'étoile d'une fiche et un retrait dans la liste — perdent un favori. Ce n'est pas un
+  mémo : rien n'est gardé entre deux opérations. La sérialisation ne vaut qu'**au sein d'une
+  instance** : la racine de composition ne doit en composer qu'une. La file n'a **aucune borne de
+  temps** : un `setString` qui ne se terminerait jamais bloquerait toutes les opérations suivantes
+  de l'instance, `readAll` compris — improbable (écriture synchrone sur Windows, `commit()` sur
+  Android), **non éprouvé**.
+- **Le diagramme d'origine ci-dessus, gardé, est dépassé sur les favoris** : il les range encore
+  dans la donnée structurée au moteur non tranché.
+
+**Ce qui reste 💭 — non trouvé, non vérifié.**
+
+- 💭 **Taille maximale d'une valeur** : rien trouvé dans `README.md`, `CHANGELOG.md` et les sources
+  (`lib/`, et `android/src/main/` pour Android) des trois paquets ci-dessus, relus le 2026-10-12.
+- 💭 **Ce que devient une écriture interrompue** (fermeture brutale pendant `writeAsStringSync` sur
+  Windows, pendant `commit()` sur Android) : rien trouvé dans les mêmes fichiers. Aucune écriture
+  atomique n'est visible dans l'implémentation Windows ; ce que garantit `commit()` relève de la
+  plateforme Android, non relue ici.
+- 💭 **Rien n'est constaté sur une cible** : le dépôt est éprouvé par test, contre un double qui
+  imite l'ordre « cache puis magasin » et contre le magasin de test du paquet
+  (`SharedPreferences.setMockInitialValues`). Aucune écriture refusée n'a été provoquée sur Windows
+  ni sur Android, et l'implémentation iOS (`shared_preferences_foundation`) n'a pas été relue.
+
+**Le moteur structuré reste ouvert jusqu'au hors-ligne (`US-10`).**
+
+**Si l'amendement est revu :** une classe, `lib/data/preferences/`, et une migration de la valeur
+déjà écrite.
 
 ---
 

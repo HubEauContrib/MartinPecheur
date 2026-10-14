@@ -81,6 +81,12 @@ d'état** : `ChangeNotifier` est fourni par le framework.
   endroit » survit ; seul le point d'accrochage change.
 - Le *domain layer* de *use-cases* du guide reste **écarté** : six cas d'usage, aucun n'orchestre
   plusieurs dépôts pour l'instant. À réintroduire si un écran le réclame, pas avant.
+  *Note du 2026-10-14 (revue finale de T3), la décision n'est pas réécrite :* les deux constats de
+  cette phrase ne tiennent plus. Les cas d'usage sont huit (`UC-001` à `UC-008`). Des ViewModels
+  lisent plusieurs dépôts, chacun par son appel typé, sans couche de cas d'usage : depuis T1,
+  `MapViewModel` trois (points de stations, observations hydrométriques, observations ONDE) et
+  `StationSheetViewModel` deux (stations, observations) ; depuis T3, les deux fiches lisent aussi
+  les favoris (`StationSheetViewModel` trois dépôts, `OndeSheetViewModel` deux).
 
 ```mermaid
 flowchart LR
@@ -156,6 +162,8 @@ station et à la fiche ONDE — deux tranches distinctes, un seul texte.
 > de `lib/features/shared/` est désormais **`WarningLink`** (`warning_link.dart`), importé par trois
 > tranches — carte, fiche station, fiche ONDE. La règle `shared-sans-tranche` est inchangée.
 
+> **Amendement du 2026-10-12 (`S4` de T3, décision 4 du commanditaire).** Depuis T3 (`S4`), `shared/` porte aussi un **état d'affichage en Dart pur**, `FavoriteStar` (`favorite_star.dart`, aucun import), que deux ViewModels de fiche produisent et qu'un widget partagé (`favorite_star_button.dart`) consomme : un ViewModel l'importe sans violer `view-model-sans-widget`.
+
 🔄 **Le dossier `lib/features/shared/` n'existe pas encore** au 2026-09-18 : la règle est décidée,
 pas encore occupée.
 
@@ -219,6 +227,9 @@ seul son dossier change.
   déléguer immédiatement. Elle redeviendra la bonne réponse le jour où un écran croisera
   hydrométrie, écoulement et restrictions — et elle se réintroduira alors **entre** ViewModel et
   dépôt, sans rien défaire de cette décision.
+  *Note du 2026-10-14 (revue finale de T3), l'alternative reste écartée :* « six cas d'usage dont
+  aucun n'orchestre plusieurs dépôts » ne tient plus — huit cas d'usage, et des ViewModels qui
+  lisent plusieurs dépôts sans couche de cas d'usage (voir la note du même jour sous « Décision »).
 - **Passer les dépôts directement aux widgets, sans ViewModel.** Le moins de cérémonie possible,
   mais l'état d'écran retourne dans des `State` de widgets, et la logique redevient intestable sans
   rendu. C'est l'erreur que `ADR-008` avait raison de refuser.
@@ -232,7 +243,9 @@ défaire.
   l'historique git, sous le tag `v0.1.0` — et de réintroduire l'effacement de type. Les ViewModels
   deviendraient des émetteurs de messages ; leur état et leurs tests ne changeraient pas.
 - **Ce qui n'est pas impacté, quoi qu'il arrive :** `lib/domain/`, `lib/data/`, les mappers, la
-  conversion d'unités, les 14 règles métier, les 6 cas d'usage et les fiches de sources. Le produit
+  conversion d'unités, les 14 règles métier, les ~~6~~ huit cas d'usage (*note du 2026-10-14, `P3` de T3 :
+  `UC-001` à `UC-008` ; `UC-007` et `UC-008` sont ceux de T3, le chiffre barré date de l'écriture de
+  cet ADR*) et les fiches de sources. Le produit
   ne change pas ; seule la façon dont un écran demande une donnée change.
 - `CachePolicy` est le seul composant à double appartenance : décorateur de dépôt ici, décorateur de
   gestionnaire dans `ADR-008`. Son comportement — stale-while-revalidate, déduplication des

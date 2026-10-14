@@ -277,6 +277,44 @@ void main() {
       }
     });
   });
+
+  group("absence d'eaux superficielles", () {
+    AlertZone sup() => _zone('sup', const EauxSuperficielles());
+    AlertZone sou() => _zone('sou', const EauxSouterraines());
+    AlertZone aep() => _zone('aep', const EauPotable());
+    AlertZone x() => _zone('x', const TypeZoneInconnu('X'));
+    AlertZone sansCode() => _zone('y', const TypeZoneInconnu(null));
+
+    ZonesAtPoint avec(List<AlertZone> zones) => ZonesAtPoint(
+      point: _point(),
+      retrievedAt: _retrievedAt(),
+      zones: zones,
+    );
+
+    final List<(String, List<AlertZone>, bool, bool)> cas =
+        <(String, List<AlertZone>, bool, bool)>[
+          ('aucune zone', <AlertZone>[], false, false),
+          ('SUP seule', <AlertZone>[sup()], false, false),
+          ('SOU seule', <AlertZone>[sou()], true, true),
+          ('AEP, SOU', <AlertZone>[aep(), sou()], true, true),
+          ('SOU, type inconnu', <AlertZone>[sou(), x()], true, false),
+          ('type inconnu seul', <AlertZone>[x()], true, false),
+          ('type inconnu sans code seul', <AlertZone>[sansCode()], true, false),
+          ('SUP, type inconnu', <AlertZone>[sup(), x()], false, false),
+          ('SOU, SUP', <AlertZone>[sou(), sup()], false, false),
+        ];
+
+    for (final (String titre, List<AlertZone> zones, bool manque, bool dit)
+        in cas) {
+      test('$titre : lacksSurfaceWaterZone $manque, '
+          'canStateSurfaceWaterAbsence $dit', () {
+        final ZonesAtPoint reponse = avec(zones);
+
+        expect(reponse.lacksSurfaceWaterZone, manque);
+        expect(reponse.canStateSurfaceWaterAbsence, dit);
+      });
+    }
+  });
 }
 
 /// Toutes les permutations de [items] (120 pour 5 elements). Petite liste,

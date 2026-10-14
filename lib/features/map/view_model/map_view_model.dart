@@ -32,6 +32,8 @@ import 'dart:collection' show UnmodifiableListView, UnmodifiableMapView;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:martinpecheur/domain/filters/map_filter.dart';
+import 'package:martinpecheur/domain/filters/map_filter_predicates.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/area_cluster.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -45,6 +47,7 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/features/map/view_model/map_filter_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 // [minimumMapZoom]/[maximumMapZoom] viennent de `map_zoom_bounds.dart`, un
 // fichier Dart pur de CE dossier (`view_model/`) — plus d'import du dossier
@@ -124,6 +127,7 @@ final class MapAreaCluster {
   /// Le nombre de membres de cet agrégat. Sur l'échelle écoulement, c'est le
   /// compte des points ONDE **chargés** pour l'emprise courante ; sur
   /// l'échelle débit, c'est le compte sur l'asset **entier** (`ADR-015`).
+  /// Sous un filtre, c'est le compte des membres **retenus** (`BR-009`).
   final int count;
 
   /// L'emprise exacte des membres, `null` si elle est plate (un seul
@@ -256,6 +260,9 @@ final class MapViewModel extends ChangeNotifier {
   /// référentiel. Jamais `null` : une absence de donnée est une liste vide
   /// (BR-007).
   ///
+  /// Ce sont les faits lus, **non filtrés** : les avis d'absence s'y
+  /// décident. Ce que le filtre retient se lit dans [individualStations].
+  ///
   /// Vue **immuable** : la vue lit cet état, elle ne le modifie pas. Un
   /// [UnmodifiableListView] et non `List.unmodifiable` — le second **recopie**
   /// la liste, donc jusqu'à 4 150 éléments à chaque relâchement de geste, là
@@ -347,22 +354,45 @@ final class MapViewModel extends ChangeNotifier {
   /// l'emprise courante n'a rien à faire sur cet écran (relecture avec
   /// mutations : l'asset entier peut porter des stations non rattachées
   /// que `withinBounds` ne renvoie pas).
+  ///
+  /// Dans les deux cas, seulement celles que le filtre retient **sur
+  /// l'échelle active** (`filterKeepsStation`, T3) : l'état lu par
+  /// [stateOf] porte la fraîcheur de l'instant, une mesure qui passe une
+  /// borne sort donc du filtre à la lecture suivante, sans requête
+  /// (`BR-005`). Tant que [filterActive] est faux, le niveau individuel rend
+  /// [stations] **elle-même**, sans copie (`NFR-01`).
   List<StationPoint> get individualStations {
     final AreaLevel? level = _level;
     if (level == null) {
-      return _stations;
+      if (!filterActive) {
+        return _stations;
+      }
+      return _stations.where(_filterKeepsStation).toList(growable: false);
     }
     return _stations
-        .where((StationPoint point) => _stationAreaOf(level, point) == null)
+        .where(
+          (StationPoint point) =>
+              _stationAreaOf(level, point) == null &&
+              _filterKeepsStation(point),
+        )
         .toList(growable: false);
   }
 
+  bool _filterKeepsStation(StationPoint point) =>
+      filterKeepsStation(_filter, point, stateOf(point.code));
+
   /// Les observations ONDE à dessiner individuellement, même règle que
-  /// [individualStations].
+  /// [individualStations]. Au niveau individuel, seulement celles que le
+  /// filtre retient (`filterKeepsOndeObservation`, T3).
   List<OndeObservation> get individualOndeObservations {
     final AreaLevel? level = _level;
     if (level == null) {
-      return _ondeObservations.values.toList(growable: false);
+      return _ondeObservations.values
+          .where(
+            (OndeObservation observation) =>
+                filterKeepsOndeObservation(_filter, observation),
+          )
+          .toList(growable: false);
     }
     return _ondeClustering(level).unassigned;
   }
@@ -381,7 +411,9 @@ final class MapViewModel extends ChangeNotifier {
       return null;
     }
     return clusterByArea<StationPoint>(
-      all,
+      all.where(
+        (StationPoint point) => filterKeepsStationPoint(_filter, point),
+      ),
       level: level,
       areaOf: (StationPoint point) => _stationAreaOf(level, point),
       positionOf: (StationPoint point) =>
@@ -393,7 +425,10 @@ final class MapViewModel extends ChangeNotifier {
   /// au niveau [level].
   AreaClustering<OndeObservation> _ondeClustering(AreaLevel level) {
     return clusterByArea<OndeObservation>(
-      _ondeObservations.values,
+      _ondeObservations.values.where(
+        (OndeObservation observation) =>
+            filterKeepsOndeObservation(_filter, observation),
+      ),
       level: level,
       areaOf: (OndeObservation observation) => level == AreaLevel.region
           ? observation.point.region
@@ -534,6 +569,98 @@ final class MapViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  MapFilter _filter = MapFilter.none;
+
+  /// Le filtre appliqué à la carte (T3). Gardé le temps de la session : il
+  /// naît [MapFilter.none], n'est lu d'aucun stockage et n'est écrit dans
+  /// aucun. [selectScale] ne le touche pas.
+  MapFilter get filter => _filter;
+
+  /// Le filtre masque-t-il quelque chose sur l'échelle active ? Un critère
+  /// qui ne porte que sur l'autre échelle laisse celle-ci entière.
+  bool get filterActive => mapFilterActiveFor(_filter, _scale);
+
+  /// Pose [filter] et notifie une fois. Ne fait **rien** — pas même une
+  /// notification — si [filter] est égal au filtre courant. N'appelle aucun
+  /// dépôt lui-même : les prédicats du domaine jouent sur ce qui est déjà lu ;
+  /// sur le débit, au niveau individuel, relance le préchargement borné
+  /// (`NFR-07`, [preloadVisibleStations]).
+  void applyFilter(MapFilter filter) {
+    if (filter == _filter) {
+      return;
+    }
+    _filter = filter;
+    notifyListeners();
+    // Même condition que [selectScale] : le préchargement ne porte que sur
+    // les stations du département retenu, il repart donc de zéro.
+    if (shouldPreloadOn(_scale) && _level == null) {
+      cancelPreload();
+      unawaited(preloadVisibleStations());
+    }
+  }
+
+  /// Retire tous les critères.
+  void clearFilter() => applyFilter(MapFilter.none);
+
+  /// Le filtre a-t-il vidé la carte ? Vrai si un critère est actif pour
+  /// l'échelle ([filterActive]), si le fait lu sur l'emprise n'est pas vide
+  /// ([ondeObservations] sur l'écoulement, [stations] sur le débit) et si
+  /// **aucun** de ces lieux lus n'est retenu. Une lecture vide n'est pas le
+  /// fait du filtre : c'est l'avis d'absence habituel (`BR-007`).
+  ///
+  /// Ce getter ne regarde pas les pannes : le rang « une panne parle seule »
+  /// est tenu par `mapNoticesFor` (`map_empty_states.dart`), qui n'affiche
+  /// alors que l'avis de la source tombée, même quand ce getter est vrai.
+  ///
+  /// Sur le débit sous le zoom 9, la question se pose aux [stations] de
+  /// l'emprise, pas à [clusters] : les pastilles se comptent sur le
+  /// référentiel entier (`ADR-015`), il peut en rester une à l'autre bout du
+  /// pays, et le référentiel entier peut ne pas être encore lu. Une station
+  /// qui a une zone au niveau courant est membre d'une pastille, que la
+  /// fraîcheur ne touche pas : seul son département décide.
+  bool get filterHidesEverything {
+    if (!filterActive) {
+      return false;
+    }
+    switch (_scale) {
+      case MapScaleKind.ecoulement:
+        return _ondeObservations.isNotEmpty &&
+            !_ondeObservations.values.any(
+              (OndeObservation observation) =>
+                  filterKeepsOndeObservation(_filter, observation),
+            );
+      case MapScaleKind.debit:
+        final AreaLevel? level = _level;
+        return _stations.isNotEmpty &&
+            !_stations.any(
+              (StationPoint point) =>
+                  level != null && _stationAreaOf(level, point) != null
+                  ? filterKeepsStationPoint(_filter, point)
+                  : _filterKeepsStation(point),
+            );
+    }
+  }
+
+  List<AdministrativeArea>? _departements;
+
+  /// Les départements du référentiel embarqué, triés par code, pour le choix
+  /// du filtre. `null` si la lecture lève : l'échec n'est pas mémorisé et ne
+  /// pose ni [error] ni [errorSource], ne notifie pas. Mémo posé au premier
+  /// succès seulement ; après [dispose], rend le mémo s'il existe, sinon
+  /// `null`, sans lever.
+  Future<List<AdministrativeArea>?> departements() async {
+    final List<AdministrativeArea>? memo = _departements;
+    if (memo != null || _disposed) {
+      return memo;
+    }
+    try {
+      final List<StationPoint> all = await _stationPoints.all();
+      return _departements ??= departementsOf(all);
+    } on Object {
+      return null;
+    }
+  }
+
   final Map<StationCode, StationMapState> _states =
       <StationCode, StationMapState>{};
 
@@ -555,7 +682,8 @@ final class MapViewModel extends ChangeNotifier {
   /// Les dernières observations d'écoulement connues pour l'emprise
   /// courante, **une par station** — la clé est `observation.station`, le
   /// regroupement étant déjà fait par le dépôt. Vue non modifiable, pour la
-  /// même raison que [stations].
+  /// même raison que [stations]. Comme elle, ce sont les faits lus, **non
+  /// filtrés** : les avis d'absence s'y décident.
   ///
   /// Alimentée seulement sur l'échelle [MapScaleKind.ecoulement] (BR-008).
   /// Un passage à [MapScaleKind.debit] ne la vide pas : ce qui est déjà
@@ -945,6 +1073,10 @@ final class MapViewModel extends ChangeNotifier {
   /// propre requête (décision 4 du plan T1). Un [limit] nul ou négatif ne
   /// précharge rien.
   ///
+  /// **Borné aussi par le département du filtre** (T3) : sous un critère de
+  /// département, aucune requête ne part pour une station connue d'un autre
+  /// département ; une station sans département reste préchargée.
+  ///
   /// **Les états déjà connus sont sautés** ([_needsPreload]) : une station
   /// [Chargee] ou [SansDonnee] ne vaut pas une seconde requête, une station
   /// [EnEchec] est **retentée** — une panne passe, un fait constaté non — et
@@ -1165,6 +1297,9 @@ final class MapViewModel extends ChangeNotifier {
   /// Les [limit] stations visibles les plus proches du centre de l'emprise
   /// courante, **parmi celles qui valent encore une requête**
   /// ([_needsPreload]). Liste vide si aucune emprise n'a encore été chargée.
+  /// Le critère de département du filtre borne ce choix
+  /// (`filterKeepsStationPoint`) : une station connue d'un autre département
+  /// n'est jamais candidate.
   List<StationPoint> _closestToCentre(int limit) {
     final Bounds? bounds = _lastRequestedBounds;
     if (bounds == null || _stations.isEmpty) {
@@ -1179,8 +1314,14 @@ final class MapViewModel extends ChangeNotifier {
     // ne réordonne pas ce que l'écran dessine. Le filtre est posé AVANT le
     // tri : trier 4 150 points pour en écarter ensuite les vingt premiers
     // ferait payer deux fois la même comparaison.
+    // Le critère de fraîcheur n'entre jamais ici : il faut charger pour la
+    // connaître. Seul le département borne le préchargement.
     final List<StationPoint> sorted = _stations
-        .where((StationPoint point) => _needsPreload(point.code))
+        .where(
+          (StationPoint point) =>
+              _needsPreload(point.code) &&
+              filterKeepsStationPoint(_filter, point),
+        )
         .toList();
     sorted.sort((StationPoint a, StationPoint b) {
       final int byDistance = _squaredDegreesTo(

@@ -35,13 +35,20 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart'
+    show focusRingColor;
 import 'package:martinpecheur/features/shared/tap_target.dart';
+
+import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
+import '../../../support/windows_platform.dart';
 
 /// Le fichier source des avis, lu par le verrou d'exhaustivité ci-dessous.
 const String _sourcePath = 'lib/features/map/view/map_empty_states.dart';
@@ -52,6 +59,8 @@ const String _sourcePath = 'lib/features/map/view/map_empty_states.dart';
 List<String> _allTexts() => <String>[
   noDataInAreaText,
   widenSearchLabel,
+  filterHidesEverythingText,
+  clearFiltersLabel,
   outsideOndeCoverageText,
   noDataFallbackText,
   noStationInAreaText,
@@ -72,6 +81,8 @@ List<String> _allTexts() => <String>[
 const List<String> _sweptConstants = <String>[
   'noDataInAreaText',
   'widenSearchLabel',
+  'filterHidesEverythingText',
+  'clearFiltersLabel',
   'outsideOndeCoverageText',
   'noDataFallbackText',
   'noStationInAreaText',
@@ -171,208 +182,452 @@ Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
 
 void main() {
   group('NoDataInAreaNotice — ni station ni point (BR-007, UC-001 A2)', () {
-    testWidgets('le texte est celui de BR-007 et de 02-specifications § 4, '
-        'mot pour mot', (WidgetTester tester) async {
-      await _pump(tester, NoDataInAreaNotice(onWiden: () {}));
+    testWidgetsOnWindows(
+      'le texte est celui de BR-007 et de 02-specifications § 4, '
+      'mot pour mot',
+      (WidgetTester tester) async {
+        await _pump(tester, NoDataInAreaNotice(onWiden: () {}));
 
-      expect(
-        find.text(
-          "Il n'y a ni station de mesure ni point d'observation dans le "
-          "secteur affiché. Ce n'est pas un signe que tout va bien : c'est "
-          'simplement que personne ne mesure ici.',
-        ),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.text(
+            "Il n'y a ni station de mesure ni point d'observation dans le "
+            "secteur affiché. Ce n'est pas un signe que tout va bien : c'est "
+            'simplement que personne ne mesure ici.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets("l'action « Élargir la recherche » est rendue, appelle "
-        'onWiden, et sa cible fait au moins 44 pt (04-ui.md § 3, '
-        'UC-001 A2)', (WidgetTester tester) async {
-      int elargissements = 0;
-      await _pump(tester, NoDataInAreaNotice(onWiden: () => elargissements++));
+    testWidgetsOnWindows(
+      "l'action « Élargir la recherche » est rendue, appelle "
+      'onWiden, et sa cible fait au moins 44 pt (04-ui.md § 3, '
+      'UC-001 A2)',
+      (WidgetTester tester) async {
+        int elargissements = 0;
+        await _pump(
+          tester,
+          NoDataInAreaNotice(onWiden: () => elargissements++),
+        );
 
-      final Finder action = find.byKey(widenSearchKey);
-      expect(action, findsOneWidget);
-      expect(find.text(widenSearchLabel), findsOneWidget);
+        final Finder action = find.byKey(widenSearchKey);
+        expect(action, findsOneWidget);
+        expect(find.text(widenSearchLabel), findsOneWidget);
 
-      final Size taille = tester.getSize(action);
-      expect(taille.width, greaterThanOrEqualTo(minimumTapTarget));
-      expect(taille.height, greaterThanOrEqualTo(minimumTapTarget));
+        final Size taille = tester.getSize(action);
+        expect(taille.width, greaterThanOrEqualTo(minimumTapTarget));
+        expect(taille.height, greaterThanOrEqualTo(minimumTapTarget));
 
-      await tester.tap(action);
-      await tester.pump();
+        await tester.tap(action);
+        await tester.pump();
 
-      expect(elargissements, 1);
-    });
+        expect(elargissements, 1);
+      },
+    );
 
-    testWidgets("« Élargir la recherche » porte une action tap pour le "
-        "lecteur d'écran — `excludeSemantics` masque celle du geste "
-        '(relecture du 2026-09-23)', (WidgetTester tester) async {
-      final SemanticsHandle handle = tester.ensureSemantics();
-      int elargissements = 0;
-      await _pump(tester, NoDataInAreaNotice(onWiden: () => elargissements++));
+    testWidgetsOnWindows(
+      "« Élargir la recherche » porte une action tap pour le "
+      "lecteur d'écran — `excludeSemantics` masque celle du geste "
+      '(relecture du 2026-09-23)',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        int elargissements = 0;
+        await _pump(
+          tester,
+          NoDataInAreaNotice(onWiden: () => elargissements++),
+        );
 
-      final SemanticsNode node = tester.getSemantics(
-        find.byKey(widenSearchKey),
-      );
-      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+        final SemanticsNode node = tester.getSemantics(
+          find.byKey(widenSearchKey),
+        );
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-      node.owner!.performAction(node.id, SemanticsAction.tap);
-      await tester.pump();
-      expect(elargissements, 1);
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pump();
+        expect(elargissements, 1);
 
-      handle.dispose();
-    });
+        handle.dispose();
+      },
+    );
   });
 
   group('OutsideOndeCoverageNotice — le périmètre réel (UC-001 A5)', () {
-    testWidgets('le texte NOMME le périmètre : France hexagonale, Corse, '
-        "petits cours d'eau choisis", (WidgetTester tester) async {
-      await _pump(tester, const OutsideOndeCoverageNotice());
+    testWidgetsOnWindows(
+      'le texte NOMME le périmètre : France hexagonale, Corse, '
+      "petits cours d'eau choisis",
+      (WidgetTester tester) async {
+        await _pump(tester, const OutsideOndeCoverageNotice());
 
-      expect(
-        find.text(
-          "Le réseau ONDE ne suit que certains petits cours d'eau de France "
-          'hexagonale et de Corse.',
-        ),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.text(
+            "Le réseau ONDE ne suit que certains petits cours d'eau de France "
+            'hexagonale et de Corse.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets("l'absence est nommée, jamais laissée muette (BR-007)", (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, const OutsideOndeCoverageNotice());
+    testWidgetsOnWindows(
+      "l'absence est nommée, jamais laissée muette (BR-007)",
+      (WidgetTester tester) async {
+        await _pump(tester, const OutsideOndeCoverageNotice());
 
-      expect(find.text(noDataFallbackText), findsOneWidget);
-    });
+        expect(find.text(noDataFallbackText), findsOneWidget);
+      },
+    );
   });
 
   group('SourceUnavailableNotice — un message PAR SOURCE (BR-007)', () {
-    testWidgets('le texte nomme la source passée', (WidgetTester tester) async {
+    testWidgetsOnWindows('le texte nomme la source passée', (
+      WidgetTester tester,
+    ) async {
       await _pump(tester, const SourceUnavailableNotice(sourceName: "Hub'Eau"));
 
       expect(find.text("Hub'Eau n'a pas répondu."), findsOneWidget);
     });
 
-    testWidgets('deux sources distinctes donnent deux messages distincts : '
-        "l'écran ne dit jamais « une erreur est survenue »", (
-      WidgetTester tester,
-    ) async {
-      await _pump(
-        tester,
-        const SourceUnavailableNotice(sourceName: "Hub'Eau hydrométrie"),
-      );
-      expect(find.textContaining('hydrométrie'), findsOneWidget);
-
-      await _pump(
-        tester,
-        const SourceUnavailableNotice(sourceName: "Hub'Eau écoulement ONDE"),
-      );
-      expect(find.textContaining('écoulement ONDE'), findsOneWidget);
-    });
-
-    testWidgets('ne dit ni « rien à signaler », ni « tout va bien », ni '
-        '« aucun problème »', (WidgetTester tester) async {
-      await _pump(tester, const SourceUnavailableNotice(sourceName: "Hub'Eau"));
-
-      for (final String phrase in <String>[
-        'rien à signaler',
-        'tout va bien',
-        'aucun problème',
-      ]) {
-        expect(
-          find.textContaining(phrase),
-          findsNothing,
-          reason: '"$phrase" est interdit par BR-007',
+    testWidgetsOnWindows(
+      'deux sources distinctes donnent deux messages distincts : '
+      "l'écran ne dit jamais « une erreur est survenue »",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          const SourceUnavailableNotice(sourceName: "Hub'Eau hydrométrie"),
         );
-      }
-    });
+        expect(find.textContaining('hydrométrie'), findsOneWidget);
 
-    testWidgets("la cause technique n'est JAMAIS rendue : c'est une donnée "
-        "de diagnostic, pas un texte pour l'usager — la convention des deux "
-        'fiches (`station_summary_sheet.dart`, `onde_summary_sheet.dart`), '
-        "et le grief porté contre l'ancien `MapErrorBanner`", (
-      WidgetTester tester,
-    ) async {
-      await _pump(tester, const SourceUnavailableNotice(sourceName: "Hub'Eau"));
-
-      for (final String diagnostic in <String>[
-        'HubEauFailure',
-        '503',
-        'Exception',
-        'Bad state',
-      ]) {
-        expect(
-          find.textContaining(diagnostic),
-          findsNothing,
-          reason: '"$diagnostic" est un texte de diagnostic, pas d interface',
+        await _pump(
+          tester,
+          const SourceUnavailableNotice(sourceName: "Hub'Eau écoulement ONDE"),
         );
-      }
-      expect(find.text(sourceUnavailableText("Hub'Eau")), findsOneWidget);
-      expect(find.text(sourceUnavailableHint), findsOneWidget);
-    });
+        expect(find.textContaining('écoulement ONDE'), findsOneWidget);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'ne dit ni « rien à signaler », ni « tout va bien », ni '
+      '« aucun problème »',
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          const SourceUnavailableNotice(sourceName: "Hub'Eau"),
+        );
+
+        for (final String phrase in <String>[
+          'rien à signaler',
+          'tout va bien',
+          'aucun problème',
+        ]) {
+          expect(
+            find.textContaining(phrase),
+            findsNothing,
+            reason: '"$phrase" est interdit par BR-007',
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      "la cause technique n'est JAMAIS rendue : c'est une donnée "
+      "de diagnostic, pas un texte pour l'usager — la convention des deux "
+      'fiches (`station_summary_sheet.dart`, `onde_summary_sheet.dart`), '
+      "et le grief porté contre l'ancien `MapErrorBanner`",
+      (WidgetTester tester) async {
+        await _pump(
+          tester,
+          const SourceUnavailableNotice(sourceName: "Hub'Eau"),
+        );
+
+        for (final String diagnostic in <String>[
+          'HubEauFailure',
+          '503',
+          'Exception',
+          'Bad state',
+        ]) {
+          expect(
+            find.textContaining(diagnostic),
+            findsNothing,
+            reason: '"$diagnostic" est un texte de diagnostic, pas d interface',
+          );
+        }
+        expect(find.text(sourceUnavailableText("Hub'Eau")), findsOneWidget);
+        expect(find.text(sourceUnavailableHint), findsOneWidget);
+      },
+    );
   });
 
   group('NoStationInAreaNotice — zone sans station, échelle débit '
       '(U6, arbitrage du commanditaire 2026-09-18)', () {
-    testWidgets('dit EXACTEMENT la phrase retenue par le commanditaire, et '
-        'ne porte plus la formulation de repli générique de BR-007 : sur '
-        "l'échelle débit l'ONDE n'est pas interrogée (BR-008), « ni station "
-        "ni point » affirmerait une lecture qui n'a pas eu lieu", (
+    testWidgetsOnWindows(
+      'dit EXACTEMENT la phrase retenue par le commanditaire, et '
+      'ne porte plus la formulation de repli générique de BR-007 : sur '
+      "l'échelle débit l'ONDE n'est pas interrogée (BR-008), « ni station "
+      "ni point » affirmerait une lecture qui n'a pas eu lieu",
+      (WidgetTester tester) async {
+        await _pump(tester, NoStationInAreaNotice(onWiden: () {}));
+
+        expect(
+          find.text(
+            "Il n'y a aucune station de mesure dans le secteur affiché. Cela "
+            "ne dit rien de l'état des cours d'eau : le débit n'est "
+            'simplement pas mesuré ici.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.text(noDataFallbackText),
+          findsNothing,
+          reason:
+              'la formulation de repli générique est remplacée par la phrase '
+              'dédiée depuis le 2026-09-18',
+        );
+        expect(
+          find.textContaining("point d'observation"),
+          findsNothing,
+          reason: "on n'affirme que ce qu'on a lu",
+        );
+        expect(
+          find.textContaining('ONDE'),
+          findsNothing,
+          reason: "l'ONDE n'est pas interrogée sur l'échelle débit (BR-008)",
+        );
+        expect(find.textContaining('personne ne mesure ici'), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "l'action « Élargir la recherche » y est rendue aussi : une "
+      'absence sans issue serait un cul-de-sac (UC-001 A2)',
+      (WidgetTester tester) async {
+        int elargissements = 0;
+        await _pump(
+          tester,
+          NoStationInAreaNotice(onWiden: () => elargissements++),
+        );
+
+        expect(find.text(widenSearchLabel), findsOneWidget);
+
+        await tester.tap(find.byKey(widenSearchKey));
+        await tester.pump();
+
+        expect(elargissements, 1);
+      },
+    );
+  });
+
+  group('FilterHidesEverythingNotice — une carte vidée par le filtre (F8 de '
+      'T3, cadrage § 10.1)', () {
+    testWidgetsOnWindows('le texte est celui du cadrage § 10.1, mot pour mot, '
+        'et rien ne dit que les cours d\'eau sont dans un état', (
       WidgetTester tester,
     ) async {
-      await _pump(tester, NoStationInAreaNotice(onWiden: () {}));
+      await _pump(tester, FilterHidesEverythingNotice(onClearFilters: () {}));
 
       expect(
         find.text(
-          "Il n'y a aucune station de mesure dans le secteur affiché. Cela "
-          "ne dit rien de l'état des cours d'eau : le débit n'est "
-          'simplement pas mesuré ici.',
+          'Les filtres masquent tous les lieux du secteur affiché. Cela ne '
+          "dit rien de l'état des cours d'eau.",
         ),
         findsOneWidget,
       );
-      expect(
-        find.text(noDataFallbackText),
-        findsNothing,
-        reason:
-            'la formulation de repli générique est remplacée par la phrase '
-            'dédiée depuis le 2026-09-18',
-      );
-      expect(
-        find.textContaining("point d'observation"),
-        findsNothing,
-        reason: "on n'affirme que ce qu'on a lu",
-      );
-      expect(
-        find.textContaining('ONDE'),
-        findsNothing,
-        reason: "l'ONDE n'est pas interrogée sur l'échelle débit (BR-008)",
-      );
-      expect(find.textContaining('personne ne mesure ici'), findsNothing);
+      expect(find.text(clearFiltersLabel), findsOneWidget);
+      expect(clearFiltersLabel, 'Effacer les filtres');
     });
 
-    testWidgets("l'action « Élargir la recherche » y est rendue aussi : une "
-        'absence sans issue serait un cul-de-sac (UC-001 A2)', (
-      WidgetTester tester,
-    ) async {
-      int elargissements = 0;
-      await _pump(
-        tester,
-        NoStationInAreaNotice(onWiden: () => elargissements++),
-      );
+    testWidgetsOnWindows(
+      "l'action « Effacer les filtres » est un bouton sémantique, et un tap "
+      'appelle onClearFilters UNE fois',
+      (WidgetTester tester) async {
+        int effacements = 0;
+        await _pump(
+          tester,
+          FilterHidesEverythingNotice(onClearFilters: () => effacements++),
+        );
 
-      expect(find.text(widenSearchLabel), findsOneWidget);
+        expect(
+          tester.getSemantics(find.byKey(clearFiltersKey)),
+          matchesSemantics(
+            label: 'Effacer les filtres',
+            isButton: true,
+            hasTapAction: true,
+          ),
+        );
 
-      await tester.tap(find.byKey(widenSearchKey));
-      await tester.pump();
+        await tester.tap(find.byKey(clearFiltersKey));
+        await tester.pump();
 
-      expect(elargissements, 1);
-    });
+        expect(effacements, 1);
+      },
+    );
+
+    testWidgetsOnWindows(
+      "l'action porte une action tap pour le lecteur d'écran, qui appelle "
+      'onClearFilters',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        int effacements = 0;
+        await _pump(
+          tester,
+          FilterHidesEverythingNotice(onClearFilters: () => effacements++),
+        );
+
+        final SemanticsNode node = tester.getSemantics(
+          find.byKey(clearFiltersKey),
+        );
+        node.owner!.performAction(node.id, SemanticsAction.tap);
+        await tester.pump();
+
+        expect(effacements, 1);
+        handle.dispose();
+      },
+    );
+
+    testWidgetsOnWindows(
+      "aucun avis d'absence, aucune action « Élargir la recherche » avec "
+      'lui (BR-007)',
+      (WidgetTester tester) async {
+        await _pump(tester, FilterHidesEverythingNotice(onClearFilters: () {}));
+
+        expect(find.byType(NoDataInAreaNotice), findsNothing);
+        expect(find.byType(NoStationInAreaNotice), findsNothing);
+        expect(find.byType(OutsideOndeCoverageNotice), findsNothing);
+        expect(find.byKey(widenSearchKey), findsNothing);
+        expect(find.text(widenSearchLabel), findsNothing);
+        expect(find.textContaining('personne ne mesure'), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'la cible de l\'action fait au moins 44 pt (Windows)',
+      (WidgetTester tester) async {
+        await _pump(tester, FilterHidesEverythingNotice(onClearFilters: () {}));
+
+        final Size taille = tester.getSize(find.byKey(clearFiltersKey));
+        expect(
+          taille.height,
+          greaterThanOrEqualTo(minimumTapTargetFor(TargetPlatform.windows)),
+        );
+        expect(
+          taille.width,
+          greaterThanOrEqualTo(minimumTapTargetFor(TargetPlatform.windows)),
+        );
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : la cible de l\'action fait au moins 48 dp',
+      (WidgetTester tester) async {
+        await _pump(tester, FilterHidesEverythingNotice(onClearFilters: () {}));
+
+        final Size taille = tester.getSize(find.byKey(clearFiltersKey));
+        expect(
+          taille.height,
+          greaterThanOrEqualTo(minimumTapTargetFor(TargetPlatform.android)),
+        );
+        expect(
+          taille.width,
+          greaterThanOrEqualTo(minimumTapTargetFor(TargetPlatform.android)),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      "« Élargir la recherche » est rendu comme avant par l'action "
+      'partagée : même clé, même libellé, une seule action',
+      (WidgetTester tester) async {
+        int elargissements = 0;
+        await _pump(
+          tester,
+          NoDataInAreaNotice(onWiden: () => elargissements++),
+        );
+
+        expect(
+          tester.getSemantics(find.byKey(widenSearchKey)),
+          matchesSemantics(
+            label: 'Élargir la recherche',
+            isButton: true,
+            hasTapAction: true,
+          ),
+        );
+        expect(find.byKey(clearFiltersKey), findsNothing);
+        await tester.tap(find.byKey(widenSearchKey));
+        await tester.pump();
+        expect(elargissements, 1);
+      },
+    );
+  });
+
+  // Les actions des avis au clavier (`K1` de T3, arbitrage du commanditaire
+  // du 2026-10-14) : « Effacer les filtres » et « Élargir la recherche »
+  // deviennent des arrêts de Tab, Entrée et Espace font ce que le tap fait.
+  // Leur place dans l'ordre de la carte est vérifiée sur la carte
+  // (`map_keyboard_test.dart`, `map_overlays_phone_test.dart`).
+  group('les actions des avis au clavier (K1 de T3)', () {
+    for (final (String, Key, Widget Function(VoidCallback)) avis
+        in <(String, Key, Widget Function(VoidCallback))>[
+          (
+            '« Effacer les filtres » (FilterHidesEverythingNotice)',
+            clearFiltersKey,
+            (VoidCallback rappel) =>
+                FilterHidesEverythingNotice(onClearFilters: rappel),
+          ),
+          (
+            '« Élargir la recherche » (NoDataInAreaNotice)',
+            widenSearchKey,
+            (VoidCallback rappel) => NoDataInAreaNotice(onWiden: rappel),
+          ),
+          (
+            '« Élargir la recherche » (NoStationInAreaNotice)',
+            widenSearchKey,
+            (VoidCallback rappel) => NoStationInAreaNotice(onWiden: rappel),
+          ),
+        ]) {
+      testWidgetsOnWindows('${avis.$1} : Tab atteint l’action, et son anneau '
+          'de focus est visible', (WidgetTester tester) async {
+        await _pump(tester, avis.$3(() {}));
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        expect(focusedWithin(tester, find.byKey(avis.$2)), isTrue);
+        expect(
+          find.descendant(
+            of: find.byKey(avis.$2),
+            matching: find.byWidgetPredicate((Widget w) {
+              if (w is! DecoratedBox) {
+                return false;
+              }
+              final Decoration decoration = w.decoration;
+              return decoration is BoxDecoration &&
+                  decoration.border?.top.color == focusRingColor;
+            }),
+          ),
+          findsOneWidget,
+          reason: 'l’anneau de focus doit se voir sur l’action',
+        );
+      });
+
+      testWidgetsOnWindows('${avis.$1} : action focalisée, Entrée puis Espace '
+          'appellent le rappel UNE fois chacune', (WidgetTester tester) async {
+        int appels = 0;
+        await _pump(tester, avis.$3(() => appels++));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(appels, 1, reason: 'Entrée');
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(appels, 2, reason: 'Espace');
+      });
+    }
   });
 
   group('UnreadableRowsNotice — les lignes ONDE illisibles (T-14)', () {
-    testWidgets('1 : singulier', (WidgetTester tester) async {
+    testWidgetsOnWindows('1 : singulier', (WidgetTester tester) async {
       await _pump(tester, const UnreadableRowsNotice(count: 1));
 
       expect(
@@ -381,7 +636,7 @@ void main() {
       );
     });
 
-    testWidgets('3 : pluriel', (WidgetTester tester) async {
+    testWidgetsOnWindows('3 : pluriel', (WidgetTester tester) async {
       await _pump(tester, const UnreadableRowsNotice(count: 3));
 
       expect(
@@ -400,6 +655,7 @@ void main() {
       Object? error,
       MapErrorSource? errorSource,
       int ondeUnreadableRows = 0,
+      bool filterHidesEverything = false,
     }) => mapNoticesFor(
       scale: scale,
       hasStations: hasStations,
@@ -407,7 +663,99 @@ void main() {
       error: error,
       errorSource: errorSource,
       ondeUnreadableRows: ondeUnreadableRows,
+      filterHidesEverything: filterHidesEverything,
     );
+
+    test('un filtre qui masque tout, écoulement, des observations lues : '
+        "l'avis des filtres, et aucun avis d'absence", () {
+      expect(notices(filterHidesEverything: true), <MapNotice>[
+        const FilterHidesEverything(),
+      ]);
+    });
+
+    test('un filtre qui masque tout, écoulement, avec 3 lignes illisibles : '
+        'les DEUX avis, le compte d\'abord — ils ne se contredisent pas', () {
+      final List<MapNotice> rendus = notices(
+        filterHidesEverything: true,
+        ondeUnreadableRows: 3,
+      );
+
+      expect(rendus.map((MapNotice avis) => avis.runtimeType).toList(), <Type>[
+        UnreadableRows,
+        FilterHidesEverything,
+      ]);
+      expect((rendus.first as UnreadableRows).count, 3);
+    });
+
+    test('un filtre qui masque tout, écoulement, aucune observation lue, des '
+        "stations : l'avis habituel du périmètre ONDE — un filtre ne vide "
+        'pas ce qui n\'a pas été lu', () {
+      expect(
+        notices(hasOndeObservations: false, filterHidesEverything: true),
+        <MapNotice>[const OutsideOndeCoverage()],
+      );
+    });
+
+    test('un filtre qui masque tout, écoulement, ni station ni observation '
+        "lue : l'avis d'absence habituel (BR-007)", () {
+      expect(
+        notices(
+          hasStations: false,
+          hasOndeObservations: false,
+          filterHidesEverything: true,
+        ),
+        <MapNotice>[const NoDataInArea()],
+      );
+    });
+
+    test('un filtre qui masque tout, débit, des stations lues : '
+        "l'avis des filtres seul", () {
+      expect(
+        notices(scale: MapScaleKind.debit, filterHidesEverything: true),
+        <MapNotice>[const FilterHidesEverything()],
+      );
+    });
+
+    test('un filtre qui masque tout, débit, ni station lue : '
+        "l'avis d'absence habituel", () {
+      expect(
+        notices(
+          scale: MapScaleKind.debit,
+          hasStations: false,
+          filterHidesEverything: true,
+        ),
+        <MapNotice>[const NoStationInArea()],
+      );
+    });
+
+    test('un filtre qui masque tout, débit, avec des lignes ONDE illisibles '
+        "résiduelles : l'avis des filtres seul — elles ne disent rien "
+        'sur cette échelle (BR-008)', () {
+      expect(
+        notices(
+          scale: MapScaleKind.debit,
+          ondeUnreadableRows: 5,
+          filterHidesEverything: true,
+        ),
+        <MapNotice>[const FilterHidesEverything()],
+      );
+    });
+
+    test('une panne parle seule, même quand le filtre masque tout, sur les '
+        'deux échelles', () {
+      for (final MapScaleKind scale in MapScaleKind.values) {
+        final List<MapNotice> rendus = notices(
+          scale: scale,
+          error: StateError('panne'),
+          errorSource: MapErrorSource.ecoulement,
+          ondeUnreadableRows: 3,
+          filterHidesEverything: true,
+        );
+
+        expect(rendus, hasLength(1), reason: '$scale');
+        expect(rendus.single, isA<SourceUnavailable>(), reason: '$scale');
+      }
+    });
 
     test("échelle débit, aucune station, aucune erreur : la phrase dédiée "
         "de l'arbitrage du 2026-09-18, jamais « ni station ni point » — "
@@ -526,42 +874,64 @@ void main() {
           for (final bool observations in <bool>[true, false]) {
             for (final int illisibles in <int>[0, 2]) {
               for (final Object? error in <Object?>[null, StateError('x')]) {
-                final List<MapNotice> rendus = mapNoticesFor(
-                  scale: scale,
-                  hasStations: stations,
-                  hasOndeObservations: observations,
-                  error: error,
-                  errorSource: error == null
-                      ? null
-                      : MapErrorSource.referentiel,
-                  ondeUnreadableRows: illisibles,
-                );
+                for (final bool filtre in <bool>[false, true]) {
+                  final List<MapNotice> rendus = mapNoticesFor(
+                    scale: scale,
+                    hasStations: stations,
+                    hasOndeObservations: observations,
+                    error: error,
+                    errorSource: error == null
+                        ? null
+                        : MapErrorSource.referentiel,
+                    ondeUnreadableRows: illisibles,
+                    filterHidesEverything: filtre,
+                  );
 
-                expect(
-                  rendus.whereType<NoDataInArea>().length +
-                      rendus.whereType<NoStationInArea>().length +
-                      rendus.whereType<OutsideOndeCoverage>().length,
-                  lessThanOrEqualTo(1),
-                  reason:
-                      'deux avis d absence pour $scale / stations=$stations '
-                      '/ observations=$observations',
-                );
-                if (scale == MapScaleKind.debit) {
                   expect(
-                    rendus.whereType<NoDataInArea>(),
-                    isEmpty,
+                    rendus.whereType<NoDataInArea>().length +
+                        rendus.whereType<NoStationInArea>().length +
+                        rendus.whereType<OutsideOndeCoverage>().length,
+                    lessThanOrEqualTo(1),
                     reason:
-                        '« ni station ni point » suppose que les DEUX ont '
-                        'été cherchés ; sur l échelle débit, l ONDE ne l a '
-                        'pas été (BR-008) — on n affirme que ce qu on a lu',
+                        'deux avis d absence pour $scale / stations=$stations '
+                        '/ observations=$observations / filtre=$filtre',
                   );
-                }
-                if (error != null) {
                   expect(
-                    rendus.map((MapNotice avis) => avis.runtimeType).toList(),
-                    <Type>[SourceUnavailable],
-                    reason: 'une panne parle seule',
+                    rendus.whereType<FilterHidesEverything>().length +
+                        (rendus.whereType<NoDataInArea>().length +
+                            rendus.whereType<NoStationInArea>().length +
+                            rendus.whereType<OutsideOndeCoverage>().length),
+                    lessThanOrEqualTo(1),
+                    reason:
+                        "l'avis des filtres et un avis d'absence se "
+                        'contrediraient : $scale / stations=$stations / '
+                        'observations=$observations / filtre=$filtre',
                   );
+                  if (!filtre) {
+                    expect(
+                      rendus.whereType<FilterHidesEverything>(),
+                      isEmpty,
+                      reason:
+                          "sans filtre qui masque tout, pas l'avis des filtres",
+                    );
+                  }
+                  if (scale == MapScaleKind.debit) {
+                    expect(
+                      rendus.whereType<NoDataInArea>(),
+                      isEmpty,
+                      reason:
+                          '« ni station ni point » suppose que les DEUX ont '
+                          'été cherchés ; sur l échelle débit, l ONDE ne l a '
+                          'pas été (BR-008) — on n affirme que ce qu on a lu',
+                    );
+                  }
+                  if (error != null) {
+                    expect(
+                      rendus.map((MapNotice avis) => avis.runtimeType).toList(),
+                      <Type>[SourceUnavailable],
+                      reason: 'une panne parle seule',
+                    );
+                  }
                 }
               }
             }

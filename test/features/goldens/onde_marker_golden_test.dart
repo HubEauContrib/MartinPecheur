@@ -27,6 +27,7 @@ import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 
+import '../../support/windows_platform.dart';
 import 'golden_harness.dart';
 
 /// Les six catégories de l'échelle 1, dans l'ordre du tableau de
@@ -65,7 +66,7 @@ void main() {
     for (final (String nomCategorie, FlowCategory categorie)
         in categoriesDeLEchelle) {
       for (final (String nomAge, CampaignAge age) in agesDeCampagne) {
-        testWidgets(
+        testWidgetsOnWindows(
           'le rendu de « $nomCategorie » en campagne $nomAge ne change pas '
           'sans qu\'on le voie',
           (WidgetTester tester) async {
@@ -82,37 +83,40 @@ void main() {
     }
   });
 
-  testWidgets('en niveaux de gris, les douze rendus de l\'échelle 1 restent '
-      'distinguables', (WidgetTester tester) async {
-    // Deux rangées : campagnes récentes en haut, anciennes en bas. Une
-    // fois la couleur retirée, `#56B4E9` (écoulement faible) et `#E69F00`
-    // (eau stagnante) tombent à des luminances presque égales — c'est le
-    // couple critique de `04-ui.md` § 3. Ce qui les sépare alors n'est
-    // plus la teinte mais le couple (forme, motif) : demi-disque contre
-    // triangle hachuré. La rangée du bas, elle, est entièrement grise
-    // par `BR-010` : c'est la FORME seule qui y porte l'information.
-    await pompeLImage(
-      tester,
-      contenu: ColorFiltered(
-        colorFilter: filtreNiveauxDeGris,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            for (final (String _, CampaignAge age) in agesDeCampagne)
-              rangee(<Widget>[
-                for (final (String _, FlowCategory categorie)
-                    in categoriesDeLEchelle)
-                  _marqueur(categorie, age),
-              ]),
-          ],
+  testWidgetsOnWindows(
+    'en niveaux de gris, les douze rendus de l\'échelle 1 restent '
+    'distinguables',
+    (WidgetTester tester) async {
+      // Deux rangées : campagnes récentes en haut, anciennes en bas. Une
+      // fois la couleur retirée, `#56B4E9` (écoulement faible) et `#E69F00`
+      // (eau stagnante) tombent à des luminances presque égales — c'est le
+      // couple critique de `04-ui.md` § 3. Ce qui les sépare alors n'est
+      // plus la teinte mais le couple (forme, motif) : demi-disque contre
+      // triangle hachuré. La rangée du bas, elle, est entièrement grise
+      // par `BR-010` : c'est la FORME seule qui y porte l'information.
+      await pompeLImage(
+        tester,
+        contenu: ColorFiltered(
+          colorFilter: filtreNiveauxDeGris,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              for (final (String _, CampaignAge age) in agesDeCampagne)
+                rangee(<Widget>[
+                  for (final (String _, FlowCategory categorie)
+                      in categoriesDeLEchelle)
+                    _marqueur(categorie, age),
+                ]),
+            ],
+          ),
         ),
-      ),
-      taille: Size(
-        coteDUneCase * categoriesDeLEchelle.length,
-        coteDUneCase * agesDeCampagne.length,
-      ),
-    );
+        taille: Size(
+          coteDUneCase * categoriesDeLEchelle.length,
+          coteDUneCase * agesDeCampagne.length,
+        ),
+      );
 
-    await verifieLImage('onde_marker_echelle_niveaux_de_gris.png');
-  });
+      await verifieLImage('onde_marker_echelle_niveaux_de_gris.png');
+    },
+  );
 }

@@ -37,6 +37,8 @@ import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show SheetWarningKind, sheetWarningText;
+import 'package:martinpecheur/features/shared/favorite_star.dart';
+import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
@@ -288,9 +290,14 @@ class StationSheetPanel extends StatelessWidget {
   const StationSheetPanel({
     required this.state,
     required this.onClose,
+    this.favoriteStar,
+    this.onToggleFavorite,
     this.utcOffsetOf = systemUtcOffsetOf,
     super.key,
-  });
+  }) : assert(
+         favoriteStar == null || onToggleFavorite != null,
+         'une étoile à montrer exige son rappel de bascule',
+       );
 
   /// L'état courant de la fiche.
   final StationSheetState state;
@@ -298,6 +305,15 @@ class StationSheetPanel extends StatelessWidget {
   /// Appelé par le bouton de fermeture — branché sur
   /// `StationSheetViewModel.close`.
   final VoidCallback onClose;
+
+  /// L'étoile de favori à montrer, telle que `StationSheetViewModel` la
+  /// produit (`S7a` de T3). `null` : aucune étoile et aucun emplacement vide,
+  /// le cadre est celui d'avant.
+  final FavoriteStar? favoriteStar;
+
+  /// Appelé par l'étoile — branché sur `StationSheetViewModel.toggleFavorite`.
+  /// Obligatoire dès que [favoriteStar] est non nul.
+  final VoidCallback? onToggleFavorite;
 
   /// Le décalage UTC → heure locale, transmis tel quel à
   /// [StationSummarySheet] (`H1`) — par défaut celui de la machine,
@@ -338,21 +354,63 @@ class StationSheetPanel extends StatelessWidget {
     };
   }
 
-  /// Le cadre commun aux quatre états visibles : le contenu, et le bouton de
-  /// fermeture à sa droite.
+  /// Le cadre commun aux quatre états visibles : le contenu, et à sa droite
+  /// une colonne étroite — le bouton de fermeture en haut, l'étoile de
+  /// favori dessous s'il y en a une. Une écriture en échec se lit sous la
+  /// rangée.
+  ///
+  /// L'étoile est SOUS la fermeture et non à côté : la colonne de droite ne
+  /// grandit qu'en hauteur, le contenu garde toute sa largeur (à côté, il en
+  /// perdait 52 : le texte se repliait et la fiche station `Prete` gagnait
+  /// 100 px de haut). Sans étoile, aucun emplacement vide.
+  ///
+  /// Ordre de tabulation : l'étoile est un arrêt ; le bouton de fermeture n'en
+  /// est pas un (antérieur : `Échap` ferme).
+  ///
+  /// `FavoriteStar` ne dit que `writeFailed` ; la forme de l'étoile reste
+  /// celle d'avant l'échec — pleine, c'est un retrait qui a échoué, vide un
+  /// ajout. Une liste illisible (étoile inactive, sans `writeFailed`) ne
+  /// laisse aucune phrase ici : l'écran « Favoris » l'explique.
+  ///
+  /// L'étoile inactive (écriture en cours) reste focalisable
+  /// (`FavoriteStarButton`) : le focus clavier survit à l'écriture et à
+  /// l'apparition de l'avis d'échec.
   Widget _frame(Widget content) {
+    final FavoriteStar? star = favoriteStar;
+    final VoidCallback? toggle = onToggleFavorite;
     return Material(
       elevation: 4,
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Flexible(child: content),
-            const SizedBox(width: 8),
-            _CloseButton(onClose: onClose),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Flexible(child: content),
+                const SizedBox(width: 8),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    _CloseButton(onClose: onClose),
+                    if (star != null && toggle != null) ...<Widget>[
+                      const SizedBox(height: 8),
+                      FavoriteStarButton(star: star, onToggle: toggle),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+            if (star != null && star.writeFailed)
+              FavoriteWriteFailedNotice(
+                star.filled
+                    ? favoriteRemoveFailedText
+                    : favoriteWriteFailedText,
+              ),
           ],
         ),
       ),
