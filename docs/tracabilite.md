@@ -117,12 +117,16 @@ cellule ou en bas de page, jamais sous la marque ✅. « ✅ T3 » : livré et c
   (`A5` d'`UC-002`) n'est pas cette conservation : elle disparaît avec l'application.
 - **US-13, US-14, UC-007 et UC-008** passent à ✅ T3 : couverts par des tests de domaine, de
   données (stockage simulé, aucun appel réseau), de ViewModel et de vue. Ce que ces tests ne
-  prouvent pas : **aucun écran de T3 n'est constaté** — les constats (a) à (l) du cadrage de T3
+  prouvent pas : ~~**aucun écran de T3 n'est constaté**~~ (barré le 2026-10-14 : `C1` et `P2` sont
+  confirmés en bloc par le commanditaire — (a) et (b) sous Windows en débogage ; sur Android, l'application
+  construite et lancée sur l'émulateur Pixel_7 et « les écrans de T3 fonctionnent au toucher », sans détail
+  point par point ; rien en release, le reste de T3 sous Windows non constaté, `P1` due : `docs/project-state.md`,
+  point 62) — les constats (a) à (l) du cadrage de T3
   (`docs/superpowers/specs/2026-10-12-cadrage-t3-design.md`, § 9) sont dus au commanditaire,
   (a) et (b) sur Windows dès que la feuille est branchée (la carte d'écoulement ne montre que 60
   jours et les campagnes ONDE s'arrêtent en septembre), les autres à la porte de T3, sur Windows
-  **et** sur Android, dont (l), la première construction Android constatée, jamais faite à ce
-  jour. Les favoris sont écrits dans `shared_preferences` ; l'écriture réelle sur un disque
+  **et** sur Android, dont (l), la première construction Android constatée, ~~jamais faite à ce
+  jour~~ (faite en bloc le 2026-10-14, voir plus haut). Les favoris sont écrits dans `shared_preferences` ; l'écriture réelle sur un disque
   (Windows, Android) et la relecture après un relancement de l'application ne sont constatées
   nulle part (les tests passent par `SharedPreferences.setMockInitialValues`, par un faux `SharedPreferences` (`FakeSharedPreferences`, `test/support/fake_shared_preferences.dart`) ou par un dépôt en
   mémoire). Les mesures de recouvrement de la colonne de boutons du bas à droite (cinq boutons)

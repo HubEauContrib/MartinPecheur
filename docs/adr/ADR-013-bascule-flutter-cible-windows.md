@@ -179,6 +179,14 @@ flowchart TD
     style AND fill:#95a5a6,color:#fff
 ```
 
+> **Note du 2026-10-14** (le schéma ci-dessus date du 2026-09-18 et n'est pas réécrit) : la mention
+> ~~« jamais construite ni lancée »~~ pour `android/` ne vaut plus. Une construction Android en
+> débogage est constatée le 2026-10-14 (APK du 2026-10-14 à 15:11:49, code de `0.4.0`), et le
+> commanditaire confirme en bloc qu'elle s'est lancée sur l'émulateur `Pixel_7` et que « les écrans de
+> T3 fonctionnent au toucher » (`P2` de T3, `docs/project-state.md`, points 9 et 62). Non dit : la durée
+> et la dernière ligne de la construction, le premier écran vu. La publication reste différée
+> (`A⏸3`, `A⏸5`), aucun appareil réel (`A⏸4`), aucune release Android.
+
 ### Ce que la bascule ne touche pas
 
 Le **cadrage produit est indépendant de la stack** et n'a pas été refait : les quatre documents de
