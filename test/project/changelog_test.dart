@@ -433,8 +433,9 @@ void main() {
     });
   });
 
-  // Task O1 du plan T3 ouvre la version 0.4.0 ; P3 la datera.
-  group('version 0.4.0 (Tasks O1 et P3 du plan T3)', () {
+  // Task O1 du plan T3 ouvre la version 0.4.0 ; X3 ecrit sa sous-section
+  // « Ajoute » en une fois, d'apres le code livre ; P3 la datera.
+  group('version 0.4.0 (Tasks O1, X3 et P3 du plan T3)', () {
     late String contenuChangelog;
 
     setUpAll(() {
@@ -526,6 +527,40 @@ void main() {
       expect(nonVerifie, contains('Android'));
       expect(nonVerifie, contains('porte de T3'));
       expect(nonVerifie, contains('écran de T3'));
+    });
+
+    // Task X3 du plan T3 : « Ajoute » s'ecrit en une fois, a la fin de la
+    // tranche, d'apres ce qui est livre. Les libelles sont ceux de l'ecran ;
+    // les blancs sont normalises, un libelle pouvant passer a la ligne.
+    test('la sous-section Ajouté nomme ce que T3 livre', () {
+      final String ajoute = sousSection('Ajouté');
+      expect(
+        ajoute.split('\n').where((String l) => l.startsWith('- ')),
+        isNotEmpty,
+      );
+      final String texte = ajoute.replaceAll(RegExp(r'\s+'), ' ');
+      expect(texte, contains('Favoris'));
+      expect(texte, contains('Filtres'));
+      expect(texte, contains('étoile'));
+      expect(texte, contains('Effacer les filtres'));
+      expect(texte, contains('Moins de 2 h'));
+      expect(texte, contains('Moins de 24 h'));
+      expect(texte, contains("Repartir d'une liste vide"));
+    });
+
+    test('Ajouté précède Non vérifié dans la section 0.4.0', () {
+      final String section = section040();
+      final int ajoute = section.indexOf('### Ajouté');
+      expect(ajoute, isNot(-1), reason: 'aucune sous-section ### Ajouté');
+      expect(ajoute, lessThan(section.indexOf('### Non vérifié')));
+    });
+
+    test('le chapeau de 0.4.0 ne dit plus que rien n\'en est livré', () {
+      final String section = section040();
+      final String chapeau = section
+          .substring(section.indexOf('\n'), section.indexOf('\n### '))
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(chapeau, isNot(contains("rien n'en est encore livré")));
     });
   });
 }
