@@ -83,6 +83,19 @@ Duration _noOffset(DateTime utcInstant) => Duration.zero;
 Finder _row(int i) => find.byKey(ValueKey<String>('favorite-row-$i'));
 Finder _remove(int i) => find.byKey(ValueKey<String>('favorite-remove-$i'));
 
+/// La zone qui ouvre le favori de la ligne [i] : l'`InkWell` qui enveloppe son
+/// libellé (celui de `_station()`), jamais celui de l'étoile de retrait.
+Finder _openZone(int i) => find.ancestor(
+  of: find.descendant(of: _row(i), matching: find.text(_station().label)),
+  matching: find.byType(InkWell),
+);
+
+/// Réduit le texte à 25 % pour la durée du test.
+void _tinyText(WidgetTester tester) {
+  tester.platformDispatcher.textScaleFactorTestValue = 0.25;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+}
+
 /// Ce que l'écran a rappelé.
 final class _Calls {
   final List<Favorite> opened = <Favorite>[];
@@ -436,6 +449,29 @@ void main() {
       expect(minimumTapTarget, 48);
       expect(tester.getSize(_remove(0)), const Size(48, 48));
     });
+
+    // Mesure de plancher de la zone qui ouvre le favori (son `InkWell`), non
+    // de la rangée : la hauteur de la rangée vient de l'étoile et du texte,
+    // elle ne dit rien de la zone qui reçoit le tap d'ouverture. Trois lignes
+    // de texte tiennent déjà cette zone au-dessus de la cible : le texte est
+    // réduit à 25 %, seul cas où sa hauteur minimale agit.
+    testWidgetsOnWindows('la zone qui ouvre la ligne mesure au moins 44 de '
+        'haut, même à texte réduit', (WidgetTester tester) async {
+      _tinyText(tester);
+      await tester.pumpWidget(_app(FavorisLus(<Favorite>[_station()])));
+
+      expect(_openZone(0), findsOneWidget);
+      expect(tester.getSize(_openZone(0)).height, greaterThanOrEqualTo(44));
+    });
+
+    testWidgetsOnAndroid('Android : la zone qui ouvre la ligne mesure au '
+        'moins 48 de haut, même à texte réduit', (WidgetTester tester) async {
+      _tinyText(tester);
+      await tester.pumpWidget(_app(FavorisLus(<Favorite>[_station()])));
+
+      expect(_openZone(0), findsOneWidget);
+      expect(tester.getSize(_openZone(0)).height, greaterThanOrEqualTo(48));
+    });
   });
 
   group('FavoritesScreen — entrée non lisible (critère 11)', () {
@@ -584,6 +620,29 @@ void main() {
         expect(calls.startOvers, 2);
       },
     );
+
+    // La hauteur de « Repartir d'une liste vide » est mesurée plus haut
+    // (Windows) et dans le groupe « téléphone » (Android) : ici, la largeur
+    // seule, mesure de plancher.
+    testWidgetsOnWindows("« Repartir d'une liste vide » mesure au moins 44 de "
+        'large', (WidgetTester tester) async {
+      await tester.pumpWidget(_app(const FavorisIllisibles()));
+
+      expect(
+        tester.getSize(find.byKey(favoritesStartOverButtonKey)).width,
+        greaterThanOrEqualTo(44),
+      );
+    });
+
+    testWidgetsOnAndroid("Android : « Repartir d'une liste vide » mesure au "
+        'moins 48 de large', (WidgetTester tester) async {
+      await tester.pumpWidget(_app(const FavorisIllisibles()));
+
+      expect(
+        tester.getSize(find.byKey(favoritesStartOverButtonKey)).width,
+        greaterThanOrEqualTo(48),
+      );
+    });
 
     testWidgetsOnWindows('en lecture : un indicateur de progression, aucun '
         "texte d'état", (WidgetTester tester) async {

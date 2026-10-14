@@ -176,6 +176,36 @@ void main() {
         const Size(48, 48),
       );
     });
+
+    testWidgetsOnWindows('étoile pleine : la cible mesure 44 x 44', (
+      WidgetTester tester,
+    ) async {
+      await _pump(
+        tester,
+        const FavoriteStar(filled: true, enabled: true),
+        () {},
+      );
+
+      expect(
+        tester.getSize(find.byKey(favoriteStarButtonKey)),
+        const Size(44, 44),
+      );
+    });
+
+    testWidgetsOnAndroid('Android : étoile pleine, la cible mesure 48 x 48', (
+      WidgetTester tester,
+    ) async {
+      await _pump(
+        tester,
+        const FavoriteStar(filled: true, enabled: true),
+        () {},
+      );
+
+      expect(
+        tester.getSize(find.byKey(favoriteStarButtonKey)),
+        const Size(48, 48),
+      );
+    });
   });
 
   group('FavoriteStarButton — inactive', () {
@@ -265,6 +295,41 @@ void main() {
         expect(toggles, 1);
       },
     );
+
+    // Atténuée, l'étoile garde sa cible : pleine comme vide.
+    for (final bool filled in const <bool>[false, true]) {
+      final String shape = filled ? 'pleine' : 'vide';
+
+      testWidgetsOnWindows('étoile $shape : la cible mesure 44 x 44', (
+        WidgetTester tester,
+      ) async {
+        await _pump(
+          tester,
+          FavoriteStar(filled: filled, enabled: false),
+          () {},
+        );
+
+        expect(
+          tester.getSize(find.byKey(favoriteStarButtonKey)),
+          const Size(44, 44),
+        );
+      });
+
+      testWidgetsOnAndroid('Android : étoile $shape, la cible mesure 48 x 48', (
+        WidgetTester tester,
+      ) async {
+        await _pump(
+          tester,
+          FavoriteStar(filled: filled, enabled: false),
+          () {},
+        );
+
+        expect(
+          tester.getSize(find.byKey(favoriteStarButtonKey)),
+          const Size(48, 48),
+        );
+      });
+    }
   });
 
   group('FavoriteWriteFailedNotice', () {

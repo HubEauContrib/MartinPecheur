@@ -377,6 +377,42 @@ void main() {
         expect(active, inactive);
       },
     );
+
+    // La clé du bouton elle-même, dans ses deux formes : les deux cas
+    // ci-dessus ne mesurent chacun qu'une forme, sous une seule plateforme.
+    testWidgetsOnWindows(
+      'la clé du bouton mesure 44 × 44 inactive comme active',
+      (WidgetTester tester) async {
+        await pumpEntries(tester);
+        final Size inactive = tester.getSize(find.byKey(mapFiltersButtonKey));
+        await pumpEntries(tester, filterActive: true);
+        final Size active = tester.getSize(find.byKey(mapFiltersButtonKey));
+
+        expect(active, inactive);
+        expect(
+          active,
+          Size.square(minimumTapTargetFor(TargetPlatform.windows)),
+        );
+        expect(active, const Size(44, 44));
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : la clé du bouton mesure 48 × 48 inactive comme active',
+      (WidgetTester tester) async {
+        await pumpEntries(tester);
+        final Size inactive = tester.getSize(find.byKey(mapFiltersButtonKey));
+        await pumpEntries(tester, filterActive: true);
+        final Size active = tester.getSize(find.byKey(mapFiltersButtonKey));
+
+        expect(active, inactive);
+        expect(
+          active,
+          Size.square(minimumTapTargetFor(TargetPlatform.android)),
+        );
+        expect(active, const Size(48, 48));
+      },
+    );
   });
 
   // « Favoris » (`S10` de T3, arbitrage 8 du cadrage) : le second bouton du

@@ -758,6 +758,36 @@ void main() {
           }
         },
       );
+
+      // Mesures de plancher : chaque contrôle est plus large que la cible.
+      testWidgetsOnWindows('${scale.name} : chaque contrôle fait au moins 44 '
+          'de large', (WidgetTester tester) async {
+        await _open(tester, scale: scale);
+
+        for (final Finder target in _targets(scale)) {
+          expect(
+            tester.getSize(target).width,
+            greaterThanOrEqualTo(44),
+            reason: '$target',
+          );
+        }
+      });
+
+      testWidgetsOnAndroid(
+        'Android : ${scale.name}, chaque contrôle fait au moins 48 de large',
+        (WidgetTester tester) async {
+          _phone(tester);
+          await _open(tester, scale: scale);
+
+          for (final Finder target in _targets(scale)) {
+            expect(
+              tester.getSize(target).width,
+              greaterThanOrEqualTo(48),
+              reason: '$target',
+            );
+          }
+        },
+      );
     }
   });
 
