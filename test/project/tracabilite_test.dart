@@ -19,6 +19,13 @@
 // test n'admet plus aucun 🔄 sur ces cinq lignes — une partie non livrée
 // s'écrit en toutes lettres dans la cellule, jamais sous la marque d'un
 // acquis.
+//
+// `Task X2` du plan T3 (2026-10-14) : T3 livre `US-13` (filtres) et `US-14`
+// (favoris), deux user stories **Should**, et les cas d'usage `UC-007` et
+// `UC-008`. La matrice gagne une section « Should » : chaque story livrée y a
+// une ligne ✅ T3 qui cite les fichiers de test qui l'éprouvent. `US-11`,
+// `US-12`, `US-15` et `US-16` ne sont pas livrées : la matrice ne les suit
+// pas, et le dit en bas de page.
 
 import 'dart:io';
 
@@ -53,6 +60,8 @@ const List<String> _ucAttendus = <String>[
   'UC-004',
   'UC-005',
   'UC-006',
+  'UC-007',
+  'UC-008',
 ];
 
 /// Les user stories **Must** de `docs/02-specifications.md § « Must »`
@@ -69,6 +78,12 @@ const List<String> _usMustAttendues = <String>[
   'US-09',
   'US-10',
 ];
+
+/// Les user stories **Should** que T3 livre (`Task X2` du plan T3) : `US-13`
+/// (filtres) et `US-14` (favoris). Les quatre autres Should de
+/// `docs/02-specifications.md` (`US-11`, `US-12`, `US-15`, `US-16`) ne sont
+/// pas livrées : la matrice ne les suit pas.
+const List<String> _usShouldLivreesEnT3 = <String>['US-13', 'US-14'];
 
 /// Les cinq lignes dont T2 livre la couverture (`Task X2` du plan T2) :
 /// l'écran des restrictions (US-07, US-08, UC-002) et son encart renforcé
@@ -107,6 +122,41 @@ const String _boutonDesignation =
 const String _echelleEnBande =
     'test/features/restrictions/view/restrictions_scale_text_test.dart';
 
+// Fichiers de T3 (`Task X2` du plan T3), chemins relevés dans le dépôt.
+const String _filtreDomaine = 'test/domain/filters/map_filter_test.dart';
+const String _filtrePredicats =
+    'test/domain/filters/map_filter_predicates_test.dart';
+const String _filtreEchelle =
+    'test/features/map/view_model/map_filter_scale_test.dart';
+const String _filtreViewModel =
+    'test/features/map/view_model/map_view_model_filter_test.dart';
+const String _filtreFeuille =
+    'test/features/map/view/map_filter_sheet_test.dart';
+const String _filtreBoutons =
+    'test/features/map/view/map_entry_buttons_test.dart';
+const String _filtreCablage =
+    'test/features/map/view/map_filter_wiring_test.dart';
+const String _avisCarteVide =
+    'test/features/map/view/map_empty_states_test.dart';
+const String _favoriDomaine = 'test/domain/favorites/favorite_test.dart';
+const String _favoriContrat =
+    'test/domain/favorites/favorite_repository_test.dart';
+const String _favoriEtoileEtat = 'test/features/shared/favorite_star_test.dart';
+const String _favoriCodec = 'test/data/preferences/favorites_codec_test.dart';
+const String _favoriStockage =
+    'test/data/preferences/shared_preferences_favorite_repository_test.dart';
+const String _favoriEtoileBouton =
+    'test/features/shared/favorite_star_button_test.dart';
+const String _favoriFicheStation =
+    'test/features/station_sheet/view_model/station_sheet_view_model_test.dart';
+const String _favoriFicheOnde =
+    'test/features/onde_sheet/view_model/onde_sheet_view_model_test.dart';
+const String _favoriViewModel =
+    'test/features/favorites/view_model/favorites_view_model_test.dart';
+const String _favoriEcran =
+    'test/features/favorites/view/favorites_screen_test.dart';
+const String _racine = 'test/main_test.dart';
+
 /// Les deux lignes que T2 ne livre PAS : la carte hors ligne (`US-10`,
 /// `UC-005`) n'est couverte qu'en partie (le cache de tuiles de `flutter_map`
 /// sur les zones déjà parcourues). Sans ce garde-fou, rien n'interdit de les
@@ -115,16 +165,23 @@ const String _echelleEnBande =
 /// le bandeau « Mode hors-ligne » et le téléchargement explicite d'une zone
 /// (`UC-005` flux nominal, étapes 1, 4 et 6) ne sont pas livrés ET couverts
 /// par un test — ce qui exige le moteur de stockage structuré qu'`ADR-011`
-/// laisse ouvert (T3). Le jour où ils le sont, ce test et cette liste se
-/// retirent ensemble, dans le commit qui passe les deux lignes à ✅.
+/// laisse ouvert jusqu'au hors-ligne (arbitrage 2 du cadrage de T3 : T3 range
+/// les favoris dans `shared_preferences` et ne tranche pas ce moteur). Le jour
+/// où ils le sont, ce test et cette liste se retirent ensemble, dans le commit
+/// qui passe les deux lignes à ✅.
 const List<String> _lignesPartielles = <String>['US-10', 'UC-005'];
 
 /// Les fichiers qu'une ligne DOIT citer parce que T2 les a écrits pour elle
 /// (`Task X2` du plan T2 : « écran, encart, ViewModel, source, mapper,
 /// équivalence » ; `BR-011` cite aussi le mapper ; `US-01` cite l'écran des
 /// sources) ou parce qu'un ajout de T2 touche la règle (le choix
-/// « Restrictions » du sélecteur de la carte, `E5` et `E5b`). Le test ne juge
-/// pas la justesse de l'intention : il refuse qu'une ligne en omette un.
+/// « Restrictions » du sélecteur de la carte, `E5` et `E5b`) — ou, depuis la
+/// `Task X2` du plan T3, parce que T3 les a écrits pour `US-13`, `US-14`,
+/// `UC-007`, `UC-008` ou parce qu'un ajout de T3 touche `BR-007`, `BR-008`,
+/// `BR-009` ou `BR-011` (avis de carte vidée, liste de favoris vide ou
+/// illisible, échelle du filtre, pastilles sous filtre, entrée non lisible,
+/// `Inconnu`). Le test ne juge pas la justesse de l'intention : il refuse
+/// qu'une ligne en omette un.
 const Map<String, List<String>> _citationsExigees = <String, List<String>>{
   'US-01': <String>['test/features/shared/data_sources_view_test.dart'],
   'US-02': <String>[_surcouchesTelephone],
@@ -150,12 +207,49 @@ const Map<String, List<String>> _citationsExigees = <String, List<String>>{
     _designationCarte,
     _boutonDesignation,
   ],
+  'US-13': <String>[
+    _filtreDomaine,
+    _filtrePredicats,
+    _filtreEchelle,
+    _filtreViewModel,
+    _filtreFeuille,
+    _filtreBoutons,
+    _filtreCablage,
+    _avisCarteVide,
+  ],
+  'US-14': <String>[
+    _favoriDomaine,
+    _favoriContrat,
+    _favoriEtoileEtat,
+    _favoriCodec,
+    _favoriStockage,
+    _favoriEtoileBouton,
+    _favoriFicheStation,
+    _favoriFicheOnde,
+    _favoriViewModel,
+    _favoriEcran,
+    _racine,
+  ],
+  'UC-007': <String>[
+    _filtrePredicats,
+    _filtreViewModel,
+    _filtreFeuille,
+    _filtreCablage,
+    _avisCarteVide,
+  ],
+  'UC-008': <String>[_favoriStockage, _favoriViewModel, _favoriEcran, _racine],
+  // `BR-007` : l'avis d'une carte que le filtre a vidée (T3), la liste de
+  // favoris vide ou illisible (T3).
+  'BR-007': <String>[_avisCarteVide, _favoriEcran],
   'BR-008': <String>[
     _puceRestrictions,
     _designationCarte,
     _surcouchesTelephone,
+    _filtreEchelle,
   ],
-  'BR-011': <String>[_mapperZones],
+  // `BR-009` : les pastilles sous filtre (T3).
+  'BR-009': <String>[_filtreViewModel],
+  'BR-011': <String>[_mapperZones, _favoriCodec, _filtrePredicats],
   'BR-012': <String>[
     'test/features/shared/data_sources_view_test.dart',
     'test/main_test.dart',
@@ -277,7 +371,7 @@ void main() {
     }
   });
 
-  group('Chaque UC-001 à UC-006 apparaît au moins une fois', () {
+  group('Chaque UC-001 à UC-008 apparaît au moins une fois', () {
     for (final String uc in _ucAttendus) {
       test('$uc est cité dans la matrice', () {
         expect(
@@ -346,6 +440,36 @@ void main() {
     }
   });
 
+  group('Les user stories Should livrées par T3 (Task X2 du plan T3)', () {
+    final List<List<String>> lignes = _lignesDuTableau(contenu);
+
+    for (final String id in _usShouldLivreesEnT3) {
+      test('$id porte l\'état ✅ T3, sans 🔄, et cite au moins un fichier '
+          'de test', () {
+        final List<String>? ligne = _ligneDe(lignes, id);
+        expect(ligne, isNotNull, reason: '$id doit avoir une ligne');
+        final String etat = ligne!.last;
+        expect(
+          etat.contains('✅ T3'),
+          isTrue,
+          reason: '$id doit porter l\'état ✅ T3 : "$etat"',
+        );
+        expect(
+          etat.contains('🔄'),
+          isFalse,
+          reason:
+              '$id ne compte aucun 🔄 comme un acquis : une partie non '
+              'livrée s\'écrit en toutes lettres : "$etat"',
+        );
+        expect(
+          _cheminsDart(_celluleFichier(id, ligne)),
+          isNotEmpty,
+          reason: '$id doit citer au moins un fichier de test',
+        );
+      });
+    }
+  });
+
   group('Les lignes que T2 ne livre pas gardent 🔄 (US-10, UC-005)', () {
     final List<List<String>> lignes = _lignesDuTableau(contenu);
 
@@ -372,13 +496,14 @@ void main() {
     }
   });
 
-  group('Les lignes touchées par T2 citent les fichiers qui les éprouvent', () {
+  group('Les lignes touchées par T2 et T3 citent les fichiers qui les '
+      'éprouvent', () {
     final List<List<String>> lignes = _lignesDuTableau(contenu);
 
     for (final MapEntry<String, List<String>> exigence
         in _citationsExigees.entries) {
       test(
-        '${exigence.key} cite ${exigence.value.length} fichier(s) de T2',
+        '${exigence.key} cite ${exigence.value.length} fichier(s) exigé(s)',
         () {
           final List<String>? ligne = _ligneDe(lignes, exigence.key);
           expect(
