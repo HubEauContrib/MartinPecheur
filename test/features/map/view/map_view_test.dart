@@ -1424,6 +1424,73 @@ void main() {
     }
   });
 
+  // `K3` de T3 : la hauteur RÉELLE de la colonne à cinq boutons, « Favoris »
+  // posé (comme la racine de composition depuis `S11`), sous Windows. Ce sont
+  // des icônes, pas du texte : la police de test suffit, et la hauteur ne
+  // bouge pas à 200 %. Les recouvrements, eux, se mesurent en Roboto
+  // (`map_overlays_phone_test.dart`, section `K3`).
+  group('K3 de T3 — la colonne à cinq boutons, à 800 × 740 (Windows)', () {
+    for (final double textScale in <double>[1, 2]) {
+      testWidgetsOnWindows(
+        '(police de test) police ${(textScale * 100).toInt()} %, EN MODE, '
+        '« Favoris » posé : du haut de « Favoris » au bas de recentrer, la '
+        'colonne mesure 5 × minimumTapTarget + 4 × mapControlsSpacing',
+        (WidgetTester tester) async {
+          tester.view.physicalSize = const Size(800, 740);
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(tester.view.reset);
+          tester.platformDispatcher.textScaleFactorTestValue = textScale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await tester.pumpWidget(
+            MaterialApp(
+              debugShowCheckedModeBanner: false,
+              home: Scaffold(
+                body: Stack(
+                  children: buildMapOverlays(
+                    filterHidesEverything: false,
+                    onClearFilters: () {},
+                    filterActive: false,
+                    onOpenFilters: () {},
+                    onOpenFavorites: () {},
+                    scale: MapScaleKind.ecoulement,
+                    onSelect: (MapScaleKind kind) {},
+                    onWiden: () {},
+                    error: null,
+                    stations: const <StationPoint>[],
+                    ondeObservations:
+                        const <OndeStationCode, OndeObservation>{},
+                    ondeUnreadableRows: 0,
+                    onZoomIn: () {},
+                    onZoomOut: () {},
+                    onRecenter: () {},
+                    onToggleDesignationMode: () {},
+                    onDesignateCenter: () {},
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final double haut = tester
+              .getRect(find.byKey(mapFavoritesButtonKey))
+              .top;
+          final double bas = tester
+              .getRect(find.byKey(mapRecenterButtonKey))
+              .bottom;
+          expect(
+            bas - haut,
+            moreOrLessEquals(
+              5 * minimumTapTarget + 4 * mapControlsSpacing,
+              epsilon: 0.5,
+            ),
+            reason: 'Favoris en haut à $haut, recentrer en bas à $bas',
+          );
+        },
+      );
+    }
+  });
+
   // `MapErrorBanner` est retiré depuis `U6` : un bandeau rouge portant
   // `error.toString()` ne nommait aucune source, et `BR-007` exige un
   // « message par source ». `SourceUnavailableNotice` le remplace, et ses
