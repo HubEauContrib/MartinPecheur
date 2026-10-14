@@ -1,5 +1,7 @@
 // Tests du ViewModel de l'écran « Favoris » (S8 de T3), sans rendu : un double
-// de dépôt en mémoire, jamais un widget.
+// de dépôt en mémoire, jamais un widget. Un seul cas (revue finale de T3, M9a)
+// prend le vrai `SharedPreferencesFavoriteRepository`, sur
+// `FakeSharedPreferences` : seul le dépôt réel sérialise ses opérations.
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';

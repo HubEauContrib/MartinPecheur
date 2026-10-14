@@ -1,7 +1,9 @@
 // Double de `SharedPreferences` (S3 de T3), calqué sur ce que fait le paquet
-// 2.5.5 (`lib/src/shared_preferences_legacy.dart`) : `getString` lit le cache
-// mémoire, `setString` ÉCRIT LE CACHE AVANT d'appeler le magasin. Après une
-// écriture en échec, le cache porte donc une valeur que le magasin n'a pas.
+// 2.5.5 (`lib/src/shared_preferences_legacy.dart` ; inchangé en 2.5.6, la
+// version résolue depuis le 2026-10-14 : `_setValue` y a le même corps) :
+// `getString` lit le cache mémoire, `setString` ÉCRIT LE CACHE AVANT d'appeler
+// le magasin. Après une écriture en échec, le cache porte donc une valeur que
+// le magasin n'a pas.
 //
 // Seules `getString` et `setString` sont réalisées : tout autre membre lève
 // un `NoSuchMethodError`, ce qui verrouille le dépôt sur ces deux-là.

@@ -243,7 +243,9 @@ défaire.
   l'historique git, sous le tag `v0.1.0` — et de réintroduire l'effacement de type. Les ViewModels
   deviendraient des émetteurs de messages ; leur état et leurs tests ne changeraient pas.
 - **Ce qui n'est pas impacté, quoi qu'il arrive :** `lib/domain/`, `lib/data/`, les mappers, la
-  conversion d'unités, les 14 règles métier, les 6 cas d'usage et les fiches de sources. Le produit
+  conversion d'unités, les 14 règles métier, les ~~6~~ huit cas d'usage (*note du 2026-10-14, `P3` de T3 :
+  `UC-001` à `UC-008` ; `UC-007` et `UC-008` sont ceux de T3, le chiffre barré date de l'écriture de
+  cet ADR*) et les fiches de sources. Le produit
   ne change pas ; seule la façon dont un écran demande une donnée change.
 - `CachePolicy` est le seul composant à double appartenance : décorateur de dépôt ici, décorateur de
   gestionnaire dans `ADR-008`. Son comportement — stale-while-revalidate, déduplication des

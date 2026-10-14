@@ -11,20 +11,25 @@ observable n'y figure pas.
 
 ## [Non publié]
 
-## [0.4.0] — à publier
+## [0.4.0] — 2026-10-14
 
 Quatrième tranche (T3) : les favoris, les filtres de la carte et le critère
-de fraîcheur du débit. **Version ouverte**, pas publiée : « Ajouté »,
-« Modifié » et « Corrigé » sont écrits le 2026-10-14, en une fois, d'après le
-code livré sur `feat/t3-favoris-filtres` (46 tâches closes sur 50), et
-vérifiés par `flutter test` seulement — **aucun écran de T3 n'est
-constaté**, ni sur Windows ni sur Android (voir « Non vérifié »). La porte de
-T3 n'est pas franchie et la porte de T2 reste due (`A1`, `E4`, `P1`, `P2`).
-« Modifié » et « Corrigé » disent ce qui change par rapport à `0.3.0`. Les
-trois dettes de T2 soldées en T3 (plateforme des tests de widget, décisions
-sorties de la vue des restrictions, barre de titre des écrans pleins
-partagée) sont des remaniements sans effet observable : elles n'y figurent
-pas.
+de fraîcheur du débit. **Version datée du 2026-10-14**, à la demande du
+commanditaire, après ses confirmations **en bloc** des constats de la porte.
+La porte de T3 est franchie sur les deux cibles, Windows (exécutable de
+release lancé hors Flutter) et Android (émulateur, en débogage), constats
+confirmés en bloc par le commanditaire : « Constaté à l'exécution » dit ce
+qu'il a confirmé, « Non vérifié » ce qu'il n'a pas dit. Aucun tag n'est posé
+et la mise en production reste une décision du commanditaire ; la porte de T2
+reste due (`A1`, `E4`, `P1`, `P2`). « Ajouté », « Modifié » et « Corrigé »
+sont écrits en une fois, d'après le code livré sur
+`feat/t3-favoris-filtres` (50 tâches closes sur 50, dont `C1`, `P1` et `P2`
+dans leur forme en bloc), et vérifiés par `flutter test` ; seul ce que
+« Constaté à l'exécution » dit a été vu à l'écran. « Modifié » et « Corrigé »
+disent ce qui change par rapport à `0.3.0`. Les trois dettes de T2 soldées en
+T3 (plateforme des tests de widget, décisions sorties de la vue des
+restrictions, barre de titre des écrans pleins partagée) sont des
+remaniements sans effet observable : elles n'y figurent pas.
 
 ### Ajouté
 
@@ -157,32 +162,63 @@ pas.
   atteignable au clavier (depuis `0.2.0`) : c'est désormais un arrêt de Tab,
   juste après les puces.
 
+### Constaté à l'exécution
+
+Constats du commanditaire du 2026-10-14, tous **confirmés en bloc** : il a
+écrit « j'ai testé c'est bon » pour `C1` et `P2`, puis « c'est bon » pour
+`P1`, sans détail **point par point** ; ce qu'il n'a pas dit est écrit dans
+« Non vérifié ». Le code est celui de la branche à ces heures (sommet
+`e2cd338`, puis `fe793bd`, dont les fichiers sous `lib/` sont ceux de
+`e2cd338`).
+
+- Le 2026-10-14, sur Windows, en débogage (`C1`) : « j'ai testé c'est bon »,
+  et parmi les réponses proposées il confirme en bloc les filtres sur
+  l'écoulement — décocher une catégorie masque ses marqueurs et le bouton
+  « Filtres » change de forme (`a`) ; les pastilles de département et de
+  région suivent le filtre (`b`). Le secteur, les catégories vues, les
+  comptes et les symboles d'une pastille avec et sans filtre, et la pastille
+  disparue ne sont pas relevés.
+- Le 2026-10-14, sur Android, dans l'émulateur Pixel_7, en débogage (`P2`) :
+  « j'ai testé c'est bon », et parmi les réponses proposées il confirme en
+  bloc « L'application s'est construite et lancée sur Pixel_7, et les écrans
+  de T3 fonctionnent au toucher. » C'est la première construction Android dont
+  le lancement est confirmé : l'APK de débogage de `0.4.0` est daté du
+  2026-10-14 à 15:11:49 (71 882 325 octets, relevé par la date de
+  l'artefact). Le détail point par point n'est pas rapporté.
+- Le 2026-10-14, sur Windows, exécutable de release lancé hors Flutter
+  (`P1`) : le commanditaire construit la release (`flutter build windows
+  --release`), lance `./build/windows/x64/runner/Release/martinpecheur.exe`
+  hors de toute session de développement, regarde les écrans de T3 (`P1-c`
+  à `P1-k`) et écrit « c'est bon » : confirmation en bloc, sans détail. La
+  ligne finale `Built …` et la durée de la construction ne sont pas
+  rapportées ; l'exécutable daté du 2026-10-14 à 15:53:06 atteste la
+  construction.
+- Le 2026-10-14, sur Windows, dossier de publication de l'exécutable de
+  release de `0.4.0` : **35 Mo** (`du -sh`), 35 634 194 octets (`du -sb`),
+  15 fichiers, dont `flutter_windows.dll` 21 274 112 octets et le référentiel
+  des stations 6 604 249 octets ; budget de 60 Mo tenu (`NFR-06`). Repère de
+  `0.2.0` : 33 Mo, 14 fichiers. Relevé par la boucle principale sur le poste,
+  non rapporté par le commanditaire.
+
 ### Non vérifié
 
-- **La porte de T3 n'est pas franchie** (arbitrage 7 du cadrage : Windows et
-  Android) : l'exécutable Windows de release lancé hors Flutter (`P1`),
-  l'émulateur Android (`P2`), puis la version datée (`P3`). Elle dépend de la
-  première construction Android, jamais constatée (`A1` de T2). Aucun
-  exécutable de release de `0.3.0` ni de `0.4.0` n'est construit.
-- **Aucun écran de T3 n'est constaté**, ni sur Windows ni sur Android : tout
-  ce qu'« Ajouté », « Modifié » et « Corrigé » décrivent est vérifié par
-  `flutter test` seulement.
-- **Constats d'écran du cadrage de T3 (§ 9), aucun n'est fait.** `a` et `b`,
-  sur l'écoulement, sous Windows, anticipés (`C1`) : décocher une catégorie
-  retire ses marqueurs ; sous le zoom 9, compte et symbole des pastilles
-  suivent le filtre. Ils sont dus depuis que la feuille est branchée et ont
-  une échéance : passé fin novembre, plus aucun point ONDE ne s'affiche avant
-  mai (date de la dernière campagne de 2026 non vérifiée par appel réel).
-  Dus à la porte, sur les deux cibles sauf mention : `c` le bouton
-  « Filtres » actif se distingue sans la couleur ; `d` l'avis de carte vidée
-  et « Effacer les filtres » se voient sans défiler ; `e` « Moins de 2 h » au
-  fil du préchargement ; `f` la colonne à cinq boutons ne recouvre ni la
-  fiche, ni le bouton de désignation, ni l'attribution ; `g` deux favoris
-  retrouvés après relancement ; `h` ouvrir un favori sans que la carte
-  bouge ; `i` l'étoile pleine et vide, au clavier et au toucher, et l'anneau
-  de focus des actions d'avis ; `j` la liste vide ; `k` la barre de titre des
-  restrictions et des sources inchangée à l'œil (Windows) ; `l` la première
-  construction Android, puis les écrans de T3 au toucher.
+- **Ce que la confirmation en bloc ne dit pas.** Le commanditaire n'a pas
+  rapporté, point par point, `P1-c` à `P1-k` (Windows, release) ni `P2-c` à
+  `P2-j` (Android) ; ces derniers, hors `P2-g`, sont rangés sous « les écrans
+  de T3 fonctionnent au toucher » par la boucle principale, ce que le
+  commanditaire n'a pas dit. **Ne sont pas dits** : `P1-m` (réseau coupé :
+  la liste « Favoris » s'affiche, ouvrir un favori station montre l'échec
+  nommé, l'étoile reste pleine et se retire) ; `P2-g` (deux favoris
+  retrouvés après fermeture et relancement, sur Android) ; `P2-m` (mode
+  avion) ; pour `P2-l`, la durée de la construction, sa dernière ligne et le
+  premier écran ; pour `P1-g`, s'il restait un point ONDE à l'écran. Le
+  secteur, les comptes et les symboles de `C1` ne sont pas relevés non plus.
+- **La porte de T2 n'est pas franchie** : `A1`, les deux constats manquants
+  de `E4` et sa réserve, `P1` et `P2` de T2 restent dus (voir `0.3.0`). Une
+  construction Android est constatée le 2026-10-14, sur le code de `0.4.0` et
+  non de `0.3.0` ; ce qu'il en advient pour `A1` revient au commanditaire.
+  Les écrans de T2 ne sont toujours pas nommés par un constat sur Android ni
+  en release. Aucun exécutable de release de `0.3.0` n'est construit.
 - **Effets de mise en page mesurés en test, à constater à l'écran** : au
   téléphone à 200 %, « La légende défile » laisse l'avis de carte vidée coupé
   au repos, son action « Effacer les filtres » hors de vue ; sur une fenêtre
@@ -194,12 +230,13 @@ pas.
   se touchent bord à bord quand la marge suit le bandeau ; en mode
   « Restrictions », la fiche perd 28 px de hauteur même là où elle ne recoupe
   pas le bandeau. Trois constats acceptés par le commanditaire le
-  2026-10-14, toujours à voir à la porte Android : à 360 × 640 et 100 %,
-  l'avis d'absence « écoulement » dépasse de 8 px, son action restant
-  atteignable ; à 200 % sur fenêtre courte, la puce « Restrictions », seule
-  sortie du mode, est coupée plus tôt (52 % atteignables à 360 × 568, rien à
-  360 × 540) ; à 360 × 640 et 200 %, le constat `d` ne tient pas (193 px à
-  défiler).
+  2026-10-14, à voir à la porte Android et que sa confirmation en bloc du
+  même jour ne nomme pas : à 360 × 640 et 100 %, l'avis d'absence
+  « écoulement » dépasse de 8 px, son action restant atteignable ; à 200 %
+  sur fenêtre courte, la puce « Restrictions », seule sortie du mode, est
+  coupée plus tôt (52 % atteignables à 360 × 568, rien à 360 × 540) ; à
+  360 × 640 et 200 %, le constat `d` ne tient pas (193 px à défiler). Aucun
+  de ces effets n'est donc constaté à l'écran.
 - **Mesures en Roboto**, la police d'Android, chargée depuis le SDK Flutter ;
   sous Windows, enregistrée sous le nom « Segoe UI », un substitut : **Segoe
   UI réelle n'est pas mesurée**.
@@ -207,12 +244,14 @@ pas.
   « Filtres — un filtre est actif », ni les états de la liste, ni le retrait
   d'un favori de la liste, qui nomme le lieu depuis l'arbitrage du
   commanditaire du 2026-10-14.
-- **Stockage des favoris** : la tenue d'un lancement à l'autre n'est éprouvée
-  que par les tests du dépôt, contre un double et contre le magasin de test
-  du paquet ; aucune écriture refusée n'est provoquée sur une cible. Non
-  trouvés dans les paquets relus le 2026-10-12 (`ADR-011`) : la taille
-  maximale d'une valeur `shared_preferences`, et ce que devient une écriture
-  interrompue par une fermeture brutale.
+- **Stockage des favoris** : la tenue d'un lancement à l'autre est éprouvée
+  par les tests du dépôt, contre un double et contre le magasin de test du
+  paquet, et confirmée en bloc sous Windows en release (`P1-g` parmi
+  `P1-c` à `P1-k`, sans détail) ; sur Android, `P2-g` n'est pas dit. Aucune
+  écriture refusée n'est provoquée sur une cible. Non trouvés dans les
+  paquets relus le 2026-10-12 (`ADR-011`) : la taille maximale d'une valeur
+  `shared_preferences`, et ce que devient une écriture interrompue par une
+  fermeture brutale.
 - **Départements** : la liste de la feuille vient du référentiel des
   stations ; qu'un département qui porte un point ONDE porte aussi une
   station de ce référentiel n'est pas vérifié — un département qui n'en
@@ -222,11 +261,19 @@ pas.
   couleur d'action principale ; sur une fenêtre courte, le haut de la carte
   qui cède d'abord, jusqu'à une cible tactile ; le texte « La liste n'a pas pu
   être remplacée. » (échec de « Repartir d'une liste vide »), venu du plan et
-  non du cadrage.
+  non du cadrage. La confirmation en bloc de la porte ne les nomme pas : le
+  commanditaire ne les a pas confirmées une à une.
 - Les 21 scénarios de `filtres.feature` et les 14 de `favoris.feature` sont
   lus et vérifiés en structure par test, **jamais exécutés**.
-- **Android** : rien n'est construit ni constaté — ni les cibles de 48, ni
-  le toucher, ni la persistance des favoris. **iOS** n'a jamais été compilé.
+- **Android** : une construction de débogage est lancée sur l'émulateur
+  Pixel_7 le 2026-10-14 (voir « Constaté à l'exécution »), en bloc ; ni les
+  cibles de 48, ni la persistance des favoris (`P2-g`), ni le mode avion
+  (`P2-m`) ne sont dits. Aucun appareil réel (`A⏸4`), aucune construction
+  Android de release. La **publication** Android reste différée : signature
+  (`A⏸3`) et préversion (`A⏸5`). **iOS** n'a jamais été compilé, faute
+  d'hôte macOS.
+- **Fluidité de la carte (`NFR-01`)** : la seule mesure date du 2026-09-27
+  (Windows, `--profile`, `docs/nfr.md`) ; aucune mesure n'est consignée depuis.
 - **Hors T3, dits tels** : la courbe de débit (`US-11`), la recherche
   (`US-16`), `integration_test/` et le recentrage de la carte sur un favori
   sont renvoyés à une tranche ultérieure.
