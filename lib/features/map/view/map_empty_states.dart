@@ -37,6 +37,7 @@ import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Zone sans station ni point, recopié de `BR-007` § « Invariants & cas
@@ -400,6 +401,11 @@ class FilterHidesEverythingNotice extends StatelessWidget {
 /// (`04-ui.md § 3`) est ici une contrainte explicite, pas la densité que le
 /// thème veut bien accorder. Rendu et sémantique sont ceux d'« Élargir la
 /// recherche » avant `F8` ; seuls la clé, le libellé et le rappel varient.
+///
+/// Atteignable au clavier depuis `K1` de T3 (arbitrage du commanditaire du
+/// 2026-10-14) : [KeyboardFocusRing] en fait un arrêt de Tab, Entrée et Espace
+/// font ce que le tap fait. Son rang dans l'ordre de la carte est posé par
+/// `buildMapOverlays` (`mapTraversalOrderNotices`, juste après les puces).
 class _NoticeAction extends StatelessWidget {
   const _NoticeAction({
     required this.actionKey,
@@ -424,31 +430,39 @@ class _NoticeAction extends StatelessWidget {
       // geste porterait sinon lui-même : un double-tap au lecteur d'écran
       // n'activerait plus rien (relecture du 2026-09-23).
       onTap: onTap,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: minimumTapTarget,
-            minHeight: minimumTapTarget,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.black),
-              borderRadius: BorderRadius.all(
-                Radius.circular(minimumTapTarget / 2),
-              ),
+      // Posé SOUS `Semantics`, comme les puces d'échelle : la clé reste la
+      // racine du sous-arbre où le focus se trouve.
+      child: KeyboardFocusRing(
+        onActivate: onTap,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: minimumTapTarget,
+              minHeight: minimumTapTarget,
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              // `Align` à facteurs 1 : la boîte se dimensionne sur son
-              // texte, et c'est le `ConstrainedBox` au-dessus qui impose le
-              // plancher de 44 pt.
-              child: Align(
-                widthFactor: 1,
-                heightFactor: 1,
-                child: Text(label, style: _bodyStyle),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.black),
+                borderRadius: BorderRadius.all(
+                  Radius.circular(minimumTapTarget / 2),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                // `Align` à facteurs 1 : la boîte se dimensionne sur son
+                // texte, et c'est le `ConstrainedBox` au-dessus qui impose le
+                // plancher de 44 pt.
+                child: Align(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Text(label, style: _bodyStyle),
+                ),
               ),
             ),
           ),

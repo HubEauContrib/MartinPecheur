@@ -970,6 +970,46 @@ void main() {
       },
     );
 
+    // `K1` de T3 : la liste des départements illisible (`departements: null`)
+    // retire le sélecteur, et son arrêt seulement — l'ordre des autres ne
+    // change pas.
+    testWidgetsOnWindows(
+      'écoulement, liste des départements illisible : aucun arrêt pour le '
+      'département ; Effacer, les six cases, Fermer, Appliquer, puis le tour '
+      'repart (K1 de T3)',
+      (WidgetTester tester) async {
+        await _open(tester, scale: MapScaleKind.ecoulement, departements: null);
+        expect(find.byKey(mapFilterDepartementKey), findsNothing);
+
+        expect(await _tabStops(tester, 10), <Key>[
+          mapFilterClearKey,
+          for (final FlowCategory category in filterableFlowCategories)
+            mapFilterCategoryKey(category),
+          mapFilterCloseKey,
+          mapFilterApplyKey,
+          mapFilterClearKey,
+        ]);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'débit, liste des départements illisible : aucun arrêt pour le '
+      'département ; Effacer, le choix de fraîcheur sélectionné, Fermer, '
+      'Appliquer, puis le tour repart (K1 de T3)',
+      (WidgetTester tester) async {
+        await _open(tester, scale: MapScaleKind.debit, departements: null);
+        expect(find.byKey(mapFilterDepartementKey), findsNothing);
+
+        expect(await _tabStops(tester, 5), <Key>[
+          mapFilterClearKey,
+          mapFilterFreshnessKey(DischargeFreshnessCriterion.toutes),
+          mapFilterCloseKey,
+          mapFilterApplyKey,
+          mapFilterClearKey,
+        ]);
+      },
+    );
+
     testWidgetsOnWindows('Espace bascule la case focalisée, et elle seule : '
         '« À sec », quatrième case', (WidgetTester tester) async {
       final List<MapFilter> applied = await _open(

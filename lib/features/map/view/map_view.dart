@@ -256,13 +256,23 @@ class _CloseSheetsIntent extends Intent {
   const _CloseSheetsIntent();
 }
 
-/// L'ordre de tabulation déclaré (`K2`) : chips d'échelle → boutons d'entrée
-/// (`F10b` de T3, [mapTraversalOrderEntryButtons]) → contrôles de
+/// L'ordre de tabulation déclaré (`K2`) : chips d'échelle → action de l'avis,
+/// s'il en porte une (`K1` de T3, [mapTraversalOrderNotices]) → boutons
+/// d'entrée (`F10b` de T3, [mapTraversalOrderEntryButtons]) → contrôles de
 /// zoom → carte → fiche, si une est ouverte → lien du bandeau
 /// (`WarningLink`). Des constantes NOMMÉES, jamais des `1`/`2`/`3` recopiés
 /// à chaque `FocusTraversalOrder` : un futur réordonnancement se lit ici,
 /// à un seul endroit.
 const double mapTraversalOrderChips = 1;
+
+/// Les avis de la carte (`K1` de T3, arbitrage du commanditaire du
+/// 2026-10-14) : leur action — « Élargir la recherche » ou « Effacer les
+/// filtres » — est un arrêt de Tab juste APRÈS les puces
+/// ([mapTraversalOrderChips]) et AVANT les boutons d'entrée
+/// ([mapTraversalOrderEntryButtons]), dans les deux dispositions : c'est sous
+/// les puces que l'avis s'affiche. Sans rang, `OrderedTraversalPolicy` la
+/// placerait après « ⚠ Avertissement », en dernier.
+const double mapTraversalOrderNotices = 1.25;
 
 /// Le groupe des boutons d'entrée ([MapEntryButtons], `F10b` de T3) : entre
 /// les puces ([mapTraversalOrderChips]) et les contrôles de zoom
@@ -937,14 +947,19 @@ List<Widget> buildMapOverlays({
     ),
   );
   final Widget legend = MapLegend(scale: scale);
+  // Chaque avis porte son rang de tabulation ([mapTraversalOrderNotices],
+  // `K1` de T3) : construit ici une fois, il vaut pour les deux dispositions.
   final List<Widget> noticeWidgets = <Widget>[
     for (final MapNotice notice in notices)
-      Padding(
-        padding: const EdgeInsets.only(top: _overlayPadding),
-        child: buildMapNotice(
-          notice,
-          onWiden: onWiden,
-          onClearFilters: onClearFilters,
+      FocusTraversalOrder(
+        order: const NumericFocusOrder(mapTraversalOrderNotices),
+        child: Padding(
+          padding: const EdgeInsets.only(top: _overlayPadding),
+          child: buildMapNotice(
+            notice,
+            onWiden: onWiden,
+            onClearFilters: onClearFilters,
+          ),
         ),
       ),
   ];

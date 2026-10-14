@@ -56,6 +56,7 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 StationPoint _blois() => StationPoint(
@@ -3577,24 +3578,6 @@ void main() {
   // carte rend un rappel injecté et ignore qui l'écoute (`feature-vers-feature`
   // : la tranche carte ne nomme pas la tranche favoris).
   group('MapView — le bouton « Favoris » (S10 de T3)', () {
-    bool focusedWithin(WidgetTester tester, Finder ancestor) {
-      final BuildContext? focusedContext =
-          FocusManager.instance.primaryFocus?.context;
-      if (focusedContext == null) {
-        return false;
-      }
-      bool found = false;
-      void visit(Element element) {
-        if (element == focusedContext) {
-          found = true;
-        }
-        element.visitChildren(visit);
-      }
-
-      visit(tester.element(ancestor));
-      return found;
-    }
-
     testWidgetsOnWindows(
       'MapView(onOpenFavorites: rappel) : un tap sur le bouton de la carte '
       'appelle le rappel, une fois',
@@ -3643,8 +3626,9 @@ void main() {
     );
 
     testWidgetsOnWindows(
-      'Tab : puces (2) → « Favoris » → « Filtres » → contrôles de zoom ; '
-      '« Favoris » est le groupe d’entrée, juste avant « Filtres »',
+      'Tab : puces (2) → « Élargir la recherche » (avis de carte vide, K1 de '
+      'T3) → « Favoris » → « Filtres » → contrôles de zoom ; « Favoris » est '
+      'le groupe d’entrée, juste avant « Filtres »',
       (WidgetTester tester) async {
         final MapViewModel viewModel = _viewModel();
         addTearDown(viewModel.dispose);
@@ -3659,6 +3643,7 @@ void main() {
         final List<Finder> ordreAttendu = <Finder>[
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(widenSearchKey),
           find.byKey(mapFavoritesButtonKey),
           find.byKey(mapFiltersButtonKey),
           find.byKey(mapZoomInButtonKey),

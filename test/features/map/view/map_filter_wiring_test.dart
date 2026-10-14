@@ -36,6 +36,7 @@ import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 /// Le référentiel des stations, vide. [all] — la lecture que fait
@@ -158,24 +159,6 @@ bool _formeActive(WidgetTester tester) {
   return marque;
 }
 
-bool _focusedWithin(WidgetTester tester, Finder ancestor) {
-  final BuildContext? focusedContext =
-      FocusManager.instance.primaryFocus?.context;
-  if (focusedContext == null) {
-    return false;
-  }
-  bool found = false;
-  void visit(Element element) {
-    if (element == focusedContext) {
-      found = true;
-    }
-    element.visitChildren(visit);
-  }
-
-  visit(tester.element(ancestor));
-  return found;
-}
-
 /// La taille minimale de la fenêtre Windows (`K3`).
 void _fenetreMinimale(WidgetTester tester) {
   tester.view.physicalSize = const Size(800, 740);
@@ -235,7 +218,7 @@ Future<void> _ouvrirLaFeuilleAuClavier(WidgetTester tester) async {
     await tester.pump();
   }
   expect(
-    _focusedWithin(tester, _bouton()),
+    focusedWithin(tester, _bouton()),
     isTrue,
     reason: 'le troisième Tab doit arriver sur « Filtres »',
   );
@@ -382,7 +365,7 @@ void main() {
       expect(_marqueursOnde(), findsNWidgets(2));
       expect(_formeActive(tester), isFalse);
       expect(
-        _focusedWithin(tester, _bouton()),
+        focusedWithin(tester, _bouton()),
         isTrue,
         reason: 'le focus doit revenir sur « Filtres »',
       );
@@ -553,7 +536,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
       }
-      expect(_focusedWithin(tester, _bouton()), isTrue);
+      expect(focusedWithin(tester, _bouton()), isTrue);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();

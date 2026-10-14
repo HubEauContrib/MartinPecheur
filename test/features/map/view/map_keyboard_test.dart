@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/filters/map_filter.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/area_cluster.dart' show AreaLevel;
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -31,6 +32,8 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart'
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
+import 'package:martinpecheur/features/map/view/map_empty_states.dart'
+    show clearFiltersKey, widenSearchKey;
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
@@ -40,30 +43,8 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
-
-/// Le focus courant (`FocusManager.instance.primaryFocus`) est-il porté par
-/// un élément du sous-arbre de [ancestor] ? Même construction que
-/// `test/features/shared/warning_link_test.dart` (`_hasFocusWithin`) :
-/// [Focus.of] ne cherche que des ANCÊTRES, jamais l'inverse.
-bool _focusedWithin(WidgetTester tester, Finder ancestor) {
-  final BuildContext? focusedContext =
-      FocusManager.instance.primaryFocus?.context;
-  if (focusedContext == null) {
-    return false;
-  }
-  final Element root = tester.element(ancestor);
-  bool found = false;
-  void visit(Element element) {
-    if (element == focusedContext) {
-      found = true;
-    }
-    element.visitChildren(visit);
-  }
-
-  visit(root);
-  return found;
-}
 
 /// Un contour de focus ([KeyboardFocusRing]) est-il VISIBLE (couleur non
 /// transparente) sur le [DecoratedBox] le plus proche à l'intérieur de
@@ -431,20 +412,22 @@ void main() {
 
   group('MapView — ordre de tabulation déclaré (K2)', () {
     testWidgetsOnWindows(
-      'Tab parcourt, dans cet ordre : chips (2) → « Filtres » → contrôles de '
-      'zoom (3) → carte → lien du bandeau — puis reboucle',
+      'Tab parcourt, dans cet ordre : chips (2) → « Élargir la recherche » '
+      '(avis de carte vide, K1 de T3) → « Filtres » → contrôles de zoom (3) → '
+      'carte → lien du bandeau — puis reboucle',
       (WidgetTester tester) async {
         await tester.pumpWidget(
           MaterialApp(home: MapView(viewModel: _viewModel())),
         );
         await tester.pumpAndSettle();
 
-        // Chaque étape : soit un `Finder` (vérifié par `_focusedWithin`),
+        // Chaque étape : soit un `Finder` (vérifié par `focusedWithin`),
         // soit `null` pour « carte » — cas particulier, voir
         // [_carteFocused].
         final List<Finder?> ordreAttendu = <Finder?>[
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(widenSearchKey),
           find.byKey(mapFiltersButtonKey),
           find.byKey(mapZoomInButtonKey),
           find.byKey(mapZoomOutButtonKey),
@@ -460,7 +443,7 @@ void main() {
             expect(_carteFocused(), isTrue, reason: 'attendu à ce Tab : carte');
           } else {
             expect(
-              _focusedWithin(tester, attendu),
+              focusedWithin(tester, attendu),
               isTrue,
               reason: 'attendu à ce Tab : $attendu',
             );
@@ -472,7 +455,7 @@ void main() {
         // hors groupe.
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
-        expect(_focusedWithin(tester, ordreAttendu.first!), isTrue);
+        expect(focusedWithin(tester, ordreAttendu.first!), isTrue);
       },
     );
 
@@ -491,30 +474,32 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // chips (×2), « Filtres », contrôles (×3) puis carte : sept Tab
-        // avant la fiche.
-        for (int i = 0; i < 7; i++) {
+        // chips (×2), « Élargir la recherche » (avis de carte vide, `K1` de
+        // T3), « Filtres », contrôles (×3) puis carte : huit Tab avant la
+        // fiche.
+        for (int i = 0; i < 8; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
         expect(
-          _focusedWithin(tester, find.byKey(fiche)),
+          focusedWithin(tester, find.byKey(fiche)),
           isTrue,
           reason: 'la fiche ouverte suit la carte, avant le lien du bandeau',
         );
 
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
-        expect(_focusedWithin(tester, find.byKey(warningLinkKey)), isTrue);
+        expect(focusedWithin(tester, find.byKey(warningLinkKey)), isTrue);
       },
     );
 
     testWidgetsOnWindows(
       'l ordre entier (F10b de T3), désignation câblée, mode « Restrictions » '
-      'allumé, fiche ouverte : puces (3) → « Filtres » → + → − → recentrer → '
-      'bouton de désignation → carte → fiche → « ⚠ Avertissement »',
+      'allumé, fiche ouverte : puces (3) → « Élargir la recherche » (K1 de '
+      'T3) → « Filtres » → + → − → recentrer → bouton de désignation → carte '
+      '→ fiche → « ⚠ Avertissement »',
       (WidgetTester tester) async {
         const Key fiche = Key('fiche-de-test-F10b');
         final MapViewModel viewModel = _viewModel();
@@ -537,6 +522,7 @@ void main() {
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
           find.byKey(mapDesignationChipKey),
+          find.byKey(widenSearchKey),
           find.byKey(mapFiltersButtonKey),
           find.byKey(mapZoomInButtonKey),
           find.byKey(mapZoomOutButtonKey),
@@ -554,7 +540,7 @@ void main() {
             expect(_carteFocused(), isTrue, reason: 'attendu à ce Tab : carte');
           } else {
             expect(
-              _focusedWithin(tester, attendu),
+              focusedWithin(tester, attendu),
               isTrue,
               reason: 'attendu à ce Tab : $attendu',
             );
@@ -563,7 +549,7 @@ void main() {
 
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
-        expect(_focusedWithin(tester, ordreAttendu.first!), isTrue);
+        expect(focusedWithin(tester, ordreAttendu.first!), isTrue);
       },
     );
 
@@ -575,13 +561,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // chips (×2), « Filtres », contrôles (×3), carte, lien : huit arrêts,
-        // dans l'ordre
-        // déclaré. « carte » (index 6) est vérifiée à part
+        // chips (×2), « Élargir la recherche » (avis de carte vide, `K1` de
+        // T3), « Filtres », contrôles (×3), carte, lien : neuf arrêts, dans
+        // l'ordre déclaré. « carte » (index 7) est vérifiée à part
         // ([_carteFocusRingVisible]) — voir [_carteFocused].
         final List<Finder?> arrets = <Finder?>[
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(widenSearchKey),
           find.byKey(mapFiltersButtonKey),
           find.byKey(mapZoomInButtonKey),
           find.byKey(mapZoomOutButtonKey),
@@ -617,6 +604,147 @@ void main() {
             );
           }
         }
+      },
+    );
+  });
+
+  // `K1` de T3 : l'ordre COMPLET à 800 × 600, les deux boutons d'entrée posés
+  // (« Favoris » puis « Filtres ») et la désignation câblée (trois puces) ; et
+  // l'action de l'avis, arrêt de Tab juste après les puces (arbitrage du
+  // commanditaire du 2026-10-14). Sans dépôt, la carte est vide : l'avis
+  // d'absence et son action « Élargir la recherche » sont affichés.
+  group('MapView — l ordre complet, « Favoris » et « Filtres » ensemble, et '
+      'l action de l avis (K1 de T3)', () {
+    /// Tab sur chaque arrêt de [ordre], dans l'ordre (`null` : « carte »),
+    /// puis un Tab de plus, qui doit reboucler sur le premier.
+    Future<void> parcourir(WidgetTester tester, List<Finder?> ordre) async {
+      for (final Finder? attendu in ordre) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        if (attendu == null) {
+          expect(_carteFocused(), isTrue, reason: 'attendu à ce Tab : carte');
+        } else {
+          expect(
+            focusedWithin(tester, attendu),
+            isTrue,
+            reason: 'attendu à ce Tab : $attendu',
+          );
+        }
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        focusedWithin(tester, ordre.first!),
+        isTrue,
+        reason: 'le Tab suivant reboucle sur le premier arrêt',
+      );
+    }
+
+    for (final bool enMode in <bool>[false, true]) {
+      testWidgetsOnWindows(
+        '800 × 600, ${enMode ? 'EN MODE « Restrictions »' : 'HORS MODE'}, '
+        'carte vide : puces (3) → « Élargir la recherche » → « Favoris » → '
+        '« Filtres » → + → − → recentrer'
+        '${enMode ? ' → bouton de désignation' : ''} → carte → '
+        '« ⚠ Avertissement » — puis reboucle',
+        (WidgetTester tester) async {
+          final MapViewModel viewModel = _viewModel();
+          addTearDown(viewModel.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MapView(
+                viewModel: viewModel,
+                onOpenFavorites: () {},
+                onPointDesignated: (GeoPoint point) {},
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (enMode) {
+            viewModel.toggleDesignationMode();
+            await tester.pumpAndSettle();
+          }
+          expect(find.byKey(widenSearchKey), findsOneWidget);
+
+          await parcourir(tester, <Finder?>[
+            find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
+            find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+            find.byKey(mapDesignationChipKey),
+            find.byKey(widenSearchKey),
+            find.byKey(mapFavoritesButtonKey),
+            find.byKey(mapFiltersButtonKey),
+            find.byKey(mapZoomInButtonKey),
+            find.byKey(mapZoomOutButtonKey),
+            find.byKey(mapRecenterButtonKey),
+            if (enMode) find.byKey(mapDesignateCenterButtonKey),
+            null,
+            find.byKey(warningLinkKey),
+          ]);
+        },
+      );
+    }
+
+    testWidgetsOnWindows(
+      '800 × 600, un filtre masque tous les lieux : puces (3) → « Effacer les '
+      'filtres » → « Favoris » → « Filtres » → + → − → recentrer → carte → '
+      '« ⚠ Avertissement » — puis reboucle ; Entrée sur l action efface le '
+      'filtre',
+      (WidgetTester tester) async {
+        final MapViewModel viewModel = _viewModel(
+          onde: _OndeStub(<OndeObservation>[
+            _ondeObservationAt(
+              _lonelyOndePoint('0001', latitude: 46.7, longitude: 2.1),
+            ),
+            _ondeObservationAt(
+              _lonelyOndePoint('0002', latitude: 46.5, longitude: 2.3),
+            ),
+          ]),
+        );
+        addTearDown(viewModel.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MapView(
+              viewModel: viewModel,
+              onOpenFavorites: () {},
+              onPointDesignated: (GeoPoint point) {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        viewModel.applyFilter(
+          MapFilter.none.withCategory(const Assec(), shown: false),
+        );
+        await tester.pumpAndSettle();
+        expect(viewModel.filterHidesEverything, isTrue);
+        expect(find.byKey(clearFiltersKey), findsOneWidget);
+
+        final List<Finder?> ordre = <Finder?>[
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
+          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          find.byKey(mapDesignationChipKey),
+          find.byKey(clearFiltersKey),
+          find.byKey(mapFavoritesButtonKey),
+          find.byKey(mapFiltersButtonKey),
+          find.byKey(mapZoomInButtonKey),
+          find.byKey(mapZoomOutButtonKey),
+          find.byKey(mapRecenterButtonKey),
+          null,
+          find.byKey(warningLinkKey),
+        ];
+        await parcourir(tester, ordre);
+
+        // Le rebouclage a posé le focus sur la première puce : trois Tab de
+        // plus atteignent l'action, et Entrée fait ce que le tap fait.
+        for (int i = 0; i < 3; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(focusedWithin(tester, find.byKey(clearFiltersKey)), isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(viewModel.filter, MapFilter.none);
+        expect(find.byKey(clearFiltersKey), findsNothing);
       },
     );
   });
@@ -911,7 +1039,7 @@ void main() {
           matching: find.byType(GestureDetector),
         );
         // Premier arrêt de « carte » : la pastille '24', la plus proche.
-        expect(_focusedWithin(tester, ancestors.at(0)), isTrue);
+        expect(focusedWithin(tester, ancestors.at(0)), isTrue);
 
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
@@ -1048,7 +1176,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
 
-        expect(_focusedWithin(tester, find.byKey(warningLinkKey)), isTrue);
+        expect(focusedWithin(tester, find.byKey(warningLinkKey)), isTrue);
       },
     );
 
@@ -1112,7 +1240,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       expect(
-        _focusedWithin(
+        focusedWithin(
           tester,
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
         ),
@@ -1127,7 +1255,7 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await tester.pump();
       expect(
-        _focusedWithin(
+        focusedWithin(
           tester,
           find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
         ),
@@ -1257,7 +1385,7 @@ void main() {
           await tester.pump();
         }
         expect(
-          _focusedWithin(
+          focusedWithin(
             tester,
             find.byKey(ValueKey<String>(proche.code.value)),
           ),
@@ -1281,7 +1409,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          _focusedWithin(
+          focusedWithin(
             tester,
             find.byKey(ValueKey<String>(proche.code.value)),
           ),
@@ -1373,7 +1501,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
         expect(
-          _focusedWithin(tester, find.byKey(const Key('fiche-1200'))),
+          focusedWithin(tester, find.byKey(const Key('fiche-1200'))),
           isTrue,
           reason:
               'après le dernier (1 200ᵉ) marqueur, Tab doit atteindre la '
@@ -1401,7 +1529,7 @@ void main() {
         await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
-        expect(_focusedWithin(tester, find.byKey(warningLinkKey)), isTrue);
+        expect(focusedWithin(tester, find.byKey(warningLinkKey)), isTrue);
       },
     );
   });

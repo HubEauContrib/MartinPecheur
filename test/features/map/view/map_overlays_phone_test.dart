@@ -33,10 +33,11 @@
 //   légende n'est repoussée que pendant qu'un avis s'affiche : un écart à
 //   `BR-008` (« toujours visible »), accepté par le commanditaire le
 //   2026-10-03 ;
-// - l'ordre de tabulation (`K2`) sous 600 px : puces (trois), « Filtres »
-//   (`F10b` de T3), contrôles de
-//   zoom, puis, EN MODE seulement, bouton de désignation, enfin contrôle
-//   d'avertissement ;
+// - l'ordre de tabulation (`K2`) sous 600 px : puces (trois), l'action de
+//   l'avis s'il y en a un (`K1` de T3, arbitrage du commanditaire du
+//   2026-10-14), « Favoris » s'il est posé, « Filtres » (`F10b` de T3),
+//   contrôles de zoom, puis, EN MODE seulement, bouton de désignation, enfin
+//   contrôle d'avertissement ;
 // - à 100 %, avec un avis, l'avis est entier dans l'écran, libre de toute
 //   surcouche du bas (bouton compris, en mode), et son action « Élargir la
 //   recherche » est atteignable ;
@@ -128,6 +129,7 @@ import 'package:martinpecheur/features/shared/tap_target.dart'
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 /// Clé de la fiche de test : une hauteur réaliste de 320, comme
@@ -246,27 +248,6 @@ Map<OndeStationCode, OndeObservation> _uneObservation() {
   };
 }
 
-/// Le focus courant est-il porté par un élément du sous-arbre de [ancestor] ?
-/// Même construction que `map_keyboard_test.dart` : [Focus.of] ne cherche que
-/// des ANCÊTRES, jamais l'inverse.
-bool _focusedWithin(WidgetTester tester, Finder ancestor) {
-  final BuildContext? focusedContext =
-      FocusManager.instance.primaryFocus?.context;
-  if (focusedContext == null) {
-    return false;
-  }
-  bool found = false;
-  void visit(Element element) {
-    if (element == focusedContext) {
-      found = true;
-    }
-    element.visitChildren(visit);
-  }
-
-  visit(tester.element(ancestor));
-  return found;
-}
-
 /// La puce de l'échelle [kind].
 Finder _puceEchelle(MapScaleKind kind) =>
     find.byKey(ValueKey<MapScaleKind>(kind));
@@ -312,7 +293,8 @@ int _rangeesDePuces(WidgetTester tester) {
 /// quand `onDesignateCenter` est non nul. Par défaut ([avecAvis]), sans
 /// station ni point ONDE, un avis d'absence est affiché (« Élargir la
 /// recherche ») : c'est l'état d'une carte vide. Avec `avecAvis: false`, une
-/// station et un point ONDE existent : aucun avis.
+/// station et un point ONDE existent : aucun avis. Le bouton « Favoris »
+/// n'est posé que si [onOuvrirFavoris] est fourni (`S10` de T3).
 /// Sous les surcouches, une couche « carte » compte les taps ([onCarteTap]),
 /// les crans de molette ([onCarteMolette]) et les glissers ([onCarteGlisser])
 /// qui lui parviennent. Les surcouches sont dans un groupe de tabulation
@@ -328,6 +310,7 @@ Future<List<FlutterErrorDetails>> _pumpOverlays(
   bool attendErreurs = false,
   bool filtreVideTout = false,
   VoidCallback? onEffacer,
+  VoidCallback? onOuvrirFavoris,
   void Function(MapScaleKind kind)? onSelect,
   VoidCallback? onBasculerMode,
   VoidCallback? onCarteTap,
@@ -370,6 +353,7 @@ Future<List<FlutterErrorDetails>> _pumpOverlays(
                   onClearFilters: onEffacer ?? () {},
                   filterActive: false,
                   onOpenFilters: () {},
+                  onOpenFavorites: onOuvrirFavoris,
                   scale: scale,
                   onSelect: onSelect ?? (MapScaleKind kind) {},
                   onWiden: () {},
@@ -1137,14 +1121,15 @@ void main() {
   // `FocusTraversalOrder`, pour les deux dispositions. `map_keyboard_test.dart`
   // le vérifie sur `MapView` à 800 × 600 (large) ; ici, sous 600 px, sans
   // « carte » (aucun `FlutterMap` dans ce banc). Hors mode il n'y a pas de
-  // bouton de désignation : « Filtres » (`F10b` de T3) suit les puces, et le
-  // contrôle d'avertissement suit les contrôles de
-  // zoom ; en mode le bouton s'intercale entre les deux.
+  // bouton de désignation : l'action de l'avis (`K1` de T3) suit les puces,
+  // « Filtres » (`F10b` de T3) la suit, et le contrôle d'avertissement suit
+  // les contrôles de zoom ; en mode le bouton s'intercale entre les deux.
   for (final Size size in <Size>[_petit, _grand]) {
     for (final double textScale in <double>[1, 2]) {
       for (final bool enMode in <bool>[false, true]) {
         _surAndroid('Tab à ${_nom(size, textScale, MapScaleKind.ecoulement)}, '
-            '${_mode(enMode)} : puces (trois) → « Filtres » → contrôles de zoom'
+            '${_mode(enMode)} : puces (trois) → « Élargir la recherche » (K1 '
+            'de T3) → « Filtres » → contrôles de zoom'
             '${enMode ? ' → bouton de désignation' : ''} → contrôle '
             'd’avertissement, puis reboucle', (WidgetTester tester) async {
           await _pumpOverlays(
@@ -1159,6 +1144,7 @@ void main() {
             _puceEchelle(MapScaleKind.ecoulement),
             _puceEchelle(MapScaleKind.debit),
             _puceRestrictions(),
+            find.byKey(widenSearchKey),
             find.byKey(mapFiltersButtonKey),
             find.byKey(mapZoomInButtonKey),
             find.byKey(mapZoomOutButtonKey),
@@ -1170,7 +1156,7 @@ void main() {
             await tester.sendKeyEvent(LogicalKeyboardKey.tab);
             await tester.pump();
             expect(
-              _focusedWithin(tester, attendu),
+              focusedWithin(tester, attendu),
               isTrue,
               reason: 'attendu à ce Tab : $attendu',
             );
@@ -1180,11 +1166,155 @@ void main() {
           // Tab atteint n'est resté hors de l'ordre déclaré.
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
-          expect(_focusedWithin(tester, ordreAttendu.first), isTrue);
+          expect(focusedWithin(tester, ordreAttendu.first), isTrue);
         });
       }
     }
   }
+
+  // `K1` de T3 : l'ordre complet sous 600 px, les deux boutons d'entrée posés
+  // (« Favoris » puis « Filtres »), et l'action de l'avis, arrêt de Tab juste
+  // après les puces (arbitrage du commanditaire du 2026-10-14). À 100 % de
+  // police seulement : la boucle ci-dessus couvre déjà 100 % et 200 %.
+  for (final Size size in <Size>[_petit, _grand]) {
+    for (final bool enMode in <bool>[false, true]) {
+      _surAndroid('Tab à ${_nom(size, 1, MapScaleKind.ecoulement)}, '
+          '${_mode(enMode)}, « Favoris » posé : puces (trois) → « Élargir la '
+          'recherche » → « Favoris » → « Filtres » → contrôles de zoom'
+          '${enMode ? ' → bouton de désignation' : ''} → contrôle '
+          'd’avertissement, puis reboucle (K1 de T3)', (
+        WidgetTester tester,
+      ) async {
+        await _pumpOverlays(
+          tester,
+          size,
+          scale: MapScaleKind.ecoulement,
+          enMode: enMode,
+          onOuvrirFavoris: () {},
+        );
+
+        final List<Finder> ordreAttendu = <Finder>[
+          _puceEchelle(MapScaleKind.ecoulement),
+          _puceEchelle(MapScaleKind.debit),
+          _puceRestrictions(),
+          find.byKey(widenSearchKey),
+          find.byKey(mapFavoritesButtonKey),
+          find.byKey(mapFiltersButtonKey),
+          find.byKey(mapZoomInButtonKey),
+          find.byKey(mapZoomOutButtonKey),
+          find.byKey(mapRecenterButtonKey),
+          if (enMode) find.byKey(mapDesignateCenterButtonKey),
+          find.byKey(warningLinkKey),
+        ];
+        for (final Finder attendu in ordreAttendu) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(
+            focusedWithin(tester, attendu),
+            isTrue,
+            reason: 'attendu à ce Tab : $attendu',
+          );
+        }
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(focusedWithin(tester, ordreAttendu.first), isTrue);
+      });
+    }
+  }
+
+  _surAndroid('Tab à ${_nom(_petit, 1, MapScaleKind.ecoulement)}, HORS MODE, '
+      'un filtre masque tous les lieux : puces (trois) → « Effacer les '
+      'filtres » → « Favoris » → « Filtres » → contrôles de zoom → contrôle '
+      'd’avertissement, puis reboucle ; Entrée sur l’action appelle '
+      'onClearFilters UNE fois (K1 de T3)', (WidgetTester tester) async {
+    int effacements = 0;
+    await _pumpOverlays(
+      tester,
+      _petit,
+      scale: MapScaleKind.ecoulement,
+      avecAvis: false,
+      filtreVideTout: true,
+      onEffacer: () => effacements++,
+      onOuvrirFavoris: () {},
+    );
+    expect(find.byKey(clearFiltersKey), findsOneWidget);
+
+    final List<Finder> ordreAttendu = <Finder>[
+      _puceEchelle(MapScaleKind.ecoulement),
+      _puceEchelle(MapScaleKind.debit),
+      _puceRestrictions(),
+      find.byKey(clearFiltersKey),
+      find.byKey(mapFavoritesButtonKey),
+      find.byKey(mapFiltersButtonKey),
+      find.byKey(mapZoomInButtonKey),
+      find.byKey(mapZoomOutButtonKey),
+      find.byKey(mapRecenterButtonKey),
+      find.byKey(warningLinkKey),
+    ];
+    for (final Finder attendu in ordreAttendu) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        focusedWithin(tester, attendu),
+        isTrue,
+        reason: 'attendu à ce Tab : $attendu',
+      );
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(focusedWithin(tester, ordreAttendu.first), isTrue);
+
+    // Trois Tab de plus, depuis la première puce : l'action.
+    for (int i = 0; i < 3; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+    }
+    expect(focusedWithin(tester, find.byKey(clearFiltersKey)), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(effacements, 1);
+  });
+
+  // Sans avis, aucun arrêt ne s'intercale : « Favoris » suit les puces.
+  _surAndroid('Tab à ${_nom(_petit, 1, MapScaleKind.ecoulement)}, HORS MODE, '
+      'SANS avis, « Favoris » posé : puces (trois) → « Favoris » → « Filtres » '
+      '→ contrôles de zoom → contrôle d’avertissement, puis reboucle (K1 de '
+      'T3)', (WidgetTester tester) async {
+    await _pumpOverlays(
+      tester,
+      _petit,
+      scale: MapScaleKind.ecoulement,
+      avecAvis: false,
+      onOuvrirFavoris: () {},
+    );
+    expect(find.byKey(widenSearchKey), findsNothing);
+    expect(find.byKey(clearFiltersKey), findsNothing);
+
+    final List<Finder> ordreAttendu = <Finder>[
+      _puceEchelle(MapScaleKind.ecoulement),
+      _puceEchelle(MapScaleKind.debit),
+      _puceRestrictions(),
+      find.byKey(mapFavoritesButtonKey),
+      find.byKey(mapFiltersButtonKey),
+      find.byKey(mapZoomInButtonKey),
+      find.byKey(mapZoomOutButtonKey),
+      find.byKey(mapRecenterButtonKey),
+      find.byKey(warningLinkKey),
+    ];
+    for (final Finder attendu in ordreAttendu) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        focusedWithin(tester, attendu),
+        isTrue,
+        reason: 'attendu à ce Tab : $attendu',
+      );
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(focusedWithin(tester, ordreAttendu.first), isTrue);
+  });
 
   // ---------------------------------------------------------------------
   // Avis à 100 % (I1)

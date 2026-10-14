@@ -35,15 +35,19 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
+import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart'
+    show focusRingColor;
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 /// Le fichier source des avis, lu par le verrou d'exhaustivité ci-dessous.
@@ -552,6 +556,74 @@ void main() {
         expect(elargissements, 1);
       },
     );
+  });
+
+  // Les actions des avis au clavier (`K1` de T3, arbitrage du commanditaire
+  // du 2026-10-14) : « Effacer les filtres » et « Élargir la recherche »
+  // deviennent des arrêts de Tab, Entrée et Espace font ce que le tap fait.
+  // Leur place dans l'ordre de la carte est vérifiée sur la carte
+  // (`map_keyboard_test.dart`, `map_overlays_phone_test.dart`).
+  group('les actions des avis au clavier (K1 de T3)', () {
+    for (final (String, Key, Widget Function(VoidCallback)) avis
+        in <(String, Key, Widget Function(VoidCallback))>[
+          (
+            '« Effacer les filtres » (FilterHidesEverythingNotice)',
+            clearFiltersKey,
+            (VoidCallback rappel) =>
+                FilterHidesEverythingNotice(onClearFilters: rappel),
+          ),
+          (
+            '« Élargir la recherche » (NoDataInAreaNotice)',
+            widenSearchKey,
+            (VoidCallback rappel) => NoDataInAreaNotice(onWiden: rappel),
+          ),
+          (
+            '« Élargir la recherche » (NoStationInAreaNotice)',
+            widenSearchKey,
+            (VoidCallback rappel) => NoStationInAreaNotice(onWiden: rappel),
+          ),
+        ]) {
+      testWidgetsOnWindows('${avis.$1} : Tab atteint l’action, et son anneau '
+          'de focus est visible', (WidgetTester tester) async {
+        await _pump(tester, avis.$3(() {}));
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        expect(focusedWithin(tester, find.byKey(avis.$2)), isTrue);
+        expect(
+          find.descendant(
+            of: find.byKey(avis.$2),
+            matching: find.byWidgetPredicate((Widget w) {
+              if (w is! DecoratedBox) {
+                return false;
+              }
+              final Decoration decoration = w.decoration;
+              return decoration is BoxDecoration &&
+                  decoration.border?.top.color == focusRingColor;
+            }),
+          ),
+          findsOneWidget,
+          reason: 'l’anneau de focus doit se voir sur l’action',
+        );
+      });
+
+      testWidgetsOnWindows('${avis.$1} : action focalisée, Entrée puis Espace '
+          'appellent le rappel UNE fois chacune', (WidgetTester tester) async {
+        int appels = 0;
+        await _pump(tester, avis.$3(() => appels++));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(appels, 1, reason: 'Entrée');
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(appels, 2, reason: 'Espace');
+      });
+    }
   });
 
   group('UnreadableRowsNotice — les lignes ONDE illisibles (T-14)', () {

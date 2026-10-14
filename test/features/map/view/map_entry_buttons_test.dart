@@ -18,6 +18,7 @@ import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 const Key _roundButtonKey = Key('test-round-button');
@@ -73,27 +74,6 @@ void main() {
         ),
       ),
     );
-  }
-
-  // Le focus courant est-il porté par un élément du sous-arbre de [ancestor] ?
-  // Même construction que `map_keyboard_test.dart` : [Focus.of] ne cherche que
-  // des ANCÊTRES, jamais l'inverse.
-  bool focusedWithin(WidgetTester tester, Finder ancestor) {
-    final BuildContext? focusedContext =
-        FocusManager.instance.primaryFocus?.context;
-    if (focusedContext == null) {
-      return false;
-    }
-    bool found = false;
-    void visit(Element element) {
-      if (element == focusedContext) {
-        found = true;
-      }
-      element.visitChildren(visit);
-    }
-
-    visit(tester.element(ancestor));
-    return found;
   }
 
   // Le disque du bouton : le `DecoratedBox` rond qui porte une couleur de
@@ -299,6 +279,54 @@ void main() {
 
       expect(calls, 1);
     });
+
+    // `K1` de T3 : la forme active ne change rien au clavier.
+    testWidgetsOnWindows(
+      '« Favoris » posé : Tab, Tab arrive sur « Filtres » actif, annoncé '
+      '« Filtres — un filtre est actif » ; Entrée l’appelle UNE fois ; la '
+      'marque n’ajoute aucun arrêt, le Tab suivant reboucle sur « Favoris » '
+      '(K1 de T3)',
+      (WidgetTester tester) async {
+        int filtres = 0;
+        await pumpEntries(
+          tester,
+          onOpenFilters: () => filtres++,
+          onOpenFavorites: () {},
+          filterActive: true,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          focusedWithin(tester, find.byKey(mapFavoritesButtonKey)),
+          isTrue,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(focusedWithin(tester, find.byKey(mapFiltersButtonKey)), isTrue);
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapFiltersButtonKey))
+              .properties
+              .label,
+          mapFiltersActiveLabel,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(filtres, 1);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          focusedWithin(tester, find.byKey(mapFavoritesButtonKey)),
+          isTrue,
+          reason:
+              'deux arrêts seulement dans le groupe : la marque n’en est '
+              'pas un',
+        );
+      },
+    );
   });
 
   group('MapEntryButtons : activation', () {
