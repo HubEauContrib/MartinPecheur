@@ -60,6 +60,10 @@ const String _restrictions =
     'récupération. Le site VigiEau et son jeu de données publié sur '
     'data.gouv.fr sont sous Licence Ouverte 2.0.';
 
+const String _flood =
+    'Niveaux de vigilance crues publiés par Vigicrues, qui annonce une '
+    'production au moins deux fois par jour. © VIGICRUES — Licence Ouverte.';
+
 const String _ignLead = 'Fond de carte : plan IGN.';
 
 const String _dams =
@@ -115,34 +119,32 @@ void main() {
       },
     );
 
-    testWidgetsOnWindows(
-      'les quatre sources sont nommees par leurs constantes, '
-      'chacune en en-tete',
-      (WidgetTester tester) async {
-        final SemanticsHandle handle = tester.ensureSemantics();
-        await tester.pumpWidget(_app());
+    testWidgetsOnWindows('les cinq sources sont nommees par leurs constantes, '
+        'chacune en en-tete', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await tester.pumpWidget(_app());
 
-        for (final String name in <String>[
-          hydrometrieSourceName,
-          ondeSourceName,
-          restrictionsSourceName,
-          ignSourceName,
-        ]) {
-          expect(find.text(name), findsOneWidget, reason: name);
-          expect(
-            tester
-                .getSemantics(find.text(name))
-                .getSemanticsData()
-                .flagsCollection
-                .isHeader,
-            isTrue,
-            reason: name,
-          );
-        }
+      for (final String name in <String>[
+        hydrometrieSourceName,
+        ondeSourceName,
+        restrictionsSourceName,
+        floodSourceName,
+        ignSourceName,
+      ]) {
+        expect(find.text(name), findsOneWidget, reason: name);
+        expect(
+          tester
+              .getSemantics(find.text(name))
+              .getSemanticsData()
+              .flagsCollection
+              .isHeader,
+          isTrue,
+          reason: name,
+        );
+      }
 
-        handle.dispose();
-      },
-    );
+      handle.dispose();
+    });
 
     testWidgetsOnWindows('chaque section rend le texte retenu, mot pour mot', (
       WidgetTester tester,
@@ -155,6 +157,7 @@ void main() {
         _onde,
         _ondeNote,
         _restrictions,
+        _flood,
         _ignLead,
         ignAttribution,
         _dams,
@@ -169,6 +172,7 @@ void main() {
       expect(dataSourcesOndeText, _onde);
       expect(dataSourcesOndeCategoriesNote, _ondeNote);
       expect(dataSourcesRestrictionsText, _restrictions);
+      expect(dataSourcesFloodText, _flood);
       expect(dataSourcesIgnText, _ignLead);
       expect(dataSourcesDamsLimitText, _dams);
     });
@@ -247,7 +251,7 @@ void main() {
     );
 
     testWidgetsOnWindows("l'ordre est celui de la conception : introduction, "
-        'hydrometrie, ONDE et sa note, restrictions et son adresse, fond de '
+        'hydrometrie, ONDE et sa note, restrictions et son adresse, Vigicrues et son adresse, fond de '
         'carte, limite des barrages', (WidgetTester tester) async {
       await tester.pumpWidget(_app());
 
@@ -266,6 +270,15 @@ void main() {
             (Widget widget) =>
                 widget is SelectableText &&
                 widget.data == restrictionsPublicSiteUrl,
+          ),
+        ),
+        _top(tester, find.text(floodSourceName)),
+        _top(tester, find.text(_flood)),
+        _top(
+          tester,
+          find.byWidgetPredicate(
+            (Widget widget) =>
+                widget is SelectableText && widget.data == floodPublicSiteUrl,
           ),
         ),
         _top(tester, find.text(ignSourceName)),
