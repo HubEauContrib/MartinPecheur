@@ -1,9 +1,9 @@
 # BR-007 — L'absence de donnée n'est jamais un état neutre
 
 - **Statut :** Accepté · **révisé le 2026-09-18, arbitrage du commanditaire** (voir « Révision du
-  2026-09-18 » ci-dessous) · **amendé le 2026-10-12 (T3, filtre de l'usager)**
+  2026-09-18 » ci-dessous) · **amendé le 2026-10-12 (T3, filtre de l'usager)** · **amendé le 2026-10-14 (T4, vigilance crues)**
 - **Date :** 2026-07-30 · **révisée le 2026-09-18**
-- **Contexte borné :** Carte · Referentiel
+- **Contexte borné :** Carte · Referentiel · Crues
 
 ## Règle
 
@@ -36,6 +36,7 @@ Un agriculteur qui ne voit aucune alerte sur sa zone doit comprendre qu'il n'y a
 - Niveau de gravité inconnu : *« Cela ne signifie pas qu'aucun arrêté ne s'applique : vérifiez auprès de votre préfecture. »*
 - La règle vaut aussi pour les états de chargement : un écran en cours de chargement n'affiche pas d'état par défaut.
 - **Filtre de l'usager (T3).** Un lieu masqué par un filtre n'est pas une absence de donnée. Tant qu'un critère est actif, la carte le montre en permanence, à tous les zooms. Une carte que le filtre a vidée l'écrit — *« Les filtres masquent tous les lieux du secteur affiché. Cela ne dit rien de l'état des cours d'eau. »* — et propose de les effacer ; elle n'emploie aucun des avis d'absence ci-dessus, qui affirmeraient qu'aucun lieu n'existe. Un lieu dont l'état n'est pas connu — non chargé, en échec, sans donnée, sans département — n'est jamais masqué par un critère qui porte sur cet état.
+- **Vigilance crues (T4).** Un cours d'eau sans trait de couleur n'est pas suivi par Vigicrues : ce n'est pas une absence de risque. Tant que la carte de vigilance n'est pas lue — chargement, panne, réponse illisible — aucun trait n'est dessiné, jamais un trait vert par défaut, et l'avis le dit : *« Lecture de la vigilance publiée par Vigicrues… Aucun tronçon n'est affiché tant qu'elle n'est pas lue. »* pendant le chargement, *« … Aucun tronçon n'est affiché : cela ne dit rien du risque de crue. »* en échec. Un secteur sans tronçon l'écrit : *« Aucun cours d'eau suivi par Vigicrues dans le secteur affiché. Cela ne dit rien du risque de crue : sur cette carte, Vigicrues ne suit que certains cours d'eau de métropole et de Corse. »* — sauf si des tronçons ont été écartés comme illisibles : leur compte est dit à la place.
 
 ## Révision du 2026-09-18
 
@@ -53,6 +54,6 @@ Test de contenu : aucune occurrence de « rien à signaler », « tout va bien �
 
 ## Liens
 
-- Use cases : `UC-001`, `UC-002`, `UC-005`, `UC-007`
-- ADR liés : `ADR-007`
+- Use cases : `UC-001`, `UC-002`, `UC-005`, `UC-007`, `UC-009`
+- ADR liés : `ADR-007`, `ADR-016`
 - Voir aussi : `BR-004`, `BR-014`

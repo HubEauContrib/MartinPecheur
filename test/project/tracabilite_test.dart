@@ -50,6 +50,7 @@ const List<String> _brAttendues = <String>[
   'BR-012',
   'BR-013',
   'BR-014',
+  'BR-015',
 ];
 
 /// Les UC réellement présents sous `docs/use-cases/` (hors template).
@@ -357,7 +358,7 @@ void main() {
     expect(contenu.contains('État'), isTrue);
   });
 
-  group('Chaque BR-001 à BR-014 apparaît au moins une fois', () {
+  group('Chaque BR-001 à BR-015 apparaît au moins une fois', () {
     for (final String br in _brAttendues) {
       test('$br est cité dans la matrice', () {
         expect(

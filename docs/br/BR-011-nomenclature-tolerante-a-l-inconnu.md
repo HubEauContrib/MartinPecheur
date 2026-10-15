@@ -1,14 +1,16 @@
 # BR-011 — Toute nomenclature tolère une valeur inconnue
 
-- **Statut :** Accepté
+- **Statut :** Accepté · **amendé le 2026-10-14 (T4, vigilance crues)**
 - **Date :** 2026-07-30
-- **Contexte borné :** Referentiel · Hydrometrie · Ecoulement · Restrictions
+- **Contexte borné :** Referentiel · Hydrometrie · Ecoulement · Restrictions · Crues
 
 ## Règle
 
 > Toute valeur de nomenclature reçue d'une API et non reconnue est traduite en
 > **« non renseigné »** et affichée comme telle. Elle ne provoque jamais d'erreur,
 > et n'est jamais silencieusement assimilée à une valeur connue.
+>
+> Pour la vigilance crues, la valeur non reconnue s'affiche « Niveau non reconnu » (étiquette) et « Niveau de vigilance non reconnu » (fiche), au lieu de « non renseigné » : le niveau a bien été publié, l'application ne sait pas le lire.
 
 ## Justification
 
@@ -20,6 +22,7 @@ Les nomenclatures publiées ne correspondent pas à ce que les APIs renvoient r�
 | Type de campagne ONDE | `Usuelle`, `Complémentaire` | **`usuelle`, `complémentaire`** en minuscules |
 | `code_ecoulement` | Attendu numérique | **Chaînes** : `"1a"`, `"1f"` |
 | Niveaux VigiEau | `vigilance` attendu | ~~**Non observé** dans l'échantillon du 2026-07-30 — existence non vérifiée~~ **Observé le 2026-09-27** (Paris, `zones_paris_vigilance_2026-09-27.json`, et `/departements`) ; `alerte_renforcee` n'est observé que dans `/departements`, aucune réponse `/zones` ne le porte (`docs/sources/vigieau.md`, `VG-04`) |
+| Niveau Vigicrues (`NivInfViCr`) | Nomenclature Sandre 837, `1` à `4` | Seul `1` observé le 2026-10-14 ; toute autre valeur, absente ou nulle, devient `NiveauCruesInconnu` |
 
 Ces sources sont publiques, sans SLA, et évoluent sans préavis. Un `switch` exhaustif qui lève sur une valeur inconnue rendrait l'application inutilisable le jour où l'OFB ajoute une modalité.
 
@@ -31,6 +34,7 @@ Ces sources sont publiques, sans SLA, et évoluent sans préavis. Un `switch` ex
 - Ne participe pas au classement de sévérité (`BR-009`).
 - S'applique aussi aux **champs supplémentaires** : une réponse contenant des champs inconnus est désérialisée sans échec.
 - Ne s'applique **pas** aux ruptures structurelles : un changement de forme de réponse VigiEau ~~déclenche le repli de `ADR-004`~~ rend une `ReponseIllisible` — racine qui n'est pas un tableau, élément qui n'est pas un objet, champ obligatoire absent ou mal typé (nom de zone, arrêté, date de début de validité, usages, et pour chaque usage son nom, sa thématique, sa description et les quatre booléens `concerne*`) —, **pour toute la réponse** (« tout ou rien », AR-2 du 2026-09-27) : aucune zone lisible n'est affichée à côté d'une zone perdue. Ce n'est jamais une valeur « non renseigné ». Le repli data.gouv d'`ADR-004` est **différé** (Q3-B, 2026-09-27) : l'écran nomme l'échec et renvoie au site public. Un booléen manquant ne se remplace par aucune valeur : `false` cacherait une restriction à un profil concerné, `true` en attribuerait une à un profil non visé.
+- Pour Vigicrues, une carte de vigilance dont la racine n'est pas une `FeatureCollection`, sans `features`, ou sans date lisible, est illisible **pour toute la réponse** ; une entité sans code, sans nom, sans code de territoire ou sans tracé lisible est **écartée et comptée**, entité par entité, et l'avis dit le compte.
 
 ## Vérifiable par
 
@@ -38,7 +42,7 @@ Test unitaire par nomenclature : une valeur hors énumération renvoie `Inconnu`
 
 ## Liens
 
-- Use cases : tous
-- ADR liés : `ADR-001`, `ADR-004`, `ADR-006`
+- Use cases : tous, `UC-009`
+- ADR liés : `ADR-001`, `ADR-004`, `ADR-006`, `ADR-016`
 - Contraintes d'API : `C-10`, `C-11`
 - Voir aussi : `BR-006`, `BR-007`

@@ -1,8 +1,8 @@
 # BR-014 — Aucun verbe d'instruction sur un usage de l'eau
 
-- **Statut :** Accepté
+- **Statut :** Accepté · **amendé le 2026-10-14 (T4, vigilance crues)**
 - **Date :** 2026-07-30
-- **Contexte borné :** Avertissement · Restrictions · Hydrometrie
+- **Contexte borné :** Avertissement · Restrictions · Hydrometrie · Crues
 
 ## Règle
 
@@ -30,6 +30,7 @@ Le risque est symétrique et les deux versants comptent : « baignade possible �
 - Les libellés de restriction **repris de VigiEau** sont cités tels quels (« Interdiction de 10h à 18h ») : ce sont les mots du préfet, présentés comme tels et attribués. Ce n'est pas l'application qui prescrit.
 - S'applique à l'interface, aux textes de partage et à la description sur les magasins d'applications.
 - Vouvoiement systématique : le public inclut des élus, des exploitants et des administrations.
+- Les légendes et explications des niveaux de vigilance **reprises de Vigicrues** sont citées telles quelles et attribuées à Vigicrues — entre guillemets et suivies de « — Vigicrues » dans la fiche d'un tronçon ; dans la légende de la carte, la ligne « © VIGICRUES » qui la clôt les attribue. Elles ont été relevées le 2026-10-14 (`docs/sources/vigicrues.md`, `VC-13`). Ce n'est pas l'application qui qualifie le risque.
 
 ## Vérifiable par
 
@@ -37,6 +38,6 @@ Test de contenu sur les ressources de localisation : aucune occurrence des tourn
 
 ## Liens
 
-- Use cases : `UC-002`, `UC-003`
-- ADR liés : `ADR-002`, `ADR-004`, `ADR-007`
+- Use cases : `UC-002`, `UC-003`, `UC-009`
+- ADR liés : `ADR-002`, `ADR-004`, `ADR-007`, `ADR-016`
 - Voir aussi : `BR-003`, `BR-007`, `BR-013`
