@@ -87,6 +87,13 @@ const List<String> _usMustAttendues = <String>[
 /// pas livrées : la matrice ne les suit pas.
 const List<String> _usShouldLivreesEnT3 = <String>['US-13', 'US-14'];
 
+/// Les trois lignes que T4 livre (`Task X1` du plan T4) : la user story
+/// **Should** `US-21`, la règle `BR-015` et le cas d'usage `UC-009`. Elles
+/// portaient 🔄 T4, sans fichier de test ; elles portent ✅ T4 et citent des
+/// fichiers qui existent. Aucun constat d'écran de T4 n'est consigné : la
+/// marque ✅ dit « vérifié par test », jamais « vu à l'écran ».
+const List<String> _lignesLivreesEnT4 = <String>['US-21', 'BR-015', 'UC-009'];
+
 /// Les cinq lignes dont T2 livre la couverture (`Task X2` du plan T2) :
 /// l'écran des restrictions (US-07, US-08, UC-002) et son encart renforcé
 /// (US-09, BR-013). Elles portaient 🔄 T2, sans fichier de test accepté ; elles
@@ -158,6 +165,41 @@ const String _favoriViewModel =
 const String _favoriEcran =
     'test/features/favorites/view/favorites_screen_test.dart';
 const String _racine = 'test/main_test.dart';
+
+// Fichiers de T4 (`Task X1` du plan T4), chemins relevés dans le dépôt.
+const String _crueNiveauDomaine =
+    'test/domain/floods/flood_vigilance_level_test.dart';
+const String _crueTronconDomaine = 'test/domain/floods/flood_section_test.dart';
+const String _crueCarteDomaine =
+    'test/domain/floods/flood_vigilance_map_test.dart';
+const String _crueReglesTroncon =
+    'test/domain/floods/flood_section_rules_test.dart';
+const String _crueDefinitions =
+    'test/domain/floods/published_flood_definitions_test.dart';
+const String _crueMapper = 'test/data/floods/flood_vigilance_mapper_test.dart';
+const String _crueSource =
+    'test/data/floods/vigicrues_flood_vigilance_source_test.dart';
+const String _crueCache =
+    'test/data/floods/cached_flood_vigilance_source_test.dart';
+const String _crueConfinement =
+    'test/data/floods/flood_vocabulary_confinement_test.dart';
+const String _crueViewModelCarte =
+    'test/features/map/view_model/flood_layer_view_model_test.dart';
+const String _crueCalque =
+    'test/features/map/view/flood_sections_layer_test.dart';
+const String _crueEtiquette =
+    'test/features/map/view/flood_section_label_test.dart';
+const String _crueCarte = 'test/features/map/view/map_view_flood_test.dart';
+const String _crueLegende = 'test/features/map/view/map_legend_test.dart';
+const String _crueFiche =
+    'test/features/flood_sheet/view/flood_sheet_panel_test.dart';
+const String _crueEncart =
+    'test/features/flood_sheet/view/flood_warning_card_test.dart';
+const String _crueFicheViewModel =
+    'test/features/flood_sheet/view_model/flood_sheet_view_model_test.dart';
+const String _crueJauge = 'test/features/shared/flood_level_gauge_test.dart';
+const String _crueStyle = 'test/features/shared/flood_level_style_test.dart';
+const String _crueTextes = 'test/domain/warnings/warning_texts_test.dart';
 
 /// Les deux lignes que T2 ne livre PAS : la carte hors ligne (`US-10`,
 /// `UC-005`) n'est couverte qu'en partie (le cache de tuiles de `flutter_map`
@@ -251,7 +293,13 @@ const Map<String, List<String>> _citationsExigees = <String, List<String>>{
   ],
   // `BR-009` : les pastilles sous filtre (T3).
   'BR-009': <String>[_filtreViewModel],
-  'BR-011': <String>[_mapperZones, _favoriCodec, _filtrePredicats],
+  'BR-011': <String>[
+    _mapperZones,
+    _favoriCodec,
+    _filtrePredicats,
+    _crueNiveauDomaine,
+    _crueMapper,
+  ],
   'BR-012': <String>[
     'test/features/shared/data_sources_view_test.dart',
     'test/main_test.dart',
@@ -261,6 +309,41 @@ const Map<String, List<String>> _citationsExigees = <String, List<String>>{
     _ecranRestrictions,
     'test/domain/warnings/warning_texts_test.dart',
   ],
+  // T4 : la vigilance crues relayée (`US-21`, `UC-009`, `BR-015`).
+  'US-21': <String>[
+    _crueNiveauDomaine,
+    _crueTronconDomaine,
+    _crueReglesTroncon,
+    _crueDefinitions,
+    _crueConfinement,
+    _crueEtiquette,
+    _crueJauge,
+    _crueStyle,
+    _crueCarteDomaine,
+    _crueMapper,
+    _crueSource,
+    _crueCache,
+    _crueViewModelCarte,
+    _crueCalque,
+    _crueCarte,
+    _crueLegende,
+    _crueFiche,
+    _crueEncart,
+    _crueFicheViewModel,
+    _crueTextes,
+    _racine,
+  ],
+  'UC-009': <String>[
+    _crueMapper,
+    _crueCache,
+    _crueViewModelCarte,
+    _crueCarte,
+    _crueFiche,
+    _crueFicheViewModel,
+    _racine,
+  ],
+  'BR-015': <String>[_crueTextes, _crueEncart, _crueFiche],
+  'BR-001': <String>[_crueMapper, _crueLegende],
 };
 
 /// Repère de ligne de tableau markdown : une cellule non vide entre deux
@@ -470,6 +553,45 @@ void main() {
         );
       });
     }
+  });
+
+  group('Les lignes que T4 livre (Task X1 du plan T4)', () {
+    final List<List<String>> lignes = _lignesDuTableau(contenu);
+
+    for (final String id in _lignesLivreesEnT4) {
+      test('$id porte l\'état ✅ T4, sans 🔄, et cite au moins un fichier '
+          'de test', () {
+        final List<String>? ligne = _ligneDe(lignes, id);
+        expect(ligne, isNotNull, reason: '$id doit avoir une ligne');
+        final String etat = ligne!.last;
+        expect(
+          etat.contains('✅ T4'),
+          isTrue,
+          reason: '$id doit porter l\'état ✅ T4 : "$etat"',
+        );
+        expect(
+          etat.contains('🔄'),
+          isFalse,
+          reason:
+              '$id ne compte aucun 🔄 comme un acquis : une partie non '
+              'livrée s\'écrit en toutes lettres : "$etat"',
+        );
+        expect(
+          _cheminsDart(_celluleFichier(id, ligne)),
+          isNotEmpty,
+          reason: '$id doit citer au moins un fichier de test',
+        );
+      });
+    }
+
+    test('US-21 est rangée dans la section des user stories Should', () {
+      final int should = contenu.indexOf('## User stories Should livrées');
+      final int br = contenu.indexOf('## Règles métier');
+      final int us21 = contenu.indexOf('| US-21 |');
+      expect(should, isNonNegative);
+      expect(us21, greaterThan(should));
+      expect(us21, lessThan(br));
+    });
   });
 
   group('Les lignes que T2 ne livre pas gardent 🔄 (US-10, UC-005)', () {

@@ -16,6 +16,55 @@ observable n'y figure pas.
 Cinquième tranche (T4) : la vigilance crues publiée par Vigicrues, en
 quatrième lecture de la carte. Version ouverte, non publiée.
 
+### Ajouté
+
+- Quatrième lecture de la carte, « Vigilance crues » (`US-21`, `UC-009`) : une troisième puce du
+  sélecteur d'échelle, qui efface les marqueurs et les pastilles des autres échelles (`BR-008`)
+  et trace, pour chaque tronçon de cours d'eau suivi, le **niveau de vigilance publié par
+  Vigicrues** : vert, jaune, orange, rouge, ou « Niveau non reconnu » en gris pointillé quand la
+  valeur publiée est hors de 1 à 4, absente ou nulle (`BR-011`). Teinte, épaisseur et motif
+  portent le niveau, le plus grave étant tracé au-dessus ; une jauge à barres le redit sans la
+  couleur. L'application relaie le niveau publié, elle n'en calcule, n'en déduit ni n'en prévoit
+  aucun, et ne rapproche jamais un débit, une hauteur ou un écoulement d'une crue (`BR-015`).
+  Le sélecteur prend une rangée de plus là où trois puces ne tiennent pas (mesuré en test, en Roboto, non constaté à l'écran : 390 × 844 à 100 %,
+  360 × 640 à 200 %) : ce qui sort de la colonne du haut s'atteint en la faisant défiler.
+- Étiquettes des tronçons, posées selon le zoom : sous le zoom 9, seuls les tronçons non verts et
+  ceux de niveau non reconnu en portent une ; à partir du zoom 9, chaque tronçon dont un segment
+  coupe l'emprise, posée sur le point du trait visible le plus proche du centre. Une étiquette
+  porte la jauge et le nom du niveau, se parcourt au clavier (Entrée ouvre la fiche) et
+  s'annonce « crues : vigilance orange, <nom du tronçon> » ou « crues : niveau non reconnu,
+  <nom du tronçon> ».
+- Légende « Vigilance crues », qui cite les légendes publiées par Vigicrues pour chaque niveau,
+  « Un cours d'eau sans trait de couleur n'est pas suivi par Vigicrues. », puis « Information de
+  vigilance du JJ/MM/AAAA à HH:MM — © VIGICRUES » (`BR-001`). Pendant le premier chargement,
+  elle ne porte ni date ni phrase de couverture.
+- Avis de la lecture, qui ne laissent jamais une panne ou une absence passer pour une absence de
+  risque (`BR-007`) : lecture en cours (« Lecture de la vigilance publiée par Vigicrues… Aucun
+  tronçon n'est affiché tant qu'elle n'est pas lue. »), Vigicrues injoignable, réponse refusée
+  ou illisible (« Réessayer » est alors la seule façon de relancer : un geste sur la carte ne
+  relance rien), entités illisibles écartées et comptées (« 1 tronçon de vigilance non lisible. »
+  ou « N tronçons de vigilance non lisibles. »), secteur sans tronçon suivi (« Aucun cours d'eau
+  suivi par Vigicrues dans le secteur affiché. Cela ne dit rien du risque de crue : … »). Une
+  réponse dont la date de l'information de vigilance est absente ou sans fuseau explicite est
+  illisible pour toute la réponse : aucun trait n'est tracé (`BR-001`).
+- Fiche du tronçon, ouverte en touchant un trait ou une étiquette (le tronçon dessiné le plus haut
+  quand deux traits se superposent) : « Tronçon Vigicrues » et le nom publié, l'encart « CE N'EST
+  PAS UN SYSTÈME D'ALERTE » (non repliable, annoncé en priorité au lecteur d'écran, `BR-015`), le
+  niveau, la définition publiée par Vigicrues citée et suivie de « — Vigicrues », la date et
+  « © VIGICRUES », puis « Lire le bulletin sur www.vigicrues.gouv.fr », qui ouvre le bulletin
+  local du territoire hors de l'application ; si le lien ne s'ouvre pas, son adresse reste
+  affichée, lisible et sélectionnable. Un niveau non reconnu est dit tel quel, sans citation. La
+  fiche se ferme en ouvrant une autre fiche, un favori, en désignant un point ou en quittant la
+  lecture : il n'y a jamais deux fiches ensemble.
+- Contrôle « ⚠ Avertissement » : sur la lecture Crues, sa fenêtre ajoute le texte de crue sous le
+  texte général ; la fiche du tronçon porte le sien. « D'où vient cette donnée ? » nomme Vigicrues.
+- La feuille « Filtres » dit « Aucun filtre ne s'applique à la lecture Vigilance crues. » et n'offre
+  aucun critère ; le bouton « Filtres » ne se montre pas actif sur cette lecture.
+- Vigicrues n'est appelé qu'après la première activation de la lecture, avec un délai de 20
+  secondes par tentative ; la carte lue est gardée 30 minutes pour la session, et passé ce délai
+  l'ancienne vigilance reste tracée avec sa date pendant qu'une nouvelle se charge, sans avis.
+  Rien n'est conservé au-delà de la session.
+
 ## [0.4.0] — 2026-10-14
 
 Quatrième tranche (T3) : les favoris, les filtres de la carte et le critère

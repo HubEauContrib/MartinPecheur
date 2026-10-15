@@ -28,7 +28,7 @@ Fonctionnalité: Consulter la vigilance crues
     Étant donné une carte de vigilance lue avec des tronçons verts, jaunes et de niveau non reconnu dans l'emprise
     Quand le zoom passe de moins de 9 à 9 ou plus
     Alors sous le zoom 9 seuls les tronçons non verts et ceux de niveau non reconnu portent une étiquette
-    Et à partir du zoom 9 chaque tronçon dont un segment coupe l'emprise en porte une, posée sur le point du trait visible le plus proche du centre (BR-015)
+    Et à partir du zoom 9 chaque tronçon dont un segment coupe l'emprise en porte une, posée sur le point du trait visible le plus proche du centre (BR-008)
 
   Scénario: Une étiquette porte la jauge et le nom du niveau, et s'annonce avec son échelle
     Étant donné un tronçon « Blavet » de niveau orange et un tronçon « Scorff » de niveau non reconnu
@@ -46,7 +46,7 @@ Fonctionnalité: Consulter la vigilance crues
     Étant donné une fiche de station ouverte et une carte de vigilance lue
     Quand l'usager touche un trait, une étiquette, ou appuie sur Entrée sur une étiquette
     Alors la fiche de la station se ferme et la fiche du tronçon s'ouvre
-    Et si deux traits se superposent, la fiche est celle du tronçon dessiné le plus haut (BR-015)
+    Et si deux traits se superposent, la fiche est celle du tronçon dessiné le plus haut (BR-008)
 
   Scénario: Ouvrir une autre fiche ou quitter la lecture ferme la fiche du tronçon
     Étant donné la fiche d'un tronçon ouverte
@@ -60,9 +60,9 @@ Fonctionnalité: Consulter la vigilance crues
     Et sa fenêtre « ⚠ Avertissement » porte « Ce n'est pas un système d'alerte. Cette application reprend la vigilance publiée par Vigicrues, à la date indiquée ; elle ne remplace ni le bulletin de Vigicrues, ni les consignes des autorités et des secours. » (BR-015, BR-014)
 
   Scénario: Le lien du bulletin s'ouvre, ou son adresse reste lisible
-    Étant donné la fiche d'un tronçon dont le territoire a pour code « 12 »
+    Étant donné la fiche d'un tronçon (cas construit) dont le territoire a pour code « 12 »
     Quand l'usager active « Lire le bulletin sur www.vigicrues.gouv.fr »
-    Alors l'adresse ouverte est celle du bulletin local de ce territoire
+    Alors l'adresse ouverte est « https://www.vigicrues.gouv.fr/bulletin_local/12 »
     Et si le lien ne s'ouvre pas, « Ce lien n'a pas pu être ouvert depuis l'application. Son adresse reste affichée ci-dessus. » s'affiche, l'adresse restant lisible et sélectionnable (BR-007)
 
   Scénario: Un niveau non reconnu est tracé en gris pointillé et dit tel quel
@@ -88,12 +88,12 @@ Fonctionnalité: Consulter la vigilance crues
     Alors elle est illisible pour toute la réponse : aucun trait n'est tracé, et l'avis « La vigilance publiée par Vigicrues n'a pas pu être lue. Aucun tronçon n'est affiché : cela ne dit rien du risque de crue. » s'affiche (BR-001, BR-011)
 
   Scénario: Des entités illisibles sont écartées et comptées
-    Étant donné une carte de vigilance dont une entité n'a pas de nom et une autre pas de tracé lisible, les autres étant valides
+    Étant donné une carte de vigilance dont une entité n'a pas de nom et une autre pas de tracé lisible, les autres étant valides, et aucun tronçon lisible ne touchant l'emprise affichée
     Quand la carte est affichée
     Alors les entités valides restent tracées, et l'avis « 2 tronçons de vigilance non lisibles. » remplace l'avis du secteur sans tronçon (BR-011, BR-007)
 
   Scénario: Un secteur sans tronçon le dit sans rien affirmer du risque
-    Étant donné une carte de vigilance lue, sans entité écartée, dont aucun tronçon ne touche l'emprise affichée
+    Étant donné une carte de vigilance lue, sans entité écartée, dont aucun tronçon lisible ne touche l'emprise affichée
     Quand la carte est affichée
     Alors l'avis est « Aucun cours d'eau suivi par Vigicrues dans le secteur affiché. Cela ne dit rien du risque de crue : sur cette carte, Vigicrues ne suit que certains cours d'eau de métropole et de Corse. » (BR-007)
 

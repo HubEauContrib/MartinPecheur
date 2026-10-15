@@ -3,7 +3,7 @@
 Spec vivante du projet. Tout vit dans **ce dépôt** : code et spec évoluent dans le même commit.
 
 MartinPêcheur informe les usagers d'une rivière française sur son état — écoulement, débit,
-sécheresse — à partir des APIs publiques Hub'Eau et VigiEau. Application **Flutter — Windows en première cible**, iOS configuré (jamais compilé), Android actif en débogage, sa publication différée (amendement d'`ADR-013`) —
+sécheresse — à partir des APIs publiques Hub'Eau et VigiEau, et de la vigilance crues publiée par Vigicrues. Application **Flutter — Windows en première cible**, iOS configuré (jamais compilé), Android actif en débogage, sa publication différée (amendement d'`ADR-013`) —
 **sans backend, sans compte utilisateur**.
 
 > 📍 **Où commencer** — [`project-state.md`](project-state.md) est la **source de vérité des
@@ -91,6 +91,7 @@ de ses arbitrages ; le plan correspondant est ci-dessus.
 | [ADR-013](adr/ADR-013-bascule-flutter-cible-windows.md) | **Bascule Flutter, Windows première cible** construite | Accepté — arbitrage du 2026-09-12, écrit a posteriori le 2026-09-13 |
 | [ADR-014](adr/ADR-014-feature-first-mvvm.md) | **Feature-first + MVVM** (`ChangeNotifier`), à la place du CQRS léger | Accepté — arbitrage du commanditaire du 2026-09-13 |
 | [ADR-015](adr/ADR-015-regroupement-par-zone-administrative.md) | **Regroupement par zone administrative** sous le zoom 9 (région, puis département), `F2c` au-delà | Accepté — arbitrage du commanditaire du 2026-09-22 |
+| [ADR-016](adr/ADR-016-integration-vigicrues.md) | **Intégrer Vigicrues derrière une abstraction** (`FloodVigilanceSource`), GeoJSON national mis en cache | Accepté ⚠️ — **en partie arbitré le 2026-10-14** (1, 6, 10, 12) ; les choix d'architecture `R1` à `R5` sont tranchés par défaut |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».

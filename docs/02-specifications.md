@@ -109,7 +109,7 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 | US-14 | P1, P3 | J'enregistre des **favoris** et les retrouve en liste · ✅ **Codé en T3** ([`UC-008`](use-cases/UC-008-suivre-un-lieu-en-favori.md), [`favoris.feature`](acceptance/favoris.feature)), vérifié par test, **non constaté à l'écran** (la porte de T3 est due). Une station hydrométrique ou un point ONDE, par l'étoile de sa fiche ; la liste ne montre que l'identité du lieu, **aucune mesure** ; ouvrir un favori ouvre sa fiche, la carte ne bouge pas (arbitrage 6) ; stockage local, sans compte ([`ADR-011`](adr/ADR-011-stockage-local.md), amendé le 2026-10-12) |
 | US-15 | P3 | Je consulte l'**historique des campagnes** d'un point ONDE |
 | US-16 | Tous | Je recherche une **station ou un cours d'eau** par son nom · 🔄 **Tranche ultérieure, non nommée** (arbitrage 1 du 2026-10-12, T3 « le titre seul ») |
-| US-21 | Tous | Je lis sur la carte et dans la fiche d'un tronçon le **niveau de vigilance crues** publié par Vigicrues, daté et attribué · 🔄 **T4** ([UC-009](use-cases/UC-009-consulter-la-vigilance-crues.md), [crues.feature](acceptance/crues.feature)). L'application relaie, elle ne calcule aucun niveau ([BR-015](br/BR-015-relayer-la-vigilance-crues-ne-rien-predire.md)) |
+| US-21 | Tous | Je lis sur la carte et dans la fiche d'un tronçon le **niveau de vigilance crues** publié par Vigicrues, daté et attribué · ✅ **Codé en T4** ([UC-009](use-cases/UC-009-consulter-la-vigilance-crues.md), [crues.feature](acceptance/crues.feature)), vérifié par test, **non constaté à l'écran** (la porte de T4 est due). L'application relaie, elle ne calcule aucun niveau ([BR-015](br/BR-015-relayer-la-vigilance-crues-ne-rien-predire.md)) |
 
 ### Could
 

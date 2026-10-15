@@ -731,7 +731,7 @@ void main() {
           'en quatrième lecture de la carte. Version ouverte, non publiée.',
         ),
       );
-      expect(chapeau, isNot(contains('### Ajouté')));
+      expect(chapeau, contains('### Ajouté'));
     });
   });
 }
