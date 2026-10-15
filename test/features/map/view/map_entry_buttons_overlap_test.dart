@@ -12,8 +12,9 @@
 // s'arrête au-dessus de la colonne du bas PAR CONSTRUCTION), ni le bouton de
 // désignation et son indice (mode « Restrictions » allumé), ni l'attribution
 // IGN, ni un panneau de fiche (station, puis ONDE, de 320 px). Configurations
-// bloquantes : 800 × 740 sous Windows, 360 × 640 sous Android, sur les deux
-// échelles.
+// bloquantes : 800 × 740 sous Windows, 360 × 640 sous Android, sur les trois
+// échelles — la lecture Crues, légende « Vigilance crues » datée, depuis `K1`
+// de T4 (2026-10-15).
 //
 // CE QU'ILS CONSTATENT (« CONSTAT — ») : ce que la légende a désormais à
 // faire défiler AU REPOS, sa boîte dépassant de sa fenêtre. Arbitrage du
@@ -38,6 +39,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_map.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_source.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
@@ -58,7 +63,9 @@ import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 
@@ -73,13 +80,32 @@ const Size _bureau = Size(800, 740);
 const Size _telephone = Size(360, 640);
 const Size _telephoneCouche = Size(640, 360);
 
-/// Les échelles dont ce fichier mesure les recouvrements : l'écoulement et le
-/// débit, restreintes explicitement le 2026-10-15 (`L1` de T4). La lecture
-/// Crues (troisième puce, légende encore vide) y entre avec `K1`.
-const List<MapScaleKind> _echellesMesurees = <MapScaleKind>[
-  MapScaleKind.ecoulement,
-  MapScaleKind.debit,
-];
+/// Double de la source Vigicrues (`K1` de T4) : rend tout de suite une carte
+/// de vigilance lue, datée — la légende « Vigilance crues » est alors la plus
+/// haute des trois légendes —, d'un seul tronçon « Vert » qui traverse le
+/// centre de la caméra : un tronçon touche l'emprise (aucun avis « secteur sans
+/// tronçon ») et aucune étiquette n'est posée sous le niveau individuel.
+final class _VigilanceLue implements FloodVigilanceSource {
+  @override
+  Future<FloodVigilanceMap> current() async => FloodVigilanceMap(
+    informationDate: DateTime.utc(2026, 10, 14, 13, 55, 31),
+    sections: <FloodSection>[
+      FloodSection(
+        code: FloodSectionCode('V1'),
+        name: 'Tronçon V1',
+        territoryCode: '8',
+        level: const Vert(),
+        lines: <List<GeoPoint>>[
+          <GeoPoint>[
+            GeoPoint(latitude: initialMapCenterLatitude, longitude: -6),
+            GeoPoint(latitude: initialMapCenterLatitude, longitude: 10),
+          ],
+        ],
+      ),
+    ],
+    skippedEntities: 0,
+  );
+}
 
 /// Le panneau de fiche injecté dans [MapView] : aucun, celui d'une station,
 /// celui d'un point ONDE.
@@ -294,6 +320,11 @@ bool _recoupe(Rect a, Rect b) =>
 /// [scale] affichée, la fiche [fiche] injectée, « Favoris » branché (sur
 /// [onOpenFavorites] s'il est fourni). La carte porte une station et un point
 /// ONDE : aucun avis.
+///
+/// Sur la lecture Crues (`K1` de T4), la lecture est branchée comme dans
+/// `main.dart` — `FloodLayerViewModel` sur [_VigilanceLue], fiche tronçon
+/// fermée — et activée par la puce « Vigilance crues » : la carte de
+/// vigilance est lue, la légende datée, aucun avis de la lecture.
 Future<_Mesure> _monter(
   WidgetTester tester,
   Size size, {
@@ -310,6 +341,14 @@ Future<_Mesure> _monter(
     onde: _Onde(),
   );
   addTearDown(viewModel.dispose);
+  final FloodLayerViewModel? crues = switch (scale) {
+    MapScaleKind.ecoulement => null,
+    MapScaleKind.debit => null,
+    MapScaleKind.crues => FloodLayerViewModel(source: _VigilanceLue()),
+  };
+  if (crues != null) {
+    addTearDown(crues.dispose);
+  }
 
   Widget panneau(Key key) => Container(
     key: key,
@@ -331,16 +370,46 @@ Future<_Mesure> _monter(
             : null,
         onOndeTap: fiche == _Fiche.onde ? (OndePoint _) {} : null,
         ondeSheet: fiche == _Fiche.onde ? panneau(_ficheOndeKey) : null,
+        floodLayer: crues,
+        onFloodSectionTap: crues == null
+            ? null
+            : (FloodSection _, DateTime _) {},
+        floodSheet: crues == null ? null : const SizedBox.shrink(),
       ),
     ),
   );
   await tester.pumpAndSettle();
-  viewModel.selectScale(scale);
+  if (crues == null) {
+    viewModel.selectScale(scale);
+  } else {
+    // Le rappel de la puce, celui qu'un toucher appelle : il active la
+    // lecture et lui donne l'emprise de la caméra. Pas le toucher lui-même :
+    // à 640 × 360, une fiche de 320 px recouvre la puce.
+    tester
+        .widget<MapScaleChips>(find.byType(MapScaleChips))
+        .onSelect(MapScaleKind.crues);
+    await tester.pumpAndSettle();
+    expect(crues.state, isA<LectureCruesPrete>());
+    expect(crues.anySectionInBounds, isTrue);
+    expect(find.text(floodCoverageText), findsOneWidget);
+  }
   viewModel.toggleDesignationMode();
   await tester.pumpAndSettle();
 
   expect(viewModel.scale, scale);
   expect(viewModel.designationMode, isTrue);
+  for (final String avis in <String>[
+    floodLoadingText,
+    floodUnavailableText,
+    floodUnreadableText,
+    noFloodSectionInAreaText,
+  ]) {
+    expect(
+      find.text(avis),
+      findsNothing,
+      reason: 'un avis de la lecture Crues déplacerait la légende',
+    );
+  }
   for (final Type avis in <Type>[
     NoDataInAreaNotice,
     NoStationInAreaNotice,
@@ -447,7 +516,7 @@ void main() {
   // Bloquant : 800 × 740 sous Windows, 360 × 640 sous Android
   // ---------------------------------------------------------------------
   for (final _Fiche fiche in _Fiche.values) {
-    for (final MapScaleKind scale in _echellesMesurees) {
+    for (final MapScaleKind scale in MapScaleKind.values) {
       _surWindows(
         '${_nom(_bureau, scale, fiche)} (Roboto pour Segoe UI), EN MODE : les '
         'cinq boutons ne recoupent ni la légende visible, ni le bouton de '
@@ -551,9 +620,13 @@ void main() {
     (_bureau, MapScaleKind.debit) => 0,
     (_telephone, MapScaleKind.ecoulement) => 17,
     (_telephone, MapScaleKind.debit) => 99,
+    // `K1` de T4 (2026-10-15) : la légende « Vigilance crues » datée, la plus
+    // haute des trois légendes.
+    (_bureau, MapScaleKind.crues) => 0,
+    (_telephone, MapScaleKind.crues) => 142,
     _ => throw StateError('cas non mesuré'),
   };
-  for (final MapScaleKind scale in _echellesMesurees) {
+  for (final MapScaleKind scale in MapScaleKind.values) {
     _surWindows(
       'CONSTAT — ${_nom(_bureau, scale, _Fiche.aucune)} (Roboto pour Segoe '
       'UI), EN MODE : la légende a à défiler de '
@@ -596,7 +669,7 @@ void main() {
   // 640 × 360 : mesuré, pas exigé
   // ---------------------------------------------------------------------
   for (final _Fiche fiche in _Fiche.values) {
-    for (final MapScaleKind scale in _echellesMesurees) {
+    for (final MapScaleKind scale in MapScaleKind.values) {
       _surAndroid(
         '640 × 360, mesure : ${_nom(_telephoneCouche, scale, fiche)}, EN MODE',
         (WidgetTester tester) async {
@@ -625,7 +698,8 @@ void main() {
   // la fenêtre de la légende allait de 8 à 100 (F10c) ; elle va maintenant de
   // 8 à 56 : la légende, dont la boîte commence à 64, est entièrement sous le
   // bord de sa fenêtre au repos (173 px à défiler sur l'écoulement, 255 sur le
-  // débit : cas « CONSTAT — 640 × 360, échelle … » ci-dessous).
+  // débit, 298 sur la lecture Crues : cas « CONSTAT — 640 × 360, échelle … »
+  // ci-dessous).
   _surAndroid(
     'CONSTAT — 640 × 360, EN MODE : « Favoris » dépasse de la fenêtre de la '
     'colonne du bas de 12 px par le haut, au repos ; il s’atteint en faisant '
@@ -695,6 +769,8 @@ void main() {
   for (final (MapScaleKind, double) cas in <(MapScaleKind, double)>[
     (MapScaleKind.ecoulement, 173),
     (MapScaleKind.debit, 255),
+    // `K1` de T4 (2026-10-15) : la légende « Vigilance crues » datée.
+    (MapScaleKind.crues, 298),
   ]) {
     _surAndroid(
       'CONSTAT — ${_nom(_telephoneCouche, cas.$1, _Fiche.aucune)}, EN MODE : '

@@ -39,6 +39,8 @@ import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show floodWarningWindowText;
+import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
+import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view/flood_section_label.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
@@ -54,6 +56,7 @@ import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 /// Double de la source Vigicrues : chaque appel attend un `Completer` piloté
@@ -210,6 +213,7 @@ Future<_Harness> _pumpMap(
   Size taille = const Size(800, 700),
   Widget floodSheet = const SizedBox.shrink(),
   ScrollController? sheetScrollController,
+  VoidCallback? onCloseSheets,
 }) async {
   tester.view.physicalSize = taille;
   tester.view.devicePixelRatio = 1;
@@ -233,6 +237,7 @@ Future<_Harness> _pumpMap(
             touchers.add((section: section, date: date)),
         floodSheet: floodSheet,
         sheetScrollController: sheetScrollController,
+        onCloseSheets: onCloseSheets,
       ),
     ),
   );
@@ -683,6 +688,115 @@ void main() {
       expect(h.touchers, hasLength(1));
       expect(h.touchers.single.section.code, FloodSectionCode('J9'));
       expect(h.touchers.single.date, _date);
+    },
+  );
+
+  // `K1` de T4 (2026-10-15) — le parcours au clavier de la lecture Crues, par
+  // la vraie touche (`sendKeyEvent`), sous Windows : Tab atteint les
+  // étiquettes dans l'ordre de `FloodLayerViewModel.labels`, puis la fiche
+  // tronçon ouverte, puis le contrôle « ⚠ Avertissement » de la carte ;
+  // Entrée sur une étiquette ouvre la fiche, Échap la ferme. Le test tient le
+  // rôle de la racine de composition (`main.dart`) : il ouvre la fiche sur le
+  // rappel du toucher et la ferme sur `onCloseSheets`.
+  testWidgetsOnWindows(
+    'K1 de T4 — clavier : Tab parcourt les étiquettes dans l’ordre de labels, '
+    'puis la fiche tronçon, puis « ⚠ Avertissement » ; Entrée ouvre la fiche, '
+    'Échap la ferme',
+    (WidgetTester tester) async {
+      final ValueNotifier<FloodSheetState> fiche =
+          ValueNotifier<FloodSheetState>(const FicheTronconFermee());
+      addTearDown(fiche.dispose);
+      final _Harness h = await _pumpMap(
+        tester,
+        floodSheet: ValueListenableBuilder<FloodSheetState>(
+          valueListenable: fiche,
+          builder: (BuildContext context, FloodSheetState state, Widget? _) =>
+              FloodSheetPanel(
+                state: state,
+                onClose: () => fiche.value = const FicheTronconFermee(),
+                onOpenBulletin: () {},
+              ),
+        ),
+        onCloseSheets: () => fiche.value = const FicheTronconFermee(),
+      );
+      await _choisir(tester, MapScaleKind.crues);
+      h.source.last.complete(_troisTroncons());
+      await tester.pumpAndSettle();
+      // Deux étiquettes : le jaune et l'orange (cas construits) ; le vert
+      // n'en a pas sous le niveau individuel.
+      expect(h.flood.labels, hasLength(2));
+
+      Finder etiquette(FloodLabel label) => find.byWidgetPredicate(
+        (Widget w) =>
+            w is FloodSectionLabel && w.section.code == label.section.code,
+      );
+      Future<void> tab() async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+
+      // Tab parcourt l'écran jusqu'à la première étiquette, puis chacune des
+      // suivantes, dans l'ordre de `labels`.
+      final Finder premiere = etiquette(h.flood.labels.first);
+      for (int i = 0; i < 30 && !focusedWithin(tester, premiere); i++) {
+        await tab();
+      }
+      expect(focusedWithin(tester, premiere), isTrue);
+      for (final FloodLabel label in h.flood.labels.skip(1)) {
+        await tab();
+        expect(
+          focusedWithin(tester, etiquette(label)),
+          isTrue,
+          reason: 'étiquette attendue : ${label.section.code}',
+        );
+      }
+
+      // Entrée sur la dernière étiquette : le rappel du toucher, avec son
+      // tronçon et la date de la carte ; la racine ouvre la fiche.
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(h.touchers, hasLength(1));
+      expect(h.touchers.single.section.code, h.flood.labels.last.section.code);
+      expect(h.touchers.single.date, _date);
+      fiche.value = FicheTronconOuverte(
+        section: h.touchers.single.section,
+        informationDate: h.touchers.single.date,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(floodSheetCloseButtonKey), findsOneWidget);
+
+      // Tab : la fiche, puis — ses arrêts passés — le contrôle de la carte.
+      final Finder panneau = find.byType(FloodSheetPanel);
+      await tab();
+      expect(focusedWithin(tester, panneau), isTrue);
+      int arretsDansLaFiche = 1;
+      while (focusedWithin(tester, panneau) && arretsDansLaFiche < 10) {
+        await tab();
+        if (focusedWithin(tester, panneau)) {
+          arretsDansLaFiche++;
+        }
+      }
+      expect(focusedWithin(tester, panneau), isFalse);
+      final Finder lienCarte = find.byWidgetPredicate(
+        (Widget w) =>
+            w is WarningLink &&
+            find
+                .ancestor(of: find.byWidget(w), matching: panneau)
+                .evaluate()
+                .isEmpty,
+      );
+      expect(lienCarte, findsOneWidget);
+      expect(
+        focusedWithin(tester, lienCarte),
+        isTrue,
+        reason: '$arretsDansLaFiche arrêt(s) de Tab dans la fiche',
+      );
+
+      // Échap ferme la fiche.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(fiche.value, isA<FicheTronconFermee>());
+      expect(find.byKey(floodSheetCloseButtonKey), findsNothing);
     },
   );
 }

@@ -560,63 +560,63 @@ void main() {
     }
   });
 
-  group('MapFilterSheet — les deux échelles à critères', () {
-    // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — la
-    // lecture Crues n'offre ni « Appliquer » ni « Effacer » (groupe
-    // « vigilance crues » plus haut) ; `K1` reprend les boucles de la feuille.
-    for (final MapScaleKind scale in const <MapScaleKind>[
-      MapScaleKind.ecoulement,
-      MapScaleKind.debit,
-    ]) {
-      testWidgetsOnWindows(
-        '${scale.name} : « Appliquer » sans compteur, aucun mot qui qualifie '
-        'un débit',
-        (WidgetTester tester) async {
-          await _open(
-            tester,
-            scale: scale,
-            initialFilter: const MapFilter(departementCode: '99'),
-          );
+  group('MapFilterSheet — « Appliquer » et « Effacer », par échelle', () {
+    // `K1` de T4 (2026-10-15) : toutes les échelles. La lecture Crues n'offre
+    // ni « Appliquer » ni « Effacer » (`L1` de T4, groupe « vigilance crues »
+    // plus haut) : elle n'a pas de cas « Effacer », et aucun mot n'y qualifie
+    // un débit non plus.
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      final bool offreDesCriteres = _offreDesCriteres(scale);
+      testWidgetsOnWindows('${scale.name} : '
+          '${offreDesCriteres ? '« Appliquer » sans compteur' : 'ni « Appliquer » ni « Effacer »'}'
+          ', aucun mot qui qualifie un débit', (WidgetTester tester) async {
+        await _open(
+          tester,
+          scale: scale,
+          initialFilter: const MapFilter(departementCode: '99'),
+        );
 
-          final List<String> texts = _sheetTexts(tester);
-          expect(texts, contains('Appliquer'));
-          expect(texts, isNotEmpty);
-          for (final String word in forbiddenFlowWords) {
-            final RegExp pattern = RegExp(
-              '(?<!\\p{L})${RegExp.escape(word)}(?!\\p{L})',
-              caseSensitive: false,
-              unicode: true,
+        final List<String> texts = _sheetTexts(tester);
+        expect(texts.contains('Appliquer'), offreDesCriteres);
+        expect(texts.contains(mapFilterClearLabel), offreDesCriteres);
+        expect(texts, isNotEmpty);
+        for (final String word in forbiddenFlowWords) {
+          final RegExp pattern = RegExp(
+            '(?<!\\p{L})${RegExp.escape(word)}(?!\\p{L})',
+            caseSensitive: false,
+            unicode: true,
+          );
+          for (final String text in texts) {
+            expect(
+              pattern.hasMatch(text),
+              isFalse,
+              reason: '« $text » contient « $word »',
             );
-            for (final String text in texts) {
-              expect(
-                pattern.hasMatch(text),
-                isFalse,
-                reason: '« $text » contient « $word »',
-              );
-            }
           }
-        },
-      );
+        }
+      });
 
-      testWidgetsOnWindows(
-        '${scale.name} : « Effacer » applique MapFilter.none une fois et ferme',
-        (WidgetTester tester) async {
-          final List<MapFilter> applied = await _open(
-            tester,
-            scale: scale,
-            initialFilter: const MapFilter(
-              assec: false,
-              departementCode: '41',
-              dischargeFreshness: DischargeFreshnessCriterion.moinsDe2h,
-            ),
-          );
+      if (offreDesCriteres) {
+        testWidgetsOnWindows(
+          '${scale.name} : « Effacer » applique MapFilter.none une fois et ferme',
+          (WidgetTester tester) async {
+            final List<MapFilter> applied = await _open(
+              tester,
+              scale: scale,
+              initialFilter: const MapFilter(
+                assec: false,
+                departementCode: '41',
+                dischargeFreshness: DischargeFreshnessCriterion.moinsDe2h,
+              ),
+            );
 
-          await _tap(tester, find.byKey(mapFilterClearKey));
+            await _tap(tester, find.byKey(mapFilterClearKey));
 
-          expect(applied, const <MapFilter>[MapFilter.none]);
-          expect(find.byKey(mapFilterSheetKey), findsNothing);
-        },
-      );
+            expect(applied, const <MapFilter>[MapFilter.none]);
+            expect(find.byKey(mapFilterSheetKey), findsNothing);
+          },
+        );
+      }
     }
   });
 
@@ -809,19 +809,23 @@ void main() {
   });
 
   group('MapFilterSheet — cibles', () {
-    // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — les
-    // cibles mesurées sont des critères et « Appliquer »/« Effacer », absents
-    // de la lecture Crues ; `K1` reprend les boucles de la feuille.
-    for (final MapScaleKind scale in const <MapScaleKind>[
-      MapScaleKind.ecoulement,
-      MapScaleKind.debit,
-    ]) {
+    // `K1` de T4 (2026-10-15) : toutes les échelles. Sur la lecture Crues, la
+    // feuille n'a qu'un contrôle, « Fermer » (`L1` de T4) : c'est lui qui est
+    // mesuré.
+    for (final MapScaleKind scale in MapScaleKind.values) {
       testWidgetsOnWindows('${scale.name} : chaque contrôle fait au moins 44 '
           'de haut', (WidgetTester tester) async {
         await _open(tester, scale: scale);
 
         final List<Finder> all = _targets(scale);
-        expect(all, hasLength(scale == MapScaleKind.ecoulement ? 10 : 7));
+        expect(
+          all,
+          hasLength(switch (scale) {
+            MapScaleKind.ecoulement => 10,
+            MapScaleKind.debit => 7,
+            MapScaleKind.crues => 1,
+          }),
+        );
         for (final Finder target in all) {
           expect(target, findsOneWidget);
           expect(
@@ -1244,17 +1248,16 @@ void main() {
   });
 
   group('MapFilterSheet — téléphone', () {
-    // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — le
-    // cas mesure les libellés des critères et atteint « Appliquer », absents
-    // de la lecture Crues ; `K1` reprend les boucles de la feuille.
-    for (final MapScaleKind scale in const <MapScaleKind>[
-      MapScaleKind.ecoulement,
-      MapScaleKind.debit,
-    ]) {
+    // `K1` de T4 (2026-10-15) : toutes les échelles. Sur la lecture Crues, le
+    // libellé mesuré est la phrase « Aucun filtre ne s'applique… » et l'action
+    // atteinte est « Fermer », la seule de la feuille (`L1` de T4).
+    for (final MapScaleKind scale in MapScaleKind.values) {
+      final bool offreDesCriteres = _offreDesCriteres(scale);
       testWidgetsOnAndroid(
         'Android : ${scale.name}, 360 × 640, texte à 200 % — aucune '
-        'exception de débordement, « Appliquer » atteint par défilement, '
-        'aucune troncature posée sur les libellés',
+        'exception de débordement, '
+        '${offreDesCriteres ? '« Appliquer » atteint par défilement' : '« Fermer » atteint et ferme sans rien appliquer'}'
+        ', aucune troncature posée sur les libellés',
         (WidgetTester tester) async {
           _phone(tester);
           final List<MapFilter> applied = await _open(
@@ -1264,15 +1267,18 @@ void main() {
           );
           expect(tester.takeException(), isNull);
 
-          final List<String> labels = <String>[
-            if (scale == MapScaleKind.ecoulement)
+          final List<String> labels = switch (scale) {
+            MapScaleKind.ecoulement => <String>[
               for (final FlowCategory category in filterableFlowCategories)
                 flowCategoryLabel(category),
-            if (scale == MapScaleKind.debit)
+            ],
+            MapScaleKind.debit => <String>[
               for (final DischargeFreshnessCriterion criterion
                   in DischargeFreshnessCriterion.values)
                 dischargeFreshnessCriterionLabel(criterion),
-          ];
+            ],
+            MapScaleKind.crues => <String>[mapFilterFloodNoCriterionText],
+          };
           for (final String label in labels) {
             final Finder text = find.text(label, skipOffstage: false);
             expect(text, findsOneWidget, reason: label);
@@ -1290,15 +1296,31 @@ void main() {
             expect(paragraph.maxLines, isNull, reason: label);
           }
 
-          // « Appliquer » est sous le pli : le défilement l'amène.
-          final Finder apply = find.byKey(mapFilterApplyKey);
-          expect(
-            tester.getRect(apply).top,
-            greaterThan(tester.view.physicalSize.height - 48),
-          );
-          await _tap(tester, apply);
-          expect(tester.takeException(), isNull);
-          expect(applied, const <MapFilter>[MapFilter.none]);
+          if (offreDesCriteres) {
+            // « Appliquer » est sous le pli : le défilement l'amène.
+            final Finder apply = find.byKey(mapFilterApplyKey);
+            expect(
+              tester.getRect(apply).top,
+              greaterThan(tester.view.physicalSize.height - 48),
+            );
+            await _tap(tester, apply);
+            expect(tester.takeException(), isNull);
+            expect(applied, const <MapFilter>[MapFilter.none]);
+          } else {
+            // « Fermer », seule action, est entier dans l'écran sans défiler,
+            // à sa cible de 48 ; il ferme sans rien appliquer.
+            final Finder close = find.byKey(mapFilterCloseKey);
+            final Rect rect = tester.getRect(close);
+            final Rect ecran = Offset.zero & tester.view.physicalSize;
+            expect(ecran.intersect(rect), rect, reason: 'Fermer=$rect');
+            expect(close.hitTestable(), findsOneWidget, reason: 'Fermer=$rect');
+            expect(rect.height, greaterThanOrEqualTo(48), reason: '$rect');
+            await tester.tap(close);
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+            expect(find.byKey(mapFilterSheetKey), findsNothing);
+            expect(applied, isEmpty);
+          }
         },
       );
     }
@@ -1306,16 +1328,34 @@ void main() {
 }
 
 /// Les contrôles de la feuille pour [scale], dans l'ordre de construction.
-List<Finder> _targets(MapScaleKind scale) => <Finder>[
-  find.byKey(mapFilterClearKey, skipOffstage: false),
-  if (scale == MapScaleKind.ecoulement)
+/// `switch` exhaustif (`K1` de T4) : sur la lecture Crues, « Fermer » seul.
+List<Finder> _targets(MapScaleKind scale) => switch (scale) {
+  MapScaleKind.ecoulement => <Finder>[
+    find.byKey(mapFilterClearKey, skipOffstage: false),
     for (final FlowCategory category in filterableFlowCategories)
       find.byKey(mapFilterCategoryKey(category), skipOffstage: false),
-  find.byKey(mapFilterDepartementKey, skipOffstage: false),
-  if (scale == MapScaleKind.debit)
+    find.byKey(mapFilterDepartementKey, skipOffstage: false),
+    find.byKey(mapFilterCloseKey, skipOffstage: false),
+    find.byKey(mapFilterApplyKey, skipOffstage: false),
+  ],
+  MapScaleKind.debit => <Finder>[
+    find.byKey(mapFilterClearKey, skipOffstage: false),
+    find.byKey(mapFilterDepartementKey, skipOffstage: false),
     for (final DischargeFreshnessCriterion criterion
         in DischargeFreshnessCriterion.values)
       find.byKey(mapFilterFreshnessKey(criterion), skipOffstage: false),
-  find.byKey(mapFilterCloseKey, skipOffstage: false),
-  find.byKey(mapFilterApplyKey, skipOffstage: false),
-];
+    find.byKey(mapFilterCloseKey, skipOffstage: false),
+    find.byKey(mapFilterApplyKey, skipOffstage: false),
+  ],
+  MapScaleKind.crues => <Finder>[
+    find.byKey(mapFilterCloseKey, skipOffstage: false),
+  ],
+};
+
+/// L'échelle offre-t-elle des critères, donc « Appliquer » et « Effacer » ?
+/// `switch` exhaustif, jamais une comparaison sur l'échelle (`K1` de T4).
+bool _offreDesCriteres(MapScaleKind scale) => switch (scale) {
+  MapScaleKind.ecoulement => true,
+  MapScaleKind.debit => true,
+  MapScaleKind.crues => false,
+};
