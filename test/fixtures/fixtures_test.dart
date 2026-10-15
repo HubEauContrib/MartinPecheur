@@ -1,7 +1,8 @@
 // Verrouille sur les fixtures réelles (capturées le 2026-09-13, verbatim,
-// voir docs/sources/hubeau-hydrometrie.md et docs/sources/onde.md) les faits
-// que les mappers devront respecter. Un échec ici est un fait nouveau sur
-// l'API, pas un bug de test (CLAUDE.md, Anti-hallucination).
+// voir docs/sources/hubeau-hydrometrie.md et docs/sources/onde.md ; pour
+// Vigicrues, le 2026-10-14, docs/sources/vigicrues.md) les faits que les
+// mappers devront respecter. Un échec ici est un fait nouveau sur l'API,
+// pas un bug de test (CLAUDE.md, Anti-hallucination).
 import 'dart:convert';
 import 'dart:io';
 
@@ -446,6 +447,72 @@ void main() {
                 as String;
         expect(code.length, 10);
       }
+    });
+  });
+
+  group('Vigicrues — InfoVigiCru (VC-03 à VC-05)', () {
+    late Map<String, dynamic> document;
+    late List<Map<String, dynamic>> entites;
+
+    setUpAll(() {
+      document = jsonDecode(
+        File(
+          'test/fixtures/vigicrues/'
+          'infovigicru_extrait_territoire_8_2026-10-14.geojson',
+        ).readAsStringSync(),
+      ) as Map<String, dynamic>;
+      entites = (document['features'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+    });
+
+    test('le document a les six clés de premier niveau, sans membre crs '
+        '(VC-03)', () {
+      expect(document.keys.toSet(), <String>{
+        'type',
+        'name',
+        'bbox',
+        'features',
+        'RefInfoVigiCru',
+        'DtHrInfoVigiCru',
+      });
+    });
+
+    test('DtHrInfoVigiCru porte un décalage horaire explicite (VC-05)', () {
+      final Object? date = document['DtHrInfoVigiCru'];
+      expect(date, isA<String>());
+      expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(date! as String), isTrue);
+    });
+
+    test('NivInfViCr est un entier JSON, jamais une chaîne (VC-04)', () {
+      expect(entites, isNotEmpty);
+      for (final Map<String, dynamic> entite in entites) {
+        final Map<String, dynamic> proprietes =
+            entite['properties'] as Map<String, dynamic>;
+        expect(
+          proprietes['NivInfViCr'],
+          isA<int>(),
+          reason: proprietes['CdEntCru'] as String,
+        );
+      }
+    });
+
+    test('toutes les géométries sont des MultiLineString (VC-03)', () {
+      for (final Map<String, dynamic> entite in entites) {
+        expect(
+          (entite['geometry'] as Map<String, dynamic>)['type'],
+          'MultiLineString',
+        );
+      }
+    });
+
+    test('le flux RSS d’un code de tronçon inconnu rend le message national '
+        '« Pas de vigilance particulière requise », qui se lirait « vert » '
+        '— le piège qui écarte le RSS (VC-12)', () {
+      final String flux = File(
+        'test/fixtures/vigicrues/'
+        'rss_code_inconnu_repli_national_2026-10-14.xml',
+      ).readAsStringSync();
+      expect(flux, contains('Pas de vigilance particulière requise'));
     });
   });
 }
