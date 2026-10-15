@@ -60,13 +60,19 @@
 // qui explique pourquoi le « ? » n'est pas peint sur les 4 150 pastilles.
 
 import 'package:flutter/material.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
+import 'package:martinpecheur/domain/floods/published_flood_definitions.dart';
+import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/station_map_state.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/shared/flood_level_gauge.dart';
+import 'package:martinpecheur/features/shared/flood_level_style.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// Sous-texte permanent de l'indicateur de débit, recopié mot pour mot de
@@ -122,6 +128,24 @@ const double legendMaxWidth = 260;
 /// Taille de texte d'une ligne de légende, en pixels logiques.
 const double _entryFontSize = 12;
 
+/// Les niveaux de la légende Crues, dans l'ordre de lecture : les quatre
+/// niveaux publiés, puis l'aveu d'un niveau non reconnu.
+const List<FloodVigilanceLevel> _floodLevels = <FloodVigilanceLevel>[
+  Vert(),
+  Jaune(),
+  Orange(),
+  Rouge(),
+  NiveauCruesInconnu(null),
+];
+
+const TextStyle _entryStyle = TextStyle(fontSize: _entryFontSize);
+
+/// Phrase de couverture de la légende Crues (cadrage § 7.6) : un cours d'eau
+/// sans trait n'est pas suivi — ce n'est pas un cours d'eau sans crue.
+const String floodCoverageText =
+    "Un cours d'eau sans trait de couleur n'est pas suivi par "
+    '$floodSourceName.';
+
 /// Les états de disponibilité que la carte dessine, dans l'ordre de lecture
 /// — du plus renseigné au moins renseigné — avec leur libellé de légende.
 ///
@@ -164,11 +188,23 @@ const List<FlowCategory> _flowCategories = <FlowCategory>[
 /// La légende de l'échelle active. Toujours visible, jamais repliée
 /// (`BR-008`).
 class MapLegend extends StatelessWidget {
-  const MapLegend({required this.scale, super.key});
+  const MapLegend({
+    required this.scale,
+    this.floodInformationDate,
+    this.utcOffsetOf = systemUtcOffsetOf,
+    super.key,
+  });
 
   /// L'échelle active, lue sur `MapViewModel.scale`. Une seule à la fois :
   /// c'est le type qui l'impose.
   final MapScaleKind scale;
+
+  /// Date de la vigilance lue ; non nulle SEULEMENT quand la lecture Crues est
+  /// prête (arbitrage 9 du cadrage de T4 : ni couverture ni date avant).
+  final DateTime? floodInformationDate;
+
+  /// Décalage horaire injectable, pour qu'un test fixe le fuseau.
+  final UtcOffsetOf utcOffsetOf;
 
   @override
   Widget build(BuildContext context) {
@@ -202,9 +238,7 @@ class MapLegend extends StatelessWidget {
               ...switch (scale) {
                 MapScaleKind.debit => _dischargeRows(),
                 MapScaleKind.ecoulement => _flowRows(),
-                // Provisoire (`L1` de T4, 2026-10-15) — lignes de la légende
-                // Crues : `M3`.
-                MapScaleKind.crues => const <Widget>[],
+                MapScaleKind.crues => _floodRows(),
               },
             ],
           ),
@@ -242,6 +276,31 @@ class MapLegend extends StatelessWidget {
     for (final FlowCategory category in _flowCategories)
       _OndeRow(category: category),
   ];
+
+  List<Widget> _floodRows() {
+    final DateTime? date = floodInformationDate;
+    return <Widget>[
+      for (final FloodVigilanceLevel level in _floodLevels)
+        _FloodRow(level: level),
+      // Une fois la vigilance lue seulement (arbitrage 9, `BR-001`, licence
+      // `VC-09`) : avant, ni couverture ni date ne se disent.
+      if (date != null) ...<Widget>[
+        const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Text(floodCoverageText, style: _entryStyle),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'Information de vigilance du '
+            '${formatLocalDateTime(date, offsetOf: utcOffsetOf)} — '
+            '$floodAttribution',
+            style: _entryStyle,
+          ),
+        ),
+      ],
+    ];
+  }
 }
 
 /// Une ligne de légende dont le symbole est **écrit**. Il n'en reste qu'une :
@@ -365,4 +424,89 @@ class _DotRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Une rangée de la légende Crues : l'échantillon de trait, la jauge de 18 px,
+/// puis la légende publiée du niveau (« Niveau non reconnu » pour l'inconnu).
+class _FloodRow extends StatelessWidget {
+  const _FloodRow({required this.level});
+
+  final FloodVigilanceLevel level;
+
+  @override
+  Widget build(BuildContext context) {
+    final String? published = publishedFloodLegend(level);
+    final String label = published == null
+        ? floodLevelLabel(level)
+        : '${floodLevelLabel(level)} — $published';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          FloodStrokeSample(level: level),
+          const SizedBox(width: 4),
+          FloodLevelGauge(level: level, size: 18),
+          const SizedBox(width: 6),
+          Flexible(child: Text(label, style: _entryStyle)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Échantillon de trait de la légende Crues, 24 × 8 px : la teinte, le contour
+/// noir, le pointillé de l'inconnu, l'épaisseur ramenée à l'échelle de la
+/// rangée (le trait le plus épais, contour compris, tient en 8 px).
+class FloodStrokeSample extends StatelessWidget {
+  const FloodStrokeSample({required this.level, super.key});
+
+  final FloodVigilanceLevel level;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: CustomPaint(
+        size: const Size(24, 8),
+        painter: _FloodStrokePainter(floodLevelStyle(level)),
+      ),
+    );
+  }
+}
+
+class _FloodStrokePainter extends CustomPainter {
+  const _FloodStrokePainter(this.style);
+
+  final FloodLevelStyle style;
+
+  // Le trait le plus épais (7) et son contour de 2 px de chaque côté.
+  static const double _thickest = 7 + 4 * floodContourWidth / 2;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double scale = size.height / _thickest;
+    final double stroke = style.strokeWidth * scale;
+    final double contour = (style.strokeWidth + 2 * floodContourWidth) * scale;
+    final double y = size.height / 2;
+    _line(canvas, size, y, contour, floodContourColor);
+    _line(canvas, size, y, stroke, style.tint);
+  }
+
+  void _line(Canvas canvas, Size size, double y, double width, Color color) {
+    final Paint paint = Paint()
+      ..color = color
+      ..strokeWidth = width
+      ..style = PaintingStyle.stroke;
+    if (!style.dotted) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      return;
+    }
+    for (double x = 0; x < size.width; x += 6) {
+      canvas.drawLine(Offset(x, y), Offset(x + 3, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FloodStrokePainter old) => old.style != style;
 }

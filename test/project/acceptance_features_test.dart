@@ -19,6 +19,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/filters/map_filter.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
+import 'package:martinpecheur/domain/floods/published_flood_definitions.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
@@ -32,6 +34,7 @@ import 'package:martinpecheur/features/map/view/map_empty_states.dart'
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
     show mapFavoritesLabel, mapFiltersActiveLabel, mapFiltersLabel;
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
+import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
@@ -796,6 +799,18 @@ void main() {
     final Map<String, String> libellesCrues = <String, String>{
       'lecture Crues': mapScaleLabel(MapScaleKind.crues),
       'feuille de filtres, lecture Crues': mapFilterFloodNoCriterionText,
+      'légende, couverture': floodCoverageText,
+      for (final FloodVigilanceLevel level in const <FloodVigilanceLevel>[
+        Vert(),
+        Jaune(),
+        Orange(),
+        Rouge(),
+      ])
+        'légende, rangée ${floodLevelLabel(level)}':
+            '${floodLevelLabel(level)} — ${publishedFloodLegend(level)}',
+      'légende, niveau non reconnu': floodLevelLabel(
+        const NiveauCruesInconnu(null),
+      ),
     };
     for (final MapEntry<String, String> libelle in libellesCrues.entries) {
       test('crues.feature cite « ${libelle.value} » (${libelle.key})', () {
