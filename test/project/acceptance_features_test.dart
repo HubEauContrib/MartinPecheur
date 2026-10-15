@@ -30,7 +30,15 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
-    show clearFiltersLabel, filterHidesEverythingText;
+    show
+        clearFiltersLabel,
+        filterHidesEverythingText,
+        floodLoadingText,
+        floodRetryLabel,
+        floodUnavailableText,
+        floodUnreadableSectionsText,
+        floodUnreadableText,
+        noFloodSectionInAreaText;
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
     show mapFavoritesLabel, mapFiltersActiveLabel, mapFiltersLabel;
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
@@ -800,6 +808,11 @@ void main() {
       'lecture Crues': mapScaleLabel(MapScaleKind.crues),
       'feuille de filtres, lecture Crues': mapFilterFloodNoCriterionText,
       'légende, couverture': floodCoverageText,
+      'avis, en cours': floodLoadingText,
+      'avis, refusée ou illisible': floodUnreadableText,
+      'avis, tronçons écartés': floodUnreadableSectionsText(2),
+      'avis, secteur sans tronçon': noFloodSectionInAreaText,
+      'action des avis en échec': floodRetryLabel,
       for (final FloodVigilanceLevel level in const <FloodVigilanceLevel>[
         Vert(),
         Jaune(),
@@ -812,6 +825,11 @@ void main() {
         const NiveauCruesInconnu(null),
       ),
     };
+    // L'avis « injoignable » ne figure que dans la table d'exemples d'un plan
+    // du scénario, sans guillemets : cherché tel quel.
+    test('crues.feature porte l’avis injoignable dans sa table d’exemples', () {
+      expect(crues.contains(floodUnavailableText), isTrue);
+    });
     for (final MapEntry<String, String> libelle in libellesCrues.entries) {
       test('crues.feature cite « ${libelle.value} » (${libelle.key})', () {
         expect(

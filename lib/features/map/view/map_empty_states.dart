@@ -33,7 +33,9 @@
 // qu'il possède au moment où il pose l'erreur, jamais une lecture de message.
 
 import 'package:flutter/material.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_source.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
+import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
@@ -114,6 +116,43 @@ String sourceUnavailableText(String sourceName) =>
 String unreadableRowsText(int count) => count > 1
     ? "$count points d'observation non lisibles sur cette emprise."
     : "$count point d'observation non lisible sur cette emprise.";
+
+/// Lecture Crues, premier chargement en cours (cadrage de T4, § 7.5 et
+/// § 12.2). Aucun trait n'est dessiné tant que la carte n'est pas lue
+/// (`BR-007`).
+const String floodLoadingText =
+    'Lecture de la vigilance publiée par $floodSourceName… Aucun tronçon '
+    "n'est affiché tant qu'elle n'est pas lue.";
+
+/// Lecture Crues, source injoignable (cadrage de T4, § 7.5).
+const String floodUnavailableText =
+    "$floodSourceName n'a pas répondu. Aucun tronçon n'est affiché : cela ne "
+    'dit rien du risque de crue.';
+
+/// Lecture Crues, réponse refusée ou illisible (cadrage de T4, § 7.5).
+const String floodUnreadableText =
+    "La vigilance publiée par $floodSourceName n'a pas pu être lue. Aucun "
+    "tronçon n'est affiché : cela ne dit rien du risque de crue.";
+
+/// Lecture Crues, secteur sans tronçon (cadrage de T4, § 7.5). Dit le
+/// périmètre de la source, jamais un état de l'eau (`BR-007`).
+const String noFloodSectionInAreaText =
+    "Aucun cours d'eau suivi par $floodSourceName dans le secteur affiché. "
+    'Cela ne dit rien du risque de crue : sur cette carte, $floodSourceName '
+    "ne suit que certains cours d'eau de métropole et de Corse.";
+
+/// L'action des avis d'échec de la lecture Crues : le seul geste qui relance
+/// après un échec (arbitrage 10 de T4).
+const String floodRetryLabel = 'Réessayer';
+
+/// Clé de l'action « Réessayer », posée comme [widenSearchKey].
+const Key floodRetryKey = ValueKey<String>('map-reessayer-crues');
+
+/// Combien d'entités de vigilance la source a rendues sans qu'on sache les
+/// lire. Singulier à 0 et 1, comme [unreadableRowsText].
+String floodUnreadableSectionsText(int count) => count > 1
+    ? '$count tronçons de vigilance non lisibles.'
+    : '$count tronçon de vigilance non lisible.';
 
 /// Le nom affichable d'une source défaillante. `switch` exhaustif sur un
 /// `enum` fermé, **avec une branche par défaut** (`BR-011`) : une source
@@ -208,6 +247,58 @@ final class UnreadableRows extends MapNotice {
   /// Le nombre de lignes laissées de côté sur l'emprise courante.
   final int count;
 }
+
+/// Lecture Crues : premier chargement en cours, aucun trait n'est dessiné.
+final class FloodLoading extends MapNotice {
+  const FloodLoading();
+}
+
+/// Lecture Crues : la source n'a pas répondu. Porte « Réessayer ».
+final class FloodUnavailable extends MapNotice {
+  const FloodUnavailable();
+}
+
+/// Lecture Crues : réponse refusée ou illisible. Porte « Réessayer ».
+final class FloodUnreadable extends MapNotice {
+  const FloodUnreadable();
+}
+
+/// Lecture Crues : [count] entités de vigilance écartées. Remplace l'avis
+/// d'absence : leur position est inconnue (`BR-007`).
+final class FloodUnreadableSections extends MapNotice {
+  const FloodUnreadableSections(this.count);
+
+  /// Le nombre d'entités écartées.
+  final int count;
+}
+
+/// Lecture Crues : la carte est lue et aucun tronçon ne touche l'emprise.
+final class NoFloodSectionInArea extends MapNotice {
+  const NoFloodSectionInArea();
+}
+
+/// Décide des avis de la lecture Crues (M4 de T4). Fonction **pure**.
+///
+/// [anySectionInBounds] `null` (emprise inconnue) ne dit aucune absence
+/// (`BR-007`, D10). Un compte d'entités écartées **remplace** l'avis d'absence.
+/// `is` sur les types du domaine n'est pas une comparaison d'échelle.
+List<MapNotice> floodNoticesFor({
+  required FloodLayerState state,
+  required bool? anySectionInBounds,
+}) => switch (state) {
+  LectureCruesNonDemandee() => const <MapNotice>[],
+  LectureCruesEnCours() => const <MapNotice>[FloodLoading()],
+  LectureCruesEnEchec(:final Object cause) =>
+    cause is VigilanceRefusee || cause is VigilanceIllisible
+        ? const <MapNotice>[FloodUnreadable()]
+        : const <MapNotice>[FloodUnavailable()],
+  LectureCruesPrete(:final map) =>
+    map.skippedEntities > 0
+        ? <MapNotice>[FloodUnreadableSections(map.skippedEntities)]
+        : anySectionInBounds == false
+        ? const <MapNotice>[NoFloodSectionInArea()]
+        : const <MapNotice>[],
+};
 
 /// Décide des avis à afficher par-dessus la carte. Fonction **pure** : aucun
 /// widget, aucune horloge, aucun dépôt — c'est ce qui rend chaque
@@ -315,6 +406,7 @@ Widget buildMapNotice(
   MapNotice notice, {
   required VoidCallback onWiden,
   required VoidCallback onClearFilters,
+  VoidCallback? onRetryFlood,
 }) => switch (notice) {
   NoDataInArea() => NoDataInAreaNotice(onWiden: onWiden),
   NoStationInArea() => NoStationInAreaNotice(onWiden: onWiden),
@@ -326,6 +418,21 @@ Widget buildMapNotice(
     sourceName: sourceName,
   ),
   UnreadableRows(:final int count) => UnreadableRowsNotice(count: count),
+  FloodLoading() => const _FloodLoadingNotice(),
+  FloodUnavailable() => _FloodRetryNotice(
+    text: floodUnavailableText,
+    onRetry: onRetryFlood,
+  ),
+  FloodUnreadable() => _FloodRetryNotice(
+    text: floodUnreadableText,
+    onRetry: onRetryFlood,
+  ),
+  FloodUnreadableSections(:final int count) => _FloodTextNotice(
+    text: floodUnreadableSectionsText(count),
+  ),
+  NoFloodSectionInArea() => const _FloodTextNotice(
+    text: noFloodSectionInAreaText,
+  ),
 };
 
 /// Ni station ni point dans le secteur affiché, avec l'action « Élargir la
@@ -552,6 +659,60 @@ class UnreadableRowsNotice extends StatelessWidget {
         Text(unreadableRowsText(count), style: _bodyStyle),
         const SizedBox(height: _noticeSpacing),
         const Text(unreadableRowsHint, style: _bodyStyle),
+      ],
+    );
+  }
+}
+
+/// Lecture en cours : une région annoncée, le texte seul.
+class _FloodLoadingNotice extends StatelessWidget {
+  const _FloodLoadingNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: const _NoticeCard(
+        children: <Widget>[Text(floodLoadingText, style: _bodyStyle)],
+      ),
+    );
+  }
+}
+
+/// Un avis de la lecture Crues sans action.
+class _FloodTextNotice extends StatelessWidget {
+  const _FloodTextNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) =>
+      _NoticeCard(children: <Widget>[Text(text, style: _bodyStyle)]);
+}
+
+/// Un avis d'échec de la lecture Crues, avec « Réessayer ». Sans rappel
+/// ([onRetry] nul), l'action n'est pas rendue : un bouton muet serait pire
+/// que pas de bouton.
+class _FloodRetryNotice extends StatelessWidget {
+  const _FloodRetryNotice({required this.text, required this.onRetry});
+
+  final String text;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final VoidCallback? retry = onRetry;
+    return _NoticeCard(
+      children: <Widget>[
+        Text(text, style: _bodyStyle),
+        if (retry != null) ...<Widget>[
+          const SizedBox(height: _noticeSpacing),
+          _NoticeAction(
+            actionKey: floodRetryKey,
+            label: floodRetryLabel,
+            onTap: retry,
+          ),
+        ],
       ],
     );
   }

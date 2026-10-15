@@ -37,8 +37,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_map.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_source.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
+import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart'
     show MapErrorSource;
@@ -74,6 +77,14 @@ List<String> _allTexts() => <String>[
   unreadableRowsText(0),
   unreadableRowsText(1),
   unreadableRowsText(3),
+  floodLoadingText,
+  floodUnavailableText,
+  floodUnreadableText,
+  floodUnreadableSectionsText(0),
+  floodUnreadableSectionsText(1),
+  floodUnreadableSectionsText(3),
+  noFloodSectionInAreaText,
+  floodRetryLabel,
 ];
 
 /// Les constantes de texte déclarées dans le fichier source, et que
@@ -88,6 +99,11 @@ const List<String> _sweptConstants = <String>[
   'noStationInAreaText',
   'sourceUnavailableHint',
   'unreadableRowsHint',
+  'floodLoadingText',
+  'floodUnavailableText',
+  'floodUnreadableText',
+  'noFloodSectionInAreaText',
+  'floodRetryLabel',
 ];
 
 /// Les fonctions de texte déclarées dans le fichier source, et que
@@ -96,6 +112,7 @@ const List<String> _sweptTextFunctions = <String>[
   'sourceUnavailableText',
   'unreadableRowsText',
   'mapSourceName',
+  'floodUnreadableSectionsText',
 ];
 
 /// Les cinq mots bannis pour qualifier un débit (`BR-003`, `glossary.md`,
@@ -1015,6 +1032,189 @@ void main() {
         'concept, un mot (glossary.md, W4) — la chaîne est réutilisée, pas '
         'recopiée', () {
       expect(mapSourceName(MapErrorSource.ecoulement), ondeSourceName);
+    });
+  });
+
+  group('avis de la lecture Crues (M4 de T4, BR-007)', () {
+    FloodVigilanceMap carte({int ecartees = 0}) => FloodVigilanceMap(
+      informationDate: DateTime.utc(2026, 10, 14, 11, 55),
+      sections: const [],
+      skippedEntities: ecartees,
+    );
+
+    List<MapNotice> avis(FloodLayerState etat, {bool? dansEmprise}) =>
+        floodNoticesFor(state: etat, anySectionInBounds: dansEmprise);
+
+    Widget rendu(MapNotice notice, {VoidCallback? onRetry}) => buildMapNotice(
+      notice,
+      onWiden: () {},
+      onClearFilters: () {},
+      onRetryFlood: onRetry,
+    );
+
+    test('floodNoticesFor : une ligne par cas', () {
+      expect(avis(const LectureCruesNonDemandee()), isEmpty);
+      expect(avis(const LectureCruesEnCours()).single, isA<FloodLoading>());
+      expect(
+        avis(LectureCruesEnEchec(const VigilanceInjoignable('x'))).single,
+        isA<FloodUnavailable>(),
+      );
+      expect(
+        avis(
+          LectureCruesEnEchec(
+            const VigilanceRefusee(statusCode: 403, diagnostic: 'x'),
+          ),
+        ).single,
+        isA<FloodUnreadable>(),
+      );
+      expect(
+        avis(LectureCruesEnEchec(const VigilanceIllisible('x'))).single,
+        isA<FloodUnreadable>(),
+      );
+      expect(
+        avis(LectureCruesEnEchec(StateError('x'))).single,
+        isA<FloodUnavailable>(),
+      );
+      expect(avis(LectureCruesPrete(carte()), dansEmprise: null), isEmpty);
+      expect(avis(LectureCruesPrete(carte()), dansEmprise: true), isEmpty);
+      expect(
+        avis(LectureCruesPrete(carte()), dansEmprise: false).single,
+        isA<NoFloodSectionInArea>(),
+      );
+      final List<MapNotice> ecartees = avis(
+        LectureCruesPrete(carte(ecartees: 3)),
+        dansEmprise: false,
+      );
+      expect(ecartees, hasLength(1));
+      expect((ecartees.single as FloodUnreadableSections).count, 3);
+    });
+
+    test('le compte au singulier à 0 et 1, au pluriel au-delà', () {
+      expect(
+        floodUnreadableSectionsText(0),
+        '0 tronçon de vigilance non lisible.',
+      );
+      expect(
+        floodUnreadableSectionsText(1),
+        '1 tronçon de vigilance non lisible.',
+      );
+      expect(
+        floodUnreadableSectionsText(3),
+        '3 tronçons de vigilance non lisibles.',
+      );
+    });
+
+    test('mapNoticesFor rend tels quels les avis Crues', () {
+      expect(
+        mapNoticesFor(
+          scale: MapScaleKind.crues,
+          hasStations: true,
+          hasOndeObservations: true,
+          error: null,
+          errorSource: null,
+          ondeUnreadableRows: 0,
+          filterHidesEverything: false,
+          floodNotices: const <MapNotice>[FloodLoading()],
+        ).single,
+        isA<FloodLoading>(),
+      );
+    });
+
+    final List<(String, MapNotice, String)> textes =
+        <(String, MapNotice, String)>[
+          (
+            'en cours',
+            const FloodLoading(),
+            "Lecture de la vigilance publiée par Vigicrues… Aucun tronçon "
+                "n'est affiché tant qu'elle n'est pas lue.",
+          ),
+          (
+            'injoignable',
+            const FloodUnavailable(),
+            "Vigicrues n'a pas répondu. Aucun tronçon n'est affiché : cela "
+                'ne dit rien du risque de crue.',
+          ),
+          (
+            'illisible',
+            const FloodUnreadable(),
+            "La vigilance publiée par Vigicrues n'a pas pu être lue. Aucun "
+                "tronçon n'est affiché : cela ne dit rien du risque de crue.",
+          ),
+          (
+            'écartées, 1',
+            const FloodUnreadableSections(1),
+            '1 tronçon de vigilance non lisible.',
+          ),
+          (
+            'écartées, 3',
+            const FloodUnreadableSections(3),
+            '3 tronçons de vigilance non lisibles.',
+          ),
+          (
+            'secteur sans tronçon',
+            const NoFloodSectionInArea(),
+            "Aucun cours d'eau suivi par Vigicrues dans le secteur affiché. "
+                'Cela ne dit rien du risque de crue : sur cette carte, '
+                "Vigicrues ne suit que certains cours d'eau de métropole et "
+                'de Corse.',
+          ),
+        ];
+    for (final (String, MapNotice, String) cas in textes) {
+      testWidgetsOnWindows('texte exact — ${cas.$1}', (
+        WidgetTester tester,
+      ) async {
+        await _pump(tester, rendu(cas.$2));
+        expect(find.text(cas.$3), findsOneWidget);
+        expect(cas.$3.toLowerCase(), isNot(contains('vert')));
+        expect(find.byKey(floodRetryKey), findsNothing);
+      });
+    }
+
+    testWidgetsOnWindows(
+      '« Réessayer » : présent sur injoignable et illisible, cible de 44 pt, '
+      'appelle onRetryFlood',
+      (WidgetTester tester) async {
+        for (final MapNotice notice in const <MapNotice>[
+          FloodUnavailable(),
+          FloodUnreadable(),
+        ]) {
+          int appels = 0;
+          await _pump(tester, rendu(notice, onRetry: () => appels++));
+          expect(find.text('Réessayer'), findsOneWidget);
+          final Size taille = tester.getSize(find.byKey(floodRetryKey));
+          expect(taille.height, greaterThanOrEqualTo(minimumTapTarget));
+          await tester.tap(find.byKey(floodRetryKey));
+          expect(appels, 1);
+        }
+      },
+    );
+
+    testWidgetsOnWindows('« Réessayer » au clavier : Tab puis Entrée', (
+      WidgetTester tester,
+    ) async {
+      int appels = 0;
+      await _pump(
+        tester,
+        rendu(const FloodUnavailable(), onRetry: () => appels++),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(focusedWithin(tester, find.byKey(floodRetryKey)), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(appels, 1);
+    });
+
+    testWidgetsOnWindows('l’avis de lecture en cours est une région annoncée', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await _pump(tester, rendu(const FloodLoading()));
+      final SemanticsNode noeud = tester.getSemantics(
+        find.textContaining('Lecture de la vigilance'),
+      );
+      expect(noeud.flagsCollection.isLiveRegion, isTrue);
+      handle.dispose();
     });
   });
 
