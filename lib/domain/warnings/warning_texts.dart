@@ -215,3 +215,31 @@ const String reinforcedWarningBody =
 /// Libellé de l'action de l'encart renforcé, vers les arrêtés en vigueur
 /// (`docs/04-ui.md § 1`, l. 129 : « [ Consulter les arrêtés en vigueur ] »).
 const String reinforcedWarningActionLabel = 'Consulter les arrêtés en vigueur';
+
+// ---------------------------------------------------------------------------
+// T4 — avertissement de crue (`BR-015`). Provenance : cadrage de T4
+// (`docs/superpowers/specs/2026-10-14-cadrage-t4-design.md`), arbitrage 2 et
+// § 12.2, recopiés mot pour mot. ⚠️ HORS VERROU DE VERSION :
+// `warningTextVersion` ne couvre QUE le texte du modal du premier lancement,
+// qui ne change pas (arbitrage 8). Ces textes sont figés par leur propre
+// test, `test/domain/warnings/warning_texts_test.dart`.
+//
+// Le nom « Vigicrues » est écrit en clair : c'est un texte arbitré ;
+// `floodSourceName` (`lib/domain/sources/source_names.dart`) le porte aussi,
+// et le test vérifie que [floodWarningBody] le contient.
+// ---------------------------------------------------------------------------
+
+/// Titre de l'encart de la fiche tronçon (cadrage de T4, § 12.2).
+const String floodWarningHeadline = "CE N'EST PAS UN SYSTÈME D'ALERTE";
+
+/// Corps de l'encart de la fiche tronçon (cadrage de T4, § 12.2).
+const String floodWarningBody =
+    'Cette application reprend la vigilance publiée par Vigicrues, à la date '
+    'indiquée ; elle ne remplace ni le bulletin de Vigicrues, ni les '
+    'consignes des autorités et des secours.';
+
+/// Texte propre à la fenêtre « ⚠ Avertissement » de la carte en lecture
+/// Crues et de la fiche tronçon, sous le texte général (cadrage de T4,
+/// § 7.7 et § 12.2).
+const String floodWarningWindowText =
+    "Ce n'est pas un système d'alerte. $floodWarningBody";

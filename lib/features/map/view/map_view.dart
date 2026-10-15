@@ -106,6 +106,7 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:martinpecheur/domain/floods/flood_section.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_map.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
@@ -118,10 +119,13 @@ import 'package:martinpecheur/domain/sources/source_names.dart'
     show ignAttribution;
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/domain/warnings/warning_texts.dart'
+    show floodWarningWindowText;
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/designated_point_pin.dart';
 import 'package:martinpecheur/features/map/view/flood_section_label.dart';
+import 'package:martinpecheur/features/map/view/flood_sections_layer.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
@@ -888,8 +892,9 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    la même colonne : sa largeur est bornée, elle réserve toute la place de
 ///    la légende et n'empiète jamais dessus ; **sous les puces et au-dessus
 ///    de la légende** en disposition compacte ;
-/// 4. les **panneaux de fiche** — station ([stationSheet]) et point ONDE
-///    ([ondeSheet]) —, chacun s'il est fourni, en bas à gauche et dans cet
+/// 4. les **panneaux de fiche** — station ([stationSheet]), point ONDE
+///    ([ondeSheet]) et tronçon ([floodSheet], T4) —, chacun s'il est
+///    fourni, en bas à gauche et dans cet
 ///    ordre. Ils ne sont jamais ouverts ensemble : la racine de composition
 ///    ferme l'un avant d'ouvrir l'autre ; fournis ensemble, ils s'empilent
 ///    plutôt que de se masquer (`BR-007`). Leur zone est bornée à la hauteur
@@ -937,6 +942,19 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 /// oublie un ferait dire à l'écran « il n'y a rien ici » alors que la carte
 /// dessine des marqueurs. Un oubli doit être une erreur de compilation, pas
 /// une affirmation fausse à l'usager (`BR-007`).
+///
+/// Lecture Crues (`M5` de T4, cadrage § 7.1, § 7.5, § 7.7) — quatre
+/// paramètres **optionnels**, pour que les appelants qui ne la branchent pas
+/// compilent sans changer : [floodNotices] sont les avis de la lecture
+/// (`floodNoticesFor`), passés à [mapNoticesFor], qui ne les rend que sur
+/// [MapScaleKind.crues] ; [onRetryFlood] est l'action « Réessayer » de ses
+/// avis d'échec — en production, `FloodLayerViewModel.retry` ; `null`,
+/// l'action n'est pas rendue ; [floodInformationDate] est la date de la carte
+/// de vigilance lue, que la légende cite (`null` tant qu'elle n'est pas lue,
+/// arbitrage 9) ; [floodSheet] est la fiche tronçon, injectée comme les deux
+/// autres et posée sous elles dans la zone des fiches. Sur la lecture Crues,
+/// la fenêtre « ⚠ Avertissement » ajoute `floodWarningWindowText` sous le
+/// texte général (`BR-015`).
 List<Widget> buildMapOverlays({
   required MapScaleKind scale,
   required void Function(MapScaleKind kind) onSelect,
@@ -975,9 +993,17 @@ List<Widget> buildMapOverlays({
   // de composition. `null` : le bouton « Favoris » est absent du groupe des
   // boutons d'entrée.
   VoidCallback? onOpenFavorites,
+  List<MapNotice> floodNotices = const <MapNotice>[],
+  VoidCallback? onRetryFlood,
+  DateTime? floodInformationDate,
+  Widget? floodSheet,
 }) {
   final Widget? sheet = stationSheet;
   final Widget? onde = ondeSheet;
+  final Widget? flood = floodSheet;
+  // Les panneaux de fiche fournis, dans l'ordre d'empilement : station, point
+  // ONDE, tronçon.
+  final List<Widget> panels = <Widget>[?sheet, ?onde, ?flood];
   final VoidCallback? designate = onDesignateCenter;
   // Le bouton de désignation et son indice (canvas du 2026-09-29) : hors de
   // la colonne des contrôles, en bas au centre, sous la zone des fiches
@@ -996,14 +1022,25 @@ List<Widget> buildMapOverlays({
     errorSource: errorSource,
     ondeUnreadableRows: ondeUnreadableRows,
     filterHidesEverything: filterHidesEverything,
+    floodNotices: floodNotices,
   );
   // Les pièces du haut de la carte, construites UNE fois pour les deux
   // dispositions ci-dessous : leurs ordres de tabulation (`K2`) ne peuvent
   // donc pas diverger d'une disposition à l'autre. Les avis portent leur
   // marge haute.
-  const Widget warningLink = FocusTraversalOrder(
-    order: NumericFocusOrder(mapTraversalOrderWarningLink),
-    child: WarningLink(),
+  //
+  // Le texte propre de la fenêtre « ⚠ Avertissement » : celui de la crue sur
+  // la seule lecture Crues (cadrage § 7.7, `BR-015`). Trois branches, sans
+  // joker : une échelle ajoutée sans décision ici ne compile pas.
+  final Widget warningLink = FocusTraversalOrder(
+    order: const NumericFocusOrder(mapTraversalOrderWarningLink),
+    child: WarningLink(
+      extraText: switch (scale) {
+        MapScaleKind.crues => floodWarningWindowText,
+        MapScaleKind.ecoulement => null,
+        MapScaleKind.debit => null,
+      },
+    ),
   );
   final Widget chips = FocusTraversalOrder(
     order: const NumericFocusOrder(mapTraversalOrderChips),
@@ -1014,7 +1051,10 @@ List<Widget> buildMapOverlays({
       onToggleDesignationMode: onToggleDesignationMode,
     ),
   );
-  final Widget legend = MapLegend(scale: scale);
+  final Widget legend = MapLegend(
+    scale: scale,
+    floodInformationDate: floodInformationDate,
+  );
   // Chaque avis porte son rang de tabulation ([mapTraversalOrderNotices],
   // `K1` de T3) : construit ici une fois, il vaut pour les deux dispositions.
   final List<Widget> noticeWidgets = <Widget>[
@@ -1027,6 +1067,7 @@ List<Widget> buildMapOverlays({
             notice,
             onWiden: onWiden,
             onClearFilters: onClearFilters,
+            onRetryFlood: onRetryFlood,
           ),
         ),
       ),
@@ -1068,8 +1109,7 @@ List<Widget> buildMapOverlays({
   // elle fournit [sheetScrollController] et le remet à zéro à chaque
   // ouverture de fiche. Sans contrôleur fourni, rien ne ramène la fiche en
   // haut.
-  final Widget? bottomArea =
-      sheet != null || onde != null || designation != null
+  final Widget? bottomArea = panels.isNotEmpty || designation != null
       ? Align(
           alignment: Alignment.bottomCenter,
           child: LayoutBuilder(
@@ -1083,7 +1123,7 @@ List<Widget> buildMapOverlays({
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  if (sheet != null || onde != null)
+                  if (panels.isNotEmpty)
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ConstrainedBox(
@@ -1131,17 +1171,17 @@ List<Widget> buildMapOverlays({
                             constraints: const BoxConstraints(
                               maxWidth: _sheetMaxWidth,
                             ),
-                            // Les deux fiches partagent le MÊME emplacement :
+                            // Les trois fiches partagent le MÊME emplacement :
                             // elles ne sont jamais ouvertes ensemble, mais cette
                             // garantie vient de la racine de composition
                             // (`main.dart` : chaque rappel de tap ferme l'autre
                             // fiche avant d'ouvrir la sienne), pas des échelles
                             // (relecture 2026-09-14). Une `Column` plutôt
-                            // qu'une superposition tout de même : si les deux
+                            // qu'une superposition tout de même : si deux
                             // panneaux arrivaient ensemble, aucun n'écraserait
                             // l'autre — un panneau masqué serait pire qu'un
                             // panneau de trop (`BR-007`). L'ordre est fixé —
-                            // station au-dessus, ONDE en dessous — pour que
+                            // station, puis ONDE, puis tronçon — pour que
                             // l'empilement soit une décision testée et non un
                             // hasard de `Stack`.
                             //
@@ -1168,10 +1208,14 @@ List<Widget> buildMapOverlays({
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: <Widget>[
-                                      ?sheet,
-                                      if (sheet != null && onde != null)
-                                        const SizedBox(height: _overlayPadding),
-                                      ?onde,
+                                      for (final (int index, Widget panel)
+                                          in panels.indexed) ...<Widget>[
+                                        if (index > 0)
+                                          const SizedBox(
+                                            height: _overlayPadding,
+                                          ),
+                                        panel,
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -1654,6 +1698,10 @@ class MapView extends StatefulWidget {
   ///
   /// [onOndeTap] et [ondeSheet] sont couplés de la même façon depuis `U4` :
   /// la fiche ONDE existe et se branche au tap d'un marqueur d'écoulement.
+  ///
+  /// [floodLayer], [onFloodSectionTap] et [floodSheet] (`M5` de T4) vont
+  /// ensemble, tous trois : une lecture Crues sans fiche ne s'ouvrirait
+  /// jamais, une fiche sans lecture n'aurait aucun tronçon à montrer.
   const MapView({
     required this.viewModel,
     this.onStationTap,
@@ -1664,6 +1712,9 @@ class MapView extends StatefulWidget {
     this.onPointDesignated,
     this.sheetScrollController,
     this.onOpenFavorites,
+    this.floodLayer,
+    this.onFloodSectionTap,
+    this.floodSheet,
     super.key,
   }) : assert(
          (onStationTap == null) == (stationSheet == null),
@@ -1674,6 +1725,13 @@ class MapView extends StatefulWidget {
          (onOndeTap == null) == (ondeSheet == null),
          "onOndeTap et ondeSheet vont ensemble : une fiche sans tap ne s'ouvre "
          "jamais, un tap sans fiche n'affiche rien",
+       ),
+       assert(
+         (floodLayer == null) == (onFloodSectionTap == null) &&
+             (onFloodSectionTap == null) == (floodSheet == null),
+         'floodLayer, onFloodSectionTap et floodSheet vont ensemble : une '
+         "lecture sans fiche ne s'ouvre jamais, une fiche sans lecture "
+         "n'affiche rien",
        );
 
   /// Le ViewModel de la tranche carte, construit dans `main.dart`
@@ -1748,6 +1806,26 @@ class MapView extends StatefulWidget {
   /// l'écran ni sa tranche (règle `feature-vers-feature`). `null` : le bouton
   /// est absent.
   final VoidCallback? onOpenFavorites;
+
+  /// Le second ViewModel de l'écran (`L2` de T4, arbitrage 7, `ADR-014`
+  /// amendé) : l'état de la lecture Crues, qui a son propre cycle de
+  /// chargement. Construit et disposé par `main.dart`, comme [viewModel].
+  /// C'est cette vue qui le prévient — puce « Vigilance crues », relâchement
+  /// de geste sur cette lecture, « Réessayer » ; aucun ViewModel n'importe
+  /// l'autre. `null` : la lecture Crues n'est pas branchée, la puce ne fait
+  /// que changer d'échelle.
+  final FloodLayerViewModel? floodLayer;
+
+  /// Appelé avec le tronçon touché (trait ou étiquette) et la date de la
+  /// carte de vigilance dont il vient. Injecté par `main.dart`, qui le
+  /// branche sur la fiche tronçon : la carte ne nomme pas cette tranche
+  /// (règle `feature-vers-feature`).
+  final void Function(FloodSection section, DateTime informationDate)?
+  onFloodSectionTap;
+
+  /// Le panneau de la fiche tronçon, déjà composé par `main.dart`, affiché
+  /// dans la zone des fiches, sous [stationSheet] et [ondeSheet].
+  final Widget? floodSheet;
 
   @override
   State<MapView> createState() => _MapViewState();
@@ -1867,10 +1945,150 @@ class _MapViewState extends State<MapView> {
     callback(designated);
   }
 
+  /// Ce que [build] écoute : [MapView.viewModel] et, s'il est branché,
+  /// [MapView.floodLayer] (`M5` de T4). Construit en [initState] et refait en
+  /// [didUpdateWidget] si l'un des deux change — jamais à chaque [build], où
+  /// un `Listenable.merge` neuf ferait réabonner le `ListenableBuilder`.
+  late Listenable _listenable;
+
+  Listenable _mergedListenable() {
+    final FloodLayerViewModel? flood = widget.floodLayer;
+    return Listenable.merge(<Listenable>[widget.viewModel, ?flood]);
+  }
+
+  // Le calque des traits de la lecture Crues, en INSTANCE STABLE (Review
+  // Focus 1, `M5` de T4). `PolylineLayer` vide ses caches de projection et
+  // de simplification dans CHAQUE `didUpdateWidget`
+  // (`lib/src/layer/shared/layer_projection_simplification/state.dart`,
+  // l. 52-58, du paquet `flutter_map` 8.3.2 installé) ; or la carte se
+  // reconstruit à chaque notification d'un des deux ViewModels (geste,
+  // préchargement, fiche). Le widget rendu par `buildFloodSectionsLayer` est
+  // donc gardé avec la carte de vigilance dont il vient et réemployé TEL QUEL
+  // — même objet, que `Element.updateChild` court-circuite sans appeler
+  // `didUpdateWidget` — tant que la carte est la même (`identical`) : les
+  // points ne sont projetés qu'une fois par carte de vigilance (`NFR-01`).
+
+  /// La carte de vigilance dont vient [_floodLayerWidget].
+  FloodVigilanceMap? _floodLayerMap;
+
+  /// Le calque rendu pour [_floodLayerMap], réemployé tel quel.
+  Widget? _floodLayerWidget;
+
+  /// Le notifieur de toucher du calque, un champ de l'état, disposé avec lui :
+  /// le même d'une carte de vigilance à l'autre.
+  final LayerHitNotifier<FloodSectionCode> _floodHitNotifier =
+      ValueNotifier<LayerHitResult<FloodSectionCode>?>(null);
+
+  /// Le calque de [map], depuis le cache s'il vient de la même carte.
+  /// `onTap` reçoit une MÉTHODE de l'état ([_handleFloodSectionTap]), jamais
+  /// une fermeture qui capturerait un `widget` périmé.
+  Widget _floodLayerFor(FloodVigilanceMap map) {
+    final Widget? cached = _floodLayerWidget;
+    if (cached != null && identical(map, _floodLayerMap)) {
+      return cached;
+    }
+    final Widget layer = buildFloodSectionsLayer(
+      map: map,
+      hitNotifier: _floodHitNotifier,
+      onTap: _handleFloodSectionTap,
+    );
+    _floodLayerMap = map;
+    _floodLayerWidget = layer;
+    return layer;
+  }
+
   @override
   void initState() {
     super.initState();
+    _listenable = _mergedListenable();
     unawaited(widget.viewModel.start(zoom: initialMapZoom));
+  }
+
+  @override
+  void didUpdateWidget(MapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.viewModel, widget.viewModel) ||
+        !identical(oldWidget.floodLayer, widget.floodLayer)) {
+      _listenable = _mergedListenable();
+    }
+  }
+
+  /// Puce d'échelle (`M5` de T4, cadrage § 7.1) : change l'échelle, puis, sur
+  /// la lecture Crues, prévient [MapView.floodLayer] — activation (premier
+  /// chargement, ou relecture d'une carte déjà lue), puis l'emprise de la
+  /// caméra. Pendant un chargement, ni l'un ni l'autre ne relance rien
+  /// (Review Focus 2).
+  void _handleScaleSelected(MapScaleKind kind) {
+    widget.viewModel.selectScale(kind);
+    final FloodLayerViewModel? flood = widget.floodLayer;
+    switch (kind) {
+      case MapScaleKind.crues:
+        if (flood == null) {
+          return;
+        }
+        unawaited(flood.activate());
+        unawaited(
+          flood.onViewportChanged(
+            _boundsFromLatLngBounds(_mapController.camera.visibleBounds),
+            individualLevel: widget.viewModel.level == null,
+          ),
+        );
+      case MapScaleKind.debit:
+      case MapScaleKind.ecoulement:
+        return;
+    }
+  }
+
+  /// Un geste terminé sur [bounds] : sur la seule lecture Crues, la vue
+  /// prévient [MapView.floodLayer] après [MapViewModel.onGestureEnded] — le
+  /// niveau individuel est lu sur [MapViewModel.level], que ce dernier vient
+  /// de poser avant tout `await`. Sur les deux autres échelles, rien : aucun
+  /// appel à la source de vigilance (critère 16).
+  void _signalFloodViewport(Bounds bounds) {
+    final FloodLayerViewModel? flood = widget.floodLayer;
+    if (flood == null) {
+      return;
+    }
+    switch (widget.viewModel.scale) {
+      case MapScaleKind.crues:
+        unawaited(
+          flood.onViewportChanged(
+            bounds,
+            individualLevel: widget.viewModel.level == null,
+          ),
+        );
+      case MapScaleKind.debit:
+      case MapScaleKind.ecoulement:
+        return;
+    }
+  }
+
+  /// Toucher d'un trait ou d'une étiquette (clavier compris) : le tronçon de
+  /// [code] sur la carte lue, et la date de cette carte.
+  void _handleFloodSectionTap(FloodSectionCode code) {
+    final FloodLayerViewModel? flood = widget.floodLayer;
+    if (flood == null) {
+      return;
+    }
+    final FloodSection? section = flood.sectionByCode(code);
+    switch (flood.state) {
+      case LectureCruesPrete(:final FloodVigilanceMap map) when section != null:
+        widget.onFloodSectionTap?.call(section, map.informationDate);
+      case LectureCruesPrete():
+      case LectureCruesNonDemandee():
+      case LectureCruesEnCours():
+      case LectureCruesEnEchec():
+        return;
+    }
+  }
+
+  /// « Réessayer » des avis d'échec de la lecture Crues : le seul geste qui
+  /// relance après un échec (arbitrage 10).
+  void _handleRetryFlood() {
+    final FloodLayerViewModel? flood = widget.floodLayer;
+    if (flood != null) {
+      unawaited(flood.retry());
+    }
   }
 
   /// Câblé à `MapOptions.onMapEvent` : ne signale un geste terminé que pour
@@ -1895,12 +2113,9 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
-    unawaited(
-      widget.viewModel.onGestureEnded(
-        _boundsFromLatLngBounds(event.camera.visibleBounds),
-        zoom: event.camera.zoom,
-      ),
-    );
+    final Bounds bounds = _boundsFromLatLngBounds(event.camera.visibleBounds);
+    unawaited(widget.viewModel.onGestureEnded(bounds, zoom: event.camera.zoom));
+    _signalFloodViewport(bounds);
   }
 
   /// Rejoue la contrainte de caméra après un changement de taille de la
@@ -2057,12 +2272,9 @@ class _MapViewState extends State<MapView> {
     }
 
     final MapCamera camera = _mapController.camera;
-    unawaited(
-      widget.viewModel.onGestureEnded(
-        _boundsFromLatLngBounds(camera.visibleBounds),
-        zoom: camera.zoom,
-      ),
-    );
+    final Bounds bounds = _boundsFromLatLngBounds(camera.visibleBounds);
+    unawaited(widget.viewModel.onGestureEnded(bounds, zoom: camera.zoom));
+    _signalFloodViewport(bounds);
   }
 
   /// Bouton `+` de [MapControls] (`K1`) : un cran de [zoomStep] au même
@@ -2170,6 +2382,7 @@ class _MapViewState extends State<MapView> {
   void dispose() {
     _mapController.dispose();
     _mapFocusNode.dispose();
+    _floodHitNotifier.dispose();
     super.dispose();
   }
 
@@ -2182,10 +2395,29 @@ class _MapViewState extends State<MapView> {
     // l'autre (`widget.stationSheet`) : `Element.updateChild` court-circuite
     // sur un widget identique, le replacer ici ne le reconstruit donc pas —
     // il porte son propre `ListenableBuilder` sur le ViewModel de la fiche.
+    //
+    // Depuis `M5` de T4, il écoute aussi [MapView.floodLayer] ([_listenable]) :
+    // l'état de la lecture Crues (avis, traits, étiquettes, date de la
+    // légende) a son propre cycle de chargement.
     return Scaffold(
       body: ListenableBuilder(
-        listenable: widget.viewModel,
+        listenable: _listenable,
         builder: (BuildContext context, Widget? child) {
+          final FloodLayerViewModel? flood = widget.floodLayer;
+          // La carte de vigilance lue, sur la seule lecture Crues à l'état
+          // `Prete` : c'est d'elle que viennent les traits et la date de la
+          // légende.
+          final FloodVigilanceMap? floodMap = switch (widget.viewModel.scale) {
+            MapScaleKind.crues => switch (flood?.state) {
+              LectureCruesPrete(:final FloodVigilanceMap map) => map,
+              LectureCruesNonDemandee() => null,
+              LectureCruesEnCours() => null,
+              LectureCruesEnEchec() => null,
+              null => null,
+            },
+            MapScaleKind.debit => null,
+            MapScaleKind.ecoulement => null,
+          };
           // Arbitrage du commanditaire du 2026-09-23 (`K2`) : « carte »
           // devient un GROUPE de tabulation — Tab y parcourt les pastilles
           // OU les marqueurs individuels (plus les individuels non
@@ -2223,9 +2455,9 @@ class _MapViewState extends State<MapView> {
                   clusters.isNotEmpty || orderedStations.isNotEmpty,
                 MapScaleKind.ecoulement =>
                   clusters.isNotEmpty || orderedOnde.isNotEmpty,
-                // Provisoire (`L1` de T4, 2026-10-15) — étiquettes
-                // focalisables : `M5`.
-                MapScaleKind.crues => false,
+                // Les étiquettes des tronçons (`M5` de T4), seules
+                // focalisables sur cette lecture.
+                MapScaleKind.crues => flood?.labels.isNotEmpty ?? false,
               };
           // NFR-01 : cette bascule ne crée AUCUN `FocusNode` supplémentaire
           // — elle règle un champ mutable du nœud interne de `flutter_map`
@@ -2352,6 +2584,17 @@ class _MapViewState extends State<MapView> {
                               clusters: clusters,
                               onClusterSelect: _handleClusterSelect,
                               designatedPoint: _designatedPoint,
+                              // Le calque en instance stable (voir
+                              // [_floodLayerFor]) ; les étiquettes dans
+                              // l'ordre de tabulation du domaine.
+                              floodLayer: floodMap == null
+                                  ? null
+                                  : _floodLayerFor(floodMap),
+                              floodLabels:
+                                  flood?.labels ?? const <FloodLabel>[],
+                              onFloodSectionTap: flood == null
+                                  ? null
+                                  : _handleFloodSectionTap,
                             ),
                           ),
                         ),
@@ -2359,7 +2602,7 @@ class _MapViewState extends State<MapView> {
                     ),
                     ...buildMapOverlays(
                       scale: widget.viewModel.scale,
-                      onSelect: widget.viewModel.selectScale,
+                      onSelect: _handleScaleSelected,
                       onWiden: _handleWiden,
                       error: widget.viewModel.error,
                       errorSource: widget.viewModel.errorSource,
@@ -2390,6 +2633,15 @@ class _MapViewState extends State<MapView> {
                       ondeSheet: widget.ondeSheet,
                       sheetScrollController: widget.sheetScrollController,
                       onOpenFavorites: widget.onOpenFavorites,
+                      floodNotices: flood == null
+                          ? const <MapNotice>[]
+                          : floodNoticesFor(
+                              state: flood.state,
+                              anySectionInBounds: flood.anySectionInBounds,
+                            ),
+                      onRetryFlood: flood == null ? null : _handleRetryFlood,
+                      floodInformationDate: floodMap?.informationDate,
+                      floodSheet: widget.floodSheet,
                     ),
                   ],
                 ),

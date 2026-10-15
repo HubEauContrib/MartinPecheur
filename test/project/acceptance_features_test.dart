@@ -813,6 +813,10 @@ void main() {
       'avis, tronçons écartés': floodUnreadableSectionsText(2),
       'avis, secteur sans tronçon': noFloodSectionInAreaText,
       'action des avis en échec': floodRetryLabel,
+      // `M5` : l'avertissement de crue (BR-015). Le corps est cité dans le
+      // texte de la fenêtre « ⚠ Avertissement », qui le contient.
+      'avertissement de crue, titre': floodWarningHeadline,
+      'fenêtre « ⚠ Avertissement », lecture Crues': floodWarningWindowText,
       for (final FloodVigilanceLevel level in const <FloodVigilanceLevel>[
         Vert(),
         Jaune(),
@@ -829,6 +833,9 @@ void main() {
     // du scénario, sans guillemets : cherché tel quel.
     test('crues.feature porte l’avis injoignable dans sa table d’exemples', () {
       expect(crues.contains(floodUnavailableText), isTrue);
+    });
+    test('crues.feature cite le corps de l’avertissement de crue (BR-015)', () {
+      expect(crues.contains(floodWarningBody), isTrue);
     });
     for (final MapEntry<String, String> libelle in libellesCrues.entries) {
       test('crues.feature cite « ${libelle.value} » (${libelle.key})', () {

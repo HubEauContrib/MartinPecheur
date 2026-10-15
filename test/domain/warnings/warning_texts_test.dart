@@ -10,7 +10,11 @@
 // lui, ne change pas — et ce fichier reprend donc ses tests de la fonction
 // PURE, mot pour mot.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart'
+    show floodSourceName;
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
+
+import '../../project/vocabulary_lists.dart' show forbiddenGuaranteeWords;
 
 /// Les cinq mots bannis pour qualifier un débit (`CLAUDE.md`, `BR-003`) —
 /// recherchés avec des frontières de MOT LINGUISTIQUE (`(?<!\p{L})…(?!\p{L})`,
@@ -203,6 +207,81 @@ void main() {
     test("n'est pas tronque : une phrase complete, terminee par un point", () {
       expect(reinforcedWarningBody.trim().endsWith('.'), isTrue);
     });
+  });
+
+  // T4, M5 — l'avertissement de crue (BR-015), cadrage de T4, arbitrage 2 et
+  // § 12.2. HORS VERROU DE VERSION : le modal du premier lancement ne change
+  // pas (arbitrage 8).
+  group('avertissement de crue (T4, BR-015) — textes arbitrés', () {
+    test('floodWarningHeadline vaut exactement « CE N\'EST PAS UN SYSTÈME '
+        'D\'ALERTE » (cadrage § 12.2)', () {
+      expect(floodWarningHeadline, "CE N'EST PAS UN SYSTÈME D'ALERTE");
+    });
+
+    test('floodWarningBody vaut exactement le corps arbitré (cadrage '
+        '§ 12.2)', () {
+      expect(
+        floodWarningBody,
+        'Cette application reprend la vigilance publiée par Vigicrues, à la '
+        'date indiquée ; elle ne remplace ni le bulletin de Vigicrues, ni les '
+        'consignes des autorités et des secours.',
+      );
+    });
+
+    test('floodWarningWindowText vaut exactement le texte de la fenêtre '
+        '« ⚠ Avertissement » (cadrage § 12.2)', () {
+      expect(
+        floodWarningWindowText,
+        "Ce n'est pas un système d'alerte. Cette application reprend la "
+        'vigilance publiée par Vigicrues, à la date indiquée ; elle ne '
+        'remplace ni le bulletin de Vigicrues, ni les consignes des autorités '
+        'et des secours.',
+      );
+    });
+
+    test('floodWarningBody contient floodSourceName', () {
+      expect(floodWarningBody, contains(floodSourceName));
+    });
+
+    test('le texte de la fenêtre est la phrase de tête suivie du corps', () {
+      expect(floodWarningWindowText, endsWith(floodWarningBody));
+    });
+
+    test('la version du modal du premier lancement ne change pas '
+        '(arbitrage 8)', () {
+      expect(warningTextVersion, '2026-09-13.1');
+    });
+
+    final Map<String, String> textes = <String, String>{
+      'floodWarningHeadline': floodWarningHeadline,
+      'floodWarningBody': floodWarningBody,
+      'floodWarningWindowText': floodWarningWindowText,
+    };
+    for (final MapEntry<String, String> texte in textes.entries) {
+      test('${texte.key} : aucun mot banni (BR-003)', () {
+        expect(_bannedWords.hasMatch(texte.value), isFalse);
+      });
+
+      test("${texte.key} : aucun verbe d'instruction sur un usage de l'eau "
+          '(BR-014)', () {
+        expect(_instructionVerbs.hasMatch(texte.value), isFalse);
+      });
+
+      test('${texte.key} : aucun mot de garantie (BR-014, '
+          'vocabulary_lists.dart)', () {
+        for (final String mot in forbiddenGuaranteeWords) {
+          expect(
+            RegExp(
+              '(?<!\\p{L})${RegExp.escape(mot)}(?!\\p{L})',
+              caseSensitive: false,
+              unicode: true,
+            ).hasMatch(texte.value),
+            isFalse,
+            reason: '${texte.key} contient « $mot »',
+          );
+        }
+      });
+    }
   });
 
   group('sheetWarningText — le texte FIGÉ, phrase entière (W4)', () {
