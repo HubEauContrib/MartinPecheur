@@ -7,6 +7,7 @@
 - **Amendement du 2026-09-18 — arbitrage du commanditaire :** un widget **partagé par plusieurs
   tranches** vit dans **`lib/features/shared/`**. Voir § « [La règle des imports, et son verrou](#la-règle-des-imports-et-son-verrou) »,
   sixième règle `shared-sans-tranche`. Le reste de cet ADR est inchangé.
+- **Amendement du 2026-10-14 (T4) :** un écran peut avoir plus d'un ViewModel quand une lecture a son propre cycle de chargement. Voir § « Amendement du 2026-10-14 (T4) » ci-dessous.
 
 ## Contexte
 
@@ -176,6 +177,10 @@ pas encore occupée.
 - **Recopier le widget dans chaque tranche.** Écarté : un **texte d'avertissement en double** à
   tenir aligné entre deux fichiers — exactement ce que `BR-012` et `BR-013` ne peuvent pas se
   permettre.
+
+#### Amendement du 2026-10-14 (T4)
+
+Un écran peut avoir plus d'un ViewModel quand une lecture a son propre cycle de chargement (T4, `FloodLayerViewModel`, arbitrage 7 du 2026-10-14). Chacun reste sans widget, testable sans rendu, et appelle son dépôt par un appel typé ; aucun n'importe l'autre ; la vue les relie. Précédent : les fiches injectées, chacune avec son ViewModel, depuis T1.
 
 ## Conséquences
 

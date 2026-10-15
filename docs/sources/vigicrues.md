@@ -5,8 +5,8 @@ Adresse retenue `https://www.vigicrues.gouv.fr/services/InfoVigiCru.geojson` (l'
 **Licence Ouverte (Etalab)**, attribution « © VIGICRUES » et date de dernière mise à jour
 (`VC-09`) · éditeur : Service central d'hydrométéorologie et d'appui à la prévision des
 inondations (SCHAPI), réseau Vigicrues. Rôle : niveau de vigilance crues publié par tronçon de
-cours d'eau, pour la quatrième lecture de la carte (T4). Décision liée : ADR à écrire au cadrage
-détaillé de T4 (source derrière une interface, sur le modèle d'[`ADR-004`](../adr/ADR-004-integration-vigieau.md)).
+cours d'eau, pour la quatrième lecture de la carte (T4). Décision liée : [`ADR-016`](../adr/ADR-016-integration-vigicrues.md)
+(source derrière une interface, sur le modèle d'[`ADR-004`](../adr/ADR-004-integration-vigieau.md)).
 
 ⚠️ **Lot 0 de T4, appels réels du 2026-10-14 entre 14:30 et 14:37 UTC**, depuis un seul poste,
 par `curl`. Un jour de **vigilance verte nationale** : seul le niveau `1` est publié ce jour-là,
@@ -16,7 +16,7 @@ n'a été observée (`VC-10`).
 🚦 **Arbitrage du commanditaire, 2026-10-14** (question fermée, après correction d'un fait,
 voir « Arbitrages ») : **un appel national au GeoJSON, mis en cache**, par exception motivée à
 `NFR-07` (« aucun appel national en bloc », [`nfr.md`](../nfr.md)) — l'amendement de `NFR-07`
-se fait au cadrage détaillé de T4.
+est fait le 2026-10-14 ([`ADR-016`](../adr/ADR-016-integration-vigicrues.md), `nfr.md`).
 
 ## Adresses vérifiées le 2026-10-14
 
