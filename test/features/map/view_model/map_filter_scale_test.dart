@@ -40,4 +40,11 @@ void main() {
     expect(mapFilterActiveFor(filter, MapScaleKind.ecoulement), isTrue);
     expect(mapFilterActiveFor(filter, MapScaleKind.debit), isTrue);
   });
+
+  test('un département : inactif sur la vigilance crues — aucun filtre ne '
+      "s'applique à cette lecture (R9, L1 de T4)", () {
+    final MapFilter filter = MapFilter.none.withDepartement('41');
+
+    expect(mapFilterActiveFor(filter, MapScaleKind.crues), isFalse);
+  });
 }

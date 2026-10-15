@@ -75,7 +75,12 @@ List<String> _texts(WidgetTester tester) => tester
 
 void main() {
   group('symboles compacts (canvas de design du 2026-09-29)', () {
-    for (final MapScaleKind scale in MapScaleKind.values) {
+    // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — la
+    // légende Crues n'a encore aucune ligne (provisoire) ; `M3` l'étend.
+    for (final MapScaleKind scale in const <MapScaleKind>[
+      MapScaleKind.ecoulement,
+      MapScaleKind.debit,
+    ]) {
       testWidgetsOnWindows('legende $scale : symboles a 12 px, sans liseré', (
         WidgetTester tester,
       ) async {

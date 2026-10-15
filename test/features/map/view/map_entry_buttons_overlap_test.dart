@@ -73,6 +73,14 @@ const Size _bureau = Size(800, 740);
 const Size _telephone = Size(360, 640);
 const Size _telephoneCouche = Size(640, 360);
 
+/// Les échelles dont ce fichier mesure les recouvrements : l'écoulement et le
+/// débit, restreintes explicitement le 2026-10-15 (`L1` de T4). La lecture
+/// Crues (troisième puce, légende encore vide) y entre avec `K1`.
+const List<MapScaleKind> _echellesMesurees = <MapScaleKind>[
+  MapScaleKind.ecoulement,
+  MapScaleKind.debit,
+];
+
 /// Le panneau de fiche injecté dans [MapView] : aucun, celui d'une station,
 /// celui d'un point ONDE.
 enum _Fiche {
@@ -439,7 +447,7 @@ void main() {
   // Bloquant : 800 × 740 sous Windows, 360 × 640 sous Android
   // ---------------------------------------------------------------------
   for (final _Fiche fiche in _Fiche.values) {
-    for (final MapScaleKind scale in MapScaleKind.values) {
+    for (final MapScaleKind scale in _echellesMesurees) {
       _surWindows(
         '${_nom(_bureau, scale, fiche)} (Roboto pour Segoe UI), EN MODE : les '
         'cinq boutons ne recoupent ni la légende visible, ni le bouton de '
@@ -545,7 +553,7 @@ void main() {
     (_telephone, MapScaleKind.debit) => 99,
     _ => throw StateError('cas non mesuré'),
   };
-  for (final MapScaleKind scale in MapScaleKind.values) {
+  for (final MapScaleKind scale in _echellesMesurees) {
     _surWindows(
       'CONSTAT — ${_nom(_bureau, scale, _Fiche.aucune)} (Roboto pour Segoe '
       'UI), EN MODE : la légende a à défiler de '
@@ -588,7 +596,7 @@ void main() {
   // 640 × 360 : mesuré, pas exigé
   // ---------------------------------------------------------------------
   for (final _Fiche fiche in _Fiche.values) {
-    for (final MapScaleKind scale in MapScaleKind.values) {
+    for (final MapScaleKind scale in _echellesMesurees) {
       _surAndroid(
         '640 × 360, mesure : ${_nom(_telephoneCouche, scale, fiche)}, EN MODE',
         (WidgetTester tester) async {

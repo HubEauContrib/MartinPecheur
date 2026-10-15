@@ -59,10 +59,15 @@ double get areaClusterMarkerSize => minimumTapTarget;
 /// `ADR-003` hors T1) — `BR-009` n'a rien à départager.
 ///
 /// `switch` exhaustif sur [MapScaleKind] (`BR-011`) : une échelle ajoutée
-/// sans branche ici ne compile pas.
+/// sans branche ici ne compile pas. Sur [MapScaleKind.crues], branche
+/// inatteignable, dite telle (`L1` de T4, décision `D6`) :
+/// `MapViewModel.clusters` n'y rend aucune pastille.
 String areaClusterLabel(MapAreaCluster cluster) => switch (cluster.scale) {
   MapScaleKind.ecoulement => _ecoulementClusterLabel(cluster),
   MapScaleKind.debit => _debitClusterLabel(cluster),
+  MapScaleKind.crues => throw StateError(
+    'aucune pastille sur la lecture Crues (BR-008)',
+  ),
 };
 
 String _ecoulementClusterLabel(MapAreaCluster cluster) {
@@ -100,6 +105,11 @@ Widget _symbolFor(MapAreaCluster cluster) => switch (cluster.scale) {
     // losange creux à contour continu — le rendu « neutre » du plan
     // (`fillOpacity: 0`, `#767676`). Aucune nouvelle forme, aucune teinte.
     painter: StationMarkerPainter.forState(const NonChargee()),
+  ),
+  // Inatteignable, dite telle (`L1` de T4, décision `D6`) : voir
+  // [areaClusterLabel].
+  MapScaleKind.crues => throw StateError(
+    'aucune pastille sur la lecture Crues (BR-008)',
   ),
 };
 

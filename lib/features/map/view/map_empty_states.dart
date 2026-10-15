@@ -255,6 +255,12 @@ final class UnreadableRows extends MapNotice {
 ///
 /// De [error], seule la **nullité** est lue : la cause technique ne décide
 /// rien et ne s'affiche pas.
+///
+/// **La lecture Crues passe avant la règle 1** (`L1` de T4, R15) : sur
+/// [MapScaleKind.crues], seuls ses propres avis, [floodNotices], sont
+/// rendus, tels quels — une panne du référentiel ou de l'ONDE n'y parle
+/// pas, aucune station ni aucun point n'y étant dessiné. Leur contenu arrive
+/// en `M4`.
 List<MapNotice> mapNoticesFor({
   required MapScaleKind scale,
   required bool hasStations,
@@ -263,7 +269,16 @@ List<MapNotice> mapNoticesFor({
   required MapErrorSource? errorSource,
   required int ondeUnreadableRows,
   required bool filterHidesEverything,
+  List<MapNotice> floodNotices = const <MapNotice>[],
 }) {
+  switch (scale) {
+    case MapScaleKind.crues:
+      return floodNotices;
+    case MapScaleKind.ecoulement:
+    case MapScaleKind.debit:
+      break;
+  }
+
   if (error != null) {
     return <MapNotice>[
       SourceUnavailable(sourceName: mapSourceName(errorSource)),
@@ -286,6 +301,9 @@ List<MapNotice> mapNoticesFor({
       else if (!hasOndeObservations && ondeUnreadableRows == 0)
         if (hasStations) const OutsideOndeCoverage() else const NoDataInArea(),
     ],
+    // Déjà rendue en tête de fonction ; la même réponse ici, pour que
+    // l'exhaustivité ne passe pas par un `default`.
+    MapScaleKind.crues => floodNotices,
   };
 }
 

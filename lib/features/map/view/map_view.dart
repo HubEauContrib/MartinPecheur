@@ -483,6 +483,9 @@ List<Widget> buildMapLayers({
       onStationTap: onStationTap,
       focusOrderStartIndex: clusters.length,
     ),
+    // `L1` de T4 : aucun marqueur sur la lecture Crues — un calque de traits
+    // (`M2`, `M5`), ni station ni point ONDE (`BR-008`).
+    MapScaleKind.crues => const <Marker>[],
   };
 
   // Les pastilles d'abord, puis les individuels (plan T1, tâche Z4) : au
@@ -2155,6 +2158,9 @@ class _MapViewState extends State<MapView> {
                   clusters.isNotEmpty || orderedStations.isNotEmpty,
                 MapScaleKind.ecoulement =>
                   clusters.isNotEmpty || orderedOnde.isNotEmpty,
+                // Provisoire (`L1` de T4, 2026-10-15) — étiquettes
+                // focalisables : `M5`.
+                MapScaleKind.crues => false,
               };
           // NFR-01 : cette bascule ne crée AUCUN `FocusNode` supplémentaire
           // — elle règle un champ mutable du nœud interne de `flutter_map`

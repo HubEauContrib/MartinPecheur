@@ -328,7 +328,9 @@ final class MapViewModel extends ChangeNotifier {
   /// au niveau individuel ([level] nul). Une seule échelle à la fois
   /// (BR-008) : sur [MapScaleKind.debit], calculés sur [StationPointRepository.all]
   /// (l'asset entier) ; sur [MapScaleKind.ecoulement], sur les observations
-  /// ONDE **chargées** pour l'emprise ([ondeObservations]).
+  /// ONDE **chargées** pour l'emprise ([ondeObservations]) ; sur
+  /// [MapScaleKind.crues], **aucune** pastille, à tout niveau (`L1` de T4 :
+  /// la lecture Crues est un calque de traits).
   List<MapAreaCluster> get clusters {
     final AreaLevel? level = _level;
     if (level == null) {
@@ -337,6 +339,7 @@ final class MapViewModel extends ChangeNotifier {
     return switch (_scale) {
       MapScaleKind.debit => _stationMapClusters(level),
       MapScaleKind.ecoulement => _ondeMapClusters(level),
+      MapScaleKind.crues => const <MapAreaCluster>[],
     };
   }
 
@@ -638,6 +641,10 @@ final class MapViewModel extends ChangeNotifier {
                   ? filterKeepsStationPoint(_filter, point)
                   : _filterKeepsStation(point),
             );
+      case MapScaleKind.crues:
+        // Aucun filtre ne s'applique à la lecture Crues (R9) : `filterActive`
+        // y est déjà faux. Branche dite pour l'exhaustivité (`L1` de T4).
+        return false;
     }
   }
 
@@ -850,6 +857,11 @@ final class MapViewModel extends ChangeNotifier {
   /// laisserait la dernière notification connue de l'écran en retard d'un
   /// tour (carte vide ou erreur muette jusqu'au geste suivant).
   Future<bool> _refreshClusterDataIfNeeded() async {
+    // Comparaison relue le 2026-10-15 (`L1` de T4) : sur
+    // [MapScaleKind.crues], `!= debit` est vrai, donc aucun asset entier n'est
+    // lu — la lecture Crues n'a pas de pastille. Effet voulu, testé
+    // (« sur la lecture Crues, aucun appel ONDE ni lecture de l'asset
+    // entier »). Aucune nouvelle comparaison sur l'échelle : un `switch`.
     if (_level == null ||
         _scale != MapScaleKind.debit ||
         _allStations != null) {
@@ -885,7 +897,9 @@ final class MapViewModel extends ChangeNotifier {
   /// ONDE de l'emprise, avec `since = now - `[campagneAncienneApres] : la
   /// carte ne remonte jamais plus loin qu'une campagne récente (BR-010,
   /// `T-03`). Sur l'échelle [MapScaleKind.debit], **aucun** appel ONDE
-  /// n'est émis (BR-008).
+  /// n'est émis (BR-008). Sur [MapScaleKind.crues] non plus ; les stations
+  /// de l'emprise y sont tout de même lues, rien n'en est dessiné (`L1` de
+  /// T4, décision `D1`).
   ///
   /// Un geste annule le préchargement en cours ([cancelPreload]) : les
   /// requêtes d'une emprise que l'usager a quittée n'ont plus de valeur et
@@ -943,6 +957,11 @@ final class MapViewModel extends ChangeNotifier {
 
     notifyListeners();
 
+    // Comparaison relue le 2026-10-15 (`L1` de T4, décision `D1`) : sur
+    // [MapScaleKind.crues], les stations de l'emprise viennent d'être lues
+    // (asset local, sans réseau) pour qu'un retour sur une autre échelle les
+    // trouve, et l'ONDE n'est pas appelée. Effet voulu, testé (« sur la
+    // lecture Crues, aucun appel ONDE ni lecture de l'asset entier »).
     if (_scale == MapScaleKind.ecoulement) {
       await _loadOnde(bounds, generation);
       if (_disposed || generation != _generation) {
@@ -1013,6 +1032,13 @@ final class MapViewModel extends ChangeNotifier {
     _scale = kind;
     notifyListeners();
 
+    // Les deux comparaisons qui suivent, relues le 2026-10-15 (`L1` de T4) :
+    // passer sur [MapScaleKind.crues] ne recharge ni l'ONDE ni l'asset
+    // entier — rien n'en est dessiné ; revenir de la lecture Crues sur
+    // l'écoulement recharge l'ONDE de l'emprise lue sur cette lecture
+    // (décision `D1`). Effets voulus, testés (« passer sur la lecture Crues
+    // ne recharge ni ONDE ni asset entier », « revenir de crues a
+    // ecoulement recharge l'ONDE »).
     final Bounds? bounds = _lastRequestedBounds;
     if (kind == MapScaleKind.ecoulement && bounds != null) {
       unawaited(_reloadOndeForScale(bounds));

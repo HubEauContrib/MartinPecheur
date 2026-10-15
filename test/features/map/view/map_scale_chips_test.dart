@@ -208,7 +208,7 @@ void main() {
     }
 
     testWidgetsOnWindows(
-      'sans rappel : exactement deux puces, aucune « Restrictions »',
+      'sans rappel : une puce par échelle, aucune « Restrictions »',
       (WidgetTester tester) async {
         await pumpChips(tester);
 
@@ -221,8 +221,8 @@ void main() {
     );
 
     testWidgetsOnWindows(
-      'avec rappel : troisième puce, libellé exact, APRÈS les deux '
-      'autres',
+      'avec rappel : une puce de plus, libellé exact, APRÈS les puces '
+      "d'échelle — à 800 px, en police de test, sur la rangée suivante",
       (WidgetTester tester) async {
         await pumpChips(tester, onToggle: () {});
 
@@ -232,14 +232,21 @@ void main() {
         final Rect restrictions = tester.getRect(
           find.byKey(mapDesignationChipKey),
         );
+        // Disposition élargie par la puce « Vigilance crues », arbitrage du
+        // commanditaire du 2026-10-15 (`L1` de T4) : à 800 px, en police de
+        // test, « Restrictions » ne tient plus à droite des trois puces
+        // d'échelle et passe sur la rangée suivante, au bord gauche (avant :
+        // même rangée, à droite des deux puces, `left` ≥ 146,5 après
+        // « Écoulement »). « Après » se lit dans l'ordre du `Wrap`.
+        expect(restrictions.left, 0, reason: '$restrictions');
         for (final MapScaleKind kind in MapScaleKind.values) {
           final Rect autre = tester.getRect(
             find.byKey(ValueKey<MapScaleKind>(kind)),
           );
           expect(
-            restrictions.left,
-            greaterThanOrEqualTo(autre.right),
-            reason: 'après ${kind.name}',
+            restrictions.top,
+            greaterThanOrEqualTo(autre.bottom),
+            reason: 'après ${kind.name} : $restrictions, $autre',
           );
         }
       },
@@ -293,13 +300,16 @@ void main() {
     });
 
     testWidgetsOnWindows(
-      'Tab atteint la puce après les deux autres ; Entrée puis '
+      "Tab atteint la puce après les puces d'échelle ; Entrée puis "
       'Espace appellent le rappel, une fois chacun',
       (WidgetTester tester) async {
         int calls = 0;
         await pumpChips(tester, onToggle: () => calls++);
 
-        for (int i = 0; i < 3; i++) {
+        // Une tabulation par puce d'échelle, puis une pour « Restrictions »
+        // : trois Tab avant la puce « Vigilance crues », quatre depuis (`L1` de
+        // T4, 2026-10-15).
+        for (int i = 0; i < MapScaleKind.values.length + 1; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }

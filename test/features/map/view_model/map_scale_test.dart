@@ -16,12 +16,18 @@ const List<String> bannedWords = <String>[
 ];
 
 void main() {
-  test('les echelles de T1 sont l ecoulement et le debit, et elles seules '
-      '(la severite secheresse arrive en T2)', () {
+  test('les echelles de la carte sont l ecoulement, le debit et la '
+      'vigilance crues, dans cet ordre (L1 de T4, 2026-10-15)', () {
     expect(MapScaleKind.values, <MapScaleKind>[
       MapScaleKind.ecoulement,
       MapScaleKind.debit,
+      MapScaleKind.crues,
     ]);
+  });
+
+  test('mapScaleLabel(crues) vaut « Vigilance crues » (cadrage de T4, '
+      '§ 7.2 et § 12.2)', () {
+    expect(mapScaleLabel(MapScaleKind.crues), 'Vigilance crues');
   });
 
   test('mapScaleLabel rend les libelles de 04-ui.md, mot pour mot', () {
@@ -70,6 +76,11 @@ void main() {
     test("l'echelle « ecoulement » ne precharge RIEN — aucune station n'est "
         "dessinee, et Hub'Eau n'a ni SLA ni quota chiffre (C-15)", () {
       expect(shouldPreloadOn(MapScaleKind.ecoulement), isFalse);
+    });
+
+    test("l'echelle « crues » ne precharge RIEN — aucune station n'y est "
+        'dessinee (L1 de T4)', () {
+      expect(shouldPreloadOn(MapScaleKind.crues), isFalse);
     });
 
     test('une seule echelle precharge — la decision est exhaustive sur '

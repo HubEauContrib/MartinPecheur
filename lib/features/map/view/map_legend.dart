@@ -202,6 +202,9 @@ class MapLegend extends StatelessWidget {
               ...switch (scale) {
                 MapScaleKind.debit => _dischargeRows(),
                 MapScaleKind.ecoulement => _flowRows(),
+                // Provisoire (`L1` de T4, 2026-10-15) — lignes de la légende
+                // Crues : `M3`.
+                MapScaleKind.crues => const <Widget>[],
               },
             ],
           ),

@@ -209,18 +209,19 @@ Future<void> _ouvrirLaFeuille(WidgetTester tester) async {
   expect(find.byKey(mapFilterSheetKey), findsOneWidget);
 }
 
-/// Amène le focus sur « Filtres » par Tab — les deux puces d'échelle, puis le
+/// Amène le focus sur « Filtres » par Tab — une puce par échelle, puis le
 /// bouton — et l'active par Entrée : c'est au clavier que le retour du focus
-/// a un sens.
+/// a un sens. Trois Tab avant la puce « Vigilance crues » (`L1` de T4,
+/// 2026-10-15), quatre depuis.
 Future<void> _ouvrirLaFeuilleAuClavier(WidgetTester tester) async {
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < MapScaleKind.values.length + 1; i++) {
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
   }
   expect(
     focusedWithin(tester, _bouton()),
     isTrue,
-    reason: 'le troisième Tab doit arriver sur « Filtres »',
+    reason: 'le Tab qui suit les puces d’échelle doit arriver sur « Filtres »',
   );
   await tester.sendKeyEvent(LogicalKeyboardKey.enter);
   await tester.pumpAndSettle();
@@ -532,7 +533,9 @@ void main() {
         observations: _ecoulementEtAssec(),
         stationPoints: stationPoints,
       );
-      for (int i = 0; i < 3; i++) {
+      // Une puce par échelle, puis « Filtres » (`L1` de T4, 2026-10-15 : trois
+      // Tab avant).
+      for (int i = 0; i < MapScaleKind.values.length + 1; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
       }

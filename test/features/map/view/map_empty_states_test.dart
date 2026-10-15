@@ -666,6 +666,45 @@ void main() {
       filterHidesEverything: filterHidesEverything,
     );
 
+    // `L1` de T4 (2026-10-15) : la lecture Crues passe AVANT la règle 1 —
+    // une panne du référentiel ou de l'ONDE ne parle pas sur cette lecture
+    // (R15) ; seuls ses propres avis, `floodNotices`, s'y disent (`M4`).
+    test('lecture Crues, panne du référentiel : aucun avis — la panne ne '
+        'parle pas sur cette lecture (R15)', () {
+      expect(
+        mapNoticesFor(
+          scale: MapScaleKind.crues,
+          hasStations: false,
+          hasOndeObservations: false,
+          error: Exception('x'),
+          errorSource: MapErrorSource.referentiel,
+          ondeUnreadableRows: 3,
+          filterHidesEverything: true,
+          floodNotices: const <MapNotice>[],
+        ),
+        isEmpty,
+      );
+    });
+
+    test('lecture Crues : les avis de la lecture, tels quels, même devant '
+        'une panne du référentiel', () {
+      const List<MapNotice> floodNotices = <MapNotice>[NoStationInArea()];
+
+      expect(
+        mapNoticesFor(
+          scale: MapScaleKind.crues,
+          hasStations: false,
+          hasOndeObservations: false,
+          error: Exception('x'),
+          errorSource: MapErrorSource.referentiel,
+          ondeUnreadableRows: 3,
+          filterHidesEverything: true,
+          floodNotices: floodNotices,
+        ),
+        same(floodNotices),
+      );
+    });
+
     test('un filtre qui masque tout, écoulement, des observations lues : '
         "l'avis des filtres, et aucun avis d'absence", () {
       expect(notices(filterHidesEverything: true), <MapNotice>[
@@ -743,7 +782,13 @@ void main() {
 
     test('une panne parle seule, même quand le filtre masque tout, sur les '
         'deux échelles', () {
-      for (final MapScaleKind scale in MapScaleKind.values) {
+      // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — sur
+      // la lecture Crues, une panne ne parle pas (R15), cas éprouvés en tête
+      // du groupe ; ses propres avis arrivent en `M4`.
+      for (final MapScaleKind scale in const <MapScaleKind>[
+        MapScaleKind.ecoulement,
+        MapScaleKind.debit,
+      ]) {
         final List<MapNotice> rendus = notices(
           scale: scale,
           error: StateError('panne'),
@@ -869,7 +914,13 @@ void main() {
 
     test('sur TOUTES les combinaisons : jamais deux avis d absence, et une '
         'panne parle seule', () {
-      for (final MapScaleKind scale in MapScaleKind.values) {
+      // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — sur
+      // la lecture Crues, une panne ne parle pas (R15), cas éprouvés en tête
+      // du groupe ; ses propres avis arrivent en `M4`.
+      for (final MapScaleKind scale in const <MapScaleKind>[
+        MapScaleKind.ecoulement,
+        MapScaleKind.debit,
+      ]) {
         for (final bool stations in <bool>[true, false]) {
           for (final bool observations in <bool>[true, false]) {
             for (final int illisibles in <int>[0, 2]) {

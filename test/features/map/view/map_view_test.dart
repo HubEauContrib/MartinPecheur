@@ -1747,8 +1747,9 @@ void main() {
       (MapScaleKind.debit, const Rect.fromLTRB(532.0, 60.0, 792.0, 494.0)),
     ]) {
       testWidgetsOnWindows(
-        'échelle ${cas.$1.name} : le contrôle d’avertissement, les puces et '
-        'la légende sont où ils étaient avant le groupe des boutons d’entrée',
+        'échelle ${cas.$1.name} : le contrôle d’avertissement et la légende '
+        'sont où ils étaient avant le groupe des boutons d’entrée ; les puces, '
+        'élargies par la puce « Vigilance crues », gardent leur hauteur',
         (WidgetTester tester) async {
           await pumpOverlaysAt(tester, const Size(800, 740), scale: cas.$1);
           await tester.pumpAndSettle();
@@ -1762,10 +1763,14 @@ void main() {
               epsilon: 0.1,
             ),
           );
+          // Disposition élargie par la puce « Vigilance crues », arbitrage du
+          // commanditaire du 2026-10-15 (`L1` de T4) : le bloc des puces
+          // s'élargit de 19,75 px (bord droit à 375,0 avant, 394,75 mesuré),
+          // même hauteur.
           expect(
             tester.getRect(find.byType(MapScaleChips)),
             rectMoreOrLessEquals(
-              const Rect.fromLTRB(8.0, 8.0, 375.0, 156.0),
+              const Rect.fromLTRB(8.0, 8.0, 394.75, 156.0),
               epsilon: 0.1,
             ),
           );
@@ -3693,9 +3698,9 @@ void main() {
     );
 
     testWidgetsOnWindows(
-      'Tab : puces (2) → « Élargir la recherche » (avis de carte vide, K1 de '
-      'T3) → « Favoris » → « Filtres » → contrôles de zoom ; « Favoris » est '
-      'le groupe d’entrée, juste avant « Filtres »',
+      'Tab : une puce par échelle → « Élargir la recherche » (avis de carte '
+      'vide, K1 de T3) → « Favoris » → « Filtres » → contrôles de zoom ; '
+      '« Favoris » est le groupe d’entrée, juste avant « Filtres »',
       (WidgetTester tester) async {
         final MapViewModel viewModel = _viewModel();
         addTearDown(viewModel.dispose);
@@ -3708,8 +3713,9 @@ void main() {
         await tester.pumpAndSettle();
 
         final List<Finder> ordreAttendu = <Finder>[
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          // Une puce par échelle (`L1` de T4, 2026-10-15 : deux avant).
+          for (final MapScaleKind kind in MapScaleKind.values)
+            find.byKey(ValueKey<MapScaleKind>(kind)),
           find.byKey(widenSearchKey),
           find.byKey(mapFavoritesButtonKey),
           find.byKey(mapFiltersButtonKey),

@@ -788,6 +788,28 @@ void main() {
     }
   });
 
+  // Même lien pour `crues.feature` (T4) : libellés lus dans le code, cherchés
+  // entre guillemets français. `L1` y pose la puce et la feuille de filtres.
+  group('les libellés portés par le code figurent dans crues.feature', () {
+    final String crues = contenusParFichier['crues.feature'] ?? '';
+
+    final Map<String, String> libellesCrues = <String, String>{
+      'lecture Crues': mapScaleLabel(MapScaleKind.crues),
+      'feuille de filtres, lecture Crues': mapFilterFloodNoCriterionText,
+    };
+    for (final MapEntry<String, String> libelle in libellesCrues.entries) {
+      test('crues.feature cite « ${libelle.value} » (${libelle.key})', () {
+        expect(
+          _containsQuoted(crues, libelle.value),
+          isTrue,
+          reason:
+              'crues.feature ne contient pas « ${libelle.value} », '
+              'le libellé du code pour ${libelle.key}',
+        );
+      });
+    }
+  });
+
   test('aucun mot banni de BR-003 dans les .feature', () {
     for (final MapEntry<String, String> entree in contenusParFichier.entries) {
       for (final String mot in _forbiddenFlowWords) {

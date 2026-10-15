@@ -212,6 +212,80 @@ void main() {
     });
   });
 
+  // `L1` de T4 (2026-10-15) : sur la lecture Crues, la feuille n'offre aucun
+  // critère — masquer un niveau publié cacherait une vigilance émise
+  // (cadrage de T4, § 7.7) — et le dit, par le texte du § 12.2.
+  group('MapFilterSheet — vigilance crues (L1 de T4)', () {
+    test('le texte du cadrage de T4, § 12.2, au mot', () {
+      expect(
+        mapFilterFloodNoCriterionText,
+        "Aucun filtre ne s'applique à la lecture Vigilance crues.",
+      );
+    });
+
+    testWidgetsOnWindows(
+      'la phrase, aucune case, aucun choix, ni « Appliquer » ni « Effacer »',
+      (WidgetTester tester) async {
+        await _open(
+          tester,
+          scale: MapScaleKind.crues,
+          initialFilter: const MapFilter(
+            assec: false,
+            departementCode: '41',
+            dischargeFreshness: DischargeFreshnessCriterion.moinsDe2h,
+          ),
+        );
+
+        expect(find.text('Filtres'), findsOneWidget);
+        expect(
+          find.text(mapFilterFloodNoCriterionText, skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(
+          find.byType(CheckboxListTile, skipOffstage: false),
+          findsNothing,
+        );
+        expect(
+          find.byType(
+            RadioListTile<DischargeFreshnessCriterion>,
+            skipOffstage: false,
+          ),
+          findsNothing,
+        );
+        expect(
+          find.byKey(mapFilterDepartementKey, skipOffstage: false),
+          findsNothing,
+        );
+        expect(
+          find.byKey(mapFilterApplyKey, skipOffstage: false),
+          findsNothing,
+        );
+        expect(
+          find.byKey(mapFilterClearKey, skipOffstage: false),
+          findsNothing,
+        );
+        final List<String> texts = _sheetTexts(tester);
+        expect(texts, isNot(contains(mapFilterApplyLabel)));
+        expect(texts, isNot(contains(mapFilterClearLabel)));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'la feuille se ferme comme aujourd\'hui, sans rien appliquer',
+      (WidgetTester tester) async {
+        final List<MapFilter> applied = await _open(
+          tester,
+          scale: MapScaleKind.crues,
+        );
+
+        await _tap(tester, find.byKey(mapFilterCloseKey));
+
+        expect(find.byKey(mapFilterSheetKey), findsNothing);
+        expect(applied, isEmpty);
+      },
+    );
+  });
+
   group('MapFilterSheet — écoulement', () {
     testWidgetsOnWindows(
       'sans filtre : titre, six cases cochées dans l\'ordre, tous les '
@@ -467,7 +541,7 @@ void main() {
     );
   });
 
-  group('MapFilterSheet — les deux échelles', () {
+  group('MapFilterSheet — toutes les échelles', () {
     for (final MapScaleKind scale in MapScaleKind.values) {
       testWidgetsOnWindows(
         '${scale.name} : aucune échelle n\'est proposée dans la feuille',
@@ -483,7 +557,17 @@ void main() {
           expect(texts.any((String text) => text.contains('Échelle')), isFalse);
         },
       );
+    }
+  });
 
+  group('MapFilterSheet — les deux échelles à critères', () {
+    // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — la
+    // lecture Crues n'offre ni « Appliquer » ni « Effacer » (groupe
+    // « vigilance crues » plus haut) ; `K1` reprend les boucles de la feuille.
+    for (final MapScaleKind scale in const <MapScaleKind>[
+      MapScaleKind.ecoulement,
+      MapScaleKind.debit,
+    ]) {
       testWidgetsOnWindows(
         '${scale.name} : « Appliquer » sans compteur, aucun mot qui qualifie '
         'un débit',
@@ -725,7 +809,13 @@ void main() {
   });
 
   group('MapFilterSheet — cibles', () {
-    for (final MapScaleKind scale in MapScaleKind.values) {
+    // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — les
+    // cibles mesurées sont des critères et « Appliquer »/« Effacer », absents
+    // de la lecture Crues ; `K1` reprend les boucles de la feuille.
+    for (final MapScaleKind scale in const <MapScaleKind>[
+      MapScaleKind.ecoulement,
+      MapScaleKind.debit,
+    ]) {
       testWidgetsOnWindows('${scale.name} : chaque contrôle fait au moins 44 '
           'de haut', (WidgetTester tester) async {
         await _open(tester, scale: scale);
@@ -1154,7 +1244,13 @@ void main() {
   });
 
   group('MapFilterSheet — téléphone', () {
-    for (final MapScaleKind scale in MapScaleKind.values) {
+    // `L1` de T4 (2026-10-15) : restreinte à l'écoulement et au débit — le
+    // cas mesure les libellés des critères et atteint « Appliquer », absents
+    // de la lecture Crues ; `K1` reprend les boucles de la feuille.
+    for (final MapScaleKind scale in const <MapScaleKind>[
+      MapScaleKind.ecoulement,
+      MapScaleKind.debit,
+    ]) {
       testWidgetsOnAndroid(
         'Android : ${scale.name}, 360 × 640, texte à 200 % — aucune '
         'exception de débordement, « Appliquer » atteint par défilement, '
