@@ -11,6 +11,11 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [0.5.0]
+
+Cinquième tranche (T4) : la vigilance crues publiée par Vigicrues, en
+quatrième lecture de la carte. Version ouverte, non publiée.
+
 ## [0.4.0] — 2026-10-14
 
 Quatrième tranche (T3) : les favoris, les filtres de la carte et le critère

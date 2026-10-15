@@ -21,7 +21,7 @@
 | **T1** | Carte, fiches, modal et contrôle « ⚠ Avertissement » | ✅ close — `0.2.0` |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 porte non franchie : restent `A1`, `E4`, `P1`, `P2` (25 tâches closes sur 29) — `0.3.0` datée et taguée sans elle, sur décision du commanditaire |
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
-| **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | 🔄 en cours — faits Vigicrues vérifiés par appel réel le 2026-10-14 (`docs/sources/vigicrues.md`, `VC-01` à `VC-13`) ; cadrage approuvé le 2026-10-14 (`docs/superpowers/specs/2026-10-14-cadrage-t4-design.md`, treize arbitrages) ; plan de 28 tâches (`docs/superpowers/plans/2026-10-14-t4-crues-vigicrues.md`), **aucune faite** ; version `0.5.0` pas encore ouverte (`T4-O1`) |
+| **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | 🔄 en cours — faits Vigicrues vérifiés par appel réel le 2026-10-14 (`docs/sources/vigicrues.md`, `VC-01` à `VC-13`) ; cadrage approuvé le 2026-10-14 (`docs/superpowers/specs/2026-10-14-cadrage-t4-design.md`, treize arbitrages) ; plan de 28 tâches (`docs/superpowers/plans/2026-10-14-t4-crues-vigicrues.md`), `T4-O1` faite, version `0.5.0` ouverte |
 | **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 prévue après T4 (arbitrage du commanditaire du 2026-10-03), non cadrée — dépend des favoris de T3 et du moteur structuré laissé ouvert par `ADR-011` ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
@@ -273,8 +273,7 @@ Une case vide est une case vide, pas un « probablement ».
 
 ## Prochaine étape
 
-`T4-O1` : ouvrir la version `0.5.0` (`pubspec.yaml` en `0.5.0+5`, `## [0.5.0]` dans `CHANGELOG.md`) et le
-dire dans ce fichier (ligne T4, cette section) ; `CLAUDE.md` ne change pas, T4 y reste « 🔄 en cours ». Puis la suite du plan de T4, dans l'ordre de sa section
+`T4-O2` : écrire `BR-015` (nouvelle) et les amendements de `BR-001`, `BR-007`, `BR-008`, `BR-011`, `BR-014` (cadrage § 12.1). Puis la suite du plan de T4, dans l'ordre de sa section
 « Ordre d'exécution » : documents `T4-O2` à `T4-O4` ; domaine `T4-V1` à `T4-V3` ; données `T4-W1` à
 `T4-W3` ; lecture `T4-L1`, `T4-L2` ; carte `T4-M1` à `T4-M5` ; fiche et composition `T4-F1` à `T4-F5` ;
 finitions `T4-K1`, `T4-X1` ; porte `T4-H1`, `T4-P1`, `T4-P2` (lancées par le commanditaire), puis `T4-P3`.

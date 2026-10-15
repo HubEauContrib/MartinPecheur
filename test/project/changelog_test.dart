@@ -472,20 +472,6 @@ void main() {
       );
     }
 
-    test('pubspec.yaml porte version: 0.4.0+4', () {
-      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
-      expect(
-        RegExp(
-          r'^version:\s*0\.4\.0\+4\s*$',
-          multiLine: true,
-        ).hasMatch(contenuPubspec),
-        isTrue,
-        reason:
-            'un tag et un journal qui divergent laissent personne savoir ce '
-            'que contient le binaire installe',
-      );
-    });
-
     // Task P3 : la porte de T3 constatee, la version se date. Une version
     // sans date n'est pas close ; la date est celle du jour de P3.
     test(
@@ -691,6 +677,61 @@ void main() {
           .substring(section.indexOf('\n'), section.indexOf('\n### '))
           .replaceAll(RegExp(r'\s+'), ' ');
       expect(chapeau, isNot(contains("rien n'en est encore livré")));
+    });
+  });
+
+  // Task O1 du plan T4 ouvre la version 0.5.0 : ouverte, non publiee, sans
+  // sous-section « Ajoute » (X1 l'ecrit en une fois). P3 la datera.
+  group('version 0.5.0 (Task O1 du plan T4)', () {
+    late String contenuChangelog;
+
+    setUpAll(() {
+      contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    });
+
+    test('pubspec.yaml porte version: 0.5.0+5', () {
+      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        RegExp(
+          r'^version:\s*0\.5\.0\+5\s*$',
+          multiLine: true,
+        ).hasMatch(contenuPubspec),
+        isTrue,
+        reason:
+            'un tag et un journal qui divergent laissent personne savoir ce '
+            'que contient le binaire installe',
+      );
+    });
+
+    test('une section ## [0.5.0], une seule, sous [Non publié] et au-dessus '
+        'de [0.4.0]', () {
+      final int occurrences = RegExp(
+        r'^## \[0\.5\.0\]',
+        multiLine: true,
+      ).allMatches(contenuChangelog).length;
+      expect(occurrences, 1);
+      final int nonPublie = contenuChangelog.indexOf('## [Non publié]');
+      final int v050 = contenuChangelog.indexOf('## [0.5.0]');
+      final int v040 = contenuChangelog.indexOf('## [0.4.0]');
+      expect(nonPublie, lessThan(v050));
+      expect(v050, lessThan(v040));
+    });
+
+    test('le chapeau de 0.5.0 dit la tranche T4 et que la version est '
+        'ouverte, non publiée', () {
+      final int debut = contenuChangelog.indexOf('## [0.5.0]');
+      final int suivante = contenuChangelog.indexOf('\n## [', debut + 1);
+      final String chapeau = contenuChangelog
+          .substring(debut, suivante)
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(
+        chapeau,
+        contains(
+          'Cinquième tranche (T4) : la vigilance crues publiée par Vigicrues, '
+          'en quatrième lecture de la carte. Version ouverte, non publiée.',
+        ),
+      );
+      expect(chapeau, isNot(contains('### Ajouté')));
     });
   });
 }
