@@ -28,6 +28,7 @@ import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
+import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show
@@ -825,6 +826,14 @@ void main() {
       ])
         'légende, rangée ${floodLevelLabel(level)}':
             '${floodLevelLabel(level)} — ${publishedFloodLegend(level)}',
+      // `F3` : la fiche tronçon. Le Gherkin cite le titre de l'orange et celui
+      // du niveau inconnu, la phrase de l'inconnu et le bouton du bulletin.
+      'fiche, titre orange': floodVigilanceTitle(const Orange()),
+      'fiche, niveau inconnu': floodVigilanceTitle(
+        const NiveauCruesInconnu(null),
+      ),
+      'fiche, phrase du niveau inconnu': floodUnknownLevelText,
+      'fiche, bouton du bulletin': floodBulletinButtonLabel,
       'légende, niveau non reconnu': floodLevelLabel(
         const NiveauCruesInconnu(null),
       ),
