@@ -24,7 +24,13 @@
 // interdit ici : `restrictionsPublicSiteUrl` est le site public, pas l'hôte
 // d'API.
 //
-// Les QUATRE noms sont lus par l'écran « D'où vient cette donnée ? »
+// [floodSourceName] et ses voisins s'ajoutent en T4 (W2) : le CINQUIEME nom,
+// Vigicrues. Le nom affichable, l'attribution, le site public et le gabarit du
+// bulletin vivent ici ; le vocabulaire de l'API (adresse, noms de champs) reste
+// confine a `lib/data/floods/` et `lib/main.dart`
+// (`test/data/floods/flood_vocabulary_confinement_test.dart`).
+//
+// Les CINQ noms sont lus par l'écran « D'où vient cette donnée ? »
 // (`lib/features/shared/data_sources_view.dart`, T2 `S1`) : ni lui ni les
 // autres lecteurs n'en recopient la chaîne.
 //
@@ -66,3 +72,21 @@ const String ignSourceName = 'IGN Géoplateforme';
 /// (`lib/features/shared/data_sources_view.dart`) : jamais une chaîne
 /// recopiée dans un widget.
 const String ignAttribution = '© $ignSourceName — Licence Ouverte';
+
+/// Nom affiché de la source de la vigilance crues (T4, W2).
+const String floodSourceName = 'Vigicrues';
+
+/// Attribution exigée par la licence de Vigicrues (`VC-09`).
+const String floodAttribution = '© VIGICRUES';
+
+/// Intitulé du lien vers le site public de Vigicrues, exigé par les mentions
+/// légales.
+const String floodPublicSiteLabel = 'www.vigicrues.gouv.fr';
+
+/// Adresse du site public de Vigicrues — le site, pas l'API.
+const String floodPublicSiteUrl = 'https://www.vigicrues.gouv.fr';
+
+/// Adresse du bulletin local d'un territoire sur le site public (`VC-08`) —
+/// le site, pas l'API.
+Uri floodBulletinUri(String territoryCode) =>
+    Uri.https('www.vigicrues.gouv.fr', '/bulletin_local/$territoryCode');
