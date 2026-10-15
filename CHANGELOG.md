@@ -18,16 +18,20 @@ quatrième lecture de la carte. Version ouverte, non publiée.
 
 ### Ajouté
 
-- Quatrième lecture de la carte, « Vigilance crues » (`US-21`, `UC-009`) : une troisième puce du
-  sélecteur d'échelle, qui efface les marqueurs et les pastilles des autres échelles (`BR-008`)
+- Quatrième lecture de la carte, « Vigilance crues » (`US-21`, `UC-009`) : une troisième puce
+  d'échelle du sélecteur, qui efface les marqueurs et les pastilles des autres échelles (`BR-008`)
   et trace, pour chaque tronçon de cours d'eau suivi, le **niveau de vigilance publié par
   Vigicrues** : vert, jaune, orange, rouge, ou « Niveau non reconnu » en gris pointillé quand la
   valeur publiée est hors de 1 à 4, absente ou nulle (`BR-011`). Teinte, épaisseur et motif
   portent le niveau, le plus grave étant tracé au-dessus ; une jauge à barres le redit sans la
   couleur. L'application relaie le niveau publié, elle n'en calcule, n'en déduit ni n'en prévoit
   aucun, et ne rapproche jamais un débit, une hauteur ou un écoulement d'une crue (`BR-015`).
-  Le sélecteur prend une rangée de plus là où trois puces ne tiennent pas (mesuré en test, en Roboto, non constaté à l'écran : 390 × 844 à 100 %,
-  360 × 640 à 200 %) : ce qui sort de la colonne du haut s'atteint en la faisant défiler.
+  Le sélecteur, qui compte désormais quatre puces (les trois échelles, puis « Restrictions »),
+  prend une rangée de plus là où elles ne tiennent pas sur une seule (mesuré en test, en Roboto,
+  non constaté à l'écran : 390 × 844 à 100 %, 360 × 640 à 200 %) : ce qui sort de la colonne du
+  haut s'atteint en la faisant défiler. Un changement de taille de la fenêtre, ou une rotation de
+  l'écran, remet à jour les étiquettes et l'avis du secteur de la lecture Crues sans qu'il faille
+  déplacer la carte.
 - Étiquettes des tronçons, posées selon le zoom : sous le zoom 9, seuls les tronçons non verts et
   ceux de niveau non reconnu en portent une ; à partir du zoom 9, chaque tronçon dont un segment
   coupe l'emprise, posée sur le point du trait visible le plus proche du centre. Une étiquette
@@ -48,22 +52,29 @@ quatrième lecture de la carte. Version ouverte, non publiée.
   réponse dont la date de l'information de vigilance est absente ou sans fuseau explicite est
   illisible pour toute la réponse : aucun trait n'est tracé (`BR-001`).
 - Fiche du tronçon, ouverte en touchant un trait ou une étiquette (le tronçon dessiné le plus haut
-  quand deux traits se superposent) : « Tronçon Vigicrues » et le nom publié, l'encart « CE N'EST
+  quand deux traits se superposent ; le tronçon retenu est celui touché à l'appui, même si la
+  souris bouge avant le relâcher) : « Tronçon Vigicrues » et le nom publié, l'encart « CE N'EST
   PAS UN SYSTÈME D'ALERTE » (non repliable, annoncé en priorité au lecteur d'écran, `BR-015`), le
   niveau, la définition publiée par Vigicrues citée et suivie de « — Vigicrues », la date et
   « © VIGICRUES », puis « Lire le bulletin sur www.vigicrues.gouv.fr », qui ouvre le bulletin
   local du territoire hors de l'application ; si le lien ne s'ouvre pas, son adresse reste
   affichée, lisible et sélectionnable. Un niveau non reconnu est dit tel quel, sans citation. La
   fiche se ferme en ouvrant une autre fiche, un favori, en désignant un point ou en quittant la
-  lecture : il n'y a jamais deux fiches ensemble.
+  lecture : il n'y a jamais deux fiches ensemble. Dans l'autre sens, entrer sur la lecture Crues
+  ferme les fiches station et ONDE, et ouvrir un favori station ou ONDE depuis la lecture Crues
+  passe d'abord sur sa lecture — Débit pour une station, Écoulement pour un point ONDE —, puis
+  ouvre sa fiche ; sur les deux autres lectures, ouvrir un favori ne change toujours ni la
+  lecture ni la caméra.
 - Contrôle « ⚠ Avertissement » : sur la lecture Crues, sa fenêtre ajoute le texte de crue sous le
   texte général ; la fiche du tronçon porte le sien. « D'où vient cette donnée ? » nomme Vigicrues.
 - La feuille « Filtres » dit « Aucun filtre ne s'applique à la lecture Vigilance crues. » et n'offre
   aucun critère ; le bouton « Filtres » ne se montre pas actif sur cette lecture.
 - Vigicrues n'est appelé qu'après la première activation de la lecture, avec un délai de 20
-  secondes par tentative ; la carte lue est gardée 30 minutes pour la session, et passé ce délai
-  l'ancienne vigilance reste tracée avec sa date pendant qu'une nouvelle se charge, sans avis.
-  Rien n'est conservé au-delà de la session.
+  secondes par tentative ; la carte lue est gardée 30 minutes pour la session. Passé ce délai,
+  rien ne se met à jour de soi-même : l'ancienne vigilance reste tracée avec sa date, sans avis,
+  et c'est un geste sur la lecture Crues qui lance un rafraîchissement en fond — un seul à la
+  fois, retenté au geste suivant s'il échoue ; la nouvelle vigilance paraît au geste qui suit la
+  fin de ce rafraîchissement. Rien n'est conservé au-delà de la session.
 
 ## [0.4.0] — 2026-10-14
 

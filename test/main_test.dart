@@ -2738,11 +2738,16 @@ void main() {
     // L'ouverture d'un favori, seule : la fiche tronçon est rouverte SOUS la
     // route « Favoris » (déjà poussée, qui l'avait fermée), puis le favori
     // est ouvert. Les deux sortes de favori, chacune par sa branche.
+    // Arbitrage du commanditaire du 2026-10-15 (« Fiches Crues », réponse
+    // « Fermer, et changer d'échelle ») : depuis la lecture Crues, le favori
+    // passe d'abord sur sa lecture — Débit pour une station, Écoulement pour
+    // un point ONDE —, puis sa fiche s'ouvre et le reste.
     for (final bool ondeFavorite in <bool>[false, true]) {
       testWidgetsOnWindows(
         'fiche troncon ouverte sous l ecran « Favoris », puis ouverture d un '
         'favori ${ondeFavorite ? 'ONDE' : 'station'} : la fiche troncon est '
-        'Fermee',
+        'Fermee, l echelle passe ${ondeFavorite ? 'a l ecoulement' : 'au debit'}'
+        ', la fiche du favori est ouverte',
         (WidgetTester tester) async {
           final _FloodRoot root = await pumpRoot(
             tester,
@@ -2772,16 +2777,93 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.byType(FavoritesScreen), findsNothing);
-          expect(root.map.scale, MapScaleKind.crues);
+          expect(
+            root.map.scale,
+            ondeFavorite ? MapScaleKind.ecoulement : MapScaleKind.debit,
+          );
           expect(root.floodSheet.state, isA<FicheTronconFermee>());
           if (ondeFavorite) {
             expect(root.onde.state, isA<OndeSheetPrete>());
+            expect(root.station.state, isA<Fermee>());
           } else {
             expect(root.station.state, isA<Prete>());
+            expect(root.onde.state, isA<OndeSheetFermee>());
           }
         },
       );
     }
+
+    // Même arbitrage, l'autre sens : ENTRER sur la lecture Crues ferme les
+    // fiches station et ONDE. Une fenêtre large : à 800 × 740, une fiche
+    // ouverte couvre les puces de la colonne de gauche.
+    testWidgetsOnWindows(
+      'fiche station ouverte sur l echelle debit, puis la puce « Vigilance '
+      'crues » : la fiche station est Fermee',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(
+          tester,
+          window: const Size(1920, 1032),
+        );
+        await selectScaleChip(tester, MapScaleKind.debit);
+        mapView(tester).onStationTap!(StationCode('K447001001'));
+        await tester.pumpAndSettle();
+        expect(root.station.state, isA<Prete>());
+
+        await selectScaleChip(tester, MapScaleKind.crues);
+
+        expect(root.map.scale, MapScaleKind.crues);
+        expect(root.station.state, isA<Fermee>());
+        expect(root.onde.state, isA<OndeSheetFermee>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche ONDE ouverte sur l echelle ecoulement, puis la puce « Vigilance '
+      'crues » : la fiche ONDE est Fermee',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(
+          tester,
+          window: const Size(1920, 1032),
+        );
+        mapView(tester).onOndeTap!(chaon());
+        await tester.pumpAndSettle();
+        expect(root.onde.state, isA<OndeSheetPrete>());
+
+        await selectScaleChip(tester, MapScaleKind.crues);
+
+        expect(root.map.scale, MapScaleKind.crues);
+        expect(root.onde.state, isA<OndeSheetFermee>());
+        expect(root.station.state, isA<Fermee>());
+      },
+    );
+
+    // L'arbitrage 6 de T3 reste entier hors de la lecture Crues : sur le
+    // débit, un favori ONDE s'ouvre sans changer d'échelle.
+    testWidgetsOnWindows(
+      'sur l echelle debit, ouverture d un favori ONDE : l echelle reste le '
+      'debit, la fiche ONDE est ouverte',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[
+            OndePointFavorite(
+              point: chaon(),
+              addedAt: DateTime.utc(2026, 10, 13),
+            ),
+          ],
+        );
+        root.map.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapFavoritesButtonKey));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('LA RIVIERE AUX LOCHES A CHAON'));
+        await tester.pumpAndSettle();
+
+        expect(root.map.scale, MapScaleKind.debit);
+        expect(root.onde.state, isA<OndeSheetPrete>());
+      },
+    );
 
     // L'inverse : le toucher d'un tronçon ferme les deux autres fiches.
     testWidgetsOnWindows(

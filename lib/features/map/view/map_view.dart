@@ -2102,10 +2102,18 @@ class _MapViewState extends State<MapView> {
   /// Seule exception : un changement de taille de la carte
   /// (`MapEventNonRotatedSizeChange`) rejoue la contrainte de caméra
   /// ([_reapplyCameraConstraint]) — il ne recharge rien lui-même, seul le
-  /// recalage éventuel qui en découle passe par [_afterCameraMove].
+  /// recalage éventuel qui en découle passe par [_afterCameraMove]. Sans
+  /// recalage, la lecture Crues est quand même prévenue de l'emprise à la
+  /// nouvelle taille ([_signalFloodViewport], qui ne fait rien sur les deux
+  /// autres échelles) : ses étiquettes et son avis « secteur sans tronçon »
+  /// restaient ceux de l'ancienne emprise (relecture d'ensemble de T4).
   void _handleMapEvent(MapEvent event) {
     if (event is MapEventNonRotatedSizeChange) {
-      _reapplyCameraConstraint();
+      if (!_reapplyCameraConstraint()) {
+        _signalFloodViewport(
+          _boundsFromLatLngBounds(_mapController.camera.visibleBounds),
+        );
+      }
       return;
     }
 
@@ -2143,9 +2151,14 @@ class _MapViewState extends State<MapView> {
   /// Le `MapEventMove` que ce déplacement émet à son tour repasse par
   /// [_handleMapEvent], qui l'ignore — ce n'est pas un changement de taille,
   /// et [shouldRefreshOn] répond `false` : pas de boucle.
-  void _reapplyCameraConstraint() {
+  ///
+  /// Rend `true` si la caméra a été recalée — [_afterCameraMove] a alors
+  /// déjà signalé l'emprise résultante.
+  bool _reapplyCameraConstraint() {
     final MapCamera camera = _mapController.camera;
-    _afterCameraMove(_mapController.move(camera.center, camera.zoom));
+    final bool moved = _mapController.move(camera.center, camera.zoom);
+    _afterCameraMove(moved);
+    return moved;
   }
 
   /// « Élargir la recherche » : le ViewModel recharge une emprise deux fois

@@ -33,8 +33,9 @@ aucune publication Android (`A⏸3`, `A⏸5`).
 
 ## Vérifié au 2026-10-15
 
-Sur le code du sommet `0bff522`, avec les documents de `T4-X1` : `flutter analyze` → « No issues
-found! », `flutter test` → « +3947: All tests passed! » (3 313 au départ de T4).
+Sur le code du passage de correction de la relecture d'ensemble de T4, avec ses documents :
+`flutter analyze` → « No issues found! », `flutter test` → « +3961: All tests passed! » (3 947 avant ce
+passage, 3 313 au départ de T4).
 
 **Réserve durable sur les polices de mesure.** Quatre fichiers de test mesurent en Roboto, chargée depuis
 le SDK Flutter (`FLUTTER_ROOT`) : `map_overlays_phone_test.dart`, `map_sheet_height_test.dart`,
@@ -293,6 +294,12 @@ Une case vide est une case vide, pas un « probablement ».
 - **2026-10-15** — puces d'échelle (`L1` de T4), question fermée « Accepter la disposition » : la troisième
   puce fait passer le sélecteur sur une rangée de plus là où il ne tient pas, et ce qui sort de la colonne
   du haut s'atteint en la faisant défiler (mesures au point 61). À constater à l'écran à la porte.
+- **2026-10-15** — fiches à l'entrée sur la lecture Crues (relecture d'ensemble de T4), question fermée
+  « Fiches Crues », réponse « Fermer, et changer d'échelle » : « Entrer sur la lecture Crues ferme les
+  fiches station et ONDE. Ouvrir un favori station ou ONDE depuis la lecture Crues passe d'abord sur sa
+  lecture (Débit pour une station, Écoulement pour un point ONDE). Cela revoit l'arbitrage 6 de T3 pour ce
+  seul cas. » Composé dans `lib/main.dart`, vérifié par `test/main_test.dart` ; décrit dans `04-ui.md`
+  (« Fiche tronçon Vigicrues ») et `UC-009` (`A10`). À constater à l'écran à la porte.
 
 ## Faits sans autre trace
 

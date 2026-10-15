@@ -26,16 +26,25 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 /// toucher de la moitié de la cible ([minimumTapTarget] / 2 : un rayon, 22
 /// sur Windows, 24 sur Android) et la simplification par défaut du paquet.
 ///
-/// Le toucher : un `GestureDetector` (`HitTestBehavior.deferToChild`) lit
-/// [hitNotifier] au relâcher. Une valeur `null` ne donne rien. La liste
-/// `hitValues` est **copiée** avant d'en prendre le premier élément — le
-/// trait le plus haut dessiné : `flutter_map` réemploie et vide cette liste
-/// à chaque test de toucher, survol compris sous Windows
-/// (`layer_interactivity/internal_hit_detectable.dart`). [onTap] reçoit le
-/// code tel quel.
+/// Le toucher : le code est relevé **à l'appui**. Un `Listener`
+/// (`onPointerDown`) reçoit l'appui après le test de toucher de ce pointeur
+/// — `GestureBinding` teste l'arbre, puis distribue l'événement — et lit
+/// alors [hitNotifier] : le premier code de `hitValues`, le trait le plus
+/// haut dessiné, ou rien. Le `GestureDetector` (`HitTestBehavior.deferToChild`)
+/// passe ce code à [onTap] quand le toucher est tranché. Lire le notifier à
+/// ce moment-là ne suffisait pas : `flutter_map` réemploie et réécrit sa
+/// liste à chaque test de toucher
+/// (`layer_interactivity/internal_hit_detectable.dart`), et sous Windows la
+/// souris en relance un à chaque déplacement pendant l'appui (`MouseTracker`) :
+/// un appui en bordure de tolérance n'ouvrait rien, ou un tronçon voisin. Le
+/// code relevé vit dans une variable de cette fabrique, partagée par ses deux
+/// rappels — le widget rendu est réemployé tel quel par l'appelant, aucun
+/// état n'est lié à un widget. Un appui hors de tout trait le remet à `null`.
 ///
-/// ⚠️ **Instance stable** (Review Focus 1) : cette fabrique ne garde rien et
-/// rend un widget neuf à chaque appel. Or `PolylineLayer` vide ses caches de
+/// ⚠️ **Instance stable** (Review Focus 1) : cette fabrique ne garde rien
+/// d'un appel à l'autre — seul le code relevé à l'appui vit, le temps d'un
+/// toucher, dans le widget qu'elle rend — et rend un widget neuf à chaque
+/// appel. Or `PolylineLayer` vide ses caches de
 /// projection et de simplification dans **chaque** `didUpdateWidget`
 /// (`lib/src/layer/shared/layer_projection_simplification/state.dart:52-58`
 /// du paquet `flutter_map` 8.3.2) : un widget neuf à chaque reconstruction de
@@ -56,25 +65,29 @@ Widget buildFloodSectionsLayer({
             _polyline(section, line),
       ];
 
-  return GestureDetector(
+  FloodSectionCode? pressed;
+
+  return Listener(
     behavior: HitTestBehavior.deferToChild,
-    onTap: () {
-      final LayerHitResult<FloodSectionCode>? hit = hitNotifier.value;
-      if (hit == null) {
-        return;
-      }
-      final List<FloodSectionCode> codes = List<FloodSectionCode>.of(
-        hit.hitValues,
-      );
-      if (codes.isEmpty) {
-        return;
-      }
-      onTap(codes.first);
+    onPointerDown: (PointerDownEvent event) {
+      final List<FloodSectionCode> codes =
+          hitNotifier.value?.hitValues ?? const <FloodSectionCode>[];
+      pressed = codes.isEmpty ? null : codes.first;
     },
-    child: PolylineLayer<FloodSectionCode>(
-      polylines: polylines,
-      hitNotifier: hitNotifier,
-      minimumHitbox: minimumTapTarget / 2,
+    child: GestureDetector(
+      behavior: HitTestBehavior.deferToChild,
+      onTap: () {
+        final FloodSectionCode? code = pressed;
+        pressed = null;
+        if (code != null) {
+          onTap(code);
+        }
+      },
+      child: PolylineLayer<FloodSectionCode>(
+        polylines: polylines,
+        hitNotifier: hitNotifier,
+        minimumHitbox: minimumTapTarget / 2,
+      ),
     ),
   );
 }

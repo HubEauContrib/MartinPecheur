@@ -422,9 +422,16 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
   void _onMapChanged() {
     final MapScaleKind scale = widget.mapViewModel.scale;
     final bool leftFloodReading = _leavesFloodReading(_lastScale, scale);
+    final bool enteredFloodReading = _entersFloodReading(_lastScale, scale);
     _lastScale = scale;
     if (leftFloodReading) {
       widget.floodSheetViewModel.close();
+    }
+    // Arbitrage du commanditaire du 2026-10-15 (« Fiches Crues ») : entrer
+    // sur la lecture Crues ferme les fiches station et ONDE.
+    if (enteredFloodReading) {
+      widget.stationSheetViewModel.close();
+      widget.ondeSheetViewModel.close();
     }
   }
 
@@ -439,6 +446,24 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
         MapScaleKind.ecoulement => false,
         MapScaleKind.debit => false,
       };
+
+  /// Vrai si l'échelle passe d'une autre à [MapScaleKind.crues] : le
+  /// symétrique de [_leavesFloodReading].
+  static bool _entersFloodReading(MapScaleKind before, MapScaleKind after) =>
+      _leavesFloodReading(after, before);
+
+  /// Sur la lecture Crues seulement, passe sur [reading] — la lecture du
+  /// favori ouvert (arbitrage du commanditaire du 2026-10-15). Sur les deux
+  /// autres échelles, rien ne change (arbitrage 6 du cadrage de T3).
+  void _leaveFloodReadingFor(MapScaleKind reading) {
+    switch (widget.mapViewModel.scale) {
+      case MapScaleKind.crues:
+        widget.mapViewModel.selectScale(reading);
+      case MapScaleKind.ecoulement:
+      case MapScaleKind.debit:
+        break;
+    }
+  }
 
   /// Sans client, aucune zone des fiches n'est à l'écran (avertissement
   /// initial non acquitté) : il n'y a rien à ramener.
@@ -703,11 +728,20 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                                   // Ouvrir un favori : la route se retire,
                                   // puis la fiche s'ouvre par le chemin d'un
                                   // tap de marqueur — l'autre fiche fermée
-                                  // d'abord. AUCUN appel à `mapViewModel` : ni
-                                  // la caméra, ni l'échelle, ni le filtre ne
-                                  // changent (arbitrage 6 du cadrage), une
-                                  // fiche ONDE s'ouvre donc aussi sur
-                                  // l'échelle débit.
+                                  // d'abord. Hors de la lecture Crues, AUCUN
+                                  // appel à `mapViewModel` : ni la caméra, ni
+                                  // l'échelle, ni le filtre ne changent
+                                  // (arbitrage 6 du cadrage de T3), une fiche
+                                  // ONDE s'ouvre donc aussi sur l'échelle
+                                  // débit. Sur la lecture Crues seulement
+                                  // (arbitrage du commanditaire du
+                                  // 2026-10-15, « Fiches Crues »), le favori
+                                  // passe d'abord sur sa lecture — Débit pour
+                                  // une station, Écoulement pour un point
+                                  // ONDE —, AVANT l'ouverture de sa fiche :
+                                  // `_onMapChanged`, qui ferme les fiches à
+                                  // l'entrée sur Crues, ne la referme donc
+                                  // pas.
                                   onOpen: (Favorite favorite) {
                                     // Une seconde activation avant la trame
                                     // suivante ne retire rien : `pop()` rend
@@ -724,6 +758,9 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                                       case StationFavorite(
                                         :final StationCode code,
                                       ):
+                                        _leaveFloodReadingFor(
+                                          MapScaleKind.debit,
+                                        );
                                         ondeSheetViewModel.close();
                                         floodSheetViewModel.close();
                                         unawaited(
@@ -732,6 +769,9 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                                       case OndePointFavorite(
                                         :final OndePoint point,
                                       ):
+                                        _leaveFloodReadingFor(
+                                          MapScaleKind.ecoulement,
+                                        );
                                         stationSheetViewModel.close();
                                         floodSheetViewModel.close();
                                         unawaited(

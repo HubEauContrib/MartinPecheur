@@ -350,8 +350,8 @@ List<MapNotice> floodNoticesFor({
 /// **La lecture Crues passe avant la règle 1** (`L1` de T4, R15) : sur
 /// [MapScaleKind.crues], seuls ses propres avis, [floodNotices], sont
 /// rendus, tels quels — une panne du référentiel ou de l'ONDE n'y parle
-/// pas, aucune station ni aucun point n'y étant dessiné. Leur contenu arrive
-/// en `M4`.
+/// pas, aucune station ni aucun point n'y étant dessiné. Leur contenu est
+/// décidé par [floodNoticesFor].
 List<MapNotice> mapNoticesFor({
   required MapScaleKind scale,
   required bool hasStations,

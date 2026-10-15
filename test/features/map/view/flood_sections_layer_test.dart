@@ -10,6 +10,7 @@
 // Les niveaux 2 à 4 (jaune, orange, rouge) sont des cas construits, niveau
 // jamais observé en production — `VC-04`.
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -300,9 +301,12 @@ void main() {
       },
     );
 
+    // Relecture d'ensemble de T4, point B : le code est relevé À L'APPUI. Le
+    // notifier, partagé, est réécrit par tout test de toucher ultérieur
+    // (survol compris) avant que le toucher ne soit tranché.
     testWidgetsOnWindows(
-      'le notifier remis à null entre l’appui et le relâcher : aucun code, '
-      'aucune exception',
+      'le notifier remis à null entre l’appui et le relâcher : le code relevé '
+      'à l’appui, aucune exception',
       (WidgetTester tester) async {
         final List<FloodSectionCode> tapped = <FloodSectionCode>[];
         final LayerHitNotifier<FloodSectionCode> notifier =
@@ -326,7 +330,53 @@ void main() {
         await tester.pump(const Duration(milliseconds: 500));
 
         expect(tester.takeException(), isNull);
-        expect(tapped, isEmpty);
+        expect(tapped, <FloodSectionCode>[FloodSectionCode('V1')]);
+      },
+    );
+
+    // Sous Windows, une souris qui bouge pendant l'appui relance le test de
+    // toucher du calque à chaque `PointerMoveEvent` (`MouseTracker`, appelé
+    // par `RendererBinding.dispatchEvent` sans résultat pour ces événements)
+    // et réécrit le notifier. Un déplacement de 0,8 px reste sous toutes les
+    // tolérances de la souris (toucher, glisser) : le toucher n'est pas
+    // annulé, mais il passe la bordure des 22 px du trait.
+    testWidgetsOnWindows(
+      'souris : appui sur le trait à 21,6 px, déplacement de 0,8 px hors de '
+      'la tolérance pendant l’appui, relâcher : le toucher reçoit le trait',
+      (WidgetTester tester) async {
+        final List<FloodSectionCode> tapped = <FloodSectionCode>[];
+        final LayerHitNotifier<FloodSectionCode> notifier =
+            ValueNotifier<LayerHitResult<FloodSectionCode>?>(null);
+        addTearDown(notifier.dispose);
+        await _pumpLayer(
+          tester,
+          buildFloodSectionsLayer(
+            map: _map(<FloodSection>[_section('A', const Vert())]),
+            hitNotifier: notifier,
+            onTap: tapped.add,
+          ),
+        );
+        final Offset center = tester.getCenter(find.byType(FlutterMap));
+
+        final TestGesture mouse = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer(location: center);
+        addTearDown(mouse.removePointer);
+        await mouse.down(center + const Offset(0, 21.6));
+        expect(notifier.value?.hitValues, <FloodSectionCode>[
+          FloodSectionCode('A'),
+        ]);
+        await mouse.moveTo(center + const Offset(0, 22.4));
+        expect(
+          notifier.value,
+          isNull,
+          reason: 'le déplacement pendant l’appui a réécrit le notifier',
+        );
+        await mouse.up();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(tapped, <FloodSectionCode>[FloodSectionCode('A')]);
       },
     );
 

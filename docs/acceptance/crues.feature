@@ -43,9 +43,9 @@ Fonctionnalité: Consulter la vigilance crues
     Et elle porte « Un cours d'eau sans trait de couleur n'est pas suivi par Vigicrues. » puis « Information de vigilance du 14/10/2026 à 15:55 — © VIGICRUES » (BR-001, BR-014)
 
   Scénario: Toucher un trait ou une étiquette ouvre la fiche du tronçon
-    Étant donné une fiche de station ouverte et une carte de vigilance lue
-    Quand l'usager touche un trait, une étiquette, ou appuie sur Entrée sur une étiquette
-    Alors la fiche de la station se ferme et la fiche du tronçon s'ouvre
+    Étant donné une carte de vigilance lue et la fiche d'un premier tronçon ouverte
+    Quand l'usager touche le trait d'un autre tronçon, son étiquette, ou appuie sur Entrée sur son étiquette
+    Alors la fiche de cet autre tronçon remplace celle du premier : il n'y a jamais deux fiches ensemble
     Et si deux traits se superposent, la fiche est celle du tronçon dessiné le plus haut (BR-008)
 
   Scénario: Ouvrir une autre fiche ou quitter la lecture ferme la fiche du tronçon

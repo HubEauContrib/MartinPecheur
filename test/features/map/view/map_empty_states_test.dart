@@ -1089,6 +1089,34 @@ void main() {
       expect((ecartees.single as FloodUnreadableSections).count, 3);
     });
 
+    // Relecture d'ensemble de T4, point E : le compte des entités écartées
+    // parle quelle que soit l'emprise — la position d'une entité écartée est
+    // inconnue — et dès une seule.
+    for (final bool? dansEmprise in <bool?>[true, null]) {
+      test('Prete, 3 entités écartées, anySectionInBounds $dansEmprise : '
+          '[FloodUnreadableSections(3)]', () {
+        final List<MapNotice> notices = avis(
+          LectureCruesPrete(carte(ecartees: 3)),
+          dansEmprise: dansEmprise,
+        );
+
+        expect(notices, hasLength(1));
+        expect(notices.single, isA<FloodUnreadableSections>());
+        expect((notices.single as FloodUnreadableSections).count, 3);
+      });
+    }
+
+    test('Prete, 1 entité écartée : [FloodUnreadableSections(1)]', () {
+      final List<MapNotice> notices = avis(
+        LectureCruesPrete(carte(ecartees: 1)),
+        dansEmprise: false,
+      );
+
+      expect(notices, hasLength(1));
+      expect(notices.single, isA<FloodUnreadableSections>());
+      expect((notices.single as FloodUnreadableSections).count, 1);
+    });
+
     test('le compte au singulier à 0 et 1, au pluriel au-delà', () {
       expect(
         floodUnreadableSectionsText(0),

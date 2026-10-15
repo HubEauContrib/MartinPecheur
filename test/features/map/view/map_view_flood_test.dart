@@ -799,4 +799,45 @@ void main() {
       expect(find.byKey(floodSheetCloseButtonKey), findsNothing);
     },
   );
+
+  // Relecture d'ensemble de T4, point C : un changement de taille de la
+  // fenêtre, sans mouvement de caméra, prévient la lecture Crues de la
+  // nouvelle emprise (`MapEventNonRotatedSizeChange`).
+  testWidgetsOnWindows(
+    'lecture Crues lue, emprise sans tronçon : avis du secteur ; la fenêtre '
+    's’élargit jusqu’à inclure un tronçon : avis retiré, étiquette posée '
+    '(jaune : cas construit, niveau jamais observé en production — VC-04)',
+    (WidgetTester tester) async {
+      final _Harness h = await _pumpMap(tester);
+      await _choisir(tester, MapScaleKind.crues);
+      // À l'est de l'emprise d'une fenêtre de 800 px au zoom de départ
+      // (environ 17,6° de longitude de part et d'autre du centre), dans
+      // celle d'une fenêtre de 1 400 px (environ 30,8°).
+      h.source.last.complete(
+        FloodVigilanceMap(
+          informationDate: _date,
+          sections: <FloodSection>[
+            _section('J7', const Jaune(), <GeoPoint>[
+              GeoPoint(latitude: initialMapCenterLatitude, longitude: 25),
+              GeoPoint(latitude: initialMapCenterLatitude, longitude: 26),
+            ]),
+          ],
+          skippedEntities: 0,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(h.flood.anySectionInBounds, isFalse);
+      expect(find.text(noFloodSectionInAreaText), findsOneWidget);
+      expect(find.byType(FloodSectionLabel), findsNothing);
+      final double zoom = h.viewModel.zoom!;
+
+      tester.view.physicalSize = const Size(1400, 700);
+      await tester.pumpAndSettle();
+
+      expect(h.viewModel.zoom, zoom, reason: 'la caméra n’a pas zoomé');
+      expect(h.flood.anySectionInBounds, isTrue);
+      expect(find.text(noFloodSectionInAreaText), findsNothing);
+      expect(find.byType(FloodSectionLabel), findsOneWidget);
+    },
+  );
 }
