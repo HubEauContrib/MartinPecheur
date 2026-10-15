@@ -30,8 +30,9 @@
 | 2026-09-12 | **Arbitrage du commanditaire** : verdict favorable sur `F1` + `F3`, `F2c` retenue par défaut, **Android ⏸ différé jusqu'à nouvel ordre**, arbre git frais | [`project-state.md`](../project-state.md) § Arbitrages récents |
 | 2026-09-13 | **T0 livrée** — 31 tâches sur 31, PR #11 fusionnée sur `dev` (`015a245`), version `0.1.0`, **248 tests** (247 du plan + `changelog_test`), constatés par `flutter test` le 2026-09-13, tag `v0.1.0` posé localement (non poussé) | plan T0 § Avancement, [`CHANGELOG.md`](../../CHANGELOG.md) |
 
-> Le tag `archive/pre-flutter-2026-09-09`, cité par `project-state.md` comme portant le spike et
-> l'outillage précédent, **n'est pas présent dans ce clone** (`git tag` ne liste que `v0.1.0`).
+> Le tag `archive/pre-flutter-2026-09-09`, cité par `project-state.md` (arbitrage du 2026-09-12, retiré
+> de ce fichier le 2026-10-15) comme portant le spike et l'outillage précédent, **n'est pas présent dans
+> ce clone** (`git tag --list` ne le liste pas).
 
 ### Ce que la porte de spike a mesuré, le 2026-09-09
 
