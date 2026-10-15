@@ -246,6 +246,21 @@ jamais, pour que le cache n'écrive que ce qui est rendu. L'échec est scellé �
 `VigilanceInjoignable`, `VigilanceRefusee(statusCode)` et `VigilanceIllisible`, sans partage de types
 avec `RestrictionLookupFailure` (contextes distincts).
 
+Règles pures des tronçons (`flood_section_rules.dart`), toutes **par les segments** du tracé
+(arbitrage 11), dans le plan (longitude, latitude), découpage de Liang–Barsky, bornes incluses :
+
+- `floodSectionLabelled` — un tronçon non vert ou de niveau non reconnu porte une étiquette à tout
+  zoom, un vert seulement au niveau individuel (`individualLevel`, dit par l'appelant : le seuil de
+  zoom n'est pas dans le domaine).
+- `floodSectionTouches` — un tronçon touche l'emprise si l'un de ses segments la coupe, même sans
+  qu'aucun sommet y soit.
+- `floodLabelAnchor` — le point du trait visible (segments découpés à l'emprise) le plus proche du
+  centre de l'emprise, toujours dans l'emprise, ou `null` si aucun segment n'y entre.
+- `floodSectionsInDrawingOrder` — tri stable par `floodDrawingRank` croissant : le plus grave est
+  dessiné au-dessus.
+- `floodLabelsFor` — les tronçons étiquetés qui ont une ancre, dans l'ordre de tabulation : distance
+  de l'ancre au centre, puis code.
+
 ## Agrégats
 
 - **Station observée** — racine `Station`, dernière observation connue par `Grandeur`. Une
