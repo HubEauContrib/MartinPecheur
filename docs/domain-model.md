@@ -117,6 +117,11 @@ Identité + cycle de vie, à la différence des objets-valeur.
   date de mesure (`BR-001`). `discharge` et `level` sont déjà convertis (`BR-002`) : aucun
   `double` nu. `null` ≠ zéro (`BR-007`) — un zéro mesuré est un assec, une absence est une
   absence. `level` traverse sans contrôle de signe : une hauteur négative est possible.
+- **`FloodSection`** — un tronçon de cours d'eau (T4) : identité `FloodSectionCode` (le code publié,
+  non vide, tel quel), nom publié, code du territoire, `FloodVigilanceLevel` et tracé (au moins une
+  ligne, chacune d'au moins deux `GeoPoint`). L'égalité ne porte que sur le code.
+- **`FloodVigilanceMap`** — la carte de vigilance : tronçons, nombre d'entités écartées et **date de
+  l'information, obligatoire et en UTC** (`BR-001`).
 
 ## Contexte Restrictions — la réponse datée au point (T2, M3)
 
@@ -233,7 +238,13 @@ classDiagram
 
 Ce contexte relaie le niveau de vigilance que Vigicrues publie pour chaque tronçon ; il ne calcule
 ni niveau, ni seuil, ni prévision (`BR-015`). Sa nomenclature close est `FloodVigilanceLevel`
-(voir « Nomenclatures closes »).
+(voir « Nomenclatures closes »). Les entités `FloodSection` (avec `FloodSectionCode`) et
+`FloodVigilanceMap` sont sous « Entités ».
+
+Le port est `FloodVigilanceSource` (`current()`) : il **lève** un `FloodVigilanceFailure`, ne le rend
+jamais, pour que le cache n'écrive que ce qui est rendu. L'échec est scellé à trois branches,
+`VigilanceInjoignable`, `VigilanceRefusee(statusCode)` et `VigilanceIllisible`, sans partage de types
+avec `RestrictionLookupFailure` (contextes distincts).
 
 ## Agrégats
 

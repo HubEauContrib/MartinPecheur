@@ -67,6 +67,14 @@ const List<String> typesDuDomaine = <String>[
   'EcritureDeFavorisEnEchec',
   'FloodVigilanceLevel',
   'NiveauCruesInconnu',
+  'FloodSectionCode',
+  'FloodSection',
+  'FloodVigilanceMap',
+  'FloodVigilanceSource',
+  'FloodVigilanceFailure',
+  'VigilanceInjoignable',
+  'VigilanceRefusee',
+  'VigilanceIllisible',
 ];
 
 /// Types envisagés mais pas encore écrits sous lib/domain/ (Écoulement
