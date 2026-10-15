@@ -137,6 +137,7 @@ section « Si la décision est revue ».
 | [UC-006](use-cases/UC-006-acquitter-l-avertissement-initial.md) | Acquitter l'avertissement initial | Tout usager |
 | [UC-007](use-cases/UC-007-filtrer-la-carte.md) | Filtrer la carte | Pêcheur |
 | [UC-008](use-cases/UC-008-suivre-un-lieu-en-favori.md) | Suivre un lieu en favori | Pêcheur |
+| [UC-009](use-cases/UC-009-consulter-la-vigilance-crues.md) | Consulter la vigilance crues | Tout usager |
 
 ## Règles d'écriture
 

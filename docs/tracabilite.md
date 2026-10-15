@@ -65,7 +65,7 @@ cellule ou en bas de page, jamais sous la marque ✅. « ✅ T3 » : livré et c
 | BR-014 | `test/project/vocabulary_test.dart` | T1 | ✅ |
 | BR-015 | — (les tests entrent avec `X1`) | T4 | 🔄 T4 : règle écrite, aucun test encore |
 
-## Cas d'usage (UC-001 → UC-008)
+## Cas d'usage (UC-001 → UC-009)
 
 | UC | Fichier de test | Tranche | État |
 |---|---|---|---|
@@ -77,6 +77,7 @@ cellule ou en bas de page, jamais sous la marque ✅. « ✅ T3 » : livré et c
 | UC-006 | `test/features/warnings/view/initial_warning_view_test.dart`, `test/features/warnings/view_model/warnings_view_model_test.dart`, `test/project/warning_texts_version_test.dart`, `test/main_test.dart` | T1 | ✅ |
 | UC-007 | `test/domain/filters/map_filter_predicates_test.dart` (lieu retenu ou masqué ; un lieu dont l'état n'est pas connu n'est pas masqué par le critère qui porte sur cet état : station non chargée, en échec ou sans donnée gardée sous le critère de fraîcheur, lieu sans département gardé sous le critère de département), `test/features/map/view_model/map_view_model_filter_test.dart` (filtre appliqué, effacé, gardé le temps de la session ; pastilles ; préchargement), `test/features/map/view/map_filter_sheet_test.dart` (feuille « Filtres », brouillon, « Appliquer », « Effacer », « Fermer »), `test/features/map/view/map_filter_wiring_test.dart` (flux nominal sur la carte montée : le bouton ouvre la feuille, « Appliquer » pose le filtre), `test/features/map/view/map_empty_states_test.dart` (A3 : texte et action « Effacer les filtres » de l'avis de carte vidée) | T3 | ✅ T3 : flux nominal et alternatifs A1 à A7 ; A5 (la fraîcheur ne change aucune pastille de zone, la feuille le dit) et A6 (liste des départements illisible) ont leur cas dans le ViewModel et dans la feuille ; **vérifié par test seulement, aucun constat d'écran n'est consigné** (cadrage de T3, § 9) |
 | UC-008 | `test/data/preferences/shared_preferences_favorite_repository_test.dart` (ajouter, retirer, écriture en échec, liste illisible), `test/features/favorites/view_model/favorites_view_model_test.dart` (relire la liste, retirer, repartir d'une liste vide), `test/features/favorites/view/favorites_screen_test.dart` (retrouver et retirer depuis la liste, états vide et illisible), `test/main_test.dart` (composition réelle : l'étoile des fiches, le bouton « Favoris » de la carte, ouvrir un favori) ; l'étoile des fiches est éprouvée aussi par les fichiers de `UC-003` et `UC-004` | T3 | ✅ T3 : flux nominal ; A1 à A3 (station hors référentiel, liste illisible, écriture en échec) par les fichiers des deux fiches, A4 (entrée non lisible) par le codec cité à `US-14` ; **vérifié par test seulement, aucun constat d'écran n'est consigné**, ni relancement réel de l'application après un ajout (cadrage de T3, § 9, g et h) |
+| UC-009 | — (les tests entrent avec les tâches de code de T4) | T4 | 🔄 T4 : cas d'usage et critères d'acceptation écrits ([`crues.feature`](acceptance/crues.feature), `US-21`), aucun test de code encore |
 
 ## Ce que cette matrice ne prétend pas
 

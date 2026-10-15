@@ -37,9 +37,10 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 
-/// Les sept fichiers attendus sous `docs/acceptance/` : les quatre de T1
+/// Les huit fichiers attendus sous `docs/acceptance/` : les quatre de T1
 /// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2),
-/// `filtres.feature` (`Task F7` du plan T3), `favoris.feature` (`Task S7b`).
+/// `filtres.feature` (`Task F7` du plan T3), `favoris.feature` (`Task S7b`),
+/// `crues.feature` (`Task O4` du plan T4).
 const List<String> _featureFiles = <String>[
   'avertissements.feature',
   'fraicheur-d-une-mesure.feature',
@@ -48,9 +49,10 @@ const List<String> _featureFiles = <String>[
   'restrictions.feature',
   'filtres.feature',
   'favoris.feature',
+  'crues.feature',
 ];
 
-/// Les règles métier que les sept fichiers doivent couvrir AU MINIMUM,
+/// Les règles métier que les huit fichiers doivent couvrir AU MINIMUM,
 /// ensemble (`Task X1` : « la liste est dans le test, pas seulement dans une
 /// intention »). `BR-013` (l'encart renforcé) y entre avec l'écran des
 /// restrictions de T2 ; l'affirmation inverse, valable en T1 (aucun écran de
@@ -94,6 +96,21 @@ const List<String> _filtresRules = <String>[
 
 /// La user story de T3 que `filtres.feature` met en scénarios.
 const String _filtresStory = 'US-13';
+
+/// Les règles que `crues.feature` doit citer, chacune par au moins un
+/// SCÉNARIO : la date, l'absence de donnée, la nomenclature inconnue, l'échelle
+/// nommée, la citation sans verbe d'instruction, le relais sans calcul.
+const List<String> _cruesRules = <String>[
+  'BR-001',
+  'BR-007',
+  'BR-008',
+  'BR-011',
+  'BR-014',
+  'BR-015',
+];
+
+/// La user story de T4 que `crues.feature` met en scénarios.
+const String _cruesStory = 'US-21';
 
 /// Bornes de `BR-005` (fraîcheur d'une observation hydrométrique) : chacune
 /// doit avoir son propre scénario, avec la valeur écrite en toutes lettres
@@ -377,6 +394,31 @@ void main() {
       _scenariosByStory(contenu)[_filtresStory] ?? 0,
       greaterThan(0),
       reason: 'aucun scénario de filtres.feature sous la section US-13',
+    );
+  });
+
+  test('crues.feature cite BR-001, BR-007, BR-008, BR-011, BR-014, BR-015, '
+      'chacune par un scénario', () {
+    final String contenu = contenusParFichier['crues.feature'] ?? '';
+    final List<String> scenarios = _scenariosOf(contenu);
+    expect(scenarios, isNotEmpty);
+    for (final String regle in _cruesRules) {
+      expect(
+        scenarios.any((String scenario) => scenario.contains(regle)),
+        isTrue,
+        reason: 'aucun scénario de crues.feature ne cite $regle',
+      );
+    }
+  });
+
+  test('crues.feature met en scénarios US-21', () {
+    final String contenu = contenusParFichier['crues.feature'] ?? '';
+    expect(
+      _scenariosByStory(contenu)[_cruesStory] ?? 0,
+      19,
+      reason:
+          'crues.feature porte dix-neuf scénarios sous US-21, un par '
+          'critère du cadrage de T4 (§ 10)',
     );
   });
 

@@ -63,6 +63,7 @@ const List<String> _ucAttendus = <String>[
   'UC-006',
   'UC-007',
   'UC-008',
+  'UC-009',
 ];
 
 /// Les user stories **Must** de `docs/02-specifications.md § « Must »`
@@ -372,7 +373,7 @@ void main() {
     }
   });
 
-  group('Chaque UC-001 à UC-008 apparaît au moins une fois', () {
+  group('Chaque UC-001 à UC-009 apparaît au moins une fois', () {
     for (final String uc in _ucAttendus) {
       test('$uc est cité dans la matrice', () {
         expect(
