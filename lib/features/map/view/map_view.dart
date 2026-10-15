@@ -105,6 +105,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
@@ -120,6 +121,7 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/designated_point_pin.dart';
+import 'package:martinpecheur/features/map/view/flood_section_label.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
@@ -132,6 +134,7 @@ import 'package:martinpecheur/features/map/view/map_overlays_layout.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
+import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
@@ -440,6 +443,17 @@ bool shouldRefreshOn(MapEvent event) =>
 /// aucune fiche** — `onStationTap`/`onOndeTap` ne sont jamais atteints par ce
 /// tap (`BR-009`). [designatedPoint] pose l'épingle du point désigné
 /// (`E1` de T2), au-dessus de tout le reste.
+///
+/// Lecture Crues (`M2` de T4, cadrage § 7.3 et § 7.4) : [floodLayer] est le
+/// calque des traits (`buildFloodSectionsLayer`,
+/// `flood_sections_layer.dart`), posé tel quel au-dessus des tuiles — c'est
+/// l'appelant qui le garde d'un build à l'autre (Review Focus 1) ;
+/// [floodLabels] sont les étiquettes, dans l'ordre de tabulation reçu
+/// ([FloodLayerViewModel.labels]), posées dans la couche de marqueurs ;
+/// [onFloodSectionTap] est appelé avec le code du tronçon dont l'étiquette
+/// est touchée ou activée au clavier. Ni calque ni étiquette hors de
+/// [MapScaleKind.crues] (`BR-008`). Ordre : tuiles, traits, marqueurs
+/// (étiquettes sur la lecture Crues), épingle.
 List<Widget> buildMapLayers({
   required MapScaleKind scale,
   required List<StationPoint> stations,
@@ -452,6 +466,9 @@ List<Widget> buildMapLayers({
   List<MapAreaCluster> clusters = const <MapAreaCluster>[],
   void Function(MapAreaCluster cluster)? onClusterSelect,
   GeoPoint? designatedPoint,
+  Widget? floodLayer,
+  List<FloodLabel> floodLabels = const <FloodLabel>[],
+  void Function(FloodSectionCode code)? onFloodSectionTap,
 }) {
   final List<Widget> layers = <Widget>[
     TileLayer(
@@ -461,6 +478,16 @@ List<Widget> buildMapLayers({
       userAgentPackageName: ignUserAgentPackageName,
     ),
   ];
+
+  // Le calque des traits, au-dessus des tuiles et sous tout marqueur : sur la
+  // seule lecture Crues (`switch`, jamais une comparaison sur l'échelle).
+  final Widget? traits = switch (scale) {
+    MapScaleKind.crues => floodLayer,
+    MapScaleKind.debit || MapScaleKind.ecoulement => null,
+  };
+  if (traits != null) {
+    layers.add(traits);
+  }
 
   // `switch` exhaustif sur un `enum` fermé (`BR-011`) : une échelle ajoutée
   // sans branche ici ne compile pas — jamais une carte silencieusement vide.
@@ -483,9 +510,13 @@ List<Widget> buildMapLayers({
       onStationTap: onStationTap,
       focusOrderStartIndex: clusters.length,
     ),
-    // `L1` de T4 : aucun marqueur sur la lecture Crues — un calque de traits
-    // (`M2`, `M5`), ni station ni point ONDE (`BR-008`).
-    MapScaleKind.crues => const <Marker>[],
+    // Lecture Crues (`M2` de T4) : ni station ni point ONDE (`BR-008`), les
+    // seules étiquettes des tronçons.
+    MapScaleKind.crues => _floodLabelMarkers(
+      labels: floodLabels,
+      onTap: onFloodSectionTap,
+      focusOrderStartIndex: clusters.length,
+    ),
   };
 
   // Les pastilles d'abord, puis les individuels (plan T1, tâche Z4) : au
@@ -578,6 +609,40 @@ Widget _carteFocusOrder(int index, Widget child) => FocusTraversalOrder(
   order: NumericFocusOrder(index.toDouble()),
   child: child,
 );
+
+/// Les étiquettes des tronçons (`M2` de T4, cadrage § 7.4) : une par
+/// [FloodLabel], à son ancre, [floodLabelWidth] sur la cible de la
+/// plateforme. L'ordre de tabulation est celui de [labels], décidé par le
+/// domaine (`floodLabelsFor` : distance au centre, puis code) ; cette
+/// fonction ne trie rien. [focusOrderStartIndex] : voir [_stationMarkers].
+List<Marker> _floodLabelMarkers({
+  required List<FloodLabel> labels,
+  required void Function(FloodSectionCode code)? onTap,
+  int focusOrderStartIndex = 0,
+}) {
+  final void Function(FloodSectionCode code)? handleTap = onTap;
+
+  return <Marker>[
+    for (final (int index, FloodLabel label) in labels.indexed)
+      Marker(
+        // Même raison que [_stationMarkers] : le focus suit le tronçon, pas
+        // la position dans la liste.
+        key: ValueKey<String>(label.section.code.value),
+        point: LatLng(label.anchor.latitude, label.anchor.longitude),
+        width: floodLabelWidth,
+        height: minimumTapTarget,
+        child: _carteFocusOrder(
+          focusOrderStartIndex + index,
+          FloodSectionLabel(
+            section: label.section,
+            onActivate: handleTap == null
+                ? null
+                : () => handleTap(label.section.code),
+          ),
+        ),
+      ),
+  ];
+}
 
 /// Les marqueurs de l'échelle « débit » : une pastille par station.
 ///
