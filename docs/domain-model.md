@@ -81,6 +81,15 @@ Les branches inconnues s'appellent `GraviteInconnue` et `TypeZoneInconnu`, et no
 déjà pris par `FlowCategory` : deux classes homonymes rendraient ambigu tout fichier qui importe
 deux échelles. Branches connues égales **par type**, branches inconnues **par valeur brute**.
 
+Contexte Crues (`lib/domain/floods/`, T4) :
+
+- `FloodVigilanceLevel` — sealed : `Vert`, `Jaune`, `Orange`, `Rouge`, branche par défaut
+  **`NiveauCruesInconnu`**, qui garde la valeur brute reçue (`raw`, `null` compris, `BR-011`).
+  `floodLevelLabel`, `floodVigilanceTitle` et `floodDrawingRank` (vert, jaune, orange, rouge,
+  inconnu : le plus grave au-dessus) sont des `switch` exhaustifs ;
+  `publishedFloodLegend` et `publishedFloodExplanation` citent Vigicrues au caractère près (`null`
+  pour l'inconnu).
+
 ## Entités
 
 Identité + cycle de vie, à la différence des objets-valeur.
@@ -219,6 +228,12 @@ classDiagram
     FavoriteStorageFailure <|-- ListeDeFavorisIllisible
     FavoriteStorageFailure <|-- EcritureDeFavorisEnEchec
 ```
+
+## Contexte Crues — la vigilance publiée par tronçon (T4)
+
+Ce contexte relaie le niveau de vigilance que Vigicrues publie pour chaque tronçon ; il ne calcule
+ni niveau, ni seuil, ni prévision (`BR-015`). Sa nomenclature close est `FloodVigilanceLevel`
+(voir « Nomenclatures closes »).
 
 ## Agrégats
 
