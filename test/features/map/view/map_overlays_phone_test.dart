@@ -302,27 +302,28 @@ const Key _ficheTronconKey = Key('fiche-troncon-telephone');
 /// injectée). « Vert » est le seul niveau publié constaté ; « Jaune », dont
 /// la définition citée est la plus longue, est un cas construit, niveau
 /// jamais observé en production — `VC-04`.
-Widget _ficheTroncon(FloodVigilanceLevel level) => FloodSheetPanel(
-  key: _ficheTronconKey,
-  state: FicheTronconOuverte(
-    section: FloodSection(
-      code: FloodSectionCode('TRC1'),
-      name: 'Blavet aval',
-      territoryCode: '12',
-      level: level,
-      lines: <List<GeoPoint>>[
-        <GeoPoint>[
-          GeoPoint(latitude: 47.8, longitude: -3.2),
-          GeoPoint(latitude: 47.9, longitude: -3.1),
-        ],
-      ],
-    ),
-    informationDate: _dateCrues,
-  ),
-  onClose: () {},
-  onOpenBulletin: () {},
-  utcOffsetOf: (_) => const Duration(hours: 2),
-);
+Widget _ficheTroncon(FloodVigilanceLevel level, {VoidCallback? onClose}) =>
+    FloodSheetPanel(
+      key: _ficheTronconKey,
+      state: FicheTronconOuverte(
+        section: FloodSection(
+          code: FloodSectionCode('TRC1'),
+          name: 'Blavet aval',
+          territoryCode: '12',
+          level: level,
+          lines: <List<GeoPoint>>[
+            <GeoPoint>[
+              GeoPoint(latitude: 47.8, longitude: -3.2),
+              GeoPoint(latitude: 47.9, longitude: -3.1),
+            ],
+          ],
+        ),
+        informationDate: _dateCrues,
+      ),
+      onClose: onClose ?? () {},
+      onOpenBulletin: () {},
+      utcOffsetOf: (_) => const Duration(hours: 2),
+    );
 
 /// Clé de la fiche station réelle que pose [_ficheStationBlois].
 const Key _ficheStationKey = Key('fiche-station-telephone');
@@ -4844,29 +4845,32 @@ void main() {
   // propre contrôle « ⚠ Avertissement » (`W3c`) sont atteignables ; le bouton
   // du bulletin s'amène dans la zone en la faisant défiler et s'atteint alors.
   //
-  // ⚠️ RESTREINT — CONSTAT REMONTÉ AU COMMANDITAIRE (`K1` de T4, 2026-10-15),
-  // non arbitré, non corrigé, et donc PAS affirmé ici : là où la fiche tronçon
-  // est plus haute que la fiche station, elle recouvre des puces que la fiche
-  // station laisse atteignables, et faire défiler la colonne du haut ne les
-  // en dégage pas — l'usager ferme la fiche (bouton, Échap) pour changer
-  // d'échelle. Mesuré (centres des puces) : à 800 × 740, 200 %, les quatre
-  // puces sous la fiche (« Vert » et « Jaune ») quand la fiche station n'en
-  // recouvre aucune ; à 360 × 640, 100 %, les quatre puces sous la fiche
-  // (« Vert » et « Jaune ») quand la fiche station n'en recouvre aucune ; à
-  // 390 × 844, 100 %, « Vigilance crues » et « Restrictions » sous la fiche
-  // « Jaune » seulement. La boîte du contrôle « ⚠ Avertissement » DE LA CARTE
-  // est elle aussi sous la fiche à 360 × 640 (100 % et 200 %) et à 390 × 844,
-  // 200 % — son centre aussi, sauf à 360 × 640, 100 %, sous « Vert » (fiche
-  // de 35 à 608, contrôle de 8 à 56, centre à 32) ; la fiche porte le sien
-  // (`W3c`), atteignable, affirmé ci-dessous ; la
-  // fiche station de Blois ne le recouvre qu'à 200 % (360 × 640 et
-  // 390 × 844), comme la fiche de 320 px en mode (constat du 2026-10-03, plus
-  // haut). À 800 × 740, 100 % — le constat de `F4`, mesuré en
+  // CONSTAT ACCEPTÉ par le commanditaire le 2026-10-16 (point 64 de
+  // `docs/project-state.md`, remonté par `K1` de T4 le 2026-10-15) : « J'accepte
+  // en constat le recouvrement des puces et du « ⚠ Avertissement » de la carte
+  // par la fiche tronçon (point 64) : on le fige par test et on le regarde à la
+  // porte. » Là où la fiche tronçon est plus haute que la fiche station, elle
+  // recouvre des puces que la fiche station laisse atteignables ; l'usager
+  // ferme la fiche (bouton, Échap) pour changer d'échelle. Mesuré (centres des
+  // puces) : à 800 × 740, 200 %, les quatre puces sous la fiche (« Vert » et
+  // « Jaune ») quand la fiche station n'en recouvre aucune ; à 360 × 640, 100 %,
+  // les quatre puces sous la fiche (« Vert » et « Jaune ») quand la fiche
+  // station n'en recouvre aucune ; à 390 × 844, 100 %, « Vigilance crues » et
+  // « Restrictions » sous la fiche « Jaune » seulement. La boîte du contrôle
+  // « ⚠ Avertissement » DE LA CARTE est elle aussi sous la fiche à 360 × 640
+  // (100 % et 200 %) et à 390 × 844, 200 % — son centre aussi, sauf à
+  // 360 × 640, 100 %, sous « Vert » (fiche de 35 à 608, contrôle de 8 à 56,
+  // centre à 32) ; la fiche porte le sien (`W3c`), atteignable, affirmé
+  // ci-dessous. La fiche station de Blois ne le recouvre qu'à 200 %
+  // (360 × 640 et 390 × 844), comme la fiche de 320 px en mode (constat du
+  // 2026-10-03, plus haut). À 800 × 740, 100 % — le constat de `F4`, mesuré en
   // police de test — aucune puce n'est recouverte en Roboto (Segoe UI réelle
   // n'est pas mesurée). La mise en page est celle de toute fiche
   // (`buildMapOverlays`) : un panneau station de la même hauteur recouvre les
   // mêmes puces, aux six configurations, « Vert » et « Jaune » (affirmé plus
-  // bas).
+  // bas), et le contrôle de la carte, la sortie et le défilement sont affirmés
+  // par les cas « K1b de T4 ». Ces constats sont des FAITS ACCEPTÉS, pas des
+  // invariants voulus.
   for (final (Size, double) cas in <(Size, double)>[
     (const Size(800, 740), 1),
     (const Size(800, 740), 2),
@@ -4943,8 +4947,8 @@ void main() {
               '${_rectOf(tester, find.byKey(floodSheetCloseButtonKey))}',
         );
         // Le contrôle « ⚠ Avertissement » que porte la fiche (`W3c`) est
-        // atteignable. Celui de la carte n'est PAS affirmé : RESTREINT, voir
-        // le constat remonté ci-dessus.
+        // atteignable. Celui de la carte : constat accepté, cas « K1b de T4 »
+        // plus bas.
         final Finder lienFiche = find.descendant(
           of: fiche,
           matching: find.byKey(warningLinkKey),
@@ -4982,7 +4986,7 @@ void main() {
 
   // Les puces que la fiche tronçon recouvre (centre non atteignable), et le
   // même mécanisme que pour toute fiche : la zone des fiches ne dépend ni de
-  // l'échelle ni du panneau. Aux six configurations du constat remonté
+  // l'échelle ni du panneau. Aux six configurations du constat accepté
   // ci-dessus, pour « Vert » et « Jaune » (cas construit, niveau jamais
   // observé en production — `VC-04`), mesuré le 2026-10-15 (`K1` de T4) :
   // l'ensemble des puces recouvertes est affirmé, puis un panneau station de
@@ -4990,7 +4994,7 @@ void main() {
   // atteignables exactement les mêmes puces — là où la fiche tronçon en
   // recouvre comme là où elle n'en recouvre aucune (800 × 740, 100 %, le
   // constat de `F4` en police de test). FAIT CONSTATÉ pour les ensembles,
-  // pas un invariant voulu : le constat est soumis au commanditaire.
+  // pas un invariant voulu : le constat est accepté (2026-10-16, point 64).
   const Set<String> aucune = <String>{};
   const Set<String> toutes = <String>{
     'puce ecoulement',
@@ -5075,8 +5079,137 @@ void main() {
     });
   }
 
+  // `K1b` de T4 (2026-10-16) : CONSTAT ACCEPTÉ par le commanditaire (point 64
+  // de `docs/project-state.md`) — « J'accepte en constat le recouvrement des
+  // puces et du « ⚠ Avertissement » de la carte par la fiche tronçon (point
+  // 64) : on le fige par test et on le regarde à la porte. » Les puces :
+  // ensembles figés par la comparaison ci-dessus. Ici, le contrôle
+  // « ⚠ Avertissement » DE LA CARTE (celui de la fiche est affirmé atteignable
+  // plus haut) : sa boîte est-elle recoupée par la fiche, son centre est-il
+  // atteignable ; mesuré en Roboto le 2026-10-16, « Vert » et « Jaune » (cas
+  // construit, niveau jamais observé en production — `VC-04`). FAIT CONSTATÉ,
+  // pas un invariant voulu. Puis la SORTIE : la fiche fermée (« Fermer la
+  // fiche »), toutes les puces existent et sont atteignables ; puis le
+  // défilement de la colonne du haut : son étendue est AFFIRMÉE par cas.
+  // Étendue 0 (800 × 740 à 100 et 200 %, 390 × 844 à 100 %) : RIEN À DÉFILER,
+  // le test ne dit rien du défilement. Étendue positive (142 à 360 × 640,
+  // 100 % ; 952 à 360 × 640, 200 % ; 690 à 390 × 844, 200 %) : la défiler
+  // jusqu'en bas ne dégage aucune puce.
+  for (final (Size, double, String, FloodVigilanceLevel, bool, bool, double) cas
+      in <(Size, double, String, FloodVigilanceLevel, bool, bool, double)>[
+        (const Size(800, 740), 1, '« Vert »', const Vert(), false, true, 0),
+        (const Size(800, 740), 1, '« Jaune »', const Jaune(), false, true, 0),
+        (const Size(800, 740), 2, '« Vert »', const Vert(), false, true, 0),
+        (const Size(800, 740), 2, '« Jaune »', const Jaune(), false, true, 0),
+        (_petit, 1, '« Vert »', const Vert(), true, true, 142),
+        (_petit, 1, '« Jaune »', const Jaune(), true, false, 142),
+        (_petit, 2, '« Vert »', const Vert(), true, false, 952),
+        (_petit, 2, '« Jaune »', const Jaune(), true, false, 952),
+        (_grand, 1, '« Vert »', const Vert(), false, true, 0),
+        (_grand, 1, '« Jaune »', const Jaune(), false, true, 0),
+        (_grand, 2, '« Vert »', const Vert(), true, false, 690),
+        (_grand, 2, '« Jaune »', const Jaune(), true, false, 690),
+      ]) {
+    final _Test sur = _selonFenetre(cas.$1);
+    sur(
+      'CONSTAT — K1b de T4 — ${_nom(cas.$1, cas.$2, MapScaleKind.crues)}, '
+      'HORS MODE, fiche tronçon ${cas.$3} : le « ⚠ Avertissement » de la '
+      'carte ${cas.$5 ? 'est recoupé par la fiche' : 'n’est pas recoupé'}, '
+      'son centre ${cas.$6 ? 'reste atteignable' : 'est sous la fiche'} ; '
+      'fermer la fiche rend les puces atteignables ; ${cas.$7 == 0 ? 'rien à défiler' : 'défiler la colonne ne dégage aucune puce'}',
+      (WidgetTester tester) async {
+        int fermetures = 0;
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          textScale: cas.$2,
+          scale: MapScaleKind.crues,
+          avecAvis: false,
+          ficheTroncon: _ficheTroncon(cas.$4, onClose: () => fermetures++),
+          onOuvrirFavoris: () {},
+        );
+        final Rect fiche = _rectOf(tester, find.byKey(_ficheTronconKey));
+        final Finder lienCarte = find.byElementPredicate(
+          (Element e) =>
+              e.widget.key == warningLinkKey &&
+              e.findAncestorWidgetOfExactType<FloodSheetPanel>() == null,
+        );
+        expect(lienCarte, findsOneWidget);
+        final Rect lien = _rectOf(tester, lienCarte);
+        final String mesure = 'fiche=$fiche, lien de la carte=$lien';
+        expect(fiche.overlaps(lien), cas.$5, reason: mesure);
+        expect(_atteignable(lienCarte), cas.$6, reason: mesure);
+
+        // La sortie : « Fermer la fiche », puis les puces existent et se
+        // touchent.
+        await tester.tap(find.byKey(floodSheetCloseButtonKey));
+        await tester.pump();
+        expect(fermetures, 1);
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          textScale: cas.$2,
+          scale: MapScaleKind.crues,
+          avecAvis: false,
+          onOuvrirFavoris: () {},
+        );
+        for (final MapEntry<String, Finder> p in _lesPuces().entries) {
+          expect(p.value, findsOneWidget, reason: p.key);
+          expect(
+            _atteignable(p.value),
+            isTrue,
+            reason: '${p.key}=${_rectOf(tester, p.value)} fiche fermée',
+          );
+        }
+
+        // Défiler la colonne du haut jusqu'en bas ne dégage aucune puce (la
+        // fiche est reposée : le défilement de la colonne repart de zéro).
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          textScale: cas.$2,
+          scale: MapScaleKind.crues,
+          avecAvis: false,
+          ficheTroncon: _ficheTroncon(cas.$4),
+          onOuvrirFavoris: () {},
+        );
+        Map<String, bool> puces() => <String, bool>{
+          for (final MapEntry<String, Finder> p in _lesPuces().entries)
+            p.key: _atteignable(p.value),
+        };
+        final Map<String, bool> avant = puces();
+        // La colonne du haut : le seul `Scrollable` qui enveloppe les puces.
+        final Finder defilement = find.ancestor(
+          of: find.byType(MapScaleChips),
+          matching: find.byType(Scrollable),
+        );
+        expect(defilement, findsOneWidget);
+        final ScrollableState colonne = tester.state<ScrollableState>(
+          defilement,
+        );
+        final double maxDefilement = colonne.position.maxScrollExtent;
+        expect(
+          maxDefilement,
+          cas.$7,
+          reason: 'étendue de défilement de la colonne, fiche=$fiche',
+        );
+        colonne.position.jumpTo(maxDefilement);
+        await tester.pumpAndSettle();
+        for (final MapEntry<String, bool> p in puces().entries) {
+          expect(
+            p.value && !avant[p.key]!,
+            isFalse,
+            reason:
+                '${p.key} dégagée par le défilement (max=$maxDefilement), '
+                'fiche=$fiche',
+          );
+        }
+      },
+    );
+  }
+
   // La fiche station réelle de Blois, aux mêmes tailles : les puces qu'elle
-  // laisse atteignables — la comparaison du CONSTAT remonté ci-dessus. FAIT
+  // laisse atteignables — la comparaison du CONSTAT accepté ci-dessus. FAIT
   // CONSTATÉ (Roboto, 2026-10-15), pas un invariant voulu.
   for (final (Size, double, bool) cas in <(Size, double, bool)>[
     (const Size(800, 740), 1, true),
