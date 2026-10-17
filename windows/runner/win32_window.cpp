@@ -3,6 +3,8 @@
 #include <dwmapi.h>
 #include <flutter_windows.h>
 
+#include <algorithm>
+
 #include "resource.h"
 
 namespace {
@@ -165,10 +167,24 @@ bool Win32Window::Create(const std::wstring& title,
   UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
   double scale_factor = dpi / 96.0;
 
+  // `size` est une ZONE CLIENTE (arbitrage du commanditaire du 2026-10-17,
+  // R23 du cadrage de la tranche d'ergonomie), relevee au minimum
+  // kMinWindowWidth x kMinWindowHeight, puis convertie en taille de fenetre
+  // exterieure comme le fait WM_GETMINMAXINFO plus bas. Il faut la poser ici :
+  // ce minimum ne joue pas a la creation, car le premier WM_GETMINMAXINFO
+  // arrive avant WM_NCCREATE, quand GetThisFromHandle ne connait pas encore
+  // l'instance. Sans cela, 1 280 x 720 passes hors tout donnaient une zone
+  // cliente de 1 264 x 681 a 100 % (reproduction du 2026-10-17).
+  RECT frame = {0, 0,
+                Scale(std::max<int>(size.width, kMinWindowWidth), scale_factor),
+                Scale(std::max<int>(size.height, kMinWindowHeight),
+                      scale_factor)};
+  AdjustWindowRectExForDpi(&frame, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi);
+
   HWND window = CreateWindow(
       window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
-      Scale(size.width, scale_factor), Scale(size.height, scale_factor),
+      frame.right - frame.left, frame.bottom - frame.top,
       nullptr, nullptr, GetModuleHandle(nullptr), this);
 
   if (!window) {
