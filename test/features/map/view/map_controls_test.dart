@@ -5,11 +5,28 @@
 // `flutter_map` — le câblage caméra (déplacement, `onGestureEnded`) est
 // vérifié dans `map_view_test.dart`, sur le rendu complet de `MapView`.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
+import '../../../support/android_platform.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
+
+/// Un test de widget posé sur une plateforme : les cas de la rangée (`S4`
+/// d'Ergonomie) sont rejoués sur Windows ET sur Android, où la cible tactile
+/// mesure 48 et non 44.
+typedef _Test = void Function(
+  String description,
+  Future<void> Function(WidgetTester tester) body,
+);
+
+void _onAndroid(String d, Future<void> Function(WidgetTester tester) body) =>
+    testWidgetsOnAndroid('Android : $d', body);
+
+void _onWindows(String d, Future<void> Function(WidgetTester tester) body) =>
+    testWidgetsOnWindows(d, body);
 
 void main() {
   Future<void> pumpControls(
@@ -17,22 +34,30 @@ void main() {
     VoidCallback? onZoomIn,
     VoidCallback? onZoomOut,
     VoidCallback? onRecenter,
+    Axis axis = Axis.vertical,
+    Widget Function(Widget controls)? wrap,
   }) {
+    final Widget controls = MapControls(
+      onZoomIn: onZoomIn,
+      onZoomOut: onZoomOut,
+      onRecenter: onRecenter ?? () {},
+      axis: axis,
+    );
     return tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: Align(
             alignment: Alignment.bottomRight,
-            child: MapControls(
-              onZoomIn: onZoomIn,
-              onZoomOut: onZoomOut,
-              onRecenter: onRecenter ?? () {},
-            ),
+            child: wrap == null ? controls : wrap(controls),
           ),
         ),
       ),
     );
   }
+
+  /// La boîte du groupe : le premier `RenderObject` de [MapControls].
+  RenderBox box(WidgetTester tester) =>
+      tester.renderObject<RenderBox>(find.byType(MapControls));
 
   testWidgetsOnWindows('les trois boutons sont rendus', (
     WidgetTester tester,
@@ -175,4 +200,195 @@ void main() {
       },
     );
   });
+
+  // `S4` d'Ergonomie : au téléphone, le zoom passe en RANGÉE, dans l'ordre de
+  // l'écran — `−`, `+`, recentrer, de gauche à droite. `Axis.vertical` reste
+  // le défaut : `+`, `−`, recentrer de haut en bas, comme avant (les cas
+  // ci-dessus, inchangés, en sont le filet).
+  //
+  // Ce qui dépend de la plateforme (la cible de 44 ou de 48) est rejoué sur
+  // Windows ET sur Android.
+  void rowCases(String where, _Test test) {
+    group('axis horizontal : la rangée ($where)', () {
+      test('−, +, recentrer de gauche à droite, sur une même ligne, séparés de '
+          'mapControlsSpacing, chacun de minimumTapTarget, le groupe étant '
+          'leur somme', (WidgetTester tester) async {
+        await pumpControls(
+          tester,
+          onZoomIn: () {},
+          onZoomOut: () {},
+          axis: Axis.horizontal,
+        );
+
+        final Rect zoomOut = tester.getRect(find.byKey(mapZoomOutButtonKey));
+        final Rect zoomIn = tester.getRect(find.byKey(mapZoomInButtonKey));
+        final Rect recenter = tester.getRect(find.byKey(mapRecenterButtonKey));
+
+        expect(zoomOut.center.dx, lessThan(zoomIn.center.dx));
+        expect(zoomIn.center.dx, lessThan(recenter.center.dx));
+        expect(zoomOut.center.dy, zoomIn.center.dy);
+        expect(zoomIn.center.dy, recenter.center.dy);
+        expect(zoomIn.left - zoomOut.right, mapControlsSpacing);
+        expect(recenter.left - zoomIn.right, mapControlsSpacing);
+        for (final Rect rect in <Rect>[zoomOut, zoomIn, recenter]) {
+          expect(rect.size, Size.square(minimumTapTarget));
+        }
+        expect(
+          tester.getSize(find.byType(MapControls)),
+          Size(3 * minimumTapTarget + 2 * mapControlsSpacing, minimumTapTarget),
+        );
+      });
+
+      test('intrinsèques : une seule hauteur, celle d\'un bouton ; la largeur '
+          'des trois et de leurs écarts', (WidgetTester tester) async {
+        await pumpControls(
+          tester,
+          onZoomIn: () {},
+          onZoomOut: () {},
+          axis: Axis.horizontal,
+        );
+
+        expect(box(tester).getMinIntrinsicHeight(300), minimumTapTarget);
+        expect(box(tester).getMaxIntrinsicHeight(300), minimumTapTarget);
+        expect(
+          box(tester).getMinIntrinsicWidth(double.infinity),
+          3 * minimumTapTarget + 2 * mapControlsSpacing,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    });
+
+    group('axis vertical : la colonne, par défaut ($where)', () {
+      test('+ au-dessus de −, au-dessus de recentrer ; intrinsèques', (
+        WidgetTester tester,
+      ) async {
+        await pumpControls(tester, onZoomIn: () {}, onZoomOut: () {});
+
+        final Rect zoomIn = tester.getRect(find.byKey(mapZoomInButtonKey));
+        final Rect zoomOut = tester.getRect(find.byKey(mapZoomOutButtonKey));
+        final Rect recenter = tester.getRect(find.byKey(mapRecenterButtonKey));
+        expect(zoomOut.top - zoomIn.bottom, mapControlsSpacing);
+        expect(recenter.top - zoomOut.bottom, mapControlsSpacing);
+        expect(zoomIn.right, zoomOut.right);
+        expect(zoomOut.right, recenter.right);
+        expect(
+          box(tester).getMaxIntrinsicHeight(300),
+          3 * minimumTapTarget + 2 * mapControlsSpacing,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    });
+  }
+
+  // Ce qui ne dépend pas de la plateforme — rappels, libellés, bornes,
+  // tabulation — n'est rejoué que sur Windows : Android n'y ajouterait rien.
+  void rowBehaviourCases(_Test test) {
+    group('axis horizontal : le comportement', () {
+      test('chaque bouton garde sa clé, son libellé et son rappel', (
+        WidgetTester tester,
+      ) async {
+        int zoomIn = 0;
+        int zoomOut = 0;
+        int recenter = 0;
+        await pumpControls(
+          tester,
+          onZoomIn: () => zoomIn++,
+          onZoomOut: () => zoomOut++,
+          onRecenter: () => recenter++,
+          axis: Axis.horizontal,
+        );
+
+        await tester.tap(find.byKey(mapZoomOutButtonKey));
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.tap(find.byKey(mapRecenterButtonKey));
+        await tester.pump();
+
+        expect((zoomOut, zoomIn, recenter), (1, 2, 1));
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapZoomOutButtonKey))
+              .properties
+              .label,
+          'Dézoomer',
+        );
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapZoomInButtonKey))
+              .properties
+              .label,
+          'Zoomer',
+        );
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapRecenterButtonKey))
+              .properties
+              .label,
+          'Recentrer la carte',
+        );
+      });
+
+      test('un bouton aux bornes reste désactivé, à sa place', (
+        WidgetTester tester,
+      ) async {
+        await pumpControls(
+          tester,
+          onZoomIn: null,
+          onZoomOut: () {},
+          axis: Axis.horizontal,
+        );
+
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapZoomInButtonKey))
+              .properties
+              .enabled,
+          isFalse,
+        );
+        final Rect zoomOut = tester.getRect(find.byKey(mapZoomOutButtonKey));
+        final Rect zoomIn = tester.getRect(find.byKey(mapZoomInButtonKey));
+        expect(zoomIn.left - zoomOut.right, mapControlsSpacing);
+      });
+
+      test(
+        'ordre de tabulation : dans un FocusTraversalGroup(OrderedTraversalPolicy) '
+        'où les trois partagent un NumericFocusOrder, −, +, recentrer',
+        (WidgetTester tester) async {
+          await pumpControls(
+            tester,
+            onZoomIn: () {},
+            onZoomOut: () {},
+            axis: Axis.horizontal,
+            wrap: (Widget controls) => FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: FocusTraversalOrder(
+                order: const NumericFocusOrder(2),
+                child: controls,
+              ),
+            ),
+          );
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(
+            focusedWithin(tester, find.byKey(mapZoomOutButtonKey)),
+            isTrue,
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(focusedWithin(tester, find.byKey(mapZoomInButtonKey)), isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(
+            focusedWithin(tester, find.byKey(mapRecenterButtonKey)),
+            isTrue,
+          );
+        },
+      );
+    });
+  }
+
+  rowCases('Windows', _onWindows);
+  rowCases('Android', _onAndroid);
+  rowBehaviourCases(_onWindows);
 }

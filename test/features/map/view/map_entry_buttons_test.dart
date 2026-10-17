@@ -23,6 +23,20 @@ import '../../../support/windows_platform.dart';
 
 const Key _roundButtonKey = Key('test-round-button');
 
+/// Un test de widget posé sur une plateforme : les cas de la rangée (`S4`
+/// d'Ergonomie) sont rejoués sur Windows ET sur Android, où la cible tactile
+/// mesure 48 et non 44.
+typedef _Test = void Function(
+  String description,
+  Future<void> Function(WidgetTester tester) body,
+);
+
+void _onAndroid(String d, Future<void> Function(WidgetTester tester) body) =>
+    testWidgetsOnAndroid('Android : $d', body);
+
+void _onWindows(String d, Future<void> Function(WidgetTester tester) body) =>
+    testWidgetsOnWindows(d, body);
+
 void main() {
   Future<void> pumpRound(
     WidgetTester tester, {
@@ -59,6 +73,7 @@ void main() {
     VoidCallback? onOpenFilters,
     VoidCallback? onOpenFavorites,
     bool filterActive = false,
+    Axis axis = Axis.vertical,
   }) {
     return tester.pumpWidget(
       MaterialApp(
@@ -69,12 +84,17 @@ void main() {
               onOpenFilters: onOpenFilters ?? () {},
               onOpenFavorites: onOpenFavorites,
               filterActive: filterActive,
+              axis: axis,
             ),
           ),
         ),
       ),
     );
   }
+
+  /// La boîte du groupe : le premier `RenderObject` de [MapEntryButtons].
+  RenderBox box(WidgetTester tester) =>
+      tester.renderObject<RenderBox>(find.byType(MapEntryButtons));
 
   // Le disque du bouton : le `DecoratedBox` rond qui porte une couleur de
   // fond.
@@ -578,4 +598,169 @@ void main() {
       },
     );
   });
+
+  // `S4` d'Ergonomie : au téléphone, les entrées passent en RANGÉE —
+  // « Favoris » puis « Filtres », de gauche à droite. `Axis.vertical` reste le
+  // défaut (les cas ci-dessus, inchangés, en sont le filet). Les formes de
+  // « Filtres » ne changent pas.
+  //
+  // Ce qui dépend de la plateforme (la cible de 44 ou de 48) est rejoué sur
+  // Windows ET sur Android.
+  void rowCases(String where, _Test test) {
+    group('MapEntryButtons : la rangée ($where)', () {
+      test('« Favoris » puis « Filtres » de gauche à droite, sur une même '
+          'ligne, séparés de mapControlsSpacing, chacun de minimumTapTarget', (
+        WidgetTester tester,
+      ) async {
+        await pumpEntries(
+          tester,
+          onOpenFavorites: () {},
+          axis: Axis.horizontal,
+        );
+
+        final Rect favoris = tester.getRect(find.byKey(mapFavoritesButtonKey));
+        final Rect filtres = tester.getRect(find.byKey(mapFiltersButtonKey));
+        expect(favoris.center.dx, lessThan(filtres.center.dx));
+        expect(favoris.center.dy, filtres.center.dy);
+        expect(filtres.left - favoris.right, mapControlsSpacing);
+        expect(favoris.size, Size.square(minimumTapTarget));
+        expect(filtres.size, Size.square(minimumTapTarget));
+        expect(
+          tester.getSize(find.byType(MapEntryButtons)),
+          Size(2 * minimumTapTarget + mapControlsSpacing, minimumTapTarget),
+        );
+      });
+
+      test('sans « Favoris », le groupe n\'est que « Filtres »', (
+        WidgetTester tester,
+      ) async {
+        await pumpEntries(tester, axis: Axis.horizontal);
+
+        expect(find.byKey(mapFavoritesButtonKey), findsNothing);
+        expect(
+          tester.getRect(find.byType(MapEntryButtons)),
+          tester.getRect(find.byKey(mapFiltersButtonKey)),
+        );
+        expect(
+          tester.getSize(find.byType(MapEntryButtons)),
+          Size.square(minimumTapTarget),
+        );
+      });
+
+      test('intrinsèques : une seule hauteur, celle d\'un bouton', (
+        WidgetTester tester,
+      ) async {
+        await pumpEntries(
+          tester,
+          onOpenFavorites: () {},
+          filterActive: true,
+          axis: Axis.horizontal,
+        );
+
+        expect(box(tester).getMinIntrinsicHeight(200), minimumTapTarget);
+        expect(box(tester).getMaxIntrinsicHeight(200), minimumTapTarget);
+        expect(
+          box(tester).getMinIntrinsicWidth(double.infinity),
+          2 * minimumTapTarget + mapControlsSpacing,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    });
+
+    group('MapEntryButtons : la colonne, par défaut ($where)', () {
+      test('« Favoris » au-dessus de « Filtres » ; intrinsèques', (
+        WidgetTester tester,
+      ) async {
+        await pumpEntries(tester, onOpenFavorites: () {});
+
+        final Rect favoris = tester.getRect(find.byKey(mapFavoritesButtonKey));
+        final Rect filtres = tester.getRect(find.byKey(mapFiltersButtonKey));
+        expect(favoris.right, filtres.right);
+        expect(favoris.bottom + mapControlsSpacing, filtres.top);
+        expect(
+          box(tester).getMaxIntrinsicHeight(200),
+          2 * minimumTapTarget + mapControlsSpacing,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    });
+  }
+
+  // Ce qui ne dépend pas de la plateforme — formes de « Filtres », rappels,
+  // tabulation — n'est rejoué que sur Windows : Android n'y ajouterait rien.
+  void rowBehaviourCases(_Test test) {
+    group('MapEntryButtons : la rangée, le comportement', () {
+      test('« Filtres » actif : mêmes formes — icône pleine, fond noir, '
+          'marque au coin haut droit, libellé', (WidgetTester tester) async {
+        await pumpEntries(
+          tester,
+          onOpenFavorites: () {},
+          filterActive: true,
+          axis: Axis.horizontal,
+        );
+
+        expect(find.byIcon(Icons.filter_alt), findsOneWidget);
+        expect(find.byIcon(Icons.filter_list), findsNothing);
+        expect(discColor(tester, mapFiltersButtonKey), Colors.black);
+        expect(whiteSeparation(mapFiltersButtonKey), findsOneWidget);
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapFiltersButtonKey))
+              .properties
+              .label,
+          mapFiltersActiveLabel,
+        );
+        final Rect mark = tester.getRect(find.byKey(mapFiltersActiveMarkKey));
+        final Rect button = tester.getRect(find.byKey(mapFiltersButtonKey));
+        expect(mark.size, const Size(12, 12));
+        expect(mark.right, button.right);
+        expect(mark.top, button.top);
+        expect(button.size, Size.square(minimumTapTarget));
+      });
+
+      test('chaque bouton appelle son rappel, UNE fois', (
+        WidgetTester tester,
+      ) async {
+        int favoris = 0;
+        int filtres = 0;
+        await pumpEntries(
+          tester,
+          onOpenFavorites: () => favoris++,
+          onOpenFilters: () => filtres++,
+          axis: Axis.horizontal,
+        );
+
+        await tester.tap(find.byKey(mapFavoritesButtonKey));
+        await tester.pump();
+        expect((favoris, filtres), (1, 0));
+        await tester.tap(find.byKey(mapFiltersButtonKey));
+        await tester.pump();
+        expect((favoris, filtres), (1, 1));
+      });
+
+      test('Tab atteint « Favoris » puis « Filtres », comme la colonne', (
+        WidgetTester tester,
+      ) async {
+        await pumpEntries(
+          tester,
+          onOpenFavorites: () {},
+          axis: Axis.horizontal,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          focusedWithin(tester, find.byKey(mapFavoritesButtonKey)),
+          isTrue,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(focusedWithin(tester, find.byKey(mapFiltersButtonKey)), isTrue);
+      });
+    });
+  }
+
+  rowCases('Windows', _onWindows);
+  rowCases('Android', _onAndroid);
+  rowBehaviourCases(_onWindows);
 }

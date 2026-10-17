@@ -2,7 +2,9 @@
 // feuille plutôt que de piloter la caméra. « Favoris » (`S10` de T3, arbitrage
 // 8 du cadrage) est AU-DESSUS de « Filtres », par un paramètre
 // `onOpenFavorites` ; nul, le bouton est absent et le groupe est « Filtres »
-// seul. La colonne s'empile de haut en bas, dans l'ordre de la tabulation.
+// seul. La colonne s'empile de haut en bas, dans l'ordre de la tabulation ; en
+// rangée (`S4` d'Ergonomie, [MapEntryButtons.axis]), « Favoris » est à gauche
+// de « Filtres », dans le même ordre.
 //
 // Widget de CONTENU pur, comme [MapControls] : ni `MapViewModel` ni caméra.
 // `_MapViewState` construira le rappel et dira si un filtre est actif
@@ -39,14 +41,24 @@ const String mapFiltersActiveLabel = 'Filtres — un filtre est actif';
 /// Diamètre de la marque, liséré compris.
 const double _activeMarkSize = 12;
 
-/// Le groupe des boutons d'entrée, empilés et alignés à droite.
+/// Le groupe des boutons d'entrée : « Favoris », puis « Filtres ».
+///
+/// En colonne ([Axis.vertical], le défaut), empilés de haut en bas et alignés
+/// à droite. En rangée ([Axis.horizontal], le bas de la carte au téléphone,
+/// `S4` d'Ergonomie), de gauche à droite : « Favoris » puis « Filtres », dans
+/// le même ordre, que la tabulation suit. [mapControlsSpacing] sépare les
+/// deux ; les formes de « Filtres » ne changent pas.
 class MapEntryButtons extends StatelessWidget {
   const MapEntryButtons({
     required this.onOpenFilters,
     required this.filterActive,
     this.onOpenFavorites,
+    this.axis = Axis.vertical,
     super.key,
   });
+
+  /// Le sens du groupe : une colonne (défaut) ou une rangée.
+  final Axis axis;
 
   /// Appelé par un tap, Entrée ou Espace sur « Filtres » : ouvre la feuille.
   final VoidCallback onOpenFilters;
@@ -62,19 +74,19 @@ class MapEntryButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final VoidCallback? onOpenFavorites = this.onOpenFavorites;
-    return Column(
+    return Flex(
+      direction: axis,
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
+      spacing: mapControlsSpacing,
       children: <Widget>[
-        if (onOpenFavorites != null) ...<Widget>[
+        if (onOpenFavorites != null)
           MapRoundButton(
             semanticsKey: mapFavoritesButtonKey,
             icon: Icons.star,
             label: mapFavoritesLabel,
             onTap: onOpenFavorites,
           ),
-          const SizedBox(height: mapControlsSpacing),
-        ],
         Stack(
           children: <Widget>[
             MapRoundButton(
