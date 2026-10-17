@@ -20,6 +20,8 @@
 // ([mapScaleLabel] le premier) est une erreur de compilation (BR-011),
 // jamais un libellé manquant à l'écran.
 
+import 'package:martinpecheur/domain/sources/source_names.dart';
+
 /// Échelle de lecture active sur la carte. Une seule à la fois (BR-008).
 enum MapScaleKind {
   /// Écoulement observé ONDE — un fait constaté sur le terrain. Le libellé
@@ -51,6 +53,30 @@ String mapScaleLabel(MapScaleKind kind) => switch (kind) {
   MapScaleKind.ecoulement => 'Écoulement',
   MapScaleKind.debit => "Débit relatif à l'historique",
   MapScaleKind.crues => 'Vigilance crues',
+};
+
+/// Titre de l'entrée de [kind] dans le sélecteur de lecture (`S1` d'Ergonomie,
+/// cadrage du 2026-10-17, § 11.2), mot pour mot. Le titre ne cède jamais au
+/// repli (arbitrage 11) : c'est lui que la grille ne coupe pas.
+///
+/// `switch` exhaustif (BR-011) : une lecture ajoutée sans titre ne compile pas.
+String mapScaleEntryTitle(MapScaleKind kind) => switch (kind) {
+  MapScaleKind.ecoulement => 'Écoulement',
+  MapScaleKind.debit => 'Débit',
+  MapScaleKind.crues => 'Vigilance crues',
+};
+
+/// Sous-titre de l'entrée de [kind] dans le sélecteur de lecture (§ 11.2),
+/// mot pour mot : il dit la nature de la lecture — un fait observé, une
+/// statistique, une vigilance publiée (BR-008) —, jamais un jugement sur
+/// l'eau (BR-003). Le quatrième repli l'efface à l'écran ; l'annonce de
+/// l'entrée le garde.
+///
+/// `switch` exhaustif (BR-011).
+String mapScaleEntrySubtitle(MapScaleKind kind) => switch (kind) {
+  MapScaleKind.ecoulement => 'observé sur le terrain',
+  MapScaleKind.debit => "relatif à l'historique",
+  MapScaleKind.crues => 'publiée par $floodSourceName',
 };
 
 /// Décide si l'échelle [scale] justifie de précharger le débit des stations

@@ -6,6 +6,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 
+import '../../../project/vocabulary_lists.dart';
+
 /// Les cinq mots proscrits pour qualifier un debit (BR-003, `glossary.md`).
 const List<String> bannedWords = <String>[
   'suffisant',
@@ -88,6 +90,59 @@ void main() {
       expect(MapScaleKind.values.where(shouldPreloadOn), <MapScaleKind>[
         MapScaleKind.debit,
       ]);
+    });
+  });
+
+  group('titre et sous-titre des entrées du sélecteur de lecture (S1 '
+      "d'Ergonomie, cadrage du 2026-10-17, § 11.2)", () {
+    test('les titres sont ceux du § 11.2, mot pour mot', () {
+      expect(mapScaleEntryTitle(MapScaleKind.ecoulement), 'Écoulement');
+      expect(mapScaleEntryTitle(MapScaleKind.debit), 'Débit');
+      expect(mapScaleEntryTitle(MapScaleKind.crues), 'Vigilance crues');
+    });
+
+    test('les sous-titres sont ceux du § 11.2, mot pour mot ; celui des '
+        'crues nomme la source par floodSourceName', () {
+      expect(
+        mapScaleEntrySubtitle(MapScaleKind.ecoulement),
+        'observé sur le terrain',
+      );
+      expect(
+        mapScaleEntrySubtitle(MapScaleKind.debit),
+        "relatif à l'historique",
+      );
+      expect(
+        mapScaleEntrySubtitle(MapScaleKind.crues),
+        'publiée par Vigicrues',
+      );
+    });
+
+    test('aucun titre ni sous-titre ne contient un mot proscrit '
+        '(BR-003, BR-014 : listes de vocabulary_lists.dart)', () {
+      final List<String> proscrits = <String>[
+        ...forbiddenFlowWords,
+        ...forbiddenNeutralityPhrases,
+        ...forbiddenGuaranteeWords,
+      ];
+      for (final MapScaleKind kind in MapScaleKind.values) {
+        for (final String texte in <String>[
+          mapScaleEntryTitle(kind),
+          mapScaleEntrySubtitle(kind),
+        ]) {
+          for (final String mot in proscrits) {
+            final RegExp motif = RegExp(
+              r'(?<!\p{L})' + RegExp.escape(mot) + r'(?!\p{L})',
+              caseSensitive: false,
+              unicode: true,
+            );
+            expect(
+              motif.hasMatch(texte),
+              isFalse,
+              reason: '« $mot » trouvé dans « $texte » ($kind)',
+            );
+          }
+        }
+      }
     });
   });
 }

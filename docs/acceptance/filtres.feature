@@ -119,3 +119,10 @@ Fonctionnalité: Filtrer la carte
     Étant donné la fiche d'un lieu ouverte sur la carte
     Quand un filtre appliqué masque ce lieu
     Alors la fiche reste ouverte : un lieu masqué n'est pas une absence de donnée (BR-007)
+
+  # ── Ergonomie — le sélecteur de lecture (cadrage du 2026-10-17, critère 2, textes du § 11.2)
+
+  Scénario: Chaque entrée du sélecteur porte son titre et son sous-titre, annoncés ensemble
+    Étant donné la carte, son sélecteur de lecture et la désignation des restrictions câblée
+    Quand l'usager lit les quatre entrées du sélecteur, ou les écoute au lecteur d'écran
+    Alors il lit « Écoulement » et « observé sur le terrain », « Débit » et « relatif à l'historique », « Vigilance crues » et « publiée par Vigicrues », « Restrictions » et « arrêtés préfectoraux », et chaque entrée s'annonce par son titre et son sous-titre séparés par une virgule, comme « Débit, relatif à l'historique » ; quand la place manque, les sous-titres s'effacent de l'écran et l'annonce les garde (BR-008)

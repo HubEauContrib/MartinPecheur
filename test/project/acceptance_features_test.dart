@@ -44,6 +44,8 @@ import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
     show mapFavoritesLabel, mapFiltersActiveLabel, mapFiltersLabel;
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
+    show designationEntrySubtitle, readingEntrySemanticsLabel;
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
@@ -741,6 +743,19 @@ void main() {
     final Map<String, String> libellesFiltres = <String, String>{
       'échelle écoulement': mapScaleLabel(MapScaleKind.ecoulement),
       'échelle débit': mapScaleLabel(MapScaleKind.debit),
+      // Sélecteur de lecture (S1 d'Ergonomie, § 11.2) : titres, sous-titres et
+      // l'annonce d'une entrée, titre et sous-titre séparés par une virgule.
+      'titre débit': mapScaleEntryTitle(MapScaleKind.debit),
+      'titre crues': mapScaleEntryTitle(MapScaleKind.crues),
+      'titre « Restrictions »': designationChipLabel,
+      'sous-titre écoulement': mapScaleEntrySubtitle(MapScaleKind.ecoulement),
+      'sous-titre débit': mapScaleEntrySubtitle(MapScaleKind.debit),
+      'sous-titre crues': mapScaleEntrySubtitle(MapScaleKind.crues),
+      'sous-titre « Restrictions »': designationEntrySubtitle,
+      'annonce de l’entrée « Débit »': readingEntrySemanticsLabel(
+        mapScaleEntryTitle(MapScaleKind.debit),
+        mapScaleEntrySubtitle(MapScaleKind.debit),
+      ),
       'case du code non reconnu': flowCategoryLabel(const Inconnu(null)),
       'case Assec': flowCategoryLabel(const Assec()),
       'texte de l’avis des filtres': filterHidesEverythingText,
