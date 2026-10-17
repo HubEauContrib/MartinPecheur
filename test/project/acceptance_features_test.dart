@@ -719,6 +719,18 @@ void main() {
       // `.feature` l'écrivent « ⚠ Avertissement », comme `04-ui.md`.
       'contrôle d\'avertissement': '⚠ $warningLinkLabel',
       'titre de l\'encart renforcé': reinforcedWarningHeadline,
+      // `S2` d'Ergonomie : l'en-tête de légende, qui porte le contrôle de la
+      // carte. Le scénario cite la lecture active au lancement, l'écoulement,
+      // puis les deux autres.
+      'en-tête de légende, lecture Écoulement': mapLegendHeaderText(
+        MapScaleKind.ecoulement,
+      ),
+      'en-tête de légende, lecture Débit': mapLegendHeaderText(
+        MapScaleKind.debit,
+      ),
+      'en-tête de légende, lecture Crues': mapLegendHeaderText(
+        MapScaleKind.crues,
+      ),
     };
     for (final MapEntry<String, String> libelle
         in libellesAvertissements.entries) {
