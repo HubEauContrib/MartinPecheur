@@ -11,6 +11,14 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [0.6.0] — à publier
+
+Tranche d'ergonomie, avant T5 : une lecture à la fois sur la carte, des fiches
+qui ne recouvrent plus la carte (cadrage du 2026-10-17). **Version ouverte, pas
+publiée** : la tranche est en cours et rien n'en est encore livré. Cette
+section s'écrira d'après le code livré ; la porte (exécutable de release
+Windows lancé hors Flutter, émulateur Pixel_7 en débogage) reste à passer.
+
 ## [0.5.0] — 2026-10-17
 
 Cinquième tranche (T4) : la vigilance crues publiée par Vigicrues, en

@@ -708,19 +708,9 @@ void main() {
       );
     }
 
-    test('pubspec.yaml porte version: 0.5.0+5', () {
-      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
-      expect(
-        RegExp(
-          r'^version:\s*0\.5\.0\+5\s*$',
-          multiLine: true,
-        ).hasMatch(contenuPubspec),
-        isTrue,
-        reason:
-            'un tag et un journal qui divergent laissent personne savoir ce '
-            'que contient le binaire installe',
-      );
-    });
+    // Le verrou « pubspec.yaml porte version: 0.5.0+5 » est retiré : le
+    // pubspec est passé à 0.6.0+6 (Task O1 du plan d'ergonomie), il ne peut
+    // plus être vrai. Le groupe 0.6.0 porte le verrou de version courant.
 
     test('une section ## [0.5.0], une seule, sous [Non publié] et au-dessus '
         'de [0.4.0]', () {
@@ -832,6 +822,78 @@ void main() {
       expect(nonVerifie, contains('TalkBack'));
       expect(nonVerifie, contains('Segoe UI réelle'));
       expect(nonVerifie, contains('La porte de T2 n\'est pas franchie'));
+    });
+  });
+
+  // Task O1 du plan d'ergonomie ouvre la version 0.6.0 ; Task P3 la datera,
+  // la porte de la tranche étant constatée sur Windows et sur Android. Le cas
+  // « ouverte, pas datée » (le 3) est celui que P3 inversera, comme pour 0.3.0.
+  group('version 0.6.0 (Tasks O1 et P3 du plan d\'ergonomie)', () {
+    late String contenuChangelog;
+
+    setUpAll(() {
+      contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    });
+
+    // Le texte de la section `## [0.6.0]`, jusqu'à la section suivante.
+    String section060() {
+      final int debut = contenuChangelog.indexOf('## [0.6.0]');
+      expect(debut, isNot(-1), reason: 'aucune section ## [0.6.0]');
+      final int suivante = contenuChangelog.indexOf('\n## [', debut + 1);
+      return contenuChangelog.substring(
+        debut,
+        suivante == -1 ? contenuChangelog.length : suivante,
+      );
+    }
+
+    test('pubspec.yaml porte version: 0.6.0+6', () {
+      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        RegExp(
+          r'^version:\s*0\.6\.0\+6\s*$',
+          multiLine: true,
+        ).hasMatch(contenuPubspec),
+        isTrue,
+        reason:
+            'un tag et un journal qui divergent laissent personne savoir ce '
+            'que contient le binaire installé',
+      );
+    });
+
+    test('une section ## [0.6.0], une seule, sous [Non publié] et au-dessus '
+        'de [0.5.0]', () {
+      final int occurrences = RegExp(
+        r'^## \[0\.6\.0\]',
+        multiLine: true,
+      ).allMatches(contenuChangelog).length;
+      expect(occurrences, 1);
+      final int nonPublie = contenuChangelog.indexOf('## [Non publié]');
+      final int v060 = contenuChangelog.indexOf('## [0.6.0]');
+      final int v050 = contenuChangelog.indexOf('## [0.5.0]');
+      expect(nonPublie, lessThan(v060));
+      expect(v060, lessThan(v050));
+    });
+
+    test('la version 0.6.0 est ouverte, pas datée : la porte de la tranche '
+        'd\'ergonomie n\'est pas passée', () {
+      final String? ligne = contenuChangelog
+          .split('\n')
+          .map((String l) => l.trimRight())
+          .where((String l) => l.startsWith('## [0.6.0]'))
+          .firstOrNull;
+      expect(ligne, '## [0.6.0] — à publier');
+    });
+
+    test('le chapeau de 0.6.0 dit la tranche d\'ergonomie, en cours, avant '
+        'T5, et que rien n\'en est encore livré', () {
+      final String section = section060();
+      final String chapeau = section
+          .substring(section.indexOf('\n'))
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(chapeau, contains('Tranche d\'ergonomie, avant T5'));
+      expect(chapeau, contains('Version ouverte, pas publiée'));
+      expect(chapeau, contains('la tranche est en cours'));
+      expect(chapeau, contains('rien n\'en est encore livré'));
     });
   });
 }

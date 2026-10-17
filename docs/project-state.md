@@ -22,7 +22,7 @@
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 porte non franchie : restent `A1`, `E4`, `P1`, `P2` (25 tâches closes sur 29) — `0.3.0` datée et taguée sans elle, sur décision du commanditaire |
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
 | **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : le point 64 à l'écran, les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») |
-| **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md`, douze arbitrages) ; **avant T5** (arbitrages 16 et 17 du cadrage de T5) ; nom « Ergonomie », sans numéro, version `0.6.0` (T5 passe à `0.7.0`) ; porte sur Windows et Android ; **plan à écrire** |
+| **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | 🔄 **en cours**, plan `docs/superpowers/plans/2026-10-17-ergonomie.md` — cadrée le 2026-10-17 (cadrage approuvé par le commanditaire le même jour, `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md`, douze arbitrages) ; **avant T5** (arbitrages 16 et 17 du cadrage de T5) ; nom « Ergonomie », sans numéro, version `0.6.0` (T5 passe à `0.7.0`) ; porte sur Windows et Android |
 | **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** jusqu'à la tranche d'ergonomie (arbitrage 16) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
@@ -323,6 +323,7 @@ posé, rien n'est poussé ni fusionné : décisions du commanditaire. Restent à
 le point 64 (et la disposition des puces, point 61), les niveaux 2 à 4 à l'occasion d'un épisode de crue.
 **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas dit
 (point 62) se constate s'il le veut, ou reste « non vérifié ». **T5 est cadrée** (2026-10-17), son plan suspendu : la
-**tranche d'ergonomie** — maquette du 2026-10-03 et points 49, 51, 60, 61, 63, 64 — passe avant ; elle est **cadrée**
-(2026-10-17, `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md`) et son plan s'écrit d'abord ; le plan de
-T5 s'écrira ensuite, sur les écrans refaits (cadrage de T5, § 7 et § 13 ; cadrage d'ergonomie, § 12).
+**tranche d'ergonomie** — maquette du 2026-10-03 et points 49, 51, 60, 61, 63, 64 — passe avant ; elle est **en cours d'exécution**
+(cadrée le 2026-10-17, `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md` ; plan
+`docs/superpowers/plans/2026-10-17-ergonomie.md`, version `0.6.0` ouverte) ; le plan de T5 s'écrira ensuite, sur les
+écrans refaits (cadrage de T5, § 7 et § 13 ; cadrage d'ergonomie, § 12).
