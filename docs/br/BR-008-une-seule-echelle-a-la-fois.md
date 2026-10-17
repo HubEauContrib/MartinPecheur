@@ -1,28 +1,29 @@
 # BR-008 — Une seule échelle d'état est active à la fois
 
-- **Statut :** Accepté · **amendé le 2026-10-12 (T3)**
+- **Statut :** Accepté · **amendé le 2026-10-12 (T3)** · **amendé le 2026-10-14 (T4, vigilance crues)**
 - **Date :** 2026-07-30
 - **Contexte borné :** Carte
 
 ## Règle
 
-> Les trois échelles d'état — **écoulement**, **niveau de débit**, **sévérité sécheresse** —
+> Les **quatre** échelles d'état — **écoulement**, **niveau de débit**, **sévérité sécheresse**, **vigilance crues** —
 > ne sont jamais superposées sur un même marqueur ni affichées simultanément sur la carte.
 > Une seule est active, choisie par **les puces d'échelle**, et la **légende l'indique en permanence**.
 
 ## Justification
 
-Les trois échelles ont des **natures différentes** et ne se comparent pas :
+Les quatre échelles ont des **natures différentes** et ne se comparent pas :
 
 | Échelle | Nature | Ce qu'elle dit |
 |---|---|---|
 | Écoulement ONDE | **Fait observé** | Ce qu'un agent a vu, un jour donné |
 | Niveau de débit | **Statistique** | Comment la valeur se situe face à 30 ans d'historique |
 | Sévérité sécheresse | **Décision administrative** | Ce que le préfet a arrêté |
+| Vigilance crues | **Vigilance publiée par l'État** | Le niveau que Vigicrues a émis pour un tronçon de cours d'eau, à une date |
 
 Superposer un fait observé, un calcul et une décision préfectorale sur une même carte, avec une échelle chromatique continue, laisserait croire à un indicateur unique de gravité. C'est précisément la confusion que `ADR-002` cherche à éviter.
 
-C'est aussi ce qui **autorise la réutilisation de teintes** d'une échelle à l'autre : le contexte lève l'ambiguïté, et chaque échelle a sa propre famille de formes (formes pleines · chevrons · badges).
+C'est aussi ce qui **autorise la réutilisation de teintes** d'une échelle à l'autre : le contexte lève l'ambiguïté, et chaque échelle a sa propre famille de formes (formes pleines · chevrons · badges · **traits et étiquettes à jauge**).
 
 ## Invariants & cas limites
 
@@ -48,7 +49,7 @@ Test d'interface : après sélection d'une échelle, aucun marqueur ne porte de 
 
 ## Liens
 
-- Use cases : `UC-001`
-- ADR liés : `ADR-002`, `ADR-006`
+- Use cases : `UC-001`, `UC-009`
+- ADR liés : `ADR-002`, `ADR-006`, `ADR-016`
 - Écran : [`04-ui.md § 2`](../04-ui.md)
 - Voir aussi : `BR-009`

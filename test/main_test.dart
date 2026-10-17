@@ -36,6 +36,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart'
     show Favorite, OndePointFavorite, StationFavorite;
 import 'package:martinpecheur/domain/filters/map_filter.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_map.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_source.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
@@ -55,6 +59,9 @@ import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
 import 'package:martinpecheur/features/favorites/view_model/favorites_view_model.dart';
+import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart'
+    show FloodSheetPanel, floodBulletinButtonKey;
+import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart'
     show mapDesignateCenterButtonKey, mapDesignateCenterHintKey;
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart'
@@ -64,6 +71,8 @@ import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart'
     show mapDesignationChipKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart'
+    show FloodLayerViewModel, LectureCruesNonDemandee;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
@@ -235,6 +244,18 @@ RestrictionsViewModel _restrictions([RestrictionSource? source]) =>
       links: _NeverOpensLinks(),
     );
 
+/// Source de vigilance crues qui compte ses appels et ne répond jamais : la
+/// lecture Crues reste « en cours » si elle est demandée. Aucun appel réseau.
+final class _CountingFloodSource implements FloodVigilanceSource {
+  int calls = 0;
+
+  @override
+  Future<FloodVigilanceMap> current() {
+    calls++;
+    return Completer<FloodVigilanceMap>().future;
+  }
+}
+
 MartinPecheurApp _app(
   WarningsViewModel warningsViewModel, [
   RestrictionsViewModel? restrictionsViewModel,
@@ -242,12 +263,19 @@ MartinPecheurApp _app(
   OndeSheetViewModel? ondeSheetViewModel,
   FavoritesViewModel? favoritesViewModel,
   MapViewModel? mapViewModel,
+  FloodLayerViewModel? floodLayerViewModel,
+  FloodSheetViewModel? floodSheetViewModel,
 ]) {
   // Comme la racine : UN dépôt des favoris, partagé par les deux fiches et
   // par l'écran « Favoris ».
   final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository();
   return MartinPecheurApp(
     warningsViewModel: warningsViewModel,
+    floodLayerViewModel:
+        floodLayerViewModel ??
+        FloodLayerViewModel(source: _CountingFloodSource()),
+    floodSheetViewModel:
+        floodSheetViewModel ?? FloodSheetViewModel(links: _NeverOpensLinks()),
     restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
     favoritesViewModel:
         favoritesViewModel ?? FavoritesViewModel(favorites: favorites),
@@ -291,6 +319,37 @@ typedef _FavoritesRoot = ({
   FavoritesViewModel list,
   MapViewModel map,
 });
+
+/// Ce que les cas de `F4` de T4 tiennent de la racine montée : les VRAIS
+/// ViewModels, le dépôt des favoris partagé et la source de vigilance.
+typedef _FloodRoot = ({
+  InMemoryFavoriteRepository favorites,
+  StationSheetViewModel station,
+  OndeSheetViewModel onde,
+  FavoritesViewModel list,
+  MapViewModel map,
+  FloodLayerViewModel floodLayer,
+  FloodSheetViewModel floodSheet,
+  _CountingFloodSource source,
+});
+
+/// Un tronçon construit pour ces tests (niveau vert, observé en production) :
+/// la fiche tronçon ne lit que lui et la date de la carte, aucun réseau.
+FloodSection _troncon(String code) => FloodSection(
+  code: FloodSectionCode(code),
+  name: 'Tronçon de test $code',
+  territoryCode: '8',
+  level: const Vert(),
+  lines: <List<GeoPoint>>[
+    <GeoPoint>[
+      GeoPoint(latitude: 47.4, longitude: 0.6),
+      GeoPoint(latitude: 47.4, longitude: 0.8),
+    ],
+  ],
+);
+
+/// La date de la carte de vigilance des cas de `F4`.
+final DateTime _floodDate = DateTime.utc(2026, 10, 14, 13, 55, 31);
 
 /// Un point DANS la bande du bouton de désignation (la boîte du `ListView` de
 /// `_DesignationPlacement`, seul `ListView` au-dessus du bouton), sur la
@@ -885,6 +944,8 @@ void main() {
             mapViewModel: first.mapViewModel,
             restrictionsViewModel: first.restrictionsViewModel,
             favoritesViewModel: first.favoritesViewModel,
+            floodLayerViewModel: first.floodLayerViewModel,
+            floodSheetViewModel: first.floodSheetViewModel,
             stationSheetViewModel: station,
             ondeSheetViewModel: onde,
           ),
@@ -2364,6 +2425,830 @@ void main() {
         expect(find.byType(MapView, skipOffstage: false), findsNothing);
         expect(find.byKey(mapFavoritesButtonKey), findsNothing);
         expect(find.byType(FavoritesScreen), findsNothing);
+      },
+    );
+  });
+
+  // `F4` de T4 : la composition RÉELLE de la source Vigicrues, lue dans le
+  // texte de la racine, sur le modèle du verrou du dépôt des favoris
+  // ci-dessus. Décorée par son cache de 30 min, construite sur
+  // `vigicruesJsonClient` — qui porte les 20 s (D4) — et jamais sur un
+  // `JsonHttpClient` nu, qui garderait les 10 s par défaut.
+  test('la racine compose la source de vigilance crues decoree par son cache, '
+      'sur vigicruesJsonClient, et la passe a la lecture Crues', () {
+    final String root = File('lib/main.dart').readAsStringSync();
+
+    expect(
+      RegExp(r'VigicruesFloodVigilanceSource\(').allMatches(root),
+      hasLength(1),
+      reason: 'la source n est nommee qu une fois',
+    );
+    expect(
+      RegExp(r'CachedFloodVigilanceSource\(').allMatches(root),
+      hasLength(1),
+      reason: 'une seule construction du decorateur',
+    );
+    expect(
+      RegExp(
+        r'final FloodVigilanceSource floodVigilanceSource =\s*'
+        r'CachedFloodVigilanceSource\(\s*'
+        r'inner: VigicruesFloodVigilanceSource\(\s*'
+        r'client: vigicruesJsonClient\(http\.Client\(\)\),?\s*'
+        r'\),?\s*'
+        r'\);',
+      ).hasMatch(root),
+      isTrue,
+      reason:
+          'le decorateur de cache enveloppe la source, construite sur '
+          'vigicruesJsonClient',
+    );
+    expect(
+      RegExp(r'VigicruesFloodVigilanceSource\(\s*client: JsonHttpClient\(')
+          .hasMatch(root),
+      isFalse,
+      reason: 'un JsonHttpClient nu perdrait les 20 s',
+    );
+    expect(
+      root,
+      contains(
+        'floodLayerViewModel: FloodLayerViewModel(source: floodVigilanceSource)',
+      ),
+    );
+    expect(
+      RegExp(
+        r'floodSheetViewModel: FloodSheetViewModel\(\s*'
+        r'links: const UrlLauncherExternalLinkOpener\(\),?\s*\)',
+      ).hasMatch(root),
+      isTrue,
+      reason: 'la fiche troncon ouvre le bulletin par l ouvreur de liens reel',
+    );
+  });
+
+  // `F4` de T4, Review Focus 5 : jamais deux fiches ensemble. La racine ferme
+  // la fiche tronçon à chaque autre entrée — fiche station, fiche ONDE,
+  // `Échap`, désignation, « Favoris », ouverture d'un favori —, et quand
+  // l'usager QUITTE la lecture Crues ; et l'inverse : le toucher d'un tronçon
+  // ferme les deux autres fiches. Chaque entrée est éprouvée SEULE : la fiche
+  // tronçon est ouverte par le rappel de la racine sur une échelle d'où
+  // l'entrée éprouvée ne la quitte pas, pour que l'écoute du changement
+  // d'échelle ne ferme rien à sa place.
+  group('la lecture Crues et la fiche troncon (F4 de T4) — composition '
+      'reelle', () {
+    Future<WarningsViewModel> acknowledged() async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      return viewModel;
+    }
+
+    StationFavorite blois() => StationFavorite(
+      code: StationCode('K447001001'),
+      label: 'La Loire à Blois',
+      addedAt: DateTime.utc(2026, 10, 14),
+    );
+    OndePoint chaon() => OndePoint(
+      code: OndeStationCode('K4520001'),
+      label: 'LA RIVIERE AUX LOCHES A CHAON',
+      latitude: 47.610620493,
+      longitude: 2.173858157,
+      waterCourseLabel: 'ruisseau la rivière aux loches',
+      departement: null,
+    );
+
+    /// La racine, par défaut à la taille minimale de la fenêtre Windows
+    /// (800 × 740, `K3`), usager acquitté, avec les VRAIS ViewModels.
+    Future<_FloodRoot> pumpRoot(
+      WidgetTester tester, {
+      List<Favorite> initial = const <Favorite>[],
+      Size window = const Size(800, 740),
+    }) async {
+      tester.view.physicalSize = window;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository(
+        initial,
+      );
+      final StationSheetViewModel station = StationSheetViewModel(
+        observations: _EmptyHydroObservationRepository(),
+        stations: _BloisStationRepository(),
+        favorites: favorites,
+      );
+      final OndeSheetViewModel onde = OndeSheetViewModel(
+        onde: _EmptyOndeObservationRepository(),
+        favorites: favorites,
+      );
+      final FavoritesViewModel list = FavoritesViewModel(favorites: favorites);
+      final MapViewModel map = MapViewModel(
+        stationPoints: _EmptyStationPointRepository(),
+        observations: _EmptyHydroObservationRepository(),
+        onde: _EmptyOndeObservationRepository(),
+      );
+      final _CountingFloodSource source = _CountingFloodSource();
+      final FloodLayerViewModel floodLayer = FloodLayerViewModel(
+        source: source,
+      );
+      final FloodSheetViewModel floodSheet = FloodSheetViewModel(
+        links: _NeverOpensLinks(),
+      );
+      await tester.pumpWidget(
+        _app(
+          await acknowledged(),
+          null,
+          station,
+          onde,
+          list,
+          map,
+          floodLayer,
+          floodSheet,
+        ),
+      );
+      await tester.pumpAndSettle();
+      return (
+        favorites: favorites,
+        station: station,
+        onde: onde,
+        list: list,
+        map: map,
+        floodLayer: floodLayer,
+        floodSheet: floodSheet,
+        source: source,
+      );
+    }
+
+    MapView mapView(WidgetTester tester) =>
+        tester.widget<MapView>(find.byType(MapView, skipOffstage: false));
+
+    /// Touche un tronçon PAR LA RACINE : le rappel qu'elle passe à `MapView`.
+    Future<void> touchSection(WidgetTester tester, String code) async {
+      mapView(tester).onFloodSectionTap!(_troncon(code), _floodDate);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> selectScaleChip(WidgetTester tester, MapScaleKind kind) async {
+      await tester.tap(find.byKey(ValueKey<MapScaleKind>(kind)));
+      await tester.pumpAndSettle();
+    }
+
+    void expectFloodSheetOpenOn(_FloodRoot root, String code) {
+      final FloodSheetState state = root.floodSheet.state;
+      expect(state, isA<FicheTronconOuverte>());
+      expect((state as FicheTronconOuverte).section.code.value, code);
+      expect(state.informationDate, _floodDate);
+    }
+
+    testWidgetsOnWindows(
+      'au lancement : la lecture Crues est NonDemandee, la source n est pas '
+      'appelee, aucune fiche troncon',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+
+        expect(root.floodLayer.state, isA<LectureCruesNonDemandee>());
+        expect(root.source.calls, 0, reason: 'aucun appel au lancement');
+        expect(root.floodSheet.state, isA<FicheTronconFermee>());
+        expect(find.byType(FloodSheetPanel), findsOneWidget);
+        expect(find.byKey(floodBulletinButtonKey), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'la puce « Vigilance crues » de la racine active la lecture : un seul '
+      'appel a la source',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+
+        await selectScaleChip(tester, MapScaleKind.crues);
+
+        expect(root.map.scale, MapScaleKind.crues);
+        expect(root.source.calls, 1);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'toucher d un troncon : la fiche troncon s ouvre sur CE troncon et la '
+      'date de la carte, son panneau est affiche',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        await selectScaleChip(tester, MapScaleKind.crues);
+
+        await touchSection(tester, 'LO1');
+
+        expectFloodSheetOpenOn(root, 'LO1');
+        expect(find.text('Tronçon de test LO1'), findsOneWidget);
+        expect(find.byKey(floodBulletinButtonKey), findsOneWidget);
+      },
+    );
+
+    // Review Focus 5, chaque entrée seule.
+    testWidgetsOnWindows(
+      'fiche troncon ouverte (echelle debit), puis tap d une station : la '
+      'fiche troncon est Fermee, la fiche station ouverte',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        root.map.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        await touchSection(tester, 'LO1');
+        expectFloodSheetOpenOn(root, 'LO1');
+
+        mapView(tester).onStationTap!(StationCode('K447001001'));
+        await tester.pumpAndSettle();
+
+        expect(root.map.scale, MapScaleKind.debit);
+        expect(root.floodSheet.state, isA<FicheTronconFermee>());
+        expect(root.station.state, isA<Prete>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche troncon ouverte (echelle ecoulement), puis un point ONDE : la '
+      'fiche troncon est Fermee, la fiche ONDE ouverte',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        await touchSection(tester, 'LO1');
+        expectFloodSheetOpenOn(root, 'LO1');
+
+        mapView(tester).onOndeTap!(chaon());
+        await tester.pumpAndSettle();
+
+        expect(root.map.scale, MapScaleKind.ecoulement);
+        expect(root.floodSheet.state, isA<FicheTronconFermee>());
+        expect(root.onde.state, isA<OndeSheetPrete>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche troncon ouverte sur la lecture Crues, puis Echap : la fiche '
+      'troncon est Fermee, l echelle reste la lecture Crues',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        await selectScaleChip(tester, MapScaleKind.crues);
+        await touchSection(tester, 'LO1');
+        expectFloodSheetOpenOn(root, 'LO1');
+
+        mapView(tester).onCloseSheets!();
+        await tester.pumpAndSettle();
+
+        expect(root.map.scale, MapScaleKind.crues);
+        expect(root.floodSheet.state, isA<FicheTronconFermee>());
+        expect(find.byKey(floodBulletinButtonKey), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche troncon ouverte sur la lecture Crues, puis designation d un '
+      'point : la fiche troncon est Fermee, l ecran des restrictions pousse',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        await selectScaleChip(tester, MapScaleKind.crues);
+        await touchSection(tester, 'LO1');
+        expectFloodSheetOpenOn(root, 'LO1');
+
+        mapView(tester)
+            .onPointDesignated!(GeoPoint(latitude: 47.4, longitude: 0.7));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(root.map.scale, MapScaleKind.crues);
+        expect(root.floodSheet.state, isA<FicheTronconFermee>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche troncon ouverte sur la lecture Crues, puis « Favoris » : la '
+      'fiche troncon est Fermee, l ecran des favoris est montre',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        await selectScaleChip(tester, MapScaleKind.crues);
+        await touchSection(tester, 'LO1');
+        expectFloodSheetOpenOn(root, 'LO1');
+
+        await tester.tap(find.byKey(mapFavoritesButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FavoritesScreen), findsOneWidget);
+        expect(root.map.scale, MapScaleKind.crues);
+        expect(root.floodSheet.state, isA<FicheTronconFermee>());
+      },
+    );
+
+    // L'ouverture d'un favori, seule : la fiche tronçon est rouverte SOUS la
+    // route « Favoris » (déjà poussée, qui l'avait fermée), puis le favori
+    // est ouvert. Les deux sortes de favori, chacune par sa branche.
+    // Arbitrage du commanditaire du 2026-10-15 (« Fiches Crues », réponse
+    // « Fermer, et changer d'échelle ») : depuis la lecture Crues, le favori
+    // passe d'abord sur sa lecture — Débit pour une station, Écoulement pour
+    // un point ONDE —, puis sa fiche s'ouvre et le reste.
+    for (final bool ondeFavorite in <bool>[false, true]) {
+      testWidgetsOnWindows(
+        'fiche troncon ouverte sous l ecran « Favoris », puis ouverture d un '
+        'favori ${ondeFavorite ? 'ONDE' : 'station'} : la fiche troncon est '
+        'Fermee, l echelle passe ${ondeFavorite ? 'a l ecoulement' : 'au debit'}'
+        ', la fiche du favori est ouverte',
+        (WidgetTester tester) async {
+          final _FloodRoot root = await pumpRoot(
+            tester,
+            initial: <Favorite>[
+              if (ondeFavorite)
+                OndePointFavorite(
+                  point: chaon(),
+                  addedAt: DateTime.utc(2026, 10, 13),
+                )
+              else
+                blois(),
+            ],
+          );
+          await selectScaleChip(tester, MapScaleKind.crues);
+          await tester.tap(find.byKey(mapFavoritesButtonKey));
+          await tester.pumpAndSettle();
+          await touchSection(tester, 'LO1');
+          expectFloodSheetOpenOn(root, 'LO1');
+
+          await tester.tap(
+            find.text(
+              ondeFavorite
+                  ? 'LA RIVIERE AUX LOCHES A CHAON'
+                  : 'La Loire à Blois',
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.byType(FavoritesScreen), findsNothing);
+          expect(
+            root.map.scale,
+            ondeFavorite ? MapScaleKind.ecoulement : MapScaleKind.debit,
+          );
+          expect(root.floodSheet.state, isA<FicheTronconFermee>());
+          if (ondeFavorite) {
+            expect(root.onde.state, isA<OndeSheetPrete>());
+            expect(root.station.state, isA<Fermee>());
+          } else {
+            expect(root.station.state, isA<Prete>());
+            expect(root.onde.state, isA<OndeSheetFermee>());
+          }
+        },
+      );
+    }
+
+    // Même arbitrage, l'autre sens : ENTRER sur la lecture Crues ferme les
+    // fiches station et ONDE. Une fenêtre large : à 800 × 740, une fiche
+    // ouverte couvre les puces de la colonne de gauche.
+    testWidgetsOnWindows(
+      'fiche station ouverte sur l echelle debit, puis la puce « Vigilance '
+      'crues » : la fiche station est Fermee',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(
+          tester,
+          window: const Size(1920, 1032),
+        );
+        await selectScaleChip(tester, MapScaleKind.debit);
+        mapView(tester).onStationTap!(StationCode('K447001001'));
+        await tester.pumpAndSettle();
+        expect(root.station.state, isA<Prete>());
+
+        await selectScaleChip(tester, MapScaleKind.crues);
+
+        expect(root.map.scale, MapScaleKind.crues);
+        expect(root.station.state, isA<Fermee>());
+        expect(root.onde.state, isA<OndeSheetFermee>());
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche ONDE ouverte sur l echelle ecoulement, puis la puce « Vigilance '
+      'crues » : la fiche ONDE est Fermee',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(
+          tester,
+          window: const Size(1920, 1032),
+        );
+        mapView(tester).onOndeTap!(chaon());
+        await tester.pumpAndSettle();
+        expect(root.onde.state, isA<OndeSheetPrete>());
+
+        await selectScaleChip(tester, MapScaleKind.crues);
+
+        expect(root.map.scale, MapScaleKind.crues);
+        expect(root.onde.state, isA<OndeSheetFermee>());
+        expect(root.station.state, isA<Fermee>());
+      },
+    );
+
+    // L'arbitrage 6 de T3 reste entier hors de la lecture Crues : sur le
+    // débit, un favori ONDE s'ouvre sans changer d'échelle.
+    testWidgetsOnWindows(
+      'sur l echelle debit, ouverture d un favori ONDE : l echelle reste le '
+      'debit, la fiche ONDE est ouverte',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(
+          tester,
+          initial: <Favorite>[
+            OndePointFavorite(
+              point: chaon(),
+              addedAt: DateTime.utc(2026, 10, 13),
+            ),
+          ],
+        );
+        root.map.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapFavoritesButtonKey));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('LA RIVIERE AUX LOCHES A CHAON'));
+        await tester.pumpAndSettle();
+
+        expect(root.map.scale, MapScaleKind.debit);
+        expect(root.onde.state, isA<OndeSheetPrete>());
+      },
+    );
+
+    // L'inverse : le toucher d'un tronçon ferme les deux autres fiches.
+    testWidgetsOnWindows(
+      'fiche station ouverte, puis toucher d un troncon : la fiche station '
+      'est Fermee, la fiche troncon ouverte',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        mapView(tester).onStationTap!(StationCode('K447001001'));
+        await tester.pumpAndSettle();
+        expect(root.station.state, isA<Prete>());
+
+        await touchSection(tester, 'LO1');
+
+        expect(root.station.state, isA<Fermee>());
+        expectFloodSheetOpenOn(root, 'LO1');
+      },
+    );
+
+    testWidgetsOnWindows(
+      'fiche ONDE ouverte, puis toucher d un troncon : la fiche ONDE est '
+      'Fermee, la fiche troncon ouverte',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        mapView(tester).onOndeTap!(chaon());
+        await tester.pumpAndSettle();
+        expect(root.onde.state, isA<OndeSheetPrete>());
+
+        await touchSection(tester, 'LO1');
+
+        expect(root.onde.state, isA<OndeSheetFermee>());
+        expectFloodSheetOpenOn(root, 'LO1');
+      },
+    );
+
+    // Quitter la lecture Crues ferme la fiche tronçon (D8), par la puce. Une
+    // fenêtre large : à 800 × 740, la fiche tronçon ouverte, plus haute, couvre
+    // la puce « Débit » de la colonne de gauche.
+    for (final MapScaleKind other in <MapScaleKind>[
+      MapScaleKind.ecoulement,
+      MapScaleKind.debit,
+    ]) {
+      testWidgetsOnWindows(
+        'fiche troncon ouverte sur la lecture Crues, puis la puce '
+        '« ${mapScaleLabel(other)} » : la fiche troncon est Fermee',
+        (WidgetTester tester) async {
+          final _FloodRoot root = await pumpRoot(
+            tester,
+            window: const Size(1920, 1032),
+          );
+          await selectScaleChip(tester, MapScaleKind.crues);
+          await touchSection(tester, 'LO1');
+          expectFloodSheetOpenOn(root, 'LO1');
+
+          await selectScaleChip(tester, other);
+
+          expect(root.map.scale, other);
+          expect(root.floodSheet.state, isA<FicheTronconFermee>());
+          expect(find.byKey(floodBulletinButtonKey), findsNothing);
+        },
+      );
+    }
+
+    // L'écoute réagit au CHANGEMENT d'échelle, pas à chaque notification de
+    // `MapViewModel` : un geste notifie sans changer d'échelle.
+    testWidgetsOnWindows(
+      'fiche troncon ouverte sur la lecture Crues, puis un geste qui notifie '
+      'MapViewModel sans changer d echelle : la fiche reste ouverte',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(tester);
+        await selectScaleChip(tester, MapScaleKind.crues);
+        await touchSection(tester, 'LO1');
+        expectFloodSheetOpenOn(root, 'LO1');
+
+        int notifications = 0;
+        void count() => notifications++;
+        root.map.addListener(count);
+        addTearDown(() => root.map.removeListener(count));
+        await root.map.onGestureEnded(
+          Bounds(west: 0, south: 46, east: 2, north: 48),
+          zoom: 8,
+        );
+        await tester.pumpAndSettle();
+
+        expect(notifications, greaterThan(0), reason: 'MapViewModel a notifie');
+        expect(root.map.scale, MapScaleKind.crues);
+        expectFloodSheetOpenOn(root, 'LO1');
+      },
+    );
+
+    // La racine s'abonne à des ViewModels reçus par son constructeur : s'ils
+    // changent, ses écoutes les suivent (`didUpdateWidget`).
+    testWidgetsOnWindows(
+      'racine remontee avec d autres ViewModels de carte et de fiche troncon '
+      ': quitter la lecture Crues ferme la NOUVELLE fiche troncon',
+      (WidgetTester tester) async {
+        final _FloodRoot root = await pumpRoot(
+          tester,
+          window: const Size(1920, 1032),
+        );
+        final MapViewModel map = MapViewModel(
+          stationPoints: _EmptyStationPointRepository(),
+          observations: _EmptyHydroObservationRepository(),
+          onde: _EmptyOndeObservationRepository(),
+        );
+        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
+          links: _NeverOpensLinks(),
+        );
+        final MartinPecheurApp first = tester.widget<MartinPecheurApp>(
+          find.byType(MartinPecheurApp),
+        );
+        // La MÊME racine, au ViewModel de carte et à celui de la fiche tronçon
+        // près.
+        await tester.pumpWidget(
+          MartinPecheurApp(
+            warningsViewModel: first.warningsViewModel,
+            mapViewModel: map,
+            stationSheetViewModel: first.stationSheetViewModel,
+            ondeSheetViewModel: first.ondeSheetViewModel,
+            restrictionsViewModel: first.restrictionsViewModel,
+            favoritesViewModel: first.favoritesViewModel,
+            floodLayerViewModel: first.floodLayerViewModel,
+            floodSheetViewModel: floodSheet,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await selectScaleChip(tester, MapScaleKind.crues);
+        expect(map.scale, MapScaleKind.crues);
+        await touchSection(tester, 'LO1');
+        expect(floodSheet.state, isA<FicheTronconOuverte>());
+        expect(root.floodSheet.state, isA<FicheTronconFermee>());
+
+        await selectScaleChip(tester, MapScaleKind.ecoulement);
+
+        expect(map.scale, MapScaleKind.ecoulement);
+        expect(floodSheet.state, isA<FicheTronconFermee>());
+      },
+    );
+  });
+
+  // `F4` de T4 : le panneau de la fiche tronçon dans la zone des fiches, son
+  // défilement réel (reporté par `F3`), et sa remise en haut à chaque
+  // ouverture, comme les deux autres fiches (`K4` de T3). Un téléphone,
+  // 360 × 640, police à 200 % : la fiche est plus haute que la carte.
+  group('la fiche troncon dans la zone des fiches (F4 de T4) — composition '
+      'reelle', () {
+    Future<WarningsViewModel> acknowledged() async {
+      final WarningsViewModel viewModel = WarningsViewModel(
+        acknowledgements: _AcknowledgementRepositoryDouble(
+          storedVersion: warningTextVersion,
+        ),
+        currentWarningVersion: warningTextVersion,
+      );
+      await viewModel.load();
+      return viewModel;
+    }
+
+    /// Monte la racine sur un téléphone, avec les VRAIS ViewModels de fiche.
+    Future<_SheetsRoot> pumpPhone(
+      WidgetTester tester,
+      FloodSheetViewModel floodSheet,
+    ) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository();
+      final StationSheetViewModel station = StationSheetViewModel(
+        observations: _EmptyHydroObservationRepository(),
+        stations: _BloisStationRepository(),
+        favorites: favorites,
+      );
+      final OndeSheetViewModel onde = OndeSheetViewModel(
+        onde: _EmptyOndeObservationRepository(),
+        favorites: favorites,
+      );
+      await tester.pumpWidget(
+        _app(
+          await acknowledged(),
+          null,
+          station,
+          onde,
+          null,
+          null,
+          null,
+          floodSheet,
+        ),
+      );
+      return (station: station, onde: onde, favorites: favorites);
+    }
+
+    MapView mapView(WidgetTester tester) =>
+        tester.widget<MapView>(find.byType(MapView));
+
+    /// Le défilement de la zone des fiches, trouvé par la fiche STATION.
+    Finder sheetScrollable() => find
+        .ancestor(
+          of: find.byType(StationSheetPanel),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+
+    ScrollPosition sheetPosition(WidgetTester tester) =>
+        tester.state<ScrollableState>(sheetScrollable()).position;
+
+    Future<double> scrollToEnd(WidgetTester tester) async {
+      final ScrollPosition position = sheetPosition(tester);
+      expect(
+        position.maxScrollExtent,
+        greaterThan(0),
+        reason: 'la fiche doit être plus haute que la carte',
+      );
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pump();
+      expect(position.pixels, greaterThan(0), reason: 'défilée au bout');
+      return position.pixels;
+    }
+
+    void expectFloodSheetFromTop(WidgetTester tester, double before) {
+      expect(
+        sheetPosition(tester).pixels,
+        0,
+        reason: 'la position de défilement est conservée (avant : $before)',
+      );
+      final Rect window = tester.getRect(sheetScrollable());
+      final double top = tester
+          .getRect(
+            find.descendant(
+              of: find.byType(FloodSheetPanel),
+              matching: find.byKey(warningLinkKey),
+            ),
+          )
+          .top;
+      expect(
+        top >= window.top && top < window.bottom,
+        isTrue,
+        reason: 'haut de « ⚠ Avertissement » à $top, fenêtre $window',
+      );
+    }
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : le panneau de la fiche troncon est dans '
+      'la zone des fiches, qui defile jusqu a son bouton du bulletin',
+      (WidgetTester tester) async {
+        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
+          links: _NeverOpensLinks(),
+        );
+        await pumpPhone(tester, floodSheet);
+
+        mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
+        await tester.pump();
+
+        expect(floodSheet.state, isA<FicheTronconOuverte>());
+        // Le MÊME défilement que celui des deux autres fiches.
+        expect(
+          tester.state<ScrollableState>(
+            find
+                .ancestor(
+                  of: find.byType(FloodSheetPanel),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          ),
+          same(tester.state<ScrollableState>(sheetScrollable())),
+        );
+        await scrollToEnd(tester);
+        // Au bout du défilement, le bas de la fiche est dans la fenêtre.
+        final Rect window = tester.getRect(sheetScrollable());
+        final Rect panel = tester.getRect(find.byType(FloodSheetPanel));
+        expect(
+          panel.bottom > window.top && panel.bottom <= window.bottom,
+          isTrue,
+          reason: 'bas de la fiche à ${panel.bottom}, fenêtre $window',
+        );
+        // Et le bouton du bulletin s'y amène en entier.
+        await tester.ensureVisible(find.byKey(floodBulletinButtonKey));
+        await tester.pumpAndSettle();
+        final Rect button = tester.getRect(find.byKey(floodBulletinButtonKey));
+        expect(
+          button.top >= window.top && button.bottom <= window.bottom,
+          isTrue,
+          reason: 'bouton du bulletin à $button, fenêtre $window',
+        );
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : troncon A defile au bout, puis troncon '
+      'B — la fiche troncon est montree depuis son haut',
+      (WidgetTester tester) async {
+        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
+          links: _NeverOpensLinks(),
+        );
+        await pumpPhone(tester, floodSheet);
+        mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        mapView(tester).onFloodSectionTap!(_troncon('LO2'), _floodDate);
+        await tester.pump();
+
+        expect(
+          (floodSheet.state as FicheTronconOuverte).section.code.value,
+          'LO2',
+        );
+        expectFloodSheetFromTop(tester, before);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : le MEME troncon rouvert apres defilement '
+      '— la fiche troncon est montree depuis son haut',
+      (WidgetTester tester) async {
+        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
+          links: _NeverOpensLinks(),
+        );
+        await pumpPhone(tester, floodSheet);
+        mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
+        await tester.pump();
+
+        expectFloodSheetFromTop(tester, before);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : fiche station defilee au bout, puis un '
+      'troncon — la fiche troncon est montree depuis son haut',
+      (WidgetTester tester) async {
+        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
+          links: _NeverOpensLinks(),
+        );
+        final _SheetsRoot root = await pumpPhone(tester, floodSheet);
+        mapView(tester).onStationTap!(StationCode('K447001001'));
+        await tester.idle();
+        await tester.pump();
+        final double before = await scrollToEnd(tester);
+
+        mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
+        await tester.pump();
+
+        expect(root.station.state, isA<Fermee>());
+        expectFloodSheetFromTop(tester, before);
+      },
+    );
+
+    // Seule une OUVERTURE ramène la fiche en haut : l'échec d'ouverture du
+    // bulletin rend un nouvel état ouvert (l'avis se réannonce), qui n'est
+    // pas une ouverture. Le ramener en haut le cacherait — l'avis se ramène
+    // lui-même dans le champ après la trame : la position est donc suivie à
+    // chaque changement, pour qu'aucun passage par 0 n'échappe.
+    testWidgetsOnAndroid(
+      'Android : 360 x 640, 200 % : l echec d ouverture du bulletin, en bas '
+      'de la fiche defilee, ne la ramene jamais en haut',
+      (WidgetTester tester) async {
+        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
+          links: _NeverOpensLinks(),
+        );
+        await pumpPhone(tester, floodSheet);
+        mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
+        await tester.pump();
+        await scrollToEnd(tester);
+
+        final ScrollPosition position = sheetPosition(tester);
+        final List<double> seen = <double>[];
+        void record() => seen.add(position.pixels);
+        position.addListener(record);
+        addTearDown(() => position.removeListener(record));
+
+        await tester.tap(find.byKey(floodBulletinButtonKey));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          (floodSheet.state as FicheTronconOuverte).unopenedBulletinCount,
+          1,
+          reason: 'le bulletin n a pas pu etre ouvert',
+        );
+        expect(seen, isNot(contains(0)), reason: 'positions : $seen');
+        expect(position.pixels, greaterThan(0));
       },
     );
   });

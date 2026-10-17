@@ -17,6 +17,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/mappers/onde_observation_mapper.dart';
+import 'package:martinpecheur/domain/filters/map_filter.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/area_cluster.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
@@ -613,6 +614,129 @@ void main() {
       viewModel.selectScale(MapScaleKind.ecoulement);
 
       expect(notifications, 0);
+    });
+  });
+
+  // `L1` de T4 (2026-10-15) : la lecture Crues ne dessine ni station, ni
+  // point ONDE, ni pastille. Les quatre comparaisons d'échelle de
+  // `MapViewModel` (`_refreshClusterDataIfNeeded`, `loadFor`, deux dans
+  // `selectScale`) gardent leur effet sur elle : aucun asset entier, aucun
+  // appel ONDE, aucun rechargement — mais les stations de l'emprise sont lues
+  // (asset local), pour qu'un retour sur une autre échelle les trouve
+  // (décision `D1`, R15 corrigé).
+  group('lecture Crues (L1 de T4)', () {
+    const AdministrativeArea region = AdministrativeArea(
+      code: '24',
+      label: 'Centre-Val de Loire',
+    );
+
+    test('selectScale(crues) : clusters vide a TOUT niveau — region, '
+        'departement, individuel — et aucun prechargement', () async {
+      final List<StationPoint> stations = _stationsInRegion(region, 5);
+      repository.answer = (int _) async => stations;
+      repository.allAnswer = () async => stations;
+      onde.answer = (int _) async => <OndeObservation>[
+        _assecAt('K4520001', DateTime.utc(2026, 9, 1)),
+      ];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.crues);
+      final Bounds bounds = _wideBounds();
+
+      for (final double zoom in <double>[5, 8, 9, 12]) {
+        await viewModel.onGestureEnded(bounds, zoom: zoom);
+        expect(
+          viewModel.clusters,
+          isEmpty,
+          reason: 'aucune pastille sur la lecture Crues (zoom $zoom)',
+        );
+      }
+      expect(observations.requests, isEmpty);
+    });
+
+    test('filterHidesEverything reste faux sur la lecture Crues, meme avec '
+        'un filtre qui vide la lecture ecoulement', () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      onde.answer = (int _) async => <OndeObservation>[
+        _assecAt('K4520001', DateTime.utc(2026, 9, 1)),
+      ];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.loadFor(_loireBounds());
+      viewModel.applyFilter(MapFilter.none.withDepartement('99'));
+      expect(
+        viewModel.filterHidesEverything,
+        isTrue,
+        reason: 'contre-temoin : sur l ecoulement, ce filtre vide la carte',
+      );
+
+      viewModel.selectScale(MapScaleKind.crues);
+
+      expect(viewModel.filterHidesEverything, isFalse);
+    });
+
+    test("sur la lecture Crues, aucun appel ONDE ni lecture de l'asset "
+        "entier ; les stations de l'emprise sont lues (R15, D1)", () async {
+      final List<StationPoint> stations = _stationsInRegion(region, 3);
+      repository.answer = (int _) async => stations;
+      repository.allAnswer = () async => stations;
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.crues);
+      final Bounds bounds = _wideBounds();
+
+      await viewModel.onGestureEnded(bounds, zoom: 5);
+
+      expect(repository.calls, 1);
+      expect(repository.receivedBounds, bounds);
+      expect(viewModel.stations, stations);
+      expect(onde.boundsCalls, 0, reason: 'comparaison de loadFor');
+      expect(
+        repository.allCalls,
+        0,
+        reason: 'comparaison de _refreshClusterDataIfNeeded',
+      );
+    });
+
+    test('passer sur la lecture Crues ne recharge ni ONDE ni asset entier, '
+        'et ne relit pas l emprise (comparaisons de selectScale)', () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      repository.allAnswer = () async => <StationPoint>[_blois()];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      await viewModel.onGestureEnded(_loireBounds(), zoom: 5);
+      final int stationCalls = repository.calls;
+      final int allCalls = repository.allCalls;
+      final int ondeCalls = onde.boundsCalls;
+
+      viewModel.selectScale(MapScaleKind.crues);
+      await pumpEventQueue();
+
+      expect(repository.calls, stationCalls);
+      expect(repository.allCalls, allCalls);
+      expect(onde.boundsCalls, ondeCalls);
+      expect(observations.requests, isEmpty);
+    });
+
+    test("revenir de crues a ecoulement recharge l'ONDE de l'emprise lue "
+        'sur la lecture Crues (comportement existant)', () async {
+      repository.answer = (int _) async => <StationPoint>[_blois()];
+      onde.answer = (int _) async => <OndeObservation>[
+        _onde('K4520001', DateTime.utc(2026, 8, 25)),
+      ];
+      final MapViewModel viewModel = build();
+      addTearDown(viewModel.dispose);
+      viewModel.selectScale(MapScaleKind.crues);
+      final Bounds bounds = _loireBounds();
+      await viewModel.loadFor(bounds);
+      expect(onde.boundsCalls, 0);
+
+      viewModel.selectScale(MapScaleKind.ecoulement);
+      await pumpEventQueue();
+
+      expect(onde.boundsCalls, 1);
+      expect(onde.receivedBounds, bounds);
+      expect(viewModel.ondeObservations, hasLength(1));
     });
   });
 

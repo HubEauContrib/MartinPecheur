@@ -27,6 +27,12 @@ modèle et les APIs.
 | **Point désigné** | `GeoPoint` (T2) | Le lieu que l'usager désigne sur la carte pour lire les restrictions : le choix « Restrictions » puis le bouton « Restrictions au centre de la carte », un appui long, ou un clic droit. L'écran le rappelle : « Point désigné : 46,20000° N, 5,22600° E ». Ce n'est ni la position de l'appareil, ni une station : une restriction se lit en un lieu, jamais d'une station. |
 | **Filtre** | `MapFilter` (T3) | Ce qui masque des lieux à l'intérieur de l'échelle affichée : des états (écoulement), un département, la fraîcheur d'une mesure (débit). Il ne choisit pas l'échelle — ce sont les puces d'échelle. Un lieu masqué n'est pas une absence de donnée. Gardé le temps de la session, jamais enregistré. |
 | **Favori** | `Favorite` (T3) | Un lieu que l'usager choisit de retrouver — une station hydrométrique ou un point ONDE. L'application en garde l'identité (nom, code, date d'ajout), jamais une mesure. |
+| **Vigilance crues** | `FloodVigilanceMap` (T4) | Le niveau de vigilance que Vigicrues publie pour un tronçon de cours d'eau, à une date. L'application le relaie, datée et attribuée ; elle ne calcule et ne prévoit aucun risque de crue (`BR-015`). |
+| **Tronçon de vigilance crues** | `FloodSection` (T4) | Le tronçon de cours d'eau pour lequel Vigicrues publie un niveau. Un cours d'eau sans trait de couleur n'est pas suivi : cela ne dit rien du risque (`BR-007`). |
+| **Territoire de vigilance crues** | `FloodSection.territoryCode` (T4) | Le territoire de vigilance auquel Vigicrues rattache un tronçon, désigné par son code tel que publié. |
+| **Niveau de vigilance crues** | `FloodVigilanceLevel` (T4) | Vert, jaune, orange ou rouge, d'après la nomenclature Sandre 837. Toute autre valeur s'affiche « Niveau non reconnu » (`BR-011`). L'application relaie le niveau publié, elle ne le déduit pas. |
+| **Information de vigilance** | `FloodVigilanceMap` (T4) | La carte de vigilance publiée par Vigicrues, datée par Vigicrues. Sans date lisible, elle n'est pas affichée (`BR-001`). |
+| **Vigicrues** | — | Le service de l'État qui publie la vigilance crues : le SCHAPI et le réseau Vigicrues. L'application le cite et lui attribue ce qu'elle relaie ; elle n'en est pas l'auteur. |
 | **UDI** | — | La zone desservie par un même réseau d'eau du robinet. **Concerne l'eau potable, pas la rivière.** Hors périmètre v1 (`ADR-007`). |
 
 ## Contextes bornés
@@ -39,6 +45,7 @@ modèle et les APIs.
 | `Restrictions` | Zones, niveaux de gravité, usages restreints, arrêtés. |
 | `Carte` | Agrégation, clustering, échelles d'état, hors-ligne. |
 | `Avertissement` | Les quatre emplacements, acquittement, textes de limites. |
+| `Crues` | Vigilance crues publiée par Vigicrues, relayée par tronçon, datée et attribuée ; l'application ne calcule aucun niveau ni risque (`BR-015`). |
 
 ## Vocabulaire proscrit
 

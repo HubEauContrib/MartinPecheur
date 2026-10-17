@@ -1,0 +1,1236 @@
+<!-- VIGICRUES 1.12.5 -->
+<!doctype html>
+<html lang="fr">
+
+	<head>
+		<meta charset="utf-8">
+		<title>
+				Accueil - Carte de vigilance crues nationale
+			:
+			Vigicrues.gouv.fr
+		</title>
+
+		<meta content="IE=edge" http-equiv="X-UA-Compatible">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<meta name="format-detection" content="telephone=no">
+		<meta
+		name="theme-color" content="#000091">
+		<!-- Défini la couleur de thème du navigateur (Safari/Android) -->
+
+
+		<link
+		href="/assets/css/bootstrap.css" rel="stylesheet" type="text/css">
+
+		<!-- Custom SB Admin CSS (ACAI 3.0.8) 
+				<link href="/assets/css/sb-admin-2.css" rel="stylesheet" type="text/css">-->
+		<link href="/assets/css/dataTables.bootstrap.min.css" rel="stylesheet" type="text/css">
+
+		<meta content="Carte de vigilance crues (prévision des inondations) : v1.9.0" name="description">
+		<meta content="inondation,crue,prévision,vigilance" name="keywords">
+
+		<link data-n-head="ssr" rel="icon" type="image/x-icon" href="/assets/images/favicons/favicon.svg">
+		<link data-n-head="ssr" rel="icon" type="image/png" sizes="192x192" href="/assets/images/favicons/android-chrome-192x192.png">
+		<link data-n-head="ssr" rel="icon" type="image/png" sizes="512x512" href="/assets/images/favicons/android-chrome-512x512.png">
+
+		<link
+		href="/assets/css/jquery-ui.min.css" rel="stylesheet" type="text/css">
+		<!--TODO à supprimer car pose des problèmes : nécessaire pour bon affichage des onglets mais génère des parasites ailleurs -->
+
+		<link href="/assets/css/styles.css" rel="stylesheet" type="text/css">
+		<link href="/assets/css/app.css" rel="stylesheet" type="text/css">
+		<link
+		href="/assets/css/espace_membre.css" rel="stylesheet" type="text/css">
+
+		<!--- DSFR -->
+		<link
+		data-n-head="ssr" rel="apple-touch-icon" href="/assets/dsfr/favicon/apple-touch-icon.png">
+		<!-- 180×180 -->
+		<link rel="icon" href="/assets/dsfr/favicon/favicon.svg">
+		<link
+		rel="shortcut icon" href="/assets/dsfr/favicon/favicon.ico" type="image/x-icon">
+		<!-- 32×32 -->
+		<link rel="manifest" href="/assets/dsfr/favicon/manifest.webmanifest" crossorigin="use-credentials">
+
+		<link rel="stylesheet" href="/assets/dsfr/dsfr.min.css">
+		<link rel="stylesheet" href="/assets/dsfr/utility/utility.min.css">
+
+		<link href="/assets/css/select2.min.css" rel="stylesheet">
+
+		<script type="module" src="/assets/dsfr/dsfr.module.min.js"></script>
+		<script nomodule src="/assets/dsfr/dsfr.nomodule.min.js"></script>
+
+		<link href="/assets/dsfr/core/core.min.css" rel="stylesheet">
+		<link href="/assets/dsfr/component/tooltip/tooltip.min.css" rel="stylesheet">
+
+		<script nomodule src="/assets/dsfr/legacy/legacy.nomodule.min.js"></script>
+		<script type="module" src="/assets/dsfr/core/core.module.min.js"></script>
+		<script nomodule src="/assets/dsfr/core/core.nomodule.min.js"></script>
+		<script type="module" src="/assets/dsfr/component/tooltip/tooltip.module.min.js"></script>
+		<script nomodule src="/assets/dsfr/component/tooltip/tooltip.nomodule.min.js"></script>
+		<script type="module" src="/assets/dsfr/component/navigation/navigation.module.min.js"></script>
+		<script nomodule src="/assets/dsfr/component/navigation/navigation.nomodule.min.js"></script>
+		<script type="module" src="/assets/dsfr/component/table/table.module.min.js"></script>
+		<script nomodule src="/assets/dsfr/component/table/table.nomodule.min.js"></script>
+		<script type="module" src="/assets/dsfr/component/toggle/toggle.module.min.js"></script>
+		<script nomodule src="/assets/dsfr/component/toggle/toggle.nomodule.min.js"></script>
+		<script type="module" src="/assets/dsfr/component/accordion/accordion.module.min.js"></script>
+		<script nomodule src="/assets/dsfr/component/accordion/accordion.nomodule.min.js"></script>
+		<!--- !DSFR -->
+		
+		<!--- START MATOMO -->
+		<script type="text/javascript">
+			var _paq = _paq || [];
+			_paq.push(['setDocumentTitle', '\tAccueil\u0020\u002D\u0020Carte\u0020de\u0020vigilance\u0020crues\u0020nationale\n']);
+			_paq.push(['setDownloadClasses', ["LienTelecharg", "document"]]);
+			_paq.push(['trackPageView']);
+			_paq.push(['enableLinkTracking']);
+			(function() {
+				var u = "//audience-sites.din.developpement-durable.gouv.fr/";
+				_paq.push(['setTrackerUrl', u + 'piwik.php']);
+				_paq.push(['setSiteId', '1480']);
+				var d = document, g = d.createElement('script'), s = d.getElementsByTagName('script')[0];
+				g.type = 'text/javascript';
+				g.async = true;
+				g.defer = true;
+				g.src = u + 'piwik.js';
+				s.parentNode.insertBefore(g, s);
+			})();
+
+			function piwikTrackVideo(type, section, page, x1) {
+				_paq.push(['trackEvent', 'Video', 'Play', page]);
+			}
+		</script>
+		<noscript>
+			<p>
+				<img src="//audience-sites.din.developpement-durable.gouv.fr/piwik.php?idsite=1480&amp;rec=1&amp;action_name=%09Accueil%20-%20Carte%20de%20vigilance%20crues%20nationale%0A" style="border:0" alt="Matomo tracking">
+			</p>
+		</noscript>
+		<!--- END MATOMO -->
+
+		<!-- CSS pour le graphe de niveau3 : TODO ne pourrait être chargé que dans la page niv3-station -->
+		    	
+	</head>
+
+	<body class="home"> 
+		<div class="fr-skiplinks">
+			<nav class="fr-container" role="navigation" aria-label="Accès rapide">
+				<ul class="fr-skiplinks__list">
+					<li>
+						<a class="fr-link" href="#recherche_entity">Recherche</a>
+					</li>
+					<li>
+						<a class="fr-link" href="#header-navigation">Menu</a>
+					</li>
+					<li>
+						<a class="fr-link" href="#contenu">Contenu</a>
+					</li>
+					<li>
+						<a class="fr-link" href="#footer">Pied de page</a>
+					</li>
+				</ul>
+			</nav>
+		</div>
+
+					
+<header role="banner" class="fr-header">
+    <div class="fr-header__body">
+        <div class="fr-container">
+            <div class="fr-header__body-row">
+                <div class="fr-header__brand fr-enlarge-link">
+                    <div class="fr-header__brand-top">
+                        <div class="fr-header__logo">
+                            <p class="fr-logo">
+                                République
+                                <br>Française
+                            </p>
+                        </div>
+                        <div class="fr-header__operator">
+                            <img class="fr-responsive-img" style="max-width:9.0625rem;min-height:32px" src="/assets/images/vigicrues.svg" alt="Logo Vigicrues" >
+                            <!-- L'alternative de l'image (attribut alt) doit impérativement être renseignée et reprendre le texte visible dans l'image -->
+                        </div>
+                        <div class="fr-header__navbar">
+                            <button class="fr-btn--menu fr-btn" data-fr-opened="false" aria-controls="modal-476" aria-haspopup="menu" id="button-477" title="Menu">
+                                    Menu
+                            </button>
+                                                    </div>
+                    </div>
+                    <div class="fr-header__service">
+                        <a href="http://www.vigicrues.gouv.fr/" title="Accueil - Vigicrues.gouv.fr - République Française">
+                            <p class="fr-header__service-title">
+                                Vigicrues.gouv.fr
+                            </p>
+                        </a>
+                        <p class="fr-header__service-tagline">Le service d&#039;information sur le risque de crues <br />
+des principaux cours d&#039;eau en France<br />
+</p>
+                    </div>
+                </div>
+                <div class="fr-header__tools hidden-sm hidden-xs">
+                    <div class="fr-header__tools-links">
+                        <ul class="fr-btns-group">
+                            <li id="header_compte" data-compte-utilisateur-path="/espace_membre/mon_compte"
+                            data-security-deconnexion-path="/deconnexion"
+                            data-security-connexion-path="/connexion"
+                            data-user-nom=""
+                            data-user-prenom=""
+                            data-user-logged-in="false">
+                            </li>
+                        </ul>
+                    </div>
+                    <br/>
+                    <div id="rechercheHeader">
+                    	<!-- Barre de recherche gérée dynamiquement selon la taille de l'écran par le script positionRecherche.js -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="fr-header__menu fr-modal" id="modal-476" aria-labelledby="button-477">
+        <div class="fr-container">
+            <button class="fr-btn--close fr-btn" aria-controls="modal-476" title="Fermer">
+                Fermer
+            </button>
+            <div class="fr-header__menu-links">
+            </div>
+                            <!-- Attention: le main id=contenu et inclusion des messages de services sont inclus dans ce fichier-->
+
+<nav id="navigation" class="fr-nav" role="navigation" aria-label="Menu navigation">
+    <div class="container-vigi">
+        <!-- Toggle for mobile display -->
+        
+        <div class="row">
+            <div class="col-xs-12">
+                <ul id="header-navigation" class="fr-nav__list nav">
+                                            <li class="fr-nav__item navbar-item">
+                            <button class="fr-nav__btn" aria-expanded="false"    aria-controls="menu-3">
+                                <span class="navbar-link-logo garonne-adour" aria-hidden="true"><i class="icon icon-path1"></i><i class="icon icon-path2"></i><i class="icon icon-path3"></i></span>
+                                Adour-Garonne
+                            </button>
+
+                            <div class="fr-collapse fr-menu" id="menu-3">
+                                <ul class="fr-menu__list">
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/25" target="_self" >
+                                                        Garonne-Tarn-Lot
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/32" target="_self" >
+                                                        Gironde-Adour-Dordogne
+                                                    </a>
+                                                </li>
+                                                                                
+                                                                    </ul>
+                            </div>
+                        </li>
+                                            <li class="fr-nav__item navbar-item">
+                            <button class="fr-nav__btn" aria-expanded="false"      aria-controls="menu-1">
+                                <span class="navbar-link-logo loire-bretagne" aria-hidden="true"><i class="icon icon-path1"></i><i class="icon icon-path2"></i><i class="icon icon-path3"></i></span>
+                                Loire-Bretagne
+                            </button>
+
+                            <div class="fr-collapse fr-menu" id="menu-1">
+                                <ul class="fr-menu__list">
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/8" target="_self" >
+                                                        Vilaine-Côtiers Bretons
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/9" target="_self" >
+                                                        Maine-Loire aval
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/30" target="_self" >
+                                                        Loire-Allier-Cher-Indre
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/31" target="_self" >
+                                                        Vienne-Charente-Atlantique
+                                                    </a>
+                                                </li>
+                                                                                
+                                                                    </ul>
+                            </div>
+                        </li>
+                                            <li class="fr-nav__item navbar-item">
+                            <button class="fr-nav__btn" aria-expanded="false"        aria-controls="menu-2">
+                                <span class="navbar-link-logo seine-nord" aria-hidden="true"><i class="icon icon-path1"></i><i class="icon icon-path2"></i><i class="icon icon-path3"></i></span>
+                                Seine-Nord-Est
+                            </button>
+
+                            <div class="fr-collapse fr-menu" id="menu-2">
+                                <ul class="fr-menu__list">
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/2" target="_self" >
+                                                        Meuse-Moselle
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/3" target="_self" >
+                                                        Rhin-Sarre
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/4" target="_self" >
+                                                        Seine aval-Côtiers Normands
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/6" target="_self" >
+                                                        Seine amont-Marne amont
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/7" target="_self" >
+                                                        Seine moyenne-Yonne-Loing
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/29" target="_self" >
+                                                        Bassins du Nord
+                                                    </a>
+                                                </li>
+                                                                                
+                                                                    </ul>
+                            </div>
+                        </li>
+                                            <li class="fr-nav__item navbar-item">
+                            <button class="fr-nav__btn" aria-expanded="false"        aria-controls="menu-4">
+                                <span class="navbar-link-logo rhone-med" aria-hidden="true"><i class="icon icon-path1"></i><i class="icon icon-path2"></i><i class="icon icon-path3"></i></span>
+                                Rhône-Méditerranée
+                            </button>
+
+                            <div class="fr-collapse fr-menu" id="menu-4">
+                                <ul class="fr-menu__list">
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/18" target="_self" >
+                                                        Rhône amont-Saône
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/19" target="_self" >
+                                                        Alpes du Nord
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/20" target="_self" >
+                                                        Grand Delta
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/21" target="_self" >
+                                                        Méditerranée Ouest
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/22" target="_self" >
+                                                        Méditerranée Est (bassin continental)
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/26" target="_self" >
+                                                        Méditerranée Est (bassin Corse)
+                                                    </a>
+                                                </li>
+                                                                                
+                                                                    </ul>
+                            </div>
+                        </li>
+                                            <li class="fr-nav__item navbar-item">
+                            <button class="fr-nav__btn" aria-expanded="false"       aria-controls="menu-5">
+                                <span class="navbar-link-logo outre-mer" aria-hidden="true"><i class="icon icon-path1"></i><i class="icon icon-path2"></i><i class="icon icon-path3"></i></span>
+                                Outre-mer
+                            </button>
+
+                            <div class="fr-collapse fr-menu" id="menu-5">
+                                <ul class="fr-menu__list">
+                                     
+                                                                                            <li>
+                                                    <a title="Le service d'information sur le risque de crues des principaux cours d'eau à La Réunion" href="https://www.vigicrues-reunion.re" class="fr-nav__link" target="_self">
+                                                        La réunion
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a href="/territoire/973" class="fr-nav__link" target="_self" >
+                                                        Guyane
+                                                        <img src="/ftp/spc973/cruemax.png" height="20" style="float:right; width:20px;" alt="Pictogramme Vigicrues Guyane" aria-hidden="true"/>
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/971" target="_self" >
+                                                        Guadeloupe
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/972" target="_self" >
+                                                        Martinique
+                                                    </a>
+                                                </li>
+                                                                                
+                                     
+                                                                                            <li>
+                                                    <a class="fr-nav__link" href="/territoire/976" target="_self" >
+                                                        Mayotte
+                                                    </a>
+                                                </li>
+                                                                                
+                                                                    </ul>
+                            </div>
+                        </li>
+                                    </ul>
+            </div>
+        </div>
+        
+
+    </div><!-- /.container-vigi -->
+</nav>            
+             
+        </div>
+    </div>
+</header>
+
+<style>
+/* Base styles for the enlarge link */
+.fr-header__brand.fr-enlarge-link {
+    position: relative;
+    padding: 8px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+}
+
+
+
+/* Focus styles for keyboard navigation */
+.fr-header__brand.fr-enlarge-link:focus-within {
+    border-color: #0A76F6;
+    outline: none;
+}
+
+.fr-header__brand.fr-enlarge-link:focus-within a {
+    outline: none;
+}
+
+/* Ensure focus is visible in high contrast mode */
+@media (forced-colors: active) {
+    .fr-header__brand.fr-enlarge-link:focus-within {
+        border-color: CanvasText;
+    }
+}
+
+/* Ensure focus is visible when using keyboard navigation */
+.fr-header__brand.fr-enlarge-link:focus-visible {
+    border-color: #0A76F6;
+    outline: none;
+}
+</style>
+
+
+
+    <script>
+        var barreRecherche = `<select class="recherche-entite" 
+        style="text-align:left; width: 220px;" 
+        name="state" 
+        aria-label="Rechercher un territoire, un tronçon, une station ou une commune"
+        data-ajax-url="/recherche/ajax">
+        <option></option>
+</select>`;
+    </script>
+    <script src="/js/positionRecherche.js"></script>
+		
+		
+		<main id="contenu" role="main">
+			<div
+				id="rechercheBase" class="fr-row visible-sm visible-xs" style="text-align: right; margin-top:1rem"><!-- Barre de recherche gérée dynamiquement selon la taille de l'écran par le script positionRecherche.js -->
+			</div>
+				<div class="container-vigi home-container1">
+					<div class="messages-services">
+				  
+  
+  
+  
+      
+    <div class="container-vigi">
+      <div class="row">
+        <div class="col-xs-12 message-service" id="messagedeservice">
+          <div class="alert alert-warning" role="alert">
+            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+            <div class="message-service-content">
+                  <p>ATTENTION! Le site Vigicrues a vocation à fournir à chacun l'ensemble des informations disponibles en cas d'inondation. Les mesures de débit en rivière, que vous y trouvez, sont arrondies à 0,1 m³/seconde soit 100 litres/seconde, arrondi suffisant en situation de crue. En ce moment, une grande partie du réseau surveillé est en situation de sécheresse. Pour accéder à la donnée de référence dans le contexte actuel, rendez-vous sur notre outil dédié, Hydroportail : hydro.eaufrance.fr</p>
+                </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+  
+  
+  
+  
+
+			</div>
+				<div class="fr-grid-row fr-grid-row--gutters">
+			<div class="fr-col-12 fr-col-lg-8">
+
+				<!-- #1 -->
+				<div class="main-title-wrapper">
+					<h1 class="sr-only">Carte nationale</h1>
+				</div>
+
+				<!-- #2 -->
+				<div class="home-vigilance"> 
+					<div class="fr-card fr-card--no-background fr-card--no-border">
+																		<div class="home-vigilance-max vert fr-card__body">
+							<div class="home-vigilance-max-content fr-card__content">
+								<img class="pull-left" src=/assets/images/indice/vigilance-crue-max-vert.svg width="57" alt="">
+								<h3 class="home-vigilance-max-title fr-card__title">
+									L'état maximum de la vigilance crues métropolitaine est
+									<strong class="label-green">vert</strong>.
+								</h3>
+								<p class="home-vigilance-max-details fr-card__desc">
+									<i class="icon icon-warning" aria-hidden="true"></i>
+									Pas de vigilance particulière requise.
+								</p>
+																								<p class="info-nb-vigilance-tronçon fr-card__desc"></p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="fr-col">
+				<div class="geoloc-bulletin"> 
+					<div class="fr-card fr-card--no-background fr-card--no-border">
+						<div class="fr-card__body">
+							<div class="fr-card__content geoloc-bulletin-title">
+								<h3 class="fr-card__title geoloc-bulletin-text">
+									Afficher les informations de mon territoire
+								</h3>
+								<button class="fr-btn fr-btn--secondary fr-card__desc" id="geoloc"><i class="icon icon-target" aria-hidden="true"></i>Se géolocaliser</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Bulletin d'info remonté -->
+		<div class="bulletin-link">
+						<div class="div-btn-bulletin access-forecast">
+				<a class="fr-btn fr-btn--secondary btn-inverse fr-link" href="/bulletin_national">
+					Accéder au bulletin d'information national publié le 
+					<time datetime="2026-10-14 15:55:31">14.10.2026 à 15h55</time>
+					<button class="fr-link" aria-describedby="tooltip-HL" id="link-HL">HL</button>
+					<span class="fr-tooltip fr-placement" id="tooltip-HL" role="tooltip" aria-hidden="true">Heure légale métropolitaine</span>
+				</a>
+			</div>
+						<div class="div-glyphiconTerritoire access-actions">
+				<a href="/espace_membre/abonnement?terr=999" class="glyphiconTerritoire fr-btn fr-link" title="Abonnement au bulletin du territoire">
+					<i class="glyphicon glyphicon-envelope" aria-hidden="true"></i>
+					<span class="sr-only">Abonnement au bulletin du territoire</span>
+				</a>
+				<a href="/espace_membre/avertissement?terr=999" class="glyphiconTerritoire fr-btn fr-link" title="Recevoir les avertissements pour ce territoire">
+					<i class="glyphicon glyphicon-bell" aria-hidden="true"></i>
+					<span class="sr-only">Recevoir les avertissements pour ce territoire</span>
+				</a>
+			</div>
+			<p class="infoProduction">Production de l'information au moins deux fois par jour, à 10h et 16h.</p>
+		</div>
+	</div>
+	<!-- /.container-vigi & .home-container1-->
+
+	<div class="container-vigi home-container2">
+		<div class="row">
+			<div class="col-xs-12">
+
+				<div class="home-legend-wrapper">
+					<!-- Instructions -->
+					<div class="map-france-instructions">
+						<p class="map-france-instructions-txt">Cliquez sur une zone de la carte<br>
+							pour afficher les informations locales</p>
+					</div>
+					
+					<div class="fr-card">
+						<div class="fr-card__body">
+							<div class="fr-card__content vigilance-map-legend">
+								<h3 class="fr-card__title vigilance-map-legend-title">
+									Légende
+									<span class="sr-only">vigilance</span>
+								</h3>
+								<div class="fr-card__desc">
+									<div class="vigilance-map-legend-content">
+			<div class="vigilance-map-legend-unit red">
+			<span class="vigilance-map-legend-rect" aria-hidden="true">
+				<img src=/assets/images/rect-svg/rect-red.svg width="10" height="43" alt="">
+			</span>
+			<p class="vigilance-map-legend-details">
+				<span class="fr-text--xs vigilance-map-legend-name">Rouge&nbsp;:</span><br>
+				<!-- @TOPROD Un &nbsp; doit séparer span et button. Du whitespace (tab(s), retour(s)-chariot(s), espace(s)) ou "rien" (</span><button>) ne conviennent pas
+												                         @BUGFIX En 768 exactement, le bouton du bloc orange passe seul à la ligne. Arrive encore en ~772 mais c'est moins gênant que 768 -->
+				<span class="fr-text--xs vigilance-map-legend-txt">Risque de crue majeure</span>&nbsp;<br>
+									<button class="fr-btn--tooltip fr-btn" aria-describedby="tooltip-legende4">
+							Plus d'explications sur la légende Rouge
+					</button>
+					<span class="fr-tooltip fr-placement" id="tooltip-legende4" role="tooltip" aria-hidden="true">Risque de crue majeure. Menace directe et généralisée de la sécurité des personnes et des biens.</span>
+							</p>
+		</div>
+
+		
+
+			<div class="vigilance-map-legend-unit orange">
+			<span class="vigilance-map-legend-rect" aria-hidden="true">
+				<img src=/assets/images/rect-svg/rect-orange.svg width="10" height="43" alt="">
+			</span>
+			<p class="vigilance-map-legend-details">
+				<span class="fr-text--xs vigilance-map-legend-name">Orange&nbsp;:</span><br>
+				<!-- @TOPROD Un &nbsp; doit séparer span et button. Du whitespace (tab(s), retour(s)-chariot(s), espace(s)) ou "rien" (</span><button>) ne conviennent pas
+												                         @BUGFIX En 768 exactement, le bouton du bloc orange passe seul à la ligne. Arrive encore en ~772 mais c'est moins gênant que 768 -->
+				<span class="fr-text--xs vigilance-map-legend-txt">Risque de crue génératrice de débordements importants</span>&nbsp;<br>
+									<button class="fr-btn--tooltip fr-btn" aria-describedby="tooltip-legende3">
+							Plus d'explications sur la légende Orange
+					</button>
+					<span class="fr-tooltip fr-placement" id="tooltip-legende3" role="tooltip" aria-hidden="true">Risque de crue génératrice de débordements importants susceptibles d’avoir un impact significatif sur la vie collective et la sécurité des biens et des personnes.</span>
+							</p>
+		</div>
+
+					<!-- @TOPROD Ces 2 éléments reçoivent les tooltips en mobile (contrainte de positionnement). Ils doivent être *vides*, pas même un espace entre > et </ car en CSS on cible :empty -->
+			<!--div class="vigilance-map-legend-tooltip-wrapper1"></div-->
+			<!--div class="vigilance-map-legend-tooltip-wrapper2"></div-->
+			<!--div class="vigilance-map-legend-tooltip-wrapper3"></div-->
+		
+
+			<div class="vigilance-map-legend-unit yellow">
+			<span class="vigilance-map-legend-rect" aria-hidden="true">
+				<img src=/assets/images/rect-svg/rect-yellow.svg width="10" height="43" alt="">
+			</span>
+			<p class="vigilance-map-legend-details">
+				<span class="fr-text--xs vigilance-map-legend-name">Jaune&nbsp;:</span><br>
+				<!-- @TOPROD Un &nbsp; doit séparer span et button. Du whitespace (tab(s), retour(s)-chariot(s), espace(s)) ou "rien" (</span><button>) ne conviennent pas
+												                         @BUGFIX En 768 exactement, le bouton du bloc orange passe seul à la ligne. Arrive encore en ~772 mais c'est moins gênant que 768 -->
+				<span class="fr-text--xs vigilance-map-legend-txt">Risque de crue génératrice de débordements</span>&nbsp;<br>
+									<button class="fr-btn--tooltip fr-btn" aria-describedby="tooltip-legende2">
+							Plus d'explications sur la légende Jaune
+					</button>
+					<span class="fr-tooltip fr-placement" id="tooltip-legende2" role="tooltip" aria-hidden="true">Risque de crue génératrice de débordements et de dommages localisés ou de montée rapide et dangereuse des eaux, nécessitant une vigilance particulière notamment dans le cas d&#039;activités exposées et/ou saisonnières.</span>
+							</p>
+		</div>
+
+		
+
+			<div class="vigilance-map-legend-unit green">
+			<span class="vigilance-map-legend-rect" aria-hidden="true">
+				<img src=/assets/images/rect-svg/rect-green.svg width="10" height="43" alt="">
+			</span>
+			<p class="vigilance-map-legend-details">
+				<span class="fr-text--xs vigilance-map-legend-name">Vert&nbsp;:</span><br>
+				<!-- @TOPROD Un &nbsp; doit séparer span et button. Du whitespace (tab(s), retour(s)-chariot(s), espace(s)) ou "rien" (</span><button>) ne conviennent pas
+												                         @BUGFIX En 768 exactement, le bouton du bloc orange passe seul à la ligne. Arrive encore en ~772 mais c'est moins gênant que 768 -->
+				<span class="fr-text--xs vigilance-map-legend-txt">Pas de vigilance particulière requise</span>&nbsp;<br>
+							</p>
+		</div>
+
+		
+
+	</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- /.home-legend-wrapper -->
+
+				<div class="map-france js-scale-parent">
+					<div id="hovered">
+						<!-- This image gets scaled and determines the container size -->
+						<img class="map-france-img1 js-scale-img" 
+							 id="pic" 
+							 src="/roll/niv1/img/francevide_792px.gif" 
+							 width="100%" 
+							 alt="Carte de vigilance crues nationale">
+						
+						<!-- Background image -->
+						<img id="img_carte_nationale" 
+							 alt="Carte nationale" 
+							 src="./ftp/img_france.png" 
+							 width="100%" 
+							 height="100%"/>
+						
+						<!-- Interactive SVG map -->
+						<svg xmlns="http://www.w3.org/2000/svg" 
+							 xmlns:xlink="http://www.w3.org/1999/xlink" 
+							 viewBox="0 0 792 792" 
+							 preserveAspectRatio="xMidYMid meet" 
+							 class="map-france-map">
+							<a href="/territoire/2" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 2)"
+   role="button"
+   aria-label="Territoire Meuse-Moselle - Cliquez pour voir les détails">
+    <polygon points="555,118 574,114 581,99 584,131 607,139 618,155 635,149 647,159 662,153 679,159 685,171 681,175 684,186 698,187 688,204 701,211 697,220 715,236 713,250 720,253 705,295 690,289 670,267 664,274 651,268 624,288 626,263 621,258 625,256 617,250 627,246 629,239 616,204 593,159 582,164 578,152 557,136 556,122 561,121 555,118" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Meuse-Moselle</title>
+    </polygon>
+</a>
+<a href="/territoire/3" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 3)"
+   role="button"
+   aria-label="Territoire Rhin-Sarre - Cliquez pour voir les détails">
+    <polygon points="685,171 691,181 701,176 708,185 722,184 730,177 741,188 758,187 776,193 753,227 743,271 746,280 741,304 746,313 735,327 723,327 724,323 712,314 714,303 702,296 720,253 713,250 715,236 697,220 701,211 688,204 698,187 684,186 681,175 685,171" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Rhin-Sarre</title>
+    </polygon>
+</a>
+<a href="/territoire/4" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 4)"
+   role="button"
+   aria-label="Territoire Seine aval-Côtiers Normands - Cliquez pour voir les détails">
+    <polygon points="229,225 235,225 234,220 226,220 221,207 228,191 222,190 225,174 212,160 207,130 224,138 244,134 245,166 261,161 299,174 333,161 317,154 326,136 376,119 395,106 411,113 410,122 423,130 408,150 416,156 415,164 430,172 429,183 420,180 413,192 400,195 389,183 391,177 383,181 383,172 381,180 390,179 387,183 397,194 398,210 420,227 415,234 421,247 417,254 402,252 398,258 380,249 368,252 356,238 358,232 344,233 336,226 320,234 301,235 283,225 284,218 277,222 263,216 269,228 260,238 240,233 236,236 229,225" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Seine aval-Côtiers Normands</title>
+    </polygon>
+</a>
+<a href="/territoire/6" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 6)"
+   role="button"
+   aria-label="Territoire Seine amont-Marne amont - Cliquez pour voir les détails">
+    <polygon points="582,331 560,313 553,296 556,292 549,290 547,275 537,273 536,259 528,253 520,260 505,254 512,228 540,214 535,207 516,211 496,205 494,197 514,190 520,182 534,191 545,187 579,207 605,204 610,216 625,227 628,244 617,250 625,256 621,258 626,263 623,296 594,311 582,331" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Seine amont-Marne amont</title>
+    </polygon>
+</a>
+<a href="/territoire/7" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 7)"
+   role="button"
+   aria-label="Territoire Seine moyenne-Yonne-Loing - Cliquez pour voir les détails">
+    <polygon points="422,264 415,235 420,227 398,210 397,194 387,184 390,179 381,181 382,173 383,181 392,178 389,183 400,195 413,192 420,180 429,183 430,172 444,181 448,194 467,197 476,182 495,173 501,179 515,180 514,190 494,197 496,205 516,211 535,207 540,214 512,228 505,254 520,260 528,253 536,259 537,273 547,275 549,290 556,292 553,296 560,313 577,324 584,340 571,353 550,347 540,375 535,362 504,351 497,341 499,326 449,300 438,282 425,281 430,274 422,264" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Seine moyenne-Yonne-Loing</title>
+    </polygon>
+</a>
+<a href="/territoire/8" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 8)"
+   role="button"
+   aria-label="Territoire Vilaine-Côtiers Bretons - Cliquez pour voir les détails">
+    <polygon points="165,322 163,318 169,317 143,317 139,311 149,313 153,305 141,309 136,301 138,311 133,303 126,317 126,298 122,302 114,297 119,298 114,296 120,289 116,293 114,286 115,293 109,297 105,282 105,290 93,282 87,287 82,276 72,278 73,269 68,284 57,283 60,275 52,262 38,261 62,259 65,253 55,245 50,251 46,241 52,236 51,241 76,246 66,243 72,242 63,239 68,236 56,238 68,229 38,236 41,218 55,219 50,216 57,217 54,211 82,211 85,206 87,216 89,211 93,217 95,208 109,213 114,199 118,203 130,198 130,205 139,197 135,207 142,203 159,232 180,217 185,227 195,222 197,235 196,221 207,216 207,225 229,225 236,236 250,236 251,280 242,283 236,301 245,313 223,316 209,334 198,333 200,324 189,316 165,322 119,329 119,324 129,331 119,329" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Vilaine-Côtiers Bretons</title>
+    </polygon>
+</a>
+<a href="/territoire/9" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 9)"
+   role="button"
+   aria-label="Territoire Maine-Loire aval - Cliquez pour voir les détails">
+    <polygon points="417,254 422,271 416,278 396,283 393,298 330,325 331,331 322,334 328,343 311,349 310,354 296,343 282,367 265,360 264,378 280,390 279,397 275,401 263,392 249,407 231,408 227,425 197,406 180,377 190,360 175,350 180,338 190,335 173,341 159,335 163,334 159,328 174,317 194,318 203,334 213,331 223,316 245,313 237,296 242,282 251,280 249,237 261,238 269,228 264,216 277,222 284,218 283,225 303,236 336,226 344,233 358,232 356,238 368,252 380,249 398,258 402,252 417,254" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Maine-Loire aval</title>
+    </polygon>
+</a>
+<a href="/territoire/18" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 18)"
+   role="button"
+   aria-label="Territoire Rhône amont-Saône - Cliquez pour voir les détails">
+    <polygon points="720,322 712,323 706,336 717,337 698,362 682,373 684,386 664,404 666,432 648,445 647,476 638,487 640,498 628,504 618,499 588,517 585,511 579,514 578,508 571,509 568,498 577,487 574,481 563,486 567,474 560,464 569,439 565,428 571,393 567,392 578,365 572,350 584,340 585,320 619,300 625,288 651,268 664,274 670,267 690,289 712,302 712,314 720,322" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Rhône amont-Saône</title>
+    </polygon>
+</a>
+<a href="/territoire/19" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 19)"
+   role="button"
+   aria-label="Territoire Alpes du Nord - Cliquez pour voir les détails">
+    <polygon points="657,442 676,433 676,421 706,418 706,439 713,440 711,447 722,457 709,465 709,475 721,481 721,493 733,501 730,514 716,525 685,532 689,542 685,560 691,565 682,572 660,571 623,554 621,548 618,552 613,544 595,543 590,530 592,511 618,499 628,504 640,498 638,487 647,476 648,445 657,442" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Alpes du Nord</title>
+    </polygon>
+</a>
+<a href="/territoire/20" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 20)"
+   role="button"
+   aria-label="Territoire Grand Delta - Cliquez pour voir les détails">
+    <polygon points="701,528 709,545 726,551 729,563 722,564 716,577 723,585 710,601 709,614 703,615 704,636 711,638 705,652 679,651 670,656 662,652 648,665 611,651 606,661 608,675 596,673 595,680 601,679 596,684 580,681 577,674 551,671 553,652 537,648 518,609 530,605 535,594 527,591 527,576 535,580 545,573 543,567 556,561 553,549 565,538 564,529 569,531 573,510 578,508 579,514 585,511 590,516 593,542 613,544 618,552 621,548 623,554 660,571 688,569 684,532 701,528" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Grand Delta</title>
+    </polygon>
+</a>
+<a href="/territoire/21" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 21)"
+   role="button"
+   aria-label="Territoire Méditerranée Ouest - Cliquez pour voir les détails">
+    <polygon points="418,702 421,697 406,683 411,675 427,679 435,672 445,680 464,676 460,669 475,661 485,642 500,636 503,628 517,622 516,617 527,621 537,648 555,657 552,664 537,669 513,690 503,690 488,704 483,744 492,761 478,757 451,770 434,761 417,767 414,759 401,756 418,742 412,733 415,722 425,724 418,702" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Méditerranée Ouest</title>
+    </polygon>
+</a>
+<a href="/territoire/22" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 22)"
+   role="button"
+   aria-label="Territoire Méditerranée Est (bassin continental) - Cliquez pour voir les détails">
+    <polygon points="719,591 727,601 749,610 769,604 771,614 759,631 759,641 739,650 738,660 727,661 721,672 714,672 705,684 712,685 709,694 693,696 692,701 682,699 679,707 664,699 666,704 659,706 649,695 627,693 626,680 607,682 606,661 611,651 648,665 662,652 670,656 679,651 705,652 711,638 704,636 703,615 709,614 710,601 719,591" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Méditerranée Est (bassin continental)</title>
+    </polygon>
+</a>
+<a href="/territoire/25" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 25)"
+   role="button"
+   aria-label="Territoire Garonne-Tarn-Lot - Cliquez pour voir les détails">
+    <polygon points="418,702 425,724 415,722 412,733 418,742 401,754 401,745 386,742 382,746 377,736 365,737 360,730 337,723 334,737 300,734 299,723 312,719 315,705 313,668 294,617 300,610 294,598 299,591 298,577 311,571 325,579 361,566 379,577 415,568 430,554 447,561 466,537 485,530 501,541 515,565 514,571 528,582 527,592 535,594 528,607 519,607 517,622 485,642 478,659 460,669 464,676 445,680 435,672 427,679 411,675 406,683 421,697 418,702" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Garonne-Tarn-Lot</title>
+    </polygon>
+</a>
+<a href="/territoire/26" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 26)"
+   role="button"
+   aria-label="Territoire Méditerranée Est (bassin Corse) - Cliquez pour voir les détails">
+    <polygon points="779,762 773,766 779,766 771,786 741,772 749,760 732,757 740,743 728,744 726,738 736,730 723,723 722,715 731,712 721,704 728,699 730,685 755,670 768,673 767,647 772,645 786,714 779,735 779,762" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Méditerranée Est (bassin Corse)</title>
+    </polygon>
+</a>
+<a href="/territoire/29" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 29)"
+   role="button"
+   aria-label="Territoire Bassins du Nord - Cliquez pour voir les détails">
+    <polygon points="544,116 561,120 556,122 557,136 578,152 582,164 591,158 597,164 620,224 605,204 579,207 545,187 534,191 523,183 516,186 515,180 501,179 495,173 476,182 467,197 444,190 441,179 415,164 416,156 408,150 423,130 410,122 411,113 395,106 400,96 409,98 401,90 402,83 407,84 402,80 404,68 408,71 403,65 404,39 456,21 459,42 470,52 476,55 489,47 497,70 514,72 520,89 537,84 547,91 544,116" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Bassins du Nord</title>
+    </polygon>
+</a>
+<a href="/territoire/30" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 30)"
+   role="button"
+   aria-label="Territoire Loire-Allier-Cher-Indre - Cliquez pour voir les détails">
+    <polygon points="466,537 472,518 478,514 470,497 472,490 464,489 463,480 454,481 439,467 429,446 433,433 444,430 442,424 412,419 416,409 411,395 365,375 359,361 310,350 328,343 322,334 331,331 330,325 393,298 396,283 416,278 422,264 430,274 424,279 427,283 438,282 449,300 499,326 497,341 509,356 516,353 532,361 540,375 550,347 555,352 571,352 578,365 567,392 571,393 565,428 569,439 560,464 567,474 563,486 574,481 577,488 566,504 573,511 569,531 564,529 565,538 553,549 556,561 543,567 545,573 535,580 528,576 524,580 491,534 485,530 466,537" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Loire-Allier-Cher-Indre</title>
+    </polygon>
+</a>
+<a href="/territoire/31" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 31)"
+   role="button"
+   aria-label="Territoire Vienne-Charente-Atlantique - Cliquez pour voir les détails">
+    <polygon points="275,401 281,393 264,378 265,360 282,367 296,343 308,355 313,349 346,354 363,364 365,375 411,395 416,409 412,419 442,424 444,430 433,433 429,446 443,472 426,486 393,493 378,492 374,485 355,484 340,498 323,490 299,509 290,505 284,518 229,474 240,448 229,436 237,425 235,422 232,427 225,419 231,408 249,407 263,392 275,401 219,446 229,451 228,467 219,446 216,429 228,436 211,428 216,429" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Vienne-Charente-Atlantique</title>
+    </polygon>
+</a>
+<a href="/territoire/32" 
+   onmouseout="" 
+   onmouseover="swapPic(this, 32)"
+   role="button"
+   aria-label="Territoire Gironde-Adour-Dordogne - Cliquez pour voir les détails">
+    <polygon points="236,564 227,555 221,567 236,488 252,507 261,532 254,498 228,478 228,468 233,477 284,518 290,505 299,509 323,490 340,498 355,484 374,485 378,492 393,493 426,486 446,470 454,481 463,481 464,489 472,489 470,497 478,508 473,527 448,560 430,554 415,568 379,577 361,566 325,579 311,571 300,573 294,598 300,610 294,617 313,668 315,705 312,719 300,723 300,734 292,736 272,722 256,727 245,710 221,706 211,700 214,696 208,703 202,701 207,683 193,683 182,674 195,668 206,649 221,574 225,564 236,564" 
+             stroke="black" 
+             fill="black" 
+             stroke-width="0" 
+             fill-opacity="0"
+             role="img"
+             aria-hidden="true">
+        <title>Territoire Gironde-Adour-Dordogne</title>
+    </polygon>
+</a>
+						</svg>
+					</div>
+				</div>
+				<!-- map-france-->
+			</div>
+			<!-- /.row -->
+		</div>
+		<!-- /.col-xs-12 -->
+	</div>
+	<!-- /.container-vigi & .home-container2 -->
+
+	<aside class="link-lists" role="complementary">
+	<div class="container-vigi">
+		<div class="row">
+			<div class="fr-grid-row fr-grid-row--gutters fr-mt-1w fr-mb-1w">
+									<div class="fr-col">
+					<div class="fr-card fr-card--sm fr-enlarge-link">
+						<div class="fr-card__body">
+							<div class="fr-card__content">
+								<h3 class="fr-card__title">
+									<a href="https://vigilance.meteofrance.fr/fr">
+										Vigilance météorologique en France (Météo-France)
+									</a>
+								</h3>
+								<div class="fr-card__meteo-header">
+									<div>
+										<div class="fr-card__img">
+											<img class="fr-responsive-img meteo_img" 
+											     src="/assets/images/aujourdhui_meteo_france.gif?1791988281" 
+                                                                                             alt="Météo-France - Aujourd'hui"/>
+										</div>
+										<ul class="fr-tags-group">
+											<li>
+												<p class="fr-tag">Météo-France - Aujourd'hui</p>
+											</li>
+										</ul>
+									</div>
+									<div>
+										<div class="fr-card__img">
+											<img class="fr-responsive-img meteo_img" 
+												    src="/assets/images/demain_meteo_france.gif?1791988281" 
+												    alt="Météo-France - Demain"/>
+										</div>
+										<ul class="fr-tags-group">
+											<li>
+												<p class="fr-tag">Météo-France - Demain</p>
+											</li>
+										</ul>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="fr-col">
+					<div class="fr-card fr-card--sm fr-enlarge-link">
+						<div class="fr-card__body">
+							<div class="fr-card__content">
+								<h3 class="fr-card__title">
+									<a href="https://apic-vigicruesflash.fr">
+										Service automatique d'information sur le risque de crue soudaine
+									</a>
+								</h3>
+								<div class="fr-card__start">
+									<ul class="fr-badges-group">
+										<li>
+											<p class="fr-badge">
+												Vigicrues Flash
+											</p>
+										</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+						<div class="fr-card__header">
+							<div class="fr-card__img">
+								<img class="fr-responsive-img vigi_flash_img" src="/assets/images/logo-vigicrues_flash.svg" height="100" alt="Vigicrues flash"/>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+		</div>
+
+	</div>
+
+</aside>
+		</main>
+
+			<div class="fr-follow">
+    <div class="container">
+        <div class="fr-grid-row">
+            <div class="fr-col-12">
+                <div class="fr-follow__social">
+                    <p class="fr-h5">Suivez-nous
+                        <br> sur les réseaux sociaux</p>
+                    <ul class="fr-links-group fr-links-group">
+                        <li>
+                            <a class="fr-link--twitter-x fr-link" title="Retrouvez nous sur X - nouvelle fenêtre" href="https://x.com/Vigicrues" target="_blank" rel="noopener">X</a>
+                        </li>
+						<li>
+                            <a class="fr-link--google-play fr-link" title="Retrouvez nous sur Android - nouvelle fenêtre" href="https://play.google.com/store/apps/details?id=fr.schapi.vigicrues&gl=FR" target="_blank" rel="noopener">google-play</a>
+                        </li>
+						<li>
+                            <a class="fr-link--app-store fr-link" title="Retrouvez nous sur iOS - nouvelle fenêtre" href="https://apps.apple.com/fr/app/vigicrues/id1637404689" target="_blank" rel="noopener">app-store</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="fr-footer" role="contentinfo" id="footer">
+    <div class="fr-footer__top">
+ 		<div class="fr-container">
+            <div class="fr-grid-row fr-grid-row--start fr-grid-row--gutters">
+				<div class="fr-col-12 fr-col-sm-3 fr-col-md-2">
+					<h3 class="fr-footer__top-cat">Liens internes</h3>
+					<ul class="fr-footer__top-list">
+						<li>
+							<a href="/categorie/4" class="fr-footer__top-link" title="Les flux RSS de Vigicrues">Flux RSS</a>
+						</li>
+						<li>
+							<a href="/categorie/5" class="fr-footer__top-link" title="Guide">Guide</a>
+						</li>
+						<li>
+							<a href="/categorie/1" class="fr-footer__top-link" title="FAQ - Foires aux questions">FAQ</a>
+						</li>
+						<li>
+							<a href="/categorie/3" class="fr-footer__top-link" title="Liens">Liens</a>
+						</li>
+					</ul>
+				</div>
+				                            <div class="fr-col">
+                                    <h3 class="fr-footer__top-cat">Liens utiles</h3>
+                                <ul class="fr-footer__top-list">
+                    <li>
+                        <p>Portail d&#39;acc&egrave;s aux donn&eacute;es hydrom&eacute;triques et hydrologiques&nbsp;(<a class="external fr-link" href="https://hydro.eaufrance.fr/" target="_blank" title="Portail d'accès aux données hydrométriques et hydrologiques  - nouvel onglet" aria-label="Ouvre un nouvel onglet">HydroPortail</a>)</p><p>Plateforme nationale collaborative des sites et rep&egrave;res de crues&nbsp;(<a class="external fr-link" href="http://www.reperesdecrues.developpement-durable.gouv.fr/" target="_blank" title="Plateforme nationale collaborative des sites et repères de crues   - nouvel onglet" aria-label="Ouvre un nouvel onglet">Rep&egrave;res&nbsp;de&nbsp;crues</a>)</p><p>Les risques naturels et technologiques, pr&egrave;s de chez vous&nbsp;(<a class="external fr-link" href="https://www.georisques.gouv.fr/" target="_blank" title="Les risques naturels et technologiques, près de chez vous   - nouvel onglet" aria-label="Ouvre un nouvel onglet">G&eacute;orisques</a>)</p><p>Le bilan annuel de la Vigilance crues&nbsp;(<a class="fr-link" href="https://www.vigicrues.gouv.fr/uploads/bilan_annuel_vigilance.pdf" target="_blank" title="Le bilan annuel de la Vigilance crues    - ouverture document pdf" aria-label="Ouvre un nouvel onglet">Bilan annuel</a>)</p>
+                    </li>
+                </ul>
+            </div>
+            			</div>
+		</div>
+	</div>
+	<div class="fr-container">
+		<div class="fr-footer__body">
+			<div class="fr-footer__brand fr-enlarge-link">
+				<p class="fr-logo">
+					République
+					<br>Française
+				</p>
+				<a class="fr-footer__brand-link" href="/" title="Retour à l’accueil du site de Vigicrues">
+					<img class="fr-footer__logo" src="/assets/images/vigicrues.svg" style="max-width:9.0625rem;min-height:32px;" alt="Logo Vigicrues"/>
+				<!-- L’alternative de l’image (attribut alt) doit impérativement être renseignée et reprendre le texte visible dans l’image -->
+				</a>
+			</div>
+			<div class="fr-footer__content">
+				<ul class="fr-footer__content-list">
+					<li class="fr-footer__content-item">
+						<a class="fr-footer__content-link" target="_blank" rel="noopener" title="LegiFrance, le service public de la diffusion du droit - nouvelle fenêtre" href="https://legifrance.gouv.fr">legifrance.gouv.fr</a>
+					</li>
+					<li class="fr-footer__content-item">
+						<a class="fr-footer__content-link" target="_blank" rel="noopener" title="Site officiel du gouvernement - nouvelle fenêtre" href="https://gouvernement.fr">gouvernement.fr</a>
+					</li>
+					<li class="fr-footer__content-item">
+						<a class="fr-footer__content-link" target="_blank" rel="noopener" title="Site officiel de l'administration française - nouvelle fenêtre" href="https://service-public.fr">service-public.fr</a>
+					</li>
+					<li class="fr-footer__content-item">
+						<a class="fr-footer__content-link" target="_blank" rel="noopener" title="Plateforme ouverte des données publiques françaises - nouvelle fenêtre" href="https://data.gouv.fr">data.gouv.fr</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+		<div class="fr-footer__bottom footer-secondary">
+			<ul class="fr-footer__bottom-list">
+				<li class="fr-footer__bottom-item">
+					<a class="fr-footer__bottom-link" href="http://contact.ecologique-solidaire.gouv.fr/">Contact</a>
+				</li>
+				<li class="fr-footer__bottom-item">
+					<a class="fr-footer__bottom-link" href="/accessibilite">Accessibilité : Partiellement conforme</a>
+				</li>
+				<li class="fr-footer__bottom-item">
+					<a class="fr-footer__bottom-link" href="/categorie/2">Mentions légales</a>
+				</li>
+				<li class="fr-footer__bottom-item">
+					<a class="fr-footer__bottom-link" href="/categorie/2">Données personnelles</a>
+				</li>
+				<li class="fr-footer__bottom-item">
+					<a class="fr-footer__bottom-link" href="/categorie/2">Gestion des cookies</a>
+				</li>
+				<li class="fr-footer__bottom-item">
+                    <a class="fr-footer__bottom-link" href="/plan">Plan du site</a>
+                </li>
+				<!--li class="fr-footer__bottom-item">
+  					<button class="fr-footer__bottom-link fr-icon-theme-fill fr-btn--icon-left" aria-controls="fr-theme-modal" data-fr-opened="false">Paramètres d'affichage</button>
+				</li-->
+			</ul>
+			<div class="fr-footer__bottom-copy">
+				<p>Sauf mention contraire, tous les contenus de ce site sont sous
+					<a title="Licence ouverte - nouvelle fenêtre" href="https://github.com/etalab/licence-ouverte/blob/master/LO.md" target="_blank" rel="noopener">licence etalab-2.0</a>
+				</p>
+			</div>
+		</div>
+	</div>
+</footer>
+
+		<script src="/assets/js/jquery.js"></script>
+
+
+		<script src="/assets/js/bootstrap.js"></script>
+		<script src="/assets/js/bootstrap-collapse.js"></script>
+		<script src="/assets/js/jquery.ba-throttle-debounce.js"></script>
+		<script src="/assets/js/res-res.js"></script>
+		<script src="/assets/js/tooltip-init.js"></script>
+		<script src="/assets/js/collapse-niv2-mobile.js"></script>
+		<script src="/assets/js/scroll-to-show.js"></script>
+		<script src="/assets/js/xiti/xtcore_vigicrues.js"></script>
+		<script src="/js/cookiechoices.js"></script>
+		<script src="/js/checkPassword.js"></script>
+		<script src="/js/recherche.js"></script>
+		<script src="/assets/js/select2.min.js"></script>
+		<script src="/assets/js/axios.min.js"></script>
+		<script src="/assets/js/jquery-ui-1.11.4/jquery-ui.min.js"></script>
+		<script src="/assets/js/username.js"></script>
+		<script>
+			document.addEventListener('DOMContentLoaded', function (event) {
+				cookieChoices.showCookieConsentBar("À propos des cookies sur Vigicrues.gouv.fr", "Bienvenue ! Ce site n'utilise que des cookies non traçants strictement nécessaires à son fonctionnement. En poursuivant votre navigation, vous acceptez l'utilisation des cookies.", 'Accepter', "En savoir plus", "https://www.vigicrues.gouv.fr/categorie/2");
+				
+				// Add event listener for when cookie bar is closed
+				document.addEventListener('cookieChoicesDismissed', function() {
+					// Find the first header link (logo) and focus it
+					const headerLogo = document.querySelector('.fr-header__logo-link');
+					if (headerLogo) {
+						headerLogo.focus();
+					}
+				});
+			});
+		</script>
+		<script src="/js/positionRecherche.js"></script>
+		<script>
+			var barreRecherche = `<select class="recherche-entite" 
+        style="text-align:left; width: 220px;" 
+        name="state" 
+        aria-label="Rechercher un territoire, un tronçon, une station ou une commune"
+        data-ajax-url="/recherche/ajax">
+        <option></option>
+</select>`;
+		</script>
+		<script src="/assets/js/username.js"></script>
+			<script src="/assets/js/map-area-scale.js"></script>
+	<script src="/js/portail.js"></script>
+	<script>
+		$(document).ready(() => {
+			preloadImages("./roll/niv1/img/spc2_792px.gif", "./roll/niv1/img/spc3_792px.gif", "./roll/niv1/img/spc4_792px.gif", "./roll/niv1/img/spc6_792px.gif", "./roll/niv1/img/spc7_792px.gif", "./roll/niv1/img/spc8_792px.gif", "./roll/niv1/img/spc9_792px.gif", "./roll/niv1/img/spc18_792px.gif", "./roll/niv1/img/spc19_792px.gif", "./roll/niv1/img/spc20_792px.gif", "./roll/niv1/img/spc21_792px.gif", "./roll/niv1/img/spc25_792px.gif", "./roll/niv1/img/spc22_792px.gif", "./roll/niv1/img/spc26_792px.gif", "./roll/niv1/img/spc29_792px.gif", "./roll/niv1/img/spc30_792px.gif", "./roll/niv1/img/spc31_792px.gif", "./roll/niv1/img/spc32_792px.gif");
+		});
+	</script>
+
+	<!-- XiTi.com n'existe plus, le code qui y faisait référence a été supprimé. Si analytics voulus, rajouter Google Analytics-->
+	
+	</body>
+
+</html>

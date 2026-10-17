@@ -8,6 +8,9 @@
 //   à la place d'un critère de fraîcheur.
 // - Débit : le département et la fraîcheur, aucun état — un débit ne se
 //   qualifie pas (`BR-003`) —, puis ce que le critère ne masque pas.
+// - Vigilance crues (`L1` de T4) : une phrase, aucun critère, ni
+//   « Appliquer » ni « Effacer » — masquer un niveau publié cacherait une
+//   vigilance émise (cadrage de T4, § 7.7). « Fermer » reste.
 //
 // L'échelle ne se choisit pas ici : ce sont les puces de la carte (`BR-008`).
 // « Effacer » est immédiat et porte sur les critères des deux échelles ;
@@ -57,6 +60,11 @@ final String mapFilterFlowWindowText =
     "La carte ne montre que les campagnes d'observation des "
     '${campagneAncienneApres.inDays} derniers jours. Un point observé plus '
     "tôt n'y figure pas.";
+
+/// Lecture Crues, seule phrase de la feuille : aucun critère n'y est offert
+/// (cadrage de T4, § 7.7 ; texte du § 12.2, mot pour mot).
+const String mapFilterFloodNoCriterionText =
+    "Aucun filtre ne s'applique à la lecture Vigilance crues.";
 
 /// Titres de section, repris du croquis de `docs/04-ui.md`.
 const String _statesSectionTitle = 'États';
@@ -129,8 +137,18 @@ class _MapFilterSheetState extends State<MapFilterSheet> {
     Navigator.of(context).maybePop();
   }
 
+  /// L'échelle offre-t-elle des critères ? Sinon, ni « Appliquer » ni
+  /// « Effacer » (`L1` de T4). `switch` exhaustif (`BR-011`), jamais une
+  /// comparaison sur l'échelle.
+  bool get _offersCriteria => switch (widget.scale) {
+    MapScaleKind.ecoulement => true,
+    MapScaleKind.debit => true,
+    MapScaleKind.crues => false,
+  };
+
   @override
   Widget build(BuildContext context) {
+    final bool offersCriteria = _offersCriteria;
     return Dialog(
       // Sans borne, la feuille prend toute la fenêtre : sur un grand écran
       // une case se retrouve à un bord et son libellé à l'autre.
@@ -159,11 +177,12 @@ class _MapFilterSheetState extends State<MapFilterSheet> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      _SheetAction(
-                        actionKey: mapFilterClearKey,
-                        label: mapFilterClearLabel,
-                        onTap: () => _applyAndClose(MapFilter.none),
-                      ),
+                      if (offersCriteria)
+                        _SheetAction(
+                          actionKey: mapFilterClearKey,
+                          label: mapFilterClearLabel,
+                          onTap: () => _applyAndClose(MapFilter.none),
+                        ),
                     ],
                   ),
                   ...switch (widget.scale) {
@@ -224,6 +243,10 @@ class _MapFilterSheetState extends State<MapFilterSheet> {
                       const SizedBox(height: 8),
                       const Text(mapFilterFreshnessClustersText),
                     ],
+                    MapScaleKind.crues => const <Widget>[
+                      SizedBox(height: 16),
+                      Text(mapFilterFloodNoCriterionText),
+                    ],
                   },
                   const SizedBox(height: 16),
                   Wrap(
@@ -237,12 +260,13 @@ class _MapFilterSheetState extends State<MapFilterSheet> {
                         label: warningReviewCloseLabel,
                         onTap: () => Navigator.of(context).maybePop(),
                       ),
-                      _SheetAction(
-                        actionKey: mapFilterApplyKey,
-                        label: mapFilterApplyLabel,
-                        onTap: () => _applyAndClose(_draft),
-                        primary: true,
-                      ),
+                      if (offersCriteria)
+                        _SheetAction(
+                          actionKey: mapFilterApplyKey,
+                          label: mapFilterApplyLabel,
+                          onTap: () => _applyAndClose(_draft),
+                          primary: true,
+                        ),
                     ],
                   ),
                 ],

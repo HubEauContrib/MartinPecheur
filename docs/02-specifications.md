@@ -109,6 +109,7 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 | US-14 | P1, P3 | J'enregistre des **favoris** et les retrouve en liste · ✅ **Codé en T3** ([`UC-008`](use-cases/UC-008-suivre-un-lieu-en-favori.md), [`favoris.feature`](acceptance/favoris.feature)), vérifié par test, **non constaté à l'écran** (la porte de T3 est due). Une station hydrométrique ou un point ONDE, par l'étoile de sa fiche ; la liste ne montre que l'identité du lieu, **aucune mesure** ; ouvrir un favori ouvre sa fiche, la carte ne bouge pas (arbitrage 6) ; stockage local, sans compte ([`ADR-011`](adr/ADR-011-stockage-local.md), amendé le 2026-10-12) |
 | US-15 | P3 | Je consulte l'**historique des campagnes** d'un point ONDE |
 | US-16 | Tous | Je recherche une **station ou un cours d'eau** par son nom · 🔄 **Tranche ultérieure, non nommée** (arbitrage 1 du 2026-10-12, T3 « le titre seul ») |
+| US-21 | Tous | Je lis sur la carte et dans la fiche d'un tronçon le **niveau de vigilance crues** publié par Vigicrues, daté et attribué · ✅ **Codé en T4** ([UC-009](use-cases/UC-009-consulter-la-vigilance-crues.md), [crues.feature](acceptance/crues.feature)), vérifié par test, **non constaté à l'écran** (la porte de T4 est due). L'application relaie, elle ne calcule aucun niveau ([BR-015](br/BR-015-relayer-la-vigilance-crues-ne-rien-predire.md)) |
 
 ### Could
 
@@ -149,6 +150,11 @@ Compte utilisateur · notifications push · prévision ou modélisation hydrolog
 | **Coordonnées absentes ou hors périmètre** | Filtre de mapping | Exclue de la carte |
 | **HTTP 409 VigiEau** (commune multi-zones) | Code 409 | Bascule automatique sur `lat`/`lon` |
 | **API indisponible** (5xx, délai dépassé) | Après épuisement des tentatives | Message par source : « Le service Hub'Eau n'a pas répondu. » Les autres sources restent affichées. Jamais d'écran blanc |
+| **Vigilance crues — Vigicrues injoignable** (T4, `UC-009` A1) | Après épuisement des tentatives | « Vigicrues n'a pas répondu. Aucun tronçon n'est affiché : cela ne dit rien du risque de crue. » + action « Réessayer » ; jamais un trait vert par défaut (`BR-007`) |
+| **Vigilance crues — réponse refusée ou illisible** (T4, `UC-009` A2) | Refus, racine ou `features` absents, date sans fuseau explicite | « La vigilance publiée par Vigicrues n'a pas pu être lue. Aucun tronçon n'est affiché : cela ne dit rien du risque de crue. » + action « Réessayer » |
+| **Vigilance crues — entités écartées** (T4, `UC-009` A4) | Entité sans code, nom, territoire ou tracé lisible | « 1 tronçon de vigilance non lisible. » / « N tronçons de vigilance non lisibles. » ; remplace l'avis du secteur sans tronçon |
+| **Vigilance crues — secteur sans tronçon** (T4, `UC-009` A5) | Aucun tronçon ne touche l'emprise, aucune entité écartée | « Aucun cours d'eau suivi par Vigicrues dans le secteur affiché. Cela ne dit rien du risque de crue : sur cette carte, Vigicrues ne suit que certains cours d'eau de métropole et de Corse. » |
+| **Vigilance crues — premier chargement** (T4, `UC-009` flux nominal) | Carte de vigilance pas encore lue | « Lecture de la vigilance publiée par Vigicrues… Aucun tronçon n'est affiché tant qu'elle n'est pas lue. » |
 | **Rupture de contrat VigiEau** | Désérialisation en échec | ~~Repli sur l'export data.gouv en cache ; à défaut, lien externe vers vigieau.gouv.fr~~ **Repli différé (Q3-B, 2026-09-27)** : échec nommé (`ReponseIllisible`), aucun niveau affiché, lien vers vigieau.gouv.fr (`UC-002 A2`) |
 | **Nomenclature inconnue** | Code hors énumération | « Non renseigné » (`BR-011`) |
 | **Cache plein** | Plafond atteint | Purge LRU des tuiles, jamais des dernières observations connues |

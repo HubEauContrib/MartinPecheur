@@ -2,6 +2,9 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:martinpecheur/data/floods/cached_flood_vigilance_source.dart';
+import 'package:martinpecheur/data/floods/vigicrues_endpoint.dart';
+import 'package:martinpecheur/data/floods/vigicrues_flood_vigilance_source.dart';
 import 'package:martinpecheur/data/http/hub_eau_client.dart';
 import 'package:martinpecheur/data/http/json_http_client.dart';
 import 'package:martinpecheur/data/links/url_launcher_external_link_opener.dart';
@@ -23,6 +26,8 @@ import 'package:martinpecheur/diagnostics/fluidity_wiring.dart';
 import 'package:martinpecheur/diagnostics/frame_timing_probe.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_source.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
@@ -33,7 +38,11 @@ import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
 import 'package:martinpecheur/features/favorites/view_model/favorites_view_model.dart';
+import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
+import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
+import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart';
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
@@ -141,6 +150,19 @@ Future<void> main() async {
   // favori. Verrou : `test/main_test.dart`.
   final FavoriteRepository favorites = SharedPreferencesFavoriteRepository();
 
+  // Vigicrues (T4, `F4`) : la source n'est nommée qu'ICI, hors de
+  // `lib/data/floods/` (confinement, `ADR-016` ;
+  // `test/data/floods/flood_vocabulary_confinement_test.dart`), décorée par
+  // son cache de session de 30 min. Son transport est `vigicruesJsonClient`,
+  // qui porte le délai de 20 s par tentative (D4) — jamais un
+  // `JsonHttpClient` nu, qui garderait les 10 s par défaut. Verrou :
+  // `test/main_test.dart`.
+  final FloodVigilanceSource floodVigilanceSource = CachedFloodVigilanceSource(
+    inner: VigicruesFloodVigilanceSource(
+      client: vigicruesJsonClient(http.Client()),
+    ),
+  );
+
   runApp(
     MartinPecheurApp(
       warningsViewModel: warningsViewModel,
@@ -160,6 +182,12 @@ Future<void> main() async {
       // Les favoris : la MÊME instance que celle de la fiche station.
       ondeSheetViewModel: OndeSheetViewModel(onde: onde, favorites: favorites),
       favoritesViewModel: FavoritesViewModel(favorites: favorites),
+      // La lecture Crues reste `LectureCruesNonDemandee` au lancement : rien
+      // n'est lu avant le choix de la puce « Vigilance crues ».
+      floodLayerViewModel: FloodLayerViewModel(source: floodVigilanceSource),
+      floodSheetViewModel: FloodSheetViewModel(
+        links: const UrlLauncherExternalLinkOpener(),
+      ),
       restrictionsViewModel: RestrictionsViewModel(
         source: restrictionSource,
         links: const UrlLauncherExternalLinkOpener(),
@@ -172,9 +200,10 @@ Future<void> main() async {
 
 // L'écran carte (T0-M4, complété par la fiche station de T1-U1 et la fiche
 // d'un point ONDE de T1-U4) : fond IGN, attribution, marqueurs du viewport
-// élargi, et la feuille de résumé au tap d'un marqueur. Les deux fiches ne
-// sont jamais ouvertes ensemble — l'exclusivité est garantie par la racine
-// de composition ci-dessous, pas par les échelles (relecture 2026-09-14).
+// élargi, et la feuille de résumé au tap d'un marqueur ; la fiche tronçon
+// depuis T4 (`F4`). Les fiches ne sont jamais ouvertes ensemble —
+// l'exclusivité est garantie par la racine de composition ci-dessous, pas
+// par les échelles (relecture 2026-09-14).
 //
 // Le premier des quatre avertissements (`BR-012`, `UC-006`) est posé depuis
 // la tâche `W2` : tant que `warningsViewModel.requiresAcknowledgement` est
@@ -192,6 +221,8 @@ class MartinPecheurApp extends StatefulWidget {
     required this.ondeSheetViewModel,
     required this.restrictionsViewModel,
     required this.favoritesViewModel,
+    required this.floodLayerViewModel,
+    required this.floodSheetViewModel,
     this.fluidityProbe,
     this.fluidityStationPoints,
     super.key,
@@ -226,6 +257,17 @@ class MartinPecheurApp extends StatefulWidget {
   /// ferme.
   final FavoritesViewModel favoritesViewModel;
 
+  /// Le second ViewModel de l'écran carte (T4, `L2`, arbitrage 7) : la
+  /// lecture Crues, possédée par cette racine au même titre que
+  /// [mapViewModel]. Passé à `MapView`, qui le prévient ; aucun ViewModel
+  /// n'importe l'autre.
+  final FloodLayerViewModel floodLayerViewModel;
+
+  /// Le ViewModel de la fiche tronçon (T4, `F1`), possédé par cette racine,
+  /// au même titre que les deux autres fiches, et soumis à la même
+  /// exclusivité.
+  final FloodSheetViewModel floodSheetViewModel;
+
   /// `NFR-01` (Task X3) : `null` sans `--dart-define=FLUIDITY_PROBE=true`
   /// (« la sonde est inerte sans son drapeau », `CLAUDE.md`) — dans ce cas
   /// [FluidityProbePanel] n'est pas construit du tout, l'écran carte est
@@ -241,8 +283,9 @@ class MartinPecheurApp extends StatefulWidget {
   State<MartinPecheurApp> createState() => _MartinPecheurAppState();
 }
 
-// L'état de la racine ne porte qu'une chose (`K4` de T3) : le contrôleur du
-// défilement de la zone des fiches, et l'écoute qui le remet à zéro.
+// L'état de la racine porte le contrôleur du défilement de la zone des fiches
+// et l'écoute qui le remet à zéro (`K4` de T3), et, depuis `F4` de T4,
+// l'écoute qui ferme la fiche tronçon en quittant la lecture Crues.
 //
 // La règle : toute ouverture de fiche, d'où qu'elle vienne, montre la fiche
 // depuis son haut. Sans cela, la position de défilement survit au changement
@@ -261,20 +304,42 @@ class MartinPecheurApp extends StatefulWidget {
 // ViewModel et ne remet à zéro que si l'état a CHANGÉ et qu'il est « en
 // cours » : chaque `open()` construit une instance neuve de cet état, une
 // réouverture du même lieu se voit donc aussi.
+//
+// La fiche tronçon (`F4` de T4) suit la même règle. Elle n'a pas d'état
+// « en cours » — tout est déjà dans le tronçon touché — : une ouverture est
+// le passage à un état ouvert NEUF, sans échec de lien compté. L'échec
+// d'ouverture du bulletin rend lui aussi un état ouvert neuf (l'avis se
+// réannonce), mais ce n'est pas une ouverture : la ramener en haut cacherait
+// l'avis, posé en bas de la fiche.
+//
+// Une seconde écoute, sur [MapViewModel] (D8), ferme la fiche tronçon quand
+// l'usager QUITTE la lecture Crues (cadrage § 8) — au changement d'échelle,
+// pas à chaque notification : un geste, un préchargement notifient sans
+// changer d'échelle et laissent la fiche ouverte. La dernière échelle vue est
+// gardée, et comparée par `switch` exhaustif, jamais par `==` : une échelle
+// ajoutée sans branche ne compile pas (`BR-011`).
 class _MartinPecheurAppState extends State<MartinPecheurApp> {
   final ScrollController _sheetScrollController = ScrollController();
 
   /// Le dernier état vu de chaque ViewModel de fiche, comparé par identité.
   late StationSheetState _lastStationSheetState;
   late OndeSheetState _lastOndeSheetState;
+  late FloodSheetState _lastFloodSheetState;
+
+  /// La dernière échelle vue de [MartinPecheurApp.mapViewModel].
+  late MapScaleKind _lastScale;
 
   @override
   void initState() {
     super.initState();
     _lastStationSheetState = widget.stationSheetViewModel.state;
     _lastOndeSheetState = widget.ondeSheetViewModel.state;
+    _lastFloodSheetState = widget.floodSheetViewModel.state;
+    _lastScale = widget.mapViewModel.scale;
     widget.stationSheetViewModel.addListener(_onStationSheetChanged);
     widget.ondeSheetViewModel.addListener(_onOndeSheetChanged);
+    widget.floodSheetViewModel.addListener(_onFloodSheetChanged);
+    widget.mapViewModel.addListener(_onMapChanged);
   }
 
   @override
@@ -293,15 +358,27 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
       _lastOndeSheetState = widget.ondeSheetViewModel.state;
       widget.ondeSheetViewModel.addListener(_onOndeSheetChanged);
     }
+    if (!identical(oldWidget.floodSheetViewModel, widget.floodSheetViewModel)) {
+      oldWidget.floodSheetViewModel.removeListener(_onFloodSheetChanged);
+      _lastFloodSheetState = widget.floodSheetViewModel.state;
+      widget.floodSheetViewModel.addListener(_onFloodSheetChanged);
+    }
+    if (!identical(oldWidget.mapViewModel, widget.mapViewModel)) {
+      oldWidget.mapViewModel.removeListener(_onMapChanged);
+      _lastScale = widget.mapViewModel.scale;
+      widget.mapViewModel.addListener(_onMapChanged);
+    }
   }
 
   // Les ViewModels ne sont PAS disposés ici : ils sont construits dans
-  // [main] et vivent aussi longtemps que l'application. Seuls l'écoute et le
-  // contrôleur, créés par cet état, sont rendus.
+  // [main] et vivent aussi longtemps que l'application. Seuls les écoutes et
+  // le contrôleur, créés par cet état, sont rendus.
   @override
   void dispose() {
     widget.stationSheetViewModel.removeListener(_onStationSheetChanged);
     widget.ondeSheetViewModel.removeListener(_onOndeSheetChanged);
+    widget.floodSheetViewModel.removeListener(_onFloodSheetChanged);
+    widget.mapViewModel.removeListener(_onMapChanged);
     _sheetScrollController.dispose();
     super.dispose();
   }
@@ -326,6 +403,68 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
     }
   }
 
+  void _onFloodSheetChanged() {
+    final FloodSheetState state = widget.floodSheetViewModel.state;
+    final bool opening = switch (state) {
+      FicheTronconOuverte(unopenedBulletinCount: 0) => !identical(
+        state,
+        _lastFloodSheetState,
+      ),
+      FicheTronconOuverte() => false,
+      FicheTronconFermee() => false,
+    };
+    _lastFloodSheetState = state;
+    if (opening) {
+      _showSheetFromTop();
+    }
+  }
+
+  void _onMapChanged() {
+    final MapScaleKind scale = widget.mapViewModel.scale;
+    final bool leftFloodReading = _leavesFloodReading(_lastScale, scale);
+    final bool enteredFloodReading = _entersFloodReading(_lastScale, scale);
+    _lastScale = scale;
+    if (leftFloodReading) {
+      widget.floodSheetViewModel.close();
+    }
+    // Arbitrage du commanditaire du 2026-10-15 (« Fiches Crues ») : entrer
+    // sur la lecture Crues ferme les fiches station et ONDE.
+    if (enteredFloodReading) {
+      widget.stationSheetViewModel.close();
+      widget.ondeSheetViewModel.close();
+    }
+  }
+
+  /// Vrai si l'échelle passe de [MapScaleKind.crues] à une autre.
+  static bool _leavesFloodReading(MapScaleKind before, MapScaleKind after) =>
+      switch (before) {
+        MapScaleKind.crues => switch (after) {
+          MapScaleKind.crues => false,
+          MapScaleKind.ecoulement => true,
+          MapScaleKind.debit => true,
+        },
+        MapScaleKind.ecoulement => false,
+        MapScaleKind.debit => false,
+      };
+
+  /// Vrai si l'échelle passe d'une autre à [MapScaleKind.crues] : le
+  /// symétrique de [_leavesFloodReading].
+  static bool _entersFloodReading(MapScaleKind before, MapScaleKind after) =>
+      _leavesFloodReading(after, before);
+
+  /// Sur la lecture Crues seulement, passe sur [reading] — la lecture du
+  /// favori ouvert (arbitrage du commanditaire du 2026-10-15). Sur les deux
+  /// autres échelles, rien ne change (arbitrage 6 du cadrage de T3).
+  void _leaveFloodReadingFor(MapScaleKind reading) {
+    switch (widget.mapViewModel.scale) {
+      case MapScaleKind.crues:
+        widget.mapViewModel.selectScale(reading);
+      case MapScaleKind.ecoulement:
+      case MapScaleKind.debit:
+        break;
+    }
+  }
+
   /// Sans client, aucune zone des fiches n'est à l'écran (avertissement
   /// initial non acquitté) : il n'y a rien à ramener.
   void _showSheetFromTop() {
@@ -344,6 +483,8 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
     final RestrictionsViewModel restrictionsViewModel =
         widget.restrictionsViewModel;
     final FavoritesViewModel favoritesViewModel = widget.favoritesViewModel;
+    final FloodLayerViewModel floodLayerViewModel = widget.floodLayerViewModel;
+    final FloodSheetViewModel floodSheetViewModel = widget.floodSheetViewModel;
     final FrameTimingProbe? fluidityProbe = widget.fluidityProbe;
     final CountingStationPointRepository? fluidityStationPoints =
         widget.fluidityStationPoints;
@@ -381,8 +522,13 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
             // l'ouverture d'un favori, qui passe par le même chemin (`S11` de
             // T3, `test/main_test.dart`), et pour les deux rappels de tap
             // ci-dessous (`K4` de T3).
+            //
+            // Depuis `F4` de T4, trois fiches : chaque entrée ferme aussi la
+            // fiche tronçon, et le toucher d'un tronçon ferme les deux autres
+            // (cadrage § 8, Review Focus 5, `test/main_test.dart`).
             onStationTap: (StationCode code) {
               ondeSheetViewModel.close();
+              floodSheetViewModel.close();
               unawaited(stationSheetViewModel.open(code));
             },
             // Le panneau est un `ListenableBuilder` sur le ViewModel de la
@@ -406,6 +552,7 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
             // fiche ONDE.
             onOndeTap: (OndePoint point) {
               stationSheetViewModel.close();
+              floodSheetViewModel.close();
               unawaited(ondeSheetViewModel.open(point));
             },
             ondeSheet: ListenableBuilder(
@@ -418,11 +565,32 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                     unawaited(ondeSheetViewModel.toggleFavorite()),
               ),
             ),
+            // La lecture Crues (T4, `M5`) et la fiche tronçon (`F4`) : le
+            // ViewModel de la lecture, le rappel du toucher d'un tronçon et
+            // le panneau vont ensemble (assert de `MapView`). Ouvrir la fiche
+            // ne lit rien : le tronçon et la date de la carte lue suffisent
+            // (cadrage § 8). Le panneau se pose dans la zone des fiches, sous
+            // les deux autres.
+            floodLayer: floodLayerViewModel,
+            onFloodSectionTap: (FloodSection section, DateTime date) {
+              stationSheetViewModel.close();
+              ondeSheetViewModel.close();
+              floodSheetViewModel.open(section, date);
+            },
+            floodSheet: ListenableBuilder(
+              listenable: floodSheetViewModel,
+              builder: (BuildContext context, Widget? child) => FloodSheetPanel(
+                state: floodSheetViewModel.state,
+                onClose: floodSheetViewModel.close,
+                onOpenBulletin: () =>
+                    unawaited(floodSheetViewModel.openBulletin()),
+              ),
+            ),
             // `K4` de T3 : le défilement de la zone des fiches, remis à zéro par
             // cette racine à chaque ouverture de fiche (voir [initState]).
             sheetScrollController: _sheetScrollController,
-            // `Échap` (`K2`) : ferme la fiche ouverte, qu'elle soit station
-            // ou ONDE — cette racine est la seule à connaître les DEUX
+            // `Échap` (`K2`) : ferme la fiche ouverte, qu'elle soit station,
+            // ONDE ou tronçon — cette racine est la seule à connaître les
             // ViewModels de fiche (règle `feature-vers-feature`), au même
             // titre qu'elle garantit déjà leur exclusivité mutuelle
             // ci-dessus. Fermer une fiche déjà fermée est sans effet
@@ -430,8 +598,9 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
             onCloseSheets: () {
               stationSheetViewModel.close();
               ondeSheetViewModel.close();
+              floodSheetViewModel.close();
             },
-            // Désignation d'un point (`E1`) : ferme les deux fiches, lance la
+            // Désignation d'un point (`E1`) : ferme les fiches, lance la
             // requête et pousse l'écran plein des restrictions (arbitrage
             // C1, Q-1). Le retrait de la route — bouton de retour, `Échap`,
             // retour Android — ferme le ViewModel : une réponse tardive
@@ -440,6 +609,7 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
             onPointDesignated: (GeoPoint point) {
               stationSheetViewModel.close();
               ondeSheetViewModel.close();
+              floodSheetViewModel.close();
               // L'écran est ouvert tant que le ViewModel n'est pas fermé (il
               // ne l'est qu'au retrait de la route, ci-dessous) : une
               // nouvelle désignation ne fait alors que relancer la requête,
@@ -507,7 +677,7 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                     }),
               );
             },
-            // Le bouton « Favoris » (`S11` de T3) : ferme les deux fiches,
+            // Le bouton « Favoris » (`S11` de T3) : ferme les fiches,
             // relit le dépôt et pousse l'écran plein des favoris. Même
             // construction que la route des restrictions ci-dessus : une
             // garde contre une seconde route, ce que la route montre retenu
@@ -515,6 +685,7 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
             onOpenFavorites: () {
               stationSheetViewModel.close();
               ondeSheetViewModel.close();
+              floodSheetViewModel.close();
               // L'écran est ouvert tant que le ViewModel n'est pas fermé (il
               // ne l'est qu'au retrait de la route) : un second appel ne fait
               // alors que relire la liste, sans empiler une seconde route
@@ -557,11 +728,20 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                                   // Ouvrir un favori : la route se retire,
                                   // puis la fiche s'ouvre par le chemin d'un
                                   // tap de marqueur — l'autre fiche fermée
-                                  // d'abord. AUCUN appel à `mapViewModel` : ni
-                                  // la caméra, ni l'échelle, ni le filtre ne
-                                  // changent (arbitrage 6 du cadrage), une
-                                  // fiche ONDE s'ouvre donc aussi sur
-                                  // l'échelle débit.
+                                  // d'abord. Hors de la lecture Crues, AUCUN
+                                  // appel à `mapViewModel` : ni la caméra, ni
+                                  // l'échelle, ni le filtre ne changent
+                                  // (arbitrage 6 du cadrage de T3), une fiche
+                                  // ONDE s'ouvre donc aussi sur l'échelle
+                                  // débit. Sur la lecture Crues seulement
+                                  // (arbitrage du commanditaire du
+                                  // 2026-10-15, « Fiches Crues »), le favori
+                                  // passe d'abord sur sa lecture — Débit pour
+                                  // une station, Écoulement pour un point
+                                  // ONDE —, AVANT l'ouverture de sa fiche :
+                                  // `_onMapChanged`, qui ferme les fiches à
+                                  // l'entrée sur Crues, ne la referme donc
+                                  // pas.
                                   onOpen: (Favorite favorite) {
                                     // Une seconde activation avant la trame
                                     // suivante ne retire rien : `pop()` rend
@@ -578,14 +758,22 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                                       case StationFavorite(
                                         :final StationCode code,
                                       ):
+                                        _leaveFloodReadingFor(
+                                          MapScaleKind.debit,
+                                        );
                                         ondeSheetViewModel.close();
+                                        floodSheetViewModel.close();
                                         unawaited(
                                           stationSheetViewModel.open(code),
                                         );
                                       case OndePointFavorite(
                                         :final OndePoint point,
                                       ):
+                                        _leaveFloodReadingFor(
+                                          MapScaleKind.ecoulement,
+                                        );
                                         stationSheetViewModel.close();
+                                        floodSheetViewModel.close();
                                         unawaited(
                                           ondeSheetViewModel.open(point),
                                         );

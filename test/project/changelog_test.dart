@@ -472,20 +472,6 @@ void main() {
       );
     }
 
-    test('pubspec.yaml porte version: 0.4.0+4', () {
-      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
-      expect(
-        RegExp(
-          r'^version:\s*0\.4\.0\+4\s*$',
-          multiLine: true,
-        ).hasMatch(contenuPubspec),
-        isTrue,
-        reason:
-            'un tag et un journal qui divergent laissent personne savoir ce '
-            'que contient le binaire installe',
-      );
-    });
-
     // Task P3 : la porte de T3 constatee, la version se date. Une version
     // sans date n'est pas close ; la date est celle du jour de P3.
     test(
@@ -691,6 +677,161 @@ void main() {
           .substring(section.indexOf('\n'), section.indexOf('\n### '))
           .replaceAll(RegExp(r'\s+'), ' ');
       expect(chapeau, isNot(contains("rien n'en est encore livré")));
+    });
+  });
+
+  // Task O1 du plan T4 ouvre la version 0.5.0 ; Task P3 la date : la porte de
+  // T4 est constatee sur Windows et sur Android, « Constate a l'execution »
+  // recopie ces constats et « Non verifie » dit ce qui n'a pas ete dit.
+  group('version 0.5.0 (Tasks O1 et P3 du plan T4)', () {
+    late String contenuChangelog;
+
+    setUpAll(() {
+      contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    });
+
+    String section050() {
+      final int debut = contenuChangelog.indexOf('## [0.5.0]');
+      expect(debut, isNot(-1), reason: 'aucune section ## [0.5.0]');
+      final int suivante = contenuChangelog.indexOf('\n## [', debut + 1);
+      return contenuChangelog.substring(debut, suivante);
+    }
+
+    String sousSection(String titre) {
+      final String section = section050();
+      final int debut = section.indexOf('### $titre');
+      expect(debut, isNot(-1), reason: 'aucune sous-section ### $titre');
+      final int suivante = section.indexOf('\n### ', debut + 1);
+      return section.substring(
+        debut,
+        suivante == -1 ? section.length : suivante,
+      );
+    }
+
+    test('pubspec.yaml porte version: 0.5.0+5', () {
+      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        RegExp(
+          r'^version:\s*0\.5\.0\+5\s*$',
+          multiLine: true,
+        ).hasMatch(contenuPubspec),
+        isTrue,
+        reason:
+            'un tag et un journal qui divergent laissent personne savoir ce '
+            'que contient le binaire installe',
+      );
+    });
+
+    test('une section ## [0.5.0], une seule, sous [Non publié] et au-dessus '
+        'de [0.4.0]', () {
+      final int occurrences = RegExp(
+        r'^## \[0\.5\.0\]',
+        multiLine: true,
+      ).allMatches(contenuChangelog).length;
+      expect(occurrences, 1);
+      final int nonPublie = contenuChangelog.indexOf('## [Non publié]');
+      final int v050 = contenuChangelog.indexOf('## [0.5.0]');
+      final int v040 = contenuChangelog.indexOf('## [0.4.0]');
+      expect(nonPublie, lessThan(v050));
+      expect(v050, lessThan(v040));
+    });
+
+    test('la version 0.5.0 est datée du 2026-10-17 : une version sans date '
+        'n\'est pas close', () {
+      final String? ligne = contenuChangelog
+          .split('\n')
+          .map((String l) => l.trimRight())
+          .where((String l) => l.startsWith('## [0.5.0]'))
+          .firstOrNull;
+      expect(ligne, '## [0.5.0] — 2026-10-17');
+    });
+
+    test('le chapeau de 0.5.0 dit la tranche T4, la porte franchie sur les '
+        'deux cibles, et qu\'aucun tag n\'est posé', () {
+      final String section = section050();
+      final int finTitre = section.indexOf('\n');
+      final int premiereSousSection = section.indexOf('\n### ');
+      final String chapeau = section
+          .substring(finTitre, premiereSousSection)
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(
+        chapeau,
+        contains(
+          'Cinquième tranche (T4) : la vigilance crues publiée par Vigicrues, '
+          'en quatrième lecture de la carte.',
+        ),
+      );
+      expect(chapeau, isNot(contains('Version ouverte')));
+      expect(chapeau, isNot(contains('non publiée')));
+      expect(
+        chapeau,
+        contains(
+          'La porte de T4 est franchie sur les deux cibles, Windows '
+          '(exécutable de release lancé hors Flutter) et Android (émulateur '
+          'Pixel_7, en débogage)',
+        ),
+      );
+      expect(chapeau, contains('Aucun tag'));
+      expect(chapeau, contains('mise en production'));
+    });
+
+    test('Ajouté précède Constaté à l\'exécution, qui précède Non vérifié', () {
+      final String section = section050();
+      final int ajoute = section.indexOf('### Ajouté');
+      final int constate = section.indexOf('### Constaté à l\'exécution');
+      final int nonVerifie = section.indexOf('### Non vérifié');
+      expect(ajoute, isNot(-1));
+      expect(ajoute, lessThan(constate));
+      expect(constate, lessThan(nonVerifie));
+    });
+
+    test('Ajouté dit qu\'un geste ou un changement de taille de la carte '
+        'relit Vigicrues', () {
+      final String ajoute = sousSection('Ajouté')
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(
+        ajoute,
+        contains('un geste ou un changement de taille de la carte'),
+      );
+    });
+
+    test('Constaté à l\'exécution recopie les constats de la porte, datés, '
+        'par cible', () {
+      final String constate = sousSection('Constaté à l\'exécution')
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(constate, contains('2026-10-17'));
+      expect(constate, contains('(`P1-a` à `P1-g`)'));
+      expect(constate, contains('`P2-i`'));
+      expect(constate, contains('« p1-a ok »'));
+      expect(constate, contains('« p2-a: ok »'));
+      expect(constate, contains('« G2 impossible »'));
+      expect(constate, contains('35 748 882'));
+      expect(constate, contains('maximumMapZoom'));
+      expect(constate, contains('11 appels'));
+      expect(constate, contains('0.5.0'));
+      expect(constate, contains('185 trames'));
+      expect(constate, contains('81 trames'));
+      expect(constate, contains('194 trames'));
+      expect(
+        constate,
+        contains(
+          'n'
+          "'"
+          'est pas retenue',
+        ),
+      );
+    });
+
+    test('Non vérifié nomme le point 64, les niveaux 2 à 4, les lecteurs '
+        'd\'écran et Segoe UI', () {
+      final String nonVerifie = sousSection('Non vérifié')
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(nonVerifie, contains('Point 64'));
+      expect(nonVerifie, contains('Niveaux 2 à 4'));
+      expect(nonVerifie, contains('Narrateur'));
+      expect(nonVerifie, contains('TalkBack'));
+      expect(nonVerifie, contains('Segoe UI réelle'));
+      expect(nonVerifie, contains('La porte de T2 n\'est pas franchie'));
     });
   });
 }

@@ -16,16 +16,23 @@
 //   contrôles de zoom : un artefact de cette police (mesure du 2026-10-03).
 //   Windows rend en Segoe UI, non mesurée ici : ces pixels sont des mesures
 //   de test, pas des constats d'écran ;
-// - le NOMBRE DE RANGÉES des trois puces, motif de cette décision : à 100 %,
-//   deux à 360 px et une à 390 px et à 800 × 740 ; à 200 %, trois aux deux
-//   largeurs de téléphone et deux à 800 × 740. Un invariant de la décision :
-//   si le nombre change, l'avis se déplace et toutes les mesures ci-dessous
-//   sont à refaire ;
+// - le NOMBRE DE RANGÉES des puces, motif de cette décision : à 100 %, deux
+//   à 360 px et à 390 px, une à 800 × 740 ; à 200 %, quatre à 360 px, trois à
+//   390 px et deux à 800 × 740. Un invariant de la décision : si le nombre
+//   change, l'avis se déplace et toutes les mesures ci-dessous sont à refaire
+//   — ce qu'a fait la puce « Vigilance crues » (disposition élargie, arbitrage
+//   du commanditaire du 2026-10-15, `L1` de T4 : une rangée de plus à 390 px
+//   à 100 % et à 360 px à 200 %, mesures refaites, anciennes valeurs dites
+//   là où elles changent) ; la lecture Crues y est mesurée depuis `K1` de T4
+//   (2026-10-15) : chaque boucle d'échelle parcourt `MapScaleKind.values`,
+//   avec la légende « Vigilance crues » DATÉE (la plus haute des trois
+//   légendes) et, quand un avis est demandé, l'avis d'échec avec
+//   « Réessayer » ([_avis], [_cleAction]) ;
 // - aucune erreur de rendu, avec ou sans fiche de 320 px ouverte (l'aide
 //   `_pumpOverlays` l'affirme elle-même, sauf pour un test qui l'ATTEND) ;
-// - le contrôle d'avertissement et les trois puces (« Écoulement », « Débit »,
-//   « Restrictions ») sont entièrement dans l'écran, leur libellé à
-//   l'intérieur de leur boîte ;
+// - le contrôle d'avertissement et les quatre puces (« Écoulement », « Débit »,
+//   « Vigilance crues », « Restrictions ») sont entièrement dans l'écran, leur
+//   libellé à l'intérieur de leur boîte ;
 // - la colonne du haut laisse passer à la carte les gestes (tap, molette,
 //   glisser) posés hors de ses enfants, et la bascule de disposition se fait
 //   à 600 px de large ;
@@ -33,7 +40,7 @@
 //   légende n'est repoussée que pendant qu'un avis s'affiche : un écart à
 //   `BR-008` (« toujours visible »), accepté par le commanditaire le
 //   2026-10-03 ;
-// - l'ordre de tabulation (`K2`) sous 600 px : puces (trois), l'action de
+// - l'ordre de tabulation (`K2`) sous 600 px : puces (quatre), l'action de
 //   l'avis s'il y en a un (`K1` de T3, arbitrage du commanditaire du
 //   2026-10-14), « Favoris » s'il est posé, « Filtres » (`F10b` de T3),
 //   contrôles de zoom, puis, EN MODE seulement, bouton de désignation, enfin
@@ -54,7 +61,7 @@
 //   l'attribution — à 360 × 640 avec un avis, à 390 × 844, aux tailles
 //   intermédiaires de bureau et à 800 × 740 à 200 % ;
 // - `BR-012` : HORS MODE, à 100 % et à 200 %, le centre du contrôle
-//   « ⚠ Avertissement » et celui des trois puces sont atteignables ;
+//   « ⚠ Avertissement » et celui des quatre puces sont atteignables ;
 // - EN MODE, à 200 %, le centre de la puce « Restrictions », seule sortie du
 //   mode, est atteignable : le bouton ne le recouvre pas ;
 // - à 100 % comme à 200 %, là où la légende dépasse sa fenêtre, faire défiler
@@ -124,15 +131,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show FontLoader, LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
+import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
+import 'package:martinpecheur/domain/observation/freshness.dart';
+import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/domain/units/quantities.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show warningLinkLabel;
+import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
+import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
@@ -146,6 +161,8 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart'
     show minimumTapTarget;
 import 'package:martinpecheur/features/shared/warning_link.dart';
+import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
+import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
 import '../../../support/android_platform.dart';
 import '../../../support/focus.dart';
@@ -163,6 +180,16 @@ const Size _grand = Size(390, 844);
 const String _controles = 'MapControls';
 const String _designation = 'DesignateCenterControl';
 const String _attribution = 'IgnAttributionBadge';
+
+/// La date de la carte de vigilance que cite la légende « Vigilance crues »
+/// (`K1` de T4) : la légende datée est la plus haute des trois légendes.
+/// Elle ne s'affiche que sur la lecture Crues.
+final DateTime _dateCrues = DateTime.utc(2026, 10, 14, 13, 55, 31);
+
+/// L'avis de la lecture Crues que pose [_pumpOverlays] quand un avis est
+/// demandé : l'avis d'échec « illisible », le plus long des deux qui portent
+/// « Réessayer » (`K1` de T4).
+const MapNotice _avisCruesParDefaut = FloodUnreadable();
 
 /// Charge ROBOTO — toutes les graisses `Roboto-*.ttf` du SDK Flutter — sous la
 /// famille `Roboto`, celle que Material demande sur Android, et enregistre les
@@ -267,6 +294,93 @@ Map<OndeStationCode, OndeObservation> _uneObservation() {
   };
 }
 
+/// Clé de la fiche tronçon réelle que pose [_ficheTroncon].
+const Key _ficheTronconKey = Key('fiche-troncon-telephone');
+
+/// La fiche tronçon RÉELLE (`FloodSheetPanel`, `F3` de T4), ouverte sur un
+/// tronçon de niveau [level], datée de [_dateCrues] (heure locale à UTC+2,
+/// injectée). « Vert » est le seul niveau publié constaté ; « Jaune », dont
+/// la définition citée est la plus longue, est un cas construit, niveau
+/// jamais observé en production — `VC-04`.
+Widget _ficheTroncon(FloodVigilanceLevel level, {VoidCallback? onClose}) =>
+    FloodSheetPanel(
+      key: _ficheTronconKey,
+      state: FicheTronconOuverte(
+        section: FloodSection(
+          code: FloodSectionCode('TRC1'),
+          name: 'Blavet aval',
+          territoryCode: '12',
+          level: level,
+          lines: <List<GeoPoint>>[
+            <GeoPoint>[
+              GeoPoint(latitude: 47.8, longitude: -3.2),
+              GeoPoint(latitude: 47.9, longitude: -3.1),
+            ],
+          ],
+        ),
+        informationDate: _dateCrues,
+      ),
+      onClose: onClose ?? () {},
+      onOpenBulletin: () {},
+      utcOffsetOf: (_) => const Duration(hours: 2),
+    );
+
+/// Clé de la fiche station réelle que pose [_ficheStationBlois].
+const Key _ficheStationKey = Key('fiche-station-telephone');
+
+/// La fiche station RÉELLE (`StationSheetPanel`), prête, de La Loire à
+/// Blois — débit et hauteur mesurés, les données de
+/// `station_summary_sheet_test.dart` —, mesurée en regard de la fiche
+/// tronçon (`K1` de T4).
+Widget _ficheStationBlois() {
+  final StationCode code = StationCode('K447001001');
+  final DateTime mesure = DateTime.utc(2026, 8, 27, 8);
+  const Qualification qualification = Qualification(
+    statusCode: 12,
+    statusLabel: 'Pré-validée',
+    qualificationCode: 20,
+    qualificationLabel: 'Bonne',
+  );
+  return StationSheetPanel(
+    key: _ficheStationKey,
+    state: Prete(
+      StationSheetData(
+        station: Station(
+          code: code,
+          label: 'La Loire à Blois',
+          latitude: 47.584957074,
+          longitude: 1.335147948,
+          departement: DepartementCode('41'),
+          riverLabel: 'la Loire',
+          inService: true,
+        ),
+        discharge: HydroObservation(
+          station: code,
+          measuredAt: mesure,
+          grandeur: Grandeur.debit,
+          discharge: const CubicMetresPerSecond(47.8),
+          level: null,
+          qualification: qualification,
+        ),
+        level: HydroObservation(
+          station: code,
+          measuredAt: mesure,
+          grandeur: Grandeur.hauteur,
+          discharge: null,
+          level: const Metres(-1.232),
+          qualification: qualification,
+        ),
+        freshness: Freshness.fraiche,
+        statusLabel: 'Pré-validée',
+        qualificationLabel: 'Bonne',
+        stalenessNotice: null,
+      ),
+    ),
+    onClose: () {},
+    utcOffsetOf: (_) => const Duration(hours: 2),
+  );
+}
+
 /// La puce de l'échelle [kind].
 Finder _puceEchelle(MapScaleKind kind) =>
     find.byKey(ValueKey<MapScaleKind>(kind));
@@ -274,10 +388,12 @@ Finder _puceEchelle(MapScaleKind kind) =>
 /// La puce « Restrictions » (`E5`).
 Finder _puceRestrictions() => find.byKey(mapDesignationChipKey);
 
-/// Les trois puces du sélecteur, avec leur nom.
-Map<String, Finder> _lesTroisPuces() => <String, Finder>{
-  'puce ${MapScaleKind.ecoulement.name}': _puceEchelle(MapScaleKind.ecoulement),
-  'puce ${MapScaleKind.debit.name}': _puceEchelle(MapScaleKind.debit),
+/// Les puces du sélecteur, avec leur nom : une par échelle — la puce
+/// « Vigilance crues » comprise, posée sur toutes les lectures depuis le
+/// 2026-10-15 (`L1` de T4) —, puis « Restrictions ».
+Map<String, Finder> _lesPuces() => <String, Finder>{
+  for (final MapScaleKind kind in MapScaleKind.values)
+    'puce ${kind.name}': _puceEchelle(kind),
   'puce Restrictions': _puceRestrictions(),
 };
 
@@ -288,10 +404,10 @@ Finder _bande() => find.ancestor(
   matching: find.byType(ListView),
 );
 
-/// Le nombre de rangées que prennent les trois puces : leurs hauts distincts.
+/// Le nombre de rangées que prennent les puces : leurs hauts distincts.
 int _rangeesDePuces(WidgetTester tester) {
   final List<double> hauts = <double>[];
-  for (final Finder puce in _lesTroisPuces().values) {
+  for (final Finder puce in _lesPuces().values) {
     final double haut = _rectOf(tester, puce).top;
     if (!hauts.any((double h) => (h - haut).abs() < 0.5)) {
       hauts.add(haut);
@@ -318,6 +434,14 @@ int _rangeesDePuces(WidgetTester tester) {
 /// les crans de molette ([onCarteMolette]) et les glissers ([onCarteGlisser])
 /// qui lui parviennent. Les surcouches sont dans un groupe de tabulation
 /// ordonné, comme dans `MapView` (`K2`).
+///
+/// Lecture Crues (`K1` de T4) : la légende cite toujours [_dateCrues] (elle
+/// n'est lue que sur [MapScaleKind.crues]) ; avec un avis, l'avis de la
+/// lecture est [avisCrues] — l'avis d'échec « illisible » par défaut —, avec
+/// « Réessayer » branché. Les avis de crue ne sont rendus que sur cette
+/// lecture (`mapNoticesFor`) : sur les deux autres, ils sont ignorés. Une
+/// fiche tronçon [ficheTroncon] se pose dans la zone des fiches, sous les deux
+/// autres, comme dans `main.dart`.
 Future<List<FlutterErrorDetails>> _pumpOverlays(
   WidgetTester tester,
   Size size, {
@@ -328,6 +452,10 @@ Future<List<FlutterErrorDetails>> _pumpOverlays(
   bool avecAvis = true,
   bool attendErreurs = false,
   bool filtreVideTout = false,
+  MapNotice avisCrues = _avisCruesParDefaut,
+  Widget? ficheTroncon,
+  Widget? ficheStation,
+  VoidCallback? onReessayer,
   VoidCallback? onEffacer,
   VoidCallback? onOuvrirFavoris,
   void Function(MapScaleKind kind)? onSelect,
@@ -389,14 +517,22 @@ Future<List<FlutterErrorDetails>> _pumpOverlays(
                   onRecenter: () {},
                   onDesignateCenter: enMode ? () {} : null,
                   onToggleDesignationMode: onBasculerMode ?? () {},
-                  stationSheet: avecFiche
-                      ? Container(
-                          key: _ficheKey,
-                          width: double.infinity,
-                          height: _hauteurFiche,
-                          color: Colors.red,
-                        )
-                      : null,
+                  stationSheet:
+                      ficheStation ??
+                      (avecFiche
+                          ? Container(
+                              key: _ficheKey,
+                              width: double.infinity,
+                              height: _hauteurFiche,
+                              color: Colors.red,
+                            )
+                          : null),
+                  floodNotices: avecAvis
+                      ? <MapNotice>[avisCrues]
+                      : const <MapNotice>[],
+                  onRetryFlood: onReessayer ?? () {},
+                  floodInformationDate: _dateCrues,
+                  floodSheet: ficheTroncon,
                 ),
               ],
             ),
@@ -474,10 +610,53 @@ Set<String> _recoupements(
   };
 }
 
-/// L'avis affiché par l'état « carte vide » de [scale].
+/// L'avis affiché par l'état « carte vide » de [scale] — sur la lecture
+/// Crues, l'avis que [_pumpOverlays] pose par défaut, l'avis d'échec
+/// « illisible » (`K1` de T4).
 Finder _avis(MapScaleKind scale) => switch (scale) {
   MapScaleKind.ecoulement => find.byType(NoDataInAreaNotice),
   MapScaleKind.debit => find.byType(NoStationInAreaNotice),
+  MapScaleKind.crues => _carteAvisCrues(floodUnreadableText),
+};
+
+/// La carte d'un avis de la lecture Crues, trouvée par son texte : ses
+/// widgets sont privés à `map_empty_states.dart`. Le plus proche
+/// `DecoratedBox` au-dessus du texte est le fond de l'avis — sa boîte est
+/// celle de l'avis, comme pour [NoDataInAreaNotice].
+Finder _carteAvisCrues(String texte) => find
+    .ancestor(of: find.text(texte), matching: find.byType(DecoratedBox))
+    .first;
+
+/// La clé de l'action de l'avis de [scale] : « Élargir la recherche » sur les
+/// deux avis d'absence, « Réessayer » sur l'avis d'échec de la lecture Crues.
+Key _cleAction(MapScaleKind scale) => switch (scale) {
+  MapScaleKind.ecoulement => widenSearchKey,
+  MapScaleKind.debit => widenSearchKey,
+  MapScaleKind.crues => floodRetryKey,
+};
+
+/// Le libellé de l'action de l'avis de [scale] (voir [_cleAction]).
+String _libelleAction(MapScaleKind scale) => switch (scale) {
+  MapScaleKind.ecoulement => widenSearchLabel,
+  MapScaleKind.debit => widenSearchLabel,
+  MapScaleKind.crues => floodRetryLabel,
+};
+
+/// Le nom, dans un titre de test, de l'avis que [_avis] trouve sur [scale].
+String _nomAvis(MapScaleKind scale) => switch (scale) {
+  MapScaleKind.ecoulement => 'l’avis d’absence',
+  MapScaleKind.debit => 'l’avis d’absence',
+  MapScaleKind.crues => 'l’avis d’échec de la lecture Crues',
+};
+
+/// Un filtre peut-il vider la carte de [scale] ? Sur l'écoulement et le
+/// débit, oui ; la lecture Crues n'offre aucun critère (`L1` de T4, cadrage
+/// § 7.7) : son avis de carte vidée par le filtre n'existe pas, il n'y a rien
+/// à mesurer.
+bool _filtrable(MapScaleKind scale) => switch (scale) {
+  MapScaleKind.ecoulement => true,
+  MapScaleKind.debit => true,
+  MapScaleKind.crues => false,
 };
 
 /// Le centre de [finder] atteint-il [finder] — rien ne le recouvre ?
@@ -951,7 +1130,7 @@ void main() {
                 '${avecFiche ? ', fiche de 320 px ouverte' : ''}';
 
             _surAndroid('$cas : aucune erreur de rendu, avertissement et '
-                'trois puces entiers dans l’écran', (
+                'quatre puces entiers dans l’écran', (
               WidgetTester tester,
             ) async {
               // `_pumpOverlays` affirme l'absence de toute erreur de rendu.
@@ -981,8 +1160,7 @@ void main() {
                   'puce ${kind.name}': mapScaleLabel(kind),
                 'puce Restrictions': designationChipLabel,
               };
-              for (final MapEntry<String, Finder> p
-                  in _lesTroisPuces().entries) {
+              for (final MapEntry<String, Finder> p in _lesPuces().entries) {
                 final Rect puce = _rectOf(tester, p.value);
                 expect(
                   ecran.intersect(puce),
@@ -1006,7 +1184,7 @@ void main() {
   }
 
   // ---------------------------------------------------------------------
-  // Le nombre de rangées des trois puces (le motif de la décision Roboto)
+  // Le nombre de rangées des puces (le motif de la décision Roboto)
   // ---------------------------------------------------------------------
   // `(taille, police, nombre de rangées)`, pour les deux échelles, hors mode et
   // en mode (la puce allumée est en gras, donc plus large). Invariants : en
@@ -1026,10 +1204,22 @@ void main() {
   //   − 276 réservés à la légende), 144 px de marge ; 200 % : deux rangées, la
   //   première (457 à 462 px) tient avec 54 px de marge, la troisième
   //   déborderait de 107 px.
+  //
+  // ⚠️ Disposition élargie par la puce « Vigilance crues », arbitrage du
+  // commanditaire du 2026-10-15 (`L1` de T4) : quatre puces depuis (trois
+  // d'échelle, puis « Restrictions »), comptées par [_lesPuces]. Remesuré le
+  // 2026-10-15, les marges ci-dessus datent des trois puces :
+  // - 360 × 640, 200 % : QUATRE rangées (3 avant) — « Restrictions » seule
+  //   sur la quatrième, de 238 à 288 (écoulement, hors mode : boîte des puces
+  //   de 64 à 288) ;
+  // - 390 × 844, 100 % : DEUX rangées (1 avant) — « Restrictions » passe sur
+  //   la seconde, de 120 à 168 (boîte des puces de 64 à 168) ;
+  // - 360 × 640, 100 % ; 390 × 844, 200 % ; 800 × 740 : inchangés (2, 3, 1
+  //   et 2).
   for (final (Size, double, int) cas in <(Size, double, int)>[
     (_petit, 1, 2),
-    (_petit, 2, 3),
-    (_grand, 1, 1),
+    (_petit, 2, 4),
+    (_grand, 1, 2),
     (_grand, 2, 3),
     (const Size(800, 740), 1, 1),
     (const Size(800, 740), 2, 2),
@@ -1037,7 +1227,7 @@ void main() {
     for (final MapScaleKind scale in MapScaleKind.values) {
       for (final bool enMode in <bool>[false, true]) {
         final _Test sur = _selonFenetre(cas.$1);
-        sur('à ${_nom(cas.$1, cas.$2, scale)}, ${_mode(enMode)} : les trois '
+        sur('à ${_nom(cas.$1, cas.$2, scale)}, ${_mode(enMode)} : les quatre '
             'puces prennent ${cas.$3} rangée${cas.$3 > 1 ? 's' : ''}', (
           WidgetTester tester,
         ) async {
@@ -1056,6 +1246,7 @@ void main() {
                 'puces=${_rectOf(tester, find.byType(MapScaleChips))}, '
                 'écoulement=${_rectOf(tester, _puceEchelle(MapScaleKind.ecoulement))}, '
                 'débit=${_rectOf(tester, _puceEchelle(MapScaleKind.debit))}, '
+                'crues=${_rectOf(tester, _puceEchelle(MapScaleKind.crues))}, '
                 'Restrictions=${_rectOf(tester, _puceRestrictions())}',
           );
         });
@@ -1216,7 +1407,7 @@ void main() {
     for (final MapScaleKind scale in MapScaleKind.values) {
       _surAndroid(
         'ordre de la colonne à ${_nom(size, 1, scale)} : avertissement, '
-        'puces (trois), avis, puis légende (la légende n’est repoussée que '
+        'puces (quatre), avis, puis légende (la légende n’est repoussée que '
         'pendant qu’un avis s’affiche : écart à BR-008 accepté le '
         '2026-10-03)',
         (WidgetTester tester) async {
@@ -1228,15 +1419,22 @@ void main() {
           final Rect legende = _rectOf(tester, find.byType(MapLegend));
 
           expect(lien.bottom, lessThanOrEqualTo(puces.top));
-          // Les trois puces sont DANS le bloc des puces, la troisième après la
-          // deuxième (même rangée, à sa droite, ou rangée suivante).
-          final Rect debit = _rectOf(tester, _puceEchelle(MapScaleKind.debit));
+          // Les puces sont DANS le bloc des puces, « Restrictions » après la
+          // dernière puce d’échelle (même rangée, à sa droite, ou rangée
+          // suivante) — « Vigilance crues » depuis le 2026-10-15 (`L1` de T4),
+          // « Débit » avant.
+          final Rect derniere = _rectOf(
+            tester,
+            _puceEchelle(MapScaleKind.values.last),
+          );
           final Rect restrictions = _rectOf(tester, _puceRestrictions());
           expect(puces.intersect(restrictions), restrictions);
           expect(
-            restrictions.top > debit.top || restrictions.left >= debit.right,
+            restrictions.top > derniere.top ||
+                restrictions.left >= derniere.right,
             isTrue,
-            reason: 'débit=$debit, Restrictions=$restrictions',
+            reason:
+                'dernière puce d’échelle=$derniere, Restrictions=$restrictions',
           );
           expect(
             puces.bottom,
@@ -1268,7 +1466,7 @@ void main() {
     for (final double textScale in <double>[1, 2]) {
       for (final bool enMode in <bool>[false, true]) {
         _surAndroid('Tab à ${_nom(size, textScale, MapScaleKind.ecoulement)}, '
-            '${_mode(enMode)} : puces (trois) → « Élargir la recherche » (K1 '
+            '${_mode(enMode)} : puces (quatre) → « Élargir la recherche » (K1 '
             'de T3) → « Filtres » → contrôles de zoom'
             '${enMode ? ' → bouton de désignation' : ''} → contrôle '
             'd’avertissement, puis reboucle', (WidgetTester tester) async {
@@ -1281,8 +1479,10 @@ void main() {
           );
 
           final List<Finder> ordreAttendu = <Finder>[
-            _puceEchelle(MapScaleKind.ecoulement),
-            _puceEchelle(MapScaleKind.debit),
+            // Une puce par échelle (`L1` de T4, 2026-10-15 : trois), puis
+            // « Restrictions ».
+            for (final MapScaleKind kind in MapScaleKind.values)
+              _puceEchelle(kind),
             _puceRestrictions(),
             find.byKey(widenSearchKey),
             find.byKey(mapFiltersButtonKey),
@@ -1319,7 +1519,7 @@ void main() {
   for (final Size size in <Size>[_petit, _grand]) {
     for (final bool enMode in <bool>[false, true]) {
       _surAndroid('Tab à ${_nom(size, 1, MapScaleKind.ecoulement)}, '
-          '${_mode(enMode)}, « Favoris » posé : puces (trois) → « Élargir la '
+          '${_mode(enMode)}, « Favoris » posé : puces (quatre) → « Élargir la '
           'recherche » → « Favoris » → « Filtres » → contrôles de zoom'
           '${enMode ? ' → bouton de désignation' : ''} → contrôle '
           'd’avertissement, puis reboucle (K1 de T3)', (
@@ -1334,8 +1534,10 @@ void main() {
         );
 
         final List<Finder> ordreAttendu = <Finder>[
-          _puceEchelle(MapScaleKind.ecoulement),
-          _puceEchelle(MapScaleKind.debit),
+          // Une puce par échelle (`L1` de T4, 2026-10-15 : trois), puis
+          // « Restrictions ».
+          for (final MapScaleKind kind in MapScaleKind.values)
+            _puceEchelle(kind),
           _puceRestrictions(),
           find.byKey(widenSearchKey),
           find.byKey(mapFavoritesButtonKey),
@@ -1364,7 +1566,7 @@ void main() {
   }
 
   _surAndroid('Tab à ${_nom(_petit, 1, MapScaleKind.ecoulement)}, HORS MODE, '
-      'un filtre masque tous les lieux : puces (trois) → « Effacer les '
+      'un filtre masque tous les lieux : puces (quatre) → « Effacer les '
       'filtres » → « Favoris » → « Filtres » → contrôles de zoom → contrôle '
       'd’avertissement, puis reboucle ; Entrée sur l’action appelle '
       'onClearFilters UNE fois (K1 de T3)', (WidgetTester tester) async {
@@ -1381,8 +1583,9 @@ void main() {
     expect(find.byKey(clearFiltersKey), findsOneWidget);
 
     final List<Finder> ordreAttendu = <Finder>[
-      _puceEchelle(MapScaleKind.ecoulement),
-      _puceEchelle(MapScaleKind.debit),
+      // Une puce par échelle (`L1` de T4, 2026-10-15 : trois), puis
+      // « Restrictions ».
+      for (final MapScaleKind kind in MapScaleKind.values) _puceEchelle(kind),
       _puceRestrictions(),
       find.byKey(clearFiltersKey),
       find.byKey(mapFavoritesButtonKey),
@@ -1405,8 +1608,10 @@ void main() {
     await tester.pump();
     expect(focusedWithin(tester, ordreAttendu.first), isTrue);
 
-    // Trois Tab de plus, depuis la première puce : l'action.
-    for (int i = 0; i < 3; i++) {
+    // Depuis la première puce, un Tab par puce suivante puis un pour
+    // l’action : quatre (trois avant la puce « Vigilance crues », `L1` de
+    // T4, 2026-10-15).
+    for (int i = 0; i < MapScaleKind.values.length + 1; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
     }
@@ -1418,7 +1623,7 @@ void main() {
 
   // Sans avis, aucun arrêt ne s'intercale : « Favoris » suit les puces.
   _surAndroid('Tab à ${_nom(_petit, 1, MapScaleKind.ecoulement)}, HORS MODE, '
-      'SANS avis, « Favoris » posé : puces (trois) → « Favoris » → « Filtres » '
+      'SANS avis, « Favoris » posé : puces (quatre) → « Favoris » → « Filtres » '
       '→ contrôles de zoom → contrôle d’avertissement, puis reboucle (K1 de '
       'T3)', (WidgetTester tester) async {
     await _pumpOverlays(
@@ -1432,8 +1637,9 @@ void main() {
     expect(find.byKey(clearFiltersKey), findsNothing);
 
     final List<Finder> ordreAttendu = <Finder>[
-      _puceEchelle(MapScaleKind.ecoulement),
-      _puceEchelle(MapScaleKind.debit),
+      // Une puce par échelle (`L1` de T4, 2026-10-15 : trois), puis
+      // « Restrictions ».
+      for (final MapScaleKind kind in MapScaleKind.values) _puceEchelle(kind),
       _puceRestrictions(),
       find.byKey(mapFavoritesButtonKey),
       find.byKey(mapFiltersButtonKey),
@@ -1469,8 +1675,10 @@ void main() {
       for (final bool enMode in <bool>[false, true]) {
         _surAndroid('à ${_nom(size, 1, scale)}, ${_mode(enMode)}, AVEC un avis '
             '(« Favoris » absent, quatre boutons) : l’avis est entier dans '
-            'l’écran, libre de toute surcouche du bas, et son action « Élargir '
-            'la recherche » est atteignable', (WidgetTester tester) async {
+            'l’écran, libre de toute surcouche du bas, et son action '
+            '« ${_libelleAction(scale)} » est atteignable', (
+          WidgetTester tester,
+        ) async {
           await _pumpOverlays(tester, size, scale: scale, enMode: enMode);
 
           final Rect ecran = Offset.zero & size;
@@ -1492,9 +1700,10 @@ void main() {
           // (444) et à 172 px du haut du bouton de désignation (504) ; à
           // 390 × 844 il en est plus loin encore. Aucun pixel ne se joue.
           expect(
-            find.text(widenSearchLabel).hitTestable().evaluate(),
+            find.text(_libelleAction(scale)).hitTestable().evaluate(),
             isNotEmpty,
-            reason: 'action=${_rectOf(tester, find.text(widenSearchLabel))}',
+            reason:
+                'action=${_rectOf(tester, find.text(_libelleAction(scale)))}',
           );
         });
       }
@@ -1598,6 +1807,54 @@ void main() {
     );
   }
 
+  // `K1` de T4 (2026-10-15) : la même mesure sur la légende « Vigilance
+  // crues » datée, la plus haute des trois légendes (290 px en Roboto), sans
+  // avis.
+  // `(taille, EN MODE, légende coupée par la fenêtre, ce qu'elle recoupe)`.
+  for (final (Size, bool, bool, Set<String>) cas
+      in <(Size, bool, bool, Set<String>)>[
+        (_petit, false, true, <String>{}),
+        (_petit, true, true, <String>{}),
+        (_grand, false, false, <String>{}),
+        (_grand, true, false, <String>{}),
+      ]) {
+    _surAndroid(
+      'CONSTAT — à ${_nom(cas.$1, 1, MapScaleKind.crues)}, ${_mode(cas.$2)}, '
+      'SANS avis : la légende « Vigilance crues » datée (290 px de haut) '
+      '${cas.$3 ? 'est coupée par sa fenêtre' : 'n’est pas coupée par sa fenêtre'}'
+      ' ; INVARIANT — sa partie visible ne recoupe aucune surcouche du bas',
+      (WidgetTester tester) async {
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          scale: MapScaleKind.crues,
+          enMode: cas.$2,
+          avecAvis: false,
+        );
+
+        // ⚠️ FAIT CONSTATÉ, pas un invariant voulu — voir la boucle « débit »
+        // ci-dessus.
+        final Rect legende = _rectOf(tester, find.byType(MapLegend));
+        final Rect colonne = _fenetre(tester);
+        expect(
+          legende.height,
+          moreOrLessEquals(290, epsilon: 0.5),
+          reason: 'légende=$legende',
+        );
+        expect(
+          legende.bottom > colonne.bottom,
+          cas.$3,
+          reason: 'légende=$legende, fenêtre=$colonne',
+        );
+        expect(
+          _recoupements(tester, find.byType(MapLegend), _bas()),
+          cas.$4,
+          reason: 'légende=$legende',
+        );
+      },
+    );
+  }
+
   // `(taille, échelle, EN MODE, légende coupée par la fenêtre, ce que la
   // légende recoupe)`, AVEC un avis : la légende, repoussée sous lui.
   //
@@ -1620,6 +1877,15 @@ void main() {
         (_grand, MapScaleKind.ecoulement, true, false, <String>{}),
         (_grand, MapScaleKind.debit, false, false, <String>{}),
         (_grand, MapScaleKind.debit, true, false, <String>{}),
+        // `K1` de T4 (2026-10-15), mesuré : l'avis d'échec « illisible » et la
+        // légende « Vigilance crues » datée. À 390 × 844 la légende repoussée
+        // est COUPÉE par sa fenêtre (321 à 611, fenêtre de 8 à 584), quand
+        // celles de l'écoulement et du débit ne le sont pas : elle défile, sa
+        // partie visible ne recoupe rien — « La légende défile » (2026-10-12).
+        (_petit, MapScaleKind.crues, false, true, <String>{}),
+        (_petit, MapScaleKind.crues, true, true, <String>{}),
+        (_grand, MapScaleKind.crues, false, true, <String>{}),
+        (_grand, MapScaleKind.crues, true, true, <String>{}),
       ]) {
     _surAndroid(
       'CONSTAT — à ${_nom(cas.$1, 1, cas.$2)}, ${_mode(cas.$3)}, AVEC un '
@@ -1663,7 +1929,7 @@ void main() {
           _surAndroid(
             'BR-012 — à ${_nom(size, textScale, scale)}, HORS MODE, '
             '${avecAvis ? 'AVEC' : 'SANS'} avis : le centre du contrôle '
-            '« ⚠ Avertissement » et celui des trois puces sont atteignables',
+            '« ⚠ Avertissement » et celui des quatre puces sont atteignables',
             (WidgetTester tester) async {
               await _pumpOverlays(
                 tester,
@@ -1675,7 +1941,7 @@ void main() {
 
               final Map<String, Finder> atteignables = <String, Finder>{
                 'WarningLink': find.byType(WarningLink),
-                ..._lesTroisPuces(),
+                ..._lesPuces(),
               };
               for (final MapEntry<String, Finder> e in atteignables.entries) {
                 expect(
@@ -1821,6 +2087,18 @@ void main() {
         (const Size(800, 740), 2, MapScaleKind.ecoulement, true, true, 0),
         (const Size(800, 740), 2, MapScaleKind.debit, false, true, 0),
         (const Size(800, 740), 2, MapScaleKind.debit, true, true, 0),
+        // `K1` de T4 (2026-10-15), mesuré : « Réessayer » (20 à 165 de large)
+        // s'arrête à gauche de l'attribution (174,3 à 600 × 360, 214,3 à
+        // 640 × 360) : 0 px recouvert, quand « Élargir la recherche » l'est de
+        // 23 px.
+        (const Size(600, 360), 1, MapScaleKind.crues, false, true, 0),
+        (const Size(600, 360), 1, MapScaleKind.crues, true, true, 0),
+        (const Size(600, 360), 2, MapScaleKind.crues, false, false, 0),
+        (const Size(600, 360), 2, MapScaleKind.crues, true, false, 0),
+        (const Size(640, 360), 2, MapScaleKind.crues, false, false, 0),
+        (const Size(640, 360), 2, MapScaleKind.crues, true, false, 0),
+        (const Size(800, 740), 2, MapScaleKind.crues, false, true, 0),
+        (const Size(800, 740), 2, MapScaleKind.crues, true, true, 0),
       ]) {
     final _Test sur = _selonFenetre(cas.$1);
     sur('CONSTAT — disposition LARGE à ${_nom(cas.$1, cas.$2, cas.$3)}, '
@@ -1842,9 +2120,9 @@ void main() {
       // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : l'attribution IGN est
       // posée au-dessus de la colonne dans la pile.
       expect(
-        _atteignable(find.byKey(widenSearchKey)),
+        _atteignable(find.byKey(_cleAction(cas.$3))),
         cas.$5,
-        reason: 'action=${_rectOf(tester, find.byKey(widenSearchKey))}',
+        reason: 'action=${_rectOf(tester, find.byKey(_cleAction(cas.$3)))}',
       );
       final Rect colonne = _fenetre(tester);
       final Rect repos = _rectOf(tester, _avis(cas.$3));
@@ -1855,13 +2133,13 @@ void main() {
       // Une fois la colonne défilée, le centre de l'action est atteignable ;
       // quand rien n'a défilé, il l'est comme au repos.
       expect(
-        _atteignable(find.byKey(widenSearchKey)),
+        _atteignable(find.byKey(_cleAction(cas.$3))),
         cas.$5 || aDefile,
         reason:
             'après défilement : '
-            'action=${_rectOf(tester, find.byKey(widenSearchKey))}',
+            'action=${_rectOf(tester, find.byKey(_cleAction(cas.$3)))}',
       );
-      final Rect action = _rectOf(tester, find.byKey(widenSearchKey));
+      final Rect action = _rectOf(tester, find.byKey(_cleAction(cas.$3)));
       final Rect attribution = _rectOf(
         tester,
         find.byType(IgnAttributionBadge),
@@ -1913,6 +2191,17 @@ void main() {
         (2, _petit, MapScaleKind.ecoulement, false),
         (2, _petit, MapScaleKind.debit, false),
         (2, _grand, MapScaleKind.debit, false),
+        // `K1` de T4 (2026-10-15), mesuré : la légende « Vigilance crues » datée
+        // (290 px) dépasse sa fenêtre partout sauf à 390 × 844, 100 %, sans avis
+        // (fenêtre de 8 à 466, légende de 176 à 466) — « La légende défile »
+        // (2026-10-12).
+        (1, _petit, MapScaleKind.crues, true),
+        (1, _petit, MapScaleKind.crues, false),
+        (1, _grand, MapScaleKind.crues, true),
+        (2, _petit, MapScaleKind.crues, true),
+        (2, _petit, MapScaleKind.crues, false),
+        (2, _grand, MapScaleKind.crues, true),
+        (2, _grand, MapScaleKind.crues, false),
       ]) {
     for (final bool enMode in <bool>[false, true]) {
       _surAndroid('à ${_nom(cas.$2, cas.$1, cas.$3)}, ${_mode(enMode)}'
@@ -1990,6 +2279,14 @@ void main() {
   // désignation (haut à 299 et à 503) — elle le recoupait dans les huit cas,
   // quatre boutons posés — et à 390 × 844, « écoulement », sans avis, elle
   // n'est plus entière au repos (« en partie », elle était « entière »).
+  //
+  // Disposition élargie par la puce « Vigilance crues », arbitrage du
+  // commanditaire du 2026-10-15 (`L1` de T4) : à 360 × 640, sans avis, la
+  // quatrième rangée de puces repousse la légende sous le bord de la fenêtre
+  // (« cachée » au repos, « en partie » avant ; mesuré : fenêtre de 8 à 278,
+  // légende de 296 à 580, « écoulement »). Amenée en faisant défiler la
+  // colonne, elle paraît dans la fenêtre et ne recoupe aucune surcouche du
+  // bas — vérifié ci-dessous, comme avant.
   for (final (Size, MapScaleKind, bool, String, Set<String>, Set<String>) cas
       in <(Size, MapScaleKind, bool, String, Set<String>, Set<String>)>[
         (
@@ -2014,7 +2311,8 @@ void main() {
           _petit,
           MapScaleKind.ecoulement,
           false,
-          'en partie',
+          // « en partie » avant la puce « Vigilance crues » (L1 de T4).
+          'cachée',
           <String>{},
           <String>{},
         ),
@@ -2030,13 +2328,28 @@ void main() {
           _petit,
           MapScaleKind.debit,
           false,
-          'en partie',
+          // « en partie » avant la puce « Vigilance crues » (L1 de T4).
+          'cachée',
           <String>{},
           <String>{},
         ),
         (
           _grand,
           MapScaleKind.debit,
+          false,
+          'en partie',
+          <String>{},
+          <String>{},
+        ),
+        // `K1` de T4 (2026-10-15), mesuré : la légende « Vigilance crues »
+        // datée, comme le débit — « La légende défile » (2026-10-12) et
+        // l'arbitrage du 2026-10-15 (`L1` de T4), vérifié après défilement.
+        (_petit, MapScaleKind.crues, true, 'cachée', <String>{}, <String>{}),
+        (_grand, MapScaleKind.crues, true, 'cachée', <String>{}, <String>{}),
+        (_petit, MapScaleKind.crues, false, 'cachée', <String>{}, <String>{}),
+        (
+          _grand,
+          MapScaleKind.crues,
           false,
           'en partie',
           <String>{},
@@ -2075,6 +2388,15 @@ void main() {
         if (distance > 0) {
           await _defilerDuDoigt(tester, distance);
         }
+        // Amenée dans la fenêtre, la légende y paraît, même cachée au repos
+        // (`L1` de T4, 2026-10-15).
+        expect(
+          _etat(tester, find.byType(MapLegend)),
+          isNot('cachée'),
+          reason:
+              'après défilement : fenêtre=${_fenetre(tester)}, '
+              'légende=${_rectOf(tester, find.byType(MapLegend))}',
+        );
         final Set<String> recoupes = _recoupements(
           tester,
           find.byType(MapLegend),
@@ -2121,21 +2443,35 @@ void main() {
   // 299 et à 503) ; quatre boutons posés, elle le recoupait dans les quatre cas,
   // et l'action amenée au bas de la fenêtre n'était qu'à 3,5 px au-dessus du
   // bouton à 360 × 640.
-  for (final (Size, MapScaleKind, Set<String>, Set<String>) cas
-      in <(Size, MapScaleKind, Set<String>, Set<String>)>[
-        (_petit, MapScaleKind.ecoulement, <String>{}, <String>{}),
-        (_petit, MapScaleKind.debit, <String>{}, <String>{}),
-        (_grand, MapScaleKind.ecoulement, <String>{}, <String>{}),
-        (_grand, MapScaleKind.debit, <String>{}, <String>{}),
+  //
+  // Disposition élargie par la puce « Vigilance crues », arbitrage du
+  // commanditaire du 2026-10-15 (`L1` de T4) : à 360 × 640 l'avis est
+  // « cachée » au repos (« en partie » avant) — la quatrième rangée de puces le
+  // repousse sous le bord de la fenêtre (mesuré : fenêtre de 8 à 278, avis de
+  // 296 à 603, « débit »). Amené en faisant défiler la colonne, son action est
+  // atteignable et sa partie visible ne recoupe aucune surcouche du bas —
+  // vérifié après le défilement, plus seulement au repos.
+  for (final (Size, MapScaleKind, String, Set<String>, Set<String>) cas
+      in <(Size, MapScaleKind, String, Set<String>, Set<String>)>[
+        // « en partie » au repos avant `L1` de T4, aux deux tailles.
+        (_petit, MapScaleKind.ecoulement, 'cachée', <String>{}, <String>{}),
+        (_petit, MapScaleKind.debit, 'cachée', <String>{}, <String>{}),
+        (_grand, MapScaleKind.ecoulement, 'en partie', <String>{}, <String>{}),
+        (_grand, MapScaleKind.debit, 'en partie', <String>{}, <String>{}),
+        // `K1` de T4 (2026-10-15), mesuré : l'avis d'échec « illisible » (296 à
+        // 566 à 360 × 640), le même écart que l'avis d'absence — arbitrage du
+        // 2026-10-15 (`L1` de T4), vérifié après défilement.
+        (_petit, MapScaleKind.crues, 'cachée', <String>{}, <String>{}),
+        (_grand, MapScaleKind.crues, 'en partie', <String>{}, <String>{}),
       ]) {
     for (final bool enMode in <bool>[false, true]) {
-      final Set<String> attendu = enMode ? cas.$4 : cas.$3;
+      final Set<String> attendu = enMode ? cas.$5 : cas.$4;
       _surAndroid(
         'CONSTAT — à ${_nom(cas.$1, 2, cas.$2)}, ${_mode(enMode)}, AVEC un '
-        'avis : l’avis, en partie visible au repos, '
+        'avis : l’avis est ${cas.$3} au repos ; amené dans la fenêtre, son '
+        'action est atteignable et sa partie visible '
         '${attendu.isEmpty ? 'ne recoupe aucune surcouche du bas' : 'recoupe '
-                  '${attendu.join(', ')}'} ; amené dans la fenêtre, son '
-        'action est atteignable',
+                  '${attendu.join(', ')}'}',
         (WidgetTester tester) async {
           await _pumpOverlays(
             tester,
@@ -2155,7 +2491,7 @@ void main() {
           final Rect fenetre = _fenetre(tester);
           expect(
             _etat(tester, lAvis),
-            'en partie',
+            cas.$3,
             reason: 'avis=${_rectOf(tester, lAvis)}, fenêtre=$fenetre',
           );
           final Set<String> recoupes = _recoupements(tester, lAvis, _bas());
@@ -2177,11 +2513,23 @@ void main() {
             reason: 'avis=${_rectOf(tester, lAvis)}, fenêtre=$fenetre',
           );
           expect(
-            _atteignable(find.byKey(widenSearchKey)),
+            _atteignable(find.byKey(_cleAction(cas.$2))),
             isTrue,
             reason:
-                'action=${_rectOf(tester, find.byKey(widenSearchKey))}, '
+                'action=${_rectOf(tester, find.byKey(_cleAction(cas.$2)))}, '
                 'fenêtre=$fenetre',
+          );
+          // Amené, l'avis ne recoupe aucune surcouche du bas de plus qu'au
+          // repos (`L1` de T4, 2026-10-15).
+          final Set<String> recoupesApres = _recoupements(
+            tester,
+            lAvis,
+            _bas(),
+          );
+          expect(
+            recoupesApres,
+            attendu,
+            reason: 'après défilement : avis=${_rectOf(tester, lAvis)}',
           );
         },
       );
@@ -2197,6 +2545,13 @@ void main() {
   // recouvert, le mode n'aurait plus de sortie tactile, un blocage et non un
   // CONSTAT. Marge (mesure du 2026-10-04) : la puce finit à 230, le bouton
   // commence à 299 à 360 × 640 (69 px) et à 503 à 390 × 844 (273 px).
+  // Remesuré le 2026-10-15 (disposition élargie par la puce « Vigilance
+  // crues », arbitrage du commanditaire, `L1` de T4), « Favoris » non posé
+  // dans ce cas : à 360 × 640 la puce va de 238 à 288 (une rangée de plus),
+  // le bouton commence à 299 — 11 px de marge (69 avant) — et la fenêtre de la
+  // colonne du haut finit à 334 ; à 390 × 844, inchangé (180 à 230, bouton à
+  // 503, 273 px). Avec « Favoris » posé, la fenêtre finit à 278 et coupe la
+  // puce : cas « CONSTAT … % de la surface » ci-dessous.
   for (final Size size in <Size>[_petit, _grand]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
       for (final bool avecAvis in <bool>[true, false]) {
@@ -2227,40 +2582,73 @@ void main() {
     }
   }
 
-  // CONSTAT : la surface entière de la puce est atteignable — 100 % des points
-  // d'une grille de 2 px, mesuré le 2026-10-04 aux mêmes cas. Ce n'est PAS un
-  // invariant : sur une fenêtre plus courte le bouton la rejoint (voir plus
-  // bas), et la surface passe sous 100 % bien avant que le centre ne soit
+  // CONSTAT : la part de la surface de la puce atteignable au repos — points
+  // d'une grille de 2 px, mesuré le 2026-10-04 aux mêmes cas : 100 %. Ce n'est
+  // PAS un invariant : sur une fenêtre plus courte le bouton la rejoint (voir
+  // plus bas), et la surface passe sous 100 % bien avant que le centre ne soit
   // recouvert. Remesuré par `K3` de T3 (2026-10-14) avec « Favoris » posé, la
   // colonne du bas à cinq boutons comme dans `main.dart` : inchangé.
-  for (final Size size in <Size>[_petit, _grand]) {
+  //
+  // Disposition élargie par la puce « Vigilance crues », arbitrage du
+  // commanditaire du 2026-10-15 (`L1` de T4) : à 360 × 640, la puce passe sur
+  // une quatrième rangée (238 à 288) et le bord bas de la fenêtre (278) la
+  // coupe — 80 % atteignables au repos (100 % avant), son centre (263) l'est ;
+  // ce n'est pas le bouton (haut à 299). Amenée dans la fenêtre en faisant
+  // défiler la colonne, elle l'est toute — vérifié ci-dessous. 390 × 844 :
+  // inchangé, 100 % au repos.
+  for (final (Size, double) cas in <(Size, double)>[
+    (_petit, 0.8),
+    (_grand, 1.0),
+  ]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
       for (final bool avecAvis in <bool>[true, false]) {
-        _surAndroid('CONSTAT — EN MODE, à ${_nom(size, 2, scale)}, '
-            '${avecAvis ? 'AVEC' : 'SANS'} avis : toute la surface de la puce '
-            '« Restrictions » est atteignable (100 % d’une grille de 2 px)', (
-          WidgetTester tester,
-        ) async {
-          await _pumpOverlays(
-            tester,
-            size,
-            textScale: 2,
-            scale: scale,
-            enMode: true,
-            avecAvis: avecAvis,
-            onOuvrirFavoris: () {},
-          );
+        _surAndroid(
+          'CONSTAT — EN MODE, à ${_nom(cas.$1, 2, scale)}, '
+          '${avecAvis ? 'AVEC' : 'SANS'} avis : ${(cas.$2 * 100).round()} % '
+          'de la surface de la puce « Restrictions » est atteignable au repos '
+          '(grille de 2 px) ; amenée dans la fenêtre, toute sa surface l’est',
+          (WidgetTester tester) async {
+            await _pumpOverlays(
+              tester,
+              cas.$1,
+              textScale: 2,
+              scale: scale,
+              enMode: true,
+              avecAvis: avecAvis,
+              onOuvrirFavoris: () {},
+            );
 
-          // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : corriger ce test À LA
-          // MAIN si le bouton se rapproche de la puce.
-          expect(
-            _surfaceAtteignable(tester, _puceRestrictions()),
-            1.0,
-            reason:
-                'puce=${_rectOf(tester, _puceRestrictions())}, bouton='
-                '${_rectOf(tester, find.byType(DesignateCenterControl))}',
-          );
-        });
+            // ⚠️ FAIT CONSTATÉ, pas un invariant voulu : corriger ce test À
+            // LA MAIN si le bouton ou le bord de la fenêtre se rapproche de
+            // la puce.
+            expect(
+              _surfaceAtteignable(tester, _puceRestrictions()),
+              closeTo(cas.$2, 0.005),
+              reason:
+                  'puce=${_rectOf(tester, _puceRestrictions())}, bouton='
+                  '${_rectOf(tester, find.byType(DesignateCenterControl))}, '
+                  'fenêtre=${_fenetre(tester)}',
+            );
+
+            // Amenée dans la fenêtre du doigt : toute sa surface est
+            // atteignable (`L1` de T4, 2026-10-15).
+            final double distance =
+                _rectOf(tester, _puceRestrictions()).bottom -
+                _fenetre(tester).bottom;
+            if (distance > 0) {
+              await _defilerDuDoigt(tester, distance);
+            }
+            expect(
+              _surfaceAtteignable(tester, _puceRestrictions()),
+              1.0,
+              reason:
+                  'après défilement : '
+                  'puce=${_rectOf(tester, _puceRestrictions())}, bouton='
+                  '${_rectOf(tester, find.byType(DesignateCenterControl))}, '
+                  'fenêtre=${_fenetre(tester)}',
+            );
+          },
+        );
       }
     }
   }
@@ -2385,17 +2773,30 @@ void main() {
   // atteignables (92 % avant), son centre (205) de PEU — à 1 px du bord. À
   // 360 × 540 elle finit à 178 : la puce est toute sous le bord, rien n'en est
   // atteignable (36 % avant, centre déjà recouvert).
-  for (final (Size, double, bool) cas in <(Size, double, bool)>[
-    (const Size(360, 568), 0.52, true),
-    (const Size(360, 540), 0.0, false),
-    (const Size(360, 330), 0.0, false),
+  //
+  // Disposition élargie par la puce « Vigilance crues », arbitrage du
+  // commanditaire du 2026-10-15 (`L1` de T4) : la puce passe sur une rangée de
+  // plus (238 à 288 à 360 × 640) ; à 360 × 568 elle est désormais toute sous le
+  // bord de la fenêtre (52 % atteignables et centre atteignable avant ; 0 % et
+  // centre non atteignable depuis). Amenée dans la fenêtre en faisant défiler
+  // la colonne : part atteignable mesurée, quatrième membre du tableau
+  // (toute la puce à 360 × 568 et 360 × 540).
+  for (final (Size, double, bool, double) cas in <(Size, double, bool, double)>[
+    (const Size(360, 568), 0.0, false, 1.0),
+    (const Size(360, 540), 0.0, false, 1.0),
+    // À 360 × 330, la fenêtre du haut (8 à 56) est plus basse que la puce
+    // (50 px) et le bouton de désignation (8 à 267) la couvre toute :
+    // même tentée, la puce ne s'amène pas — aucune part atteignable. Le
+    // constat de 2026-10-14 (pas de sortie tactile du mode) reste vrai.
+    (const Size(360, 330), 0.0, false, 0.0),
   ]) {
     _surAndroid(
       'CONSTAT — EN MODE, à ${_nom(cas.$1, 2, MapScaleKind.ecoulement)}, AVEC '
       'un avis, « Favoris » posé : la puce « Restrictions » n’est pas toute '
       'atteignable — le bord de la fenêtre de la colonne du haut la coupe '
       '(part atteignable ${cas.$2}, centre '
-      '${cas.$3 ? 'atteignable' : 'non atteignable'})',
+      '${cas.$3 ? 'atteignable' : 'non atteignable'}) ; amenée dans la '
+      'fenêtre, part atteignable ${cas.$4}',
       (WidgetTester tester) async {
         await _pumpOverlays(
           tester,
@@ -2413,9 +2814,27 @@ void main() {
           closeTo(cas.$2, 0.005),
           reason:
               'puce=${_rectOf(tester, _puceRestrictions())}, bouton='
-              '${_rectOf(tester, find.byType(DesignateCenterControl))}',
+              '${_rectOf(tester, find.byType(DesignateCenterControl))}, '
+              'fenêtre=${_fenetre(tester)}',
         );
         expect(_atteignable(_puceRestrictions()), cas.$3);
+
+        // Amenée dans la fenêtre du doigt (`L1` de T4, 2026-10-15).
+        final double distance =
+            _rectOf(tester, _puceRestrictions()).bottom -
+            _fenetre(tester).bottom;
+        if (distance > 0) {
+          await _defilerDuDoigt(tester, distance);
+        }
+        expect(
+          _surfaceAtteignable(tester, _puceRestrictions()),
+          closeTo(cas.$4, 0.005),
+          reason:
+              'après défilement : '
+              'puce=${_rectOf(tester, _puceRestrictions())}, bouton='
+              '${_rectOf(tester, find.byType(DesignateCenterControl))}, '
+              'fenêtre=${_fenetre(tester)}',
+        );
       },
     );
   }
@@ -2425,7 +2844,7 @@ void main() {
       _surAndroid(
         'CONSTAT — EN MODE, à ${_nom(size, 2, scale)}, AVEC un avis : le '
         'bouton de désignation ne recouvre ni le contrôle d’avertissement ni '
-        'aucune des trois puces (leurs centres sont atteignables) ; il '
+        'aucune des puces (leurs centres sont atteignables) ; il '
         'recouvre l’avis',
         (WidgetTester tester) async {
           await _pumpOverlays(
@@ -2448,7 +2867,7 @@ void main() {
           );
           final Map<String, Finder> hauts = <String, Finder>{
             'WarningLink': find.byType(WarningLink),
-            ..._lesTroisPuces(),
+            ..._lesPuces(),
           };
           for (final MapEntry<String, Finder> e in hauts.entries) {
             expect(
@@ -2505,6 +2924,17 @@ void main() {
         (const Size(800, 700), 1, MapScaleKind.debit, false, false),
         (const Size(800, 700), 2, MapScaleKind.ecoulement, true, true),
         (const Size(800, 700), 2, MapScaleKind.debit, true, true),
+        // `K1` de T4 (2026-10-15), mesuré : l'avis d'échec « illisible ». À
+        // 800 × 740, 200 %, il recouvre le réticule SANS son centre (avis
+        // visible de 124 à 357, réticule de 346 à 394) ; ailleurs comme le débit.
+        (_petit, 1, MapScaleKind.crues, true, false),
+        (_petit, 2, MapScaleKind.crues, false, false),
+        (_grand, 1, MapScaleKind.crues, false, false),
+        (_grand, 2, MapScaleKind.crues, true, true),
+        (const Size(800, 740), 1, MapScaleKind.crues, false, false),
+        (const Size(800, 740), 2, MapScaleKind.crues, true, false),
+        (const Size(800, 700), 1, MapScaleKind.crues, false, false),
+        (const Size(800, 700), 2, MapScaleKind.crues, true, true),
       ]) {
     final _Test sur = _selonFenetre(cas.$1);
     sur(
@@ -2570,6 +3000,13 @@ void main() {
   // recouvre plus que l'avis, hors mode et en mode (quatre boutons posés, la
   // fenêtre finissait à 380 et la fiche recouvrait aussi la légende). Les
   // autres cas ne changent pas.
+  //
+  // Disposition élargie par la puce « Vigilance crues », arbitrage du
+  // commanditaire du 2026-10-15 (`L1` de T4) : à 360 × 640, 200 %, l'avis est
+  // sous le bord de la fenêtre au repos, la fiche ne le recouvre plus
+  // (« avis » retiré des deux ensembles) ; hors mode, la fiche (de 246 à 566)
+  // recouvre la quatrième rangée de puces (238 à 288, visible jusqu'à 278).
+  // Les autres cas ne changent pas.
   for (final (Size, double, MapScaleKind, Set<String>, Set<String>) cas
       in <(Size, double, MapScaleKind, Set<String>, Set<String>)>[
         (
@@ -2586,19 +3023,27 @@ void main() {
           <String>{avisNom, legendeNom},
           <String>{avisNom, legendeNom},
         ),
+        // Depuis la puce « Vigilance crues » (`L1` de T4) : l'avis, sous le
+        // bord de la fenêtre au repos, n'est plus recouvert, et hors mode la
+        // fiche (de 246 à 566) recouvre la quatrième rangée de puces —
+        // {avis} et {lien, puces, avis} avant.
         (
           _petit,
           2,
           MapScaleKind.ecoulement,
-          <String>{avisNom},
-          <String>{lienNom, pucesNom, avisNom},
+          <String>{pucesNom},
+          <String>{lienNom, pucesNom},
         ),
+        // Depuis la puce « Vigilance crues » (`L1` de T4) : l'avis, sous le
+        // bord de la fenêtre au repos, n'est plus recouvert, et hors mode la
+        // fiche (de 246 à 566) recouvre la quatrième rangée de puces —
+        // {avis} et {lien, puces, avis} avant.
         (
           _petit,
           2,
           MapScaleKind.debit,
-          <String>{avisNom},
-          <String>{lienNom, pucesNom, avisNom},
+          <String>{pucesNom},
+          <String>{lienNom, pucesNom},
         ),
         (_grand, 1, MapScaleKind.ecoulement, <String>{}, <String>{legendeNom}),
         (
@@ -2619,6 +3064,37 @@ void main() {
           _grand,
           2,
           MapScaleKind.debit,
+          <String>{avisNom},
+          <String>{pucesNom, avisNom},
+        ),
+        // `K1` de T4 (2026-10-15), mesuré : la fiche de 320 px recouvre ce
+        // qu'elle recouvre sur le débit (avis d'échec « illisible », légende
+        // « Vigilance crues » datée) — le constat du 2026-10-03, inchangé.
+        (
+          _petit,
+          1,
+          MapScaleKind.crues,
+          <String>{avisNom, legendeNom},
+          <String>{avisNom, legendeNom},
+        ),
+        (
+          _petit,
+          2,
+          MapScaleKind.crues,
+          <String>{pucesNom},
+          <String>{lienNom, pucesNom},
+        ),
+        (
+          _grand,
+          1,
+          MapScaleKind.crues,
+          <String>{legendeNom},
+          <String>{legendeNom},
+        ),
+        (
+          _grand,
+          2,
+          MapScaleKind.crues,
           <String>{avisNom},
           <String>{pucesNom, avisNom},
         ),
@@ -2656,6 +3132,36 @@ void main() {
               if (_visible(tester, p.value)?.overlaps(fiche) ?? false) p.key,
           };
           expect(recouvertes, attendu, reason: 'fiche=$fiche');
+
+          // Hors mode, là où la fiche recouvre des puces (360 × 640, 200 %,
+          // depuis la puce « Vigilance crues », `L1` de T4, 2026-10-15) :
+          // faire défiler la colonne du haut amène « Restrictions » tout
+          // entière au-dessus de la fiche, et toute sa surface est alors
+          // atteignable (mesuré : 42 px à défiler, « Restrictions » de 196 à
+          // 246, la fiche commence à 246 ; 100 %).
+          if (!enMode && attendu.contains(pucesNom)) {
+            final Finder restrictions = _puceRestrictions();
+            final double distance =
+                _rectOf(tester, restrictions).bottom - fiche.top;
+            if (distance > 0) {
+              await _defilerDuDoigt(tester, distance);
+            }
+            final String apres =
+                'après défilement : '
+                'Restrictions=${_rectOf(tester, restrictions)}, '
+                'fiche=${_rectOf(tester, find.byKey(_ficheKey))}, '
+                'fenêtre=${_fenetre(tester)}';
+            expect(
+              _rectOf(tester, restrictions).bottom,
+              lessThanOrEqualTo(fiche.top + 0.5),
+              reason: apres,
+            );
+            expect(
+              _surfaceAtteignable(tester, restrictions),
+              1.0,
+              reason: apres,
+            );
+          }
         },
       );
     }
@@ -2838,12 +3344,13 @@ void main() {
       },
     );
 
-    // Les trois puces : une rangée à 100 %, deux à 200 %.
+    // Les quatre puces (`L1` de T4, 2026-10-15) : une rangée à 100 %, deux à
+    // 200 % — inchangé depuis les trois puces.
     for (final (double, int) cas in <(double, int)>[(1, 1), (2, 2)]) {
       for (final MapScaleKind scale in MapScaleKind.values) {
         for (final bool enMode in <bool>[false, true]) {
           testWidgetsOnWindows(
-            'à ${_nom(taille, cas.$1, scale)}, ${_mode(enMode)} : les trois '
+            'à ${_nom(taille, cas.$1, scale)}, ${_mode(enMode)} : les quatre '
             'puces prennent ${cas.$2} rangée${cas.$2 > 1 ? 's' : ''}',
             (WidgetTester tester) async {
               await _pumpOverlays(
@@ -2882,12 +3389,12 @@ void main() {
             final Rect colonne = _fenetre(tester);
             final Rect avis = _rectOf(tester, _avis(scale));
             expect(avis.bottom, lessThanOrEqualTo(colonne.bottom));
-            final Rect action = _rectOf(tester, find.byKey(widenSearchKey));
+            final Rect action = _rectOf(tester, find.byKey(_cleAction(scale)));
             final Rect attribution = _rectOf(
               tester,
               find.byType(IgnAttributionBadge),
             );
-            expect(_atteignable(find.byKey(widenSearchKey)), isTrue);
+            expect(_atteignable(find.byKey(_cleAction(scale))), isTrue);
             expect(attribution.overlaps(action), isFalse);
           },
         );
@@ -2902,6 +3409,10 @@ void main() {
           (1, MapScaleKind.debit, false),
           (2, MapScaleKind.ecoulement, true),
           (2, MapScaleKind.debit, true),
+          // La lecture Crues n'est pas répétée ici : à 200 %, l'avis d'échec
+          // recouvre le réticule SANS son centre (une forme que ce tableau
+          // n'a pas) ; la table « EN MODE, carte vide » plus haut la mesure à
+          // 800 × 740, sous Windows (`K1` de T4, 2026-10-15).
         ]) {
       testWidgetsOnWindows(
         'CONSTAT — EN MODE, carte vide, à ${_nom(taille, cas.$1, cas.$2)} : '
@@ -3379,10 +3890,18 @@ void main() {
   // les puces sont entières au repos à partir de 484 px (592 à 200 %) ; la
   // légende entière à partir de 658 px (« écoulement ») et 740 px (« débit »)
   // à 100 %, 884 px (« écoulement ») à 200 % (mesuré, non verrouillé).
+  //
+  // Disposition élargie par la puce « Vigilance crues », arbitrage du
+  // commanditaire du 2026-10-15 (`L1` de T4), remesuré par pas de 2 px : à
+  // 200 %, les puces (une rangée de plus) ne sont entières au repos qu'à
+  // partir de 650 px (592 avant) ; à 100 % et pour la colonne du bas, rien ne
+  // change. Les seuils de la légende ne sont pas remesurés.
   for (final (double, double, double, double, double) cas
       in <(double, double, double, double, double)>[
         (1, 370, 372, 482, 484),
-        (2, 416, 418, 590, 592),
+        // Puces entières au repos à 592, pas à 590, avant la puce « Vigilance
+        // crues » (`L1` de T4) ; la colonne du bas ne change pas.
+        (2, 416, 418, 648, 650),
       ]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
       _surAndroid('CONSTAT — à 360 de large, police '
@@ -3496,10 +4015,14 @@ void main() {
   const Map<MapScaleKind, double> morsure360 = <MapScaleKind, double>{
     MapScaleKind.ecoulement: 9,
     MapScaleKind.debit: 91,
+    // `K1` de T4 (2026-10-15) : la légende « Vigilance crues » datée, de 176
+    // à 466 (290 px, la plus haute des trois légendes).
+    MapScaleKind.crues: 104,
   };
   const Map<MapScaleKind, double> auRepos360 = <MapScaleKind, double>{
     MapScaleKind.ecoulement: 0,
     MapScaleKind.debit: 43,
+    MapScaleKind.crues: 86,
   };
   for (final bool avecFiche in <bool>[false, true]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
@@ -3743,7 +4266,7 @@ void main() {
   // et « Effacer les filtres » sont entiers, dans l'écran, dans la fenêtre de
   // leur colonne (ils se voient sans défiler : constat d du cadrage de T3,
   // § 9) et hors de la colonne.
-  for (final MapScaleKind scale in MapScaleKind.values) {
+  for (final MapScaleKind scale in MapScaleKind.values.where(_filtrable)) {
     for (final bool enMode in <bool>[false, true]) {
       _surWindows('K3 : à ${_nom(const Size(800, 740), 2, scale)} (Roboto pour '
           'Segoe UI), ${_mode(enMode)}, un filtre masque tous les lieux, '
@@ -3808,9 +4331,9 @@ void main() {
     for (final bool enMode in <bool>[false, true]) {
       _surAndroid('K3 : à ${_nom(_grand, 1, scale)}, ${_mode(enMode)}, AVEC '
           'un avis, « Favoris » posé : l’avis est entier dans l’écran et dans '
-          'sa fenêtre, libre de toute surcouche du bas, son action « Élargir la '
-          'recherche » est atteignable ; la colonne à cinq boutons ne recoupe '
-          'rien', (WidgetTester tester) async {
+          'sa fenêtre, libre de toute surcouche du bas, son action '
+          '« ${_libelleAction(scale)} » est atteignable ; la colonne à cinq '
+          'boutons ne recoupe rien', (WidgetTester tester) async {
         await _pumpOverlays(
           tester,
           _grand,
@@ -3838,9 +4361,9 @@ void main() {
           reason: 'avis=$lAvis',
         );
         expect(
-          _atteignable(find.byKey(widenSearchKey)),
+          _atteignable(find.byKey(_cleAction(scale))),
           isTrue,
-          reason: 'action=${_rectOf(tester, find.byKey(widenSearchKey))}',
+          reason: 'action=${_rectOf(tester, find.byKey(_cleAction(scale)))}',
         );
       });
     }
@@ -3860,6 +4383,8 @@ void main() {
   const Map<MapScaleKind, double> legendeADefiler600 = <MapScaleKind, double>{
     MapScaleKind.ecoulement: 173,
     MapScaleKind.debit: 255,
+    // `K1` de T4 (2026-10-15) : légende « Vigilance crues » datée, 64 à 354.
+    MapScaleKind.crues: 298,
   };
   for (final MapScaleKind scale in MapScaleKind.values) {
     _surAndroid('CONSTAT — K3 : à ${_nom(const Size(600, 360), 1, scale)}, '
@@ -3975,29 +4500,61 @@ void main() {
   // la fenêtre finit à 278 : aucun avis n'y tient, et l'action de l'avis de
   // carte vidée par le filtre ne se voit pas sans défiler (constat d du
   // cadrage de T3, § 9, mesuré ici pour la première fois).
-  (double, bool) auRepos((double, MapScaleKind, bool) cas) => switch (cas) {
-    (1, MapScaleKind.ecoulement, false) => (8, true),
-    (1, MapScaleKind.ecoulement, true) => (0, true),
-    (1, MapScaleKind.debit, false) => (0, true),
-    (1, MapScaleKind.debit, true) => (0, true),
-    (2, MapScaleKind.ecoulement, false) => (304, false),
-    (2, MapScaleKind.ecoulement, true) => (193, false),
-    (2, MapScaleKind.debit, false) => (267, false),
-    (2, MapScaleKind.debit, true) => (193, false),
-    _ => throw StateError('cas non mesuré : $cas'),
-  };
+  //
+  // Disposition élargie par la puce « Vigilance crues », arbitrage du
+  // commanditaire du 2026-10-15 (`L1` de T4) : à 200 %, la quatrième rangée de
+  // puces repousse l'avis TOUT ENTIER sous le bord de la fenêtre — rien n'en
+  // paraît au repos (une partie en paraissait avant) ; il s'atteint en faisant
+  // défiler la colonne, le même écart que l'avis de T3 arbitré le 2026-10-14.
+  // Les distances à défiler sont remesurées, toutes de 58 px de plus (une
+  // rangée de 50 et un écart de 8) : ancienne valeur en commentaire de chaque
+  // ligne ; l'avis commence désormais à 296, sous la fenêtre (8 à 278). Troisième membre : une partie de l'avis paraît-elle au
+  // repos. Amené dans la fenêtre, l'avis y paraît, son action s'atteint, et la
+  // colonne à cinq boutons ne recoupe toujours rien.
+  (double, bool, bool) auRepos((double, MapScaleKind, bool) cas) =>
+      switch (cas) {
+        (1, MapScaleKind.ecoulement, false) => (8, true, true),
+        (1, MapScaleKind.ecoulement, true) => (0, true, true),
+        (1, MapScaleKind.debit, false) => (0, true, true),
+        (1, MapScaleKind.debit, true) => (0, true, true),
+        // 304 px, une partie visible, avant `L1` de T4.
+        (2, MapScaleKind.ecoulement, false) => (362, false, false),
+        // 193 px, une partie visible, avant `L1` de T4.
+        (2, MapScaleKind.ecoulement, true) => (251, false, false),
+        // 267 px, une partie visible, avant `L1` de T4.
+        (2, MapScaleKind.debit, false) => (325, false, false),
+        // 193 px, une partie visible, avant `L1` de T4.
+        (2, MapScaleKind.debit, true) => (251, false, false),
+        // `K1` de T4 (2026-10-15) : l’avis d’échec « illisible » (176 à 313),
+        // entier dans sa fenêtre (8 à 324), « Réessayer » sans défiler.
+        (1, MapScaleKind.crues, false) => (0, true, true),
+        // `K1` de T4 (2026-10-15) : l’avis (296 à 566) tout entier sous le bord
+        // de la fenêtre (8 à 278) — le même écart que l’avis d’absence.
+        (2, MapScaleKind.crues, false) => (288, false, false),
+        _ => throw StateError('cas non mesuré : $cas'),
+      };
   for (final double textScale in <double>[1, 2]) {
     for (final MapScaleKind scale in MapScaleKind.values) {
-      for (final bool filtre in <bool>[false, true]) {
+      for (final bool filtre in <bool>[false, if (_filtrable(scale)) true]) {
         for (final bool enMode in <bool>[false, true]) {
           final String nomAvis = filtre
               ? 'l’avis de carte vidée par le filtre'
-              : 'l’avis d’absence';
-          final (double, bool) attendu = auRepos((textScale, scale, filtre));
+              : _nomAvis(scale);
+          final (double, bool, bool) attendu = auRepos((
+            textScale,
+            scale,
+            filtre,
+          ));
+          final String repos = attendu.$1 == 0
+              ? 'l’avis est entier au repos'
+              : attendu.$3
+              ? 'l’avis a ${attendu.$1.toInt()} px à défiler au repos, une '
+                    'partie en reste visible'
+              : 'l’avis a ${attendu.$1.toInt()} px à défiler au repos, rien '
+                    'n’en paraît avant de défiler';
           _surAndroid('CONSTAT — K3 : à ${_nom(_petit, textScale, scale)}, '
-              '${_mode(enMode)}, $nomAvis, « Favoris » posé : '
-              '${attendu.$1 == 0 ? 'l’avis est entier au repos' : 'l’avis a ${attendu.$1.toInt()} px à défiler au repos, une partie en reste visible'}'
-              ', son action '
+              '${_mode(enMode)}, $nomAvis, « Favoris » posé : $repos, son '
+              'action '
               '${attendu.$2 ? 's’atteint sans défiler' : 's’atteint en faisant défiler la colonne'}'
               ' ; la colonne à cinq boutons ne recoupe ni la partie visible de '
               'l’avis, ni celle de la légende, ni le bouton de désignation, ni '
@@ -4016,17 +4573,19 @@ void main() {
                 ? find.byType(FilterHidesEverythingNotice)
                 : _avis(scale);
             final Finder action = find.byKey(
-              filtre ? clearFiltersKey : widenSearchKey,
+              filtre ? clearFiltersKey : _cleAction(scale),
             );
             final _ColonneACinq c = _ColonneACinq(tester, _petit, avis: avis);
             printOnFailure(c.mesure);
             c.exiger();
-            // `BR-007` : jamais une carte muette — une partie de l'avis se
-            // voit au repos, même quand il dépasse de sa fenêtre.
+            // `BR-007` : jamais une carte muette. Une partie de l'avis se
+            // voit au repos là où le troisième membre le dit ; sinon il est
+            // tout entier sous le bord de la fenêtre et s'amène en faisant
+            // défiler (arbitrage du 2026-10-15, `L1` de T4).
             expect(
-              c.pieces['avis (partie visible)'],
-              isNotNull,
-              reason: 'rien de l’avis ne paraît au repos : ${c.mesure}',
+              c.pieces['avis (partie visible)'] != null,
+              attendu.$3,
+              reason: 'partie visible au repos : ${c.mesure}',
             );
 
             final Rect boite = _rectOf(tester, avis);
@@ -4041,8 +4600,8 @@ void main() {
               reason: detail,
             );
             expect(_atteignable(action), attendu.$2, reason: detail);
-            // Ce qui dépasse s'amène dans la fenêtre du doigt, et l'action
-            // s'atteint alors.
+            // Ce qui dépasse s'amène dans la fenêtre du doigt : l'avis y
+            // paraît, l'action s'atteint, et la colonne ne recoupe rien.
             if (aDefiler > 0) {
               await _defilerDuDoigt(tester, aDefiler);
               expect(
@@ -4055,10 +4614,659 @@ void main() {
                 isTrue,
                 reason: 'après défilement : action=${_rectOf(tester, action)}',
               );
+              final _ColonneACinq apres = _ColonneACinq(
+                tester,
+                _petit,
+                avis: avis,
+              );
+              expect(
+                apres.pieces['avis (partie visible)'],
+                isNotNull,
+                reason: 'après défilement : ${apres.mesure}',
+              );
+              apres.exiger();
             }
           });
         }
       }
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // `K1` de T4 — la lecture Crues : ses avis, le clavier, la fiche tronçon
+  // ---------------------------------------------------------------------
+  // Les boucles d'échelle ci-dessus parcourent `MapScaleKind.values` depuis
+  // `K1` de T4 (2026-10-15) : la légende « Vigilance crues » datée et l'avis
+  // d'échec « illisible » avec « Réessayer » y ont les mêmes invariants que
+  // l'écoulement et le débit. Ici, ce qu'elles ne couvrent pas : les quatre
+  // avis de la lecture un à un, l'ordre de tabulation avec « Réessayer », et
+  // la fiche tronçon RÉELLE (`FloodSheetPanel`), plus haute que les fiches de
+  // test de 320 px. « Favoris » posé, comme dans `main.dart`.
+
+  // Les quatre avis de la lecture Crues, aux tailles de téléphone et à la
+  // taille minimale de Windows, à 100 % et à 200 %, hors mode et en mode : sa
+  // partie visible ne passe sous aucune surcouche du bas ; ce qui dépasse de
+  // la fenêtre s'amène en faisant défiler la colonne, et « Réessayer », quand
+  // l'avis le porte, s'atteint alors — le même écart que l'avis d'absence,
+  // arbitré le 2026-10-15 (`L1` de T4 : une rangée de puces de plus, ce qui
+  // sort de la fenêtre de la colonne du haut s'atteint en la faisant défiler).
+  //
+  // « Aucune surcouche du bas » : les contrôles de zoom, l'attribution et, EN
+  // MODE, le bouton de désignation ([_bas]) — au repos et après défilement.
+  // Mesuré (`K1` de T4, 2026-10-15), hors mode comme EN MODE : la partie
+  // visible de l'avis ne recoupe aucune de ces pièces. ⚠️ À 360 × 640 et
+  // 200 % (les quatre avis, hors mode et en mode : 8 relevés au repos sur 96),
+  // l'avis est CACHÉ au repos — sa boîte (296 à 505, 529, 566 ou 616) est
+  // sous la fenêtre, qui finit à 278 — : `_visible` rend `null` et
+  // l'affirmation au repos n'y mesure rien ; ces cas sont mesurés APRÈS
+  // défilement, où l'avis paraît dans la fenêtre. Le constat du 2026-10-03 (le
+  // bouton recouvre l'avis) porte sur la BOÎTE de l'avis ; avec « Favoris »
+  // posé, la fenêtre de la colonne s'arrête au-dessus du bouton (`K3` de T3) :
+  // sa partie visible n'est plus recouverte. Un recouvrement qui apparaîtrait
+  // ici serait un constat à remonter, pas une attente à affaiblir.
+  for (final (String, MapNotice, String, bool) avis
+      in <(String, MapNotice, String, bool)>[
+        ('l’avis de lecture', const FloodLoading(), floodLoadingText, false),
+        (
+          'l’avis « injoignable »',
+          const FloodUnavailable(),
+          floodUnavailableText,
+          true,
+        ),
+        (
+          'l’avis « illisible »',
+          const FloodUnreadable(),
+          floodUnreadableText,
+          true,
+        ),
+        (
+          'l’avis « secteur sans tronçon »',
+          const NoFloodSectionInArea(),
+          noFloodSectionInAreaText,
+          false,
+        ),
+      ]) {
+    for (final Size taille in <Size>[_petit, _grand, const Size(800, 740)]) {
+      for (final double textScale in <double>[1, 2]) {
+        for (final bool enMode in <bool>[false, true]) {
+          final _Test sur = _selonFenetre(taille);
+          sur('K1 de T4 — ${_nom(taille, textScale, MapScaleKind.crues)}, '
+              '${_mode(enMode)}, « Favoris » posé, ${avis.$1} : sa partie '
+              'visible ne recoupe aucune surcouche du bas (contrôles de zoom, '
+              'attribution${enMode ? ', bouton de désignation' : ''}) ; amené '
+              'dans sa fenêtre, il y tient'
+              '${avis.$4 ? ' et « Réessayer » s’atteint' : ''}', (
+            WidgetTester tester,
+          ) async {
+            await _pumpOverlays(
+              tester,
+              taille,
+              textScale: textScale,
+              scale: MapScaleKind.crues,
+              enMode: enMode,
+              avisCrues: avis.$2,
+              onOuvrirFavoris: () {},
+            );
+            final Finder carte = _carteAvisCrues(avis.$3);
+            final _ColonneACinq c = _ColonneACinq(tester, taille, avis: carte);
+            printOnFailure(c.mesure);
+            c.exiger();
+            // EN MODE, le bouton de désignation est bien là : son absence
+            // rendrait l'affirmation vide.
+            expect(_bas().containsKey(_designation), enMode);
+            // Au repos. À 360 × 640, 200 %, l'avis est caché sous le bord de
+            // la fenêtre : rien n'est mesuré ici, il l'est après défilement.
+            expect(
+              _recoupements(tester, carte, _bas()),
+              isEmpty,
+              reason: 'avis=${_rectOf(tester, carte)}',
+            );
+
+            final Rect fenetre = _fenetre(tester);
+            final double aDefiler = math.max(
+              0,
+              _rectOf(tester, carte).bottom - fenetre.bottom,
+            );
+            if (aDefiler > 0) {
+              await _defilerDuDoigt(tester, aDefiler);
+            }
+            final String apres =
+                'après défilement de $aDefiler px : '
+                'avis=${_rectOf(tester, carte)}, fenêtre=$fenetre';
+            expect(
+              _rectOf(tester, carte).bottom,
+              lessThanOrEqualTo(fenetre.bottom + 0.5),
+              reason: apres,
+            );
+            expect(
+              _recoupements(tester, carte, _bas()),
+              isEmpty,
+              reason: apres,
+            );
+            if (avis.$4) {
+              expect(
+                _atteignable(find.byKey(floodRetryKey)),
+                isTrue,
+                reason:
+                    '$apres, Réessayer='
+                    '${_rectOf(tester, find.byKey(floodRetryKey))}',
+              );
+              // Sa cible : 44 sous Windows, 48 sous Android.
+              final Size cible = tester.getSize(find.byKey(floodRetryKey));
+              expect(cible.height, greaterThanOrEqualTo(minimumTapTarget));
+              expect(cible.width, greaterThanOrEqualTo(minimumTapTarget));
+            } else {
+              expect(find.byKey(floodRetryKey), findsNothing);
+            }
+            _ColonneACinq(tester, taille, avis: carte).exiger();
+          });
+        }
+      }
+    }
+  }
+
+  // Le clavier sur la lecture Crues, avis d'échec affiché : « Réessayer » est
+  // un arrêt de Tab juste après les puces (`mapTraversalOrderNotices`, le
+  // rang de l'action des avis depuis `K1` de T3), et Entrée l'active, comme
+  // le toucher. Par la vraie touche (`sendKeyEvent`).
+  for (final Size taille in <Size>[_petit, const Size(800, 740)]) {
+    final _Test sur = _selonFenetre(taille);
+    sur('K1 de T4 — Tab à ${_nom(taille, 1, MapScaleKind.crues)}, HORS MODE, '
+        'avis d’échec, « Favoris » posé : puces (quatre) → « Réessayer » → '
+        '« Favoris » → « Filtres » → contrôles de zoom → contrôle '
+        'd’avertissement, puis reboucle ; Entrée sur « Réessayer » relance UNE '
+        'fois', (WidgetTester tester) async {
+      int relances = 0;
+      await _pumpOverlays(
+        tester,
+        taille,
+        scale: MapScaleKind.crues,
+        onReessayer: () => relances++,
+        onOuvrirFavoris: () {},
+      );
+
+      final List<Finder> ordreAttendu = <Finder>[
+        for (final MapScaleKind kind in MapScaleKind.values) _puceEchelle(kind),
+        _puceRestrictions(),
+        find.byKey(floodRetryKey),
+        find.byKey(mapFavoritesButtonKey),
+        find.byKey(mapFiltersButtonKey),
+        find.byKey(mapZoomInButtonKey),
+        find.byKey(mapZoomOutButtonKey),
+        find.byKey(mapRecenterButtonKey),
+        find.byKey(warningLinkKey),
+      ];
+      for (final Finder attendu in ordreAttendu) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          focusedWithin(tester, attendu),
+          isTrue,
+          reason: 'attendu à ce Tab : $attendu',
+        );
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(focusedWithin(tester, ordreAttendu.first), isTrue);
+
+      // De la première puce à « Réessayer » : un Tab par puce suivante,
+      // puis un pour l'action.
+      for (int i = 0; i < MapScaleKind.values.length + 1; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      expect(focusedWithin(tester, find.byKey(floodRetryKey)), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(relances, 1);
+    });
+  }
+
+  // La fiche tronçon RÉELLE (`FloodSheetPanel`, `F3` de T4), mesurée en Roboto
+  // le 2026-10-15, à côté de la fiche station réelle de La Loire à Blois
+  // (`StationSheetPanel`, débit et hauteur) — haut et bas de chaque fiche :
+  //
+  // - 800 × 740, 100 % : station 433 à 708 ; « Vert » 261 à 708 ; « Jaune »
+  //   157 à 708 ;
+  // - 800 × 740, 200 % : station 119 à 697 ; « Vert » 1 052 px et « Jaune »
+  //   1 536 px, dans une zone de 8 à 697 qui défile ;
+  // - 360 × 640, 100 % : station 289 à 608 ; « Vert » 35 à 608 ; « Jaune »
+  //   737 px, dans une zone de 8 à 608 qui défile ;
+  // - 360 × 640, 200 % : les trois défilent, zone de 8 à 566 ;
+  // - 390 × 844, 100 % : station 493 à 812 ; « Vert » 259 à 812 ; « Jaune »
+  //   115 à 812 ;
+  // - 390 × 844, 200 % : station 28 à 770 ; « Vert » et « Jaune » défilent,
+  //   zone de 8 à 770.
+  //
+  // (« Jaune » : cas construit, niveau jamais observé en production — `VC-04`.)
+  // INVARIANTS, affirmés ici : la fiche tient dans la zone des fiches et
+  // défile au-delà ; la zone ne passe pas sous l'attribution (`K5` de T3) ; la
+  // colonne à cinq boutons ne la recoupe pas ; son bouton de fermeture et son
+  // propre contrôle « ⚠ Avertissement » (`W3c`) sont atteignables ; le bouton
+  // du bulletin s'amène dans la zone en la faisant défiler et s'atteint alors.
+  //
+  // CONSTAT ACCEPTÉ par le commanditaire le 2026-10-16 (point 64 de
+  // `docs/project-state.md`, remonté par `K1` de T4 le 2026-10-15) : « J'accepte
+  // en constat le recouvrement des puces et du « ⚠ Avertissement » de la carte
+  // par la fiche tronçon (point 64) : on le fige par test et on le regarde à la
+  // porte. » Là où la fiche tronçon est plus haute que la fiche station, elle
+  // recouvre des puces que la fiche station laisse atteignables ; l'usager
+  // ferme la fiche (bouton, Échap) pour changer d'échelle. Mesuré (centres des
+  // puces) : à 800 × 740, 200 %, les quatre puces sous la fiche (« Vert » et
+  // « Jaune ») quand la fiche station n'en recouvre aucune ; à 360 × 640, 100 %,
+  // les quatre puces sous la fiche (« Vert » et « Jaune ») quand la fiche
+  // station n'en recouvre aucune ; à 390 × 844, 100 %, « Vigilance crues » et
+  // « Restrictions » sous la fiche « Jaune » seulement. La boîte du contrôle
+  // « ⚠ Avertissement » DE LA CARTE est elle aussi sous la fiche à 360 × 640
+  // (100 % et 200 %) et à 390 × 844, 200 % — son centre aussi, sauf à
+  // 360 × 640, 100 %, sous « Vert » (fiche de 35 à 608, contrôle de 8 à 56,
+  // centre à 32) ; la fiche porte le sien (`W3c`), atteignable, affirmé
+  // ci-dessous. La fiche station de Blois ne le recouvre qu'à 200 %
+  // (360 × 640 et 390 × 844), comme la fiche de 320 px en mode (constat du
+  // 2026-10-03, plus haut). À 800 × 740, 100 % — le constat de `F4`, mesuré en
+  // police de test — aucune puce n'est recouverte en Roboto (Segoe UI réelle
+  // n'est pas mesurée). La mise en page est celle de toute fiche
+  // (`buildMapOverlays`) : un panneau station de la même hauteur recouvre les
+  // mêmes puces, aux six configurations, « Vert » et « Jaune » (affirmé plus
+  // bas), et le contrôle de la carte, la sortie et le défilement sont affirmés
+  // par les cas « K1b de T4 ». Ces constats sont des FAITS ACCEPTÉS, pas des
+  // invariants voulus.
+  for (final (Size, double) cas in <(Size, double)>[
+    (const Size(800, 740), 1),
+    (const Size(800, 740), 2),
+    (_petit, 1),
+    (_petit, 2),
+    (_grand, 1),
+    (_grand, 2),
+  ]) {
+    for (final (String, FloodVigilanceLevel) niveau
+        in <(String, FloodVigilanceLevel)>[
+          ('« Vert »', const Vert()),
+          (
+            '« Jaune » (cas construit, niveau jamais observé en production — '
+                'VC-04)',
+            const Jaune(),
+          ),
+        ]) {
+      final _Test sur = _selonFenetre(cas.$1);
+      sur('K1 de T4 — ${_nom(cas.$1, cas.$2, MapScaleKind.crues)}, HORS MODE, '
+          '« Favoris » posé, fiche tronçon ${niveau.$1} ouverte : elle tient '
+          'dans la zone des fiches et défile, hors de l’attribution et de la '
+          'colonne à cinq boutons ; « Fermer la fiche » et « ⚠ Avertissement » '
+          's’atteignent ; le bulletin s’atteint en faisant défiler la fiche', (
+        WidgetTester tester,
+      ) async {
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          textScale: cas.$2,
+          scale: MapScaleKind.crues,
+          avecAvis: false,
+          ficheTroncon: _ficheTroncon(niveau.$2),
+          onOuvrirFavoris: () {},
+        );
+        final Finder fiche = find.byKey(_ficheTronconKey);
+        Rect zone() => _rectOf(
+          tester,
+          find
+              .ancestor(of: fiche, matching: find.byType(SingleChildScrollView))
+              .first,
+        );
+        final Rect ecran = Offset.zero & cas.$1;
+        final Rect attribution = _rectOf(
+          tester,
+          find.byType(IgnAttributionBadge),
+        );
+        final String mesure =
+            'fiche=${_rectOf(tester, fiche)}, zone=${zone()}, '
+            'attribution=$attribution';
+        printOnFailure(mesure);
+
+        expect(ecran.intersect(zone()), zone(), reason: mesure);
+        expect(_recoupe(zone(), attribution), isFalse, reason: mesure);
+        final _ColonneACinq c = _ColonneACinq(
+          tester,
+          cas.$1,
+          ficheKey: _ficheTronconKey,
+        );
+        printOnFailure(c.mesure);
+        expect(_recoupe(c.colonne, zone()), isFalse, reason: c.mesure);
+        // La fiche défile quand elle est plus haute que sa zone : sa boîte
+        // en dépasse alors par le bas, la zone reste dans l'écran.
+        expect(
+          _rectOf(tester, fiche).bottom > zone().bottom + 0.5,
+          _rectOf(tester, fiche).height > zone().height + 0.5,
+          reason: mesure,
+        );
+
+        expect(
+          _atteignable(find.byKey(floodSheetCloseButtonKey)),
+          isTrue,
+          reason:
+              'Fermer='
+              '${_rectOf(tester, find.byKey(floodSheetCloseButtonKey))}',
+        );
+        // Le contrôle « ⚠ Avertissement » que porte la fiche (`W3c`) est
+        // atteignable. Celui de la carte : constat accepté, cas « K1b de T4 »
+        // plus bas.
+        final Finder lienFiche = find.descendant(
+          of: fiche,
+          matching: find.byKey(warningLinkKey),
+        );
+        expect(
+          _atteignable(lienFiche),
+          isTrue,
+          reason: 'lien de la fiche=${_rectOf(tester, lienFiche)}, $mesure',
+        );
+
+        final Finder bulletin = find.byKey(floodBulletinButtonKey);
+        await tester.ensureVisible(bulletin);
+        await tester.pumpAndSettle();
+        final String apres =
+            'après défilement : bulletin=${_rectOf(tester, bulletin)}, '
+            'zone=${zone()}';
+        expect(
+          zone().intersect(_rectOf(tester, bulletin)),
+          _rectOf(tester, bulletin),
+          reason: apres,
+        );
+        expect(_atteignable(bulletin), isTrue, reason: apres);
+        // Les cibles de la fiche : 44 sous Windows, 48 sous Android.
+        expect(
+          tester.getSize(find.byKey(floodSheetCloseButtonKey)),
+          Size.square(minimumTapTarget),
+        );
+        expect(
+          tester.getSize(bulletin).height,
+          greaterThanOrEqualTo(minimumTapTarget),
+        );
+      });
+    }
+  }
+
+  // Les puces que la fiche tronçon recouvre (centre non atteignable), et le
+  // même mécanisme que pour toute fiche : la zone des fiches ne dépend ni de
+  // l'échelle ni du panneau. Aux six configurations du constat accepté
+  // ci-dessus, pour « Vert » et « Jaune » (cas construit, niveau jamais
+  // observé en production — `VC-04`), mesuré le 2026-10-15 (`K1` de T4) :
+  // l'ensemble des puces recouvertes est affirmé, puis un panneau station de
+  // la hauteur mesurée de la fiche tronçon, sur l'échelle débit, laisse
+  // atteignables exactement les mêmes puces — là où la fiche tronçon en
+  // recouvre comme là où elle n'en recouvre aucune (800 × 740, 100 %, le
+  // constat de `F4` en police de test). FAIT CONSTATÉ pour les ensembles,
+  // pas un invariant voulu : le constat est accepté (2026-10-16, point 64).
+  const Set<String> aucune = <String>{};
+  const Set<String> toutes = <String>{
+    'puce ecoulement',
+    'puce debit',
+    'puce crues',
+    'puce Restrictions',
+  };
+  for (final (Size, double, String, FloodVigilanceLevel, Set<String>) cas
+      in <(Size, double, String, FloodVigilanceLevel, Set<String>)>[
+        (const Size(800, 740), 1, '« Vert »', const Vert(), aucune),
+        (const Size(800, 740), 1, '« Jaune »', const Jaune(), aucune),
+        (const Size(800, 740), 2, '« Vert »', const Vert(), toutes),
+        (const Size(800, 740), 2, '« Jaune »', const Jaune(), toutes),
+        (_petit, 1, '« Vert »', const Vert(), toutes),
+        (_petit, 1, '« Jaune »', const Jaune(), toutes),
+        (_petit, 2, '« Vert »', const Vert(), toutes),
+        (_petit, 2, '« Jaune »', const Jaune(), toutes),
+        (_grand, 1, '« Vert »', const Vert(), aucune),
+        (
+          _grand,
+          1,
+          '« Jaune »',
+          const Jaune(),
+          <String>{'puce crues', 'puce Restrictions'},
+        ),
+        (_grand, 2, '« Vert »', const Vert(), toutes),
+        (_grand, 2, '« Jaune »', const Jaune(), toutes),
+      ]) {
+    final _Test sur = _selonFenetre(cas.$1);
+    sur('CONSTAT — K1 de T4 — ${_nom(cas.$1, cas.$2, MapScaleKind.crues)}, HORS '
+        'MODE, fiche tronçon ${cas.$3} : elle recouvre '
+        '${cas.$5.isEmpty ? 'aucune puce' : cas.$5.join(', ')} ; un panneau '
+        'station de sa hauteur, sur l’échelle débit, laisse atteignables les '
+        'mêmes puces', (WidgetTester tester) async {
+      Map<String, bool> puces() => <String, bool>{
+        for (final MapEntry<String, Finder> p in _lesPuces().entries)
+          p.key: _atteignable(p.value),
+      };
+      await _pumpOverlays(
+        tester,
+        cas.$1,
+        textScale: cas.$2,
+        scale: MapScaleKind.crues,
+        avecAvis: false,
+        ficheTroncon: _ficheTroncon(cas.$4),
+        onOuvrirFavoris: () {},
+      );
+      final Rect fiche = _rectOf(tester, find.byKey(_ficheTronconKey));
+      final Map<String, bool> sousLaFicheTroncon = puces();
+      expect(
+        <String>{
+          for (final MapEntry<String, bool> p in sousLaFicheTroncon.entries)
+            if (!p.value) p.key,
+        },
+        cas.$5,
+        reason:
+            'fiche=$fiche, '
+            '${<String, Rect>{for (final MapEntry<String, Finder> p in _lesPuces().entries) p.key: _rectOf(tester, p.value)}}',
+      );
+
+      await _pumpOverlays(
+        tester,
+        cas.$1,
+        textScale: cas.$2,
+        scale: MapScaleKind.debit,
+        avecAvis: false,
+        ficheStation: Container(
+          key: _ficheStationKey,
+          width: double.infinity,
+          height: fiche.height,
+          color: Colors.red,
+        ),
+        onOuvrirFavoris: () {},
+      );
+      expect(
+        puces(),
+        sousLaFicheTroncon,
+        reason:
+            'hauteur=${fiche.height}, '
+            'panneau=${_rectOf(tester, find.byKey(_ficheStationKey))}',
+      );
+    });
+  }
+
+  // `K1b` de T4 (2026-10-16) : CONSTAT ACCEPTÉ par le commanditaire (point 64
+  // de `docs/project-state.md`) — « J'accepte en constat le recouvrement des
+  // puces et du « ⚠ Avertissement » de la carte par la fiche tronçon (point
+  // 64) : on le fige par test et on le regarde à la porte. » Les puces :
+  // ensembles figés par la comparaison ci-dessus. Ici, le contrôle
+  // « ⚠ Avertissement » DE LA CARTE (celui de la fiche est affirmé atteignable
+  // plus haut) : sa boîte est-elle recoupée par la fiche, son centre est-il
+  // atteignable ; mesuré en Roboto le 2026-10-16, « Vert » et « Jaune » (cas
+  // construit, niveau jamais observé en production — `VC-04`). FAIT CONSTATÉ,
+  // pas un invariant voulu. Puis la SORTIE : la fiche fermée (« Fermer la
+  // fiche »), toutes les puces existent et sont atteignables ; puis le
+  // défilement de la colonne du haut : son étendue est AFFIRMÉE par cas.
+  // Étendue 0 (800 × 740 à 100 et 200 %, 390 × 844 à 100 %) : RIEN À DÉFILER,
+  // le test ne dit rien du défilement. Étendue positive (142 à 360 × 640,
+  // 100 % ; 952 à 360 × 640, 200 % ; 690 à 390 × 844, 200 %) : la défiler
+  // jusqu'en bas ne dégage aucune puce.
+  for (final (Size, double, String, FloodVigilanceLevel, bool, bool, double) cas
+      in <(Size, double, String, FloodVigilanceLevel, bool, bool, double)>[
+        (const Size(800, 740), 1, '« Vert »', const Vert(), false, true, 0),
+        (const Size(800, 740), 1, '« Jaune »', const Jaune(), false, true, 0),
+        (const Size(800, 740), 2, '« Vert »', const Vert(), false, true, 0),
+        (const Size(800, 740), 2, '« Jaune »', const Jaune(), false, true, 0),
+        (_petit, 1, '« Vert »', const Vert(), true, true, 142),
+        (_petit, 1, '« Jaune »', const Jaune(), true, false, 142),
+        (_petit, 2, '« Vert »', const Vert(), true, false, 952),
+        (_petit, 2, '« Jaune »', const Jaune(), true, false, 952),
+        (_grand, 1, '« Vert »', const Vert(), false, true, 0),
+        (_grand, 1, '« Jaune »', const Jaune(), false, true, 0),
+        (_grand, 2, '« Vert »', const Vert(), true, false, 690),
+        (_grand, 2, '« Jaune »', const Jaune(), true, false, 690),
+      ]) {
+    final _Test sur = _selonFenetre(cas.$1);
+    sur(
+      'CONSTAT — K1b de T4 — ${_nom(cas.$1, cas.$2, MapScaleKind.crues)}, '
+      'HORS MODE, fiche tronçon ${cas.$3} : le « ⚠ Avertissement » de la '
+      'carte ${cas.$5 ? 'est recoupé par la fiche' : 'n’est pas recoupé'}, '
+      'son centre ${cas.$6 ? 'reste atteignable' : 'est sous la fiche'} ; '
+      'fermer la fiche rend les puces atteignables ; ${cas.$7 == 0 ? 'rien à défiler' : 'défiler la colonne ne dégage aucune puce'}',
+      (WidgetTester tester) async {
+        int fermetures = 0;
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          textScale: cas.$2,
+          scale: MapScaleKind.crues,
+          avecAvis: false,
+          ficheTroncon: _ficheTroncon(cas.$4, onClose: () => fermetures++),
+          onOuvrirFavoris: () {},
+        );
+        final Rect fiche = _rectOf(tester, find.byKey(_ficheTronconKey));
+        final Finder lienCarte = find.byElementPredicate(
+          (Element e) =>
+              e.widget.key == warningLinkKey &&
+              e.findAncestorWidgetOfExactType<FloodSheetPanel>() == null,
+        );
+        expect(lienCarte, findsOneWidget);
+        final Rect lien = _rectOf(tester, lienCarte);
+        final String mesure = 'fiche=$fiche, lien de la carte=$lien';
+        expect(fiche.overlaps(lien), cas.$5, reason: mesure);
+        expect(_atteignable(lienCarte), cas.$6, reason: mesure);
+
+        // La sortie : « Fermer la fiche », puis les puces existent et se
+        // touchent.
+        await tester.tap(find.byKey(floodSheetCloseButtonKey));
+        await tester.pump();
+        expect(fermetures, 1);
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          textScale: cas.$2,
+          scale: MapScaleKind.crues,
+          avecAvis: false,
+          onOuvrirFavoris: () {},
+        );
+        for (final MapEntry<String, Finder> p in _lesPuces().entries) {
+          expect(p.value, findsOneWidget, reason: p.key);
+          expect(
+            _atteignable(p.value),
+            isTrue,
+            reason: '${p.key}=${_rectOf(tester, p.value)} fiche fermée',
+          );
+        }
+
+        // Défiler la colonne du haut jusqu'en bas ne dégage aucune puce (la
+        // fiche est reposée : le défilement de la colonne repart de zéro).
+        await _pumpOverlays(
+          tester,
+          cas.$1,
+          textScale: cas.$2,
+          scale: MapScaleKind.crues,
+          avecAvis: false,
+          ficheTroncon: _ficheTroncon(cas.$4),
+          onOuvrirFavoris: () {},
+        );
+        Map<String, bool> puces() => <String, bool>{
+          for (final MapEntry<String, Finder> p in _lesPuces().entries)
+            p.key: _atteignable(p.value),
+        };
+        final Map<String, bool> avant = puces();
+        // La colonne du haut : le seul `Scrollable` qui enveloppe les puces.
+        final Finder defilement = find.ancestor(
+          of: find.byType(MapScaleChips),
+          matching: find.byType(Scrollable),
+        );
+        expect(defilement, findsOneWidget);
+        final ScrollableState colonne = tester.state<ScrollableState>(
+          defilement,
+        );
+        final double maxDefilement = colonne.position.maxScrollExtent;
+        expect(
+          maxDefilement,
+          cas.$7,
+          reason: 'étendue de défilement de la colonne, fiche=$fiche',
+        );
+        colonne.position.jumpTo(maxDefilement);
+        await tester.pumpAndSettle();
+        for (final MapEntry<String, bool> p in puces().entries) {
+          expect(
+            p.value && !avant[p.key]!,
+            isFalse,
+            reason:
+                '${p.key} dégagée par le défilement (max=$maxDefilement), '
+                'fiche=$fiche',
+          );
+        }
+      },
+    );
+  }
+
+  // La fiche station réelle de Blois, aux mêmes tailles : les puces qu'elle
+  // laisse atteignables — la comparaison du CONSTAT accepté ci-dessus. FAIT
+  // CONSTATÉ (Roboto, 2026-10-15), pas un invariant voulu.
+  for (final (Size, double, bool) cas in <(Size, double, bool)>[
+    (const Size(800, 740), 1, true),
+    (const Size(800, 740), 2, true),
+    (_petit, 1, true),
+    (_petit, 2, false),
+    (_grand, 1, true),
+    (_grand, 2, false),
+  ]) {
+    final _Test sur = _selonFenetre(cas.$1);
+    sur('CONSTAT — K1 de T4 — ${_nom(cas.$1, cas.$2, MapScaleKind.debit)}, '
+        'HORS MODE, fiche station réelle (Blois) ouverte : les quatre puces '
+        '${cas.$3 ? 'restent atteignables' : 'sont sous la fiche'}', (
+      WidgetTester tester,
+    ) async {
+      await _pumpOverlays(
+        tester,
+        cas.$1,
+        textScale: cas.$2,
+        scale: MapScaleKind.debit,
+        avecAvis: false,
+        ficheStation: _ficheStationBlois(),
+        onOuvrirFavoris: () {},
+      );
+      final String mesure =
+          'fiche=${_rectOf(tester, find.byKey(_ficheStationKey))}';
+      for (final MapEntry<String, Finder> p in _lesPuces().entries) {
+        expect(
+          _atteignable(p.value),
+          cas.$3,
+          reason: '${p.key}=${_rectOf(tester, p.value)}, $mesure',
+        );
+      }
+    });
+  }
+
+  // `K1` de T4 (2026-10-15) : la lecture Crues n'offre aucun critère
+  // (`L1` de T4, cadrage § 7.7) — un filtre posé sur une autre lecture ne
+  // vide pas sa carte, aucun avis « Les filtres masquent… » ni « Effacer les
+  // filtres » ne s'y affiche, même quand `filterHidesEverything` est vrai.
+  for (final Size taille in <Size>[_petit, const Size(800, 740)]) {
+    final _Test sur = _selonFenetre(taille);
+    sur('K1 de T4 — ${_nom(taille, 1, MapScaleKind.crues)}, un filtre qui '
+        'masquerait tout : aucun avis de carte vidée par le filtre, aucun '
+        '« Effacer les filtres »', (WidgetTester tester) async {
+      await _pumpOverlays(
+        tester,
+        taille,
+        scale: MapScaleKind.crues,
+        avecAvis: false,
+        filtreVideTout: true,
+      );
+
+      expect(find.byType(FilterHidesEverythingNotice), findsNothing);
+      expect(find.text(filterHidesEverythingText), findsNothing);
+      expect(find.byKey(clearFiltersKey), findsNothing);
+      expect(_filtrable(MapScaleKind.crues), isFalse);
+    });
   }
 }

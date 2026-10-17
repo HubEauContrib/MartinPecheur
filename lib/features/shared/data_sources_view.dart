@@ -96,6 +96,13 @@ const String dataSourcesRestrictionsText =
     '$restrictionsSourceName et son jeu de données publié sur data.gouv.fr '
     'sont sous Licence Ouverte 2.0.';
 
+/// Section de la vigilance crues (T4, `F5`) : ce que Vigicrues publie, son
+/// rythme seulement ANNONCE (`VC-05`), l'attribution et la licence (`VC-09`).
+const String dataSourcesFloodText =
+    'Niveaux de vigilance crues publiés par $floodSourceName, qui annonce une '
+    'production au moins deux fois par jour. $floodAttribution — Licence '
+    'Ouverte.';
+
 /// Section du fond de carte, première ligne.
 const String dataSourcesIgnText = 'Fond de carte : plan IGN.';
 
@@ -270,6 +277,13 @@ class _ReadingColumn extends StatelessWidget {
                   Text(dataSourcesRestrictionsText),
                   // Lisible et sélectionnable, jamais un lien (voir l'en-tête).
                   SelectableText(restrictionsPublicSiteUrl),
+                ],
+              ),
+              _Section(
+                title: floodSourceName,
+                paragraphs: <Widget>[
+                  Text(dataSourcesFloodText),
+                  SelectableText(floodPublicSiteUrl),
                 ],
               ),
               _Section(

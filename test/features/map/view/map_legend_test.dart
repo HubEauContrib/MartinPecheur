@@ -12,11 +12,16 @@
 //   marqueur, donc l'endroit ou « normal » se glisserait.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
+import 'package:martinpecheur/domain/floods/published_flood_definitions.dart';
+import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/shared/flood_level_gauge.dart';
+import 'package:martinpecheur/features/shared/flood_level_style.dart';
 
 import '../../../support/windows_platform.dart';
 
@@ -65,6 +70,33 @@ Future<void> _pumpLegend(WidgetTester tester, MapScaleKind scale) {
   );
 }
 
+/// Les cinq rangées de la légende Crues, telles que le cadrage § 12.2 les écrit.
+const List<String> libellesCrues = <String>[
+  'Vert — Pas de vigilance particulière requise',
+  'Jaune — Risque de crue génératrice de débordements',
+  'Orange — Risque de crue génératrice de débordements importants',
+  'Rouge — Risque de crue majeure',
+  'Niveau non reconnu',
+];
+
+Future<void> _pumpCruesLegend(
+  WidgetTester tester, {
+  DateTime? date,
+  UtcOffsetOf utcOffsetOf = systemUtcOffsetOf,
+}) {
+  return tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: MapLegend(
+          scale: MapScaleKind.crues,
+          floodInformationDate: date,
+          utcOffsetOf: utcOffsetOf,
+        ),
+      ),
+    ),
+  );
+}
+
 /// Tous les textes reellement rendus par la legende affichee.
 List<String> _texts(WidgetTester tester) => tester
     .widgetList<Text>(
@@ -80,6 +112,21 @@ void main() {
         WidgetTester tester,
       ) async {
         await _pumpLegend(tester, scale);
+        final bool drawsMarkers = switch (scale) {
+          MapScaleKind.crues => false,
+          MapScaleKind.debit || MapScaleKind.ecoulement => true,
+        };
+        if (!drawsMarkers) {
+          // La légende Crues n'a ni pastille ni marqueur ONDE : ses symboles
+          // sont l'échantillon de trait et la jauge de 18 px.
+          for (final FloodLevelGauge gauge
+              in tester.widgetList<FloodLevelGauge>(
+                find.byType(FloodLevelGauge),
+              )) {
+            expect(gauge.size, 18);
+          }
+          return;
+        }
 
         final List<CustomPaint> symboles = tester
             .widgetList<CustomPaint>(
@@ -261,6 +308,153 @@ void main() {
         expect(find.text('Non renseigné'), findsOneWidget);
       },
     );
+  });
+
+  group('legende de l echelle « Vigilance crues » (M3 de T4)', () {
+    testWidgetsOnWindows('nomme son echelle et cite les cinq rangees, mot pour '
+        'mot', (WidgetTester tester) async {
+      await _pumpCruesLegend(tester);
+
+      expect(find.text('Vigilance crues'), findsOneWidget);
+      expect(find.text(mapScaleLabel(MapScaleKind.crues)), findsOneWidget);
+      for (final String label in libellesCrues) {
+        expect(
+          find.text(label),
+          findsOneWidget,
+          reason: '« $label » manque a la legende',
+        );
+      }
+    });
+
+    testWidgetsOnWindows('les rangees viennent du domaine, jamais recopiees', (
+      WidgetTester tester,
+    ) async {
+      await _pumpCruesLegend(tester);
+
+      for (final FloodVigilanceLevel level in const <FloodVigilanceLevel>[
+        Vert(),
+        Jaune(),
+        Orange(),
+        Rouge(),
+      ]) {
+        expect(
+          find.text(
+            '${floodLevelLabel(level)} — ${publishedFloodLegend(level)}',
+          ),
+          findsOneWidget,
+        );
+      }
+      expect(
+        find.text(floodLevelLabel(const NiveauCruesInconnu(null))),
+        findsOneWidget,
+      );
+    });
+
+    testWidgetsOnWindows('chaque rangee porte son echantillon de trait et sa '
+        'jauge de 18 px ; l inconnu est pointille', (
+      WidgetTester tester,
+    ) async {
+      await _pumpCruesLegend(tester);
+
+      final List<FloodStrokeSample> traits = tester
+          .widgetList<FloodStrokeSample>(find.byType(FloodStrokeSample))
+          .toList();
+      final List<FloodLevelGauge> jauges = tester
+          .widgetList<FloodLevelGauge>(find.byType(FloodLevelGauge))
+          .toList();
+
+      expect(traits, hasLength(5));
+      expect(jauges, hasLength(5));
+      expect(
+        traits.map((FloodStrokeSample t) => t.level),
+        orderedEquals(jauges.map((FloodLevelGauge g) => g.level)),
+      );
+      for (final FloodLevelGauge jauge in jauges) {
+        expect(jauge.size, 18);
+      }
+      for (final FloodStrokeSample trait in traits) {
+        expect(
+          floodLevelStyle(trait.level).dotted,
+          trait.level is NiveauCruesInconnu,
+        );
+      }
+      expect(
+        tester.getSize(find.byType(FloodStrokeSample).first),
+        const Size(24, 8),
+      );
+    });
+
+    testWidgetsOnWindows('sans date : ni phrase de couverture, ni ligne de '
+        'date', (WidgetTester tester) async {
+      await _pumpCruesLegend(tester);
+      final List<String> texts = _texts(tester);
+
+      expect(
+        texts,
+        isNot(
+          contains(
+            "Un cours d'eau sans trait de couleur n'est pas suivi par Vigicrues.",
+          ),
+        ),
+      );
+      expect(
+        texts.where((String t) => t.startsWith('Information de vigilance')),
+        isEmpty,
+      );
+    });
+
+    testWidgetsOnWindows('avec date : phrase de couverture puis date locale '
+        'attribuee', (WidgetTester tester) async {
+      await _pumpCruesLegend(
+        tester,
+        date: DateTime.utc(2026, 10, 14, 13, 55, 31),
+        utcOffsetOf: (_) => const Duration(hours: 2),
+      );
+
+      expect(
+        find.text(
+          "Un cours d'eau sans trait de couleur n'est pas suivi par "
+          'Vigicrues.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Information de vigilance du 14/10/2026 à 15:55 — © VIGICRUES',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgetsOnWindows('la legende Crues ne contient aucun symbole ni '
+        'libelle d une autre famille (BR-008)', (WidgetTester tester) async {
+      await _pumpCruesLegend(tester);
+
+      expect(find.byType(StationMarkerDot), findsNothing);
+      expect(find.byType(OndeMarkerShape), findsNothing);
+      final List<String> texts = _texts(tester);
+      for (final String label in <String>[
+        mapScaleLabel(MapScaleKind.debit),
+        mapScaleLabel(MapScaleKind.ecoulement),
+        ...libellesDebit,
+        ...libellesEcoulement,
+      ]) {
+        expect(texts, isNot(contains(label)));
+      }
+    });
+
+    testWidgetsOnWindows('les legendes debit et ecoulement ne montrent ni '
+        'trait ni jauge de crues (BR-008)', (WidgetTester tester) async {
+      for (final MapScaleKind scale in const <MapScaleKind>[
+        MapScaleKind.debit,
+        MapScaleKind.ecoulement,
+      ]) {
+        await _pumpLegend(tester, scale);
+        expect(find.byType(FloodStrokeSample), findsNothing);
+        expect(find.byType(FloodLevelGauge), findsNothing);
+        expect(_texts(tester), isNot(contains('Niveau non reconnu')));
+      }
+    });
   });
 
   group('une seule echelle a la fois (BR-008)', () {

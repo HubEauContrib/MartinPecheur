@@ -19,6 +19,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/filters/map_filter.dart';
+import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
+import 'package:martinpecheur/domain/floods/published_flood_definitions.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
@@ -26,20 +28,31 @@ import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
+import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
-    show clearFiltersLabel, filterHidesEverythingText;
+    show
+        clearFiltersLabel,
+        filterHidesEverythingText,
+        floodLoadingText,
+        floodRetryLabel,
+        floodUnavailableText,
+        floodUnreadableSectionsText,
+        floodUnreadableText,
+        noFloodSectionInAreaText;
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
     show mapFavoritesLabel, mapFiltersActiveLabel, mapFiltersLabel;
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
+import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 
-/// Les sept fichiers attendus sous `docs/acceptance/` : les quatre de T1
+/// Les huit fichiers attendus sous `docs/acceptance/` : les quatre de T1
 /// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2),
-/// `filtres.feature` (`Task F7` du plan T3), `favoris.feature` (`Task S7b`).
+/// `filtres.feature` (`Task F7` du plan T3), `favoris.feature` (`Task S7b`),
+/// `crues.feature` (`Task O4` du plan T4).
 const List<String> _featureFiles = <String>[
   'avertissements.feature',
   'fraicheur-d-une-mesure.feature',
@@ -48,9 +61,10 @@ const List<String> _featureFiles = <String>[
   'restrictions.feature',
   'filtres.feature',
   'favoris.feature',
+  'crues.feature',
 ];
 
-/// Les règles métier que les sept fichiers doivent couvrir AU MINIMUM,
+/// Les règles métier que les huit fichiers doivent couvrir AU MINIMUM,
 /// ensemble (`Task X1` : « la liste est dans le test, pas seulement dans une
 /// intention »). `BR-013` (l'encart renforcé) y entre avec l'écran des
 /// restrictions de T2 ; l'affirmation inverse, valable en T1 (aucun écran de
@@ -94,6 +108,21 @@ const List<String> _filtresRules = <String>[
 
 /// La user story de T3 que `filtres.feature` met en scénarios.
 const String _filtresStory = 'US-13';
+
+/// Les règles que `crues.feature` doit citer, chacune par au moins un
+/// SCÉNARIO : la date, l'absence de donnée, la nomenclature inconnue, l'échelle
+/// nommée, la citation sans verbe d'instruction, le relais sans calcul.
+const List<String> _cruesRules = <String>[
+  'BR-001',
+  'BR-007',
+  'BR-008',
+  'BR-011',
+  'BR-014',
+  'BR-015',
+];
+
+/// La user story de T4 que `crues.feature` met en scénarios.
+const String _cruesStory = 'US-21';
 
 /// Bornes de `BR-005` (fraîcheur d'une observation hydrométrique) : chacune
 /// doit avoir son propre scénario, avec la valeur écrite en toutes lettres
@@ -377,6 +406,31 @@ void main() {
       _scenariosByStory(contenu)[_filtresStory] ?? 0,
       greaterThan(0),
       reason: 'aucun scénario de filtres.feature sous la section US-13',
+    );
+  });
+
+  test('crues.feature cite BR-001, BR-007, BR-008, BR-011, BR-014, BR-015, '
+      'chacune par un scénario', () {
+    final String contenu = contenusParFichier['crues.feature'] ?? '';
+    final List<String> scenarios = _scenariosOf(contenu);
+    expect(scenarios, isNotEmpty);
+    for (final String regle in _cruesRules) {
+      expect(
+        scenarios.any((String scenario) => scenario.contains(regle)),
+        isTrue,
+        reason: 'aucun scénario de crues.feature ne cite $regle',
+      );
+    }
+  });
+
+  test('crues.feature met en scénarios US-21', () {
+    final String contenu = contenusParFichier['crues.feature'] ?? '';
+    expect(
+      _scenariosByStory(contenu)[_cruesStory] ?? 0,
+      19,
+      reason:
+          'crues.feature porte dix-neuf scénarios sous US-21, un par '
+          'critère du cadrage de T4 (§ 10)',
     );
   });
 
@@ -740,6 +794,65 @@ void main() {
           isTrue,
           reason:
               'favoris.feature ne contient pas « ${libelle.value} », '
+              'le libellé du code pour ${libelle.key}',
+        );
+      });
+    }
+  });
+
+  // Même lien pour `crues.feature` (T4) : libellés lus dans le code, cherchés
+  // entre guillemets français. `L1` y pose la puce et la feuille de filtres.
+  group('les libellés portés par le code figurent dans crues.feature', () {
+    final String crues = contenusParFichier['crues.feature'] ?? '';
+
+    final Map<String, String> libellesCrues = <String, String>{
+      'lecture Crues': mapScaleLabel(MapScaleKind.crues),
+      'feuille de filtres, lecture Crues': mapFilterFloodNoCriterionText,
+      'légende, couverture': floodCoverageText,
+      'avis, en cours': floodLoadingText,
+      'avis, refusée ou illisible': floodUnreadableText,
+      'avis, tronçons écartés': floodUnreadableSectionsText(2),
+      'avis, secteur sans tronçon': noFloodSectionInAreaText,
+      'action des avis en échec': floodRetryLabel,
+      // `M5` : l'avertissement de crue (BR-015). Le corps est cité dans le
+      // texte de la fenêtre « ⚠ Avertissement », qui le contient.
+      'avertissement de crue, titre': floodWarningHeadline,
+      'fenêtre « ⚠ Avertissement », lecture Crues': floodWarningWindowText,
+      for (final FloodVigilanceLevel level in const <FloodVigilanceLevel>[
+        Vert(),
+        Jaune(),
+        Orange(),
+        Rouge(),
+      ])
+        'légende, rangée ${floodLevelLabel(level)}':
+            '${floodLevelLabel(level)} — ${publishedFloodLegend(level)}',
+      // `F3` : la fiche tronçon. Le Gherkin cite le titre de l'orange et celui
+      // du niveau inconnu, la phrase de l'inconnu et le bouton du bulletin.
+      'fiche, titre orange': floodVigilanceTitle(const Orange()),
+      'fiche, niveau inconnu': floodVigilanceTitle(
+        const NiveauCruesInconnu(null),
+      ),
+      'fiche, phrase du niveau inconnu': floodUnknownLevelText,
+      'fiche, bouton du bulletin': floodBulletinButtonLabel,
+      'légende, niveau non reconnu': floodLevelLabel(
+        const NiveauCruesInconnu(null),
+      ),
+    };
+    // L'avis « injoignable » ne figure que dans la table d'exemples d'un plan
+    // du scénario, sans guillemets : cherché tel quel.
+    test('crues.feature porte l’avis injoignable dans sa table d’exemples', () {
+      expect(crues.contains(floodUnavailableText), isTrue);
+    });
+    test('crues.feature cite le corps de l’avertissement de crue (BR-015)', () {
+      expect(crues.contains(floodWarningBody), isTrue);
+    });
+    for (final MapEntry<String, String> libelle in libellesCrues.entries) {
+      test('crues.feature cite « ${libelle.value} » (${libelle.key})', () {
+        expect(
+          _containsQuoted(crues, libelle.value),
+          isTrue,
+          reason:
+              'crues.feature ne contient pas « ${libelle.value} », '
               'le libellé du code pour ${libelle.key}',
         );
       });

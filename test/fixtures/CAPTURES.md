@@ -80,3 +80,32 @@ aucune gardée en fixture, espacées d'au moins une seconde :
 | `/zones?lat=43.9493&lon=4.8055` (Avignon, Vaucluse) | 13:12:24 | `200` | `O4` : trois zones, toutes `vigilance` |
 
 `O4` : **non trouvé** en trois appels. Aucune fixture n'est fabriquée pour ce niveau.
+
+## Vigicrues — capturées le 2026-10-14 (lot 0 de T4, `VC-01` à `VC-13`)
+
+Toutes UTC, heure du poste (±2 s : les fichiers du référentiel se disent créés 1 à 2 s après l'heure notée), par `curl` depuis un seul poste. Base `https://www.vigicrues.gouv.fr` sauf mention.
+Détail et interprétation : `docs/sources/vigicrues.md`.
+
+| Fixture | URL | Heure UTC | Statut | Ce qu'elle prouve |
+|---|---|---|---|---|
+| `vigicrues/infovigicru_extrait_territoire_8_2026-10-14.geojson` | `/services/InfoVigiCru.geojson` (atteinte aussi par `/services/1/InfoVigiCru.geojson` → `302`) | 14:30:49 | `200` | `VC-03` à `VC-05` : **extrait déclaré**, les 15 entités du territoire `8` recopiées sans modification, membres de premier niveau d'origine gardés (`DtHrInfoVigiCru`, `RefInfoVigiCru`, `bbox`) ; document complet 2 245 691 octets, SHA-256 dans la fiche |
+| `vigicrues/territoires_2026-10-14.json` | `/services/TerEntVigiCru.json` (atteinte par `/services/v1.1/…` → `302`) | 14:30:57 | `200` | `VC-08` : 20 territoires, codes et noms |
+| `vigicrues/troncon_AP1_stations_2026-10-14.json` | `/services/TronEntVigiCru.json?CdEntVigiCru=AP1&TypEntVigiCru=8` | 14:30:57 | `200` | `VC-11` : stations de vigilance du tronçon `AP1`, codes Hub'Eau |
+| `vigicrues/accueil_legende_2026-10-14.html` | `/` | 14:31:19 | `200` | `VC-13` : légende et explications publiées des quatre niveaux ; `VC-05` : « bulletin d'information national publié le 14.10.2026 à 15h55 » |
+| `vigicrues/rss_national_aucune_vigilance_2026-10-14.xml` | `/territoire/rss` | 14:32:18 | `200` | `VC-05`, `VC-12` : `pubDate` national `Wed, 14 Oct 2026 15:55:31 +0200` |
+| `vigicrues/rss_troncon_BT5_2026-10-14.xml` | `/territoire/rss?CdEntVigiCru=BT5` | 14:32:18 | `200` | `VC-12` : niveau en mot (« Blavet : vert »), date d'actualisation du territoire (13 octobre, 16 h 27) |
+| `vigicrues/rss_troncons_BT5_AP1_2026-10-14.xml` | `/territoire/rss?CdEntVigiCru=BT5,AP1` | 14:32:18 | `200` | `VC-12` : liste de codes séparés par des virgules, un item par tronçon |
+| `vigicrues/rss_code_inconnu_repli_national_2026-10-14.xml` | `/territoire/rss?CdEntVigiCru=ZZ999` | 14:32:18 | `200` | `VC-12` : un code inconnu rend le message national « Pas de vigilance particulière requise » |
+| `vigicrues/sandre_nomenclature_837_2026-10-14.json` | `https://api.sandre.eaufrance.fr/referentiels/v1/nsa/837.json` | 14:32:59 | `200` | `VC-04` : codes `1` à `4`, mnémoniques, libellés et définitions Sandre |
+| `vigicrues/rss_parametre_invalide_200_2026-10-14.html` | `/territoire/rss?CdEntVigiCru=8` | 14:34:02 | `200` | `VC-12` : erreur servie en `200`, `text/html`, 39 octets |
+| `vigicrues/rss_territoire_8_quinze_troncons_2026-10-14.xml` | `/territoire/rss?CdEntVigiCru=BT12,BT13,BT14,BT15,BT10,BT11,BT5,BT6,BT7,BT8,BT1,BT2,BT3,BT4,BT9` | 14:35:27 | `200` | `VC-12` : 15 items, 20 085 octets, tous « vert », tous datés du 13 octobre à 16 h 27 |
+
+Sans fixture, statut et heure seulement : `/services/1/InfoVigiCru.geojson` → `302` (14:30:49) ;
+le GeoJSON avec cinq paramètres de filtre → `200`, 2 245 691 octets chacun (14:31:19, `VC-02`) ;
+avec `Accept-Encoding: gzip` → `200`, sans `Content-Encoding` (14:34:02, `VC-01`) ; rejoué à
+14:36:45 → `200`, mêmes `DtHrInfoVigiCru` et `RefInfoVigiCru` (`VC-05`) ;
+`/services/NExistePas.geojson` → `404`, `text/html` (14:34:02, `VC-10`) ; `/bulletin_local/8`
+(14:31:48), `/bulletin_national` (14:31:48), `/bulletin_local/29` (14:37:04) → `200`, HTML ;
+`/categorie/2` (mentions légales) → `200` (14:32:59, `VC-09`) ; `/categorie/1` (FAQ) → `200`
+(14:34:02) ; `https://www.data.gouv.fr/api/1/datasets/?q=vigicrues&page_size=10` → `200`
+(14:34:31, `VC-01`) ; `/services/StaEntVigiCru.json?CdEntVigiCru=E351122001&TypEntVigiCru=7` → `200` (14:30:57, `VC-11`) ; `http://www.vigicrues.gouv.fr/api/docs.jsonld` → `301` vers `https`, puis `https://…/api/docs.jsonld` → `500`, `text/html`, 1 808 octets (14:55:34 et 14:55:40, `VC-01`, `VC-10`) ; `http://…/bulletin-local.php?CdEntVigiCru=8` → `301` vers `https`, puis `302` vers `/bulletin_local/8` (14:55:34, `VC-08`).

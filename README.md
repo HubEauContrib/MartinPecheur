@@ -36,6 +36,13 @@ Application **Android, iOS et Windows** qui informe les usagers d'une rivière f
 MartinPêcheur s'adresse aux riverains, aux agriculteurs et irrigants, aux pêcheurs, aux usagers de
 loisir et aux collectivités — sur leur téléphone comme sur leur PC.
 
+![La lecture « Vigilance crues » sur Windows : tronçons suivis par Vigicrues tracés et étiquetés « Vert », légende citée et datée](docs/captures/2026-10-15-lecture-crues-windows.png)
+
+*Lecture « Vigilance crues » (T4, version `0.5.0` en cours, non publiée), exécutable Windows de
+release, capturé le 2026-10-15. Le niveau affiché est celui que publie Vigicrues, daté et
+attribué ; l'application ne le calcule pas. Fond © IGN Géoplateforme — Licence Ouverte ;
+vigilance © VIGICRUES.*
+
 | | |
 |---|---|
 | 🗺️ **Une carte** | Stations hydrométriques et points d'observation ONDE, colorés par état, avec clustering et filtres |

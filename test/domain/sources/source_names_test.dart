@@ -44,13 +44,30 @@ void main() {
       expect(ignAttribution, contains('Licence Ouverte'));
     });
 
-    test('les quatre noms de source sont distincts', () {
+    test('les cinq noms de source sont distincts', () {
       expect(<String>{
         hydrometrieSourceName,
         ondeSourceName,
         restrictionsSourceName,
         ignSourceName,
-      }, hasLength(4));
+        floodSourceName,
+      }, hasLength(5));
+    });
+
+    test('Vigicrues : nom, attribution, site public (T4, W2)', () {
+      expect(floodSourceName, 'Vigicrues');
+      expect(floodAttribution, '© VIGICRUES');
+      expect(floodAttribution, contains(floodSourceName.toUpperCase()));
+      expect(floodPublicSiteLabel, 'www.vigicrues.gouv.fr');
+      expect(floodPublicSiteUrl, 'https://www.vigicrues.gouv.fr');
+    });
+
+    test('floodBulletinUri vise le bulletin du territoire sur le site '
+        'public', () {
+      expect(
+        floodBulletinUri('8').toString(),
+        'https://www.vigicrues.gouv.fr/bulletin_local/8',
+      );
     });
   });
 }

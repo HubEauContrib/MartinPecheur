@@ -412,7 +412,8 @@ void main() {
 
   group('MapView — ordre de tabulation déclaré (K2)', () {
     testWidgetsOnWindows(
-      'Tab parcourt, dans cet ordre : chips (2) → « Élargir la recherche » '
+      'Tab parcourt, dans cet ordre : une puce par échelle → « Élargir la '
+      'recherche » '
       '(avis de carte vide, K1 de T3) → « Filtres » → contrôles de zoom (3) → '
       'carte → lien du bandeau — puis reboucle',
       (WidgetTester tester) async {
@@ -425,8 +426,9 @@ void main() {
         // soit `null` pour « carte » — cas particulier, voir
         // [_carteFocused].
         final List<Finder?> ordreAttendu = <Finder?>[
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          // Une puce par échelle (`L1` de T4, 2026-10-15 : deux avant).
+          for (final MapScaleKind kind in MapScaleKind.values)
+            find.byKey(ValueKey<MapScaleKind>(kind)),
           find.byKey(widenSearchKey),
           find.byKey(mapFiltersButtonKey),
           find.byKey(mapZoomInButtonKey),
@@ -474,10 +476,11 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // chips (×2), « Élargir la recherche » (avis de carte vide, `K1` de
-        // T3), « Filtres », contrôles (×3) puis carte : huit Tab avant la
-        // fiche.
-        for (int i = 0; i < 8; i++) {
+        // Une puce par échelle, « Élargir la recherche » (avis de carte vide,
+        // `K1` de T3), « Filtres », contrôles (×3) puis carte : neuf Tab
+        // avant la fiche (huit avant la puce « Vigilance crues », `L1` de T4,
+        // 2026-10-15).
+        for (int i = 0; i < MapScaleKind.values.length + 6; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }
@@ -497,7 +500,7 @@ void main() {
 
     testWidgetsOnWindows(
       'l ordre entier (F10b de T3), désignation câblée, mode « Restrictions » '
-      'allumé, fiche ouverte : puces (3) → « Élargir la recherche » (K1 de '
+      'allumé, fiche ouverte : puces (4) → « Élargir la recherche » (K1 de '
       'T3) → « Filtres » → + → − → recentrer → bouton de désignation → carte '
       '→ fiche → « ⚠ Avertissement »',
       (WidgetTester tester) async {
@@ -519,8 +522,9 @@ void main() {
         await tester.pumpAndSettle();
 
         final List<Finder?> ordreAttendu = <Finder?>[
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          // Une puce par échelle (`L1` de T4, 2026-10-15 : deux avant).
+          for (final MapScaleKind kind in MapScaleKind.values)
+            find.byKey(ValueKey<MapScaleKind>(kind)),
           find.byKey(mapDesignationChipKey),
           find.byKey(widenSearchKey),
           find.byKey(mapFiltersButtonKey),
@@ -561,13 +565,15 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // chips (×2), « Élargir la recherche » (avis de carte vide, `K1` de
-        // T3), « Filtres », contrôles (×3), carte, lien : neuf arrêts, dans
-        // l'ordre déclaré. « carte » (index 7) est vérifiée à part
+        // Une puce par échelle, « Élargir la recherche » (avis de carte vide,
+        // `K1` de T3), « Filtres », contrôles (×3), carte, lien : dix arrêts
+        // (neuf avant la puce « Vigilance crues », `L1` de T4, 2026-10-15),
+        // dans l'ordre déclaré. « carte » (`null`) est vérifiée à part
         // ([_carteFocusRingVisible]) — voir [_carteFocused].
         final List<Finder?> arrets = <Finder?>[
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          // Une puce par échelle (`L1` de T4, 2026-10-15 : deux avant).
+          for (final MapScaleKind kind in MapScaleKind.values)
+            find.byKey(ValueKey<MapScaleKind>(kind)),
           find.byKey(widenSearchKey),
           find.byKey(mapFiltersButtonKey),
           find.byKey(mapZoomInButtonKey),
@@ -609,7 +615,7 @@ void main() {
   });
 
   // `K1` de T3 : l'ordre COMPLET à 800 × 600, les deux boutons d'entrée posés
-  // (« Favoris » puis « Filtres ») et la désignation câblée (trois puces) ; et
+  // (« Favoris » puis « Filtres ») et la désignation câblée (quatre puces) ; et
   // l'action de l'avis, arrêt de Tab juste après les puces (arbitrage du
   // commanditaire du 2026-10-14). Sans dépôt, la carte est vide : l'avis
   // d'absence et son action « Élargir la recherche » sont affichés.
@@ -643,7 +649,7 @@ void main() {
     for (final bool enMode in <bool>[false, true]) {
       testWidgetsOnWindows(
         '800 × 600, ${enMode ? 'EN MODE « Restrictions »' : 'HORS MODE'}, '
-        'carte vide : puces (3) → « Élargir la recherche » → « Favoris » → '
+        'carte vide : puces (4) → « Élargir la recherche » → « Favoris » → '
         '« Filtres » → + → − → recentrer'
         '${enMode ? ' → bouton de désignation' : ''} → carte → '
         '« ⚠ Avertissement » — puis reboucle',
@@ -667,8 +673,9 @@ void main() {
           expect(find.byKey(widenSearchKey), findsOneWidget);
 
           await parcourir(tester, <Finder?>[
-            find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
-            find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+            // Une puce par échelle (`L1` de T4, 2026-10-15 : deux avant).
+            for (final MapScaleKind kind in MapScaleKind.values)
+              find.byKey(ValueKey<MapScaleKind>(kind)),
             find.byKey(mapDesignationChipKey),
             find.byKey(widenSearchKey),
             find.byKey(mapFavoritesButtonKey),
@@ -685,7 +692,7 @@ void main() {
     }
 
     testWidgetsOnWindows(
-      '800 × 600, un filtre masque tous les lieux : puces (3) → « Effacer les '
+      '800 × 600, un filtre masque tous les lieux : puces (4) → « Effacer les '
       'filtres » → « Favoris » → « Filtres » → + → − → recentrer → carte → '
       '« ⚠ Avertissement » — puis reboucle ; Entrée sur l action efface le '
       'filtre',
@@ -719,8 +726,9 @@ void main() {
         expect(find.byKey(clearFiltersKey), findsOneWidget);
 
         final List<Finder?> ordre = <Finder?>[
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.ecoulement)),
-          find.byKey(const ValueKey<MapScaleKind>(MapScaleKind.debit)),
+          // Une puce par échelle (`L1` de T4, 2026-10-15 : deux avant).
+          for (final MapScaleKind kind in MapScaleKind.values)
+            find.byKey(ValueKey<MapScaleKind>(kind)),
           find.byKey(mapDesignationChipKey),
           find.byKey(clearFiltersKey),
           find.byKey(mapFavoritesButtonKey),
@@ -733,9 +741,11 @@ void main() {
         ];
         await parcourir(tester, ordre);
 
-        // Le rebouclage a posé le focus sur la première puce : trois Tab de
-        // plus atteignent l'action, et Entrée fait ce que le tap fait.
-        for (int i = 0; i < 3; i++) {
+        // Le rebouclage a posé le focus sur la première puce : un Tab par
+        // puce suivante puis un pour l'action (trois avant la puce
+        // « Vigilance crues », `L1` de T4, 2026-10-15 ; quatre depuis), et
+        // Entrée fait ce que le tap fait.
+        for (int i = 0; i < MapScaleKind.values.length + 1; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }
@@ -981,13 +991,14 @@ void main() {
       label: 'Loiret',
     );
 
-    /// Sept Tab après le montage : deux puces, « Filtres », trois boutons de
+    /// Après le montage : une puce par échelle, « Filtres », trois boutons de
     /// zoom, puis UN de plus pour ENTRER dans le groupe « carte » — chaque Tab
     /// déplace le focus DEPUIS l'arrêt courant vers le suivant (le
     /// premier Tab atteint la première puce, pas « avant » elle), donc
-    /// le septième atteint le premier élément de « carte ».
+    /// le dernier atteint le premier élément de « carte ». Sept Tab avant la
+    /// puce « Vigilance crues » (`L1` de T4, 2026-10-15), huit depuis.
     Future<void> tabJusquACarte(WidgetTester tester) async {
-      for (int i = 0; i < 7; i++) {
+      for (int i = 0; i < MapScaleKind.values.length + 5; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
       }
@@ -1288,7 +1299,9 @@ void main() {
           await tester.tap(find.byKey(mapZoomInButtonKey));
           await tester.pumpAndSettle();
         }
-        for (int i = 0; i < 7; i++) {
+        // Jusqu'à « carte » : sept Tab avant la puce « Vigilance crues »
+        // (`L1` de T4, 2026-10-15), huit depuis.
+        for (int i = 0; i < MapScaleKind.values.length + 5; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }
@@ -1378,9 +1391,10 @@ void main() {
         }
         expect(viewModel.level, isNull);
 
-        // Sept Tab pour entrer dans « carte » : `proche` est en tête
+        // Huit Tab pour entrer dans « carte » (sept avant la puce « Vigilance
+        // crues », `L1` de T4, 2026-10-15) : `proche` est en tête
         // (`orderedIndividualStations`, distance croissante).
-        for (int i = 0; i < 7; i++) {
+        for (int i = 0; i < MapScaleKind.values.length + 5; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }

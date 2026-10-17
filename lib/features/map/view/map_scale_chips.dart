@@ -19,7 +19,7 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 
 /// La clé du choix « Restrictions » (`E5` de T2) : posée sur son nœud
 /// sémantique, donc sur la boîte entière — celle que les tests tapent et
-/// mesurent, comme `ValueKey<MapScaleKind>` pour les deux échelles.
+/// mesurent, comme `ValueKey<MapScaleKind>` pour chaque échelle.
 const Key mapDesignationChipKey = Key('map-designation-chip');
 
 /// Le libellé du choix « Restrictions » — celui de l'écran des restrictions
@@ -32,9 +32,9 @@ const String designationChipLabel = 'Restrictions';
 /// gauche à partir de 600 px de large, dans la colonne de droite en deçà
 /// (`buildMapOverlays`).
 ///
-/// ⚠️ « Restrictions » n'est **pas** une troisième échelle (`E5`, arbitrage
-/// du commanditaire du 2026-10-03) : c'est un interrupteur **indépendant**
-/// des deux autres. La puce de l'échelle reste allumée, « Restrictions »
+/// ⚠️ « Restrictions » n'est **pas** une échelle (`E5`, arbitrage du
+/// commanditaire du 2026-10-03) : c'est un interrupteur **indépendant** des
+/// puces d'échelle. La puce de l'échelle reste allumée, « Restrictions »
 /// s'allume en plus ; elle porte `toggled`, jamais `selected`.
 class MapScaleChips extends StatelessWidget {
   const MapScaleChips({
@@ -59,14 +59,16 @@ class MapScaleChips extends StatelessWidget {
 
   /// Appelé par un tap sur « Restrictions ». En production,
   /// `MapViewModel.toggleDesignationMode`. `null` : aucune désignation n'est
-  /// câblée, la troisième puce est **absente** — jamais une puce morte.
+  /// câblée, la puce « Restrictions » est **absente** — jamais une puce
+  /// morte.
   final VoidCallback? onToggleDesignationMode;
 
   @override
   Widget build(BuildContext context) {
     // `Wrap` et non `Row` : « Débit relatif à l'historique » est un libellé
-    // long, et les deux puces ne tiennent pas côte à côte sur un écran
-    // étroit — ni sur un large, une fois réservée la place de la légende.
+    // long, et les puces ne tiennent pas toutes côte à côte sur un écran
+    // étroit — ni toujours sur un large, une fois réservée la place de la
+    // légende.
     // Une `Row` déborderait ; `Wrap` les empile.
     //
     // ⚠️ Le `Wrap` ne replie qu'ENTRE les puces, jamais dans l'une d'elles :
@@ -108,7 +110,7 @@ class MapScaleChips extends StatelessWidget {
 ///    « aucune information n'est portée par la seule couleur »
 ///    (`04-ui.md` § 3) vaut aussi pour un contrôle.
 ///
-/// Les trois puces partagent cette seule pilule. Une échelle porte
+/// Toutes les puces partagent cette seule pilule. Une échelle porte
 /// `selected` ; le choix « Restrictions » porte `toggled` (un interrupteur,
 /// pas un choix exclusif) — l'un ou l'autre, jamais les deux.
 ///

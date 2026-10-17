@@ -81,6 +81,15 @@ Les branches inconnues s'appellent `GraviteInconnue` et `TypeZoneInconnu`, et no
 déjà pris par `FlowCategory` : deux classes homonymes rendraient ambigu tout fichier qui importe
 deux échelles. Branches connues égales **par type**, branches inconnues **par valeur brute**.
 
+Contexte Crues (`lib/domain/floods/`, T4) :
+
+- `FloodVigilanceLevel` — sealed : `Vert`, `Jaune`, `Orange`, `Rouge`, branche par défaut
+  **`NiveauCruesInconnu`**, qui garde la valeur brute reçue (`raw`, `null` compris, `BR-011`).
+  `floodLevelLabel`, `floodVigilanceTitle` et `floodDrawingRank` (vert, jaune, orange, rouge,
+  inconnu : le plus grave au-dessus) sont des `switch` exhaustifs ;
+  `publishedFloodLegend` et `publishedFloodExplanation` citent Vigicrues au caractère près (`null`
+  pour l'inconnu).
+
 ## Entités
 
 Identité + cycle de vie, à la différence des objets-valeur.
@@ -108,6 +117,11 @@ Identité + cycle de vie, à la différence des objets-valeur.
   date de mesure (`BR-001`). `discharge` et `level` sont déjà convertis (`BR-002`) : aucun
   `double` nu. `null` ≠ zéro (`BR-007`) — un zéro mesuré est un assec, une absence est une
   absence. `level` traverse sans contrôle de signe : une hauteur négative est possible.
+- **`FloodSection`** — un tronçon de cours d'eau (T4) : identité `FloodSectionCode` (le code publié,
+  non vide, tel quel), nom publié, code du territoire, `FloodVigilanceLevel` et tracé (au moins une
+  ligne, chacune d'au moins deux `GeoPoint`). L'égalité ne porte que sur le code.
+- **`FloodVigilanceMap`** — la carte de vigilance : tronçons, nombre d'entités écartées et **date de
+  l'information, obligatoire et en UTC** (`BR-001`).
 
 ## Contexte Restrictions — la réponse datée au point (T2, M3)
 
@@ -219,6 +233,33 @@ classDiagram
     FavoriteStorageFailure <|-- ListeDeFavorisIllisible
     FavoriteStorageFailure <|-- EcritureDeFavorisEnEchec
 ```
+
+## Contexte Crues — la vigilance publiée par tronçon (T4)
+
+Ce contexte relaie le niveau de vigilance que Vigicrues publie pour chaque tronçon ; il ne calcule
+ni niveau, ni seuil, ni prévision (`BR-015`). Sa nomenclature close est `FloodVigilanceLevel`
+(voir « Nomenclatures closes »). Les entités `FloodSection` (avec `FloodSectionCode`) et
+`FloodVigilanceMap` sont sous « Entités ».
+
+Le port est `FloodVigilanceSource` (`current()`) : il **lève** un `FloodVigilanceFailure`, ne le rend
+jamais, pour que le cache n'écrive que ce qui est rendu. L'échec est scellé à trois branches,
+`VigilanceInjoignable`, `VigilanceRefusee(statusCode)` et `VigilanceIllisible`, sans partage de types
+avec `RestrictionLookupFailure` (contextes distincts).
+
+Règles pures des tronçons (`flood_section_rules.dart`), toutes **par les segments** du tracé
+(arbitrage 11), dans le plan (longitude, latitude), découpage de Liang–Barsky, bornes incluses :
+
+- `floodSectionLabelled` — un tronçon non vert ou de niveau non reconnu porte une étiquette à tout
+  zoom, un vert seulement au niveau individuel (`individualLevel`, dit par l'appelant : le seuil de
+  zoom n'est pas dans le domaine).
+- `floodSectionTouches` — un tronçon touche l'emprise si l'un de ses segments la coupe, même sans
+  qu'aucun sommet y soit.
+- `floodLabelAnchor` — le point du trait visible (segments découpés à l'emprise) le plus proche du
+  centre de l'emprise, toujours dans l'emprise, ou `null` si aucun segment n'y entre.
+- `floodSectionsInDrawingOrder` — tri stable par `floodDrawingRank` croissant : le plus grave est
+  dessiné au-dessus.
+- `floodLabelsFor` — les tronçons étiquetés qui ont une ancre, dans l'ordre de tabulation : distance
+  de l'ancre au centre, puis code.
 
 ## Agrégats
 

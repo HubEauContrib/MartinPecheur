@@ -11,6 +11,139 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [0.5.0] — 2026-10-17
+
+Cinquième tranche (T4) : la vigilance crues publiée par Vigicrues, en
+quatrième lecture de la carte. **Version datée du 2026-10-17**, après les
+constats de la porte par le commanditaire. La porte de T4 est franchie sur les
+deux cibles, Windows (exécutable de release lancé hors Flutter) et Android
+(émulateur Pixel_7, en débogage) : « Constaté à l'exécution » recopie ce que le
+commanditaire a dit, « Non vérifié » ce qu'il n'a pas dit. Aucun tag n'est posé
+et la mise en production reste une décision du commanditaire ; la porte de T2
+reste due. « Ajouté » est écrit d'après le code livré sur `feat/t4-crues` et
+vérifié par `flutter test` ; seul ce que « Constaté à l'exécution » dit a été
+vu à l'écran.
+
+### Ajouté
+
+- Quatrième lecture de la carte, « Vigilance crues » (`US-21`, `UC-009`) : une troisième puce
+  d'échelle du sélecteur, qui efface les marqueurs et les pastilles des autres échelles (`BR-008`)
+  et trace, pour chaque tronçon de cours d'eau suivi, le **niveau de vigilance publié par
+  Vigicrues** : vert, jaune, orange, rouge, ou « Niveau non reconnu » en gris pointillé quand la
+  valeur publiée est hors de 1 à 4, absente ou nulle (`BR-011`). Teinte, épaisseur et motif
+  portent le niveau, le plus grave étant tracé au-dessus ; une jauge à barres le redit sans la
+  couleur. L'application relaie le niveau publié, elle n'en calcule, n'en déduit ni n'en prévoit
+  aucun, et ne rapproche jamais un débit, une hauteur ou un écoulement d'une crue (`BR-015`).
+  Le sélecteur, qui compte désormais quatre puces (les trois échelles, puis « Restrictions »),
+  prend une rangée de plus là où elles ne tiennent pas sur une seule (mesuré en test, en Roboto,
+  non constaté à l'écran : 390 × 844 à 100 %, 360 × 640 à 200 %) : ce qui sort de la colonne du
+  haut s'atteint en la faisant défiler. Un changement de taille de la fenêtre, ou une rotation de
+  l'écran, remet à jour les étiquettes et l'avis du secteur de la lecture Crues sans qu'il faille
+  déplacer la carte.
+- Étiquettes des tronçons, posées selon le zoom : sous le zoom 9, seuls les tronçons non verts et
+  ceux de niveau non reconnu en portent une ; à partir du zoom 9, chaque tronçon dont un segment
+  coupe l'emprise, posée sur le point du trait visible le plus proche du centre. Une étiquette
+  porte la jauge et le nom du niveau, se parcourt au clavier (Entrée ouvre la fiche) et
+  s'annonce « crues : vigilance orange, <nom du tronçon> » ou « crues : niveau non reconnu,
+  <nom du tronçon> ».
+- Légende « Vigilance crues », qui cite les légendes publiées par Vigicrues pour chaque niveau,
+  « Un cours d'eau sans trait de couleur n'est pas suivi par Vigicrues. », puis « Information de
+  vigilance du JJ/MM/AAAA à HH:MM — © VIGICRUES » (`BR-001`). Pendant le premier chargement,
+  elle ne porte ni date ni phrase de couverture.
+- Avis de la lecture, qui ne laissent jamais une panne ou une absence passer pour une absence de
+  risque (`BR-007`) : lecture en cours (« Lecture de la vigilance publiée par Vigicrues… Aucun
+  tronçon n'est affiché tant qu'elle n'est pas lue. »), Vigicrues injoignable, réponse refusée
+  ou illisible (« Réessayer » est alors la seule façon de relancer : un geste sur la carte ne
+  relance rien), entités illisibles écartées et comptées (« 1 tronçon de vigilance non lisible. »
+  ou « N tronçons de vigilance non lisibles. »), secteur sans tronçon suivi (« Aucun cours d'eau
+  suivi par Vigicrues dans le secteur affiché. Cela ne dit rien du risque de crue : … »). Une
+  réponse dont la date de l'information de vigilance est absente ou sans fuseau explicite est
+  illisible pour toute la réponse : aucun trait n'est tracé (`BR-001`).
+- Fiche du tronçon, ouverte en touchant un trait ou une étiquette (le tronçon dessiné le plus haut
+  quand deux traits se superposent ; le tronçon retenu est celui touché à l'appui, même si la
+  souris bouge avant le relâcher) : « Tronçon Vigicrues » et le nom publié, l'encart « CE N'EST
+  PAS UN SYSTÈME D'ALERTE » (non repliable, annoncé en priorité au lecteur d'écran, `BR-015`), le
+  niveau, la définition publiée par Vigicrues citée et suivie de « — Vigicrues », la date et
+  « © VIGICRUES », puis « Lire le bulletin sur www.vigicrues.gouv.fr », qui ouvre le bulletin
+  local du territoire hors de l'application ; si le lien ne s'ouvre pas, son adresse reste
+  affichée, lisible et sélectionnable. Un niveau non reconnu est dit tel quel, sans citation. La
+  fiche se ferme en ouvrant une autre fiche, un favori, en désignant un point ou en quittant la
+  lecture : il n'y a jamais deux fiches ensemble. Dans l'autre sens, entrer sur la lecture Crues
+  ferme les fiches station et ONDE, et ouvrir un favori station ou ONDE depuis la lecture Crues
+  passe d'abord sur sa lecture — Débit pour une station, Écoulement pour un point ONDE —, puis
+  ouvre sa fiche ; sur les deux autres lectures, ouvrir un favori ne change toujours ni la
+  lecture ni la caméra.
+- Contrôle « ⚠ Avertissement » : sur la lecture Crues, sa fenêtre ajoute le texte de crue sous le
+  texte général ; la fiche du tronçon porte le sien. « D'où vient cette donnée ? » nomme Vigicrues.
+- La feuille « Filtres » dit « Aucun filtre ne s'applique à la lecture Vigilance crues. » et n'offre
+  aucun critère ; le bouton « Filtres » ne se montre pas actif sur cette lecture.
+- Vigicrues n'est appelé qu'après la première activation de la lecture, avec un délai de 20
+  secondes par tentative ; la carte lue est gardée 30 minutes pour la session. Passé ce délai,
+  rien ne se met à jour de soi-même : l'ancienne vigilance reste tracée avec sa date, sans avis,
+  et c'est un geste ou un changement de taille de la carte, sur la lecture Crues, qui lance
+  un rafraîchissement en fond — un seul à la fois, retenté au geste suivant s'il échoue ; la
+  nouvelle vigilance paraît au geste qui suit la fin de ce rafraîchissement. Rien n'est conservé au-delà de la session.
+
+### Constaté à l'exécution
+
+Constats du commanditaire du 2026-10-17, recopiés tels qu'il les a dictés. Le
+code Dart de la release est celui de `data/app.so`, daté du 2026-10-17 à 19:58
+(après le dernier changement de `lib/`).
+
+- Le 2026-10-17, sur Windows, exécutable de release lancé hors Flutter
+  (`P1-a` à `P1-g`) : « p1-a ok » · « p1-b ok » · « p1-c ok » · « p1-d ok » ·
+  « p1-e ok » (écrit d'abord « ij », une faute de frappe confirmée par le
+  commanditaire) · « p1-f ok » · « p1-g ok ». Aucun détail point par point.
+- Le 2026-10-17, sur Android, émulateur Pixel_7, en débogage (`P2-a` à
+  `P2-g` et `P2-i`) : « p2-a: ok » · « p2-b :  ok » · « p2-c : ok » · « p2-d: ok »
+  · « p2-e: ok » · « p2-f: ok » · « p2-g: ok » · « p2-i: ok ». La version 0.4.0
+  de T3 était restée installée avant ce lancement ; la boucle principale a lu
+  par `adb` la version `0.5.0` installée (quatre puces sur la capture).
+- Le 2026-10-17, sur Windows, en `--profile`, sonde de fluidité (`NFR-01`),
+  sur la lecture « Vigilance crues » (déclaration du commanditaire : il a refait
+  `G1`, `G2` six crans et `G3` sur cette lecture), chiffres lus à l'écran par la
+  boucle principale : `G1` 185 trames, rastérisation p50 1,5 ms / p90 1,7 ms,
+  0,0 % en retard ; `G2` 81 trames, p50 1,6 ms / p90 1,9 ms, 0,0 % en retard,
+  11 appels au dépôt de points pour 6 crans ; `G3` 194 trames, p50 1,2 ms /
+  p90 2,4 ms, 0,0 % en retard. Seuils tenus ; aucune tâche d'anti-rebond
+  n'est ouverte. Durée du premier chargement : « bon », non chronométrée.
+  Survol de la vue nationale : « assez bien ». Une première mesure, dont la
+  lecture active n'était pas certaine, n'est pas retenue.
+- Le 2026-10-17, « G2 impossible » : la boucle principale a lu la cause dans
+  le code, la butée de zoom voulue (`maximumMapZoom` = 18, choix du
+  2026-09-13), appliquée par `flutter_map` 8.3.2 ; ce n'est ni un défaut ni
+  propre à T4 (même butée sur la lecture Écoulement).
+- Le 2026-10-17, sur Windows, dossier de publication de l'exécutable de
+  release de `0.5.0` : **35 Mo** (`du -sh`), 35 748 882 octets (`du -sb`),
+  15 fichiers (4 à la racine et `data/`), budget de 60 Mo tenu (`NFR-06`).
+  Repère de `0.4.0` : 35 634 194 octets, 15 fichiers. Relevé par la boucle
+  principale, non rapporté par le commanditaire.
+
+### Non vérifié
+
+- **Point 64 à l'écran** : le recouvrement des puces et du « ⚠ Avertissement »
+  de la carte par la fiche tronçon est accepté en constat par le commanditaire
+  (arbitrage du 2026-10-16) et figé par test ; le commanditaire n'a rien dicté
+  à l'écran, ni sur Windows ni sur Android. Constat d'écran non fait.
+- **Niveaux 2 à 4 en production** : aucun épisode de crue n'a été signalé ;
+  `P1-j` et `P2-j` sont sans objet. Une étiquette « Jaune », « Orange » ou
+  « Rouge » réelle et sa fiche n'ont jamais été vues ; ces niveaux ne
+  s'éprouvent que par des cas construits dans les tests (`VC-04`).
+- **Ce que les constats en bloc ne disent pas** : le commanditaire a écrit
+  « ok » par lettre ; le détail de ce qu'il a regardé n'est pas rapporté. La
+  mesure du premier chargement n'est pas chronométrée.
+- **Aucune annonce au lecteur d'écran constatée** : ni Narrateur (Windows) ni
+  TalkBack (Android) ; l'annonce des étiquettes et de l'encart est lue dans le
+  code et éprouvée en test seulement.
+- **Mesures en Roboto**, la police d'Android ; sous Windows, enregistrée sous
+  le nom « Segoe UI », un substitut : **Segoe UI réelle n'est pas mesurée**.
+- **Rythme de publication de Vigicrues** et **comportement sur Android au-delà
+  du lancement** : non vérifiés (`docs/sources/vigicrues.md`). `NFR-01` n'est
+  pas mesuré sur Android ; aucun appareil réel (`A⏸4`).
+- **La porte de T2 n'est pas franchie** : `A1`, `E4`, `P1` et `P2` de T2
+  restent dus (voir `0.3.0`). La **publication** Android reste différée :
+  signature (`A⏸3`) et préversion (`A⏸5`). **iOS** n'a jamais été compilé.
+
 ## [0.4.0] — 2026-10-14
 
 Quatrième tranche (T3) : les favoris, les filtres de la carte et le critère
