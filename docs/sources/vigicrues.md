@@ -244,12 +244,22 @@ rouge : identiques. Le choix du texte cité revient au cadrage détaillé (`BR-0
 
 ## Non vérifié
 
+Tenu à jour à la porte de T4 (2026-10-17).
+
 - Les niveaux `2`, `3`, `4` en production, et leur forme dans le GeoJSON (`VC-04`) — à constater
-  au premier épisode de vigilance.
+  au premier épisode de vigilance. **Toujours non vérifié le 2026-10-17** : aucun épisode n'a été
+  signalé à la porte de T4 (`P1-j`, `P2-j` sans objet) ; seuls des cas construits dans les tests les
+  éprouvent.
 - La taille et la forme du document un jour de vigilance (un tronçon en jaune porte-t-il d'autres
   propriétés ?).
-- Une panne réelle : délai, coupure, document tronqué, `5xx` du GeoJSON (`VC-10`).
-- Le rythme réel de publication (annoncé : au moins à 10 h et 16 h).
-- Le délai et le poids de l'appel sur Android, sur réseau mobile.
-- L'effet des 56 110 points sur la fluidité de la carte (`NFR-01`, `VC-06`).
+- Une panne réelle : délai, coupure, document tronqué, `5xx` du GeoJSON (`VC-10`). Un réseau coupé
+  avant la première activation a été essayé à la porte, sur Windows (`P1-f`) et sur Android
+  (`P2-f`), « ok » du commanditaire sans détail ; une panne de Vigicrues elle-même ne l'est pas.
+- Le rythme réel de publication (annoncé : au moins à 10 h et 16 h) : aucune observation sur la durée.
+- Le délai et le poids de l'appel sur Android, **sur réseau mobile** : la lecture a été chargée sur
+  l'émulateur `Pixel_7` (`P2-a` « ok »), mais le délai n'est pas relevé et aucun réseau mobile réel
+  n'est essayé. Sur Windows, la durée du premier chargement est jugée « bon » par le commanditaire
+  (2026-10-17), **non chronométrée**.
+- Fluidité de la carte (`NFR-01`, `VC-06`) : mesurée sur Windows le 2026-10-17 en `--profile`, seuils
+  tenus avec les 56 110 points, sur la lecture Crues d'après la déclaration du commanditaire (la sonde ne note pas la lecture active) (`docs/nfr.md`) ; **non mesurée sur Android**.
 - Le sens exact de `RefInfoVigiCru` et des champs `CdTCC`, `cddient_1`, `cdint`, `acroentcru`.

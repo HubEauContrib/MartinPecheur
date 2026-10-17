@@ -17,7 +17,7 @@
 | T1 | Carte, fiches, modal et contrôle « ⚠ Avertissement » | ✅ close — `0.2.0` |
 | T2 | Sécheresse et restrictions (VigiEau) | 🔄 porte non franchie — `0.3.0` datée et taguée sans elle |
 | T3 | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` |
-| T4 | Crues : vigilance Vigicrues sur la carte et dans une fiche tronçon | 🔄 en cours |
+| T4 | Crues : vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` |
 | T5 | Être prévenu, sans serveur ni compte | 🔄 prévue après T4, non cadrée |
 
 Détail, constats non faits, points ouverts : `docs/project-state.md`.

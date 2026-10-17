@@ -10,7 +10,7 @@
 > ✅ implémenté · 🔄 décidé ou en cours · 💭 spéculatif · ⬜ à faire. Un constat garde sa date, sa cible,
 > son mode (débogage ou release) et qui l'a fait.
 
-**Mis à jour :** 2026-10-15
+**Mis à jour :** 2026-10-17
 
 ## Où on en est
 
@@ -21,7 +21,7 @@
 | **T1** | Carte, fiches, modal et contrôle « ⚠ Avertissement » | ✅ close — `0.2.0` |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 porte non franchie : restent `A1`, `E4`, `P1`, `P2` (25 tâches closes sur 29) — `0.3.0` datée et taguée sans elle, sur décision du commanditaire |
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
-| **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | 🔄 en cours — faits Vigicrues vérifiés par appel réel le 2026-10-14 (`docs/sources/vigicrues.md`, `VC-01` à `VC-13`) ; cadrage approuvé le 2026-10-14 (`docs/superpowers/specs/2026-10-14-cadrage-t4-design.md`, treize arbitrages) ; plan de 28 tâches (`docs/superpowers/plans/2026-10-14-t4-crues-vigicrues.md`) : les tâches de code et de documents sont faites (`T4-X1` comprise), version `0.5.0` ouverte, non datée ; **restent la porte `T4-H1`, `T4-P1`, `T4-P2`, au commanditaire, puis `T4-P3`** ; aucun écran de T4 n'est constaté |
+| **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : le point 64 à l'écran, les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») |
 | **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 prévue après T4 (arbitrage du commanditaire du 2026-10-03), non cadrée — dépend des favoris de T3 et du moteur structuré laissé ouvert par `ADR-011` ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
@@ -31,10 +31,10 @@ l'écran des restrictions. Le modal et le contrôle sont constatés à l'écran 
 renforcé n'est vu qu'« en tête », en débogage sur Windows (2026-10-04), « non repliable » non constaté ;
 aucune publication Android (`A⏸3`, `A⏸5`).
 
-## Vérifié au 2026-10-16
+## Vérifié au 2026-10-17
 
-Sur le code de `K1b` de T4 (le point 64 figé par test), avec ses documents : `flutter analyze` →
-« No issues found! », `flutter test` → « +3973: All tests passed! » (3 961 avant `K1b`, 3 313 au départ de T4).
+Sur le sommet `e401fb9` de T4, avec les documents de la clôture de `0.5.0` (`P3`) : `flutter analyze` →
+« No issues found! », `flutter test` → « +3978: All tests passed! » (3 973 avant `P3`, 3 313 au départ de T4), `dart format` sans diff.
 
 **Réserve durable sur les polices de mesure.** Quatre fichiers de test mesurent en Roboto, chargée depuis
 le SDK Flutter (`FLUTTER_ROOT`) : `map_overlays_phone_test.dart`, `map_sheet_height_test.dart`,
@@ -125,40 +125,39 @@ Flutter — `P1-c` à `P1-k`, « c'est bon » ; dossier `Release` de 35 Mo, 15 f
 
 ### T4 — code de `0.5.0`
 
-**Rien de T4 n'est constaté à l'écran.** Tout est vérifié par test (domaine, données sur fixtures du
-2026-10-14, ViewModels, vues, racine de composition) ; l'API Vigicrues n'est jamais appelée par un test,
-et les niveaux 2 à 4, jamais publiés le 2026-10-14 (`VC-04`), ne sont éprouvés que par des cas construits.
-La capture du README (lecture Crues, Windows, exécutable de release lancé par le commanditaire, 2026-10-15)
-n'est **pas** un constat de porte. Dus au commanditaire à la porte (cadrage de T4, § 11) :
+**Porte franchie le 2026-10-17, constats du commanditaire** (cadrage de T4, § 11). Le code Dart de la
+release est celui de `data/app.so`, daté du 2026-10-17 à 19:58, après le dernier changement de `lib/`.
 
-- **`a`** — la puce « Vigilance crues » : l'avis de lecture, puis les tronçons tracés, les marqueurs
-  effacés ; la légende porte la date et « © VIGICRUES » (Windows et Android) ;
-- **`b`** — sous le zoom 9 aucune étiquette « Vert », à partir du zoom 9 une étiquette par tronçon visible,
-  lisible sans la couleur, qui suit la carte (les deux) ;
-- **`c`** — toucher un trait (tolérance 22 / 24 px) ou une étiquette ouvre la fiche ; Tab atteint les
-  étiquettes et Entrée l'ouvre (les deux ; clavier sur Windows) ;
-- **`d`** — la fiche : encart en tête, non repliable, citation, date, lien ; le lien ouvre le bulletin dans
-  le navigateur (les deux) ;
-- **`e`** — la fenêtre « ⚠ Avertissement » porte le texte de crue, sur la carte et sur la fiche (les deux) ;
-- **`f`** — réseau coupé avant la première activation : avis d'échec, aucun trait ; réseau rétabli,
-  « Réessayer » trace les tronçons (les deux) ;
-- **`g`** — carte amenée sur La Réunion : l'avis « secteur sans tronçon » (les deux) ;
-- **`h`** — `NFR-01` mesuré sur la lecture Crues, gestes `G1` à `G3`, en `--profile` (sonde `X3`) ; durée
-  du premier chargement, décodage compris (Windows) ;
-- **`i`** — cibles de 48 au toucher, lecture des étiquettes en taille de téléphone (Android) ;
-- **`j`** — si un épisode survient avant la porte : une étiquette « Jaune », « Orange » ou « Rouge » réelle
-  et sa fiche.
-- **Aussi à voir à l'écran** : la disposition acceptée des puces d'échelle (point 61) et la fiche tronçon
-  plus haute que la fiche station (point 64). Mesures de recouvrement de la lecture Crues : en Roboto, pas
-  en Segoe UI.
+- **Windows, exécutable de release lancé hors Flutter** : « p1-a ok » · « p1-b ok » · « p1-c ok » ·
+  « p1-d ok » · « p1-e ok » (écrit d'abord « ij », faute de frappe confirmée) · « p1-f ok » · « p1-g ok » —
+  soit `a` à `g`, sans détail point par point.
+- **Android, émulateur `Pixel_7`, débogage** : « p2-a: ok » · « p2-b :  ok » · « p2-c : ok » · « p2-d: ok »
+  · « p2-e: ok » · « p2-f: ok » · « p2-g: ok » · « p2-i: ok ». La `0.4.0` de T3 était restée installée ;
+  la boucle principale a lu par `adb` la `0.5.0` installée, quatre puces sur la capture.
+- **`h`, `NFR-01` sur la lecture « Vigilance crues »** (Windows, `--profile`, sonde `X3`) : seuils tenus
+  sur `G1` à `G3` (chiffres : `docs/nfr.md`). Durée du premier chargement : « bon », non chronométrée.
+  « G2 impossible » : butée de zoom voulue (`maximumMapZoom` = 18), pas un défaut.
+- **`NFR-06`** : 35 748 882 octets, 15 fichiers, budget de 60 Mo tenu (relevé de la boucle principale).
+
+**Non constaté** :
+
+- **Le point 64 à l'écran** (recouvrement des puces et du « ⚠ Avertissement » de la carte par la fiche
+  tronçon), sur Windows comme sur Android : le commanditaire ne l'a pas dicté. Accepté en constat le
+  2026-10-16 et figé par test, il reste à voir.
+- **`j`** : aucun épisode de crue signalé ; les niveaux 2 à 4 ne sont éprouvés qu'en cas construits.
+- Narrateur et TalkBack ; Segoe UI réelle (mesures en Roboto) ; la disposition des puces (point 61) à
+  l'écran ; `NFR-01` sur Android ; le rythme de publication de Vigicrues.
+- Le détail de ce que chaque « ok » recouvre n'est pas rapporté. L'API Vigicrues n'est jamais appelée
+  par un test.
 
 ### Android
 
 - **Constaté** : une construction en débogage, lancée sur l'émulateur `Pixel_7` le 2026-10-14 (APK
-  `versionName` `0.4.0`, `versionCode` 4), confirmée en bloc par le commanditaire.
+  `versionName` `0.4.0`, `versionCode` 4), confirmée en bloc par le commanditaire ; puis le 2026-10-17 la
+  `0.5.0` en débogage, sur l'émulateur `Pixel_7`, `P2-a` à `P2-g` et `P2-i` « ok » (T4).
 - **Non constaté** : aucune construction de release ; aucune sur le code de `0.3.0` (`A1` de T2) ; appareil
   réel (`A⏸4`) ; signature (`A⏸3`) et préversion (`A⏸5`) ; tenue sur entrée de gamme réel (`NV-5`) ;
-  ouverture d'un arrêté par `url_launcher` ; TalkBack.
+  ouverture d'un arrêté par `url_launcher` ; TalkBack ; `NFR-01` sur Android.
 
 ### iOS
 
@@ -202,10 +201,10 @@ Les numéros sont ceux d'origine : ils sont cités ailleurs et ne se réutilisen
 | 57 | **Limites laissées par la revue de T2** | Non annulées au délai : la phase de connexion (DNS, TCP, TLS) et une redirection suivie vers une autre origine (constaté contre des serveurs locaux ; aucune source appelée ne redirige). Doublons non arbitrés : le montage « contrôle accessible » en cinq copies, le câblage « une fermeture par clé » autour de `withCachePolicy` en trois. Caméra : un rechargement par pas pendant un redimensionnement continu au bord du monde (hors de France) ; dézoom vers 4 refusé sur une fenêtre de plus de 4 096 px de haut |
 | 59 | **Restes de la seconde relecture de T2** | Avis de lien non ouvert : pour un même lien, l'ordre d'achèvement des ouvertures décide (une réussite tardive efface l'avis d'un échec plus récent), non corrigé ; `map_overlays_phone_test.dart` porte 21 doublons exacts à 800 × 740, suppression à décider ; trou du filet de `R1` à `R3` : indexer les documents par adresse en minuscules ne fait rougir aucun test d'écran ; l'assertion de `openDocument` ne joue pas en release (un appel avec la cible du site public y échouerait en silence), gardée par décision réversible de la boucle principale ; le titre de test « la bande va de 60 à 740 (cible de 44) quand Android (48) la donne de 64 à 736 » cite une valeur d'Android qu'aucun test ne vérifie. Soldés en T3 : la plateforme des tests de widget (`N1` à `N9`, verrou `widget_test_platform_test.dart`), la barre de titre d'écran plein (`B1`), les décisions métier de la vue des restrictions (`R1` à `R3`) |
 | 60 | **Fiche plus haute que la carte** — zone des fiches bornée et défilante depuis le 2026-10-13 | **À trancher par le commanditaire** : en mode « Restrictions », une fiche haute masque le bouton de désignation (non construit dans 13 configurations sur 40). Limites : fermeture et étoile défilent avec la fiche ; pas de barre visible au bureau ; l'écart de 8 px défile ; pas de `SafeArea` ; `Tab` peut viser un contrôle hors champ ; ombre rognée ; réserve d'attribution calculée sur la hauteur entière du bandeau quand la colonne du bas défile (non mesuré) ; Roboto chargée trois fois dans les tests. Corrigés en T3 : la racine de composition ramène la fiche en haut à chaque ouverture par `sheetScrollController` (`K4`) — sans contrôleur fourni, la position de défilement survit au changement de fiche, tenu par le CONSTAT G de `map_sheet_height_test.dart` ; la marge basse de la fiche suit la hauteur réelle de l'attribution IGN (`K5`) |
-| 61 | **Colonne du bas à cinq boutons** (« Favoris », « Filtres », `+`, `−`, recentrer ; `K3` de T3) : trois écarts acceptés en constat par le commanditaire le 2026-10-14 — (a) à 360 × 640 et 100 %, l'avis d'absence « écoulement » dépasse de 8 px, action entière et atteignable ; (b) à 200 %, la puce « Restrictions », seule sortie du mode, est coupée : 52 % atteignables à 360 × 568, rien à 360 × 540 ; (c) à 360 × 640 et 200 %, l'action de l'avis de carte vidée n'est pas visible au repos (193 px à défiler) | Vérifié par test, en Roboto. À voir à l'écran, au commanditaire : (b) sur Android ; constats `f` (la colonne ne recouvre ni la fiche, ni le bouton de désignation, ni l'attribution, en Segoe UI réelle puis sur Android) et `d` (l'avis de carte vidée et « Effacer les filtres » sans défiler) du cadrage de T3, § 9 — confirmés seulement en bloc par `P1` et `P2`. Mise à jour du 2026-10-15 (arbitrage « accepter la disposition », `L1` de T4) : la troisième puce d'échelle fait passer le sélecteur sur une rangée de plus là où il ne tient pas (390 × 844 à 100 % : 2 rangées au lieu de 1 ; 360 × 640 à 200 % : 4 au lieu de 3 ; « Restrictions » à la ligne à 800 px en police de test) ; ce qui sort de la fenêtre de la colonne du haut s'atteint en la faisant défiler (même écart que l'avis de T3). Mesures figées par test, en Roboto : « Restrictions » atteignable à 80 % au repos à 360 × 640 / 200 %, 100 % après défilement ; puces entières au repos dès 650 px de haut (592 avant) ; sélecteur plus large de 19,75 px à 800 × 740 ; avis d'absence caché au repos à 360 × 640 / 200 % (362, 251, 325 et 251 px à défiler) ; sous la fiche de 320 px hors mode à 360 × 640 / 200 %, « Restrictions » s'atteint après 42 px de défilement. Constat antérieur inchangé : à 360 × 330 / 200 % en mode, « Restrictions » reste inatteignable même en défilant. À constater à l'écran, à la porte |
+| 61 | **Colonne du bas à cinq boutons** (« Favoris », « Filtres », `+`, `−`, recentrer ; `K3` de T3) : trois écarts acceptés en constat par le commanditaire le 2026-10-14 — (a) à 360 × 640 et 100 %, l'avis d'absence « écoulement » dépasse de 8 px, action entière et atteignable ; (b) à 200 %, la puce « Restrictions », seule sortie du mode, est coupée : 52 % atteignables à 360 × 568, rien à 360 × 540 ; (c) à 360 × 640 et 200 %, l'action de l'avis de carte vidée n'est pas visible au repos (193 px à défiler) | Vérifié par test, en Roboto. À voir à l'écran, au commanditaire : (b) sur Android ; constats `f` (la colonne ne recouvre ni la fiche, ni le bouton de désignation, ni l'attribution, en Segoe UI réelle puis sur Android) et `d` (l'avis de carte vidée et « Effacer les filtres » sans défiler) du cadrage de T3, § 9 — confirmés seulement en bloc par `P1` et `P2`. Mise à jour du 2026-10-15 (arbitrage « accepter la disposition », `L1` de T4) : la troisième puce d'échelle fait passer le sélecteur sur une rangée de plus là où il ne tient pas (390 × 844 à 100 % : 2 rangées au lieu de 1 ; 360 × 640 à 200 % : 4 au lieu de 3 ; « Restrictions » à la ligne à 800 px en police de test) ; ce qui sort de la fenêtre de la colonne du haut s'atteint en la faisant défiler (même écart que l'avis de T3). Mesures figées par test, en Roboto : « Restrictions » atteignable à 80 % au repos à 360 × 640 / 200 %, 100 % après défilement ; puces entières au repos dès 650 px de haut (592 avant) ; sélecteur plus large de 19,75 px à 800 × 740 ; avis d'absence caché au repos à 360 × 640 / 200 % (362, 251, 325 et 251 px à défiler) ; sous la fiche de 320 px hors mode à 360 × 640 / 200 %, « Restrictions » s'atteint après 42 px de défilement. Constat antérieur inchangé : à 360 × 330 / 200 % en mode, « Restrictions » reste inatteignable même en défilant. Porte de T4 du 2026-10-17 : la disposition n'a pas été nommée par le commanditaire, toujours à constater à l'écran |
 | 62 | **Constats d'écran de T3 non dits, décisions à confirmer à l'écran** | Commanditaire : constater ou laisser « non vérifié » `P1-m`, `P2-g`, `P2-m` et le détail point par point (« Non constaté à l'écran », T3) ; confirmer les décisions de la boucle principale — l'étoile sous le bouton de fermeture de la fiche, « Appliquer » en couleur d'action principale, la décision 4 (« le haut cède d'abord »), le texte « La liste n'a pas pu être remplacée. » — et le décompte de `C1`, `P1`, `P2` closes en bloc |
 | 63 | **En mode « Restrictions », à 360 × 300 et 200 %, la pilule du bouton de désignation recouvre le centre du contrôle « ⚠ Avertissement »** ; le glisser depuis le contrôle n'y est pas possible non plus. Antérieur à T3, tenu par un « CONSTAT » de `map_overlays_phone_test.dart` | Non corrigé ; à trancher par le commanditaire (tâche à part proposée le 2026-10-12). Hors mode, le contrôle reste visible et atteignable à toute taille |
-| 64 | **Fiche tronçon plus haute que la fiche station** (`K1` de T4) : elle recouvre des puces d'échelle que la fiche station de Blois laisse atteignables — les quatre à 800 × 740 / 200 % et à 360 × 640 / 100 %, « Vigilance crues » et « Restrictions » à 390 × 844 / 100 % sous « Jaune » (cas construit) ; défiler ne les dégage pas, fermer la fiche oui. Aux six configurations mesurées, un panneau station de même hauteur recouvre exactement les mêmes puces (affirmé par test) : c'est la zone des fiches du point 60. Et le contrôle « ⚠ Avertissement » de la carte passe sous la fiche tronçon à 360 × 640 (100 et 200 %) et à 390 × 844 (200 %) ; la fiche porte le sien, atteignable | **Tranché le 2026-10-16 : accepté en constat** par le commanditaire (« on le fige par test et on le regarde à la porte »), rattaché au point 60. Figé en Roboto par les cas « CONSTAT — K1 de T4 » et « CONSTAT — K1b de T4 » de `map_overlays_phone_test.dart` : les puces recouvertes (comparées à un panneau station de même hauteur), la boîte et le centre du contrôle de la carte par configuration, la sortie (fiche fermée, puces atteignables), le défilement de la colonne (étendue 0, 142, 690 ou 952 selon la taille : aucune puce dégagée). À voir à l'écran, à la porte (`P1`, `P2`) |
+| 64 | **Fiche tronçon plus haute que la fiche station** (`K1` de T4) : elle recouvre des puces d'échelle que la fiche station de Blois laisse atteignables — les quatre à 800 × 740 / 200 % et à 360 × 640 / 100 %, « Vigilance crues » et « Restrictions » à 390 × 844 / 100 % sous « Jaune » (cas construit) ; défiler ne les dégage pas, fermer la fiche oui. Aux six configurations mesurées, un panneau station de même hauteur recouvre exactement les mêmes puces (affirmé par test) : c'est la zone des fiches du point 60. Et le contrôle « ⚠ Avertissement » de la carte passe sous la fiche tronçon à 360 × 640 (100 et 200 %) et à 390 × 844 (200 %) ; la fiche porte le sien, atteignable | **Tranché le 2026-10-16 : accepté en constat** par le commanditaire (« on le fige par test et on le regarde à la porte »), rattaché au point 60. Figé en Roboto par les cas « CONSTAT — K1 de T4 » et « CONSTAT — K1b de T4 » de `map_overlays_phone_test.dart` : les puces recouvertes (comparées à un panneau station de même hauteur), la boîte et le centre du contrôle de la carte par configuration, la sortie (fiche fermée, puces atteignables), le défilement de la colonne (étendue 0, 142, 690 ou 952 selon la taille : aucune puce dégagée). À voir à l'écran : **non dicté à la porte du 2026-10-17** (`P1`, `P2`), toujours non constaté à l'écran |
 
 ## Points clos
 
@@ -317,10 +316,8 @@ Une case vide est une case vide, pas un « probablement ».
 
 ## Prochaine étape
 
-`T4-X1` est faite : les tâches de code et de documents de T4 sont closes. **Reste la porte de T4, au commanditaire** :
-`T4-H1`, `T4-P1` (Windows, exécutable de release lancé hors Flutter) et `T4-P2` (Android, émulateur `Pixel_7`, en
-débogage) — les constats `a` à `j` de « Non constaté à l'écran, T4 » et `NFR-01` sur la lecture Crues — ; puis `T4-P3`,
-qui date `0.5.0`. Aucune question ouverte sur T4 : la fiche tronçon plus haute que la fiche station (point 64) est
-acceptée en constat et figée par test, comme la disposition des puces d'échelle (point 61) ; leurs constats restent dus à l'écran.
+T4 est close : la porte est franchie sur Windows et Android (2026-10-17) et `0.5.0` est datée. Aucun tag n'est
+posé, rien n'est poussé ni fusionné : décisions du commanditaire. Restent à constater à l'écran, s'il le veut :
+le point 64 (et la disposition des puces, point 61), les niveaux 2 à 4 à l'occasion d'un épisode de crue.
 **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas dit
-(point 62) se constate s'il le veut, ou reste « non vérifié ».
+(point 62) se constate s'il le veut, ou reste « non vérifié ». T5 n'est pas cadrée.
