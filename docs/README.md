@@ -72,6 +72,7 @@ de ses arbitrages ; le plan correspondant est ci-dessus.
 | [`2026-10-12-cadrage-t3-design.md`](superpowers/specs/2026-10-12-cadrage-t3-design.md) | **T3** — cadrage : favoris, filtres, fraîcheur ; huit arbitrages du 2026-10-12 |
 | [`2026-10-14-cadrage-t4-design.md`](superpowers/specs/2026-10-14-cadrage-t4-design.md) | **T4** — cadrage détaillé : treize arbitrages, approuvé le 2026-10-14 ; faits de la source : [`sources/vigicrues.md`](sources/vigicrues.md) |
 | [`2026-10-17-cadrage-t5-design.md`](superpowers/specs/2026-10-17-cadrage-t5-design.md) | **T5** — cadrage détaillé : avis sur les lieux suivis, vérification à l'ouverture, essais de tâche de fond sur Windows et Android ; dix-sept arbitrages, approuvé le 2026-10-17 ; plan suspendu derrière la tranche d'ergonomie |
+| [`2026-10-17-cadrage-ergonomie-design.md`](superpowers/specs/2026-10-17-cadrage-ergonomie-design.md) | **Ergonomie** — cadrage, avant T5 : bloc de lecture unique, fiche du bas et panneau latéral, fiches hiérarchisées, points d'interface 49, 51, 60, 61, 63, 64 ; douze arbitrages, approuvé le 2026-10-17 ; version `0.6.0` |
 
 ## Index des décisions
 
