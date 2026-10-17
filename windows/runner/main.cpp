@@ -26,7 +26,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
+  // Zone cliente de depart, en pixels logiques : la hauteur minimale
+  // (arbitrage du commanditaire du 2026-10-17). Create la releve au minimum.
+  Win32Window::Size size(1280, 740);
   if (!window.Create(L"martinpecheur", origin, size)) {
     return EXIT_FAILURE;
   }

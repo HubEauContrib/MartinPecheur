@@ -17,8 +17,9 @@
 // `test/features/map/view/map_view_test.dart` (test « RAISON DE
 // L'AMENDEMENT »).
 //
-// Ce test LIT le fichier C++ (`windows/runner/win32_window.cpp`), il ne
-// compile ni n'exécute rien — le bac à sable ne construit pas de natif.
+// Ce test LIT les fichiers C++ (`windows/runner/win32_window.cpp` et
+// `windows/runner/main.cpp`), il ne compile ni n'exécute rien — le bac à
+// sable ne construit pas de natif.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -165,6 +166,154 @@ void main() {
               'mutation testée : `ptMinTrackSize.y = 0` (ou toute '
               'valeur qui ne dérive plus de client_rect) doit rendre '
               'ce test rouge',
+        );
+      });
+    });
+
+    // Arbitrage du commanditaire du 2026-10-17 (R23 du cadrage de la
+    // tranche d'ergonomie) : le minimum ne valait qu'au redimensionnement.
+    // `Create` passait 1 280 × 720 HORS TOUT à `CreateWindow`, et le premier
+    // WM_GETMINMAXINFO arrive avant WM_NCCREATE, quand le runner ne connaît
+    // pas encore son instance : la zone cliente de lancement mesurait
+    // 1 264 × 681 à 100 % (reproduction hors Flutter du 2026-10-17). `Create`
+    // reçoit désormais une ZONE CLIENTE, relevée au minimum.
+    group('zone cliente au lancement (R23, arbitrage du 2026-10-17)', () {
+      /// Le corps de `Win32Window::Create`, sans commentaires.
+      late String blocCreate;
+
+      /// L'appel de conversion, au style passé à `CreateWindow`.
+      final RegExp appelConversion = RegExp(
+        r'AdjustWindowRectExForDpi\(\s*&frame\s*,\s*WS_OVERLAPPEDWINDOW'
+        r'\s*,\s*FALSE\s*,\s*0\s*,\s*dpi\s*\)',
+      );
+
+      setUpAll(() {
+        final int debut = code.indexOf('bool Win32Window::Create(');
+        expect(
+          debut,
+          greaterThanOrEqualTo(0),
+          reason: 'Win32Window::Create doit exister (hors commentaire)',
+        );
+        final int fin = code.indexOf('return OnCreate();', debut);
+        expect(fin, greaterThan(debut), reason: 'Create finit par OnCreate');
+        blocCreate = code.substring(debut, fin);
+      });
+
+      test('la taille demandée est convertie de zone cliente en fenêtre '
+          'extérieure, au style de CreateWindow', () {
+        expect(
+          blocCreate,
+          contains(appelConversion),
+          reason:
+              'mutation testée : sans cet appel, CreateWindow reçoit une '
+              'taille hors tout et la zone cliente perd le cadre et la '
+              'barre de titre (39 px de haut à 100 %)',
+        );
+      });
+
+      test('la largeur demandée est relevée à kMinWindowWidth avant mise à '
+          "l'échelle", () {
+        expect(
+          blocCreate,
+          contains(
+            RegExp(
+              r'Scale\(\s*std::max<int>\(\s*size\.width\s*,\s*'
+              r'kMinWindowWidth\s*\)\s*,\s*scale_factor\s*\)',
+            ),
+          ),
+          reason:
+              'mutation testée : sans ce plancher, une largeur de départ '
+              'sous 800 dans main.cpp relancerait sous le minimum',
+        );
+      });
+
+      test('la hauteur demandée est relevée à kMinWindowHeight avant mise à '
+          "l'échelle", () {
+        expect(
+          blocCreate,
+          contains(
+            RegExp(
+              r'Scale\(\s*std::max<int>\(\s*size\.height\s*,\s*'
+              r'kMinWindowHeight\s*\)\s*,\s*scale_factor\s*\)',
+            ),
+          ),
+          reason:
+              'mutation testée : sans ce plancher, une hauteur de départ '
+              'sous 740 dans main.cpp relancerait sous le minimum',
+        );
+      });
+
+      test('le RECT converti porte la largeur, puis la hauteur', () {
+        expect(
+          blocCreate,
+          contains(
+            RegExp(
+              r'RECT\s+frame\s*=\s*\{\s*0\s*,\s*0\s*,\s*'
+              r'Scale\(\s*std::max<int>\(\s*size\.width\s*,\s*'
+              r'kMinWindowWidth\s*\)\s*,\s*scale_factor\s*\)\s*,\s*'
+              r'Scale\(\s*std::max<int>\(\s*size\.height\s*,\s*'
+              r'kMinWindowHeight\s*\)\s*,\s*scale_factor\s*\)\s*\}',
+            ),
+          ),
+          reason:
+              'mutation testée : largeur et hauteur interverties dans le '
+              'RECT donneraient 740 × 1 280, sous la largeur minimale',
+        );
+      });
+
+      test('CreateWindow reçoit la taille extérieure calculée, et non plus '
+          'la taille demandée telle quelle', () {
+        final int debutAppel = blocCreate.indexOf('CreateWindow(');
+        expect(debutAppel, greaterThanOrEqualTo(0));
+        final String appel = blocCreate.substring(
+          debutAppel,
+          blocCreate.indexOf(');', debutAppel),
+        );
+        expect(
+          appelConversion.firstMatch(blocCreate)?.start,
+          lessThan(debutAppel),
+          reason: 'la conversion précède la création de la fenêtre',
+        );
+        expect(
+          appel,
+          contains('WS_OVERLAPPEDWINDOW'),
+          reason: 'le style converti est celui de la fenêtre créée',
+        );
+        expect(
+          appel,
+          contains(
+            RegExp(
+              r'frame\.right - frame\.left\s*,\s*frame\.bottom - frame\.top',
+            ),
+          ),
+          reason:
+              'mutation testée : largeur et hauteur interverties dans '
+              "l'appel",
+        );
+        expect(
+          appel,
+          isNot(contains(RegExp(r'Scale\(\s*size\.'))),
+          reason:
+              'mutation testée : revenir à Scale(size.width, …) dans '
+              "l'appel rend la taille hors tout",
+        );
+      });
+
+      test('main.cpp demande 1 280 × 740 de zone cliente au départ', () {
+        final String mainCpp = _sansCommentaires(
+          File('windows/runner/main.cpp').readAsStringSync(),
+        );
+        final RegExpMatch? taille = RegExp(
+          r'Win32Window::Size\s+size\(\s*(\d+)\s*,\s*(\d+)\s*\)',
+        ).firstMatch(mainCpp);
+        expect(taille, isNotNull, reason: 'taille de départ introuvable');
+        expect(
+          <String?>[taille!.group(1), taille.group(2)],
+          <String>['1280', '740'],
+          reason:
+              'arbitrage du 2026-10-17 : la hauteur minimale, qui tient sur '
+              'un écran 1080p à 125 % (calcul : 788 des 816 px logiques de '
+              'zone de travail)',
         );
       });
     });
