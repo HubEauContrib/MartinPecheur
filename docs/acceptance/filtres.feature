@@ -80,10 +80,10 @@ Fonctionnalité: Filtrer la carte
     Quand la carte s'affiche
     Alors l'avis d'absence habituel s'affiche, et l'avis des filtres ne s'affiche pas (BR-007)
 
-  Scénario: Le type de donnée se choisit par les puces d'échelle, pas dans la feuille
-    Étant donné la carte et ses puces d'échelle
+  Scénario: Le type de donnée se choisit par le sélecteur de lecture, pas dans la feuille
+    Étant donné la carte et son sélecteur de lecture
     Quand la feuille « Filtres » s'ouvre
-    Alors elle ne propose aucune échelle : l'échelle active reste celle des puces (BR-008)
+    Alors elle ne propose aucune échelle : l'échelle active reste celle du sélecteur de lecture (BR-008)
 
   Scénario: Sur l'écoulement, la feuille ne propose pas de fraîcheur et dit la borne des 60 jours
     Étant donné l'échelle « Écoulement »

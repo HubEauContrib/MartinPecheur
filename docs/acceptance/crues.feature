@@ -8,9 +8,9 @@ Fonctionnalité: Consulter la vigilance crues
 
   # ── US-21 — Je lis sur la carte et dans la fiche d'un tronçon la vigilance crues publiée par Vigicrues
 
-  Scénario: La puce « Vigilance crues » active la lecture et efface les autres échelles
+  Scénario: L'entrée « Vigilance crues » du sélecteur active la lecture et efface les autres échelles
     Étant donné la carte affichée sur l'échelle « Écoulement », avec des marqueurs et des pastilles
-    Quand l'usager active la puce « Vigilance crues »
+    Quand l'usager active l'entrée « Vigilance crues » du sélecteur
     Alors les marqueurs et les pastilles des autres échelles disparaissent, et la légende « Vigilance crues » s'affiche (BR-008)
 
   Scénario: Pendant le premier chargement, aucun trait n'est tracé

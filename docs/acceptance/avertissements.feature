@@ -38,7 +38,7 @@ Fonctionnalité: Les quatre emplacements de l'avertissement
   Scénario: Le contrôle « ⚠ Avertissement » de la carte reste présent à tous les niveaux de zoom
     Étant donné un usager qui a déjà acquitté l'écran du premier lancement
     Quand il consulte la carte, à n'importe quel niveau de zoom
-    Alors le contrôle « ⚠ Avertissement » reste présent au-dessus de la légende
+    Alors le contrôle « ⚠ Avertissement » reste présent dans l'en-tête de la légende
     Et l'ouverture de ce contrôle affiche le même texte que celui du modal initial (BR-012)
 
   Scénario: Le contrôle « ⚠ Avertissement » d'une fiche datée porte la phrase propre à cette fiche

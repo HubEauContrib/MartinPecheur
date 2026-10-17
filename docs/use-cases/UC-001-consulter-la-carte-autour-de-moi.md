@@ -1,7 +1,7 @@
 # UC-001 — Consulter l'état de la rivière autour de moi
 
 - **Statut :** Accepté
-- **Date :** 2026-07-30
+- **Date :** 2026-07-30, amendé le 2026-10-17 (tranche d'ergonomie, arbitrage 1)
 - **Contexte borné :** Carte
 - **Acteur principal :** Citoyen riverain (P1), Pêcheur (P3) · **Acteurs secondaires :** Hub'Eau, cache local, géolocalisation
 
@@ -21,7 +21,7 @@ L'usager ouvre l'application. La carte est l'écran d'accueil.
 ## Flux nominal
 
 1. L'application demande une position approximative et centre la carte dessus.
-2. Le **bandeau d'avertissement** s'affiche à chaque lancement et reste visible à tous les niveaux de zoom tant que l'usager ne l'a pas fermé pour la session ; « Menu » › « Avertissement » le réaffiche (amendement du 2026-09-23, `W3b`). ⚠️ **Amendement du 2026-09-23 (arbitrage du commanditaire, `W3c`)**, qui remplace le précédent : ni bandeau ni menu — un contrôle **« ⚠ Avertissement »**, en haut à droite au-dessus de la légende, présent à tous les niveaux de zoom, ouvre en lecture seule la fenêtre « Des informations, pas une autorisation » (texte du modal initial, « Fermer »).
+2. Le **bandeau d'avertissement** s'affiche à chaque lancement et reste visible à tous les niveaux de zoom tant que l'usager ne l'a pas fermé pour la session ; « Menu » › « Avertissement » le réaffiche (amendement du 2026-09-23, `W3b`). ⚠️ **Amendement du 2026-09-23 (arbitrage du commanditaire, `W3c`)**, qui remplace le précédent : ni bandeau ni menu — un contrôle **« ⚠ Avertissement »**, en haut à droite au-dessus de la légende, présent à tous les niveaux de zoom, ouvre en lecture seule la fenêtre « Des informations, pas une autorisation » (texte du modal initial, « Fermer »). ⚠️ **Amendement du 2026-10-17 (tranche d'ergonomie, arbitrage 1)** : le contrôle « ⚠ Avertissement » de la carte est dans l'en-tête de la légende, sous le sélecteur, et non plus « en haut à droite au-dessus de la légende » ; il reste présent à tous les niveaux de zoom, fiche ouverte ou non.
 3. L'échelle **écoulement** est active par défaut ; la légende l'indique (`BR-008`).
 4. Les points de la zone visible sont lus depuis le cache et rendus immédiatement, groupés en clusters portant l'état le plus sévère qu'ils contiennent (`BR-009`).
 5. Si le TTL est dépassé et le réseau disponible, un rafraîchissement s'exécute en tâche de fond ; les marqueurs se mettent à jour sans vider l'écran.

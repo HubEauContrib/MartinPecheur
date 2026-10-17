@@ -1,6 +1,6 @@
 # BR-008 — Une seule échelle d'état est active à la fois
 
-- **Statut :** Accepté · **amendé le 2026-10-12 (T3)** · **amendé le 2026-10-14 (T4, vigilance crues)**
+- **Statut :** Accepté · **amendé le 2026-10-12 (T3)** · **amendé le 2026-10-14 (T4, vigilance crues)** · **amendé le 2026-10-17 (tranche d'ergonomie)**
 - **Date :** 2026-07-30
 - **Contexte borné :** Carte
 
@@ -9,6 +9,8 @@
 > Les **quatre** échelles d'état — **écoulement**, **niveau de débit**, **sévérité sécheresse**, **vigilance crues** —
 > ne sont jamais superposées sur un même marqueur ni affichées simultanément sur la carte.
 > Une seule est active, choisie par **les puces d'échelle**, et la **légende l'indique en permanence**.
+
+> ⚠️ **Amendement du 2026-10-17 — tranche d'ergonomie.** Le choix se fait dans le **sélecteur de lecture** de la carte (tranche d'ergonomie, arbitrage 1 du 2026-10-17), qui remplace les puces d'échelle ; la légende est dans le bloc de lecture, sous l'en-tête « `Légende · <lecture>` ». L'entrée « Restrictions » du sélecteur est un **mode de désignation**, pas l'échelle « sévérité sécheresse » : elle s'allume en plus de la lecture affichée et ne dessine aucune échelle sur la carte (arbitrage du 2026-10-03, inchangé). L'écart accepté le 2026-10-12 (la légende défile quand la place manque) vaut aussi pendant qu'une fiche est ouverte : la légende est le premier repli (arbitrage 11 du 2026-10-17).
 
 ## Justification
 
