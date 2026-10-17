@@ -22,7 +22,8 @@
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 porte non franchie : restent `A1`, `E4`, `P1`, `P2` (25 tâches closes sur 29) — `0.3.0` datée et taguée sans elle, sur décision du commanditaire |
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
 | **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : le point 64 à l'écran, les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») |
-| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 prévue après T4 (arbitrage du commanditaire du 2026-10-03), non cadrée — dépend des favoris de T3 et du moteur structuré laissé ouvert par `ADR-011` ; notifications en tâche de fond jamais essayées |
+| **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | 🔄 **avant T5** (arbitrages 16 et 17 du commanditaire du 2026-10-17, cadrage de T5 § 2), non cadrée, sans numéro |
+| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** jusqu'à la tranche d'ergonomie (arbitrage 16) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
 `BR-013` ; l'étiquette est discutée au point 52). Les quatre sont posés dans le code : le modal du premier
@@ -169,7 +170,7 @@ Les numéros sont ceux d'origine : ils sont cités ailleurs et ne se réutilisen
 
 | # | Sujet | Nature, qui tranche |
 |---|---|---|
-| 1 | **Stockage local : moteur structuré non tranché.** `shared_preferences` porte la préférence simple et les favoris (`ADR-011`, amendé le 2026-10-12) | Pour la donnée structurée (dernière vue, hors-ligne `US-10`, T5), `drift` reste candidat par défaut ; `sqflite` seul ne couvre pas Windows. Commanditaire, quand un écran en aura besoin |
+| 1 | **Stockage local : moteur structuré non tranché.** `shared_preferences` porte la préférence simple et les favoris (`ADR-011`, amendé le 2026-10-12) ; le suivi des lieux et les avis de T5 y iront aussi (arbitrage 6 du cadrage de T5, 2026-10-17 ; amendement d'`ADR-011` à écrire au lot 1 de T5) | Pour la donnée structurée (dernière vue, hors-ligne `US-10`), `drift` reste candidat par défaut ; `sqflite` seul ne couvre pas Windows. Commanditaire, quand un écran en aura besoin |
 | 2 | **Trois ADR tranchés sans arbitrage du commanditaire** : `ADR-002` ; `ADR-004` (amendé et en partie arbitré le 2026-09-27) ; `ADR-006` (seul « Non renseigné » arbitré, point 28) | Décisions par défaut, réversibles ; chacune porte sa section « Si la décision est revue ». Commanditaire |
 | 3 | **Réduction de périmètre** : la qualité de l'eau, annoncée au cadrage, n'est pas livrée (`ADR-007`) | À porter explicitement auprès du commanditaire |
 | 5 bis | 🚨 **`Indéterminé` concerne près d'une station sur deux** : sur l'échantillon du 2026-08-15, 19 stations sur 40 sans aucune quinzaine calculable, 48,8 % des quinzaines ; `ADR-002` fonde le positionnement statistique du débit sur cet asset | Confirmation demandée sur la passe complète (~2 h), **non lancée** ; un échantillon de 200 stations (~6 min) le resserrerait. Commanditaire |
@@ -320,4 +321,6 @@ T4 est close : la porte est franchie sur Windows et Android (2026-10-17) et `0.5
 posé, rien n'est poussé ni fusionné : décisions du commanditaire. Restent à constater à l'écran, s'il le veut :
 le point 64 (et la disposition des puces, point 61), les niveaux 2 à 4 à l'occasion d'un épisode de crue.
 **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas dit
-(point 62) se constate s'il le veut, ou reste « non vérifié ». T5 n'est pas cadrée.
+(point 62) se constate s'il le veut, ou reste « non vérifié ». **T5 est cadrée** (2026-10-17), son plan suspendu : la
+**tranche d'ergonomie** — maquette du 2026-10-03 et points 49, 51, 60, 61, 63, 64 — passe avant, et se cadre la
+première ; le plan de T5 s'écrira ensuite, sur les écrans refaits (cadrage de T5, § 7 et § 13).

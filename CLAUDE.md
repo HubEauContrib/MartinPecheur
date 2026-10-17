@@ -18,7 +18,8 @@
 | T2 | Sécheresse et restrictions (VigiEau) | 🔄 porte non franchie — `0.3.0` datée et taguée sans elle |
 | T3 | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` |
 | T4 | Crues : vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` |
-| T5 | Être prévenu, sans serveur ni compte | 🔄 prévue après T4, non cadrée |
+| Ergonomie | Maquette du 2026-10-03 (sélecteur, fiches, panneau Windows) et points d'interface ouverts | 🔄 avant T5, non cadrée |
+| T5 | Être prévenu, sans serveur ni compte | 🔄 cadrée — plan suspendu après l'ergonomie |
 
 Détail, constats non faits, points ouverts : `docs/project-state.md`.
 

@@ -71,6 +71,7 @@ de ses arbitrages ; le plan correspondant est ci-dessus.
 | [`2026-10-03-cadrage-t4-t5-crues-design.md`](superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md) | **T4** (crues, vigilance Vigicrues) et **T5** (être prévenu) : les deux tranches, leur ordre et ce que chacune doit prouver ; arbitré le 2026-10-03 |
 | [`2026-10-12-cadrage-t3-design.md`](superpowers/specs/2026-10-12-cadrage-t3-design.md) | **T3** — cadrage : favoris, filtres, fraîcheur ; huit arbitrages du 2026-10-12 |
 | [`2026-10-14-cadrage-t4-design.md`](superpowers/specs/2026-10-14-cadrage-t4-design.md) | **T4** — cadrage détaillé : treize arbitrages, approuvé le 2026-10-14 ; faits de la source : [`sources/vigicrues.md`](sources/vigicrues.md) |
+| [`2026-10-17-cadrage-t5-design.md`](superpowers/specs/2026-10-17-cadrage-t5-design.md) | **T5** — cadrage détaillé : avis sur les lieux suivis, vérification à l'ouverture, essais de tâche de fond sur Windows et Android ; dix-sept arbitrages, approuvé le 2026-10-17 ; plan suspendu derrière la tranche d'ergonomie |
 
 ## Index des décisions
 
