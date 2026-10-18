@@ -47,11 +47,13 @@ MapLayoutInput _input({
   PieceHeights sheet = PieceHeights.none,
   double gap = 8,
   bool bandFits = true,
+  bool reticleUnderBlock = true,
 }) => MapLayoutInput(
   available: available,
   width: width,
   blockOverBottom: blockOverBottom,
   bandFits: bandFits,
+  reticleUnderBlock: reticleUnderBlock,
   designation: designation,
   sheetOpen: sheetOpen,
   blockFixed: blockFixed,
@@ -66,7 +68,9 @@ MapLayoutInput _input({
 
 /// Toutes les pièces, au téléphone, en mode, fiche ouverte. Entières : bloc
 /// 150 + 40 + 100 = 290, bande du réticule 56 (sans écart autour), zone du bas
-/// 80 + 8 + 60 = 148, écart, fiche 300 — 290 + 56 + 148 + 8 + 300 = 802.
+/// 80 + 8 + 60 = 148, écart, fiche 300 — 290 + 56 + 148 + 8 + 300 = 802 ;
+/// en mode, la partie variable (40 + 100) compte deux fois tant que la bande
+/// du réticule est là (le réticule au milieu, `D1`) : 942.
 MapLayoutInput _everyPiece({
   required double available,
   MapLayoutWidth width = MapLayoutWidth.compact,
@@ -83,6 +87,79 @@ MapLayoutInput _everyPiece({
 );
 
 void main() {
+  group('Le réticule sous le bloc, en largeur (mapLayoutWidths)', () {
+    MapLayoutWidths at(double width, {bool sheetOpen = false}) =>
+        mapLayoutWidths(
+          width: width,
+          sheetOpen: sheetOpen,
+          bottomMaxIntrinsicWidth: 60,
+          bandMinIntrinsicWidth: 120,
+          padding: 8,
+          reticleWidth: 48,
+        );
+
+    test('compact : toujours (bloc pleine largeur)', () {
+      expect(at(360).reticleUnderBlock, isTrue);
+      expect(at(599).reticleUnderBlock, isTrue);
+    });
+
+    test('1 280 sans fiche : réticule 616–664, bloc 8–488 — non', () {
+      expect(at(1280).block, 480);
+      expect(at(1280).reticleUnderBlock, isFalse);
+    });
+
+    test('1 280, panneau ouvert : carte visible 900, réticule 426–474, bloc '
+        '8–488 — oui', () {
+      final MapLayoutWidths widths = at(1280, sheetOpen: true);
+      expect(widths.visible, 900);
+      expect(widths.reticleUnderBlock, isTrue);
+    });
+
+    test('800 sans fiche et wide : le bloc de 480 atteint le centre — oui', () {
+      expect(at(800).reticleUnderBlock, isTrue);
+      expect(at(700).reticleUnderBlock, isTrue);
+    });
+
+    test('bord à bord n\'est pas un recouvrement : réticule 488–536 à côté '
+        'd\'un bloc 8–488', () {
+      // Carte visible 1 024 : centre 512, réticule 488–536.
+      expect(at(1024).reticleUnderBlock, isFalse);
+      expect(at(1023).reticleUnderBlock, isTrue);
+    });
+  });
+
+  group('La hauteur disponible (mapLayoutAvailableHeight)', () {
+    double at(
+      MapLayoutWidth width, {
+      required bool sheetOpen,
+      double h = 640,
+    }) => mapLayoutAvailableHeight(
+      safeHeight: h,
+      width: width,
+      sheetOpen: sheetOpen,
+      padding: 8,
+    );
+
+    test(
+      'fiche du bas ouverte : une seule marge, la fiche est collée au bas',
+      () {
+        expect(at(MapLayoutWidth.compact, sheetOpen: true), 632);
+        expect(at(MapLayoutWidth.wide, sheetOpen: true), 632);
+      },
+    );
+
+    test('aucune fiche, ou le panneau à côté : deux marges', () {
+      expect(at(MapLayoutWidth.compact, sheetOpen: false), 624);
+      expect(at(MapLayoutWidth.wide, sheetOpen: false), 624);
+      expect(at(MapLayoutWidth.panel, sheetOpen: true), 624);
+      expect(at(MapLayoutWidth.panel, sheetOpen: false), 624);
+    });
+
+    test('jamais négative', () {
+      expect(at(MapLayoutWidth.compact, sheetOpen: false, h: 10), 0);
+    });
+  });
+
   group('Les largeurs', () {
     test('les quatre largeurs nommées de la spec § 5.1', () {
       expect(mapWideLayoutMinWidth, 600);
@@ -100,9 +177,9 @@ void main() {
   });
 
   group('Rien ne cède tant que tout tient', () {
-    test('802 pour 802 : aucun repli, chaque pièce à son max', () {
+    test('942 pour 942, en mode : aucun repli, chaque pièce à son max', () {
       final MapLayoutAllocation allocation = allocateMapLayout(
-        _everyPiece(available: 802),
+        _everyPiece(available: 942),
       );
 
       expect(allocation.folds, isEmpty);
@@ -171,7 +248,7 @@ void main() {
   group('L\'ordre de repli', () {
     test('au téléphone, en mode, fiche ouverte : les six replis, dans l\'ordre '
         '1 à 6', () {
-      // 802 entières. Légende, avis et fiche au plus bas : 150 + 56 +
+      // 942 entières. Légende, avis et fiche au plus bas : 150 + 56 +
       // (80 + 8 + 60) + 8 + 80 = 442. Repli 4 : 392. Repli 5 : 360. Repli 6 :
       // bande et bande du réticule retirées, l'écart de la bande avec elles ;
       // le bloc et la rangée, voisins, prennent un écart : 100 + 8 + 60 + 8 +
@@ -733,7 +810,216 @@ void main() {
 
       expect(first, second);
       expect(first.hashCode, second.hashCode);
-      expect(first, isNot(allocateMapLayout(_everyPiece(available: 802))));
+      expect(first, isNot(allocateMapLayout(_everyPiece(available: 942))));
+    });
+  });
+
+  group('Arbitrage 15 : le réticule reste fixe', () {
+    // En mode, bande du réticule posée et fiche du bas comptée, les replis
+    // continus jouent dans l'ordre 1, 3, 2 : la fiche — qui place la bande,
+    // donc le réticule — ne dépend plus des avis ni de la légende.
+
+    /// Compact, fiche du bas 80/300. En mode : bande 48/80, bande du réticule
+    /// 56 ; au plus bas, 150 + 56 + (80 + 8 + 60) + 8 + 80 = 442.
+    MapLayoutInput entree({
+      required double available,
+      required double notices,
+      bool designation = true,
+    }) => _input(
+      available: available,
+      designation: designation,
+      sheetOpen: true,
+      notices: notices,
+      reticleBand: designation ? 56 : 0,
+      band: designation
+          ? const PieceHeights(min: 48, max: 80)
+          : PieceHeights.none,
+      sheet: const PieceHeights(min: 80, max: 300),
+    );
+
+    test('en mode, avis 0 puis 40 : la fiche garde la même hauteur ; le '
+        'surplus va à la fiche avant les avis', () {
+      final MapLayoutAllocation sansAvis = allocateMapLayout(
+        entree(available: 500, notices: 0),
+      );
+      final MapLayoutAllocation avecAvis = allocateMapLayout(
+        entree(available: 500, notices: 40),
+      );
+
+      expect(sansAvis.sheet, 138);
+      expect(avecAvis.sheet, sansAvis.sheet);
+      expect(avecAvis.notices, 0);
+      expect(avecAvis.folds, <int>[2, 3]);
+    });
+
+    test('en mode, assez de place pour la fiche entière : le reste revient '
+        'aux avis, puis à la légende', () {
+      // Fiche entière : 150 + 56 + 148 + 8 + 300 = 662 ; 22 de plus, comptés
+      // deux fois : avis 11.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        entree(available: 684, notices: 40),
+      );
+
+      expect(allocation.sheet, 300);
+      expect(allocation.notices, 11);
+      expect(allocation.folds, <int>[3]);
+    });
+
+    test('hors mode : inchangé — les avis avant la fiche', () {
+      // Au plus bas : 150 + 8 + 60 + 8 + 80 = 306 ; surplus 94 : les avis
+      // reprennent 40, la fiche 54.
+      final MapLayoutAllocation avecAvis = allocateMapLayout(
+        entree(available: 400, notices: 40, designation: false),
+      );
+      final MapLayoutAllocation sansAvis = allocateMapLayout(
+        entree(available: 400, notices: 0, designation: false),
+      );
+
+      expect(avecAvis.notices, 40);
+      expect(avecAvis.sheet, 134);
+      expect(sansAvis.sheet, 174);
+      expect(avecAvis.folds, <int>[2]);
+    });
+
+    test('en mode, bande retirée (repli 6) : inchangé — les avis avant la '
+        'fiche', () {
+      // Le cas « le repli 6 retire la bande avec son écart » : surplus 8,
+      // aux avis.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _everyPiece(available: 264),
+      );
+
+      expect(allocation.bandWithdrawn, isTrue);
+      expect(allocation.notices, 8);
+      expect(allocation.sheet, 80);
+    });
+  });
+
+  group('En mode, la partie variable compte deux fois (amendement de D1)', () {
+    // Le réticule est au milieu de [bas de la partie fixe ; haut de la bande]
+    // (spec § 5.5) et la partie variable (avis + légende) s'arrête au-dessus
+    // de la bande du réticule : avec H = haut de la bande − bas de la partie
+    // fixe, R la bande du réticule et V la partie variable, V ≤ (H − R) / 2.
+    // En mode, tant que la bande du réticule est là, V compte donc DEUX FOIS
+    // dans la somme ; hors mode, ou bande retirée (repli 6), une fois.
+
+    /// Compact, en mode, sans fiche : partie fixe 150, avis 40, légende 100,
+    /// bande du réticule 56, zone du bas 80 + 8 + 60 = 148. Une fois : 494 ;
+    /// deux fois : 634.
+    MapLayoutInput enMode(double available) => _input(
+      available: available,
+      designation: true,
+      notices: 40,
+      legend: 100,
+      reticleBand: 56,
+      band: const PieceHeights(min: 48, max: 80),
+    );
+
+    test('634 pour 634 : aucun repli ; 633 ne tient plus', () {
+      expect(allocateMapLayout(enMode(634)).folds, isEmpty);
+      expect(allocateMapLayout(enMode(633)).folds, <int>[1]);
+    });
+
+    test('il manque 100 : la légende en rend 50, comptés deux fois', () {
+      final MapLayoutAllocation allocation = allocateMapLayout(enMode(534));
+
+      expect(allocation.folds, <int>[1]);
+      expect(allocation.legend, 50);
+      expect(allocation.notices, 40);
+      expect(allocation.blockFixed, 150);
+      expect(allocation.overflows, isFalse);
+    });
+
+    test('la légende à 0, les avis par degrés, eux aussi deux fois : 374 → '
+        'avis 10', () {
+      // 150 + 2 × avis + 56 + 148 = 374 : avis 10.
+      final MapLayoutAllocation allocation = allocateMapLayout(enMode(374));
+
+      expect(allocation.folds, <int>[1, 3]);
+      expect(allocation.legend, 0);
+      expect(allocation.notices, 10);
+      expect(allocation.overflows, isFalse);
+    });
+
+    test('hors mode, la même partie variable ne compte qu\'une fois', () {
+      // 150 + 40 + 100, écart, rangée 60 = 358.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(available: 358, notices: 40, legend: 100),
+      );
+
+      expect(allocation.folds, isEmpty);
+    });
+
+    test('bande retirée (repli 6) : la partie variable revient à une fois — '
+        'le surplus revient aux avis à son poids simple', () {
+      // Au téléphone, en mode, fiche ouverte : après le repli 6, 100 + 8 +
+      // 60 + 8 + 80 = 256 ; pour 276, les avis reprennent 20, comptés une
+      // fois (sans le retrait, 20 d'avis coûteraient 40).
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _everyPiece(available: 276),
+      );
+
+      expect(allocation.bandWithdrawn, isTrue);
+      expect(allocation.notices, 20);
+      expect(allocation.legend, 0);
+      expect(allocation.overflows, isFalse);
+    });
+
+    test('le réticule hors du bloc en largeur (reticleUnderBlock faux) : la '
+        'partie variable ne compte qu\'une fois — 494 tient', () {
+      // Spec § 5.6 : rien ne cède tant que tout tient. 150 + 140 + 56 + 148.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(
+          available: 494,
+          designation: true,
+          reticleUnderBlock: false,
+          notices: 40,
+          legend: 100,
+          reticleBand: 56,
+          band: const PieceHeights(min: 48, max: 80),
+        ),
+      );
+
+      expect(allocation.folds, isEmpty);
+      expect(allocation.legend, 100);
+      expect(allocation.notices, 40);
+    });
+
+    test('le repli 6 étendu (bandFits faux) retire aussi le doublement', () {
+      // Panel, fiche ouverte, bande trop large : retirée d'emblée. 150 + 40 +
+      // 100, écart, colonne 60 = 358 tient dans 358 : V une fois.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(
+          available: 358,
+          width: MapLayoutWidth.panel,
+          designation: true,
+          sheetOpen: true,
+          notices: 40,
+          legend: 100,
+          reticleBand: 56,
+          band: const PieceHeights(min: 48, max: 80),
+          sheet: const PieceHeights(min: 80, max: 300),
+          bandFits: false,
+        ),
+      );
+
+      expect(allocation.folds, <int>[6]);
+      expect(allocation.legend, 100);
+      expect(allocation.notices, 40);
+    });
+
+    test('wide, en mode, la partie fixe qui déborde reçoit ce qui reste après '
+        'la bande du réticule — V à 0 n\'y change rien', () {
+      // Repris de « le même cas en wide » : V est tombée à 0, le doublement
+      // ne coûte rien ; la partie fixe reçoit 52.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _everyPiece(available: 256, width: MapLayoutWidth.wide),
+      );
+
+      expect(allocation.overflows, isTrue);
+      expect(allocation.notices, 0);
+      expect(allocation.legend, 0);
+      expect(allocation.blockFixed, 52);
     });
   });
 }

@@ -1,0 +1,604 @@
+// La mise en page de la carte visible (`D1` d'Ergonomie, spec § 5.1 à § 5.6
+// et § 6.5) : un `RenderObject` qui pose, sur la carte, le bloc de lecture en
+// trois pièces (`B1`), le bas (`S4`), la bande du bouton de désignation
+// (`S4`), le réticule et la fiche (`S3`), sur trois largeurs, en répartissant
+// la hauteur par `allocateMapLayout` (`S5`).
+//
+// Construit SEUL à ce stade : `MapView` ne l'emploie pas encore, `D2` le
+// branche.
+//
+// ## L'ordre de la mise en page
+//
+// 1. la largeur ([mapLayoutWidthFor]) et la zone sûre ;
+// 2. la fiche est OUVERTE si son enfant a une hauteur intrinsèque maximale
+//    non nulle (une fiche fermée vaut `SizedBox.shrink`) ; le mode
+//    « Restrictions », si la bande du bouton en a une ;
+// 3. les largeurs : [mapLayoutWidths], la même fonction que la porte de
+//    faisabilité (`S6`, `mesurerPieces`) ;
+// 4. les intrinsèques des enfants, lues à ces largeurs AVANT toute pose,
+//    puis [allocateMapLayout] ;
+// 5. chaque enfant posé avec la hauteur allouée : la partie fixe, la bande et
+//    la fiche se replient d'elles-mêmes (note d'architecture) ; les trois
+//    pièces du bloc sont posées À CHAQUE mise en page, même à 0 ;
+// 6. les positions, puis le réticule ;
+// 7. le rapport ([MapLayoutReport]), publié après la trame s'il a changé.
+//
+// ## Ce qui se peint et se touche
+//
+// Ordre de peinture : la fiche d'abord — rien ne se peint SOUS elle qui
+// appartienne à la carte, c'est elle qui est dessous si un recouvrement
+// arrive en deçà des tailles garanties —, puis le bloc, le bas, la bande, le
+// réticule en dernier (rien ne se peint sur lui). Le toucher suit l'ordre
+// inverse. Cette boîte ne prend aucun geste elle-même : hors des pièces, la
+// carte dessous le reçoit. Les pièces du bloc absorbent sur leur surface
+// (`B1`), la bande et le bas ne prennent un geste que sur leurs éléments
+// (`S4`) : chacune en décide. Repli 6 : la bande et le réticule sont posés à
+// taille nulle et ne sont ni peints, ni touchables, ni annoncés ; ils restent
+// dans l'arbre (leurs intrinsèques restent lisibles). La bande retirée garde
+// son nœud de focus : un `RenderObject` ne peut pas en retirer un ; la
+// composition (`D2`) l'exclut par `ExcludeFocus`, à l'écoute du rapport.
+import 'dart:math' as math;
+
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
+import 'package:martinpecheur/features/map/view/map_center_reticle.dart'
+    show mapCenterReticleSize;
+import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
+
+/// Les emplacements de [MapLayout]. Chacun est facultatif : absent, il vaut
+/// une pièce nulle.
+enum MapLayoutSlot {
+  /// La partie fixe du bloc de lecture (`MapReadingBlockFixed`).
+  blockFixed,
+
+  /// Les avis du bloc (`MapReadingBlockNotices`).
+  blockNotices,
+
+  /// La légende du bloc (`MapReadingBlockLegend`).
+  blockLegend,
+
+  /// Le bas de la carte : la rangée (compact) ou la colonne, attribution
+  /// comprise.
+  bottom,
+
+  /// La bande du bouton de désignation (`DesignationBand`). Hors mode :
+  /// `SizedBox.shrink`.
+  band,
+
+  /// Le réticule (`MapCenterReticle`). Hors mode : `SizedBox.shrink`.
+  reticle,
+
+  /// La fiche ouverte (fiche du bas ou panneau latéral). Aucune fiche :
+  /// `SizedBox.shrink`.
+  sheet,
+}
+
+/// Ce que la vue doit savoir de la dernière mise en page (note
+/// d'architecture, 5) : la carte visible, le réticule, la répartition.
+/// Égalité par valeur.
+final class MapLayoutReport {
+  const MapLayoutReport({
+    required this.visible,
+    required this.reticle,
+    required this.allocation,
+  });
+
+  /// La carte visible, dans le repère de [MapLayout] : la surface moins la
+  /// zone sûre et moins la fiche.
+  final Rect visible;
+
+  /// Le réticule posé, ou `null` : hors mode, ou retiré (repli 6).
+  final Rect? reticle;
+
+  /// La répartition de la hauteur ([allocateMapLayout]).
+  final MapLayoutAllocation allocation;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MapLayoutReport &&
+      other.visible == visible &&
+      other.reticle == reticle &&
+      other.allocation == allocation;
+
+  @override
+  int get hashCode => Object.hash(visible, reticle, allocation);
+
+  @override
+  String toString() =>
+      'MapLayoutReport(visible: $visible, reticle: $reticle, '
+      'allocation: $allocation)';
+}
+
+/// L'emplacement d'un enfant de [MapLayout].
+class MapLayoutParentData extends ContainerBoxParentData<RenderBox> {
+  MapLayoutSlot? slot;
+}
+
+/// Désigne l'emplacement de [child] dans [MapLayout].
+class MapLayoutChild extends ParentDataWidget<MapLayoutParentData> {
+  const MapLayoutChild({required this.slot, required super.child, super.key});
+
+  final MapLayoutSlot slot;
+
+  @override
+  void applyParentData(RenderObject renderObject) {
+    final MapLayoutParentData data =
+        renderObject.parentData! as MapLayoutParentData;
+    if (data.slot != slot) {
+      data.slot = slot;
+      renderObject.parent?.markNeedsLayout();
+    }
+  }
+
+  @override
+  Type get debugTypicalAncestorWidgetClass => MapLayout;
+}
+
+/// La mise en page de la carte visible : chaque enfant enveloppé d'un
+/// [MapLayoutChild]. Elle prend toute la surface qu'on lui donne.
+class MapLayout extends MultiChildRenderObjectWidget {
+  const MapLayout({
+    required this.padding,
+    required this.safeInsets,
+    required this.reticleBandHeight,
+    required this.report,
+    super.children,
+    super.key,
+  });
+
+  /// La marge au bord de la carte visible, et l'écart entre deux groupes de
+  /// pièces (`allocateMapLayout`, `gap`).
+  final double padding;
+
+  /// La zone sûre de l'appareil : rien ne s'y pose.
+  final EdgeInsets safeInsets;
+
+  /// La bande du réticule : le réticule et sa marge (spec § 5.6).
+  final double reticleBandHeight;
+
+  /// Où le rapport de la dernière mise en page est publié, après la trame et
+  /// seulement s'il a changé.
+  final ValueNotifier<MapLayoutReport?> report;
+
+  @override
+  RenderMapLayout createRenderObject(BuildContext context) => RenderMapLayout(
+    padding: padding,
+    safeInsets: safeInsets,
+    reticleBandHeight: reticleBandHeight,
+    report: report,
+  );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant RenderMapLayout renderObject,
+  ) {
+    renderObject
+      ..padding = padding
+      ..safeInsets = safeInsets
+      ..reticleBandHeight = reticleBandHeight
+      ..report = report;
+  }
+}
+
+/// Le `RenderObject` de [MapLayout] (voir l'en-tête du fichier).
+class RenderMapLayout extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MapLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MapLayoutParentData> {
+  RenderMapLayout({
+    required this._padding,
+    required this._safeInsets,
+    required this._reticleBandHeight,
+    required this._report,
+  });
+
+  double _padding;
+  EdgeInsets _safeInsets;
+  double _reticleBandHeight;
+  ValueNotifier<MapLayoutReport?> _report;
+
+  /// Le dernier rapport calculé, en attente de publication.
+  MapLayoutReport? _latest;
+  bool _publishScheduled = false;
+
+  /// Le repli 6 de la dernière mise en page : bande et réticule ni peints, ni
+  /// touchables, ni annoncés.
+  bool _bandWithdrawn = false;
+
+  /// Les enfants par emplacement, relevés à la dernière mise en page : la
+  /// peinture et le toucher les relisent sans reparcourir la liste (un ajout
+  /// ou un retrait d'enfant remet en page).
+  Map<MapLayoutSlot, RenderBox> _laidOut = const <MapLayoutSlot, RenderBox>{};
+
+  set padding(double value) {
+    if (value == _padding) return;
+    _padding = value;
+    markNeedsLayout();
+  }
+
+  set safeInsets(EdgeInsets value) {
+    if (value == _safeInsets) return;
+    _safeInsets = value;
+    markNeedsLayout();
+  }
+
+  set reticleBandHeight(double value) {
+    if (value == _reticleBandHeight) return;
+    _reticleBandHeight = value;
+    markNeedsLayout();
+  }
+
+  set report(ValueNotifier<MapLayoutReport?> value) {
+    if (identical(value, _report)) return;
+    _report = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MapLayoutParentData) {
+      child.parentData = MapLayoutParentData();
+    }
+  }
+
+  /// Les enfants par emplacement. Un emplacement en double est une erreur de
+  /// l'appelant.
+  Map<MapLayoutSlot, RenderBox> _children() {
+    final Map<MapLayoutSlot, RenderBox> bySlot = <MapLayoutSlot, RenderBox>{};
+    RenderBox? child = firstChild;
+    while (child != null) {
+      final MapLayoutParentData data = child.parentData! as MapLayoutParentData;
+      final MapLayoutSlot? slot = data.slot;
+      assert(slot != null, 'Chaque enfant de MapLayout est un MapLayoutChild.');
+      assert(
+        slot == null || !bySlot.containsKey(slot),
+        'Emplacement $slot donné deux fois à MapLayout.',
+      );
+      if (slot != null) bySlot[slot] = child;
+      child = data.nextSibling;
+    }
+    return bySlot;
+  }
+
+  // --- Les intrinsèques de la boîte elle-même ---------------------------------
+  //
+  // Elle prend toute la surface qu'on lui donne : aucune taille propre.
+
+  @override
+  double computeMinIntrinsicWidth(double height) => 0;
+
+  @override
+  double computeMaxIntrinsicWidth(double height) => 0;
+
+  @override
+  double computeMinIntrinsicHeight(double width) => 0;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => 0;
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) =>
+      constraints.hasBoundedWidth && constraints.hasBoundedHeight
+      ? constraints.biggest
+      : constraints.smallest;
+
+  // --- La mise en page --------------------------------------------------------
+
+  @override
+  void performLayout() {
+    size = computeDryLayout(constraints);
+    final Map<MapLayoutSlot, RenderBox> children = _laidOut = _children();
+    final double padding = math.max(0, _padding);
+
+    double maxHeight(MapLayoutSlot slot, double width) =>
+        children[slot]?.getMaxIntrinsicHeight(width) ?? 0;
+    double minHeight(MapLayoutSlot slot, double width) =>
+        children[slot]?.getMinIntrinsicHeight(width) ?? 0;
+    PieceHeights heights(MapLayoutSlot slot, double width) =>
+        PieceHeights(min: minHeight(slot, width), max: maxHeight(slot, width));
+
+    // 1. La zone sûre.
+    final Rect safe = Rect.fromLTRB(
+      math.min(_safeInsets.left, size.width),
+      math.min(_safeInsets.top, size.height),
+      math.max(_safeInsets.left, size.width - _safeInsets.right),
+      math.max(_safeInsets.top, size.height - _safeInsets.bottom),
+    );
+    final MapLayoutWidth layout = mapLayoutWidthFor(size.width);
+    final bool compact = switch (layout) {
+      MapLayoutWidth.compact => true,
+      MapLayoutWidth.wide || MapLayoutWidth.panel => false,
+    };
+    final bool panel = switch (layout) {
+      MapLayoutWidth.panel => true,
+      MapLayoutWidth.compact || MapLayoutWidth.wide => false,
+    };
+
+    // 2. La fiche ouverte, le mode : dits par les enfants eux-mêmes.
+    final double sheetWidth = panel ? mapSidePanelWidth : safe.width;
+    final bool sheetOpen = maxHeight(MapLayoutSlot.sheet, sheetWidth) > 0;
+    final bool designation = maxHeight(MapLayoutSlot.band, double.infinity) > 0;
+
+    // 3. Les largeurs : la seule source, partagée avec `S6`.
+    final MapLayoutWidths widths = mapLayoutWidths(
+      width: size.width,
+      safeWidth: safe.width,
+      sheetOpen: sheetOpen,
+      bottomMaxIntrinsicWidth:
+          children[MapLayoutSlot.bottom]?.getMaxIntrinsicWidth(
+            double.infinity,
+          ) ??
+          0,
+      bandMinIntrinsicWidth:
+          children[MapLayoutSlot.band]?.getMinIntrinsicWidth(double.infinity) ??
+          0,
+      padding: padding,
+      reticleWidth: mapCenterReticleSize,
+    );
+
+    // 4. Les intrinsèques aux largeurs, puis la répartition.
+    final MapLayoutAllocation allocation = allocateMapLayout(
+      MapLayoutInput(
+        available: mapLayoutAvailableHeight(
+          safeHeight: safe.height,
+          width: layout,
+          sheetOpen: sheetOpen,
+          padding: padding,
+        ),
+        width: layout,
+        blockOverBottom: widths.blockOverBottom,
+        bandFits: widths.bandFits,
+        reticleUnderBlock: widths.reticleUnderBlock,
+        designation: designation,
+        sheetOpen: sheetOpen,
+        blockFixed: heights(MapLayoutSlot.blockFixed, widths.block),
+        notices: maxHeight(MapLayoutSlot.blockNotices, widths.block),
+        legend: maxHeight(MapLayoutSlot.blockLegend, widths.block),
+        bottom: maxHeight(MapLayoutSlot.bottom, widths.bottom),
+        // Une bande qui ne tient pas n'a pas de hauteur à dire : fiche
+        // ouverte, `allocateMapLayout` la retire (repli 6 étendu, arbitrage
+        // 14) ; sans fiche, elle déborde.
+        band: designation && widths.bandFits
+            ? heights(MapLayoutSlot.band, widths.band)
+            : PieceHeights.none,
+        reticleBand: designation ? _reticleBandHeight : 0,
+        sheet: sheetOpen
+            ? heights(MapLayoutSlot.sheet, widths.sheet)
+            : PieceHeights.none,
+        gap: padding,
+      ),
+    );
+    _bandWithdrawn = allocation.bandWithdrawn;
+
+    // 5. La pose. Une pièce absente vaut zéro.
+    Size layoutChild(MapLayoutSlot slot, BoxConstraints constraints) {
+      final RenderBox? child = children[slot];
+      if (child == null) return Size.zero;
+      child.layout(constraints, parentUsesSize: true);
+      return child.size;
+    }
+
+    void place(MapLayoutSlot slot, Offset offset) {
+      final RenderBox? child = children[slot];
+      if (child == null) return;
+      (child.parentData! as MapLayoutParentData).offset = offset;
+    }
+
+    BoxConstraints widthAndMaxHeight(double width, double height) =>
+        BoxConstraints(
+          minWidth: width,
+          maxWidth: width,
+          maxHeight: math.max(0, height),
+        );
+
+    // La fiche d'abord : elle borne la carte visible, dont la largeur est
+    // celle de `mapLayoutWidths` (la fiche du bas, ou aucune : la zone sûre ;
+    // le panneau : la zone sûre moins lui).
+    final double visibleRight = safe.left + widths.visible;
+    final Rect visible;
+    if (!sheetOpen) {
+      layoutChild(MapLayoutSlot.sheet, BoxConstraints.tight(Size.zero));
+      place(MapLayoutSlot.sheet, safe.bottomRight);
+      visible = Rect.fromLTRB(safe.left, safe.top, visibleRight, safe.bottom);
+    } else if (panel) {
+      layoutChild(
+        MapLayoutSlot.sheet,
+        BoxConstraints.tight(Size(widths.sheet, safe.height)),
+      );
+      place(MapLayoutSlot.sheet, Offset(visibleRight, safe.top));
+      visible = Rect.fromLTRB(safe.left, safe.top, visibleRight, safe.bottom);
+    } else {
+      // Jamais plus haute que la zone sûre : la carte visible n'est jamais
+      // négative, même en deçà.
+      final Size sheet = layoutChild(
+        MapLayoutSlot.sheet,
+        widthAndMaxHeight(
+          widths.sheet,
+          math.min(allocation.sheet, safe.height),
+        ),
+      );
+      final double top = safe.bottom - sheet.height;
+      place(MapLayoutSlot.sheet, Offset(safe.left, top));
+      visible = Rect.fromLTRB(safe.left, safe.top, visibleRight, top);
+    }
+
+    // Le bloc : les trois pièces, toujours posées, empilées sans écart.
+    final double blockLeft = visible.left + padding;
+    double blockBottom = visible.top + padding;
+    double stackPiece(MapLayoutSlot slot, double height) {
+      final Size piece = layoutChild(
+        slot,
+        widthAndMaxHeight(widths.block, height),
+      );
+      place(slot, Offset(blockLeft, blockBottom));
+      return blockBottom += piece.height;
+    }
+
+    final double fixedBottom = stackPiece(
+      MapLayoutSlot.blockFixed,
+      allocation.blockFixed,
+    );
+    stackPiece(MapLayoutSlot.blockNotices, allocation.notices);
+    stackPiece(MapLayoutSlot.blockLegend, allocation.legend);
+
+    // Le bas : au bas de la carte visible, à sa propre hauteur, bornée à la
+    // zone sûre ; jamais au-dessus du haut de la carte visible. En deçà des
+    // tailles garanties, il recouvre alors la fiche (peinte dessous) plutôt
+    // que de déborder. Un bas plus haut que la zone sûre elle-même (la colonne
+    // à 640 × 360 et 200 %, sous la marge d'un téléphone) n'a aucune hauteur
+    // où tenir : il est posé entier, son haut à la marge du haut, et passe
+    // sous la marge système du bas plutôt que de lever un débordement.
+    final Size bottom = layoutChild(
+      MapLayoutSlot.bottom,
+      widthAndMaxHeight(
+        widths.bottom,
+        math.max(
+          safe.height - 2 * padding,
+          maxHeight(MapLayoutSlot.bottom, widths.bottom),
+        ),
+      ),
+    );
+    final double bottomTop = math.max(
+      visible.bottom - padding - bottom.height,
+      visible.top + padding,
+    );
+    place(
+      MapLayoutSlot.bottom,
+      Offset(
+        compact
+            ? visible.left + padding
+            : visible.right - padding - bottom.width,
+        bottomTop,
+      ),
+    );
+
+    // La bande : au-dessus de la rangée (compact), au bas de la carte visible
+    // à gauche de la colonne (au-delà). Repli 6 : taille nulle.
+    final Size band = layoutChild(
+      MapLayoutSlot.band,
+      _bandWithdrawn
+          ? BoxConstraints.tight(Size.zero)
+          : widthAndMaxHeight(widths.band, allocation.band),
+    );
+    final double bandBottom = compact && bottom.height > 0
+        ? bottomTop - padding
+        : visible.bottom - padding;
+    final double bandTop = bandBottom - band.height;
+    place(MapLayoutSlot.band, Offset(visible.left + padding, bandTop));
+
+    // 6. Le réticule : centre horizontal de la carte visible ; milieu
+    // vertical de [bas de la partie fixe ; haut de la bande]. Ni les avis ni
+    // la légende n'y entrent.
+    final bool reticleShown = designation && !_bandWithdrawn;
+    final Size reticle = layoutChild(
+      MapLayoutSlot.reticle,
+      reticleShown
+          ? BoxConstraints.loose(visible.size)
+          : BoxConstraints.tight(Size.zero),
+    );
+    final Offset center = Offset(
+      visible.center.dx,
+      (fixedBottom + bandTop) / 2,
+    );
+    final Offset reticleOffset =
+        center - Offset(reticle.width / 2, reticle.height / 2);
+    place(MapLayoutSlot.reticle, reticleOffset);
+
+    // 7. Le rapport.
+    _schedulePublish(
+      MapLayoutReport(
+        visible: visible,
+        reticle: reticleShown ? reticleOffset & reticle : null,
+        allocation: allocation,
+      ),
+    );
+  }
+
+  /// Publie [next] après la trame, s'il diffère de ce que [_report] porte —
+  /// jamais pendant la mise en page.
+  void _schedulePublish(MapLayoutReport next) {
+    _latest = next;
+    if (_publishScheduled || _report.value == next) return;
+    _publishScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((Duration _) {
+      _publishScheduled = false;
+      final MapLayoutReport? latest = _latest;
+      if (!attached || latest == null) return;
+      _report.value = latest;
+    }, debugLabel: 'MapLayout.report');
+  }
+
+  // --- Peinture, toucher, annonces --------------------------------------------
+
+  /// Les emplacements dans l'ordre de peinture (voir l'en-tête du fichier).
+  static const List<MapLayoutSlot> _paintOrder = <MapLayoutSlot>[
+    MapLayoutSlot.sheet,
+    MapLayoutSlot.blockFixed,
+    MapLayoutSlot.blockNotices,
+    MapLayoutSlot.blockLegend,
+    MapLayoutSlot.bottom,
+    MapLayoutSlot.band,
+    MapLayoutSlot.reticle,
+  ];
+
+  /// Retirés par le repli 6 : ni peints, ni touchables, ni annoncés.
+  bool _withdrawn(MapLayoutSlot slot) =>
+      _bandWithdrawn &&
+      switch (slot) {
+        MapLayoutSlot.band || MapLayoutSlot.reticle => true,
+        MapLayoutSlot.blockFixed ||
+        MapLayoutSlot.blockNotices ||
+        MapLayoutSlot.blockLegend ||
+        MapLayoutSlot.bottom ||
+        MapLayoutSlot.sheet => false,
+      };
+
+  @override
+  bool paintsChild(RenderBox child) {
+    final MapLayoutSlot? slot = (child.parentData! as MapLayoutParentData).slot;
+    return slot == null || !_withdrawn(slot);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final Map<MapLayoutSlot, RenderBox> children = _laidOut;
+    for (final MapLayoutSlot slot in _paintOrder) {
+      final RenderBox? child = children[slot];
+      if (child == null || _withdrawn(slot)) continue;
+      context.paintChild(
+        child,
+        offset + (child.parentData! as MapLayoutParentData).offset,
+      );
+    }
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    final Map<MapLayoutSlot, RenderBox> children = _laidOut;
+    for (final MapLayoutSlot slot in _paintOrder.reversed) {
+      final RenderBox? child = children[slot];
+      if (child == null || _withdrawn(slot)) continue;
+      final bool hit = result.addWithPaintOffset(
+        offset: (child.parentData! as MapLayoutParentData).offset,
+        position: position,
+        hitTest: (BoxHitTestResult result, Offset transformed) =>
+            child.hitTest(result, position: transformed),
+      );
+      if (hit) return true;
+    }
+    return false;
+  }
+
+  @override
+  void visitChildrenForSemantics(RenderObjectVisitor visitor) {
+    RenderBox? child = firstChild;
+    while (child != null) {
+      final MapLayoutParentData data = child.parentData! as MapLayoutParentData;
+      final MapLayoutSlot? slot = data.slot;
+      if (slot == null || !_withdrawn(slot)) visitor(child);
+      child = data.nextSibling;
+    }
+  }
+}

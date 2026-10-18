@@ -10,7 +10,14 @@
 // pas, la partie fixe défile (13) — `overflows`, aucun repli de plus ; le
 // repli 6 s'étend au-delà du téléphone (14) — en mode, fiche ouverte, une
 // bande du bouton qui ne tient pas en largeur à côté de la colonne du bas se
-// retire avec le réticule (`MapLayoutInput.bandFits`).
+// retire avec le réticule (`MapLayoutInput.bandFits`). Arbitrage 15 (« le
+// réticule reste fixe ») : en mode, bande du réticule posée et fiche du bas
+// comptée (hors panel), les replis continus jouent dans l'ordre 1 (légende),
+// 3 (avis), 2 (corps de la fiche), et le surplus d'un repli tout ou rien
+// revient à la fiche, puis aux avis, puis à la légende : la fiche, qui place
+// la bande et donc le réticule, ne dépend plus de la partie variable.
+// Partout ailleurs : 1, 2, 3, et le surplus aux avis, à la fiche, à la
+// légende. `folds` garde les numéros, en ordre croissant.
 //
 // Aucun import, ni Flutter ni `dart:ui` : elle s'éprouve seule, sur des
 // nombres. Le `RenderObject` de la carte (`D1`) lit les intrinsèques de ses
@@ -53,6 +60,163 @@ MapLayoutWidth mapLayoutWidthFor(double width) {
   return MapLayoutWidth.panel;
 }
 
+/// Les largeurs des pièces de la carte (spec § 5.1, § 5.5, § 6.5), et les deux
+/// drapeaux de [MapLayoutInput] qui en dépendent. Rendues par
+/// [mapLayoutWidths], la seule source de ces règles : la mise en page de la
+/// carte (`D1`) pose ses enfants à ces largeurs, la porte de faisabilité
+/// (`S6`, `mesurerPieces`) y mesure les vraies pièces.
+final class MapLayoutWidths {
+  const MapLayoutWidths({
+    required this.width,
+    required this.visible,
+    required this.block,
+    required this.bottom,
+    required this.band,
+    required this.sheet,
+    required this.blockOverBottom,
+    required this.bandFits,
+    required this.reticleUnderBlock,
+  });
+
+  final MapLayoutWidth width;
+
+  /// La carte visible : la surface moins le panneau latéral quand une fiche y
+  /// est ouverte ; toute la surface sinon (fiche du bas, ou aucune).
+  final double visible;
+
+  /// Le bloc de lecture : la carte visible moins deux marges en compact ;
+  /// au-delà, [mapReadingBlockMaxWidth] au plus.
+  final double block;
+
+  /// Le bas : la rangée, la surface moins deux marges, en compact ; au-delà,
+  /// la colonne à sa largeur intrinsèque maximale, bornée à la carte visible
+  /// moins deux marges (l'attribution passe alors à la ligne).
+  final double bottom;
+
+  /// La bande du bouton : au-dessus de la rangée, la carte visible moins deux
+  /// marges, en compact ; au-delà, à gauche de la colonne — la carte visible
+  /// moins la marge gauche, l'écart avec la colonne, la colonne et sa marge
+  /// droite. Jamais négative : une bande qui ne tient pas vaut 0, et
+  /// [bandFits] le dit.
+  final double band;
+
+  /// La fiche : toute la surface en fiche du bas, [mapSidePanelWidth] en
+  /// panneau.
+  final double sheet;
+
+  /// [MapLayoutInput.blockOverBottom] : toujours vrai en compact ; au-delà,
+  /// le bloc et la colonne se recouvrent en largeur, écart compris —
+  /// `marge + bloc + marge > carte visible − marge − colonne`.
+  final bool blockOverBottom;
+
+  /// [MapLayoutInput.bandFits] : toujours vrai en compact ; au-delà, la
+  /// largeur laissée à la bande atteint sa largeur intrinsèque minimale.
+  final bool bandFits;
+
+  /// [MapLayoutInput.reticleUnderBlock] : toujours vrai en compact (bloc
+  /// pleine largeur) ; au-delà, l'étendue horizontale du réticule — centre
+  /// de la carte visible ± `reticleWidth / 2` — recoupe celle du bloc
+  /// [marge ; marge + bloc]. Bord à bord n'est pas un recouvrement.
+  final bool reticleUnderBlock;
+}
+
+/// Les largeurs des pièces dans une fenêtre de [width] px de large (la
+/// largeur qui choisit [MapLayoutWidth]). Les pièces se posent dans la zone
+/// sûre, large de [safeWidth] px (la fenêtre moins les marges système
+/// latérales ; [width] par défaut).
+///
+/// [sheetOpen] : une fiche est ouverte. [bottomMaxIntrinsicWidth] : la
+/// largeur intrinsèque maximale du bas, attribution comprise (lue au-delà du
+/// téléphone seulement). [bandMinIntrinsicWidth] : la largeur intrinsèque
+/// minimale de la bande du bouton. [reticleWidth] : la largeur du réticule.
+/// [padding] : la marge au bord de la carte visible, et l'écart entre la bande
+/// et la colonne.
+///
+/// Aucune largeur rendue n'est négative.
+MapLayoutWidths mapLayoutWidths({
+  required double width,
+  required bool sheetOpen,
+  required double bottomMaxIntrinsicWidth,
+  required double bandMinIntrinsicWidth,
+  required double padding,
+  required double reticleWidth,
+  double? safeWidth,
+}) {
+  final MapLayoutWidth layout = mapLayoutWidthFor(width);
+  final double surface = safeWidth ?? width;
+  final double visible = switch (layout) {
+    MapLayoutWidth.panel when sheetOpen => surface - mapSidePanelWidth,
+    MapLayoutWidth.compact ||
+    MapLayoutWidth.wide ||
+    MapLayoutWidth.panel => surface,
+  };
+  final double block = switch (layout) {
+    MapLayoutWidth.compact => visible - 2 * padding,
+    MapLayoutWidth.wide || MapLayoutWidth.panel => _min(
+      mapReadingBlockMaxWidth,
+      visible - 2 * padding,
+    ),
+  };
+  final double bottom = switch (layout) {
+    MapLayoutWidth.compact => surface - 2 * padding,
+    MapLayoutWidth.wide || MapLayoutWidth.panel => _min(
+      bottomMaxIntrinsicWidth,
+      visible - 2 * padding,
+    ),
+  };
+  final double band = switch (layout) {
+    MapLayoutWidth.compact => visible - 2 * padding,
+    MapLayoutWidth.wide ||
+    MapLayoutWidth.panel => visible - 3 * padding - bottom,
+  };
+  final double sheet = switch (layout) {
+    MapLayoutWidth.compact || MapLayoutWidth.wide => surface,
+    MapLayoutWidth.panel => mapSidePanelWidth,
+  };
+  final bool compact = switch (layout) {
+    MapLayoutWidth.compact => true,
+    MapLayoutWidth.wide || MapLayoutWidth.panel => false,
+  };
+  return MapLayoutWidths(
+    width: layout,
+    visible: _nonNegative(visible),
+    block: _nonNegative(block),
+    bottom: _nonNegative(bottom),
+    band: _nonNegative(band),
+    sheet: _nonNegative(sheet),
+    blockOverBottom:
+        compact || padding + block + padding > visible - padding - bottom,
+    bandFits: compact || band >= bandMinIntrinsicWidth,
+    reticleUnderBlock:
+        compact ||
+        (visible / 2 - reticleWidth / 2 < padding + block &&
+            visible / 2 + reticleWidth / 2 > padding),
+  );
+}
+
+/// [MapLayoutInput.available] : la hauteur de la zone sûre, [safeHeight],
+/// moins les marges de surcouche. Deux marges, en haut et en bas de la carte
+/// visible ; une seule quand une fiche du BAS est ouverte (compact, wide) :
+/// collée au bas de la zone sûre, elle n'a pas de marge sous elle, et la marge
+/// basse de la carte visible est l'écart qui la sépare du bas. Le panneau
+/// latéral est à côté : deux marges. Jamais négative. La seule source de cette
+/// règle : la mise en page de la carte (`D1`) et la porte de faisabilité
+/// (`S6`, `mesurerPieces`) l'appellent toutes deux.
+double mapLayoutAvailableHeight({
+  required double safeHeight,
+  required MapLayoutWidth width,
+  required bool sheetOpen,
+  required double padding,
+}) {
+  final bool bottomSheet =
+      sheetOpen &&
+      switch (width) {
+        MapLayoutWidth.compact || MapLayoutWidth.wide => true,
+        MapLayoutWidth.panel => false,
+      };
+  return _nonNegative(safeHeight - (bottomSheet ? 1 : 2) * padding);
+}
+
 /// Les deux hauteurs intrinsèques d'une pièce, à sa largeur : [min], sa
 /// hauteur repliée ; [max], sa hauteur entière (note d'architecture, 1).
 final class PieceHeights {
@@ -76,6 +240,7 @@ final class MapLayoutInput {
     required this.width,
     required this.blockOverBottom,
     required this.bandFits,
+    required this.reticleUnderBlock,
     required this.designation,
     required this.sheetOpen,
     required this.blockFixed,
@@ -88,8 +253,8 @@ final class MapLayoutInput {
     required this.gap,
   });
 
-  /// La hauteur de la surface moins la zone sûre, déjà diminuée des deux
-  /// marges de surcouche (haut et bas).
+  /// La hauteur de la zone sûre moins les marges de surcouche :
+  /// [mapLayoutAvailableHeight].
   final double available;
 
   final MapLayoutWidth width;
@@ -110,9 +275,17 @@ final class MapLayoutInput {
   ///   d'emblée, à toute largeur (repli 6 étendu, arbitrage 14 du
   ///   commanditaire, 2026-10-18) ;
   /// - en mode sans fiche, la bande ne peut ni se poser ni se retirer :
-  ///   [MapLayoutAllocation.overflows], et la bande garde ses hauteurs dans la
-  ///   répartition.
+  ///   [MapLayoutAllocation.overflows] ; l'appelant passe [band] à
+  ///   [PieceHeights.none] — la bande n'a pas de place.
   final bool bandFits;
+
+  /// Le réticule passe sous le bloc en largeur ([MapLayoutWidths]) : en
+  /// mode, quand la bande du réticule est là ET qu'il passe sous le bloc, la
+  /// partie variable (avis + légende) compte DEUX FOIS — elle s'arrête
+  /// au-dessus de la bande du réticule, pour que rien ne se peigne sur lui
+  /// (spec § 5.5) ; sinon, une fois (spec § 5.6 : rien ne cède tant que
+  /// tout tient). Hors mode, non lu.
+  final bool reticleUnderBlock;
 
   /// Le mode « Restrictions » : bande du bouton et bande du réticule posées.
   /// Hors mode, l'appelant passe [band] et [reticleBand] nuls.
@@ -257,6 +430,17 @@ final class MapLayoutAllocation {
 /// réticule retirée par le repli 6, par exemple — n'a plus d'écart, et ses
 /// deux voisins deviennent consécutifs.
 ///
+/// En mode, tant que la bande du réticule est là ET que le réticule passe
+/// sous le bloc en largeur ([MapLayoutInput.reticleUnderBlock]), la partie
+/// variable du bloc (avis + légende) compte DEUX FOIS dans la somme
+/// (amendement de `D1`, spec § 5.5) : le réticule est au milieu de [bas de la
+/// partie fixe ; haut de la bande], et avis et légende s'arrêtent au-dessus de
+/// la bande du réticule pour que rien ne se peigne sur lui — avec H cette
+/// hauteur et R la bande du réticule, V ≤ (H − R) / 2. Les replis 1 et 3
+/// prennent donc la moitié de ce qui manque, et le surplus leur revient au
+/// même poids. Hors mode, réticule à côté du bloc (rien ne cède tant que tout
+/// tient, spec § 5.6) ou bande retirée (repli 6), elle compte une fois.
+///
 /// Le bas hors de la somme (au-delà du téléphone, `blockOverBottom` faux) ne
 /// cède pas pour autant (spec § 5.6, § 6.5) :
 /// - en wide, fiche du bas ouverte, il se pose au-dessus d'elle et la
@@ -283,7 +467,9 @@ final class MapLayoutAllocation {
 /// qui ne tient pas donne `overflows` et le reste se répartit comme
 /// d'habitude.
 /// Un repli tout ou rien peut libérer plus qu'il ne manque : ce surplus revient
-/// aux replis par degrés, le plus tardif d'abord (avis, fiche, légende) ; un
+/// aux replis par degrés, le plus tardif d'abord (avis, fiche, légende ; en
+/// mode, bande du réticule posée et fiche du bas comptée : fiche, avis,
+/// légende — arbitrage 15, le réticule reste fixe) ; un
 /// repli tout ou rien joué n'est jamais défait. Si les six ne suffisent pas,
 /// [MapLayoutAllocation.overflows] est vrai et la partie fixe reçoit ce qui
 /// reste. Aucune hauteur rendue n'est négative ; aucune exception. Les
@@ -314,6 +500,8 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
   final double gap = _nonNegative(input.gap);
   final _Stack stack = _Stack(
     width: input.width,
+    designation: input.designation,
+    reticleUnderBlock: input.reticleUnderBlock,
     bottom: bottomCounted ? bottom : 0,
     gap: gap,
   );
@@ -389,29 +577,43 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
       set: (_Heights h, double v) => h.copyWith(blockFixed: v),
     );
   } else {
-    // Le surplus revient aux replis par degrés, le plus tardif d'abord.
-    heights = stack.grow(
-      heights,
+    // Le surplus revient aux replis par degrés, le plus tardif d'abord :
+    // avis, fiche, légende. Arbitrage 15 (le réticule reste fixe) : en mode,
+    // bande du réticule posée et fiche du bas comptée, la fiche passe avant
+    // les avis — elle place la bande, donc le réticule, qui ne doit dépendre
+    // ni des avis ni de la légende.
+    _Heights growNotices(_Heights h) => stack.grow(
+      h,
       available,
       floor: 0,
       max: notices,
       set: (_Heights h, double v) => h.copyWith(notices: v),
+      weight: stack.variableWeight(h),
     );
-    if (sheetCounted) {
-      heights = stack.grow(
-        heights,
-        available,
-        floor: sheet.min,
-        max: sheetMax,
-        set: (_Heights h, double v) => h.copyWith(sheet: v),
-      );
-    }
+    _Heights growSheet(_Heights h) => sheetCounted
+        ? stack.grow(
+            h,
+            available,
+            floor: sheet.min,
+            max: sheetMax,
+            set: (_Heights h, double v) => h.copyWith(sheet: v),
+          )
+        : h;
+    final bool reticleFixed =
+        input.designation &&
+        sheetCounted &&
+        sheet.max > 0 &&
+        heights.reticleBand > 0;
+    heights = reticleFixed
+        ? growNotices(growSheet(heights))
+        : growSheet(growNotices(heights));
     heights = stack.grow(
       heights,
       available,
       floor: 0,
       max: legend,
       set: (_Heights h, double v) => h.copyWith(legend: v),
+      weight: stack.variableWeight(heights),
     );
   }
 
@@ -474,9 +676,22 @@ final class _Heights {
 
 /// L'empilement des pièces et sa hauteur totale.
 final class _Stack {
-  const _Stack({required this.width, required this.bottom, required this.gap});
+  const _Stack({
+    required this.width,
+    required this.designation,
+    required this.reticleUnderBlock,
+    required this.bottom,
+    required this.gap,
+  });
 
   final MapLayoutWidth width;
+
+  /// Le mode « Restrictions » ([MapLayoutInput.designation]) : avec la bande
+  /// du réticule, la partie variable compte deux fois ([variableWeight]).
+  final bool designation;
+
+  /// [MapLayoutInput.reticleUnderBlock] : sans lui, le doublement ne joue pas.
+  final bool reticleUnderBlock;
 
   /// Le bas, déjà nul au-delà du téléphone quand il ne passe pas sous le
   /// bloc. En panel, la fiche vaut 0 dans [_Heights.sheet].
@@ -484,9 +699,22 @@ final class _Stack {
 
   final double gap;
 
+  /// Le poids de la partie variable (avis + légende) dans [total] : 2 en
+  /// mode, quand le réticule passe sous le bloc en largeur et tant que la
+  /// bande du réticule est là ; 1 sinon (hors mode, réticule à
+  /// côté du bloc — rien ne cède tant que tout tient, spec § 5.6 —, ou bande
+  /// retirée par le repli 6). Le réticule est au milieu de [bas de la partie
+  /// fixe ; haut de la bande] et la partie variable s'arrête au-dessus de la
+  /// bande du réticule (spec § 5.5) : avec H cette hauteur, R la bande du
+  /// réticule et V la partie variable, il faut V ≤ (H − R) / 2, donc
+  /// H ≥ 2V + R.
+  double variableWeight(_Heights h) =>
+      designation && reticleUnderBlock && h.reticleBand > 0 ? 2 : 1;
+
   /// La hauteur des quatre groupes — bloc, bande du réticule, zone du bas,
   /// fiche —, plus un écart entre deux groupes consécutifs non nuls dont
-  /// aucun n'est la bande du réticule (règle : [allocateMapLayout]).
+  /// aucun n'est la bande du réticule (règle : [allocateMapLayout]). La
+  /// partie variable du bloc y pèse [variableWeight].
   double total(_Heights h) {
     final double bottomZone = switch (width) {
       MapLayoutWidth.compact =>
@@ -497,7 +725,7 @@ final class _Stack {
     bool afterGroup = false;
     bool afterReticle = false;
     for (final (double height, bool reticle) in <(double, bool)>[
-      (h.blockFixed + h.notices + h.legend, false),
+      (h.blockFixed + variableWeight(h) * (h.notices + h.legend), false),
       (h.reticleBand, true),
       (bottomZone, false),
       (h.sheet, false),
@@ -512,22 +740,26 @@ final class _Stack {
   }
 
   /// La pièce que [set] désigne, posée à la plus grande hauteur entre [floor]
-  /// et [max] qui tienne dans [available], les autres gardant la leur. Une
-  /// pièce qui passe de 0 à une hauteur non nulle coûte aussi l'écart que son
-  /// groupe gagne, s'il en gagne un (aucun dans un bloc déjà non nul).
+  /// et [max] qui tienne dans [available], les autres gardant la leur. Chaque
+  /// pixel de la pièce coûte [weight] pixels de la somme (la partie variable,
+  /// en mode : [variableWeight]). Une pièce qui passe de 0 à une hauteur non
+  /// nulle coûte aussi l'écart que son groupe gagne, s'il en gagne un (aucun
+  /// dans un bloc déjà non nul).
   _Heights grow(
     _Heights heights,
     double available, {
     required double floor,
     required double max,
     required _Heights Function(_Heights h, double v) set,
+    double weight = 1,
   }) {
     final _Heights atFloor = set(heights, floor);
     final double slack = available - total(atFloor);
     if (slack <= _tolerance || max <= floor) return atFloor;
-    if (floor > 0) return set(heights, _upTo(max, floor + slack));
-    final double gapCost = total(set(heights, max)) - total(atFloor) - max;
-    final double room = slack - gapCost;
+    if (floor > 0) return set(heights, _upTo(max, floor + slack / weight));
+    final double gapCost =
+        total(set(heights, max)) - total(atFloor) - weight * max;
+    final double room = (slack - gapCost) / weight;
     return room > _tolerance ? set(heights, _upTo(max, room)) : atFloor;
   }
 }

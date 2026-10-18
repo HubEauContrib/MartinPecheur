@@ -12,8 +12,8 @@
 // À LA LARGEUR CALCULÉE, sur des pièces montées dans un arbre assez grand pour
 // ne rien couper : c'est exactement ce que fera `RenderMapLayout` (`D1`), qui
 // lit les intrinsèques de ses enfants aux largeurs de la carte visible avant
-// de les poser. Les règles de largeur et de recouvrement de ce fichier sont
-// donc celles que `D1` doit poser — mêmes nombres, mêmes écarts.
+// de les poser. Les règles de largeur et de recouvrement sont celles de
+// `mapLayoutWidths` (`lib/`, `D1`), que les deux appellent — une seule source.
 //
 // La PARTIE FIXE du bloc est la vraie pièce, `MapReadingBlockFixed` (`B1`) :
 // ses hauteurs intrinsèques sont celles du sélecteur plus l'en-tête, sans écart
@@ -37,7 +37,6 @@
 //
 // dart:io n'est pas employé ici ; la police vient de `chargerRoboto`, que
 // l'appelant charge dans son `setUpAll`.
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,102 +85,6 @@ const String _natureOnde = 'Point ONDE';
 /// (spec § 5.6). La valeur que `D2` passe à `MapLayout.reticleBandHeight`.
 const double _hauteurBandeReticule =
     mapCenterReticleSize + 2 * margeDeSurcouche;
-
-// --- Les règles de largeur (spec § 5.1, § 5.5, § 6.5) ------------------------
-
-/// La largeur de la carte visible : la fenêtre moins le panneau latéral quand
-/// une fiche y est ouverte ; toute la fenêtre sinon (fiche du bas, ou aucune).
-double _largeurCarteVisible(Size taille, {required bool ficheOuverte}) =>
-    switch (mapLayoutWidthFor(taille.width)) {
-      MapLayoutWidth.panel when ficheOuverte =>
-        taille.width - mapSidePanelWidth,
-      MapLayoutWidth.compact ||
-      MapLayoutWidth.wide ||
-      MapLayoutWidth.panel => taille.width,
-    };
-
-/// La largeur du bloc de lecture : toute la largeur moins deux marges en
-/// compact ; au-delà, [mapReadingBlockMaxWidth] au plus dans la carte visible
-/// moins deux marges.
-double _largeurBloc(Size taille, {required bool ficheOuverte}) {
-  final double visible = _largeurCarteVisible(
-    taille,
-    ficheOuverte: ficheOuverte,
-  );
-  return switch (mapLayoutWidthFor(taille.width)) {
-    MapLayoutWidth.compact => visible - 2 * margeDeSurcouche,
-    MapLayoutWidth.wide || MapLayoutWidth.panel => math.min(
-      mapReadingBlockMaxWidth,
-      visible - 2 * margeDeSurcouche,
-    ),
-  };
-}
-
-/// La largeur du bas : en compact, toute la largeur moins deux marges (la
-/// rangée) ; au-delà, la largeur intrinsèque maximale de la colonne, badge
-/// d'attribution compris ([largeurIntrinseque], mesurée), sans dépasser la
-/// carte visible moins deux marges — au-delà, l'attribution passe à la ligne.
-/// Cette borne est un ajout de `S6` : à 800 × 740 et 200 %, fiche ouverte, la
-/// colonne sur une ligne (417,7) est plus large que la carte visible (420)
-/// moins ses deux marges.
-double _largeurBas(
-  Size taille, {
-  required bool ficheOuverte,
-  required double largeurIntrinseque,
-}) => switch (mapLayoutWidthFor(taille.width)) {
-  MapLayoutWidth.compact => taille.width - 2 * margeDeSurcouche,
-  MapLayoutWidth.wide || MapLayoutWidth.panel => math.min(
-    largeurIntrinseque,
-    _largeurCarteVisible(taille, ficheOuverte: ficheOuverte) -
-        2 * margeDeSurcouche,
-  ),
-};
-
-/// La largeur de la bande du bouton de désignation (spec § 5.5) : en compact,
-/// au-dessus de la rangée, toute la largeur moins deux marges ; au-delà, à
-/// gauche de la colonne — la carte visible moins la marge gauche, l'écart avec
-/// la colonne, la colonne posée ([largeurColonne], celle de [_largeurBas]) et
-/// sa marge droite. Elle peut être négative : la bande ne tient pas.
-double _largeurBande(
-  Size taille, {
-  required bool ficheOuverte,
-  required double largeurColonne,
-}) {
-  final double visible = _largeurCarteVisible(
-    taille,
-    ficheOuverte: ficheOuverte,
-  );
-  return switch (mapLayoutWidthFor(taille.width)) {
-    MapLayoutWidth.compact => visible - 2 * margeDeSurcouche,
-    MapLayoutWidth.wide ||
-    MapLayoutWidth.panel => visible - 3 * margeDeSurcouche - largeurColonne,
-  };
-}
-
-/// La largeur d'une fiche : toute la fenêtre en fiche du bas, le panneau
-/// latéral au-delà (spec § 6.5).
-double _largeurFiche(Size taille) => switch (mapLayoutWidthFor(taille.width)) {
-  MapLayoutWidth.compact || MapLayoutWidth.wide => taille.width,
-  MapLayoutWidth.panel => mapSidePanelWidth,
-};
-
-/// `MapLayoutInput.blockOverBottom` : toujours vrai en compact ; au-delà, vrai
-/// quand le bloc et la colonne du bas se recouvrent en largeur, écart compris —
-/// `8 + bloc + 8 > carte visible − 8 − colonne`.
-bool _blocSurLeBas(
-  Size taille, {
-  required bool ficheOuverte,
-  required double largeurColonne,
-}) => switch (mapLayoutWidthFor(taille.width)) {
-  MapLayoutWidth.compact => true,
-  MapLayoutWidth.wide || MapLayoutWidth.panel =>
-    margeDeSurcouche +
-            _largeurBloc(taille, ficheOuverte: ficheOuverte) +
-            margeDeSurcouche >
-        _largeurCarteVisible(taille, ficheOuverte: ficheOuverte) -
-            margeDeSurcouche -
-            largeurColonne,
-};
 
 // --- Les mesures -------------------------------------------------------------
 
@@ -409,48 +312,42 @@ Future<MapLayoutInput> _mesurer(
     return h.max;
   }
 
-  final double bloc = _largeurBloc(taille, ficheOuverte: ficheOuverte);
-  final double largeurDuBas = _largeurBas(
-    taille,
-    ficheOuverte: ficheOuverte,
-    largeurIntrinseque: boite(_cleBas).getMaxIntrinsicWidth(double.infinity),
+  // Les largeurs : la même fonction que `RenderMapLayout` (`D1`), seule source
+  // des règles de largeur (spec § 5.1, § 5.5, § 6.5).
+  final MapLayoutWidths largeurs = mapLayoutWidths(
+    width: taille.width,
+    sheetOpen: ficheOuverte,
+    bottomMaxIntrinsicWidth: boite(_cleBas)
+        .getMaxIntrinsicWidth(double.infinity),
+    bandMinIntrinsicWidth: boite(_cleBande)
+        .getMinIntrinsicWidth(double.infinity),
+    padding: margeDeSurcouche,
+    reticleWidth: mapCenterReticleSize,
   );
-  final double largeurDeLaBande = _largeurBande(
-    taille,
-    ficheOuverte: ficheOuverte,
-    largeurColonne: largeurDuBas,
-  );
-  // `MapLayoutInput.bandFits` : toujours vrai en compact, où la bande passe
-  // au-dessus de la rangée ; au-delà, la largeur laissée à côté de la colonne
-  // doit atteindre la largeur intrinsèque minimale de la bande.
-  final bool bandeTient =
-      compact ||
-      largeurDeLaBande >=
-          boite(_cleBande).getMinIntrinsicWidth(double.infinity);
   return MapLayoutInput(
-    available: taille.height - marge.vertical - 2 * margeDeSurcouche,
-    width: mapLayoutWidthFor(taille.width),
-    blockOverBottom: _blocSurLeBas(
-      taille,
-      ficheOuverte: ficheOuverte,
-      largeurColonne: largeurDuBas,
+    available: mapLayoutAvailableHeight(
+      safeHeight: taille.height - marge.vertical,
+      width: largeurs.width,
+      sheetOpen: ficheOuverte,
+      padding: margeDeSurcouche,
     ),
-    bandFits: bandeTient,
+    width: largeurs.width,
+    blockOverBottom: largeurs.blockOverBottom,
+    bandFits: largeurs.bandFits,
+    reticleUnderBlock: largeurs.reticleUnderBlock,
     designation: enMode,
     sheetOpen: ficheOuverte,
-    blockFixed: deux(_cleFixe, bloc),
-    notices: avecAvis ? une(_cleAvis, bloc) : 0,
-    legend: une(_cleLegende, bloc),
-    bottom: une(_cleBas, largeurDuBas),
+    blockFixed: deux(_cleFixe, largeurs.block),
+    notices: avecAvis ? une(_cleAvis, largeurs.block) : 0,
+    legend: une(_cleLegende, largeurs.block),
+    bottom: une(_cleBas, largeurs.bottom),
     // Une bande qui ne tient pas n'a pas de hauteur à dire : fiche ouverte,
     // `allocateMapLayout` la retire (repli 6 étendu, arbitrage 14).
-    band: enMode && bandeTient
-        ? deux(_cleBande, largeurDeLaBande)
+    band: enMode && largeurs.bandFits
+        ? deux(_cleBande, largeurs.band)
         : PieceHeights.none,
     reticleBand: enMode ? _hauteurBandeReticule : 0,
-    sheet: fiche == null
-        ? PieceHeights.none
-        : deux(_cleFiche, _largeurFiche(taille)),
+    sheet: fiche == null ? PieceHeights.none : deux(_cleFiche, largeurs.sheet),
     gap: margeDeSurcouche,
   );
 }

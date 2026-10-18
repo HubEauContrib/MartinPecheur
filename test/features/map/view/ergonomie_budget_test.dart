@@ -77,7 +77,9 @@ String _issue(MapLayoutAllocation repartition) =>
 /// aucun de part et d'autre de la bande du réticule ; en compact, la bande et
 /// la rangée séparées d'un écart ; au-delà, la zone du bas est la plus haute
 /// de la bande et du bas (s'il passe sous le bloc) ; en panneau, la fiche est
-/// à côté.
+/// à côté ; en mode, avec la bande du réticule, la partie variable compte deux
+/// fois quand le réticule passe sous le bloc (le réticule au milieu,
+/// amendement de `D1`).
 ///
 /// Un ORACLE écrit à part de `_Stack.total` (`map_layout_allocation.dart`), sur
 /// la même règle : une même erreur dans les deux passerait inaperçue. Le vrai
@@ -98,11 +100,25 @@ double _hauteurPosee(MapLayoutInput entree, MapLayoutAllocation repartition) {
     MapLayoutWidth.compact || MapLayoutWidth.wide => repartition.sheet,
     MapLayoutWidth.panel => 0,
   };
+  // En mode, tant que la bande du réticule est là et que le réticule passe
+  // sous le bloc en largeur, la partie variable compte
+  // deux fois : le réticule est au milieu de [bas de la partie fixe ; haut de
+  // la bande], avis et légende au-dessus de sa bande (amendement de `D1`).
+  final double poidsVariable =
+      entree.designation &&
+          entree.reticleUnderBlock &&
+          repartition.reticleBand > 0
+      ? 2
+      : 1;
   double somme = 0;
   bool apresUnGroupe = false;
   bool apresLeReticule = false;
   for (final (double hauteur, bool reticule) in <(double, bool)>[
-    (repartition.blockFixed + repartition.notices + repartition.legend, false),
+    (
+      repartition.blockFixed +
+          poidsVariable * (repartition.notices + repartition.legend),
+      false,
+    ),
     (repartition.reticleBand, true),
     (zoneDuBas, false),
     (fiche, false),
