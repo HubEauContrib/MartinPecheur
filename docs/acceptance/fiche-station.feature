@@ -25,3 +25,12 @@ Fonctionnalité: Le contenu de la fiche station hydrométrique
     Quand la fiche de cette station s'affiche
     Alors elle affiche « La station n'a pas transmis de valeur pour ce paramètre. »
     Et jamais un zéro ni un tiret seul à la place (BR-007)
+
+  # ── Ergonomie — la fiche station hiérarchisée (cadrage du 2026-10-17, critère 11 ; F1)
+
+  Scénario: La fiche station se lit dans l'ordre, débit puis hauteur, chacun avec sa date et sa source
+    Étant donné la fiche prête de la station K447001001, qui porte un débit et une hauteur
+    Quand la fiche s'affiche
+    Alors son en-tête porte « Station hydrométrique · K447001001 » et le contrôle « ⚠ Avertissement »
+    Et son corps se lit dans l'ordre : le nom, le cours d'eau et le département, la tuile du débit puis celle de la hauteur, chacune avec sa valeur, sa date de mesure et sa source (BR-001)
+    Et dessous « Statut (Hub'Eau) » et « Qualification (Hub'Eau) », chacun au-dessus de sa valeur, puis l'avis de fraîcheur quand il y en a un (BR-006)

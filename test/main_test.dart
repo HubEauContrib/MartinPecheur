@@ -861,7 +861,18 @@ void main() {
         await tester.pump();
         expect(station.state, isA<EnCours>());
         expect(station.favoriteStar?.filled, isTrue, reason: 'favoris lus');
-        final double before = await scrollToEnd(tester);
+        // À mi-course, pas au bout : depuis `F1` d'Ergonomie, l'étoile est sur
+        // la rangée de l'en-tête du cadre commun ; retirée (« en cours », une
+        // étoile de station n'existe que pleine), elle rend sa largeur à la
+        // nature, qui se replie sur moins de lignes à 300 % : la fiche
+        // raccourcit, et une position au bout serait rognée. À mi-course,
+        // l'égalité stricte dit que la bascule ne déplace pas la position.
+        await scrollToEnd(tester);
+        final ScrollPosition position = sheetPosition(tester);
+        position.jumpTo(position.maxScrollExtent / 2);
+        await tester.pump();
+        final double before = position.pixels;
+        expect(before, greaterThan(0));
 
         int notifications = 0;
         station.addListener(() => notifications++);

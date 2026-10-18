@@ -4,9 +4,10 @@
 // Les premiers lecteurs sont les DEUX fiches, pas la fenêtre d'avertissement
 // (`WarningLink`, `lib/features/shared/warning_link.dart`) — celle-ci ne
 // nomme aucune source, seulement le texte général et une phrase datée :
-// - `_MeasurementLine` (`lib/features/station_sheet/view/station_summary_sheet.dart`),
-//   qui nomme [hydrometrieSourceName] à côté du débit et de la hauteur, dans
-//   le MÊME `Text` que la valeur et sa date (`BR-001`, point 32) ;
+// - `_MeasurementTile` (`lib/features/station_sheet/view/station_summary_sheet.dart`),
+//   qui nomme [hydrometrieSourceName] dans la tuile du débit et dans celle de
+//   la hauteur, avec la valeur et sa date : un seul nœud d'annonce
+//   (`MergeSemantics`, `BR-001`, point 32 ; `F1` d'Ergonomie) ;
 // - `_campagneLine` (`lib/features/onde_sheet/view/onde_summary_sheet.dart`),
 //   même principe pour [ondeSourceName] et la date de campagne ;
 // - `mapSourceName` (`lib/features/map/view/map_empty_states.dart`), qui

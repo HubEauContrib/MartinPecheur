@@ -26,6 +26,7 @@ import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
 import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
+import 'package:martinpecheur/domain/station/station.dart' show StationCode;
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
 import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
@@ -52,6 +53,8 @@ import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart';
+import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart'
+    show stationQualificationLabel, stationSheetNature, stationStatusLabel;
 
 /// Les huit fichiers attendus sous `docs/acceptance/` : les quatre de T1
 /// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2),
@@ -801,6 +804,39 @@ void main() {
       });
     }
   });
+
+  // Même lien pour `fiche-station.feature` (`F1` d'Ergonomie, critère 11) :
+  // l'en-tête de la fiche et les libellés attribués à Hub'Eau, lus dans le
+  // code, cherchés entre guillemets français.
+  group(
+    'les libellés portés par le code figurent dans fiche-station.feature',
+    () {
+      final String ficheStation =
+          contenusParFichier['fiche-station.feature'] ?? '';
+
+      final Map<String, String> libellesFicheStation = <String, String>{
+        'en-tête de la fiche, station K447001001': stationSheetNature(
+          StationCode('K447001001'),
+        ),
+        'contrôle d\'avertissement de l\'en-tête': '⚠ $warningLinkLabel',
+        'statut': stationStatusLabel,
+        'qualification': stationQualificationLabel,
+      };
+      for (final MapEntry<String, String> libelle
+          in libellesFicheStation.entries) {
+        test('fiche-station.feature cite « ${libelle.value} » '
+            '(${libelle.key})', () {
+          expect(
+            _containsQuoted(ficheStation, libelle.value),
+            isTrue,
+            reason:
+                'fiche-station.feature ne contient pas « ${libelle.value} », '
+                'le libellé du code pour ${libelle.key}',
+          );
+        });
+      }
+    },
+  );
 
   // Même lien pour `favoris.feature` (T3) : libellés lus dans le code,
   // cherchés entre guillemets français. `S9` a allongé la table, `S11` y
