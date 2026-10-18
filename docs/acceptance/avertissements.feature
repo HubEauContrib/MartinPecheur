@@ -39,7 +39,7 @@ Fonctionnalité: Les quatre emplacements de l'avertissement
     Étant donné un usager qui a déjà acquitté l'écran du premier lancement
     Quand il consulte la carte, à n'importe quel niveau de zoom
     Alors l'en-tête « Légende · Écoulement » porte le contrôle « ⚠ Avertissement », à droite du nom de la lecture, ou dessous et aligné à droite quand le nom ne tient pas à côté sans couper un mot
-    Et l'en-tête d'une autre lecture le porte de même, sous son propre nom : « Légende · Débit relatif à l'historique », « Légende · Vigilance crues »
+    Et l'en-tête d'une autre lecture le porte de même, avec son propre nom : « Légende · Débit relatif à l'historique », « Légende · Vigilance crues »
     Et l'ouverture de ce contrôle affiche le même texte que celui du modal initial (BR-012)
 
   Scénario: Le contrôle « ⚠ Avertissement » d'une fiche datée porte la phrase propre à cette fiche
