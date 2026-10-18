@@ -7,7 +7,7 @@
 // souris).
 //
 // Il n'existe que dans le MODE de désignation (`E5`, 2026-10-03) : le choix
-// « Restrictions » du sélecteur (`map_scale_chips.dart`) le fait apparaître,
+// « Restrictions » du sélecteur (`map_reading_selector.dart`) le fait apparaître,
 // avec son indice et le réticule, et le retire. Il n'est plus permanent.
 //
 // Comme [MapControls], c'est un widget de CONTENU pur : il ne connaît ni la
@@ -15,9 +15,10 @@
 //
 // [DesignationBand] (`S4` d'Ergonomie) est la bande du bouton refaite en pièce
 // autonome pour la mise en page de la carte (`D1`, `D2`) : la pilule et
-// l'indice, le défilement et le repli de l'indice dedans. Construite SEULE à ce
-// stade — `map_view.dart` pose encore [DesignateCenterControl] dans
-// `_DesignationPlacement` —, `D2` la branche à leur place.
+// l'indice, le défilement et le repli de l'indice dedans. `D2` la branche dans
+// la mise en page de la carte à la place de `_DesignationPlacement`, retiré
+// de `map_view.dart` ; `DesignateCenterControl`, qui empilait pilule et indice
+// pour l'ancienne disposition, est retiré avec elle.
 
 import 'dart:math' as math;
 
@@ -43,31 +44,6 @@ const double designateCenterButtonHeight = 52;
 
 /// Écart entre le bouton et son indice.
 const double designateCenterGap = 6;
-
-/// Le bouton et son indice, empilés et centrés. Un seul widget pour que les
-/// deux ne soient jamais posés l'un sans l'autre (l'indice sans le bouton
-/// décrirait une alternative à rien).
-class DesignateCenterControl extends StatelessWidget {
-  const DesignateCenterControl({required this.onDesignate, super.key});
-
-  /// Appelé par un tap, Entrée ou Espace : la désignation du centre de la
-  /// carte. Non nul : sans désignation branchée, l'appelant n'affiche pas ce
-  /// widget (un bouton mort serait pire qu'aucun bouton).
-  final VoidCallback onDesignate;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: <Widget>[
-        DesignateCenterButton(onTap: onDesignate),
-        const SizedBox(height: designateCenterGap),
-        const DesignateCenterHint(),
-      ],
-    );
-  }
-}
 
 /// La bande du bouton de désignation (`S4` d'Ergonomie) : la pilule
 /// ([DesignateCenterButton]) puis l'indice ([DesignateCenterHint]), centrés

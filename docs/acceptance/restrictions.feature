@@ -104,6 +104,9 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
     Alors le bouton « Restrictions au centre de la carte », son indice de geste et un réticule au centre de la carte apparaissent
     Et « Écoulement » reste allumé, avec ses marqueurs et sa légende : « Restrictions » n'est pas une troisième échelle et ne dessine aucune échelle de sécheresse sur la carte (BR-008)
 
+  # Vérifié par D3 : « le centre de la carte, celui que marque le réticule » est, depuis
+  # la tranche d'ergonomie, le point sous le réticule, au centre de la carte visible ;
+  # entre D2 et D3, le bouton désigne encore le centre de la caméra.
   Scénario: Un point se désigne par le bouton, par un appui long ou par un clic droit, et par rien d'autre
     Étant donné la carte affichée
     Quand l'usager désigne un point de l'une de ces trois façons : avec le choix « Restrictions » allumé, en actionnant « Restrictions au centre de la carte », touché ou atteint par la tabulation puis activé par Entrée ou Espace ; par un appui long, au toucher, ou par un clic droit, à la souris, sur un point de la carte, que le choix soit allumé ou non
@@ -111,6 +114,14 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
     Et l'encart renforcé en est le premier contenu (BR-013)
     Et le bouton de retour ou Échap ramène à la carte, où une épingle marque le point désigné jusqu'à la désignation suivante (Q-2b)
     Et aucune fiche station ni fiche point ONDE ne propose d'ouvrir cet écran : il ne s'atteint que par la désignation d'un point (cadrage Q1)
+
+  Scénario: Aux quatre tailles garanties, rien ne recouvre le sélecteur, « ⚠ Avertissement », le réticule, le bouton de désignation ni « Restrictions »
+    Étant donné la carte à 360 × 640 ou 390 × 844 sous Android, à 800 × 740 ou 1 280 × 740 sous Windows, le texte à 100 % ou à 200 %
+    Quand une fiche est ouverte ou non, un avis affiché ou non, le choix « Restrictions » allumé ou non
+    Alors rien ne recouvre le sélecteur, le contrôle « ⚠ Avertissement » de la carte, l'entrée « Restrictions », ni, le choix allumé, le réticule et le bouton « Restrictions au centre de la carte »
+    Et quand la place manque, cèdent dans cet ordre et seulement là où il le faut : la légende défile, le corps de la fiche défile, l'avis défile, les sous-titres du sélecteur s'effacent, l'indice sous le bouton s'efface, puis, le choix allumé et une fiche ouverte, le bouton et le réticule se retirent jusqu'à la fermeture de la fiche, l'appui long désignant toujours (BR-008, BR-012)
+    Et, le choix allumé et une fiche ouverte au bas de l'écran, l'avis cède avant le corps de la fiche, jusqu'à s'effacer quand la place manque, pour que le réticule ne bouge pas (arbitrages 15 et 16)
+    Et à 360 × 640 et 200 %, là où ces replis ne suffisent pas, le haut du bloc de lecture défile : « ⚠ Avertissement » et « Restrictions » s'y atteignent en le faisant défiler (arbitrage 13)
 
   # ── US-07 — niveau de gravité, zones, profil, usages ─────────────────────
 

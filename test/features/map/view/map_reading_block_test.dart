@@ -33,8 +33,6 @@ import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_reading_block.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart'
-    show designationChipLabel;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 

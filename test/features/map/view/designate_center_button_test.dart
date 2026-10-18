@@ -179,7 +179,7 @@ Future<int Function()> _pump(
           alignment: Alignment.bottomCenter,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            child: DesignateCenterControl(onDesignate: () => taps++),
+            child: DesignationBand(onDesignate: () => taps++),
           ),
         ),
       ),

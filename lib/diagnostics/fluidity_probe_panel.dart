@@ -14,8 +14,9 @@
 // constraints are unbounded » (débordement de ~600 px en profile,
 // recouvrant l'avertissement et la légende). [fluidityProbePanelWidth] fixe
 // désormais une largeur NOMMÉE, et [fluidityProbeOverlay] pose le panneau
-// EN BAS À GAUCHE — jamais dans un coin déjà occupé (puces + avis, avertisse
-// ment + légende, contrôles de zoom + attribution). [fluidityProbeOverlay]
+// dans un coin libre de la carte — EN HAUT À DROITE depuis `D2` d'Ergonomie
+// (le bloc de lecture occupe le haut à gauche, la colonne du bas le bas à
+// droite ; voir [fluidityProbePanelRight]). [fluidityProbeOverlay]
 // est la SEULE fonction qui pose ce `Positioned` : `main.dart` et les tests
 // l'appellent tous deux, pour ne jamais diverger sur la position.
 //
@@ -42,9 +43,10 @@
 // faux vert. Deux corrections, pas une seule :
 //   1. les boutons du panneau sont SANS animation (`_panelButtonStyle`) ;
 //   2. la sonde ignore elle-même son premier lot après `start()`.
-// Position revue aussi : `fluidityProbePanelBottom` redescend à 32 (la
-// zone de fiche, vide pendant une mesure — aucune fiche ne s'ouvre pendant
-// qu'on mesure la fluidité) pour que les trois lignes ET le rapport de `G2`
+// Position revue aussi (elle a changé depuis : en haut à droite, `D2`
+// d'Ergonomie, voir [fluidityProbePanelRight]) : la marge basse redescendait
+// à 32 (la zone de fiche, vide pendant une mesure — aucune fiche ne s'ouvre
+// pendant qu'on mesure la fluidité) pour que les trois lignes ET le rapport de `G2`
 // tiennent SANS défilement à 800 × 740, et que le panneau ne recouvre plus
 // les avis de carte (« ni station… », « Élargir la recherche », bandeau
 // d'erreur) posés SOUS les puces, en haut-gauche.
@@ -66,27 +68,27 @@ import 'package:martinpecheur/diagnostics/frame_timing_probe.dart';
 /// laissait `Expanded` recevoir des contraintes de largeur infinies.
 const double fluidityProbePanelWidth = 300;
 
-/// Marge du panneau depuis le bord gauche de l'écran.
-const double fluidityProbePanelLeft = 8;
+/// Marge du panneau depuis le bord DROIT de l'écran.
+///
+/// `D2` d'Ergonomie (2026-10-18) : le panneau passe EN HAUT À DROITE. Posé en
+/// bas à gauche, à 800 × 740, il recoupait la légende du bloc de lecture, qui
+/// occupe désormais le haut à gauche de la carte et reçoit toute la hauteur
+/// que le bas lui laisse ; à partir de 800 px, le bloc fait 480 px au plus, et
+/// la droite de la carte, au-dessus de la colonne du bas, est libre. Au
+/// téléphone (moins de 600 px), le bloc prend toute la largeur : le panneau,
+/// outil de mesure inerte sans `--dart-define=FLUIDITY_PROBE=true`, le
+/// recouvre alors — il se mesure sous Windows.
+const double fluidityProbePanelRight = 8;
 
-/// Marge du panneau depuis le BAS de l'écran (contre-relecture du
-/// 2026-09-23 : redescendue de 360 à 32). C'est la marge de la zone de
-/// fiche station/ONDE (`_sheetBottomPadding` de `map_view.dart`) — vide
-/// PENDANT une mesure de fluidité, puisqu'aucune fiche ne s'ouvre pendant
-/// qu'on mesure le geste. Redescendre ici, plutôt que de rester au-dessus
-/// de cette zone, est ce qui laisse assez de hauteur pour que les trois
-/// lignes ET le rapport de `G2` tiennent SANS défilement, et ce qui écarte
-/// le panneau des avis de carte (« ni station… », « Élargir la
-/// recherche », bandeau d'erreur), posés SOUS les puces en haut-gauche.
-const double fluidityProbePanelBottom = 32;
+/// Marge du panneau depuis le HAUT de l'écran : celle des surcouches de la
+/// carte.
+const double fluidityProbePanelTop = 8;
 
 /// Hauteur MAXIMALE du contenu du panneau : un filet de sécurité, pas le
-/// dimensionnement visé — à 800 × 740 avec [fluidityProbePanelBottom] à 32,
-/// le contenu réel (titre, protocole, trois lignes, rapport de `G2` sur
-/// quatre lignes) tient largement en dessous, sans jamais déclencher le
-/// défilement du `SingleChildScrollView` qui reste dessous par prudence
-/// (même choix que `buildMapOverlays` pour le contrôle d'avertissement et
-/// la légende, `map_view.dart`).
+/// dimensionnement visé — à 800 × 740, le contenu réel (titre, protocole,
+/// trois lignes, rapport de `G2` sur quatre lignes) tient en dessous, au-dessus
+/// de la colonne du bas, sans jamais déclencher le défilement du
+/// `SingleChildScrollView` qui reste dessous par prudence.
 const double fluidityProbePanelMaxHeight = 420;
 
 /// Les trois gestes de `NFR-01`, définis d'avance par le plan — jamais un
@@ -128,7 +130,7 @@ const String fluidityProbeProtocol =
     'Protocole : Démarrer, attendre 1 s, faire le geste, attendre 1 s, '
     'Arrêter.';
 
-/// Pose [FluidityProbePanel] au-dessus de l'écran carte : EN BAS À GAUCHE,
+/// Pose [FluidityProbePanel] au-dessus de l'écran carte : EN HAUT À DROITE,
 /// avec une largeur fixe ([fluidityProbePanelWidth]) — jamais un
 /// `Positioned` sans borne (🔴 1). Fonction PARTAGÉE par `main.dart` et les
 /// tests, pour que les deux ne puissent jamais diverger sur la position.
@@ -137,8 +139,8 @@ Widget fluidityProbeOverlay({
   required CountingStationPointRepository stationPoints,
 }) {
   return Positioned(
-    left: fluidityProbePanelLeft,
-    bottom: fluidityProbePanelBottom,
+    right: fluidityProbePanelRight,
+    top: fluidityProbePanelTop,
     width: fluidityProbePanelWidth,
     child: FluidityProbePanel(probe: probe, stationPoints: stationPoints),
   );

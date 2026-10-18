@@ -18,8 +18,9 @@
 // réaffichage (`W3b`) sont RETIRÉS — la fonction qui les empilait au-dessus
 // de la carte disparaît avec eux. À leur place, un seul contrôle partagé
 // ([WarningLink],
-// `lib/features/shared/warning_link.dart`) : posé au-dessus de la légende,
-// il ouvre en lecture seule la même fenêtre que celle des fiches
+// `lib/features/shared/warning_link.dart`) : posé dans l'en-tête de la
+// légende du bloc de lecture depuis `D2` d'Ergonomie (au-dessus de la légende
+// avant), il ouvre en lecture seule la même fenêtre que celle des fiches
 // (`station_summary_sheet.dart`, `onde_summary_sheet.dart`).
 //
 // ⚠️ Au zoom national, les 4 150 zones de tap de 44 pt se chevauchent, et le
@@ -99,7 +100,6 @@
 // carte, elle, n'a aucune raison d'être reconstruite pour cela.
 
 import 'dart:async' show unawaited;
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
@@ -115,8 +115,6 @@ import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
-import 'package:martinpecheur/domain/sources/source_names.dart'
-    show ignAttribution;
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart'
@@ -126,16 +124,19 @@ import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/designated_point_pin.dart';
 import 'package:martinpecheur/features/map/view/flood_section_label.dart';
 import 'package:martinpecheur/features/map/view/flood_sections_layer.dart';
-import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/ign_tile_template.dart';
+import 'package:martinpecheur/features/map/view/map_bottom.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
-import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
+import 'package:martinpecheur/features/map/view/map_layout.dart';
+import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
-import 'package:martinpecheur/features/map/view/map_overlays_layout.dart';
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
+import 'package:martinpecheur/features/map/view/map_reading_block.dart';
+import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
+import 'package:martinpecheur/features/map/view/map_sheet_area.dart';
+import 'package:martinpecheur/features/map/view/map_traversal_order.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
@@ -143,6 +144,8 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show NoMinIntrinsicHeight;
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
@@ -262,59 +265,6 @@ Map<ShortcutActivator, Intent> mapShortcuts() => <ShortcutActivator, Intent>{
 class _CloseSheetsIntent extends Intent {
   const _CloseSheetsIntent();
 }
-
-/// L'ordre de tabulation déclaré (`K2`) : chips d'échelle → action de l'avis,
-/// s'il en porte une (`K1` de T3, [mapTraversalOrderNotices]) → boutons
-/// d'entrée (`F10b` de T3, [mapTraversalOrderEntryButtons]) → contrôles de
-/// zoom → carte → fiche, si une est ouverte → lien du bandeau
-/// (`WarningLink`). Des constantes NOMMÉES, jamais des `1`/`2`/`3` recopiés
-/// à chaque `FocusTraversalOrder` : un futur réordonnancement se lit ici,
-/// à un seul endroit.
-const double mapTraversalOrderChips = 1;
-
-/// Les avis de la carte (`K1` de T3, arbitrage du commanditaire du
-/// 2026-10-14) : leur action — « Élargir la recherche » ou « Effacer les
-/// filtres » — est un arrêt de Tab juste APRÈS les puces
-/// ([mapTraversalOrderChips]) et AVANT les boutons d'entrée
-/// ([mapTraversalOrderEntryButtons]), dans les deux dispositions : c'est sous
-/// les puces que l'avis s'affiche. Sans rang, `OrderedTraversalPolicy` la
-/// placerait après « ⚠ Avertissement », en dernier.
-const double mapTraversalOrderNotices = 1.25;
-
-/// Le groupe des boutons d'entrée ([MapEntryButtons], `F10b` de T3) : entre
-/// les puces ([mapTraversalOrderChips]) et les contrôles de zoom
-/// ([mapTraversalOrderControls]). UNE valeur pour tout le groupe : à
-/// l'intérieur, Tab suit l'ordre de la colonne.
-const double mapTraversalOrderEntryButtons = 1.5;
-
-/// Voir [mapTraversalOrderChips].
-const double mapTraversalOrderControls = 2;
-
-/// Voir [mapTraversalOrderChips]. « carte » est un GROUPE (arbitrage du
-/// commanditaire du 2026-09-23, `K2`) : `FlutterMap` porte son PROPRE
-/// `FocusTraversalGroup(policy: OrderedTraversalPolicy())`, placé à CET
-/// ordre dans le groupe parent — voir [_MapViewState.build]. À l'intérieur
-/// de ce sous-groupe, chaque marqueur reçoit un `NumericFocusOrder` ENTIER
-/// (`0`, `1`, `2`, …), une échelle INDÉPENDANTE de celle du groupe parent :
-/// aucun nombre d'éléments ne peut donc jamais atteindre
-/// [mapTraversalOrderSheet] (relecture du commanditaire du 2026-09-23,
-/// 🔴 1 — la première version partageait l'échelle du parent avec un pas de
-/// 0,001, dépassée par une zone dense de plus de 500 marqueurs).
-const double mapTraversalOrderCarte = 3;
-
-/// Entre « carte » et « lien du bandeau » : une fiche ouverte s'intercale
-/// dans l'ordre déclaré, plutôt que de sauter au dernier arrêt ou de rester
-/// hors de l'ordre de tabulation.
-const double mapTraversalOrderSheet = 3.5;
-
-/// Voir [mapTraversalOrderChips] — le dernier arrêt.
-const double mapTraversalOrderWarningLink = 4;
-
-/// Le bouton « Restrictions au centre de la carte » : juste APRÈS les
-/// contrôles de zoom et de recentrage ([mapTraversalOrderControls]), juste
-/// AVANT la carte (`04-ui.md` § 3 : « atteint par Tab dans l'ordre des
-/// contrôles »).
-const double mapTraversalOrderDesignate = 2.5;
 
 /// Centre initial de la carte : France métropolitaine.
 const double initialMapCenterLatitude = 46.6;
@@ -844,117 +794,105 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
   return '$prefix$label';
 }
 
-/// Construit les surcouches de la carte, dans l'ordre où elles doivent être
-/// empilées PAR-DESSUS le `FlutterMap`. Fonction pure, testable sans rendre
-/// de carte — même esprit que [buildMapLayers], et pour la même raison :
-/// l'environnement de test refuse le chargement de tuiles.
+/// Construit les surcouches de la carte, à poser PAR-DESSUS le `FlutterMap`
+/// dans son `Stack`. Fonction pure, testable sans rendre de carte — même
+/// esprit que [buildMapLayers], et pour la même raison : l'environnement de
+/// test refuse le chargement de tuiles.
 ///
-/// Le HAUT de la carte a deux dispositions, choisies sur la largeur dont elle
-/// dispose ([_wideLayoutMinWidth], 600 px) — mêmes pièces, même ordre de
-/// tabulation :
-/// - **à partir de 600 px** : deux colonnes. À droite, le contrôle
-///   d'avertissement puis la légende ; à gauche, les puces puis les avis, dont
-///   la marge droite réserve toute la place de la légende ;
-/// - **en deçà de 600 px** (téléphone, constat du 2026-09-29) : UNE colonne
-///   alignée à droite ([_CompactTopOverlays]) — avertissement, puces, avis,
-///   puis légende. Les avis passent avant la légende (arbitrage du
-///   commanditaire du 2026-10-03, révisé le jour même) : la légende n'est
-///   repoussée que pendant qu'un avis s'affiche, un écart à `BR-008`
-///   (« toujours visible ») accepté par le commanditaire.
-/// - **dans les deux dispositions** (arbitrage du commanditaire du 2026-10-12,
-///   « La légende défile », `F10b` de T3) : la fenêtre de la colonne du haut
-///   à droite s'arrête AU-DESSUS de la colonne du bas à droite
-///   ([MapOverlaysLayout]) et défile quand son contenu dépasse. ~~Au
-///   téléphone la légende repoussée passait sous les contrôles de zoom~~ :
-///   plus aucun bouton ni l'attribution ne masque sa partie visible.
+/// Depuis `D2` d'Ergonomie (cadrage du 2026-10-17, § 5 et § 6.5), elle rend
+/// UNE mise en page, [MapLayout], qui pose dans la **carte visible** — l'écran
+/// moins la fiche, dans la zone sûre de l'appareil — les pièces construites
+/// par `S1` à `S4` et `B1`, sur trois largeurs ([mapLayoutWidthFor] : moins de
+/// 600 px, de 600 à 799, 800 et plus), et répartit la hauteur dans l'ordre de
+/// repli de l'arbitrage 11 ([allocateMapLayout]) :
+/// 1. le **bloc de lecture**, en trois pièces posées sans écart, en tête de la
+///    carte visible — toute sa largeur au téléphone, 480 px au plus en haut à
+///    gauche au-delà :
+///    - la partie fixe ([MapReadingBlockFixed]) : le **sélecteur**
+///      ([MapReadingSelector]) — les trois lectures, puis, quand
+///      [onToggleDesignationMode] est fourni, l'interrupteur « Restrictions »
+///      (`E5` de T2, arbitrage du 2026-10-03) —, puis l'**en-tête**
+///      « Légende · lecture » ([MapLegendHeader]) qui porte le contrôle
+///      « ⚠ Avertissement » de la carte ([WarningLink], `W3c`), **toujours
+///      présent**, fiche ouverte ou non (R4) ;
+///    - les **avis** ([MapReadingBlockNotices]) — absence, hors couverture,
+///      panne, lignes illisibles —, décidés par [mapNoticesFor] (`BR-007` :
+///      jamais une carte muette), posés nus ;
+///    - la **légende** ([MapReadingBlockLegend], [MapLegend] dans le bloc),
+///      **toujours rendue**, quel que soit [error] (`BR-008`) ; elle défile
+///      quand la place manque (premier repli, écart à `BR-008` accepté le
+///      2026-10-12 et prolongé par l'arbitrage 11) ;
+/// 2. le **bas de la carte** ([MapBottom]) : sous 600 px, une rangée
+///    « Favoris », « Filtres » … −, +, recentrer, l'attribution IGN dessous ; à
+///    partir de 600 px, la colonne des boutons d'entrée et des contrôles de
+///    caméra, au bas à droite ; l'attribution, condition d'usage de la Licence
+///    Ouverte (`04-ui.md` § 3), toujours ;
+/// 3. **en mode** « Restrictions » ([onDesignateCenter] non nul) : la **bande
+///    du bouton** de désignation ([DesignationBand]) au bas de la carte
+///    visible, au-dessus de la rangée ou à gauche de la colonne, et le
+///    **réticule** ([MapCenterReticle]) au centre horizontal de la carte
+///    visible, à mi-hauteur entre la partie fixe du bloc et la bande ; au
+///    repli 6, bande et réticule sont retirés — la bande est alors exclue du
+///    focus, à l'écoute de [layoutReport] (le rapport arrive une trame après
+///    la mise en page) ;
+/// 4. la **fiche** — station ([stationSheet]), point ONDE ([ondeSheet]) et
+///    tronçon ([floodSheet], T4), empilés dans cet ordre (`main.dart` n'en
+///    ouvre qu'un à la fois ; fournis ensemble, ils s'empilent plutôt que de
+///    se masquer, `BR-007`) — sous 800 px en **fiche du bas**, toute la
+///    largeur, au bas de l'écran, son contenu dans la largeur de lecture
+///    (R18) ; dès 800 px en **panneau latéral** de 380 px, à droite, sur toute
+///    la hauteur, un filet à gauche. Leur fond blanc se prolonge sous la marge
+///    système (spec § 6.5 : « au bas de l'écran ») ; le contenu reste dans la
+///    zone sûre. **Provisoirement** (jusqu'à `D5`), la zone des fiches défile
+///    elle-même, par [sheetScrollController] (`K4` de T3 : la racine de
+///    composition la ramène en haut à chaque ouverture), et annonce une
+///    hauteur repliée nulle ([NoMinIntrinsicHeight]) : c'est elle qui cède au
+///    repli 2.
 ///
-/// Dans l'ordre d'empilement :
-/// 1. **le contrôle d'avertissement, toujours** ([WarningLink], en haut à
-///    droite, `W3c`) — remplace le bouton de menu (`W3b`) et le bandeau
-///    permanent (`W3`), tous deux retirés par l'arbitrage du commanditaire du
-///    2026-09-23 ;
-/// 1bis. **la légende, toujours** (`MapLegend`, jamais recouverte par une
-///    autre pièce du haut, par construction : elle est dans la même colonne
-///    que le contrôle, ou sous les avis en disposition compacte) — `BR-008`
-///    en fait une pièce obligatoire : les trois échelles du produit
-///    réutilisent les mêmes teintes, et c'est elle qui nomme celle qui est
-///    active. Elle est rendue quel que soit [error] : une carte en panne reste
-///    une carte qu'on lit. En disposition compacte, un avis affiché la
-///    repousse vers le bas de la colonne (écart à `BR-008` accepté) ;
-/// 2. les **puces de bascule d'échelle** ([MapScaleChips]), toujours — y
-///    compris en erreur : une carte en panne reste une carte dont on change
-///    l'échelle (`BR-007`, `UC-001 A6`) — suivies, quand
-///    [onToggleDesignationMode] est fourni, du choix « Restrictions »
-///    (`E5` de T2) ;
-/// 3. les **avis** — absence, hors couverture, panne, lignes illisibles —,
-///    décidés par [mapNoticesFor] (`BR-007` : jamais une carte muette, jamais
-///    un état par défaut). Posés **sous** les puces en disposition large, dans
-///    la même colonne : sa largeur est bornée, elle réserve toute la place de
-///    la légende et n'empiète jamais dessus ; **sous les puces et au-dessus
-///    de la légende** en disposition compacte ;
-/// 4. les **panneaux de fiche** — station ([stationSheet]), point ONDE
-///    ([ondeSheet]) et tronçon ([floodSheet], T4) —, chacun s'il est
-///    fourni, en bas à gauche et dans cet
-///    ordre. Ils ne sont jamais ouverts ensemble : la racine de composition
-///    ferme l'un avant d'ouvrir l'autre ; fournis ensemble, ils s'empilent
-///    plutôt que de se masquer (`BR-007`). Leur zone est bornée à la hauteur
-///    de la carte et défile au-delà (arbitrage du commanditaire du
-///    2026-10-13) : une fiche plus haute que la carte ne déborde plus de
-///    l'écran, son bas s'amène dans la fenêtre de défilement en la faisant
-///    défiler ; ce qu'on voit de la fiche ne passe jamais sous l'attribution
-///    IGN (`K5` de T3) ; la racine de composition ramène la fiche en haut à
-///    chaque ouverture, par [sheetScrollController] (`K4` de T3 ;
-///    `docs/project-state.md`, point 60). Elle garde la priorité sur la bande
-///    du bouton de désignation, qui reçoit le reste ;
-/// 5. le **groupe des boutons d'entrée** ([MapEntryButtons]) : « Favoris »
-///    (`S10` de T3, [onOpenFavorites], absent si nul) au-dessus de « Filtres »
-///    (`F10b` de T3), puis, dessous, les **boutons de zoom et de recentrage**
-///    ([MapControls], `K1`), en bas
-///    à droite, AU-DESSUS de l'attribution — jamais l'inverse, l'attribution
-///    reste la dernière chose qu'un empilement pourrait masquer ;
-/// 6. l'**attribution IGN**, toujours, tout en bas à droite — une condition
-///    d'usage de la Licence Ouverte, jamais une finition (`04-ui.md` § 3).
+/// Aucune fiche ne se peint jamais sur le bloc ni sur le bas ; la carte, elle,
+/// ne bouge pas quand une fiche s'ouvre ou se ferme (arbitrage 12) : cette
+/// fonction ne touche pas à la caméra.
+///
+/// L'ordre de tabulation (`K2`, `K1` de T3, spec § 5.7) est porté par les
+/// constantes `mapTraversalOrder*` : entrées du sélecteur, action de l'avis,
+/// « Favoris », « Filtres », zoom et recentrer, bouton de désignation (en
+/// mode), carte, fiche, « ⚠ Avertissement » de la carte en dernier.
+///
+/// [layoutReport] reçoit le rapport de la dernière mise en page
+/// ([MapLayoutReport]) : la carte visible, le réticule, la répartition. C'est
+/// l'appelant qui le possède et le dispose (`_MapViewState`).
 ///
 /// [onToggleDesignationMode] (`E5` de T2, arbitrage du 2026-10-03) est
-/// appelé par un tap sur le choix « Restrictions » — en production,
+/// appelé par l'entrée « Restrictions » — en production,
 /// `MapViewModel.toggleDesignationMode` ; `null` : aucune désignation n'est
-/// câblée, la puce est absente. [onDesignateCenter] n'est non nul que
+/// câblée, l'entrée est absente. [onDesignateCenter] n'est non nul que
 /// **dans le mode** : c'est lui qui fait exister le bouton, son indice et le
-/// réticule, et la puce s'allume sur ce même fait
+/// réticule, et l'entrée s'allume sur ce même fait
 /// (`designationMode: onDesignateCenter != null`) — aucun second état ici.
 ///
-/// [onSelect] est appelé avec l'échelle demandée par un tap de puce — en
-/// production, `MapViewModel.selectScale`. [onWiden] l'est par l'action
-/// « Élargir la recherche » de l'avis d'absence — en production,
-/// `MapViewModel.widenSearch`. [onClearFilters] l'est par l'action « Effacer les
-/// filtres » de l'avis des filtres — en production, `MapViewModel.clearFilter`.
-/// Ces trois rappels sont **requis** : un contrôle sans
-/// rappel serait mort à l'écran.
+/// [onSelect] est appelé avec la lecture demandée — en production,
+/// `MapViewModel.selectScale`. [onWiden] l'est par l'action « Élargir la
+/// recherche » de l'avis d'absence — en production,
+/// `MapViewModel.widenSearch`. [onClearFilters] l'est par l'action « Effacer
+/// les filtres » de l'avis des filtres — en production,
+/// `MapViewModel.clearFilter`. Ces trois rappels sont **requis** : un
+/// contrôle sans rappel serait mort à l'écran.
 ///
 /// [stations], [ondeObservations], [ondeUnreadableRows] et
-/// [filterHidesEverything] ne servent QU'À
-/// décider des avis : cette fonction ne dessine aucun marqueur, c'est
-/// [buildMapLayers] qui s'en charge. Elle n'en lit d'ailleurs que le vide ou
-/// le non-vide — la décision elle-même est [mapNoticesFor], pure et testable
-/// sans widget.
-///
-/// Ces quatre faits sont **requis**, sans valeur par défaut : un appelant qui en
+/// [filterHidesEverything] ne servent QU'À décider des avis : cette fonction
+/// ne dessine aucun marqueur, c'est [buildMapLayers] qui s'en charge. Ces
+/// quatre faits sont **requis**, sans valeur par défaut : un appelant qui en
 /// oublie un ferait dire à l'écran « il n'y a rien ici » alors que la carte
-/// dessine des marqueurs. Un oubli doit être une erreur de compilation, pas
-/// une affirmation fausse à l'usager (`BR-007`).
+/// dessine des marqueurs (`BR-007`).
 ///
 /// Lecture Crues (`M5` de T4, cadrage § 7.1, § 7.5, § 7.7) — quatre
-/// paramètres **optionnels**, pour que les appelants qui ne la branchent pas
-/// compilent sans changer : [floodNotices] sont les avis de la lecture
+/// paramètres **optionnels** : [floodNotices] sont les avis de la lecture
 /// (`floodNoticesFor`), passés à [mapNoticesFor], qui ne les rend que sur
 /// [MapScaleKind.crues] ; [onRetryFlood] est l'action « Réessayer » de ses
-/// avis d'échec — en production, `FloodLayerViewModel.retry` ; `null`,
-/// l'action n'est pas rendue ; [floodInformationDate] est la date de la carte
-/// de vigilance lue, que la légende cite (`null` tant qu'elle n'est pas lue,
-/// arbitrage 9) ; [floodSheet] est la fiche tronçon, injectée comme les deux
-/// autres et posée sous elles dans la zone des fiches. Sur la lecture Crues,
-/// la fenêtre « ⚠ Avertissement » ajoute `floodWarningWindowText` sous le
-/// texte général (`BR-015`).
+/// avis d'échec ; [floodInformationDate] est la date de la carte de vigilance
+/// lue, que la légende cite ; [floodSheet] est la fiche tronçon. Sur la
+/// lecture Crues, la fenêtre « ⚠ Avertissement » ajoute
+/// `floodWarningWindowText` sous le texte général (`BR-015`).
 List<Widget> buildMapOverlays({
   required MapScaleKind scale,
   required void Function(MapScaleKind kind) onSelect,
@@ -980,6 +918,8 @@ List<Widget> buildMapOverlays({
   required VoidCallback? onZoomIn,
   required VoidCallback? onZoomOut,
   required VoidCallback onRecenter,
+  // `D2` d'Ergonomie : le rapport de la mise en page, possédé par l'appelant.
+  required ValueNotifier<MapLayoutReport?> layoutReport,
   VoidCallback? onDesignateCenter,
   VoidCallback? onToggleDesignationMode,
   MapErrorSource? errorSource,
@@ -988,6 +928,7 @@ List<Widget> buildMapOverlays({
   // `K4` de T3 : le contrôleur du défilement de la zone des fiches, tenu par
   // la racine de composition, qui remet la position à zéro à chaque
   // ouverture de fiche. `null` : le défilement garde son contrôleur interne.
+  // `D5` le passe aux corps des fiches.
   ScrollController? sheetScrollController,
   // `S10` de T3 : l'ouverture de l'écran « Favoris », injectée par la racine
   // de composition. `null` : le bouton « Favoris » est absent du groupe des
@@ -1002,18 +943,11 @@ List<Widget> buildMapOverlays({
   final Widget? onde = ondeSheet;
   final Widget? flood = floodSheet;
   // Les panneaux de fiche fournis, dans l'ordre d'empilement : station, point
-  // ONDE, tronçon.
+  // ONDE, tronçon. Sans écart entre eux : un panneau fermé vaut
+  // `SizedBox.shrink`, et la mise en page ne tient la fiche pour OUVERTE que
+  // si la zone a une hauteur (un écart la dirait ouverte, fiches fermées).
   final List<Widget> panels = <Widget>[?sheet, ?onde, ?flood];
   final VoidCallback? designate = onDesignateCenter;
-  // Le bouton de désignation et son indice (canvas du 2026-09-29) : hors de
-  // la colonne des contrôles, en bas au centre, sous la zone des fiches
-  // (voir plus bas : aucune des deux ne recouvre l'autre).
-  final Widget? designation = designate == null
-      ? null
-      : FocusTraversalOrder(
-          order: const NumericFocusOrder(mapTraversalOrderDesignate),
-          child: DesignateCenterControl(onDesignate: designate),
-        );
   final List<MapNotice> notices = mapNoticesFor(
     scale: scale,
     hasStations: stations.isNotEmpty,
@@ -1024,406 +958,161 @@ List<Widget> buildMapOverlays({
     filterHidesEverything: filterHidesEverything,
     floodNotices: floodNotices,
   );
-  // Les pièces du haut de la carte, construites UNE fois pour les deux
-  // dispositions ci-dessous : leurs ordres de tabulation (`K2`) ne peuvent
-  // donc pas diverger d'une disposition à l'autre. Les avis portent leur
-  // marge haute.
-  //
-  // Le texte propre de la fenêtre « ⚠ Avertissement » : celui de la crue sur
-  // la seule lecture Crues (cadrage § 7.7, `BR-015`). Trois branches, sans
-  // joker : une échelle ajoutée sans décision ici ne compile pas.
-  final Widget warningLink = FocusTraversalOrder(
-    order: const NumericFocusOrder(mapTraversalOrderWarningLink),
-    child: WarningLink(
-      extraText: switch (scale) {
-        MapScaleKind.crues => floodWarningWindowText,
-        MapScaleKind.ecoulement => null,
-        MapScaleKind.debit => null,
-      },
-    ),
-  );
-  final Widget chips = FocusTraversalOrder(
-    order: const NumericFocusOrder(mapTraversalOrderChips),
-    child: MapScaleChips(
-      scale: scale,
-      onSelect: onSelect,
-      designationMode: designate != null,
-      onToggleDesignationMode: onToggleDesignationMode,
-    ),
-  );
-  final Widget legend = MapLegend(
-    scale: scale,
-    floodInformationDate: floodInformationDate,
-  );
-  // Chaque avis porte son rang de tabulation ([mapTraversalOrderNotices],
-  // `K1` de T3) : construit ici une fois, il vaut pour les deux dispositions.
-  final List<Widget> noticeWidgets = <Widget>[
-    for (final MapNotice notice in notices)
-      FocusTraversalOrder(
-        order: const NumericFocusOrder(mapTraversalOrderNotices),
-        child: Padding(
-          padding: const EdgeInsets.only(top: _overlayPadding),
-          child: buildMapNotice(
-            notice,
-            onWiden: onWiden,
-            onClearFilters: onClearFilters,
-            onRetryFlood: onRetryFlood,
-          ),
-        ),
-      ),
-  ];
-
-  // Le BAS de la carte, pleine largeur : la zone des fiches (alignée à
-  // gauche) AU-DESSUS de la bande du bouton de désignation (centrée). La
-  // disposition ne dépend PAS de l'ouverture d'une fiche — `main.dart`
-  // passe toujours les deux panneaux, vides à l'état fermé — : le bouton est
-  // au centre en toutes circonstances, et une fiche ouverte se pose sur la
-  // bande, jamais dessous ni dessus le bouton, quelle que soit la largeur.
-  //
-  // La zone des fiches est BORNÉE à la hauteur dont la carte dispose (celle
-  // du `LayoutBuilder`) et DÉFILE au-delà (arbitrage du commanditaire du
-  // 2026-10-13). Un enfant non flexible d'une `Column` n'a aucune borne de
-  // hauteur : une fiche plus haute que la carte — police à 200 %, téléphone
-  // en paysage — débordait de l'écran (« A RenderFlex overflowed … on the
-  // bottom ») et son bas était inatteignable. La borne est posée À
-  // L'INTÉRIEUR de l'`Align` : un `Align` qui reçoit une hauteur bornée
-  // s'étire à cette hauteur. Le bouton de fermeture défile avec la fiche.
-  //
-  // La priorité est conservée : la fiche prend ce qu'il lui faut jusqu'à la
-  // hauteur de la carte, la bande du bouton de désignation (`Flexible`)
-  // reçoit le reste — rien ne lui est réservé.
-  //
-  // Ce qu'on voit de la fiche ne passe JAMAIS sous le bandeau d'attribution
-  // IGN, opaque et peint après elle (`K5` de T3) : la hauteur du bandeau suit
-  // la police et la largeur, elle est MESURÉE ([_attributionBadgeHeight], le
-  // calcul que fait aussi la bande du bouton). Hors mode, la marge basse de
-  // la zone vaut au moins [_sheetBottomPadding] et au moins cette hauteur plus
-  // la marge basse du bandeau — à 100 %, bandeau sur une ligne, elle reste de
-  // [_sheetBottomPadding]. En mode, la borne de hauteur laisse cette même
-  // hauteur libre en bas ; la bande du bouton reçoit toujours le reste.
-  //
-  // Cette fonction ignore quand la fiche change : d'elle-même, la position de
-  // défilement est conservée d'une fiche à l'autre quand la nouvelle arrive
-  // sans trame courte entre les deux (donnée en cache). C'est la racine de
-  // composition qui le sait (`K4` de T3, `docs/project-state.md`, point 60) :
-  // elle fournit [sheetScrollController] et le remet à zéro à chaque
-  // ouverture de fiche. Sans contrôleur fourni, rien ne ramène la fiche en
-  // haut.
-  final Widget? bottomArea = panels.isNotEmpty || designation != null
-      ? Align(
-          alignment: Alignment.bottomCenter,
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              // Ce que le bandeau d'attribution occupe au bas de la carte :
-              // sa hauteur mesurée, plus sa marge basse.
-              final double attributionReserve =
-                  _attributionBadgeHeight(context, constraints.maxWidth) +
-                  _overlayPadding;
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  if (panels.isNotEmpty)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: ConstrainedBox(
-                        // En mode, la borne s'arrête au haut du bandeau
-                        // d'attribution : la zone n'a alors pas de marge
-                        // basse (voir dessous).
-                        constraints: BoxConstraints(
-                          maxHeight: designation == null
-                              ? constraints.maxHeight
-                              : math.max(
-                                  0.0,
-                                  constraints.maxHeight - attributionReserve,
-                                ),
-                        ),
-                        child: Padding(
-                          // Marge basse SANS bouton : elle dégage le bandeau
-                          // d'attribution IGN, qui reste lisible en toutes
-                          // circonstances (Licence Ouverte, `04-ui.md` § 3) —
-                          // [_sheetBottomPadding] au moins, et au moins ce que
-                          // le bandeau occupe. Avec le bouton, c'est la bande
-                          // qui la porte (et réserve sa hauteur réelle), et la
-                          // borne ci-dessus qui tient la fiche au-dessus du
-                          // bandeau quand la bande n'a plus de place.
-                          //
-                          // Marge DROITE réservée à la colonne des boutons de
-                          // zoom (arbitrage du coordinateur du 2026-09-23,
-                          // « décaler la fiche ») : sur un écran étroit, le
-                          // panneau de fiche s'étend sur toute la largeur
-                          // disponible — sans cette réserve, il passerait SOUS
-                          // `MapControls`, posés en bas à droite. Même schéma
-                          // que la réserve de la légende pour les puces
-                          // d'échelle, plus haut dans cette fonction.
-                          padding: EdgeInsets.fromLTRB(
-                            _overlayPadding,
-                            _overlayPadding,
-                            _sheetRightPadding,
-                            designation == null
-                                ? math.max(
-                                    _sheetBottomPadding,
-                                    attributionReserve,
-                                  )
-                                : 0,
-                          ),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: _sheetMaxWidth,
-                            ),
-                            // Les trois fiches partagent le MÊME emplacement :
-                            // elles ne sont jamais ouvertes ensemble, mais cette
-                            // garantie vient de la racine de composition
-                            // (`main.dart` : chaque rappel de tap ferme l'autre
-                            // fiche avant d'ouvrir la sienne), pas des échelles
-                            // (relecture 2026-09-14). Une `Column` plutôt
-                            // qu'une superposition tout de même : si deux
-                            // panneaux arrivaient ensemble, aucun n'écraserait
-                            // l'autre — un panneau masqué serait pire qu'un
-                            // panneau de trop (`BR-007`). L'ordre est fixé —
-                            // station, puis ONDE, puis tronçon — pour que
-                            // l'empilement soit une décision testée et non un
-                            // hasard de `Stack`.
-                            //
-                            // Le défilement a la même enveloppe que les autres
-                            // de surcouche (voir la colonne de droite du haut,
-                            // plus haut dans cette fonction, pour le détail) :
-                            // il ne capte les gestes que SUR la fiche
-                            // (`HitTestBehavior.deferToChild`,
-                            // `_WithoutScrollbar`) — vérifié : tap et molette
-                            // posés à droite de la fiche, et tap posé dans
-                            // l'écart entre les deux panneaux, atteignent la
-                            // carte — et `primary: false`.
-                            child: FocusTraversalOrder(
-                              order: const NumericFocusOrder(
-                                mapTraversalOrderSheet,
-                              ),
-                              child: _WithoutScrollbar(
-                                child: SingleChildScrollView(
-                                  controller: sheetScrollController,
-                                  primary: false,
-                                  hitTestBehavior: HitTestBehavior.deferToChild,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      for (final (int index, Widget panel)
-                                          in panels.indexed) ...<Widget>[
-                                        if (index > 0)
-                                          const SizedBox(
-                                            height: _overlayPadding,
-                                          ),
-                                        panel,
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (designation != null)
-                    Flexible(child: _DesignationPlacement(child: designation)),
-                ],
-              );
-            },
-          ),
-        )
-      : null;
-  // Le BAS À DROITE de la carte : boutons d'entrée, contrôles de caméra,
-  // attribution. Il défile, ANCRÉ EN BAS (`reverse`), quand la fenêtre est
-  // trop courte pour le porter sous le contrôle d'avertissement (décision
-  // de la boucle principale du 2026-10-12, `F10b`) : l'attribution reste
-  // la dernière pièce à sortir du champ. Même enveloppe que les autres
-  // défilements de surcouche (`primary: false`, `deferToChild`,
-  // [_WithoutScrollbar]) : un geste posé hors des pièces atteint la carte.
-  final Widget bottomRight = _WithoutScrollbar(
-    child: SingleChildScrollView(
-      reverse: true,
-      primary: false,
-      hitTestBehavior: HitTestBehavior.deferToChild,
-      // Une colonne, comme celle du contrôle d'avertissement et de la
-      // légende en haut à droite (`K1`) : les boutons de zoom et
-      // l'attribution IGN ne peuvent alors PAS se chevaucher, par
-      // construction.
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: <Widget>[
-          // Les boutons d'entrée (`F10b` de T3, arbitrage 8 du cadrage de
-          // T3) : un groupe à part, AU-DESSUS des contrôles de caméra — le
-          // haut de la carte ne bouge pas.
-          FocusTraversalOrder(
-            order: const NumericFocusOrder(mapTraversalOrderEntryButtons),
-            child: MapEntryButtons(
-              onOpenFilters: onOpenFilters,
-              onOpenFavorites: onOpenFavorites,
-              filterActive: filterActive,
-            ),
-          ),
-          const SizedBox(height: mapControlsSpacing),
-          FocusTraversalOrder(
-            order: const NumericFocusOrder(mapTraversalOrderControls),
-            child: MapControls(
-              onZoomIn: onZoomIn,
-              onZoomOut: onZoomOut,
-              onRecenter: onRecenter,
-            ),
-          ),
-          const SizedBox(height: _overlayPadding),
-          const IgnAttributionBadge(),
-        ],
-      ),
-    ),
-  );
 
   return <Widget>[
-    // Le réticule, sous toutes les autres surcouches : au centre exact de la
-    // carte, là où le bouton désigne. Inerte.
-    if (designate != null) const Center(child: MapCenterReticle()),
-    // Les surcouches du HAUT ont deux dispositions, choisies sur la largeur
-    // dont la carte dispose ([_wideLayoutMinWidth], 600 px).
-    //
-    // Aux largeurs de téléphone (constat du 2026-09-29), réserver la place
-    // de la légende à droite des puces ne laissait à celles-ci que 76 px à
-    // 360 de large : chaque libellé s'y repliait lettre par lettre et la
-    // colonne débordait de plusieurs milliers de pixels à 200 %. En deçà de
-    // [_wideLayoutMinWidth], les surcouches du haut forment donc UNE
-    // seule colonne ([_CompactTopOverlays]), alignée à droite :
-    // avertissement, puces, avis, puis légende — les avis AVANT la légende :
-    // posée avant eux, la légende chassait l'avis sous le bouton de
-    // désignation ou hors de l'écran dès 100 % sur 360 × 640 (mesuré le
-    // 2026-10-03). Elle n'est donc repoussée que pendant qu'un avis
-    // s'affiche : un écart à `BR-008` (« toujours visible »), accepté par le
-    // commanditaire le 2026-10-03. À partir de [_wideLayoutMinWidth], deux
-    // colonnes : avertissement et légende à droite, puces et avis à gauche.
-    // Chacune défile quand elle dépasse la hauteur, comme la colonne compacte.
-    //
-    // Depuis le 2026-10-12 (arbitrage du commanditaire, « La légende
-    // défile ») la colonne du haut à droite — celle de la légende, dans les
-    // deux dispositions — ne dispose plus que de la hauteur que lui laisse la
-    // colonne du bas à droite ([MapOverlaysLayout]) : ~~la légende repoussée
-    // passait sous les contrôles de zoom au téléphone~~, elle défile.
+    // Une seule source de largeur : celle que la mise en page de la carte
+    // reçoit (et pose), lue ici par un `LayoutBuilder` — personne n'interroge
+    // les hauteurs intrinsèques de ce qui l'enveloppe.
     LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxWidth < _wideLayoutMinWidth;
-        // UNE mise en page pour le bord droit ([MapOverlaysLayout]) : la
-        // colonne du haut reçoit la hauteur que la colonne du bas à droite
-        // lui laisse, et s'arrête donc au-dessus d'elle par construction.
-        return CustomMultiChildLayout(
-          delegate: MapOverlaysLayout(
-            padding: _overlayPadding,
-            topMinHeight: minimumTapTarget,
-          ),
+        final EdgeInsets safeInsets = MediaQuery.paddingOf(context);
+        final MapLayoutWidth width = mapLayoutWidthFor(constraints.maxWidth);
+        final bool compact = switch (width) {
+          MapLayoutWidth.compact => true,
+          MapLayoutWidth.wide || MapLayoutWidth.panel => false,
+        };
+        final bool sidePanel = switch (width) {
+          MapLayoutWidth.panel => true,
+          MapLayoutWidth.compact || MapLayoutWidth.wide => false,
+        };
+        return MapLayout(
+          padding: _overlayPadding,
+          safeInsets: safeInsets,
+          reticleBandHeight: mapCenterReticleSize + 2 * _overlayPadding,
+          report: layoutReport,
           children: <Widget>[
-            // L'ORDRE de ces enfants est l'ordre de peinture, donc celui du
-            // toucher — celui des surcouches depuis toujours : la colonne du
-            // haut à droite, puis la colonne de gauche (là où une puce et le
-            // contrôle d'avertissement se recoupent, la puce reçoit le
-            // geste), puis la zone des fiches, puis la colonne du bas à
-            // droite. Verrou : `map_overlays_layout_test.dart`.
-            LayoutId(
-              id: MapOverlaySlot.top,
-              child: compact
-                  ? _CompactTopOverlays(
-                      warningLink: warningLink,
-                      chips: chips,
-                      legend: legend,
-                      notices: noticeWidgets,
-                    )
-                  :
-                    // Une colonne, comme celle des puces à gauche : le contrôle
-                    // d'avertissement et la légende ne peuvent alors PAS se
-                    // chevaucher, par construction (`W3c`).
-                    // `SingleChildScrollView` plutôt qu'un `Column` nu : sur une
-                    // hauteur d'écran courte (paysage, écran divisé), le contrôle
-                    // ET la légende « écoulement » (six niveaux) peuvent dépasser
-                    // l'espace vertical restant — un défilement local vaut mieux
-                    // qu'un `RenderFlex` débordant hors écran, jamais constaté par
-                    // l'usager.
-                    //
-                    // Sa fenêtre est large comme la légende, plus large que le
-                    // contrôle d'avertissement : elle ne capte les gestes que SUR
-                    // ses enfants (`HitTestBehavior.deferToChild`, et non le
-                    // `opaque` par défaut), comme la colonne de gauche — tap,
-                    // clic droit, glisser et molette posés à gauche du contrôle
-                    // atteignent la carte dessous. `_WithoutScrollbar` y ajoute ce
-                    // que `deferToChild` ne suffit pas à obtenir sur le bureau :
-                    // sans la `Scrollbar` automatique de Windows, dont le
-                    // `MouseRegion` opaque absorbe le toucher sur toute la boîte.
-                    //
-                    // `primary: false`, ici comme sur les cinq autres défilements
-                    // de surcouche : sur Android, un défilement vertical sans
-                    // contrôleur s'attache au `PrimaryScrollController` de la
-                    // route (`PrimaryScrollController.shouldInherit`). Les
-                    // surcouches sont des défilements FRÈRES : plusieurs positions
-                    // s'y attachent, et `PageDown` (clavier matériel, focus sur la
-                    // carte) fait lever `ScrollAction`.
-                    _WithoutScrollbar(
-                      child: SingleChildScrollView(
-                        primary: false,
-                        hitTestBehavior: HitTestBehavior.deferToChild,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: <Widget>[
-                            warningLink,
-                            const SizedBox(height: _overlayPadding),
-                            legend,
-                          ],
-                        ),
+            // La partie fixe du bloc : le sélecteur entier sous son rang de
+            // tabulation ; le lien, plus profond, porte le sien (le dernier).
+            // Le texte propre de la fenêtre « ⚠ Avertissement » : celui de la
+            // crue sur la seule lecture Crues (cadrage § 7.7, `BR-015`) —
+            // trois branches, sans joker.
+            MapLayoutChild(
+              slot: MapLayoutSlot.blockFixed,
+              child: FocusTraversalOrder(
+                order: const NumericFocusOrder(mapTraversalOrderChips),
+                child: MapReadingBlockFixed(
+                  selector: MapReadingSelector(
+                    scale: scale,
+                    onSelect: onSelect,
+                    designationMode: designate != null,
+                    onToggleDesignationMode: onToggleDesignationMode,
+                  ),
+                  header: MapLegendHeader(
+                    scale: scale,
+                    warningLink: FocusTraversalOrder(
+                      order: const NumericFocusOrder(
+                        mapTraversalOrderWarningLink,
                       ),
-                    ),
-            ),
-            if (!compact)
-              LayoutId(
-                id: MapOverlaySlot.left,
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: Padding(
-                    // La marge de droite réserve toute la place de la légende,
-                    // plus les deux marges qui l'encadrent : ni les puces ni le
-                    // bandeau ne peuvent passer dessous (`BR-008`).
-                    padding: const EdgeInsets.fromLTRB(
-                      _overlayPadding,
-                      _overlayPadding,
-                      legendMaxWidth + 2 * _overlayPadding,
-                      _overlayPadding,
-                    ),
-                    // Une colonne, et non deux `Align` superposés : le bandeau
-                    // d'erreur se pose SOUS les puces plutôt que par-dessus, quelle
-                    // que soit la hauteur qu'il prend en enveloppant son texte.
-                    //
-                    // `SingleChildScrollView`, comme la colonne de droite et la
-                    // colonne compacte : avec la troisième puce (`E5`), à 200 % et
-                    // un avis d'absence, puces et avis dépassaient la hauteur de
-                    // 800 × 740 de 50 px (constat du 2026-10-03) — le défaut,
-                    // antérieur, déjà mesuré à 600 × 360. La colonne défile donc.
-                    // Sa fenêtre ne capte les gestes que SUR ses enfants
-                    // (`HitTestBehavior.deferToChild`, et non le `opaque` par
-                    // défaut) : tap, glisser et molette posés ailleurs dans sa
-                    // boîte atteignent la carte dessous — `_WithoutScrollbar`
-                    // aussi, sur le bureau (voir la colonne de droite).
-                    child: _WithoutScrollbar(
-                      child: SingleChildScrollView(
-                        primary: false,
-                        hitTestBehavior: HitTestBehavior.deferToChild,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[chips, ...noticeWidgets],
-                        ),
+                      child: WarningLink(
+                        extraText: switch (scale) {
+                          MapScaleKind.crues => floodWarningWindowText,
+                          MapScaleKind.ecoulement => null,
+                          MapScaleKind.debit => null,
+                        },
                       ),
                     ),
                   ),
                 ),
               ),
-            if (bottomArea != null)
-              LayoutId(id: MapOverlaySlot.middle, child: bottomArea),
-            LayoutId(id: MapOverlaySlot.bottom, child: bottomRight),
+            ),
+            // Les avis, nus, chacun sous le rang de tabulation des avis
+            // (`K1` de T3) : leur action suit les entrées du sélecteur.
+            MapLayoutChild(
+              slot: MapLayoutSlot.blockNotices,
+              child: MapReadingBlockNotices(
+                notices: <Widget>[
+                  for (final MapNotice notice in notices)
+                    FocusTraversalOrder(
+                      order: const NumericFocusOrder(mapTraversalOrderNotices),
+                      child: buildMapNotice(
+                        notice,
+                        onWiden: onWiden,
+                        onClearFilters: onClearFilters,
+                        onRetryFlood: onRetryFlood,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            MapLayoutChild(
+              slot: MapLayoutSlot.blockLegend,
+              child: MapReadingBlockLegend(
+                legend: MapLegend(
+                  scale: scale,
+                  floodInformationDate: floodInformationDate,
+                  inBlock: true,
+                ),
+              ),
+            ),
+            MapLayoutChild(
+              slot: MapLayoutSlot.bottom,
+              child: MapBottom(
+                compact: compact,
+                onOpenFilters: onOpenFilters,
+                onOpenFavorites: onOpenFavorites,
+                filterActive: filterActive,
+                onZoomIn: onZoomIn,
+                onZoomOut: onZoomOut,
+                onRecenter: onRecenter,
+              ),
+            ),
+            if (designate != null) ...<Widget>[
+              // Repli 6 : la mise en page ne peint, ne touche ni n'annonce la
+              // bande retirée, mais elle garde son nœud de focus ; le rapport
+              // (une trame après) l'en exclut.
+              MapLayoutChild(
+                slot: MapLayoutSlot.band,
+                child: ValueListenableBuilder<MapLayoutReport?>(
+                  valueListenable: layoutReport,
+                  builder:
+                      (
+                        BuildContext context,
+                        MapLayoutReport? report,
+                        Widget? band,
+                      ) => ExcludeFocus(
+                        excluding: report?.allocation.bandWithdrawn ?? false,
+                        child: band!,
+                      ),
+                  child: FocusTraversalOrder(
+                    order: const NumericFocusOrder(mapTraversalOrderDesignate),
+                    child: DesignationBand(onDesignate: designate),
+                  ),
+                ),
+              ),
+              const MapLayoutChild(
+                slot: MapLayoutSlot.reticle,
+                child: MapCenterReticle(),
+              ),
+            ],
+            if (panels.isNotEmpty)
+              MapLayoutChild(
+                slot: MapLayoutSlot.sheet,
+                child: FocusTraversalOrder(
+                  order: const NumericFocusOrder(mapTraversalOrderSheet),
+                  child: MapSheetArea(
+                    key: mapSheetAreaKey,
+                    sidePanel: sidePanel,
+                    // Le fond se prolonge sous les marges système qui bordent
+                    // la fiche : le bas (et les côtés) pour la fiche du bas ; le
+                    // haut, le bas et la droite pour le panneau.
+                    extend: sidePanel
+                        ? EdgeInsets.fromLTRB(
+                            0,
+                            safeInsets.top,
+                            safeInsets.right,
+                            safeInsets.bottom,
+                          )
+                        : EdgeInsets.fromLTRB(
+                            safeInsets.left,
+                            0,
+                            safeInsets.right,
+                            safeInsets.bottom,
+                          ),
+                    scrollController: sheetScrollController,
+                    panels: panels,
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -1431,259 +1120,11 @@ List<Widget> buildMapOverlays({
   ];
 }
 
-/// Largeur à partir de laquelle (BORNE INCLUSE) les surcouches du haut de la
-/// carte reprennent leur disposition large, en deux colonnes, en pixels
-/// logiques. En deçà (moins de 600), elles passent en une seule colonne
-/// ([_CompactTopOverlays]). C'est la limite de la classe de fenêtre
-/// « compacte » de Material 3 (moins de 600 dp : un téléphone en portrait) ;
-/// à partir de là, les puces gardent au moins 316 px à côté de la place
-/// réservée à la légende.
-const double _wideLayoutMinWidth = 600;
-
-/// Les surcouches du haut de la carte sur une largeur compacte : le contrôle
-/// d'avertissement, les puces d'échelle, les avis, puis la légende, dans UNE
-/// colonne alignée à droite — même bord que le contrôle et la légende en
-/// disposition large. Les avis précèdent la légende (arbitrage du
-/// commanditaire du 2026-10-03) : posée avant eux, elle les chassait sous le
-/// bouton de désignation ou hors de l'écran. La légende n'est donc repoussée
-/// que pendant qu'un avis s'affiche, un écart à `BR-008` accepté par le
-/// commanditaire. ~~Repoussée, elle passait sous les contrôles de zoom à
-/// 360 × 640~~ : depuis le 2026-10-12 la fenêtre de cette colonne s'arrête
-/// au-dessus de la colonne du bas à droite ([MapOverlaysLayout]), et la
-/// légende repoussée se lit en la faisant défiler. Aucune pièce ne réserve la place d'une autre : chacune
-/// prend la largeur de l'écran s'il le faut, et rien n'est tronqué
-/// (`04-ui.md` § 3).
-///
-/// `SingleChildScrollView` pour la même raison qu'en disposition large : dès
-/// que son contenu dépasse la hauteur de l'écran — à 200 %, mais aussi dès
-/// 100 % sur l'échelle débit, dont la légende porte un paragraphe (`BR-003`) —,
-/// la colonne défile.
-/// Sa fenêtre ne capte les gestes que SUR ses enfants
-/// (`HitTestBehavior.deferToChild`, et non le `opaque` par défaut) : tap,
-/// glisser et molette posés ailleurs dans sa boîte — par exemple sur la carte
-/// visible à gauche du contrôle d'avertissement — atteignent la carte
-/// dessous. Les pièces sont construites par [buildMapOverlays], qui les
-/// partage avec la disposition large.
-class _CompactTopOverlays extends StatelessWidget {
-  const _CompactTopOverlays({
-    required this.warningLink,
-    required this.chips,
-    required this.legend,
-    required this.notices,
-  });
-
-  final Widget warningLink;
-  final Widget chips;
-  final Widget legend;
-
-  /// Les avis, chacun avec sa marge haute.
-  final List<Widget> notices;
-
-  @override
-  Widget build(BuildContext context) {
-    // Ni `Align` ni marge ici : [MapOverlaysLayout] pose la colonne en haut à
-    // droite, à la marge, et borne sa hauteur.
-    return _WithoutScrollbar(
-      child: SingleChildScrollView(
-        primary: false,
-        hitTestBehavior: HitTestBehavior.deferToChild,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            warningLink,
-            const SizedBox(height: _overlayPadding),
-            chips,
-            // Chaque avis porte sa marge haute ; la marge avant la légende
-            // est la même, avec ou sans avis.
-            ...notices,
-            const SizedBox(height: _overlayPadding),
-            legend,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Un défilement de surcouche sans la `Scrollbar` automatique du bureau.
-///
-/// Les surcouches de la carte défilent rarement (200 % de police, fenêtre
-/// courte) et ne ménagent des zones de la carte à l'usager que si leur boîte
-/// est transparente aux gestes (`HitTestBehavior.deferToChild`). Sur le
-/// bureau, `MaterialScrollBehavior.buildScrollbar` pose une `Scrollbar` autour
-/// de tout défilement vertical ; son `MouseRegion` est opaque sur toute la
-/// boîte et rend `deferToChild` sans effet. Même retrait que
-/// `lib/features/shared/data_sources_view.dart` (`scrollbars: false`).
-///
-/// Compromis assumé : quand une colonne de surcouche déborde (constaté par test
-/// à 800 × 740, 200 % de police, échelle débit : colonne droite), l'usager de
-/// bureau n'a plus de barre visible ; elle défile encore à la molette posée sur
-/// un de ses enfants et au clavier quand elle porte le focus, pas au glisser de
-/// la souris. Le `MouseRegion` de la barre ne peut pas être rendu transparent
-/// aux gestes.
-class _WithoutScrollbar extends StatelessWidget {
-  const _WithoutScrollbar({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-      child: child,
-    );
-  }
-}
-
-/// Largeur de contenu que le bouton de désignation réclame pour tenir sur
-/// une ligne à 100 % (icône, libellé gras, marges), en pixels logiques.
-const double _designationComfortWidth = 420;
-
-/// Pose le bouton de désignation en bas de la carte, sans fiche ouverte.
-///
-/// Assez large ([_designationComfortWidth] de contenu entre deux marges de
-/// [_sheetRightPadding]) : centré EXACTEMENT, marges symétriques — celle de
-/// droite dégage déjà la colonne des contrôles. Plus étroit : marge gauche
-/// réduite pour laisser au libellé la place de passer à la ligne sans casser
-/// un mot, marge droite inchangée (les contrôles restent dégagés).
-///
-/// La marge basse dégage l'attribution IGN, dont la hauteur suit la police
-/// (11 pt mis à l'échelle) et la largeur : elle est mesurée, pas estimée.
-///
-/// La bande ne capte les gestes que SUR le bouton et son indice : un tap, un
-/// appui long, un clic droit, un glisser ou un cran de molette posés dans la
-/// bande, à côté de la pilule, atteignent la carte dessous ; la bande ne
-/// recouvre plus non plus ce qui est sous elle, l'action d'un avis par
-/// exemple. Elle défile toujours quand son contenu dépasse la hauteur
-/// restante, mais en glissant depuis le bouton ou l'indice.
-///
-/// Deux conditions, toutes deux nécessaires :
-/// - `HitTestBehavior.deferToChild`, et non l'`opaque` d'un `ListView` : sans
-///   lui, la boîte du défilement elle-même est « touchée » ;
-/// - [_WithoutScrollbar] : voir sa documentation pour le détail de la cause
-///   et du compromis sur le bureau.
-class _DesignationPlacement extends StatelessWidget {
-  const _DesignationPlacement({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final bool roomy =
-            constraints.maxWidth >=
-            2 * _sheetRightPadding + _designationComfortWidth;
-        // Hauteur EXACTE de l'attribution, entre deux marges : mesurée
-        // ([_attributionBadgeHeight]), pas estimée.
-        final double bottom =
-            _overlayPadding +
-            _attributionBadgeHeight(context, constraints.maxWidth) +
-            _overlayPadding;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            roomy ? _sheetRightPadding : _overlayPadding,
-            _overlayPadding,
-            _sheetRightPadding,
-            bottom,
-          ),
-          // `ListView` à taille du contenu, plutôt qu'une `Column` nue : à
-          // 200 % de police sur un petit écran, libellé et indice peuvent
-          // dépasser la hauteur restante — ils défilent alors au lieu de
-          // déborder hors écran, comme la colonne de la légende plus haut
-          // dans ce fichier.
-          //
-          // `deferToChild`, et non l'`opaque` par défaut d'un `Scrollable` :
-          // opaque, la bande entière — plus large que la pilule — captait les
-          // gestes de la carte, même sans rien à défiler. Ici elle ne reçoit
-          // un geste que là où le bouton ou l'indice est touché.
-          //
-          // `_WithoutScrollbar` : voir la documentation de cette classe pour
-          // le détail de la cause et du compromis sur le bureau.
-          child: _WithoutScrollbar(
-            child: ListView(
-              shrinkWrap: true,
-              primary: false,
-              // `primary: false` retire aussi le `AlwaysScrollableScrollPhysics`
-              // qu'un `ListView` vertical sans contrôleur reçoit par défaut :
-              // une bande sans rien à défiler ne s'étire plus quand on glisse
-              // depuis la pilule.
-              padding: EdgeInsets.zero,
-              hitTestBehavior: HitTestBehavior.deferToChild,
-              children: <Widget>[Center(child: child)],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 // `buildMapScreen` (bandeau `W3` + menu `W3b`) est retirée par `W3c` : `_MapViewState.build` rend directement `mapAndOverlays`.
 
-/// Marge d'une surcouche au bord de la carte, en pixels logiques.
+/// Marge d'une surcouche au bord de la carte visible, et écart entre deux
+/// groupes de pièces, en pixels logiques.
 const double _overlayPadding = 8;
-
-/// Marge basse MINIMALE du panneau de fiche : elle dégage l'attribution IGN
-/// tant que le bandeau tient dessous (à 100 %, sur une ligne). Au-delà, la
-/// marge suit la hauteur mesurée du bandeau ([_attributionBadgeHeight]).
-const double _sheetBottomPadding = 32;
-
-/// Hauteur EXACTE du bandeau d'attribution IGN ([IgnAttributionBadge]) sur
-/// une carte large de [mapWidth] : le même texte, la même police, la même
-/// échelle, sur la largeur qu'il occupe (marge de [_overlayPadding] de chaque
-/// côté, plus sa marge intérieure) — pas une estimation. Elle suit la police
-/// (11 pt mis à l'échelle) et grandit quand le texte passe à la ligne.
-///
-/// LE seul calcul de cette hauteur : la bande du bouton de désignation
-/// ([_DesignationPlacement]) et la zone des fiches ([buildMapOverlays]) le
-/// partagent, pour que ni le bouton ni une fiche ne passent sous le bandeau.
-double _attributionBadgeHeight(BuildContext context, double mapWidth) {
-  final TextPainter attribution =
-      TextPainter(
-        text: TextSpan(
-          text: ignAttribution,
-          style: DefaultTextStyle.of(context).style
-              .merge(const TextStyle(fontSize: ignAttributionFontSize)),
-        ),
-        textDirection: TextDirection.ltr,
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout(
-        maxWidth:
-            mapWidth -
-            2 * _overlayPadding -
-            2 * ignAttributionPaddingHorizontal,
-      );
-  final double height = attribution.height + 2 * ignAttributionPaddingVertical;
-  attribution.dispose();
-  return height;
-}
-
-/// Largeur maximale du panneau de fiche, en pixels logiques.
-const double _sheetMaxWidth = 420;
-
-/// Largeur de la colonne des boutons de zoom ([MapControls]), en pixels
-/// logiques : chaque bouton mesure [minimumTapTarget]
-/// (`lib/features/shared/tap_target.dart`), et la colonne les empile avec
-/// `CrossAxisAlignment.end` — sa largeur ne dépasse donc jamais celle d'un
-/// bouton. Nommée plutôt que recopiée : c'est ce que [_sheetRightPadding]
-/// doit réserver pour que la fiche ne passe jamais sous ces boutons
-/// (arbitrage du coordinateur du 2026-09-23, « décaler la fiche »).
-double get _mapControlsColumnWidth => minimumTapTarget;
-
-/// Marge droite que le panneau de fiche réserve pour ne jamais passer sous
-/// la colonne des boutons de zoom, posée en bas à droite : la largeur de
-/// cette colonne ([_mapControlsColumnWidth]), plus la marge qui l'entoure
-/// des deux côtés ([_overlayPadding], comme partout ailleurs dans ce
-/// fichier). Dérivée de [minimumTapTarget], jamais un nombre posé au hasard.
-double get _sheetRightPadding => _mapControlsColumnWidth + 2 * _overlayPadding;
-
-// `MapScaleChips`/`_MapScaleChip` (`map_scale_chips.dart`) et
-// `IgnAttributionBadge` (`ign_attribution_badge.dart`) sont **extraits** de
-// ce fichier par `K1` (2026-09-23), au même titre que `MapControls`
-// (`map_controls.dart`) : aucun changement de comportement, seuls les
-// imports ci-dessus changent.
 
 /// L'écran carte : fond IGN, attribution, et les marqueurs de stations du
 /// viewport. N'appelle aucun dépôt — il observe [viewModel] et lui demande
@@ -2340,6 +1781,13 @@ class _MapViewState extends State<MapView> {
   /// `Listenable`), dans [build].
   final FocusNode _mapFocusNode = FocusNode(debugLabel: 'carte');
 
+  /// Le rapport de la dernière mise en page des surcouches (`D2` d'Ergonomie,
+  /// [MapLayout]) : la carte visible, le réticule, la répartition. Tenu ici,
+  /// disposé avec l'état ; `D3` et `D4` le lisent pour désigner, zoomer et
+  /// cadrer dans la carte visible.
+  final ValueNotifier<MapLayoutReport?> _layoutReport =
+      ValueNotifier<MapLayoutReport?>(null);
+
   /// Bouton `+`/`=`/`−` au clavier ([ZoomIntent], `K2`) : réutilise
   /// EXACTEMENT [_handleZoomIn]/[_handleZoomOut] — aucun enchaînement
   /// recopié, la souris et le clavier convergent vers le même chemin
@@ -2396,6 +1844,7 @@ class _MapViewState extends State<MapView> {
     _mapController.dispose();
     _mapFocusNode.dispose();
     _floodHitNotifier.dispose();
+    _layoutReport.dispose();
     super.dispose();
   }
 
@@ -2655,6 +2104,7 @@ class _MapViewState extends State<MapView> {
                       onRetryFlood: flood == null ? null : _handleRetryFlood,
                       floodInformationDate: floodMap?.informationDate,
                       floodSheet: widget.floodSheet,
+                      layoutReport: _layoutReport,
                     ),
                   ],
                 ),

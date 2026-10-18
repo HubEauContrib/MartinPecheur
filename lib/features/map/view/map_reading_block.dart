@@ -6,8 +6,8 @@
 // bord `#C9CFC4` (1 px), rayon 8, l'ombre de la pilule du bouton de
 // désignation (`designate_center_button.dart`, la seule du code).
 //
-// Construit SEUL à ce stade : `MapView` ne l'emploie pas encore, `D2` le
-// branche. Les autres tâches lisent ceci.
+// Branché par `D2` : `buildMapOverlays` (`map_view.dart`) pose les trois
+// pièces dans la mise en page de la carte (`map_layout.dart`).
 //
 // ## Les hauteurs que la mise en page interroge (note d'architecture)
 //

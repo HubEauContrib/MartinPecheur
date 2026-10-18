@@ -22,8 +22,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart'
-    show designationChipLabel, mapDesignationChipKey;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 

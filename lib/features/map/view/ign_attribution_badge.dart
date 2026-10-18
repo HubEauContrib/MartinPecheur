@@ -1,7 +1,8 @@
 // L'attribution IGN Géoplateforme — **extraite** de `map_view.dart` par
-// `K1` (2026-09-23), au même titre que [MapScaleChips]
-// (`map_scale_chips.dart`) et `MapControls` (`map_controls.dart`). Aucun
-// changement de comportement : seuls les imports des appelants changent.
+// `K1` (2026-09-23), au même titre que les puces d'échelle d'alors (devenues
+// le sélecteur de lecture, `map_reading_selector.dart`) et `MapControls`
+// (`map_controls.dart`). Aucun changement de comportement : seuls les imports
+// des appelants changent.
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart'

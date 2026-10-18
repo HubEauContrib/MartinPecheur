@@ -188,8 +188,8 @@ FloodVigilanceMap _unJauneEnBasAGauche() => FloodVigilanceMap(
   informationDate: _date,
   sections: <FloodSection>[
     _section('J9', const Jaune(), <GeoPoint>[
-      GeoPoint(latitude: 44.6, longitude: -1),
-      GeoPoint(latitude: 44.6, longitude: -0.8),
+      GeoPoint(latitude: 42.0, longitude: -1),
+      GeoPoint(latitude: 42.0, longitude: -0.8),
     ]),
   ],
   skippedEntities: 0,
@@ -511,7 +511,11 @@ void main() {
     'toucher d’un trait : onFloodSectionTap reçoit le tronçon et la date de '
     'la carte',
     (WidgetTester tester) async {
-      final _Harness h = await _pumpMap(tester);
+      // `D2` d'Ergonomie : à 800 de large, le bloc de lecture (480 px au plus,
+      // en haut à gauche) couvre le centre de la carte en police de test ; à
+      // 1 000, le centre est à sa droite. Le centre géographique de la caméra
+      // ne dépend pas de la fenêtre.
+      final _Harness h = await _pumpMap(tester, taille: const Size(1000, 700));
       await _choisir(tester, MapScaleKind.crues);
       h.source.last.complete(_troisTroncons());
       await tester.pumpAndSettle();
@@ -670,10 +674,17 @@ void main() {
   );
 
   testWidgetsOnAndroid(
-    'Android : à 360 × 640, une étiquette fait 48 de haut et son toucher '
+    'Android : à 390 × 844, une étiquette fait 48 de haut et son toucher '
     'ouvre la fiche',
     (WidgetTester tester) async {
-      final _Harness h = await _pumpMap(tester, taille: const Size(360, 640));
+      // `D2` d'Ergonomie : à 360 × 640, en police de test (un carré d'un em par
+      // glyphe), le bloc de lecture et sa légende « Vigilance crues »
+      // occupent toute la hauteur entre le sélecteur et la rangée du bas : plus
+      // aucune carte libre où poser l'étiquette. À 390 × 844, l'autre taille
+      // garantie du téléphone, de la carte reste libre sous la légende, où se
+      // pose le tronçon J9 (descendu à 42° N pour cela). La hauteur de 48 est
+      // celle de la cible Android, pas de la fenêtre.
+      final _Harness h = await _pumpMap(tester, taille: const Size(390, 844));
       await _choisir(tester, MapScaleKind.crues);
       h.source.last.complete(_unJauneEnBasAGauche());
       await tester.pumpAndSettle();

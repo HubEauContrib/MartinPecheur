@@ -35,7 +35,7 @@ import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show clearFiltersKey, widenSearchKey;
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
+import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -505,6 +505,15 @@ void main() {
       '→ fiche → « ⚠ Avertissement »',
       (WidgetTester tester) async {
         const Key fiche = Key('fiche-de-test-F10b');
+        // `D2` d'Ergonomie : dès 800 px la fiche ouverte est un panneau de
+        // 380 px ; à la fenêtre de test par défaut (800 × 600), la bande du
+        // bouton n'a plus la largeur de se poser à côté de la colonne et se
+        // retire (repli 6 étendu, arbitrage 14) — le bouton sort alors de
+        // l'ordre. Une fenêtre de 1 280 × 740 (taille garantie) lui laisse sa
+        // place.
+        tester.view.physicalSize = const Size(1280, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
         final MapViewModel viewModel = _viewModel();
         addTearDown(viewModel.dispose);
         await tester.pumpWidget(

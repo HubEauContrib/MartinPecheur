@@ -4,7 +4,7 @@
 // sans raccourci (`K2` les ajoute ensuite). Ces boutons ne remplacent donc
 // pas la molette, ils la complètent.
 //
-// Ce widget est un widget de CONTENU pur, comme [MapScaleChips] et
+// Ce widget est un widget de CONTENU pur, comme le sélecteur de lecture et
 // [IgnAttributionBadge] : il ne pilote aucune caméra `flutter_map` et ne
 // connaît pas `MapViewModel`. C'est `_MapViewState`
 // (`lib/features/map/view/map_view.dart`) qui construit les trois rappels —
@@ -34,7 +34,7 @@ import 'package:martinpecheur/features/map/view/map_round_button.dart';
 const double zoomStep = 1.0;
 
 /// Espacement entre deux boutons, en pixels logiques : ≥ 8 dp (`04-ui.md`
-/// § 3), comme entre deux puces d'échelle ([MapScaleChips]).
+/// § 3), comme entre deux entrées du sélecteur de lecture.
 const double mapControlsSpacing = 8;
 
 /// Clé du bouton `+`.

@@ -4,8 +4,8 @@
 // (`S4`), le réticule et la fiche (`S3`), sur trois largeurs, en répartissant
 // la hauteur par `allocateMapLayout` (`S5`).
 //
-// Construit SEUL à ce stade : `MapView` ne l'emploie pas encore, `D2` le
-// branche.
+// Branché par `D2` : `buildMapOverlays` (`map_view.dart`) le pose dans le
+// `Stack` de la carte.
 //
 // ## L'ordre de la mise en page
 //

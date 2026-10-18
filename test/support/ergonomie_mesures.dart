@@ -20,15 +20,15 @@
 // ni marge — celles que `S6` a mesurées avant elle, et qu'un test de `B1`
 // verrouille.
 //
+// Le BAS est le vrai bas de la carte, `MapBottom` (`D2`) — la rangée en
+// compact, la colonne au-delà, l'attribution dessous —, celui que
+// `buildMapOverlays` pose : la mesure ne peut plus dériver de l'écran. L'AVIS
+// est mesuré nu, comme le bloc le pose (`MapReadingBlockNotices`) ; l'appelant
+// peut passer celui que la carte pose pour sa lecture (`avis`).
+//
 // Ce que ce fichier compose lui-même, faute de pièce encore livrée, et que
-// `D1` et `D2` doivent reproduire à l'identique (sinon les mesures d'ici ne
-// décrivent plus l'écran) :
-// - l'AVIS nu, sans la marge haute de 8 que l'actuel `buildMapOverlays` pose ;
-// - le BAS : en compact, la rangée « Favoris, Filtres … −, +, recentrer » puis
-//   [margeDeSurcouche] puis l'attribution ; au-delà, la colonne actuelle de
-//   `buildMapOverlays` (entrées, 8, contrôles, 8, attribution), à sa largeur
-//   intrinsèque maximale BORNÉE à la carte visible moins deux marges (au-delà,
-//   l'attribution passe à la ligne) ;
+// `D5` doit reproduire ou remplacer (sinon les mesures d'ici ne décrivent plus
+// l'écran) :
 // - l'EN-TÊTE d'une fiche à étoile, mesuré au pire : avec l'avis d'échec
 //   d'écriture du favori, épinglé sous lui (spec § 6.1 : il ne cède jamais) ;
 // - les CORPS des fiches, pour leur hauteur entière seulement : une recopie
@@ -48,11 +48,9 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show floodWarningWindowText;
 import 'package:martinpecheur/features/flood_sheet/view/flood_warning_card.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
-import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
+import 'package:martinpecheur/features/map/view/map_bottom.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
-import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
-import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_reading_block.dart';
@@ -119,6 +117,10 @@ Widget _corpsApproche(String nature) => switch (nature) {
 /// porte une (avec l'avis d'échec d'écriture, le pire en-tête), et un corps
 /// approché choisi par sa nature (station, point ONDE, tronçon).
 ///
+/// [avis] : l'avis mesuré, nu — par défaut l'avis d'absence de l'écoulement
+/// (`NoDataInAreaNotice`) ; `D2` (I-g) y passe l'avis que la carte pose pour
+/// la lecture éprouvée, pour que la mesure décrive l'écran.
+///
 /// ⚠️ Elle REMPLACE l'arbre monté (`pumpWidget`) et pose, le temps de la
 /// mesure, une vue de 2 400 × 4 000 : à appeler AVANT de monter l'écran
 /// éprouvé, jamais après. Elle rétablit, en sortant, la taille et la densité
@@ -132,6 +134,7 @@ Future<MapLayoutInput> mesurerPieces(
   required ({String nature, bool etoile})? fiche,
   required bool avecAvis,
   required EdgeInsets marge,
+  Widget? avis,
 }) async {
   final Size vueTrouvee = tester.view.physicalSize;
   final double densiteTrouvee = tester.view.devicePixelRatio;
@@ -149,6 +152,7 @@ Future<MapLayoutInput> mesurerPieces(
       fiche: fiche,
       avecAvis: avecAvis,
       marge: marge,
+      avis: avis,
     );
   } finally {
     tester.view.physicalSize = vueTrouvee;
@@ -165,6 +169,7 @@ Future<MapLayoutInput> _mesurer(
   required ({String nature, bool etoile})? fiche,
   required bool avecAvis,
   required EdgeInsets marge,
+  required Widget? avis,
 }) async {
   final bool compact = switch (mapLayoutWidthFor(taille.width)) {
     MapLayoutWidth.compact => true,
@@ -173,49 +178,19 @@ Future<MapLayoutInput> _mesurer(
   final bool ficheOuverte = fiche != null;
   void rien() {}
 
-  final Widget bas = compact
-      ? Column(
-          key: _cleBas,
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                MapEntryButtons(
-                  axis: Axis.horizontal,
-                  onOpenFilters: rien,
-                  onOpenFavorites: rien,
-                  filterActive: false,
-                ),
-                const Spacer(),
-                MapControls(
-                  axis: Axis.horizontal,
-                  onZoomIn: rien,
-                  onZoomOut: rien,
-                  onRecenter: rien,
-                ),
-              ],
-            ),
-            const SizedBox(height: margeDeSurcouche),
-            const IgnAttributionBadge(),
-          ],
-        )
-      : Column(
-          key: _cleBas,
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            MapEntryButtons(
-              onOpenFilters: rien,
-              onOpenFavorites: rien,
-              filterActive: false,
-            ),
-            const SizedBox(height: mapControlsSpacing),
-            MapControls(onZoomIn: rien, onZoomOut: rien, onRecenter: rien),
-            const SizedBox(height: margeDeSurcouche),
-            const IgnAttributionBadge(),
-          ],
-        );
+  // Le VRAI bas de la carte (`D2`) : celui que `buildMapOverlays` pose.
+  final Widget bas = SizedBox(
+    key: _cleBas,
+    child: MapBottom(
+      compact: compact,
+      onOpenFilters: rien,
+      onOpenFavorites: rien,
+      filterActive: false,
+      onZoomIn: rien,
+      onZoomOut: rien,
+      onRecenter: rien,
+    ),
+  );
 
   await tester.pumpWidget(
     MaterialApp(
@@ -252,7 +227,7 @@ Future<MapLayoutInput> _mesurer(
                 ),
                 SizedBox(
                   key: _cleAvis,
-                  child: NoDataInAreaNotice(onWiden: rien),
+                  child: avis ?? NoDataInAreaNotice(onWiden: rien),
                 ),
                 SizedBox(
                   key: _cleLegende,

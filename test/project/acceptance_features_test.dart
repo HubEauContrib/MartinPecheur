@@ -45,8 +45,10 @@ import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
-    show designationEntrySubtitle, readingEntrySemanticsLabel;
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
+    show
+        designationChipLabel,
+        designationEntrySubtitle,
+        readingEntrySemanticsLabel;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart';
@@ -772,6 +774,8 @@ void main() {
       'case Assec': flowCategoryLabel(const Assec()),
       'texte de l’avis des filtres': filterHidesEverythingText,
       'action de l’avis des filtres': clearFiltersLabel,
+      // `D2` d'Ergonomie (critère 3) : la rangée du bas, au téléphone.
+      'bouton « Favoris »': mapFavoritesLabel,
       'bouton « Filtres », aucun filtre actif': mapFiltersLabel,
       'bouton « Filtres », un filtre actif': mapFiltersActiveLabel,
       'titre de la feuille': mapFilterSheetTitle,

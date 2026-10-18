@@ -3,10 +3,9 @@
 // et leur répartition (`S6`, `test/support/ergonomie_mesures.dart`), puis la
 // mise en page qui les pose (`B1`, `D1`, `D2` et suivants). Créé par `S1`
 // (décision de la boucle principale du 2026-10-18) : la fonction
-// `_chargerRoboto` de `test/features/map/view/map_overlays_phone_test.dart`,
+// `_chargerRoboto` de `map_overlays_phone_test.dart` (supprimé par `D2`),
 // DÉPLACÉE telle quelle, pour qu'aucun nouveau fichier n'en recopie une
-// version privée. Les copies privées encore présentes disparaissent avec
-// leurs fichiers (`D2`).
+// version privée. Les copies privées ont disparu avec leurs fichiers (`D2`).
 //
 // dart:io est autorisé ici (test/support/), jamais sous lib/domain/.
 import 'dart:io';

@@ -3,9 +3,9 @@
 // [MapScaleKind], puis l'interrupteur « Restrictions » —, chacune un
 // pictogramme, un titre et un sous-titre (§ 11.2), annoncés ensemble.
 //
-// Construit SEUL à ce stade : `D2` le branche dans la carte à la place de
-// `MapScaleChips` et y déplace [mapDesignationChipKey] et
-// [designationChipLabel], lus ici dans `map_scale_chips.dart`.
+// Branché par `D2` dans la partie fixe du bloc de lecture, à la place des
+// puces d'échelle (`map_scale_chips.dart`, supprimé) ; [mapDesignationChipKey]
+// et [designationChipLabel] y ont été déplacés, noms gardés (`PD2`).
 //
 // `BR-008` : une lecture à la fois. « Restrictions » n'est PAS une lecture
 // (arbitrage du 2026-10-03) : un interrupteur indépendant, `toggled`, jamais
@@ -32,11 +32,19 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart'
-    show designationChipLabel, mapDesignationChipKey;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
+
+/// La clé de l'entrée « Restrictions » (`E5` de T2, nom gardé par `PD2`) :
+/// posée sur son nœud sémantique, donc sur la boîte entière — celle que les
+/// tests tapent et mesurent, comme `ValueKey<MapScaleKind>` pour chaque
+/// lecture. Déplacée de `map_scale_chips.dart` (supprimé par `D2`).
+const Key mapDesignationChipKey = Key('map-designation-chip');
+
+/// Le titre de l'entrée « Restrictions » — celui de l'écran des restrictions
+/// et du bouton qu'elle fait apparaître. Déplacé de `map_scale_chips.dart`.
+const String designationChipLabel = 'Restrictions';
 
 /// Sous-titre de l'entrée « Restrictions » (§ 11.2), mot pour mot.
 const String designationEntrySubtitle = 'arrêtés préfectoraux';
@@ -87,7 +95,7 @@ class MapReadingSelector extends StatelessWidget {
             title: mapScaleEntryTitle(kind),
             subtitle: mapScaleEntrySubtitle(kind),
             // La seule comparaison sur `MapScaleKind` du sélecteur, déplacée
-            // telle quelle de `map_scale_chips.dart` : elle marque l'entrée
+            // telle quelle des anciennes puces d'échelle : elle marque l'entrée
             // active.
             selected: kind == scale,
             onActivate: () => onSelect(kind),

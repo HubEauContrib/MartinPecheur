@@ -71,3 +71,23 @@ Fonctionnalité: Les quatre emplacements de l'avertissement
     Quand il ouvre le contrôle « ⚠ Avertissement » de la carte, ou celui d'une fiche, puis le lien « D'où vient cette donnée ? » de la fenêtre
     Alors l'écran « D'où vient cette donnée ? » s'ouvre par-dessus la fenêtre
     Et le retour ramène à la fenêtre d'avertissement, telle qu'elle était (BR-012)
+
+  # ── Ergonomie — le bloc de lecture et la place des fiches (cadrage du 2026-10-17, critères 1, 7 et 8 ; D2)
+
+  Scénario: Le bloc de lecture porte, dans l'ordre, le sélecteur, l'en-tête qui porte « ⚠ Avertissement », l'avis éventuel et la légende
+    Étant donné la carte, en tête de laquelle se pose le bloc de lecture
+    Quand un avis s'affiche, puis disparaît
+    Alors le bloc porte, de haut en bas, le sélecteur à quatre entrées, l'en-tête « Légende · Écoulement » qui porte « ⚠ Avertissement », l'avis quand il y en a un, puis la légende
+    Et « ⚠ Avertissement » ne bouge pas quand l'avis paraît : l'avis s'intercale entre l'en-tête et la légende (BR-012, BR-008)
+
+  Scénario: Sous 800 px, une fiche ouverte se pose au bas de l'écran, sans recouvrir le bloc de lecture ni le bas de la carte
+    Étant donné la carte sur une fenêtre de moins de 800 px de large
+    Quand l'usager ouvre une fiche station, une fiche point ONDE ou une fiche tronçon
+    Alors la fiche se pose au bas de l'écran, sur toute sa largeur, son contenu dans la largeur de lecture, et la carte visible se réduit au-dessus d'elle
+    Et elle ne recouvre jamais le bloc de lecture ni le bas de la carte : le contrôle « ⚠ Avertissement » de la carte reste présent et atteignable dans l'en-tête du bloc, en plus de celui de la fiche (BR-012)
+
+  Scénario: Dès 800 px, une fiche s'ouvre en panneau à droite, sur toute la hauteur, le bloc de lecture et la colonne restant à sa gauche
+    Étant donné la carte sur une fenêtre de 800 px de large ou plus, toute fenêtre Windows comprise
+    Quand l'usager ouvre une fiche
+    Alors elle s'ouvre en panneau de 380 px à droite, sur toute la hauteur de la fenêtre, un filet à sa gauche
+    Et le bloc de lecture, avec le contrôle « ⚠ Avertissement » de la carte, et la colonne du bas restent dans la carte visible, à sa gauche, sans que rien ne les recouvre (BR-012)

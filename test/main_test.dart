@@ -23,7 +23,6 @@ import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart'
     show
         Checkbox,
-        ListView,
         Navigator,
         ScrollPosition,
         Scrollable,
@@ -63,12 +62,17 @@ import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart'
     show FloodSheetPanel, floodBulletinButtonKey;
 import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart'
-    show mapDesignateCenterButtonKey, mapDesignateCenterHintKey;
+    show
+        DesignationBand,
+        mapDesignateCenterButtonKey,
+        mapDesignateCenterHintKey;
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart'
     show mapCenterReticleKey;
+import 'package:martinpecheur/features/map/view/map_controls.dart'
+    show mapRecenterButtonKey;
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
     show mapFavoritesButtonKey, mapFiltersActiveMarkKey, mapFiltersButtonKey;
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart'
+import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
     show mapDesignationChipKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart'
@@ -351,24 +355,25 @@ FloodSection _troncon(String code) => FloodSection(
 /// La date de la carte de vigilance des cas de `F4`.
 final DateTime _floodDate = DateTime.utc(2026, 10, 14, 13, 55, 31);
 
-/// Un point DANS la bande du bouton de désignation (la boîte du `ListView` de
-/// `_DesignationPlacement`, seul `ListView` au-dessus du bouton), sur la
-/// rangée de la pilule, à mi-chemin entre le bord gauche de la bande et celui
-/// de la pilule : hors de la pilule et de l'indice. Calculé depuis les
+/// Un point DANS la bande du bouton de désignation (`DesignationBand`), hors
+/// de la pilule et de l'indice : à côté de la pilule, sinon à côté de
+/// l'indice, sinon dans l'écart entre les deux. Calculé depuis les
 /// rectangles mesurés, jamais par une constante — il ne peut pas retomber hors
 /// de la bande, où la carte reçoit les gestes de toute façon et où le test ne
 /// prouverait plus rien. Même calcul que `_pointDansLaBande` de
 /// `test/features/map/view/map_designation_test.dart`.
 Offset _pointDansLaBande(WidgetTester tester) {
-  final Rect bande = tester.getRect(
-    find.ancestor(
-      of: find.byKey(mapDesignateCenterButtonKey),
-      matching: find.byType(ListView),
-    ),
-  );
+  // La bande du bouton (`DesignationBand`, `D2` d’Ergonomie) : à gauche de la
+  // colonne, étroite, la pilule peut en prendre toute la largeur ; le point
+  // est alors à côté de l’indice, ou dans l’écart entre pilule et indice.
+  final Rect bande = tester.getRect(find.byType(DesignationBand));
   final Rect bouton = tester.getRect(find.byKey(mapDesignateCenterButtonKey));
   final Rect indice = tester.getRect(find.byKey(mapDesignateCenterHintKey));
-  final Offset p = Offset((bande.left + bouton.left) / 2, bouton.center.dy);
+  final Offset p = bouton.left - bande.left >= 8
+      ? Offset((bande.left + bouton.left) / 2, bouton.center.dy)
+      : indice.left - bande.left >= 8
+      ? Offset((bande.left + indice.left) / 2, indice.center.dy)
+      : Offset(bande.center.dx, (bouton.bottom + indice.top) / 2);
   expect(
     bande.contains(p) && p.dx > bande.left,
     isTrue,
@@ -560,10 +565,17 @@ void main() {
       departement: null,
     );
 
-    /// Monte la racine sur un téléphone, 360 × 640, police à 200 %, avec les
-    /// VRAIS ViewModels de fiche et des dépôts qui répondent sans attente.
+    /// Monte la racine à 800 × 640, police à 200 %, avec les VRAIS ViewModels
+    /// de fiche et des dépôts qui répondent sans attente. `D2` d’Ergonomie :
+    /// c’était un téléphone, 360 × 640 ; en police de test (un carré d’un em
+    /// par glyphe), la partie fixe du bloc de lecture y prend toute la
+    /// hauteur, et la zone des fiches provisoire (jusqu’à `D5`) n’y reçoit
+    /// plus rien. À 800 px, la fiche s’ouvre en panneau latéral, sur toute la
+    /// hauteur, plus haute que lui : ce que ces cas éprouvent — la position
+    /// remise à zéro à chaque ouverture (`K4` de T3) — ne dépend pas de la
+    /// place de la fiche.
     Future<_SheetsRoot> pumpPhone(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(360, 640);
+      tester.view.physicalSize = const Size(800, 640);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       tester.platformDispatcher.textScaleFactorTestValue = 2;
@@ -642,7 +654,7 @@ void main() {
     }
 
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : station A defilee au bout, puis station '
+      'Android : 800 x 640, 200 % : station A defilee au bout, puis station '
       'B ouverte sans trame entre « en cours » et « prete » — a la premiere '
       'trame ou B est prete, la position vaut 0 et « Avertissement » est '
       'dans la fenetre',
@@ -670,7 +682,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : fiche station defilee au bout, puis un '
+      'Android : 800 x 640, 200 % : fiche station defilee au bout, puis un '
       'point ONDE ouvert sans trame — la fiche ONDE est montree depuis son '
       'haut',
       (WidgetTester tester) async {
@@ -696,7 +708,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : fiche ONDE defilee au bout, puis une '
+      'Android : 800 x 640, 200 % : fiche ONDE defilee au bout, puis une '
       'station ouverte sans trame — la fiche station est montree depuis son '
       'haut',
       (WidgetTester tester) async {
@@ -724,7 +736,7 @@ void main() {
     // Vert avant comme après `K4` : seule une OUVERTURE ramène la fiche en
     // haut.
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : une bascule de favori sur une fiche '
+      'Android : 800 x 640, 200 % : une bascule de favori sur une fiche '
       'defilee ne remet pas la position a 0',
       (WidgetTester tester) async {
         final _SheetsRoot root = await pumpPhone(tester);
@@ -918,7 +930,7 @@ void main() {
     // La racine s'abonne à des ViewModels reçus par son constructeur : s'ils
     // changent, ses écoutes les suivent (`didUpdateWidget`).
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : racine remontee avec d autres ViewModels '
+      'Android : 800 x 640, 200 % : racine remontee avec d autres ViewModels '
       'de fiche — une ouverture sur les nouveaux ramene la fiche en haut',
       (WidgetTester tester) async {
         await pumpPhone(tester);
@@ -1266,9 +1278,19 @@ void main() {
       },
     );
 
+    // Les fiches fermées que `main.dart` fournit ne réservent aucune place :
+    // la carte visible est l'écran entier. Depuis `D2` d'Ergonomie, la bande
+    // du bouton est au bas de la carte visible, à gauche de la colonne du bas
+    // (spec § 5.5) : le bouton n'est plus au centre de l'écran, mais la
+    // colonne reste au bord droit de l'écran, la bande part du bord gauche, et
+    // le réticule est au centre horizontal de l'écran entier (960). Une fiche
+    // fermée qui réserverait sa place (un panneau de 380 px) déplacerait les
+    // trois.
     testWidgetsOnWindows(
-      'composition reelle : apres la puce, le bouton et son indice '
-      'sont centres sur la carte (fiches fermees)',
+      'composition reelle : apres la puce, fiches fermees, la carte visible '
+      'est l ecran entier — colonne au bord droit, bande du bouton depuis le '
+      'bord gauche jusqu a la colonne, bouton et indice centres dans la '
+      'bande, reticule au centre horizontal de l ecran (D2 d Ergonomie)',
       (WidgetTester tester) async {
         tester.view.physicalSize = const Size(1920, 1032);
         tester.view.devicePixelRatio = 1;
@@ -1282,13 +1304,27 @@ void main() {
         await tester.tap(find.byKey(mapDesignationChipKey));
         await tester.pumpAndSettle();
 
+        final Rect bande = tester.getRect(find.byType(DesignationBand));
+        final Rect colonne = tester.getRect(find.byKey(mapRecenterButtonKey));
+        expect(colonne.right, closeTo(1920 - 8, 1), reason: 'colonne au bord');
+        expect(
+          bande.left,
+          closeTo(8, 1),
+          reason: 'bande depuis le bord gauche',
+        );
+        expect(bande.right, lessThanOrEqualTo(colonne.left));
+        expect(
+          tester.getCenter(find.byKey(mapCenterReticleKey)).dx,
+          closeTo(960, 1),
+          reason: 'réticule au centre de la carte visible, l’écran entier',
+        );
         expect(
           tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
-          closeTo(960, 1),
+          closeTo(bande.center.dx, 1),
         );
         expect(
           tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
-          closeTo(960, 1),
+          closeTo(bande.center.dx, 1),
         );
       },
     );
@@ -1757,9 +1793,9 @@ void main() {
     // automatique de `MaterialScrollBehavior` enveloppait la bande, et son
     // `MouseRegion` opaque absorbait le geste sur toute la boîte. Verrou de
     // la composition réelle, à la taille minimale de la fenêtre (`K3`) : il
-    // rougirait si `_DesignationPlacement` perdait `_WithoutScrollbar`, ou le
-    // `hitTestBehavior: deferToChild` de son `ListView` (la bande, opaque,
-    // capterait le geste : aucune désignation, aucun écran).
+    // rougirait si `DesignationBand` perdait son retrait de la barre de
+    // défilement, ou le `hitTestBehavior: deferToChild` de son défilement (la
+    // bande, opaque, capterait le geste : aucune désignation, aucun écran).
     Future<_PendingRestrictionSource> dansLaBande(
       WidgetTester tester,
       Future<void> Function(Offset at) geste,
@@ -2311,11 +2347,13 @@ void main() {
     // chemin des favoris, par quelque moyen que ce soit ; l'écoute de `K4` a
     // ses propres verrous, dans son groupe.
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : station A defilee au bout, puis '
+      'Android : 800 x 640, 200 % : station A defilee au bout, puis '
       '« Favoris », puis le favori d une AUTRE station — a la premiere trame '
       'ou sa fiche est prete, la position vaut 0',
       (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(360, 640);
+        // 800 × 640 et non plus 360 × 640 : voir `pumpPhone` du groupe `K4`
+        // (`D2` d'Ergonomie).
+        tester.view.physicalSize = const Size(800, 640);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         tester.platformDispatcher.textScaleFactorTestValue = 2;
@@ -3021,12 +3059,13 @@ void main() {
       return viewModel;
     }
 
-    /// Monte la racine sur un téléphone, avec les VRAIS ViewModels de fiche.
+    /// Monte la racine à 800 × 640 (panneau latéral : voir `pumpPhone` du
+    /// groupe `K4`, `D2` d’Ergonomie), avec les VRAIS ViewModels de fiche.
     Future<_SheetsRoot> pumpPhone(
       WidgetTester tester,
       FloodSheetViewModel floodSheet,
     ) async {
-      tester.view.physicalSize = const Size(360, 640);
+      tester.view.physicalSize = const Size(800, 640);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       tester.platformDispatcher.textScaleFactorTestValue = 2;
@@ -3107,7 +3146,7 @@ void main() {
     }
 
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : le panneau de la fiche troncon est dans '
+      'Android : 800 x 640, 200 % : le panneau de la fiche troncon est dans '
       'la zone des fiches, qui defile jusqu a son bouton du bulletin',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
@@ -3153,7 +3192,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : troncon A defile au bout, puis troncon '
+      'Android : 800 x 640, 200 % : troncon A defile au bout, puis troncon '
       'B — la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
@@ -3176,7 +3215,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : le MEME troncon rouvert apres defilement '
+      'Android : 800 x 640, 200 % : le MEME troncon rouvert apres defilement '
       '— la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
@@ -3195,7 +3234,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : fiche station defilee au bout, puis un '
+      'Android : 800 x 640, 200 % : fiche station defilee au bout, puis un '
       'troncon — la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
@@ -3221,7 +3260,7 @@ void main() {
     // lui-même dans le champ après la trame : la position est donc suivie à
     // chaque changement, pour qu'aucun passage par 0 n'échappe.
     testWidgetsOnAndroid(
-      'Android : 360 x 640, 200 % : l echec d ouverture du bulletin, en bas '
+      'Android : 800 x 640, 200 % : l echec d ouverture du bulletin, en bas '
       'de la fiche defilee, ne la ramene jamais en haut',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
