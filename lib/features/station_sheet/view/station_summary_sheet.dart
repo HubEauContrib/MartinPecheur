@@ -190,7 +190,11 @@ String? _warningExtraText(StationSheetData data, UtcOffsetOf utcOffsetOf) {
 /// sans réseau, sans asset et sans carte. Elle répond aux demandes de
 /// dimensions intrinsèques (contrat de [SheetFrame.body]) : ni
 /// `LayoutBuilder` ni `ListView` ; la disposition des tuiles se décide dans un
-/// `RenderObject` qui sait calculer ses intrinsèques.
+/// `RenderObject` qui sait calculer ses intrinsèques. Sa hauteur intrinsèque
+/// minimale est sa mesure mise en avant (arbitrage 18, contrat de
+/// [SheetFrame.body]) : le titre, le cours d'eau et le département, la tuile
+/// Débit — la rangée des deux tuiles quand elles sont côte à côte ; ce qui
+/// suit est enveloppé dans [NoMinIntrinsicHeight].
 class StationSummarySheet extends StatelessWidget {
   const StationSummarySheet({
     required this.data,
@@ -245,19 +249,29 @@ class StationSummarySheet extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        const Text(stationStatusLabel, style: _labelStyle),
-        Text(data.statusLabel),
-        const SizedBox(height: 8),
-        const Text(stationQualificationLabel, style: _labelStyle),
-        Text(data.qualificationLabel),
-        if (stalenessNotice != null) ...<Widget>[
-          const SizedBox(height: 12),
-          Text(
-            stalenessNotice,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+        // La mesure mise en avant s'arrête au bas des tuiles (arbitrage 18) :
+        // ce qui suit cède, fiche du bas ouverte, avant elle.
+        NoMinIntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const SizedBox(height: 12),
+              const Text(stationStatusLabel, style: _labelStyle),
+              Text(data.statusLabel),
+              const SizedBox(height: 8),
+              const Text(stationQualificationLabel, style: _labelStyle),
+              Text(data.qualificationLabel),
+              if (stalenessNotice != null) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(
+                  stalenessNotice,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ],
     );
   }
@@ -497,11 +511,22 @@ class _RenderMeasurementTiles extends RenderBox
     return childCount * _widestMaxWidth + _gaps;
   }
 
+  /// La hauteur repliée de la paire, sa part de la mesure mise en avant de la
+  /// fiche (arbitrage 18) : côte à côte, la rangée des deux tuiles ; l'une
+  /// sous l'autre, la tuile Débit seule — la Hauteur, dessous, cède avec le
+  /// reste du corps.
   @override
-  double computeMinIntrinsicHeight(double width) => _heightAt(
-    width,
-    (RenderBox tile, double tileWidth) => tile.getMinIntrinsicHeight(tileWidth),
-  );
+  double computeMinIntrinsicHeight(double width) {
+    final List<RenderBox> tiles = _tiles;
+    if (tiles.isEmpty) return 0;
+    return _sideBySide(width)
+        ? _heightAt(
+            width,
+            (RenderBox tile, double tileWidth) =>
+                tile.getMinIntrinsicHeight(tileWidth),
+          )
+        : tiles.first.getMinIntrinsicHeight(width);
+  }
 
   @override
   double computeMaxIntrinsicHeight(double width) => _heightAt(

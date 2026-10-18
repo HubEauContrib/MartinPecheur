@@ -55,9 +55,15 @@ Fonctionnalité: Le contenu de la fiche station hydrométrique
   # Vérifié par test/main_test.dart, groupe « la fiche troncon dans la zone des fiches (F4 de T4) — composition » (début du nom)
   # Vérifié par test/features/map/view/map_sheet_area_test.dart, groupe « zone des fiches (D5 d’Ergonomie) — en-tête épinglé, corps défilant »
   # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « I-c, I-e, I-f — réticule et fiche »
+  # La mesure mise en avant (arbitrages 18 et 19 de la spec d'ergonomie, § 5.6 et § 6.1, D7) :
+  # Vérifié par test/features/station_sheet/view/station_summary_sheet_test.dart, groupe « StationSheetPanel — la mesure mise en avant (arbitrages 18 et 19) »
+  # Vérifié par test/features/onde_sheet/view/onde_summary_sheet_test.dart, groupe « OndeSheetPanel — la mesure mise en avant (arbitrages 18 et 19) »
+  # Vérifié par test/features/flood_sheet/view/flood_sheet_panel_test.dart, groupe « FloodSheetPanel — la mesure mise en avant (arbitrages 18 et 19) »
+  # Vérifié par test/features/map/view/map_layout_allocation_test.dart, groupe « Arbitrages 18 et 19 : la fiche du bas garde sa mesure mise en avant ; » (début du nom)
 
   Scénario: L'en-tête d'une fiche reste en place quand elle défile ; une fiche s'ouvre toujours par le haut
     Étant donné une fiche ouverte plus haute que la place que la carte lui laisse
     Quand l'usager fait défiler la fiche
     Alors seul son corps défile : son en-tête — sa nature, le code pour une station, l'étoile quand la fiche en porte une, la fermeture et « ⚠ Avertissement » — reste en place, entier à l'écran (BR-012)
     Et quand une autre fiche s'ouvre, ou la même à nouveau, son corps se montre depuis son haut
+    Et, au bas de l'écran, elle garde au moins son en-tête et sa mesure mise en avant, avec ce qui la précède — pour une station, le nom, le cours d'eau et le département et la tuile du débit ; pour un point ONDE, la tuile de la catégorie ; pour un tronçon, le nom, l'encart de crue et le niveau — : là où la place manque, le haut du bloc de lecture défile d'abord, jusqu'à la hauteur d'une cible tactile, puis seulement le corps défile sous sa mesure (arbitrages 18 et 19)

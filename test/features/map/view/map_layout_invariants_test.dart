@@ -8,9 +8,10 @@
 // La matrice est celle de la porte de faisabilité (`S6`,
 // `ergonomie_budget_test.dart`) : les quatre tailles garanties, les deux
 // échelles de texte, les trois lectures, hors mode et en mode « Restrictions »,
-// sans fiche, avec la fiche station de Blois et avec la fiche tronçon (les
-// vraies), sans avis et avec un avis, sans marge système et — au téléphone —
-// avec la marge d'un téléphone : 432 configurations. L'avis est celui que la
+// sans fiche, avec la fiche station de Blois, la fiche tronçon et, depuis
+// `D7` (décision 3), la fiche ONDE de Chaon (les vraies), sans avis et avec un
+// avis, sans marge système et — au téléphone — avec la marge d'un téléphone :
+// 576 configurations. L'avis est celui que la
 // carte pose pour la lecture : l'avis d'absence de l'écoulement (« ni station
 // ni point »), celui du débit (« ni station »), et sur la lecture Crues, dont
 // l'avis d'absence ne porte aucune action, l'avis d'échec qui porte
@@ -22,9 +23,10 @@
 //   atteignable (toucher) ;
 // - I-b : le « ⚠ Avertissement » de la carte entier et atteignable ;
 // - I-d : l'entrée « Restrictions » atteignable ;
-//   à 360 × 640 et 200 %, là où la partie fixe du bloc défile (arbitrage 13),
-//   ces trois-là s'atteignent en la faisant défiler (le focus les amène en
-//   vue) ;
+//   là où la partie fixe du bloc défile — à 360 × 640 et 200 % (arbitrage
+//   13), et fiche du bas ouverte, là où la fiche n'aurait plus sa mesure mise
+//   en avant (arbitrages 18 et 19) —, ces trois-là s'atteignent en la faisant
+//   défiler (le focus les amène en vue) ;
 // - I-c : en mode, le réticule entier dans la zone sûre, là où le rapport le
 //   dit, sans aucun élément PEINT qui le recoupe (pièces du bloc, boutons du
 //   bas, attribution, pilule, indice, fiche), et le bouton atteignable — sauf
@@ -34,8 +36,10 @@
 // - I-e : l'en-tête de la fiche entier, dans la fiche et dans la zone sûre
 //   (`D5` : il ne cède jamais, seul le corps défile) ; la fiche ne recoupe ni
 //   le bloc ni le bas ; la fiche du bas est posée au bas de la zone sûre, son
-//   fond blanc prolongé jusqu'au bord de l'écran (spec § 6.5) ; le panneau
-//   latéral à droite, sur toute la hauteur ;
+//   fond blanc prolongé jusqu'au bord de l'écran (spec § 6.5), sa mesure
+//   mise en avant entière, sauf la partie fixe à son plancher, une cible
+//   tactile, sous lequel elle ne descend jamais (arbitrages 18 et 19, `D7`) ;
+//   le panneau latéral à droite, sur toute la hauteur ;
 // - I-f : aucune erreur de rendu ;
 // - I-g : les replis joués (le rapport de la mise en page) et la hauteur de la
 //   fiche sont ceux que `allocateMapLayout(await mesurerPieces(...))` rend, à
@@ -92,7 +96,6 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
-import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/map_bottom.dart';
@@ -108,8 +111,17 @@ import 'package:martinpecheur/features/map/view/map_sheet_area.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
+    show ondeCategoryTileKey;
+import 'package:martinpecheur/features/shared/flood_level_gauge.dart';
 import 'package:martinpecheur/features/shared/sheet_frame.dart'
-    show sheetFrameBodyKey, sheetFrameHeaderKey;
+    show
+        SheetFrame,
+        sheetFeaturedHeightOf,
+        sheetFrameBodyKey,
+        sheetFrameHeaderKey;
+import 'package:martinpecheur/features/shared/tap_target.dart'
+    show minimumTapTarget;
 import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
 
@@ -123,8 +135,9 @@ import '../../../support/windows_platform.dart';
 
 // --- Les configurations -------------------------------------------------------
 
-/// La fiche ouverte d'une configuration.
-enum _Fiche { aucune, station, troncon }
+/// La fiche ouverte d'une configuration. La fiche ONDE y entre avec `D7`
+/// (décision 3), comme dans la porte.
+enum _Fiche { aucune, station, troncon, onde }
 
 /// Une configuration de la matrice (voir l'en-tête).
 final class _Config {
@@ -174,9 +187,18 @@ final class _Config {
         MapLayoutWidth.panel => false,
       };
 
-  /// L'arbitrage 13 : la seule taille et la seule échelle où la partie fixe
-  /// du bloc peut défiler.
-  bool get defileAccepte => taille == const Size(360, 640) && echelle == 2;
+  /// Où la partie fixe du bloc peut défiler (la porte, `ergonomie_budget_test`,
+  /// le dit du même) : à 360 × 640 et 200 % (arbitrage 13) ; à 200 %, fiche
+  /// du bas ouverte (arbitrages 18 et 19) ; à 100 %, seulement à 360 × 640,
+  /// fiche station, sous la marge système (arbitrage 19 — avec l'avis d'échec
+  /// d'écriture, que ces cas ne posent pas).
+  bool get defileAccepte =>
+      (taille == const Size(360, 640) && echelle == 2) ||
+      (ficheDuBas && echelle == 2) ||
+      (taille == const Size(360, 640) &&
+          echelle == 1 &&
+          fiche == _Fiche.station &&
+          marge);
 
   bool get android => switch (plateforme) {
     TargetPlatform.android => true,
@@ -200,6 +222,7 @@ String _nomFiche(_Fiche fiche) => switch (fiche) {
   _Fiche.aucune => 'sans fiche',
   _Fiche.station => 'fiche station',
   _Fiche.troncon => 'fiche tronçon',
+  _Fiche.onde => 'fiche ONDE',
 };
 
 /// La matrice entière, dans l'ordre de `ergonomie_budget_test.dart`.
@@ -308,6 +331,7 @@ Key _actionDe(MapScaleKind lecture) => switch (lecture) {
 };
 
 const Key _ficheStationKey = Key('invariants-fiche-station');
+const Key _ficheOndeKey = Key('invariants-fiche-onde');
 const Key _ficheTronconKey = Key('invariants-fiche-troncon');
 const Key _temoinKey = Key('invariants-carte-temoin');
 
@@ -380,12 +404,21 @@ Future<_Ecran> _monter(
             // à l'état fermé.
             stationSheet: switch (c.fiche) {
               _Fiche.station => ficheStationBlois(key: _ficheStationKey),
-              _Fiche.aucune || _Fiche.troncon => const SizedBox.shrink(),
+              _Fiche.aucune ||
+              _Fiche.troncon ||
+              _Fiche.onde => const SizedBox.shrink(),
             },
-            ondeSheet: const SizedBox.shrink(),
+            ondeSheet: switch (c.fiche) {
+              _Fiche.onde => ficheOndeChaon(key: _ficheOndeKey),
+              _Fiche.aucune ||
+              _Fiche.station ||
+              _Fiche.troncon => const SizedBox.shrink(),
+            },
             floodSheet: switch (c.fiche) {
               _Fiche.troncon => _ficheTroncon(),
-              _Fiche.aucune || _Fiche.station => const SizedBox.shrink(),
+              _Fiche.aucune ||
+              _Fiche.station ||
+              _Fiche.onde => const SizedBox.shrink(),
             },
             onOpenFavorites: () {},
             floodNotices: c.avecAvis
@@ -534,7 +567,7 @@ Finder _lienDeLaCarte() => find.byElementPredicate((Element e) {
   bool dansUneFiche = false;
   e.visitAncestorElements((Element a) {
     final Widget w = a.widget;
-    if (w is StationSheetPanel || w is FloodSheetPanel) {
+    if (w is SheetFrame) {
       dansUneFiche = true;
       return false;
     }
@@ -558,6 +591,25 @@ Finder _fiche(WidgetTester tester) {
   final Finder zone = find.byKey(mapSheetAreaKey);
   expect(zone, findsOneWidget, reason: 'la zone des fiches est posée');
   return zone;
+}
+
+/// L'élément qui finit la mesure mise en avant de la fiche de [c] (arbitrage
+/// 18) : la tuile Débit, la tuile de la catégorie, la rangée du niveau.
+Finder _mesureMiseEnAvant(_Config c) {
+  Finder dansLaFiche(Finder f) =>
+      find.descendant(of: find.byKey(mapSheetAreaKey), matching: f);
+  return switch (c.fiche) {
+    _Fiche.station => dansLaFiche(find.byKey(stationDischargeTileKey)),
+    _Fiche.onde => dansLaFiche(find.byKey(ondeCategoryTileKey)),
+    _Fiche.troncon =>
+      find
+          .ancestor(
+            of: dansLaFiche(find.byType(FloodLevelGauge)),
+            matching: find.byType(Row),
+          )
+          .first,
+    _Fiche.aucune => throw StateError('aucune fiche ouverte'),
+  };
 }
 
 /// Le rapport dit-il l'indice replié (repli 5) ?
@@ -618,7 +670,7 @@ Future<void> _verifierAtteignables(
   _Echecs echecs,
 ) async {
   final Rect zone = _zoneSure(c);
-  // L'arbitrage 13 : là seulement, la partie fixe défile ; ses contrôles
+  // Les arbitrages 13, 18 et 19 : là seulement, la partie fixe défile ; ses contrôles
   // s'atteignent en la faisant défiler.
   final bool defile =
       c.defileAccepte && (e.rapport.value?.allocation.overflows ?? false);
@@ -807,6 +859,37 @@ Future<void> _verifierReticuleEtFiche(
         moreOrLessEquals(zone.bottom, epsilon: _tolerance),
         reason: 'la fiche du bas $fiche n’est pas au bas de la zone sûre',
       );
+      // Arbitrages 18 et 19 : la fiche du bas montre sa mesure mise en avant
+      // entière — son corps à son haut, comme à l'ouverture —, sauf là où la
+      // partie fixe du bloc est descendue à son plancher, une cible tactile ;
+      // elle n'y descend jamais plus bas.
+      final MapLayoutAllocation repartition = rapport!.allocation;
+      final double vedette = sheetFeaturedHeightOf(
+        tester.renderObject<RenderBox>(_fiche(tester)),
+        fiche.width,
+      );
+      final double plancher = minimumTapTarget;
+      expect(
+        repartition.blockFixed,
+        greaterThanOrEqualTo(plancher - _tolerance),
+        reason: 'la partie fixe sous son plancher ($repartition)',
+      );
+      if (repartition.sheet >= vedette - _tolerance) {
+        final Rect mesure = tester.getRect(_mesureMiseEnAvant(c));
+        expect(
+          mesure.bottom,
+          lessThanOrEqualTo(fiche.bottom + _tolerance),
+          reason: 'la mesure mise en avant $mesure sort de la fiche $fiche',
+        );
+      } else {
+        expect(
+          repartition.blockFixed,
+          moreOrLessEquals(plancher, epsilon: _tolerance),
+          reason:
+              'la fiche sous sa mesure mise en avant ($vedette), la partie '
+              'fixe au-dessus de son plancher ($repartition)',
+        );
+      }
       expect(fiche.left, moreOrLessEquals(zone.left, epsilon: _tolerance));
       expect(fiche.right, moreOrLessEquals(zone.right, epsilon: _tolerance));
       // Spec § 6.5, « au bas de l'écran » : le fond blanc de la fiche du bas
@@ -1221,7 +1304,7 @@ void main() {
           c.defileAccepte
               ? 'I-a, I-b, I-d, I-f : sélecteur, « ⚠ Avertissement » et '
                     '« Restrictions » entiers et atteignables (en faisant '
-                    'défiler la partie fixe là où elle défile, arbitrage 13)'
+                    'défiler la partie fixe là où elle défile, arbitrages 13, 18 et 19)'
               : 'I-a, I-b, I-d, I-f : sélecteur, « ⚠ Avertissement » et '
                     '« Restrictions » entiers et atteignables',
           (WidgetTester tester) async {
@@ -1276,11 +1359,13 @@ void main() {
                 _Fiche.aucune => null,
                 _Fiche.station => ficheStation,
                 _Fiche.troncon => ficheTroncon,
+                _Fiche.onde => ficheOnde,
               },
               ficheReelle: switch (c.fiche) {
                 _Fiche.aucune => null,
                 _Fiche.station => ficheStationBlois(),
                 _Fiche.troncon => _ficheTroncon(),
+                _Fiche.onde => ficheOndeChaon(),
               },
               avecAvis: c.avecAvis,
               marge: c.insets,
@@ -1323,7 +1408,7 @@ void main() {
         '${_avisPeutSEffacer(c) ? ' — sauf là où l’avis s’efface pour que le '
                   'réticule reste fixe (arbitrages 15 et 16)' : ''}'
         '${c.defileAccepte ? ' — sauf là où la partie fixe défile, comme en '
-                  'deçà (arbitrage 13)' : ''}',
+                  'deçà (arbitrages 13, 18 et 19)' : ''}',
         (WidgetTester tester) async {
           final _Ecran e = await _monter(tester, c);
           final _Echecs echecs = _Echecs();
@@ -1875,8 +1960,8 @@ void main() {
   });
 
   // Garde-fou : la matrice est bien celle de la porte de faisabilité.
-  test('la matrice compte 432 configurations', () {
-    expect(matrice, hasLength(432));
-    expect(matrice.where((_Config c) => c.android), hasLength(288));
+  test('la matrice compte 576 configurations', () {
+    expect(matrice, hasLength(576));
+    expect(matrice.where((_Config c) => c.android), hasLength(384));
   });
 }

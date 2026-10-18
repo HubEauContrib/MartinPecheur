@@ -37,6 +37,7 @@ import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/ergonomie_fiches.dart';
 import '../../../support/focus.dart';
 import '../../../support/roboto.dart';
 import '../../../support/windows_platform.dart';
@@ -1818,4 +1819,106 @@ void main() {
       },
     );
   });
+
+  group(
+    'StationSheetPanel — la mesure mise en avant (arbitrages 18 et 19)',
+    () {
+      Widget prete() => StationSheetPanel(
+        state: Prete(_data(discharge: _discharge(), level: _level())),
+        onClose: () {},
+        utcOffsetOf: (DateTime _) => const Duration(hours: 2),
+      );
+
+      for (final double echelle in <double>[1, 2]) {
+        testWidgetsOnAndroid(
+          'Android : 360 de large, à ${(echelle * 100).round()} % — la mesure '
+          'mise en avant finit au bas de la tuile Débit '
+          '(${echelle == 1 ? 'la rangée des deux tuiles, côte à côte' : 'la '
+                    'tuile Débit seule, la Hauteur dessous'}) ; posée à cette '
+          'hauteur, la fiche montre l\'en-tête et la tuile entiers',
+          (WidgetTester tester) async {
+            final ({Rect cadre, double vedette}) entiere = await poserFiche(
+              tester,
+              prete(),
+              largeur: 360,
+              echelle: echelle,
+            );
+            final Rect debit = _rectOf(
+              tester,
+              find.byKey(stationDischargeTileKey),
+            );
+            final Rect hauteur = _rectOf(
+              tester,
+              find.byKey(stationLevelTileKey),
+            );
+            expect(
+              _tilesSideBySide(tester),
+              echelle == 1,
+              reason: 'garde-fou : les deux dispositions sont éprouvées',
+            );
+            expect(
+              entiere.vedette,
+              closeTo(debit.bottom - entiere.cadre.top, 0.01),
+            );
+            if (echelle == 1) {
+              expect(hauteur.bottom, closeTo(debit.bottom, 0.01));
+            } else {
+              expect(
+                hauteur.top,
+                greaterThan(entiere.cadre.top + entiere.vedette),
+              );
+            }
+
+            final ({Rect cadre, double vedette}) posee = await poserFiche(
+              tester,
+              prete(),
+              largeur: 360,
+              echelle: echelle,
+              hauteur: entiere.vedette,
+            );
+            expect(tester.takeException(), isNull);
+            expect(posee.cadre.height, closeTo(entiere.vedette, 0.01));
+            expect(
+              _rectOf(tester, find.byKey(stationDischargeTileKey)).bottom,
+              closeTo(posee.cadre.bottom, 0.01),
+            );
+            expect(
+              _rectOf(tester, find.byKey(sheetFrameHeaderKey)).top,
+              closeTo(posee.cadre.top, 0.01),
+            );
+            expect(
+              _rectOf(tester, find.text(stationStatusLabel)).top,
+              greaterThanOrEqualTo(posee.cadre.bottom - 0.01),
+              reason:
+                  'le statut suit la mesure : il cède avec le reste du corps',
+            );
+          },
+        );
+      }
+
+      testWidgetsOnWindows(
+        'les états sans mesure — en cours, en échec, introuvable : la mesure '
+        'mise en avant est le corps entier (décision 1 de D7)',
+        (WidgetTester tester) async {
+          for (final StationSheetState etat in <StationSheetState>[
+            EnCours(_code()),
+            EnEchec(_code(), StateError('socket')),
+            Introuvable(_code()),
+          ]) {
+            final ({Rect cadre, double vedette}) r = await poserFiche(
+              tester,
+              StationSheetPanel(state: etat, onClose: () {}),
+              largeur: 380,
+            );
+            // Le corps entier, sans sa marge basse de 12.
+            expect(
+              r.vedette,
+              closeTo(r.cadre.height - 12, 0.01),
+              reason: '$etat',
+            );
+          }
+        },
+      );
+    },
+  );
 }

@@ -29,6 +29,7 @@ import 'package:martinpecheur/features/shared/unopened_link_notice.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/ergonomie_fiches.dart';
 import '../../../support/windows_platform.dart';
 
 final DateTime _date = DateTime.utc(2026, 10, 14, 13, 55, 31);
@@ -534,4 +535,71 @@ void main() {
       );
     },
   );
+
+  group('FloodSheetPanel — la mesure mise en avant (arbitrages 18 et 19)', () {
+    Widget ouverte() => FloodSheetPanel(
+      state: _open(const Jaune()),
+      onClose: () {},
+      onOpenBulletin: () {},
+      utcOffsetOf: (_) => const Duration(hours: 2),
+    );
+
+    /// La rangée du niveau : la jauge et son titre.
+    Finder niveau() => find
+        .ancestor(of: find.byType(FloodLevelGauge), matching: find.byType(Row))
+        .first;
+
+    for (final double echelle in <double>[1, 2]) {
+      testWidgetsOnAndroid(
+        'Android : 360 de large, à ${(echelle * 100).round()} % — la mesure '
+        'mise en avant (nom, encart de crue, niveau) finit au bas du niveau ; '
+        'posée à cette hauteur, la fiche montre l\'en-tête, l\'encart et le '
+        'niveau entiers, la définition dessous',
+        (WidgetTester tester) async {
+          final ({Rect cadre, double vedette}) entiere = await poserFiche(
+            tester,
+            ouverte(),
+            largeur: 360,
+            echelle: echelle,
+          );
+          expect(
+            entiere.vedette,
+            closeTo(tester.getRect(niveau()).bottom - entiere.cadre.top, 0.01),
+          );
+          expect(
+            tester.getRect(find.byKey(floodWarningCardKey)).bottom,
+            lessThan(entiere.cadre.top + entiere.vedette),
+            reason: 'l’encart de crue précède le niveau',
+          );
+
+          final ({Rect cadre, double vedette}) posee = await poserFiche(
+            tester,
+            ouverte(),
+            largeur: 360,
+            echelle: echelle,
+            hauteur: entiere.vedette,
+          );
+          expect(tester.takeException(), isNull);
+          expect(posee.cadre.height, closeTo(entiere.vedette, 0.01));
+          expect(
+            tester.getRect(niveau()).bottom,
+            closeTo(posee.cadre.bottom, 0.01),
+          );
+          expect(
+            tester.getRect(find.byKey(sheetFrameHeaderKey)).top,
+            closeTo(posee.cadre.top, 0.01),
+          );
+          expect(
+            tester
+                .getRect(
+                  find.text('« ${publishedFloodLegend(const Jaune())} »'),
+                )
+                .top,
+            greaterThanOrEqualTo(posee.cadre.bottom - 0.01),
+            reason: 'la définition suit la mesure : elle cède avec le reste',
+          );
+        },
+      );
+    }
+  });
 }

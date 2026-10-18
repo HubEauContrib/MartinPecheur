@@ -3,7 +3,8 @@
 // hors de `map_view.dart` par responsabilité. Depuis `D5`, elle ne défile plus
 // elle-même : chaque panneau de fiche — un `SheetFrame` — défile son CORPS
 // sous son EN-TÊTE épinglé, et la zone transmet à la mise en page les hauteurs
-// du cadre (repliée : l'en-tête seul ; entière : la fiche entière).
+// du cadre (repliée : l'en-tête seul ; entière : la fiche entière ; depuis
+// `D7`, mise en avant : l'en-tête et la mesure mise en avant, arbitrage 18).
 
 import 'dart:math' as math;
 
@@ -11,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:martinpecheur/features/shared/screen_layout.dart'
     show readingColumnWidth;
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show RenderSheetFeaturedHeight, sheetFeaturedHeightOf;
 
 /// La clé de la zone des fiches : la fiche du bas ou le panneau latéral.
 const Key mapSheetAreaKey = Key('map-sheet-area');
@@ -43,8 +46,9 @@ const double mapSidePanelRuleWidth = 1;
 /// pour hauteur maximale ce que les panneaux du dessus lui laissent, et c'est
 /// son cadre qui fait défiler son corps sous l'en-tête. La position du corps
 /// est tenue par la racine de composition (`bodyScrollController` des
-/// panneaux, `K4` de T3). Les hauteurs intrinsèques de la zone sont la somme
-/// de celles des panneaux, lues à la largeur où leur contenu est posé — la
+/// panneaux, `K4` de T3). Les hauteurs intrinsèques de la zone, et sa hauteur
+/// mise en avant (`D7`), sont la somme de celles des panneaux, lues à la
+/// largeur où leur contenu est posé — la
 /// largeur de lecture au plus pour la fiche du bas : de 776 à 799 px, la
 /// hauteur n'est plus lue plus large qu'elle n'est posée.
 class MapSheetArea extends StatelessWidget {
@@ -109,7 +113,8 @@ class _SheetPanelsParentData extends ContainerBoxParentData<RenderBox> {}
 class _RenderSheetPanels extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _SheetPanelsParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _SheetPanelsParentData> {
+        RenderBoxContainerDefaultsMixin<RenderBox, _SheetPanelsParentData>
+    implements RenderSheetFeaturedHeight {
   _RenderSheetPanels(this._maxContentWidth);
 
   double _maxContentWidth;
@@ -165,6 +170,12 @@ class _RenderSheetPanels extends RenderBox
   @override
   double computeMaxIntrinsicHeight(double width) =>
       _sum((RenderBox c) => c.getMaxIntrinsicHeight(_contentWidth(width)));
+
+  /// La hauteur mise en avant de la zone (arbitrage 18) : celle des panneaux,
+  /// lue comme leurs autres hauteurs, à la largeur de leur contenu.
+  @override
+  double featuredHeight(double width) =>
+      _sum((RenderBox c) => sheetFeaturedHeightOf(c, _contentWidth(width)));
 
   /// Pose — ou mesure à sec, si [dry] — chaque panneau, et rend la taille de
   /// la zone : sa largeur entière, la somme des hauteurs des panneaux, dans

@@ -15,8 +15,10 @@
 //    « Restrictions », si la bande du bouton en a une ;
 // 3. les largeurs : [mapLayoutWidths], la même fonction que la porte de
 //    faisabilité (`S6`, `mesurerPieces`) ;
-// 4. les intrinsèques des enfants, lues à ces largeurs AVANT toute pose,
-//    puis [allocateMapLayout] ;
+// 4. les intrinsèques des enfants, lues à ces largeurs AVANT toute pose — et,
+//    pour la fiche, sa hauteur mise en avant (`sheetFeaturedHeightOf`,
+//    arbitrage 18) —, le plancher de la partie fixe (la cible tactile de la
+//    plateforme, arbitrage 19), puis [allocateMapLayout] ;
 // 5. chaque enfant posé avec la hauteur allouée : la partie fixe, la bande et
 //    la fiche se replient d'elles-mêmes (note d'architecture) ; les trois
 //    pièces du bloc sont posées À CHAQUE mise en page, même à 0 ;
@@ -48,6 +50,10 @@ import 'package:flutter/widgets.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart'
     show mapCenterReticleSize;
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show sheetFeaturedHeightOf;
+import 'package:martinpecheur/features/shared/tap_target.dart'
+    show minimumTapTarget;
 
 /// Les emplacements de [MapLayout]. Chacun est facultatif : absent, il vaut
 /// une pièce nulle.
@@ -182,6 +188,7 @@ class MapLayout extends MultiChildRenderObjectWidget {
     safeInsets: safeInsets,
     reticleBandHeight: reticleBandHeight,
     report: report,
+    blockFixedFloor: minimumTapTarget,
   );
 
   @override
@@ -193,7 +200,8 @@ class MapLayout extends MultiChildRenderObjectWidget {
       ..padding = padding
       ..safeInsets = safeInsets
       ..reticleBandHeight = reticleBandHeight
-      ..report = report;
+      ..report = report
+      ..blockFixedFloor = minimumTapTarget;
   }
 }
 
@@ -207,12 +215,18 @@ class RenderMapLayout extends RenderBox
     required this._safeInsets,
     required this._reticleBandHeight,
     required this._report,
+    required this._blockFixedFloor,
   });
 
   double _padding;
   EdgeInsets _safeInsets;
   double _reticleBandHeight;
   ValueNotifier<MapLayoutReport?> _report;
+
+  /// Le plancher de la partie fixe quand elle défile pour la fiche du bas
+  /// (arbitrage 19) : la cible tactile de la plateforme, que [MapLayout] lit
+  /// (`minimumTapTarget`) et passe à `allocateMapLayout`.
+  double _blockFixedFloor;
 
   /// Le dernier rapport calculé, en attente de publication.
   MapLayoutReport? _latest;
@@ -248,6 +262,12 @@ class RenderMapLayout extends RenderBox
   set report(ValueNotifier<MapLayoutReport?> value) {
     if (identical(value, _report)) return;
     _report = value;
+    markNeedsLayout();
+  }
+
+  set blockFixedFloor(double value) {
+    if (value == _blockFixedFloor) return;
+    _blockFixedFloor = value;
     markNeedsLayout();
   }
 
@@ -382,6 +402,15 @@ class RenderMapLayout extends RenderBox
         sheet: sheetOpen
             ? heights(MapLayoutSlot.sheet, widths.sheet)
             : PieceHeights.none,
+        blockFixedFloor: _blockFixedFloor,
+        // La troisième hauteur de la fiche (arbitrage 18), dite par la zone des
+        // fiches et ses cadres (`sheetFeaturedHeightOf`, `shared`).
+        sheetFeatured: sheetOpen
+            ? sheetFeaturedHeightOf(
+                children[MapLayoutSlot.sheet]!,
+                widths.sheet,
+              )
+            : 0,
         gap: padding,
       ),
     );

@@ -43,6 +43,7 @@ import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/ergonomie_fiches.dart';
 import '../../../support/focus.dart';
 import '../../../support/roboto.dart';
 import '../../../support/windows_platform.dart';
@@ -2089,5 +2090,77 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  });
+
+  group('OndeSheetPanel — la mesure mise en avant (arbitrages 18 et 19)', () {
+    Widget prete() => OndeSheetPanel(
+      state: OndeSheetPrete(_data()),
+      onClose: () {},
+      categorySymbol: _testSymbol,
+    );
+
+    for (final double echelle in <double>[1, 2]) {
+      testWidgetsOnAndroid(
+        'Android : 360 de large, à ${(echelle * 100).round()} % — la mesure '
+        'mise en avant finit au bas de la tuile de la catégorie ; posée à '
+        'cette hauteur, la fiche montre l\'en-tête et la tuile entiers, '
+        'l\'historique dessous',
+        (WidgetTester tester) async {
+          final ({Rect cadre, double vedette}) entiere = await poserFiche(
+            tester,
+            prete(),
+            largeur: 360,
+            echelle: echelle,
+          );
+          expect(
+            entiere.vedette,
+            closeTo(
+              _rectOf(tester, find.byKey(ondeCategoryTileKey)).bottom -
+                  entiere.cadre.top,
+              0.01,
+            ),
+          );
+
+          final ({Rect cadre, double vedette}) posee = await poserFiche(
+            tester,
+            prete(),
+            largeur: 360,
+            echelle: echelle,
+            hauteur: entiere.vedette,
+          );
+          expect(tester.takeException(), isNull);
+          expect(posee.cadre.height, closeTo(entiere.vedette, 0.01));
+          expect(
+            _rectOf(tester, find.byKey(ondeCategoryTileKey)).bottom,
+            closeTo(posee.cadre.bottom, 0.01),
+          );
+          expect(
+            _rectOf(tester, find.byKey(sheetFrameHeaderKey)).top,
+            closeTo(posee.cadre.top, 0.01),
+          );
+          expect(
+            _rectOf(tester, find.text(ondeHistoriqueTitre)).top,
+            greaterThanOrEqualTo(posee.cadre.bottom - 0.01),
+            reason: 'l’historique suit la mesure : il cède avec le reste',
+          );
+        },
+      );
+    }
+
+    testWidgetsOnWindows('les états sans mesure — en cours, en échec : la mesure mise en avant est '
+        'le corps entier (décision 1 de D7)', (WidgetTester tester) async {
+      for (final OndeSheetState etat in <OndeSheetState>[
+        OndeSheetEnCours(_chaon()),
+        OndeSheetEnEchec(_chaon(), StateError('socket')),
+      ]) {
+        final ({Rect cadre, double vedette}) r = await poserFiche(
+          tester,
+          OndeSheetPanel(state: etat, onClose: () {}),
+          largeur: 380,
+        );
+        // Le corps entier, sans sa marge basse de 12.
+        expect(r.vedette, closeTo(r.cadre.height - 12, 0.01), reason: '$etat');
+      }
+    });
   });
 }

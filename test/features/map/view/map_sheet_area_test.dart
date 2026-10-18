@@ -204,6 +204,37 @@ void main() {
     );
 
     testWidgetsOnWindows(
+      'la mesure mise en avant de la zone (arbitrage 18) : celle de la fiche, '
+      'au travers du fond peint de la zone ; deux panneaux, la somme',
+      (WidgetTester tester) async {
+        await _monter(tester, panneaux: <Widget>[_fiche()]);
+
+        final RenderBox cadre = tester.renderObject<RenderBox>(
+          find.byType(SheetFrame),
+        );
+        final double vedette = sheetFeaturedHeightOf(cadre, 400);
+        expect(vedette, greaterThan(cadre.getMinIntrinsicHeight(400)));
+        expect(
+          sheetFeaturedHeightOf(_zone(tester), 400),
+          moreOrLessEquals(vedette),
+        );
+
+        await _monter(
+          tester,
+          panneaux: <Widget>[
+            const SizedBox(key: _panneauDuDessus, height: 60),
+            _fiche(),
+          ],
+          hauteur: 2000,
+        );
+        expect(
+          sheetFeaturedHeightOf(_zone(tester), 400),
+          moreOrLessEquals(60 + vedette),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
       'panneau latéral : la fiche prend la largeur entière du panneau',
       (WidgetTester tester) async {
         await _monter(

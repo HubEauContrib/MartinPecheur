@@ -17,6 +17,19 @@
 // - 14 : le repli 6 s'étend au-delà du téléphone — en mode, fiche ouverte, une
 //   bande du bouton qui ne tient pas en largeur à côté de la colonne du bas se
 //   retire avec le réticule (`bandFits` faux, 800 × 740 à 200 %, panneau).
+// Deux arbitrages de plus, pris sur la mesure de `D7` (2026-10-18) :
+// - 18 : fiche du bas ouverte, la fiche garde son en-tête et sa mesure mise en
+//   avant ; là où les six replis ne la lui laissent pas, la partie fixe du
+//   bloc défile — `overflows` est accepté, à 200 %, partout où la fiche est au
+//   bas de l'écran ;
+// - 19 : la partie fixe défile jusqu'à son plancher, une cible tactile ; sous
+//   ce plancher, le corps cède sous sa mesure mise en avant. À 100 %, seules
+//   les 12 configurations de 360 × 640, fiche station (son avis d'échec
+//   d'écriture épinglé), sous la marge système, défilent.
+// Le cas l'affirme : jamais la partie fixe sous son plancher ; la fiche sous
+// sa mesure mise en avant seulement la partie fixe à son plancher. Depuis
+// `D7`, la fiche ONDE entre dans la matrice (décision 3 : à 200 %, son
+// en-tête et sa mesure mise en avant dépassent ceux de la station).
 // Partout ailleurs, un `overflows` vrai est ROUGE et ne s'assouplit pas : arrêt
 // et question au commanditaire, avec le tableau des hauteurs
 // (`.superpowers/sdd/2026-10-17-ergonomie/task-S6-mesures.md`).
@@ -34,7 +47,7 @@ import 'dart:io' show Directory, File;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show TargetPlatform;
-import 'package:flutter/painting.dart' show EdgeInsets, Size;
+import 'package:flutter/widgets.dart' show EdgeInsets, Size, Widget;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -56,23 +69,66 @@ String _nomLecture(MapScaleKind lecture) => switch (lecture) {
 
 String _nomFiche(({String nature, bool etoile})? fiche) => fiche == null
     ? 'sans fiche'
-    : fiche.etoile
+    : fiche == ficheStation
     ? 'fiche station'
+    : fiche == ficheOnde
+    ? 'fiche ONDE'
     : 'fiche tronçon';
+
+/// L'étoile du pire en-tête : vide, en échec d'écriture, son avis épinglé
+/// sous elle (spec § 6.1).
+const FavoriteStar _etoileEnEchec = FavoriteStar(
+  filled: false,
+  enabled: true,
+  writeFailed: true,
+);
 
 String _nomReplis(List<int> replis) =>
     replis.isEmpty ? 'aucun repli' : 'replis ${replis.join(', ')}';
 
-/// L'arbitrage 13 : la seule taille et la seule échelle où la partie fixe du
-/// bloc peut défiler.
-bool _defileAccepte(Size taille, double echelle) =>
-    taille == const Size(360, 640) && echelle == 2;
+/// La fiche est au bas de l'écran (comptée dans la hauteur), pas en panneau.
+bool _ficheDuBas(MapLayoutInput entree) =>
+    entree.sheetOpen &&
+    switch (entree.width) {
+      MapLayoutWidth.compact || MapLayoutWidth.wide => true,
+      MapLayoutWidth.panel => false,
+    };
+
+/// Où la partie fixe du bloc peut défiler : à 360 × 640 et 200 % (arbitrage
+/// 13) ; à 200 %, fiche du bas ouverte (arbitrages 18 et 19) ; à 100 %,
+/// seulement à 360 × 640, fiche station au pire en-tête, sous la marge
+/// système (arbitrage 19).
+bool _defileAccepte(
+  Size taille,
+  double echelle,
+  ({String nature, bool etoile})? fiche,
+  EdgeInsets marge,
+  MapLayoutInput entree,
+) =>
+    (taille == const Size(360, 640) && echelle == 2) ||
+    (_ficheDuBas(entree) && echelle == 2) ||
+    (taille == const Size(360, 640) &&
+        echelle == 1 &&
+        fiche == ficheStation &&
+        marge != EdgeInsets.zero);
+
+/// La fiche du bas est sous sa mesure mise en avant (arbitrage 19).
+bool _sousSaMesure(MapLayoutInput entree, MapLayoutAllocation repartition) =>
+    _ficheDuBas(entree) && repartition.sheet < entree.sheetFeatured - 1e-6;
 
 /// Ce que dit le titre d'un cas : ses replis, puis s'il tient ou si le bloc
-/// défile.
-String _issue(MapLayoutAllocation repartition) =>
+/// défile — et pourquoi.
+String _issue(MapLayoutInput entree, MapLayoutAllocation repartition) =>
     '${_nomReplis(repartition.folds)} — '
-    '${repartition.overflows ? 'le bloc défile (arbitrage 13)' : 'tient'}';
+    '${!repartition.overflows
+        ? 'tient'
+        : !_ficheDuBas(entree)
+        ? 'le bloc défile (arbitrage 13)'
+        : _sousSaMesure(entree, repartition)
+        ? 'le bloc défile jusqu’à son plancher, la fiche sous sa mesure mise '
+              'en avant (arbitrage 19)'
+        : 'le bloc défile, la fiche garde sa mesure mise en avant '
+              '(arbitrage 18)'}';
 
 /// La hauteur que la répartition pose, écarts compris — la même règle que
 /// `allocateMapLayout` : un écart entre deux groupes consécutifs non nuls,
@@ -151,9 +207,11 @@ const String _enteteDuReleve = '''
 // Les replis relevés de la porte de faisabilité (`S6` d'Ergonomie) : pour
 // chaque configuration de `ergonomie_budget_test.dart`, ce que
 // `allocateMapLayout` rend sur les mesures de `mesurerPieces` — les replis en
-// vigueur, puis « tient » ou « le bloc défile (arbitrage 13) ». Chaque cas
-// AFFIRME sa ligne, et son titre la nomme : une pièce qui change de hauteur au
-// point de changer les replis d'une configuration fait rougir le test.
+// vigueur, puis « tient » ou « le bloc défile » et l'arbitrage qui l'accepte
+// (13 ; 18, la fiche garde sa mesure mise en avant ; 19, la partie fixe à son
+// plancher, la fiche sous sa mesure). Chaque cas AFFIRME sa ligne, et son
+// titre la nomme : une pièce qui change de hauteur au point de changer les
+// replis d'une configuration fait rougir le test.
 //
 // FICHIER GÉNÉRÉ — ne pas éditer à la main. Pour le régénérer, depuis la racine
 // du dépôt :
@@ -189,6 +247,57 @@ void main() {
     });
   }
 
+  group('la fiche ONDE dans la matrice (décision 3 de D7)', () {
+    for (final Size taille in <Size>[
+      const Size(360, 640),
+      const Size(390, 844),
+    ]) {
+      testWidgetsOnAndroid('Android : ${taille.width.round()} × '
+          '${taille.height.round()}, 200 % — l’en-tête et la mesure mise en '
+          'avant de la fiche ONDE dépassent ceux de la station : elle borne la '
+          'porte', (WidgetTester tester) async {
+        Future<double> vedette(Widget fiche) async => (await poserFiche(
+          tester,
+          fiche,
+          largeur: taille.width,
+          echelle: 2,
+        )).vedette;
+
+        expect(
+          await vedette(ficheOndeChaon(etoile: _etoileEnEchec)),
+          greaterThan(await vedette(ficheStationBlois(etoile: _etoileEnEchec))),
+        );
+      });
+    }
+
+    testWidgetsOnAndroid('Android : mesurerPieces honore la nature de la fiche '
+        'composée — « Point ONDE » et son corps, pas ceux de la station '
+        '(mineur différé de S6)', (WidgetTester tester) async {
+      Future<MapLayoutInput> mesure(({String nature, bool etoile}) fiche) =>
+          mesurerPieces(
+            tester,
+            taille: const Size(390, 844),
+            echelle: 2,
+            lecture: MapScaleKind.ecoulement,
+            enMode: false,
+            fiche: fiche,
+            avecAvis: false,
+            marge: EdgeInsets.zero,
+          );
+
+      final MapLayoutInput onde = await mesure(ficheOnde);
+      expect(find.text(ficheOnde.nature), findsOneWidget);
+      expect(find.text(ficheStation.nature), findsNothing);
+      final MapLayoutInput station = await mesure(ficheStation);
+      expect(find.text(ficheStation.nature), findsOneWidget);
+      expect(onde.sheet.max, isNot(moreOrLessEquals(station.sheet.max)));
+      expect(
+        onde.sheetFeatured,
+        isNot(moreOrLessEquals(station.sheetFeatured)),
+      );
+    });
+  });
+
   for (final ({String nom, Size taille, TargetPlatform plateforme}) garantie
       in taillesGaranties) {
     final bool telephone = switch (garantie.plateforme) {
@@ -204,7 +313,6 @@ void main() {
         ? testWidgetsOnAndroid
         : testWidgetsOnWindows;
     for (final double echelle in echellesDeTexte) {
-      final bool defileAccepte = _defileAccepte(garantie.taille, echelle);
       for (final MapScaleKind lecture in MapScaleKind.values) {
         for (final bool enMode in <bool>[false, true]) {
           for (final ({String nature, bool etoile})? fiche
@@ -212,6 +320,7 @@ void main() {
                 null,
                 ficheStation,
                 ficheTroncon,
+                ficheOnde,
               ]) {
             for (final bool avecAvis in <bool>[false, true]) {
               for (final EdgeInsets marge in <EdgeInsets>[
@@ -237,19 +346,15 @@ void main() {
                       lecture: lecture,
                       enMode: enMode,
                       fiche: fiche,
-                      // `D5` : les VRAIES fiches (`F1`, `F3`), à l'en-tête le
-                      // plus haut — l'étoile de la station en échec
+                      // `D5` : les VRAIES fiches (`F1`, `F3` ; `F2` depuis
+                      // `D7`), à l'en-tête le plus haut — l'étoile en échec
                       // d'écriture, son avis épinglé sous elle.
                       ficheReelle: fiche == null
                           ? null
-                          : fiche.etoile
-                          ? ficheStationBlois(
-                              etoile: const FavoriteStar(
-                                filled: false,
-                                enabled: true,
-                                writeFailed: true,
-                              ),
-                            )
+                          : fiche == ficheStation
+                          ? ficheStationBlois(etoile: _etoileEnEchec)
+                          : fiche == ficheOnde
+                          ? ficheOndeChaon(etoile: _etoileEnEchec)
                           : ficheTronconBlavet(),
                       avecAvis: avecAvis,
                       marge: marge,
@@ -257,7 +362,13 @@ void main() {
                     final MapLayoutAllocation repartition = allocateMapLayout(
                       entree,
                     );
-                    if (!defileAccepte) {
+                    if (!_defileAccepte(
+                      garantie.taille,
+                      echelle,
+                      fiche,
+                      marge,
+                      entree,
+                    )) {
                       expect(
                         repartition.overflows,
                         isFalse,
@@ -265,6 +376,32 @@ void main() {
                             '$configuration : ce qui ne cède jamais déborde '
                             '($repartition)',
                       );
+                    }
+                    if (_ficheDuBas(entree)) {
+                      // Arbitrage 19 : la partie fixe jamais sous son plancher
+                      // aux quatre tailles ; la fiche sous sa mesure mise en
+                      // avant seulement la partie fixe à son plancher.
+                      final double plancher = math.min(
+                        entree.blockFixedFloor,
+                        entree.blockFixed.min,
+                      );
+                      expect(
+                        repartition.blockFixed,
+                        greaterThanOrEqualTo(plancher - 1e-6),
+                        reason:
+                            '$configuration : la partie fixe sous son '
+                            'plancher ($repartition)',
+                      );
+                      if (_sousSaMesure(entree, repartition)) {
+                        expect(
+                          repartition.blockFixed,
+                          moreOrLessEquals(plancher, epsilon: 1e-6),
+                          reason:
+                              '$configuration : la fiche sous sa mesure mise '
+                              'en avant, la partie fixe au-dessus de son '
+                              'plancher ($repartition)',
+                        );
+                      }
                     }
                     if (repartition.overflows) {
                       for (final double hauteur in <double>[
@@ -286,14 +423,17 @@ void main() {
                       );
                     }
                     if (_relever) {
-                      _nouveauReleve[configuration] = _issue(repartition);
+                      _nouveauReleve[configuration] = _issue(
+                        entree,
+                        repartition,
+                      );
                       return;
                     }
                     if (releve == null) {
                       fail('$configuration : aucun relevé dans replisReleves');
                     }
                     expect(
-                      _issue(repartition),
+                      _issue(entree, repartition),
                       releve,
                       reason: '$configuration : replis relevés',
                     );

@@ -36,6 +36,8 @@ import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_reading_block.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show RenderSheetFeaturedHeight;
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
@@ -62,6 +64,7 @@ final class _Pieces {
     this.band,
     this.bandMinWidth = 120,
     this.sheet,
+    this.sheetFeatured,
   });
 
   final PieceHeights fixed;
@@ -73,6 +76,10 @@ final class _Pieces {
   final double bandMinWidth;
   final PieceHeights? sheet;
 
+  /// La mesure mise en avant de la fiche (arbitrage 18), ou `null` : son
+  /// en-tête, `sheet.min`.
+  final double? sheetFeatured;
+
   _Pieces copyWith({double? notices, double? legend}) => _Pieces(
     fixed: fixed,
     notices: notices ?? this.notices,
@@ -82,6 +89,7 @@ final class _Pieces {
     band: band,
     bandMinWidth: bandMinWidth,
     sheet: sheet,
+    sheetFeatured: sheetFeatured,
   );
 }
 
@@ -138,6 +146,7 @@ Future<void> _poser(
                     key: _cle(MapLayoutSlot.sheet),
                     min: sheet?.min ?? 0,
                     max: sheet?.max ?? 0,
+                    featured: pieces.sheetFeatured,
                   ),
                 ),
                 MapLayoutChild(
@@ -233,6 +242,76 @@ Offset _centreAttendu(WidgetTester tester, Rect visible) => Offset(
 
 void main() {
   setUpAll(chargerRoboto);
+
+  group('La fiche du bas garde sa mesure mise en avant (arbitrages 18 et 19)', () {
+    // Partie fixe 100/150, rangée 60, fiche : en-tête 80, mesure mise en avant
+    // 540, entière 560 ; 360 × 640, une marge : 632 de disponible. Repli 4 :
+    // 736 ; repli 2 jusqu'à la mesure : 716, il manque encore 84. La partie
+    // fixe défile jusqu'à son plancher, puis la fiche cède sous sa mesure : à
+    // 48 (Android), 632 − (48 + 8 + 60 + 8) = 508 ; à 44 (ailleurs), 512.
+    const _Pieces pieces = _Pieces(
+      sheet: PieceHeights(min: 80, max: 560),
+      sheetFeatured: 540,
+    );
+
+    Future<void> verifier(WidgetTester tester, double plancher) async {
+      final ValueNotifier<MapLayoutReport?> rapport =
+          ValueNotifier<MapLayoutReport?>(null);
+      addTearDown(rapport.dispose);
+      await _poser(
+        tester,
+        taille: const Size(360, 640),
+        pieces: pieces,
+        rapport: rapport,
+      );
+
+      final MapLayoutAllocation allocation = rapport.value!.allocation;
+      expect(allocation.overflows, isTrue);
+      expect(allocation.blockFixed, plancher);
+      expect(allocation.sheet, 632 - (plancher + 8 + 60 + 8));
+      expect(_rect(tester, MapLayoutSlot.blockFixed).height, plancher);
+      expect(
+        _rect(tester, MapLayoutSlot.sheet),
+        Rect.fromLTRB(0, 640 - allocation.sheet, 360, 640),
+      );
+      expect(tester.takeException(), isNull);
+    }
+
+    testWidgetsOnAndroid('Android : le plancher de la partie fixe est la cible '
+        'tactile de la plateforme, 48', (WidgetTester tester) async {
+      await verifier(tester, 48);
+    });
+
+    testWidgetsOnWindows('sous Windows, le plancher est 44', (
+      WidgetTester tester,
+    ) async {
+      await verifier(tester, 44);
+    });
+
+    testWidgetsOnAndroid('Android : assez de place pour la mesure : la fiche '
+        's\'y arrête, la partie fixe reçoit le reste, au-dessus de son '
+        'plancher', (WidgetTester tester) async {
+      final ValueNotifier<MapLayoutReport?> rapport =
+          ValueNotifier<MapLayoutReport?>(null);
+      addTearDown(rapport.dispose);
+      // Mesure mise en avant 450 : 100 + 8 + 60 + 8 + 450 = 626 tient dans
+      // 632 ; le surplus de 6 revient à la fiche.
+      await _poser(
+        tester,
+        taille: const Size(360, 640),
+        pieces: const _Pieces(
+          sheet: PieceHeights(min: 80, max: 560),
+          sheetFeatured: 450,
+        ),
+        rapport: rapport,
+      );
+
+      final MapLayoutAllocation allocation = rapport.value!.allocation;
+      expect(allocation.overflows, isFalse);
+      expect(allocation.sheet, 456);
+      expect(allocation.blockFixed, 100);
+    });
+  });
 
   group('Compact', () {
     testWidgetsOnAndroid('Android : sans fiche, hors mode — partie fixe en '
@@ -769,12 +848,14 @@ void main() {
             designation: false,
             sheetOpen: false,
             blockFixed: const PieceHeights(min: 100, max: 150),
+            blockFixedFloor: 48,
             notices: 0,
             legend: 100,
             bottom: 60,
             band: PieceHeights.none,
             reticleBand: 0,
             sheet: PieceHeights.none,
+            sheetFeatured: 0,
             gap: 8,
           ),
         ),
@@ -1345,11 +1426,14 @@ Widget _piecesReelles({
 /// largeurs intrinsèques [minWidth] et [maxWidth], quelle que soit la largeur.
 /// Posée, elle prend toute la largeur bornée qu'on lui donne et sa hauteur
 /// entière, ramenée à la hauteur maximale reçue (comme une pièce qui se replie
-/// ou défile). Elle prend les gestes posés sur elle.
+/// ou défile). Elle prend les gestes posés sur elle. Comme une fiche
+/// (`RenderSheetFeaturedHeight`), elle dit sa mesure mise en avant :
+/// [featured], ou [min] sans elle.
 class _Stub extends LeafRenderObjectWidget {
   const _Stub({
     required this.min,
     required this.max,
+    this.featured,
     this.minWidth = 0,
     this.maxWidth = 0,
     this.onPaint,
@@ -1358,6 +1442,7 @@ class _Stub extends LeafRenderObjectWidget {
 
   final double min;
   final double max;
+  final double? featured;
   final double minWidth;
   final double maxWidth;
   final VoidCallback? onPaint;
@@ -1366,6 +1451,7 @@ class _Stub extends LeafRenderObjectWidget {
   RenderObject createRenderObject(BuildContext context) => _RenderStub()
     ..min = min
     ..max = max
+    ..featured = featured
     ..minWidth = minWidth
     ..maxWidth = maxWidth
     ..onPaint = onPaint;
@@ -1375,6 +1461,7 @@ class _Stub extends LeafRenderObjectWidget {
     renderObject
       ..min = min
       ..max = max
+      ..featured = featured
       ..minWidth = minWidth
       ..maxWidth = maxWidth
       ..onPaint = onPaint
@@ -1382,12 +1469,16 @@ class _Stub extends LeafRenderObjectWidget {
   }
 }
 
-class _RenderStub extends RenderBox {
+class _RenderStub extends RenderBox implements RenderSheetFeaturedHeight {
   double min = 0;
   double max = 0;
+  double? featured;
   double minWidth = 0;
   double maxWidth = 0;
   VoidCallback? onPaint;
+
+  @override
+  double featuredHeight(double width) => featured ?? min;
 
   @override
   double computeMinIntrinsicHeight(double width) => min;

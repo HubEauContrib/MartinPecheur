@@ -183,7 +183,10 @@ const double _historySymbolGap = 8;
 /// Ne connaît aucun dépôt et aucun ViewModel : elle reçoit un
 /// [OndeSheetData] déjà prêt et l'affiche. Elle répond aux demandes de
 /// dimensions intrinsèques (contrat de [SheetFrame.body]) : ni
-/// `LayoutBuilder` ni `ListView`.
+/// `LayoutBuilder` ni `ListView`. Sa hauteur intrinsèque minimale est sa
+/// mesure mise en avant (arbitrage 18) : le titre, le cours d'eau et le
+/// département, la tuile de la catégorie ; ce qui suit est enveloppé dans
+/// [NoMinIntrinsicHeight].
 class OndeSummarySheet extends StatelessWidget {
   const OndeSummarySheet({required this.data, this.categorySymbol, super.key});
 
@@ -219,28 +222,41 @@ class OndeSummarySheet extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _CategoryTile(data: data, categorySymbol: categorySymbol),
-        if (data.history.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 12),
-          const Text(
-            ondeHistoriqueTitre,
-            style: TextStyle(fontWeight: FontWeight.bold),
+        // La mesure mise en avant s'arrête au bas de la tuile (arbitrage 18) :
+        // ce qui suit cède, fiche du bas ouverte, avant elle.
+        NoMinIntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (data.history.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                const Text(
+                  ondeHistoriqueTitre,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                // L'ordre du dépôt, la plus récente en tête — jamais retrié
+                // ici (`UC-004 § 4`).
+                for (final OndeObservation observation in data.history)
+                  _SymbolLine(
+                    symbol: categorySymbol?.call(
+                      observation.category,
+                      compact: true,
+                    ),
+                    gap: _historySymbolGap,
+                    child: Text(
+                      '${formatCalendarDate(observation.observedAt)} — '
+                      '${flowCategoryLabel(observation.category)}',
+                    ),
+                  ),
+              ],
+              const SizedBox(height: 12),
+              // Le rappel de rythme, dans TOUS les cas (`UC-004 § 5`,
+              // `BR-010`) — y compris sans aucune campagne connue.
+              Text(data.seasonNotice),
+            ],
           ),
-          // L'ordre du dépôt, la plus récente en tête — jamais retrié ici
-          // (`UC-004 § 4`).
-          for (final OndeObservation observation in data.history)
-            _SymbolLine(
-              symbol: categorySymbol?.call(observation.category, compact: true),
-              gap: _historySymbolGap,
-              child: Text(
-                '${formatCalendarDate(observation.observedAt)} — '
-                '${flowCategoryLabel(observation.category)}',
-              ),
-            ),
-        ],
-        const SizedBox(height: 12),
-        // Le rappel de rythme, dans TOUS les cas (`UC-004 § 5`, `BR-010`) —
-        // y compris sans aucune campagne connue.
-        Text(data.seasonNotice),
+        ),
       ],
     );
   }

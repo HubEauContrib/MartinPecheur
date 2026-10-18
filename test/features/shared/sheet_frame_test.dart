@@ -5,9 +5,11 @@
 // intrinsèque minimale.
 //
 // Ce que la mise en page de la carte interroge (`D1`) : `getMinIntrinsicHeight`
-// = l'en-tête seul, `getMaxIntrinsicHeight` = la fiche entière. Aucun
-// `LayoutBuilder`, aucun `ListView` dans le cadre : un défilement s'y fait par
-// `SingleChildScrollView`, qui sait répondre aux intrinsèques.
+// = l'en-tête seul, `getMaxIntrinsicHeight` = la fiche entière, et depuis `D7`
+// (arbitrages 18 et 19) `sheetFeaturedHeightOf` = l'en-tête et la mesure mise
+// en avant du corps. Aucun `LayoutBuilder`, aucun `ListView` dans le cadre : un
+// défilement s'y fait par `SingleChildScrollView`, qui sait répondre aux
+// intrinsèques.
 //
 // Les mesures sont en Roboto, chargée depuis le SDK (`test/support/roboto.dart`) ;
 // sous Windows c'est un substitut de Segoe UI, jamais sa mesure.
@@ -525,6 +527,195 @@ void main() {
         expect(
           _frameBox(tester).getMinIntrinsicHeight(width),
           closeTo(header, 0.5),
+        );
+      },
+    );
+  });
+
+  group('SheetFrame — la mesure mise en avant (arbitrages 18 et 19)', () {
+    const Key featuredKey = Key('test-sheet-featured');
+    const Key restKey = Key('test-sheet-rest');
+    const Key wrapKey = Key('test-sheet-wrap');
+
+    /// Un corps dont la mesure mise en avant fait [featured] px, suivie de
+    /// [rest] px qui cèdent (`NoMinIntrinsicHeight`).
+    Widget featuredBody({double featured = 120, double rest = 500}) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(key: featuredKey, height: featured, width: 50),
+        NoMinIntrinsicHeight(
+          child: SizedBox(key: restKey, height: rest, width: 50),
+        ),
+      ],
+    );
+
+    double featuredOf(WidgetTester tester, double width) =>
+        sheetFeaturedHeightOf(_frameBox(tester), width);
+
+    testWidgetsOnWindows(
+      'trois hauteurs : l\'en-tête seul, l\'en-tête et la mesure mise en avant '
+      '(marge haute du corps comprise, jusqu\'au bas de la mesure), la fiche '
+      'entière',
+      (WidgetTester tester) async {
+        await _pumpUnbounded(
+          tester,
+          _frame(star: _emptyStar, body: featuredBody()),
+        );
+
+        final Rect frame = _rect(tester, find.byType(SheetFrame));
+        final double header = _rect(
+          tester,
+          find.byKey(sheetFrameHeaderKey),
+        ).height;
+        final double width = frame.width;
+        expect(
+          _frameBox(tester).getMinIntrinsicHeight(width),
+          closeTo(header, 0.01),
+        );
+        expect(featuredOf(tester, width), closeTo(header + 8 + 120, 0.01));
+        expect(
+          featuredOf(tester, width),
+          closeTo(
+            _rect(tester, find.byKey(featuredKey)).bottom - frame.top,
+            0.01,
+          ),
+          reason: 'la mesure mise en avant finit au bas de l’élément',
+        );
+        expect(
+          _frameBox(tester).getMaxIntrinsicHeight(width),
+          closeTo(frame.height, 0.01),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'un corps qui ne marque rien (un état « en cours ») : la mesure mise en '
+      'avant est le corps entier, sans la marge basse ; un corps qui cède tout : '
+      'l\'en-tête seul',
+      (WidgetTester tester) async {
+        await _pumpUnbounded(tester, _frame(body: _body(100)));
+        final double header = _rect(
+          tester,
+          find.byKey(sheetFrameHeaderKey),
+        ).height;
+        expect(featuredOf(tester, 400), closeTo(header + 8 + 100, 0.01));
+
+        await _pumpUnbounded(
+          tester,
+          _frame(body: NoMinIntrinsicHeight(child: _body(100))),
+        );
+        expect(featuredOf(tester, 400), closeTo(header, 0.01));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'posé à sa hauteur mise en avant : l\'en-tête et la mesure entiers, le '
+      'reste défile sous l\'en-tête',
+      (WidgetTester tester) async {
+        final ScrollController controller = ScrollController();
+        addTearDown(controller.dispose);
+        await _pumpUnbounded(tester, _frame(body: featuredBody()));
+        final double featured = featuredOf(tester, 400);
+
+        await _pumpBounded(
+          tester,
+          _frame(body: featuredBody(), controller: controller),
+          maxHeight: featured,
+        );
+
+        expect(tester.takeException(), isNull);
+        final Rect frame = _rect(tester, find.byType(SheetFrame));
+        expect(frame.height, closeTo(featured, 0.01));
+        final Rect header = _rect(tester, find.byKey(sheetFrameHeaderKey));
+        expect(header.top, closeTo(frame.top, 0.01));
+        expect(
+          _rect(tester, find.byKey(featuredKey)).bottom,
+          closeTo(frame.bottom, 0.01),
+          reason: 'la mesure mise en avant finit au bas de la fiche',
+        );
+        expect(
+          _rect(tester, find.byKey(restKey)).top,
+          greaterThanOrEqualTo(frame.bottom - 0.01),
+          reason: 'ce qui la suit est sous la fiche, à faire défiler',
+        );
+        expect(controller.position.maxScrollExtent, greaterThan(0));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'posé sous sa hauteur mise en avant : l\'en-tête reste entier, le corps '
+      'défile, aucune erreur de rendu (arbitrage 19)',
+      (WidgetTester tester) async {
+        final ScrollController controller = ScrollController();
+        addTearDown(controller.dispose);
+        await _pumpUnbounded(tester, _frame(body: featuredBody()));
+        final double header = _rect(
+          tester,
+          find.byKey(sheetFrameHeaderKey),
+        ).height;
+
+        await _pumpBounded(
+          tester,
+          _frame(body: featuredBody(), controller: controller),
+          maxHeight: header + 30,
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(
+          _rect(tester, find.byKey(sheetFrameHeaderKey)).height,
+          closeTo(header, 0.01),
+        );
+        expect(
+          tester.getSize(find.byType(SheetFrame)).height,
+          closeTo(header + 30, 0.01),
+        );
+        expect(controller.position.maxScrollExtent, greaterThan(0));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'sheetFeaturedHeightOf traverse une enveloppe qui garde les hauteurs de '
+      'son enfant ; une enveloppe qui les change, ou une boîte quelconque, '
+      'rend sa hauteur repliée',
+      (WidgetTester tester) async {
+        await _pumpUnbounded(
+          tester,
+          SizedBox(
+            key: wrapKey,
+            child: _frame(body: featuredBody()),
+          ),
+        );
+        final RenderBox wrap = tester.renderObject<RenderBox>(
+          find.byKey(wrapKey),
+        );
+        expect(
+          sheetFeaturedHeightOf(wrap, 400),
+          closeTo(featuredOf(tester, 400), 0.01),
+        );
+
+        await _pumpUnbounded(
+          tester,
+          SizedBox(
+            key: wrapKey,
+            height: 50,
+            child: _frame(body: featuredBody()),
+          ),
+        );
+        expect(
+          sheetFeaturedHeightOf(
+            tester.renderObject<RenderBox>(find.byKey(wrapKey)),
+            400,
+          ),
+          50,
+        );
+        expect(
+          sheetFeaturedHeightOf(
+            tester.renderObject<RenderBox>(find.byKey(restKey)),
+            400,
+          ),
+          500,
         );
       },
     );

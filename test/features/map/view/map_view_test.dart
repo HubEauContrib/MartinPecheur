@@ -2621,11 +2621,14 @@ void main() {
             greaterThan(0),
             reason: 'la molette n’a rien fait',
           );
-          await tester.dragFrom(surLaFiche, const Offset(0, -60));
+          // Le glisser remonte le corps : depuis `D7`, la fiche du bas garde
+          // sa mesure mise en avant (arbitrage 18) et son corps a moins à
+          // défiler — la molette peut l'avoir mené au bout.
+          await tester.dragFrom(surLaFiche, const Offset(0, 60));
           await tester.pumpAndSettle();
           expect(
             defilement.position.pixels,
-            greaterThan(apresMolette),
+            lessThan(apresMolette),
             reason: 'le glisser n’a rien fait',
           );
           ouverte.value = false;

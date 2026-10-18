@@ -22,6 +22,14 @@
 // surplus va aux avis, à la fiche, à la légende. `folds` garde les numéros,
 // en ordre croissant.
 //
+// Arbitrages 18 et 19 (2026-10-18, `D7`), fiche du bas ouverte : le repli 2
+// ne descend que jusqu'à la mesure mise en avant de la fiche
+// (`MapLayoutInput.sheetFeatured`) ; là où les six replis ne suffisent pas, la
+// partie fixe défile, jusqu'à son plancher (`MapLayoutInput.blockFixedFloor`,
+// une cible tactile que la pose lit sur la plateforme) ; sous ce plancher, le
+// corps cède sous sa mesure, jusqu'à l'en-tête ; au-delà seulement, la partie
+// fixe passe sous son plancher. Sans fiche du bas, rien ne change.
+//
 // Aucun import, ni Flutter ni `dart:ui` : elle s'éprouve seule, sur des
 // nombres. Le `RenderObject` de la carte (`D1`) lit les intrinsèques de ses
 // enfants, l'appelle, et pose chaque enfant avec la hauteur rendue.
@@ -247,12 +255,14 @@ final class MapLayoutInput {
     required this.designation,
     required this.sheetOpen,
     required this.blockFixed,
+    required this.blockFixedFloor,
     required this.notices,
     required this.legend,
     required this.bottom,
     required this.band,
     required this.reticleBand,
     required this.sheet,
+    required this.sheetFeatured,
     required this.gap,
   });
 
@@ -302,6 +312,13 @@ final class MapLayoutInput {
   /// sous-titres ([PieceHeights.max]).
   final PieceHeights blockFixed;
 
+  /// Le plancher de la partie fixe quand elle défile pour la fiche du bas
+  /// (arbitrage 19) : la hauteur d'une cible tactile de la plateforme, que la
+  /// pose lit (`minimumTapTarget`) — « ⚠ Avertissement » et « Restrictions »
+  /// restent atteignables en glissant. Une hauteur de pièce, pas un seuil de
+  /// taille d'écran. Sans fiche du bas, non lu.
+  final double blockFixedFloor;
+
   /// Les avis : une seule hauteur, ils cèdent en défilant.
   final double notices;
 
@@ -321,6 +338,13 @@ final class MapLayoutInput {
   /// La fiche : en-tête seul ou fiche entière. En panel, non comptée : elle
   /// est à côté.
   final PieceHeights sheet;
+
+  /// La fiche « mise en avant » (arbitrage 18) : son en-tête et sa mesure mise
+  /// en avant, avec ce qui la précède dans le corps — le plancher du repli 2
+  /// pour une fiche du bas. Ramenée dans [[PieceHeights.min] ;
+  /// [PieceHeights.max]] de [sheet] ; égale à `sheet.min`, la fiche n'a pas
+  /// d'autre mesure que son en-tête et la répartition est celle d'avant.
+  final double sheetFeatured;
 
   /// L'écart entre deux groupes non nuls, et entre la bande et la rangée en
   /// compact (règle complète : [allocateMapLayout]).
@@ -367,16 +391,20 @@ final class MapLayoutAllocation {
 
   /// La place ne suffit pas, en HAUTEUR ou en LARGEUR. Trois causes :
   /// - hauteur : même après les six replis, la somme dépasse la hauteur
-  ///   disponible — la partie fixe reçoit ce qui reste et défilera ;
+  ///   disponible — la partie fixe reçoit ce qui reste et défilera (fiche du
+  ///   bas ouverte, jusqu'à son plancher, puis la fiche cède sous sa mesure
+  ///   mise en avant : arbitrage 19) ;
   /// - hauteur : la colonne du bas, qui ne cède jamais, ne tient pas avec
   ///   l'en-tête de la fiche du bas (wide, bloc étroit) ou seule (panneau, ou
   ///   sans fiche) ;
   /// - largeur : en mode sans fiche, la bande ne tient pas
   ///   ([MapLayoutInput.bandFits] faux) et ne peut ni se poser ni se retirer.
-  /// Dans ces deux derniers cas, le reste est réparti comme d'habitude. `overflows` ne dit donc pas, à lui seul, que la partie
-  /// fixe est rognée. Aux quatre tailles, il ne se rencontre qu'à 360 × 640
-  /// et 200 %, où la partie fixe qui défile est acceptée (arbitrage 13 du
-  /// commanditaire, 2026-10-18).
+  /// Dans ces deux derniers cas, le reste est réparti comme d'habitude :
+  /// `overflows` ne dit donc pas, à lui seul, que la partie fixe est rognée.
+  /// Aux quatre tailles, la partie fixe qui défile est acceptée à 360 × 640 et
+  /// 200 % (arbitrage 13 du commanditaire, 2026-10-18) et, fiche du bas
+  /// ouverte, là où la fiche n'aurait plus sa mesure mise en avant
+  /// (arbitrages 18 et 19).
   final bool overflows;
 
   /// Les replis en vigueur dans la répartition rendue, dans l'ordre :
@@ -458,7 +486,9 @@ final class MapLayoutAllocation {
 /// Tout au plus haut d'abord. Puis, si la somme dépasse la hauteur
 /// disponible, les replis jouent (spec § 5.6), chacun seulement s'il le faut
 /// et seulement de ce qu'il faut :
-/// 1. la légende, 2. la fiche jusqu'à son en-tête, 3. les avis — par degrés ;
+/// 1. la légende, 2. la fiche jusqu'à sa mesure mise en avant
+///    ([MapLayoutInput.sheetFeatured], arbitrage 18 ; son en-tête si elle n'en
+///    a pas d'autre), 3. les avis — par degrés ;
 /// 4. les sous-titres, 5. l'indice, 6. au téléphone, en mode, fiche ouverte,
 ///    la bande et le réticule — tout ou rien, et seulement s'ils libèrent une
 ///    hauteur.
@@ -480,7 +510,14 @@ final class MapLayoutAllocation {
 /// avis, légende — arbitrage 15, le réticule reste fixe) ; un repli tout ou
 /// rien joué n'est jamais défait. Si les six ne suffisent pas,
 /// [MapLayoutAllocation.overflows] est vrai et la partie fixe reçoit ce qui
-/// reste. Aucune hauteur rendue n'est négative ; aucune exception. Les
+/// reste. Fiche du bas ouverte (arbitrage 19), elle le reçoit jusqu'à son
+/// plancher ([MapLayoutInput.blockFixedFloor], une cible tactile ; sa hauteur
+/// repliée si elle est plus basse) ; sous ce plancher, la fiche cède sous sa
+/// mesure mise en avant, jusqu'à son en-tête ; au-delà seulement — en deçà
+/// des quatre tailles —, la partie fixe passe sous son plancher. Le plafond de
+/// la colonne, en wide, peut descendre sous la mesure mise en avant : la
+/// colonne ne cède jamais, et faire défiler la partie fixe ne lui rendrait
+/// rien. Aucune hauteur rendue n'est négative ; aucune exception. Les
 /// comparaisons ignorent un écart de [_tolerance] (1e-6 px).
 MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
   final bool sheetCounted = switch (input.width) {
@@ -535,6 +572,13 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
       bottomOverflows = bottom > available + _tolerance;
     }
   }
+  // Le plancher du repli 2 (arbitrage 18) : la mesure mise en avant, ramenée
+  // entre l'en-tête et la fiche entière, et jamais au-dessus du plafond de la
+  // colonne.
+  final double sheetFolded = _min(
+    _max(_nonNegative(input.sheetFeatured), sheet.min),
+    sheetMax,
+  );
 
   _Heights heights = _Heights(
     blockFixed: blockFixed.max,
@@ -567,7 +611,7 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
 
   void foldSheet() {
     if (sheetCounted && overflowing()) {
-      heights = heights.copyWith(sheet: sheet.min);
+      heights = heights.copyWith(sheet: sheetFolded);
     }
   }
 
@@ -631,14 +675,31 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
 
   final bool stackOverflows = stack.total(heights) > available + _tolerance;
   if (stackOverflows) {
-    // La partie fixe reçoit ce qui reste : elle défilera.
-    heights = stack.grow(
-      heights,
+    // La partie fixe reçoit ce qui reste : elle défilera. Fiche du bas
+    // ouverte (arbitrage 19), d'abord jusqu'à son plancher ; puis la fiche
+    // cède sous sa mesure mise en avant, jusqu'à son en-tête ; puis la partie
+    // fixe passe sous son plancher. Sans fiche du bas, le plancher est nul.
+    _Heights growFixed(_Heights h, double floor) => stack.grow(
+      h,
       available,
-      floor: 0,
-      max: heights.blockFixed,
+      floor: floor,
+      max: h.blockFixed,
       set: (_Heights h, double v) => h.copyWith(blockFixed: v),
     );
+    final double fixedFloor = bottomSheet
+        ? _min(_nonNegative(input.blockFixedFloor), heights.blockFixed)
+        : 0;
+    heights = growFixed(heights, fixedFloor);
+    if (bottomSheet && overflowing()) {
+      heights = stack.grow(
+        heights,
+        available,
+        floor: sheet.min,
+        max: heights.sheet,
+        set: (_Heights h, double v) => h.copyWith(sheet: v),
+      );
+    }
+    if (overflowing()) heights = growFixed(heights, 0);
   } else {
     // Le surplus revient aux replis par degrés, le plus tardif d'abord —
     // l'inverse de l'ordre où ils ont joué : avis, fiche, légende. En mode,
@@ -658,7 +719,7 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
         ? stack.grow(
             h,
             available,
-            floor: sheet.min,
+            floor: sheetFolded,
             max: sheetMax,
             set: (_Heights h, double v) => h.copyWith(sheet: v),
           )

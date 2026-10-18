@@ -23,7 +23,10 @@
 // (`BR-015`).
 //
 // Le corps répond aux demandes de dimensions intrinsèques (contrat de
-// [SheetFrame.body]) : ni `LayoutBuilder` ni `ListView`.
+// [SheetFrame.body]) : ni `LayoutBuilder` ni `ListView`. Sa hauteur
+// intrinsèque minimale est sa mesure mise en avant (`D7`, arbitrage 18) : le
+// nom, l'encart de crue, le niveau ; ce qui suit est enveloppé dans
+// [NoMinIntrinsicHeight].
 //
 // ⚠️ Cette tranche n'importe AUCUNE autre tranche : seulement `lib/domain/` et
 // `lib/features/shared/`.
@@ -131,37 +134,49 @@ class FloodSheetPanel extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        if (legend != null) ...<Widget>[
-          Text('« $legend »'),
-          if (explanation != null) ...<Widget>[
-            const SizedBox(height: 4),
-            Text('« $explanation »'),
-          ],
-          const SizedBox(height: 4),
-          const Text('— $floodSourceName'),
-        ] else
-          const Text(floodUnknownLevelText),
-        const SizedBox(height: 8),
-        Text(
-          'Information de vigilance du '
-          '${formatLocalDateTime(open.informationDate, offsetOf: utcOffsetOf)}'
-          ' — $floodAttribution',
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton(
-          key: floodBulletinButtonKey,
-          onPressed: onOpenBulletin,
-          style: OutlinedButton.styleFrom(
-            minimumSize: Size.square(minimumTapTarget),
-            visualDensity: VisualDensity.standard,
+        // La mesure mise en avant s'arrête au bas du niveau (arbitrage 18) :
+        // ce qui suit cède, fiche du bas ouverte, avant elle.
+        NoMinIntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const SizedBox(height: 8),
+              if (legend != null) ...<Widget>[
+                Text('« $legend »'),
+                if (explanation != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text('« $explanation »'),
+                ],
+                const SizedBox(height: 4),
+                const Text('— $floodSourceName'),
+              ] else
+                const Text(floodUnknownLevelText),
+              const SizedBox(height: 8),
+              Text(
+                'Information de vigilance du '
+                '${formatLocalDateTime(open.informationDate, offsetOf: utcOffsetOf)}'
+                ' — $floodAttribution',
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                key: floodBulletinButtonKey,
+                onPressed: onOpenBulletin,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: Size.square(minimumTapTarget),
+                  visualDensity: VisualDensity.standard,
+                ),
+                child: const Text(floodBulletinButtonLabel),
+              ),
+              const SizedBox(height: 4),
+              SelectableText(open.bulletinUri.toString()),
+              if (open.unopenedBulletinCount > 0)
+                UnopenedLinkNotice(
+                  key: ValueKey<int>(open.unopenedBulletinCount),
+                ),
+            ],
           ),
-          child: const Text(floodBulletinButtonLabel),
         ),
-        const SizedBox(height: 4),
-        SelectableText(open.bulletinUri.toString()),
-        if (open.unopenedBulletinCount > 0)
-          UnopenedLinkNotice(key: ValueKey<int>(open.unopenedBulletinCount)),
       ],
     );
   }

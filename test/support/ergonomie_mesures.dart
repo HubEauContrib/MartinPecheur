@@ -3,10 +3,9 @@
 // Roboto, et ses hauteurs intrinsèques sont lues à la largeur qu'elle aura dans
 // la mise en page (spec § 5.1) ; elles forment l'entrée de `allocateMapLayout`
 // (`S5`). `S6` s'en sert pour vérifier qu'aux quatre tailles garanties rien de
-// ce qui ne cède jamais ne déborde — sauf à 360 × 640 et 200 %, où la partie
-// fixe du bloc défile là où l'ordre de repli ne suffit pas (arbitrage 13 du
-// commanditaire, 2026-10-18) ; `D2` (I-g) et `D3`, pour savoir quels replis
-// jouent à une configuration.
+// ce qui ne cède jamais ne déborde — sauf là où la partie fixe du bloc défile
+// (arbitrages 13, 18 et 19 du commanditaire, 2026-10-18) ; `D2` (I-g) et
+// `D3`, pour savoir quels replis jouent à une configuration.
 //
 // Les hauteurs sont lues par `getMinIntrinsicHeight` / `getMaxIntrinsicHeight`
 // À LA LARGEUR CALCULÉE, sur des pièces montées dans un arbre assez grand pour
@@ -30,9 +29,14 @@
 // fiche ([mesurerPieces] sans `ficheReelle`) :
 // - l'EN-TÊTE d'une fiche à étoile, mesuré au pire : avec l'avis d'échec
 //   d'écriture du favori, épinglé sous lui (spec § 6.1 : il ne cède jamais) ;
-// - les CORPS des fiches, pour leur hauteur entière seulement : une recopie
-//   approchée des fiches (station, point ONDE, tronçon) — la hauteur entière
-//   ne décide que du repli 2, jamais d'un débordement.
+// - les CORPS des fiches : une recopie approchée des fiches (station, point
+//   ONDE, tronçon), pour leur hauteur entière (repli 2) et leur mesure mise
+//   en avant (arbitrage 18, `D7`).
+//
+// La hauteur MISE EN AVANT de la fiche (`D7`) se lit par
+// `sheetFeaturedHeightOf`, comme la pose la lit ; le PLANCHER de la partie
+// fixe est la cible tactile de la plateforme du test (`minimumTapTarget`,
+// arbitrage 19).
 // `D5` a constaté l'écart : le corps approché de la station est plus bas que
 // la vraie fiche de `F1` (ses tuiles) ; 21 configurations sur 432 de
 // `ergonomie_budget_test.dart` jouent le repli 2 avec la vraie, pas avec lui.
@@ -62,6 +66,10 @@ import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_reading_block.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
+    show ondeHistoriqueTitre, ondeModalitePrefix, ondeSheetNature;
+import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart'
+    show ondeSeasonNotice;
 import 'package:martinpecheur/features/shared/favorite_star.dart';
 import 'package:martinpecheur/features/shared/flood_level_gauge.dart';
 import 'package:martinpecheur/features/shared/sheet_frame.dart';
@@ -82,8 +90,14 @@ const ({String nature, bool etoile}) ficheTroncon = (
   etoile: false,
 );
 
-/// La nature d'une fiche de point ONDE (spec § 6.1, § 11.2).
-const String _natureOnde = 'Point ONDE';
+/// La fiche d'un point ONDE : « Point ONDE », sans code, avec étoile (spec
+/// § 6.1, § 11.2). Décision 3 de `D7` : elle entre dans la matrice de la
+/// porte, son en-tête et sa mesure mise en avant dépassant ceux de la station
+/// à 200 %.
+const ({String nature, bool etoile}) ficheOnde = (
+  nature: ondeSheetNature,
+  etoile: true,
+);
 
 /// La bande du réticule : le réticule et sa marge, au-dessus et au-dessous
 /// (spec § 5.6). La valeur que `D2` passe à `MapLayout.reticleBandHeight`.
@@ -108,7 +122,7 @@ Duration _utc(DateTime instant) => Duration.zero;
 /// Le corps approché de la fiche de nature [nature] : tronçon, point ONDE, et
 /// station pour toute autre nature.
 Widget _corpsApproche(String nature) => switch (nature) {
-  _natureOnde => const _CorpsFicheOnde(),
+  ondeSheetNature => const _CorpsFicheOnde(),
   _ when nature == ficheTroncon.nature => const _CorpsFicheTroncon(),
   _ => const _CorpsFicheStation(),
 };
@@ -344,6 +358,14 @@ Future<MapLayoutInput> _mesurer(
         : PieceHeights.none,
     reticleBand: enMode ? _hauteurBandeReticule : 0,
     sheet: fiche == null ? PieceHeights.none : deux(_cleFiche, largeurs.sheet),
+    // Le plancher de la partie fixe : la cible tactile de la plateforme du
+    // test (arbitrage 19), comme la pose la lit.
+    blockFixedFloor: minimumTapTarget,
+    // La hauteur mise en avant de la fiche (arbitrage 18), lue comme la pose
+    // la lit : au travers de l'enveloppe de mesure, sur le cadre.
+    sheetFeatured: fiche == null
+        ? 0
+        : sheetFeaturedHeightOf(boite(_cleFiche), largeurs.sheet),
     gap: margeDeSurcouche,
   );
 }
@@ -351,8 +373,10 @@ Future<MapLayoutInput> _mesurer(
 // --- Les corps approchés des fiches ------------------------------------------
 //
 // Une recopie APPROCHÉE des fiches actuelles, sans leur ViewModel : elle ne
-// sert qu'à leur hauteur entière (repli 2). Le contrôle « ⚠ Avertissement »,
-// passé dans l'en-tête du cadre (`S3`), n'y est plus.
+// sert qu'à leur hauteur entière (repli 2) et, depuis `D7`, à leur mesure
+// mise en avant (arbitrage 18) — ce qui suit cette mesure est enveloppé dans
+// `NoMinIntrinsicHeight`, comme dans la vraie fiche. Le contrôle
+// « ⚠ Avertissement », passé dans l'en-tête du cadre (`S3`), n'y est plus.
 
 /// Le corps de la fiche station de Blois, dans l'ordre de
 /// `station_summary_sheet.dart` : libellé, cours d'eau, département, débit et
@@ -377,13 +401,22 @@ class _CorpsFicheStation extends StatelessWidget {
           'Débit : 47,8 m³/s — mesuré le 17/10/2026 à 14:30 — '
           '$hydrometrieSourceName',
         ),
-        Text(
-          'Hauteur : 1,232 m — mesurée le 17/10/2026 à 14:30 — '
-          '$hydrometrieSourceName',
+        // La mesure mise en avant s'arrête au débit.
+        NoMinIntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                'Hauteur : 1,232 m — mesurée le 17/10/2026 à 14:30 — '
+                '$hydrometrieSourceName',
+              ),
+              SizedBox(height: 8),
+              Text('Statut : Donnée brute'),
+              Text('Qualification : Non qualifiée'),
+            ],
+          ),
         ),
-        SizedBox(height: 8),
-        Text('Statut : Donnée brute'),
-        Text('Qualification : Non qualifiée'),
       ],
     );
   }
@@ -411,23 +444,34 @@ class _CorpsFicheOnde extends StatelessWidget {
         const Text('Département 41'),
         const SizedBox(height: 8),
         Text(categorie, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const Text('Modalité officielle ONDE : Écoulement visible acceptable'),
-        const Text('Campagne du 25/09/2026 — $ondeSourceName'),
-        const SizedBox(height: 8),
         const Text(
-          'Campagnes précédentes',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          '$ondeModalitePrefix'
+          'Écoulement visible acceptable',
         ),
-        for (final String date in <String>[
-          '25/08/2026',
-          '25/07/2026',
-          '25/06/2026',
-          '25/05/2026',
-        ])
-          Text('$date — $categorie'),
-        const SizedBox(height: 8),
-        const Text(
-          'Les campagnes ONDE ont lieu une fois par mois, de mai à septembre.',
+        const Text('Campagne du 25/09/2026 — $ondeSourceName'),
+        // La mesure mise en avant s'arrête à la campagne datée.
+        NoMinIntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const SizedBox(height: 8),
+              const Text(
+                ondeHistoriqueTitre,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              for (final String date in <String>[
+                '25/08/2026',
+                '25/07/2026',
+                '25/06/2026',
+                '25/05/2026',
+              ])
+                Text('$date — $categorie'),
+              const SizedBox(height: 8),
+              // Le vrai rappel de rythme (mineur différé de `S6`).
+              const Text(ondeSeasonNotice),
+            ],
+          ),
         ),
       ],
     );
@@ -465,24 +509,33 @@ class _CorpsFicheTroncon extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text('« ${publishedFloodLegend(niveau)} »'),
-        const SizedBox(height: 4),
-        Text('« ${publishedFloodExplanation(niveau)} »'),
-        const SizedBox(height: 4),
-        const Text('— $floodSourceName'),
-        const SizedBox(height: 8),
-        const Text(
-          'Information de vigilance du 17/10/2026 à 14:30 — '
-          '$floodAttribution',
+        // La mesure mise en avant s'arrête au niveau.
+        NoMinIntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const SizedBox(height: 8),
+              Text('« ${publishedFloodLegend(niveau)} »'),
+              const SizedBox(height: 4),
+              Text('« ${publishedFloodExplanation(niveau)} »'),
+              const SizedBox(height: 4),
+              const Text('— $floodSourceName'),
+              const SizedBox(height: 8),
+              const Text(
+                'Information de vigilance du 17/10/2026 à 14:30 — '
+                '$floodAttribution',
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minimumTapTarget),
+                child: const Text('Lire le bulletin sur $floodPublicSiteLabel'),
+              ),
+              const SizedBox(height: 4),
+              const Text('$floodPublicSiteUrl/'),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        ConstrainedBox(
-          constraints: BoxConstraints(minHeight: minimumTapTarget),
-          child: const Text('Lire le bulletin sur $floodPublicSiteLabel'),
-        ),
-        const SizedBox(height: 4),
-        const Text('$floodPublicSiteUrl/'),
       ],
     );
   }

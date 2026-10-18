@@ -35,6 +35,11 @@ import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 
 /// Une entrée dont chaque pièce non nommée est nulle — sauf la partie fixe
 /// (100 repliée, 150 entière) et le bas (60), présents sur toute carte.
+///
+/// [sheetFeatured] nulle : la fiche n'a pas d'autre mesure mise en avant que
+/// son en-tête (`sheet.min`), comme avant l'arbitrage 18 ; [blockFixedFloor]
+/// à 0 par défaut. Ces deux défauts rendent la répartition d'avant `D7` (le
+/// groupe « Arbitrage 19 » le vérifie).
 MapLayoutInput _input({
   required double available,
   MapLayoutWidth width = MapLayoutWidth.compact,
@@ -51,6 +56,8 @@ MapLayoutInput _input({
   double gap = 8,
   bool bandFits = true,
   bool reticleUnderBlock = true,
+  double? sheetFeatured,
+  double blockFixedFloor = 0,
 }) => MapLayoutInput(
   available: available,
   width: width,
@@ -60,12 +67,14 @@ MapLayoutInput _input({
   designation: designation,
   sheetOpen: sheetOpen,
   blockFixed: blockFixed,
+  blockFixedFloor: blockFixedFloor,
   notices: notices,
   legend: legend,
   bottom: bottom,
   band: band,
   reticleBand: reticleBand,
   sheet: sheet,
+  sheetFeatured: sheetFeatured ?? sheet.min,
   gap: gap,
 );
 
@@ -77,6 +86,8 @@ MapLayoutInput _input({
 MapLayoutInput _everyPiece({
   required double available,
   MapLayoutWidth width = MapLayoutWidth.compact,
+  double? sheetFeatured,
+  double blockFixedFloor = 0,
 }) => _input(
   available: available,
   width: width,
@@ -87,6 +98,8 @@ MapLayoutInput _everyPiece({
   reticleBand: 56,
   band: const PieceHeights(min: 48, max: 80),
   sheet: const PieceHeights(min: 80, max: 300),
+  sheetFeatured: sheetFeatured,
+  blockFixedFloor: blockFixedFloor,
 );
 
 void main() {
@@ -1322,6 +1335,230 @@ void main() {
       expect(p4.folds, <int>[1, 4]);
       expect(p4.notices, 40);
       expect(p4.legend, 9);
+    });
+  });
+
+  group('Arbitrages 18 et 19 : la fiche du bas garde sa mesure mise en avant ; '
+      'la partie fixe défile jusqu\'à son plancher', () {
+    /// Compact, hors mode, fiche du bas : en-tête 80, mesure mise en avant
+    /// 200, entière 300 ; partie fixe 100/150, avis 40, légende 100 ; plancher
+    /// 44. Paliers, dans l'ordre 1, 4, 2, 3 (arbitrage 17) : 666 → légende 566
+    /// → sous-titres 516 → fiche jusqu'à sa mesure 416 → avis 376.
+    MapLayoutInput horsMode(double available, {double sheetFeatured = 200}) =>
+        _input(
+          available: available,
+          sheetOpen: true,
+          notices: 40,
+          legend: 100,
+          sheet: const PieceHeights(min: 80, max: 300),
+          sheetFeatured: sheetFeatured,
+          blockFixedFloor: 44,
+        );
+
+    test(
+      'le repli 2 s\'arrête à la mesure mise en avant : il manque encore 16, '
+      'les avis les donnent',
+      () {
+        // 416 pour 400 : les avis cèdent ; 376, et leur reviennent 24. Avant
+        // l'arbitrage 18, la fiche serait descendue à 184 et les avis entiers.
+        final MapLayoutAllocation allocation = allocateMapLayout(horsMode(400));
+
+        expect(allocation.folds, <int>[1, 2, 3, 4]);
+        expect(allocation.sheet, 200);
+        expect(allocation.notices, 24);
+        expect(allocation.legend, 0);
+        expect(allocation.blockFixed, 100);
+        expect(allocation.overflows, isFalse);
+      },
+    );
+
+    test('les six replis ne suffisent pas : la partie fixe défile, la fiche '
+        'garde sa mesure mise en avant', () {
+      // 376 pour 350 : la partie fixe reçoit 350 − (8 + 60 + 8 + 200) = 74,
+      // au-dessus de son plancher.
+      final MapLayoutAllocation allocation = allocateMapLayout(horsMode(350));
+
+      expect(allocation.overflows, isTrue);
+      expect(allocation.blockFixed, 74);
+      expect(allocation.sheet, 200);
+      expect(allocation.folds, <int>[1, 2, 3, 4]);
+    });
+
+    test('la partie fixe à son plancher : le corps cède sous sa mesure mise en '
+        'avant (arbitrage 19)', () {
+      // Partie fixe à 44 : 44 + 8 + 60 + 8 + 200 = 320 pour 300 ; la fiche
+      // donne 20, elle garde 180, au-dessus de son en-tête.
+      final MapLayoutAllocation allocation = allocateMapLayout(horsMode(300));
+
+      expect(allocation.overflows, isTrue);
+      expect(allocation.blockFixed, 44);
+      expect(allocation.sheet, 180);
+    });
+
+    test('la fiche à son en-tête : la partie fixe passe sous son plancher (en '
+        'deçà des quatre tailles)', () {
+      // 44 + 8 + 60 + 8 + 80 = 200 pour 180 : la partie fixe reçoit le reste,
+      // 24, son écart avec la rangée compris.
+      final MapLayoutAllocation allocation = allocateMapLayout(horsMode(180));
+
+      expect(allocation.overflows, isTrue);
+      expect(allocation.sheet, 80);
+      expect(allocation.blockFixed, 24);
+    });
+
+    test('un plancher plus haut que la partie fixe repliée ne la grandit pas : '
+        'elle reste repliée, le corps cède', () {
+      // Partie fixe 30/40, ni avis ni légende : 40 + 8 + 60 + 8 + 300 = 416.
+      // Pour 280 : repli 4 (30), fiche à sa mesure : 306 ; la partie fixe
+      // reste à 30, sous le plancher de 44 ; la fiche garde 174.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(
+          available: 280,
+          sheetOpen: true,
+          blockFixed: const PieceHeights(min: 30, max: 40),
+          sheet: const PieceHeights(min: 80, max: 300),
+          sheetFeatured: 200,
+          blockFixedFloor: 44,
+        ),
+      );
+
+      expect(allocation.overflows, isTrue);
+      expect(allocation.blockFixed, 30);
+      expect(allocation.sheet, 174);
+    });
+
+    test('en mode, bande posée : 1, 3, 4, 5, 2 jusqu\'à la mesure, puis 6 ; '
+        'au-delà, la partie fixe défile jusqu\'à son plancher', () {
+      // Paliers : 942 → … → indice 580 → fiche à sa mesure (200) 480 → bande
+      // et réticule retirés 376. Pour 400, le repli 6 joue (il ne jouait pas
+      // avant l'arbitrage 18 : la fiche descendait à 80) ; surplus 24, aux
+      // avis, au poids simple. Pour 350, la partie fixe reçoit 74.
+      final MapLayoutAllocation joue = allocateMapLayout(
+        _everyPiece(available: 400, sheetFeatured: 200, blockFixedFloor: 48),
+      );
+      final MapLayoutAllocation defile = allocateMapLayout(
+        _everyPiece(available: 350, sheetFeatured: 200, blockFixedFloor: 48),
+      );
+
+      expect(joue.folds, <int>[1, 2, 3, 4, 5, 6]);
+      expect(joue.sheet, 200);
+      expect(joue.notices, 24);
+      expect(joue.bandWithdrawn, isTrue);
+      expect(joue.overflows, isFalse);
+      expect(defile.overflows, isTrue);
+      expect(defile.blockFixed, 74);
+      expect(defile.sheet, 200);
+      expect(defile.bandWithdrawn, isTrue);
+    });
+
+    test('une mesure mise en avant hors de [en-tête ; fiche entière] y est '
+        'ramenée', () {
+      // Sous l'en-tête : comme l'en-tête. Au-dessus de la fiche entière : la
+      // fiche ne cède rien au repli 2 ; à 450, après 1, 4 et 3 (476), la
+      // partie fixe reçoit 450 − (8 + 60 + 8 + 300) = 74.
+      expect(
+        allocateMapLayout(horsMode(400, sheetFeatured: 20)),
+        allocateMapLayout(horsMode(400, sheetFeatured: 80)),
+      );
+      final MapLayoutAllocation entiere = allocateMapLayout(
+        horsMode(450, sheetFeatured: 999),
+      );
+      expect(entiere.sheet, 300);
+      expect(entiere.folds, <int>[1, 3, 4]);
+      expect(entiere.overflows, isTrue);
+      expect(entiere.blockFixed, 74);
+    });
+
+    test(
+      'wide, bloc étroit : la colonne, qui ne cède jamais, plafonne la fiche '
+      'sous sa mesure mise en avant — la fiche s\'y arrête, rien ne défile '
+      'pour elle',
+      () {
+        // Plafond 584 − 288 − 8 = 288, sous la mesure de 300 : la fiche à 288,
+        // comme avant ; le bloc tient (110 + 60, écart, 288 = 466).
+        final MapLayoutAllocation allocation = allocateMapLayout(
+          _input(
+            available: 584,
+            width: MapLayoutWidth.wide,
+            blockOverBottom: false,
+            sheetOpen: true,
+            blockFixed: const PieceHeights(min: 90, max: 110),
+            legend: 60,
+            bottom: 288,
+            sheet: const PieceHeights(min: 70, max: 320),
+            sheetFeatured: 300,
+            blockFixedFloor: 44,
+          ),
+        );
+
+        expect(allocation.sheet, 288);
+        expect(allocation.folds, <int>[2]);
+        expect(allocation.blockFixed, 110);
+        expect(allocation.legend, 60);
+        expect(allocation.overflows, isFalse);
+      },
+    );
+
+    test('sans fiche du bas (fermée, ou en panneau), mesure et plancher ne '
+        'changent rien', () {
+      for (double available = 0; available <= 700; available += 7) {
+        for (final bool panel in <bool>[false, true]) {
+          MapLayoutAllocation at({required bool d7}) => allocateMapLayout(
+            _input(
+              available: available,
+              width: panel ? MapLayoutWidth.panel : MapLayoutWidth.compact,
+              sheetOpen: panel,
+              notices: 40,
+              legend: 100,
+              sheet: panel
+                  ? const PieceHeights(min: 80, max: 600)
+                  : PieceHeights.none,
+              sheetFeatured: d7 && panel ? 200 : null,
+              blockFixedFloor: d7 ? 44 : 0,
+            ),
+          );
+          expect(
+            at(d7: true),
+            at(d7: false),
+            reason: '${panel ? 'panneau' : 'sans fiche'}, $available',
+          );
+        }
+      }
+    });
+
+    test('une fiche sans autre mesure que son en-tête : le plancher ne change '
+        'rien, la répartition est celle d\'avant D7', () {
+      for (double available = 0; available <= 960; available += 7) {
+        expect(
+          allocateMapLayout(
+            _everyPiece(available: available, blockFixedFloor: 48),
+          ),
+          allocateMapLayout(_everyPiece(available: available)),
+          reason: 'en mode, $available',
+        );
+        expect(
+          allocateMapLayout(horsMode(available, sheetFeatured: 80)),
+          allocateMapLayout(
+            _input(
+              available: available,
+              sheetOpen: true,
+              notices: 40,
+              legend: 100,
+              sheet: const PieceHeights(min: 80, max: 300),
+            ),
+          ),
+          reason: 'hors mode, $available',
+        );
+      }
+    });
+
+    test('rien de négatif : available = 0, la fiche à son en-tête, la partie '
+        'fixe à 0', () {
+      final MapLayoutAllocation allocation = allocateMapLayout(horsMode(0));
+
+      expect(allocation.overflows, isTrue);
+      expect(allocation.sheet, 80);
+      expect(allocation.blockFixed, 0);
     });
   });
 }
