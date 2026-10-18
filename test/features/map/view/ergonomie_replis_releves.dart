@@ -25,21 +25,21 @@ const Map<String, String> replisReleves = <String, String>{
   '360 × 640, 100 %, écoulement, hors mode, sans fiche, avis, marge':
       'aucun repli — tient',
   '360 × 640, 100 %, écoulement, hors mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, écoulement, hors mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, écoulement, hors mode, fiche station, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, écoulement, hors mode, fiche station, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, écoulement, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, écoulement, hors mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, écoulement, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, écoulement, hors mode, fiche tronçon, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, écoulement, en mode, sans fiche, sans avis, sans marge':
       'aucun repli — tient',
   '360 × 640, 100 %, écoulement, en mode, sans fiche, sans avis, marge':
@@ -49,21 +49,21 @@ const Map<String, String> replisReleves = <String, String>{
   '360 × 640, 100 %, écoulement, en mode, sans fiche, avis, marge':
       'replis 1, 3 — tient',
   '360 × 640, 100 %, écoulement, en mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, écoulement, en mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, écoulement, en mode, fiche station, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, écoulement, en mode, fiche station, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, écoulement, en mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, écoulement, en mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, écoulement, en mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, écoulement, en mode, fiche tronçon, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, débit, hors mode, sans fiche, sans avis, sans marge':
       'aucun repli — tient',
   '360 × 640, 100 %, débit, hors mode, sans fiche, sans avis, marge':
@@ -73,21 +73,21 @@ const Map<String, String> replisReleves = <String, String>{
   '360 × 640, 100 %, débit, hors mode, sans fiche, avis, marge':
       'replis 1 — tient',
   '360 × 640, 100 %, débit, hors mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, débit, hors mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, débit, hors mode, fiche station, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, débit, hors mode, fiche station, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, débit, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, débit, hors mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, débit, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, débit, hors mode, fiche tronçon, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, débit, en mode, sans fiche, sans avis, sans marge':
       'replis 1 — tient',
   '360 × 640, 100 %, débit, en mode, sans fiche, sans avis, marge':
@@ -97,21 +97,21 @@ const Map<String, String> replisReleves = <String, String>{
   '360 × 640, 100 %, débit, en mode, sans fiche, avis, marge':
       'replis 1, 3 — tient',
   '360 × 640, 100 %, débit, en mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, débit, en mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, débit, en mode, fiche station, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, débit, en mode, fiche station, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, débit, en mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, débit, en mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, débit, en mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, débit, en mode, fiche tronçon, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, crues, hors mode, sans fiche, sans avis, sans marge':
       'aucun repli — tient',
   '360 × 640, 100 %, crues, hors mode, sans fiche, sans avis, marge':
@@ -121,21 +121,21 @@ const Map<String, String> replisReleves = <String, String>{
   '360 × 640, 100 %, crues, hors mode, sans fiche, avis, marge':
       'replis 1 — tient',
   '360 × 640, 100 %, crues, hors mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, crues, hors mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, crues, hors mode, fiche station, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, crues, hors mode, fiche station, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, crues, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, crues, hors mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, crues, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, crues, hors mode, fiche tronçon, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '360 × 640, 100 %, crues, en mode, sans fiche, sans avis, sans marge':
       'replis 1 — tient',
   '360 × 640, 100 %, crues, en mode, sans fiche, sans avis, marge':
@@ -145,21 +145,21 @@ const Map<String, String> replisReleves = <String, String>{
   '360 × 640, 100 %, crues, en mode, sans fiche, avis, marge':
       'replis 1, 3 — tient',
   '360 × 640, 100 %, crues, en mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, crues, en mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, crues, en mode, fiche station, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, crues, en mode, fiche station, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, crues, en mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, crues, en mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '360 × 640, 100 %, crues, en mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 100 %, crues, en mode, fiche tronçon, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '360 × 640, 200 %, écoulement, hors mode, sans fiche, sans avis, sans marge':
       'replis 1 — tient',
   '360 × 640, 200 %, écoulement, hors mode, sans fiche, sans avis, marge':
@@ -319,15 +319,15 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 100 %, écoulement, hors mode, fiche station, avis, sans marge':
       'replis 1 — tient',
   '390 × 844, 100 %, écoulement, hors mode, fiche station, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, écoulement, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, écoulement, hors mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, écoulement, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, écoulement, hors mode, fiche tronçon, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, écoulement, en mode, sans fiche, sans avis, sans marge':
       'aucun repli — tient',
   '390 × 844, 100 %, écoulement, en mode, sans fiche, sans avis, marge':
@@ -337,21 +337,21 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 100 %, écoulement, en mode, sans fiche, avis, marge':
       'replis 1 — tient',
   '390 × 844, 100 %, écoulement, en mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 4 — tient',
   '390 × 844, 100 %, écoulement, en mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, écoulement, en mode, fiche station, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 3, 4 — tient',
   '390 × 844, 100 %, écoulement, en mode, fiche station, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 100 %, écoulement, en mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, écoulement, en mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, écoulement, en mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 100 %, écoulement, en mode, fiche tronçon, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 100 %, débit, hors mode, sans fiche, sans avis, sans marge':
       'aucun repli — tient',
   '390 × 844, 100 %, débit, hors mode, sans fiche, sans avis, marge':
@@ -367,15 +367,15 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 100 %, débit, hors mode, fiche station, avis, sans marge':
       'replis 1 — tient',
   '390 × 844, 100 %, débit, hors mode, fiche station, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, débit, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, débit, hors mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, débit, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, débit, hors mode, fiche tronçon, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, débit, en mode, sans fiche, sans avis, sans marge':
       'aucun repli — tient',
   '390 × 844, 100 %, débit, en mode, sans fiche, sans avis, marge':
@@ -385,21 +385,21 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 100 %, débit, en mode, sans fiche, avis, marge':
       'replis 1 — tient',
   '390 × 844, 100 %, débit, en mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 4 — tient',
   '390 × 844, 100 %, débit, en mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, débit, en mode, fiche station, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 3, 4 — tient',
   '390 × 844, 100 %, débit, en mode, fiche station, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 100 %, débit, en mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, débit, en mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, débit, en mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 100 %, débit, en mode, fiche tronçon, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 100 %, crues, hors mode, sans fiche, sans avis, sans marge':
       'aucun repli — tient',
   '390 × 844, 100 %, crues, hors mode, sans fiche, sans avis, marge':
@@ -415,15 +415,15 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 100 %, crues, hors mode, fiche station, avis, sans marge':
       'replis 1 — tient',
   '390 × 844, 100 %, crues, hors mode, fiche station, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, crues, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, crues, hors mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, crues, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, crues, hors mode, fiche tronçon, avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 100 %, crues, en mode, sans fiche, sans avis, sans marge':
       'aucun repli — tient',
   '390 × 844, 100 %, crues, en mode, sans fiche, sans avis, marge':
@@ -433,21 +433,21 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 100 %, crues, en mode, sans fiche, avis, marge':
       'replis 1 — tient',
   '390 × 844, 100 %, crues, en mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 4 — tient',
   '390 × 844, 100 %, crues, en mode, fiche station, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, crues, en mode, fiche station, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 3, 4 — tient',
   '390 × 844, 100 %, crues, en mode, fiche station, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 100 %, crues, en mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, crues, en mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4, 5 — tient',
   '390 × 844, 100 %, crues, en mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 100 %, crues, en mode, fiche tronçon, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4, 5 — tient',
   '390 × 844, 200 %, écoulement, hors mode, sans fiche, sans avis, sans marge':
       'replis 1 — tient',
   '390 × 844, 200 %, écoulement, hors mode, sans fiche, sans avis, marge':
@@ -457,21 +457,21 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 200 %, écoulement, hors mode, sans fiche, avis, marge':
       'replis 1, 3 — tient',
   '390 × 844, 200 %, écoulement, hors mode, fiche station, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 200 %, écoulement, hors mode, fiche station, sans avis, marge':
       'replis 1, 2, 4 — tient',
   '390 × 844, 200 %, écoulement, hors mode, fiche station, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, écoulement, hors mode, fiche station, avis, marge':
       'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, écoulement, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 200 %, écoulement, hors mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 200 %, écoulement, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, écoulement, hors mode, fiche tronçon, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, écoulement, en mode, sans fiche, sans avis, sans marge':
       'replis 1, 4 — tient',
   '390 × 844, 200 %, écoulement, en mode, sans fiche, sans avis, marge':
@@ -513,11 +513,11 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 200 %, débit, hors mode, fiche station, avis, marge':
       'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, débit, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 200 %, débit, hors mode, fiche tronçon, sans avis, marge':
       'replis 1, 2, 4 — tient',
   '390 × 844, 200 %, débit, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, débit, hors mode, fiche tronçon, avis, marge':
       'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, débit, en mode, sans fiche, sans avis, sans marge':
@@ -561,13 +561,13 @@ const Map<String, String> replisReleves = <String, String>{
   '390 × 844, 200 %, crues, hors mode, fiche station, avis, marge':
       'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, crues, hors mode, fiche tronçon, sans avis, sans marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 200 %, crues, hors mode, fiche tronçon, sans avis, marge':
-      'replis 1, 2 — tient',
+      'replis 1, 2, 4 — tient',
   '390 × 844, 200 %, crues, hors mode, fiche tronçon, avis, sans marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, crues, hors mode, fiche tronçon, avis, marge':
-      'replis 1, 2, 3 — tient',
+      'replis 1, 2, 3, 4 — tient',
   '390 × 844, 200 %, crues, en mode, sans fiche, sans avis, sans marge':
       'replis 1, 4 — tient',
   '390 × 844, 200 %, crues, en mode, sans fiche, sans avis, marge':

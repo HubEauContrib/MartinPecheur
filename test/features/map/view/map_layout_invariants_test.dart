@@ -57,10 +57,12 @@
 // - I-i : sur la vraie `MapView`, un tap, un glisser et un cran de molette
 //   posés sur la carte visible hors des pièces atteignent la carte ; le fond
 //   du bloc, lui, absorbe les gestes (`B1`) : I-i les éprouve hors du bloc ;
-// - Review Focus 3 : à 360 × 640, fiche station ouverte, l'échelle du texte
-//   passe de 200 % à 100 % puis revient : aucune erreur, la fiche reste
-//   ouverte, les sous-titres suivent la répartition, le rapport ne change
-//   qu'une fois par changement d'échelle ;
+// - Review Focus 3 : à 360 × 640 et 390 × 844, fiche station ouverte,
+//   l'échelle du texte passe de 200 % à 100 % puis revient : aucune erreur,
+//   la fiche reste ouverte, les sous-titres suivent la répartition (à
+//   390 × 844, ils reviennent puis repartent ; à 360 × 640, repliés aux deux
+//   échelles, arbitrage 17), le rapport ne change qu'une fois par changement
+//   d'échelle ;
 // - l'ordre de tabulation au téléphone (`K1` de T3, spec § 5.7), sur la
 //   rangée du bas.
 //
@@ -1697,102 +1699,120 @@ void main() {
     );
   });
 
-  group(
-    'Review Focus 3 — l’échelle du texte change, fiche station ouverte',
-    () {
-      testWidgetsOnAndroid('Android : 360 × 640, fiche station ouverte, texte '
-          '200 % → 100 % → 200 % : aucune erreur, la fiche reste ouverte, son '
-          'en-tête entier, les sous-titres suivent la répartition — repliés à '
-          '200 %, entiers à 100 % —, le rapport ne change qu’une fois par '
-          'changement d’échelle', (WidgetTester tester) async {
-        const _Config c = _Config(
-          nomTaille: '360 × 640',
-          taille: Size(360, 640),
-          plateforme: TargetPlatform.android,
-          echelle: 2,
-          lecture: MapScaleKind.ecoulement,
-          enMode: false,
-          fiche: _Fiche.station,
-          avecAvis: false,
-          marge: false,
-        );
-        final ValueNotifier<double> echelle = ValueNotifier<double>(2);
-        addTearDown(echelle.dispose);
-        final _Ecran e = await _monter(tester, c, echelle: echelle);
-        final List<MapLayoutReport?> publies = <MapLayoutReport?>[];
-        e.rapport.addListener(() => publies.add(e.rapport.value));
+  group('Review Focus 3 — l’échelle du texte change, fiche station ouverte', () {
+    // Arbitrage 17 : fiche du bas ouverte, les sous-titres cèdent avant le
+    // corps de la fiche — à 360 × 640, ils sont repliés aussi à 100 % ; à
+    // 390 × 844, entiers à 100 %, ils reviennent puis repartent.
+    for (final ({String nomTaille, Size taille, bool entiersA100}) t
+        in <({String nomTaille, Size taille, bool entiersA100})>[
+          (
+            nomTaille: '360 × 640',
+            taille: const Size(360, 640),
+            entiersA100: false,
+          ),
+          (
+            nomTaille: '390 × 844',
+            taille: const Size(390, 844),
+            entiersA100: true,
+          ),
+        ]) {
+      testWidgetsOnAndroid(
+        'Android : ${t.nomTaille}, fiche station ouverte, texte '
+        '200 % → 100 % → 200 % : aucune erreur, la fiche reste ouverte, son '
+        'en-tête entier, les sous-titres suivent la répartition — repliés à '
+        '200 %, ${t.entiersA100 ? 'entiers' : 'repliés'} à 100 % —, le rapport ne '
+        'change qu’une fois par changement d’échelle',
+        (WidgetTester tester) async {
+          final _Config c = _Config(
+            nomTaille: t.nomTaille,
+            taille: t.taille,
+            plateforme: TargetPlatform.android,
+            echelle: 2,
+            lecture: MapScaleKind.ecoulement,
+            enMode: false,
+            fiche: _Fiche.station,
+            avecAvis: false,
+            marge: false,
+          );
+          final ValueNotifier<double> echelle = ValueNotifier<double>(2);
+          addTearDown(echelle.dispose);
+          final _Ecran e = await _monter(tester, c, echelle: echelle);
+          final List<MapLayoutReport?> publies = <MapLayoutReport?>[];
+          e.rapport.addListener(() => publies.add(e.rapport.value));
 
-        // Les sous-titres sont peints exactement quand la répartition ne les
-        // replie pas.
-        void sousTitresSelonLaRepartition(String quand) {
-          final bool replies = e.rapport.value!.allocation.subtitlesFolded;
-          expect(
-            find.text('observé sur le terrain').hitTestable(),
-            replies ? findsNothing : findsOneWidget,
-            reason: '$quand : sous-titres ${replies ? 'repliés' : 'entiers'}',
-          );
-        }
+          // Les sous-titres sont peints exactement quand la répartition ne les
+          // replie pas.
+          void sousTitresSelonLaRepartition(String quand) {
+            final bool replies = e.rapport.value!.allocation.subtitlesFolded;
+            expect(
+              find.text('observé sur le terrain').hitTestable(),
+              replies ? findsNothing : findsOneWidget,
+              reason: '$quand : sous-titres ${replies ? 'repliés' : 'entiers'}',
+            );
+          }
 
-        // La fiche reste ouverte ET visible : la zone garde la hauteur que la
-        // répartition lui donne, au moins l'en-tête épinglé (`D5`).
-        void ficheVisible(String quand) {
-          expect(find.byKey(_ficheStationKey), findsOneWidget, reason: quand);
-          expect(
-            e.rapport.value!.allocation.sheet,
-            greaterThan(0),
-            reason: '$quand : la répartition ne donne plus rien à la fiche',
-          );
-          // `D5` : la zone garde au moins l'en-tête épinglé, entier.
-          final Rect zone = tester.getRect(find.byKey(mapSheetAreaKey));
-          final Rect enTete = tester.getRect(find.byKey(sheetFrameHeaderKey));
-          expect(enTete.height, greaterThan(0), reason: quand);
-          expect(
-            zone.height,
-            greaterThanOrEqualTo(enTete.height - _tolerance),
-            reason: '$quand : la zone des fiches n’a plus son en-tête',
-          );
-          expect(
-            enTete.top >= zone.top - _tolerance &&
-                enTete.bottom <= zone.bottom + _tolerance,
-            isTrue,
-            reason: '$quand : l’en-tête $enTete sort de la zone $zone',
-          );
-        }
+          // La fiche reste ouverte ET visible : la zone garde la hauteur que la
+          // répartition lui donne, au moins l'en-tête épinglé (`D5`).
+          void ficheVisible(String quand) {
+            expect(find.byKey(_ficheStationKey), findsOneWidget, reason: quand);
+            expect(
+              e.rapport.value!.allocation.sheet,
+              greaterThan(0),
+              reason: '$quand : la répartition ne donne plus rien à la fiche',
+            );
+            // `D5` : la zone garde au moins l'en-tête épinglé, entier.
+            final Rect zone = tester.getRect(find.byKey(mapSheetAreaKey));
+            final Rect enTete = tester.getRect(find.byKey(sheetFrameHeaderKey));
+            expect(enTete.height, greaterThan(0), reason: quand);
+            expect(
+              zone.height,
+              greaterThanOrEqualTo(enTete.height - _tolerance),
+              reason: '$quand : la zone des fiches n’a plus son en-tête',
+            );
+            expect(
+              enTete.top >= zone.top - _tolerance &&
+                  enTete.bottom <= zone.bottom + _tolerance,
+              isTrue,
+              reason: '$quand : l’en-tête $enTete sort de la zone $zone',
+            );
+          }
 
-        expect(e.erreurs, isEmpty);
-        final MapLayoutAllocation a200 = e.rapport.value!.allocation;
-        ficheVisible('à 200 %');
-        sousTitresSelonLaRepartition('à 200 %');
+          expect(e.erreurs, isEmpty);
+          final MapLayoutAllocation a200 = e.rapport.value!.allocation;
+          ficheVisible('à 200 %');
+          sousTitresSelonLaRepartition('à 200 %');
 
-        for (final (double, int) pas in <(double, int)>[(1, 1), (2, 2)]) {
-          echelle.value = pas.$1;
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
+          for (final (double, int) pas in <(double, int)>[(1, 1), (2, 2)]) {
+            echelle.value = pas.$1;
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+            expect(
+              publies,
+              hasLength(pas.$2),
+              reason:
+                  'un rapport par changement d’échelle, jamais de va-et-vient',
+            );
+            ficheVisible('à ${(pas.$1 * 100).round()} %');
+            sousTitresSelonLaRepartition('à ${(pas.$1 * 100).round()} %');
+          }
+          // Revenue à 200 %, la répartition est celle du départ.
+          expect(e.rapport.value!.allocation, a200);
+          // Review Focus 3 (`D5`, que la zone provisoire empêchait de voir) :
+          // fiche station ouverte, les sous-titres sont repliés à 200 % (repli
+          // 4) ; à 100 %, entiers ou repliés selon la taille (arbitrage 17),
+          // selon `allocateMapLayout`.
+          expect(a200.subtitlesFolded, isTrue, reason: 'à 200 %, repliés');
+          expect(a200.folds, contains(4), reason: 'à 200 %, le repli 4 joue');
+          expect(publies.first!.allocation.subtitlesFolded, !t.entiersA100);
           expect(
-            publies,
-            hasLength(pas.$2),
-            reason:
-                'un rapport par changement d’échelle, jamais de va-et-vient',
+            publies.first!.allocation.folds,
+            t.entiersA100 ? isNot(contains(4)) : contains(4),
+            reason: 'à 100 %, ${t.entiersA100 ? 'entiers' : 'repliés'}',
           );
-          ficheVisible('à ${(pas.$1 * 100).round()} %');
-          sousTitresSelonLaRepartition('à ${(pas.$1 * 100).round()} %');
-        }
-        // Revenue à 200 %, la répartition est celle du départ.
-        expect(e.rapport.value!.allocation, a200);
-        // Review Focus 3 (`D5`, que la zone provisoire empêchait de voir) :
-        // fiche station ouverte, les sous-titres sont repliés à 200 % (repli
-        // 4) et entiers à 100 %, selon `allocateMapLayout`.
-        expect(a200.subtitlesFolded, isTrue, reason: 'à 200 %, repliés');
-        expect(a200.folds, contains(4), reason: 'à 200 %, le repli 4 joue');
-        expect(publies.first!.allocation.subtitlesFolded, isFalse);
-        expect(
-          publies.first!.allocation.folds,
-          isNot(contains(4)),
-          reason: 'à 100 %, entiers',
-        );
-      });
-    },
-  );
+        },
+      );
+    }
+  });
 
   group('K1 de T3 — l’ordre de tabulation au téléphone (spec § 5.7)', () {
     for (final ({String nom, Size taille, TargetPlatform plateforme}) t

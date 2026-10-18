@@ -10,14 +10,17 @@
 // pas, la partie fixe défile (13) — `overflows`, aucun repli de plus ; le
 // repli 6 s'étend au-delà du téléphone (14) — en mode, fiche ouverte, une
 // bande du bouton qui ne tient pas en largeur à côté de la colonne du bas se
-// retire avec le réticule (`MapLayoutInput.bandFits`). Arbitrage 15 (« le
-// réticule reste fixe ») : en mode, bande du réticule posée et fiche du bas
-// comptée (hors panel), les replis continus jouent dans l'ordre 1 (légende),
-// 3 (avis), 2 (corps de la fiche), et le surplus d'un repli tout ou rien
-// revient à la fiche, puis aux avis, puis à la légende : la fiche, qui place
-// la bande et donc le réticule, ne dépend plus de la partie variable.
-// Partout ailleurs : 1, 2, 3, et le surplus aux avis, à la fiche, à la
-// légende. `folds` garde les numéros, en ordre croissant.
+// retire avec le réticule (`MapLayoutInput.bandFits`). Arbitrages 15 (« le
+// réticule reste fixe ») et 17 (« le corps de la fiche avant les sous-titres
+// et l'indice »), fiche du bas ouverte (comptée, hors panel) : en mode, bande
+// du réticule posée, les replis jouent dans l'ordre 1 (légende), 3 (avis),
+// 4 (sous-titres), 5 (indice), 2 (corps de la fiche), puis 6 ; le surplus
+// revient à la fiche, puis aux avis, puis à la légende — la fiche, qui place
+// la bande et donc le réticule, ne dépend plus de la partie variable. Hors
+// mode, ou bande retirée d'emblée : 1, 4, 2, 3. Sans fiche du bas (fermée, ou
+// en panneau) : 1, 2, 3, 4, 5, 6. Hors du cas « en mode, bande posée », le
+// surplus va aux avis, à la fiche, à la légende. `folds` garde les numéros,
+// en ordre croissant.
 //
 // Aucun import, ni Flutter ni `dart:ui` : elle s'éprouve seule, sur des
 // nombres. Le `RenderObject` de la carte (`D1`) lit les intrinsèques de ses
@@ -453,12 +456,17 @@ final class MapLayoutAllocation {
 /// La somme reste linéaire : aucun max(bloc, bas) n'y entre.
 ///
 /// Tout au plus haut d'abord. Puis, si la somme dépasse la hauteur
-/// disponible, les replis jouent dans l'ordre (spec § 5.6), chacun seulement
-/// s'il le faut et seulement de ce qu'il faut :
+/// disponible, les replis jouent (spec § 5.6), chacun seulement s'il le faut
+/// et seulement de ce qu'il faut :
 /// 1. la légende, 2. la fiche jusqu'à son en-tête, 3. les avis — par degrés ;
 /// 4. les sous-titres, 5. l'indice, 6. au téléphone, en mode, fiche ouverte,
 ///    la bande et le réticule — tout ou rien, et seulement s'ils libèrent une
 ///    hauteur.
+/// L'ordre : sans fiche du bas (fermée, ou en panneau), 1, 2, 3, 4, 5, 6.
+/// Fiche du bas ouverte, les sous-titres et l'indice cèdent avant le corps de
+/// la fiche (arbitrage 17 du commanditaire, 2026-10-18) : en mode, bande du
+/// réticule posée, 1, 3, 4, 5, 2, 6 — l'avis avant le corps (arbitrage 15) ;
+/// sinon (hors mode, ou bande retirée d'emblée), 1, 4, 2, 3.
 /// Repli 6 étendu (arbitrage 14 du commanditaire, 2026-10-18) : en mode,
 /// fiche ouverte, une bande qui ne tient pas en largeur
 /// ([MapLayoutInput.bandFits] faux) est retirée d'emblée avec la bande du
@@ -467,10 +475,10 @@ final class MapLayoutAllocation {
 /// qui ne tient pas donne `overflows` et le reste se répartit comme
 /// d'habitude.
 /// Un repli tout ou rien peut libérer plus qu'il ne manque : ce surplus revient
-/// aux replis par degrés, le plus tardif d'abord (avis, fiche, légende ; en
-/// mode, bande du réticule posée et fiche du bas comptée : fiche, avis,
-/// légende — arbitrage 15, le réticule reste fixe) ; un
-/// repli tout ou rien joué n'est jamais défait. Si les six ne suffisent pas,
+/// aux replis par degrés déjà joués, le plus tardif d'abord (avis, fiche,
+/// légende ; en mode, bande du réticule posée et fiche du bas comptée : fiche,
+/// avis, légende — arbitrage 15, le réticule reste fixe) ; un repli tout ou
+/// rien joué n'est jamais défait. Si les six ne suffisent pas,
 /// [MapLayoutAllocation.overflows] est vrai et la partie fixe reçoit ce qui
 /// reste. Aucune hauteur rendue n'est négative ; aucune exception. Les
 /// comparaisons ignorent un écart de [_tolerance] (1e-6 px).
@@ -537,18 +545,11 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
     sheet: sheetCounted ? sheetMax : 0,
   );
 
-  // Replis 1 à 3 au plus bas d'abord : ce qu'ils n'auront pas eu à donner,
-  // ils le reprennent plus bas.
-  if (stack.total(heights) > available + _tolerance) {
-    heights = heights.copyWith(
-      legend: 0,
-      sheet: sheetCounted ? sheet.min : 0,
-      notices: 0,
-    );
-  }
-
-  // Replis 4 à 6 : chacun seulement si la somme dépasse encore, et s'il
-  // libère une hauteur.
+  // Chaque repli, dans l'ordre, seulement si la somme dépasse encore. Un repli
+  // par degrés passe d'un coup au plus bas : ce qu'il n'aura pas eu à donner,
+  // il le reprend plus bas, avec le surplus. Un repli tout ou rien ne joue que
+  // s'il libère une hauteur, et n'est jamais défait.
+  bool overflowing() => stack.total(heights) > available + _tolerance;
   bool play(_Heights folded) {
     final double before = stack.total(heights);
     if (before <= available + _tolerance) return false;
@@ -557,14 +558,76 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
     return true;
   }
 
-  final bool subtitlesFolded = play(
-    heights.copyWith(blockFixed: blockFixed.min),
-  );
-  final bool hintFolded =
-      !withdrawnAtOnce && play(heights.copyWith(band: band.min));
-  final bool bandWithdrawn =
-      withdrawnAtOnce ||
-      (withdrawable && play(heights.copyWith(band: 0, reticleBand: 0)));
+  bool subtitlesFolded = false;
+  bool hintFolded = false;
+  bool withdrawnByHeight = false;
+  void foldLegend() {
+    if (overflowing()) heights = heights.copyWith(legend: 0);
+  }
+
+  void foldSheet() {
+    if (sheetCounted && overflowing()) {
+      heights = heights.copyWith(sheet: sheet.min);
+    }
+  }
+
+  void foldNotices() {
+    if (overflowing()) heights = heights.copyWith(notices: 0);
+  }
+
+  void foldSubtitles() {
+    subtitlesFolded = play(heights.copyWith(blockFixed: blockFixed.min));
+  }
+
+  void foldHint() {
+    hintFolded = !withdrawnAtOnce && play(heights.copyWith(band: band.min));
+  }
+
+  void withdrawBand() {
+    withdrawnByHeight =
+        !withdrawnAtOnce &&
+        withdrawable &&
+        play(heights.copyWith(band: 0, reticleBand: 0));
+  }
+
+  // Arbitrage 17 : fiche du BAS ouverte, les sous-titres et l'indice cèdent
+  // avant le corps de la fiche — 1, 3, 4, 5, 2 en mode, bande du réticule
+  // posée (l'avis avant le corps, arbitrage 15) ; 1, 4, 2, 3 sinon (hors
+  // mode, ou bande retirée d'emblée). Sans fiche du bas : 1, 2, 3, 4, 5. Le
+  // repli 6 reste le dernier.
+  final bool bottomSheet = sheetCounted && sheet.max > 0;
+  // Lu avant tout repli : la bande du réticule est posée au départ.
+  final bool reticlePosedAtStart = input.designation && heights.reticleBand > 0;
+  final List<void Function()> order = !bottomSheet
+      ? <void Function()>[
+          foldLegend,
+          foldSheet,
+          foldNotices,
+          foldSubtitles,
+          foldHint,
+          withdrawBand,
+        ]
+      : reticlePosedAtStart
+      ? <void Function()>[
+          foldLegend,
+          foldNotices,
+          foldSubtitles,
+          foldHint,
+          foldSheet,
+          withdrawBand,
+        ]
+      : <void Function()>[
+          foldLegend,
+          foldSubtitles,
+          foldSheet,
+          foldNotices,
+          foldHint,
+          withdrawBand,
+        ];
+  for (final void Function() fold in order) {
+    fold();
+  }
+  final bool bandWithdrawn = withdrawnAtOnce || withdrawnByHeight;
 
   final bool stackOverflows = stack.total(heights) > available + _tolerance;
   if (stackOverflows) {
@@ -577,11 +640,12 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
       set: (_Heights h, double v) => h.copyWith(blockFixed: v),
     );
   } else {
-    // Le surplus revient aux replis par degrés, le plus tardif d'abord :
-    // avis, fiche, légende. Arbitrage 15 (le réticule reste fixe) : en mode,
-    // bande du réticule posée et fiche du bas comptée, la fiche passe avant
-    // les avis — elle place la bande, donc le réticule, qui ne doit dépendre
-    // ni des avis ni de la légende.
+    // Le surplus revient aux replis par degrés, le plus tardif d'abord —
+    // l'inverse de l'ordre où ils ont joué : avis, fiche, légende. En mode,
+    // bande du réticule posée et fiche du bas comptée (ordre 1, 3, 4, 5, 2) :
+    // fiche, avis, légende — la fiche place la bande, donc le réticule, qui
+    // ne doit dépendre ni des avis ni de la légende (arbitrage 15). Le repli
+    // 6 joué par la hauteur, la bande est partie : avis, fiche, légende.
     _Heights growNotices(_Heights h) => stack.grow(
       h,
       available,
@@ -599,11 +663,10 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
             set: (_Heights h, double v) => h.copyWith(sheet: v),
           )
         : h;
+    // La bande du réticule est encore posée : posée au départ, et pas
+    // retirée faute de hauteur.
     final bool reticleFixed =
-        input.designation &&
-        sheetCounted &&
-        sheet.max > 0 &&
-        heights.reticleBand > 0;
+        bottomSheet && reticlePosedAtStart && !withdrawnByHeight;
     heights = reticleFixed
         ? growNotices(growSheet(heights))
         : growSheet(growNotices(heights));
