@@ -13,13 +13,18 @@
 //
 // `S2` d'Ergonomie (cadrage du 2026-10-17) ajoute deux pièces de la nouvelle
 // carte, éprouvées seules : l'en-tête « Légende · <lecture> » qui porte
-// « ⚠ Avertissement » (`MapLegendHeader`), et la légende « dans le bloc »
-// (`MapLegend(inBlock: true)` : sans titre, sans carte blanche, rangées
-// courtes en colonnes). Ces deux pièces mesurent en ROBOTO, chargée depuis le
-// SDK Flutter par `chargerRoboto` (`test/support/roboto.dart`) : en police de
-// test, chaque glyphe mesure un cadratin et « Avertissement » ne tiendrait
-// jamais à 200 % sur 344 de large. Les cas d'avant `S2` ne mesurent rien et
-// passent sans changement (`inBlock: false`, le défaut).
+// « ⚠ Avertissement » (`MapLegendHeader`), et la légende du bloc (sans titre,
+// sans carte blanche, rangées courtes en colonnes). Ces deux pièces mesurent en
+// ROBOTO, chargée depuis le SDK Flutter par `chargerRoboto`
+// (`test/support/roboto.dart`) : en police de test, chaque glyphe mesure un
+// cadratin et « Avertissement » ne tiendrait jamais à 200 % sur 344 de large.
+//
+// Depuis la relecture finale de la branche (m1), la légende n'a plus qu'une
+// forme, celle du bloc : l'ancienne forme « hors du bloc » (titre, carte
+// blanche, 260 de large au plus) n'avait plus d'appelant. Les cas d'avant
+// `S2` éprouvent donc la légende du bloc, posée à la largeur du bloc au
+// téléphone ; ceux qui lisaient son titre lisent le nom de la lecture là où il
+// est désormais, dans l'en-tête, la légende posée dessous.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,14 +85,6 @@ const List<String> libellesDebit = <String>[
   'Sélectionnez pour charger',
 ];
 
-Future<void> _pumpLegend(WidgetTester tester, MapScaleKind scale) {
-  return tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(body: MapLegend(scale: scale)),
-    ),
-  );
-}
-
 /// Les cinq rangées de la légende Crues, telles que le cadrage § 12.2 les écrit.
 const List<String> libellesCrues = <String>[
   'Vert — Pas de vigilance particulière requise',
@@ -102,15 +99,12 @@ Future<void> _pumpCruesLegend(
   DateTime? date,
   UtcOffsetOf utcOffsetOf = systemUtcOffsetOf,
 }) {
-  return tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: MapLegend(
-          scale: MapScaleKind.crues,
-          floodInformationDate: date,
-          utcOffsetOf: utcOffsetOf,
-        ),
-      ),
+  return _pumpAt(
+    tester,
+    MapLegend(
+      scale: MapScaleKind.crues,
+      floodInformationDate: date,
+      utcOffsetOf: utcOffsetOf,
     ),
   );
 }
@@ -149,8 +143,9 @@ Future<void> _pumpAt(
   );
 }
 
-/// La légende « dans le bloc » de [scale], posée à [width] de large.
-Future<void> _pumpBlockLegend(
+/// La légende de [scale], posée à [width] de large — par défaut, la largeur
+/// du bloc au téléphone.
+Future<void> _pumpLegend(
   WidgetTester tester,
   MapScaleKind scale, {
   double width = _phoneBlockWidth,
@@ -158,8 +153,24 @@ Future<void> _pumpBlockLegend(
 }) {
   return _pumpAt(
     tester,
-    MapLegend(scale: scale, inBlock: true, floodInformationDate: date),
+    MapLegend(scale: scale, floodInformationDate: date),
     width: width,
+  );
+}
+
+/// La légende de [scale] sous son en-tête, comme le bloc les pose : l'en-tête
+/// porte le nom de la lecture, la légende vient dessous.
+Future<void> _pumpLegendUnderHeader(WidgetTester tester, MapScaleKind scale) {
+  return _pumpAt(
+    tester,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        MapLegendHeader(scale: scale, warningLink: const WarningLink()),
+        MapLegend(scale: scale),
+      ],
+    ),
   );
 }
 
@@ -275,12 +286,17 @@ void main() {
   });
 
   group('legende de l echelle « debit »', () {
-    testWidgetsOnWindows('nomme son echelle avec le libelle de 04-ui.md', (
+    testWidgetsOnWindows('nomme son echelle avec le libelle de 04-ui.md, une '
+        'fois : dans l en-tete du bloc, la legende dessous ne le repete pas', (
       WidgetTester tester,
     ) async {
-      await _pumpLegend(tester, MapScaleKind.debit);
+      await _pumpLegendUnderHeader(tester, MapScaleKind.debit);
 
-      expect(find.text(mapScaleLabel(MapScaleKind.debit)), findsOneWidget);
+      expect(
+        find.text('Légende · ${mapScaleLabel(MapScaleKind.debit)}'),
+        findsOneWidget,
+      );
+      expect(find.text(mapScaleLabel(MapScaleKind.debit)), findsNothing);
     });
 
     testWidgetsOnWindows(
@@ -368,12 +384,17 @@ void main() {
   });
 
   group('legende de l echelle « ecoulement »', () {
-    testWidgetsOnWindows('nomme son echelle avec le libelle de 04-ui.md', (
+    testWidgetsOnWindows('nomme son echelle avec le libelle de 04-ui.md, une '
+        'fois : dans l en-tete du bloc, la legende dessous ne le repete pas', (
       WidgetTester tester,
     ) async {
-      await _pumpLegend(tester, MapScaleKind.ecoulement);
+      await _pumpLegendUnderHeader(tester, MapScaleKind.ecoulement);
 
-      expect(find.text(mapScaleLabel(MapScaleKind.ecoulement)), findsOneWidget);
+      expect(
+        find.text('Légende · ${mapScaleLabel(MapScaleKind.ecoulement)}'),
+        findsOneWidget,
+      );
+      expect(find.text(mapScaleLabel(MapScaleKind.ecoulement)), findsNothing);
     });
 
     testWidgetsOnWindows(
@@ -430,12 +451,16 @@ void main() {
   });
 
   group('legende de l echelle « Vigilance crues » (M3 de T4)', () {
-    testWidgetsOnWindows('nomme son echelle et cite les cinq rangees, mot pour '
-        'mot', (WidgetTester tester) async {
-      await _pumpCruesLegend(tester);
+    testWidgetsOnWindows('nomme son echelle dans l en-tete du bloc et cite les '
+        'cinq rangees, mot pour mot', (WidgetTester tester) async {
+      await _pumpLegendUnderHeader(tester, MapScaleKind.crues);
 
-      expect(find.text('Vigilance crues'), findsOneWidget);
-      expect(find.text(mapScaleLabel(MapScaleKind.crues)), findsOneWidget);
+      expect(find.text('Légende · Vigilance crues'), findsOneWidget);
+      expect(
+        find.text('Légende · ${mapScaleLabel(MapScaleKind.crues)}'),
+        findsOneWidget,
+      );
+      expect(find.text(mapScaleLabel(MapScaleKind.crues)), findsNothing);
       for (final String label in libellesCrues) {
         expect(
           find.text(label),
@@ -933,30 +958,27 @@ void main() {
     });
 
     testWidgetsOnWindows(
-      'inBlock: sans titre — aucun mapScaleLabel(scale) seul, pour les trois '
-      'lectures ; le titre reste là hors du bloc',
+      'sans titre — aucun mapScaleLabel(scale) seul, pour les trois lectures : '
+      'le nom de la lecture est dans l\'en-tête',
       (WidgetTester tester) async {
         for (final MapScaleKind scale in MapScaleKind.values) {
-          await _pumpBlockLegend(tester, scale);
+          await _pumpLegend(tester, scale);
           expect(
             find.text(mapScaleLabel(scale)),
             findsNothing,
             reason: 'le titre est dans l\'en-tête, pas dans la légende',
           );
           expect(find.text(mapLegendHeaderText(scale)), findsNothing);
-
-          await _pumpLegend(tester, scale);
-          expect(find.text(mapScaleLabel(scale)), findsOneWidget);
         }
       },
     );
 
     testWidgetsOnWindows(
-      'inBlock: ni carte blanche, ni plafond de legendMaxWidth — le bloc les '
-      'porte',
+      'ni carte blanche, ni plafond de largeur — le bloc les porte : la légende '
+      'prend la largeur du bloc, au téléphone (344) comme au-delà (480)',
       (WidgetTester tester) async {
         for (final MapScaleKind scale in MapScaleKind.values) {
-          await _pumpBlockLegend(tester, scale);
+          await _pumpLegend(tester, scale);
           expect(
             find.descendant(
               of: find.byType(MapLegend),
@@ -966,26 +988,20 @@ void main() {
           );
         }
 
-        // Deux rangées de 156 et l'écart de 8 font 320 > legendMaxWidth : une
-        // légende plafonnée à 260 n'en poserait qu'une par ligne.
-        await _pumpBlockLegend(tester, MapScaleKind.ecoulement);
-        expect(
-          tester.getSize(find.byType(MapLegend)).width,
-          greaterThan(legendMaxWidth),
-        );
-        await _pumpLegend(tester, MapScaleKind.ecoulement);
-        expect(
-          tester.getSize(find.byType(MapLegend)).width,
-          lessThanOrEqualTo(legendMaxWidth),
-        );
+        // Aucun plafond : la légende a la largeur que le bloc lui donne — et
+        // deux cases de 156 et leur écart de 8 (320) y tiennent côte à côte.
+        for (final double width in <double>[_phoneBlockWidth, 480]) {
+          await _pumpLegend(tester, MapScaleKind.ecoulement, width: width);
+          expect(tester.getSize(find.byType(MapLegend)).width, width);
+        }
       },
     );
 
     testWidgetsOnWindows(
-      'inBlock, écoulement à 344 : les six rangées sur trois lignes de deux, '
+      'écoulement à 344 : les six rangées sur trois lignes de deux, '
       'dans l\'ordre de lecture',
       (WidgetTester tester) async {
-        await _pumpBlockLegend(tester, MapScaleKind.ecoulement);
+        await _pumpLegend(tester, MapScaleKind.ecoulement);
 
         final Finder markers = find.byType(OndeMarkerShape);
         expect(markers, findsNWidgets(6));
@@ -1019,12 +1035,12 @@ void main() {
     );
 
     testWidgetsOnWindows(
-      'inBlock : les colonnes suivent la largeur — deux dès 320, une seule en '
+      'les colonnes suivent la largeur — deux dès 320, une seule en '
       'deçà, sans LayoutBuilder',
       (WidgetTester tester) async {
-        await _pumpBlockLegend(tester, MapScaleKind.ecoulement, width: 320);
+        await _pumpLegend(tester, MapScaleKind.ecoulement, width: 320);
         expect(_perLine(tester, find.byType(OndeMarkerShape)), <int>[2, 2, 2]);
-        await _pumpBlockLegend(tester, MapScaleKind.ecoulement, width: 300);
+        await _pumpLegend(tester, MapScaleKind.ecoulement, width: 300);
         expect(_perLine(tester, find.byType(OndeMarkerShape)), <int>[
           1,
           1,
@@ -1044,11 +1060,11 @@ void main() {
     );
 
     testWidgetsOnWindows(
-      'inBlock, débit à 344 : l\'explication de BR-004 et la comparaison '
+      'débit à 344 : l\'explication de BR-004 et la comparaison '
       'statistique restent pleine largeur ; les cinq rangées de fraîcheur '
       'sont en colonnes',
       (WidgetTester tester) async {
-        await _pumpBlockLegend(tester, MapScaleKind.debit);
+        await _pumpLegend(tester, MapScaleKind.debit);
 
         for (final String phrase in <String>[
           'Pas assez de mesures passées à cette station pour situer la valeur '
@@ -1071,11 +1087,11 @@ void main() {
     );
 
     testWidgetsOnWindows(
-      'inBlock, crues à 344 : les cinq rangées restent pleine largeur (leurs '
+      'crues à 344 : les cinq rangées restent pleine largeur (leurs '
       'libellés publiés sont longs), une par ligne ; la couverture et la date '
       'de la vigilance aussi',
       (WidgetTester tester) async {
-        await _pumpBlockLegend(
+        await _pumpLegend(
           tester,
           MapScaleKind.crues,
           date: DateTime.utc(2026, 10, 14, 13, 55, 31),
@@ -1109,11 +1125,11 @@ void main() {
     );
 
     testWidgetsOnWindows(
-      'inBlock : intrinsèques lisibles sans erreur — la hauteur entière est '
+      'intrinsèques lisibles sans erreur — la hauteur entière est '
       'celle qui est posée, et la légende n\'a qu\'une hauteur (min = max)',
       (WidgetTester tester) async {
         for (final MapScaleKind scale in MapScaleKind.values) {
-          await _pumpBlockLegend(
+          await _pumpLegend(
             tester,
             scale,
             // Seule la lecture Crues dit une date : `switch` exhaustif, une
@@ -1137,28 +1153,20 @@ void main() {
       },
     );
 
+    // Relecture finale de la branche (m1), R15 : remplace « inBlock: false (le
+    // défaut) garde la carte blanche, son titre et sa colonne unique de 260 au
+    // plus » — une forme sans appelant, retirée. À sa place, la disposition de
+    // la seule forme à la plus grande largeur du bloc (480, au-delà du
+    // téléphone) : trois cases de 156 et deux écarts de 8 font 484 > 480.
     testWidgetsOnWindows(
-      'inBlock: false (le défaut) garde la carte blanche, son titre et sa '
-      'colonne unique de 260 au plus',
+      'à 480 de large, la plus grande largeur du bloc : jamais trois cases de '
+      'front — écoulement et fraîcheur du débit restent en deux colonnes',
       (WidgetTester tester) async {
-        await _pumpAt(tester, const MapLegend(scale: MapScaleKind.ecoulement));
-
-        expect(find.text('Écoulement'), findsOneWidget);
-        expect(
-          find.descendant(
-            of: find.byType(MapLegend),
-            matching: find.byType(DecoratedBox),
-          ),
-          findsWidgets,
-        );
-        expect(_perLine(tester, find.byType(OndeMarkerShape)), <int>[
-          1,
-          1,
-          1,
-          1,
-          1,
-          1,
-        ]);
+        await _pumpLegend(tester, MapScaleKind.ecoulement, width: 480);
+        expect(_perLine(tester, find.byType(OndeMarkerShape)), <int>[2, 2, 2]);
+        await _pumpLegend(tester, MapScaleKind.debit, width: 480);
+        expect(_perLine(tester, find.byType(StationMarkerDot)), <int>[2, 2, 1]);
+        expect(tester.takeException(), isNull);
       },
     );
   });

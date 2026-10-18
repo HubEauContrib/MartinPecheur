@@ -12,7 +12,9 @@
 // police chargée l'est pour tout le fichier : ici, c'est tout le fichier.
 //
 // `MapView` est monté en entier, comme dans `map_designation_test.dart`, dont
-// les aides sont reprises ici.
+// les aides sont reprises ici. Le même montage éprouve, fiche ouverte, que la
+// fiche n'est recréée ni quand la fenêtre franchit 800 px (`D4`) ni quand
+// « Restrictions » bascule (I1 de la relecture finale de la branche).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -52,6 +54,8 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart'
     show maximumMapZoom, minimumMapZoom;
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show sheetFrameBodyKey;
 
 import '../../../support/android_platform.dart';
 import '../../../support/ergonomie_fiches.dart';
@@ -859,5 +863,131 @@ void main() {
         }
       },
     );
+  });
+
+  // I1 de la relecture finale de la branche (une régression de `D2`) :
+  // allumer ou éteindre « Restrictions », fiche ouverte, ne recrée pas la
+  // fiche. La bande et le réticule n'existent qu'en mode : sans clé par
+  // emplacement, l'élément de la fiche recevait le widget de la bande, et une
+  // fiche neuve repartait du haut, son focus perdu. Le mode est basculé par le
+  // rappel que l'entrée « Restrictions » appelle (`MapView` lui passe
+  // `MapViewModel.toggleDesignationMode` tel quel) : un toucher n'y prend pas
+  // le focus, le focus reste dans la fiche. Le corps défile sous un contrôleur
+  // tenu hors de la fiche, comme `main.dart` le tient. Texte à 200 % : la
+  // fiche est plus haute que sa place, son corps défile.
+  group('relecture finale, I1 — « Restrictions » bascule, fiche station '
+      'ouverte : la fiche n’est pas recréée', () {
+    for (final (String, _Test, Size) cas in <(String, _Test, Size)>[
+      ('fiche du bas, 390 × 844', _surAndroid, const Size(390, 844)),
+      (
+        'fiche du bas à côté de la colonne, 700 × 740',
+        _surWindows,
+        const Size(700, 740),
+      ),
+      ('panneau, 800 × 740', _surWindows, const Size(800, 740)),
+    ]) {
+      cas.$2('${cas.$1}, 200 %, corps défilé, focus dans la fiche : allumer '
+          'puis éteindre « Restrictions » garde la fiche, la position de son '
+          'corps et le focus', (WidgetTester tester) async {
+        tester.view.physicalSize = cas.$3;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: _Stations(<StationPoint>[_stationAuCentre()]),
+          observations: _NoHydro(),
+          onde: _NoOnde(),
+          delay: (Duration _) => Future<void>.value(),
+        );
+        final ScrollController corps = ScrollController();
+        addTearDown(corps.dispose);
+        const Key fiche = Key('fiche-station-i1');
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (BuildContext context, Widget? child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: MapView(
+              viewModel: viewModel,
+              onPointDesignated: (GeoPoint _) {},
+              onStationTap: (StationCode _) {},
+              stationSheet: ficheStationBlois(key: fiche, defilement: corps),
+              // Comme `main.dart` : les panneaux toujours fournis, vides à
+              // l'état fermé.
+              onOndeTap: (OndePoint _) {},
+              ondeSheet: const SizedBox.shrink(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        // Lecture « Débit », une station dans l'emprise : aucun avis
+        // d'absence ne prend la hauteur de la fiche.
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        expect(viewModel.designationMode, isFalse);
+
+        final Finder defilement = find
+            .descendant(
+              of: find.byKey(sheetFrameBodyKey),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        final ScrollableState avant = tester.state<ScrollableState>(defilement);
+        expect(
+          avant.position.maxScrollExtent,
+          greaterThan(0),
+          reason: 'garde-fou : le corps de la fiche doit défiler',
+        );
+        final double position = avant.position.maxScrollExtent / 2;
+        avant.position.jumpTo(position);
+        await tester.pumpAndSettle();
+
+        // Le focus posé dans la fiche, par Tab.
+        for (int i = 0; i < 40 && !_focusedWithin(find.byKey(fiche)); i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(
+          _focusedWithin(find.byKey(fiche)),
+          isTrue,
+          reason: 'garde-fou : Tab n’atteint pas la fiche',
+        );
+        final FocusNode? focus = FocusManager.instance.primaryFocus;
+        final Element element = tester.element(find.byKey(fiche));
+
+        for (final bool enMode in <bool>[true, false]) {
+          viewModel.toggleDesignationMode();
+          await tester.pumpAndSettle();
+          final String a = enMode ? 'mode allumé' : 'mode éteint';
+          expect(viewModel.designationMode, enMode, reason: a);
+          expect(tester.takeException(), isNull, reason: a);
+          // Garde-fou : la bande n'existe qu'en mode — c'est elle qui change
+          // la liste des enfants de la mise en page.
+          expect(
+            find.byType(DesignationBand),
+            enMode ? findsOneWidget : findsNothing,
+            reason: a,
+          );
+          // Les quatre faits, tous relevés avant de conclure : un échec les
+          // nomme tous.
+          final ScrollableState apres = tester.state<ScrollableState>(
+            defilement,
+          );
+          expect(<String>[
+            if ((apres.position.pixels - position).abs() > 1e-6)
+              '$a : le corps de la fiche est à ${apres.position.pixels}, '
+                  'pas à $position',
+            if (!identical(FocusManager.instance.primaryFocus, focus) ||
+                !_focusedWithin(find.byKey(fiche)))
+              '$a : le focus posé dans la fiche est perdu',
+            if (!identical(tester.element(find.byKey(fiche)), element))
+              '$a : la fiche est recréée',
+            if (!identical(apres, avant))
+              '$a : le défilement du corps est recréé',
+          ], isEmpty);
+        }
+      });
+    }
   });
 }

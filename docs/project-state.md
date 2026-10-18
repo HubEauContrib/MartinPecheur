@@ -34,8 +34,9 @@ aucune publication Android (`A⏸3`, `A⏸5`).
 
 ## Vérifié au 2026-10-18
 
-Sur le sommet `f6c4c13` de la tranche d'ergonomie, avec les documents de la seconde partie de `X1` : `flutter analyze` →
-« No issues found! », `flutter test` → « +7047: All tests passed! » (3 978 à la clôture de T4), `dart format` sans diff.
+Sur `48a6213` de la tranche d'ergonomie (documents de `X1` compris) et la passe de correction de la relecture finale
+de la branche : `flutter analyze` → « No issues found! », `flutter test` → « +7056: All tests passed! » (3 978 à la
+clôture de T4), `dart format` sans diff.
 
 **Réserve durable sur les polices de mesure.** Onze fichiers de test mesurent en Roboto, chargée depuis
 le SDK Flutter (`FLUTTER_ROOT`) : `map_reading_selector_test.dart`, `map_legend_test.dart`,

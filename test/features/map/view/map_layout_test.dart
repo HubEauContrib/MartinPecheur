@@ -48,9 +48,9 @@ import '../../../support/layout_sizes.dart';
 import '../../../support/roboto.dart';
 import '../../../support/windows_platform.dart';
 
-/// La bande du réticule de ces tests : le réticule et une marge de chaque côté
-/// (la valeur que `D2` passera).
-const double _bandeReticule = mapCenterReticleSize + 2 * margeDeSurcouche;
+/// La bande du réticule de ces tests : le réticule et une marge de chaque côté,
+/// celle que la composition passe (`mapReticleBandHeight`, lue dans `lib/`).
+const double _bandeReticule = mapReticleBandHeight;
 
 Key _cle(MapLayoutSlot slot) => Key('emplacement-${slot.name}');
 
@@ -923,9 +923,8 @@ void main() {
           : testWidgetsOnWindows;
       testSurLaPlateforme(
         '${compact ? 'Android : ' : ''}${taille.width.round()} × '
-        '${taille.height.round()}, en mode, fiche ouverte : aucune taille '
-        'négative, aucune erreur, tout dans la surface ; en débordement, la '
-        'partie fixe reçoit le reste',
+        '${taille.height.round()}, en mode, fiche ouverte : aucune erreur, '
+        'tout dans la surface ; en débordement, la partie fixe reçoit le reste',
         (WidgetTester tester) async {
           final ValueNotifier<MapLayoutReport?> rapport =
               ValueNotifier<MapLayoutReport?>(null);
@@ -950,8 +949,9 @@ void main() {
             final Rect rect = slot == MapLayoutSlot.reticle
                 ? _reticule(tester)
                 : _rect(tester, slot);
-            expect(rect.width, greaterThanOrEqualTo(0), reason: '$slot');
-            expect(rect.height, greaterThanOrEqualTo(0), reason: '$slot');
+            // La taille d'une boîte posée n'est jamais négative : rien à en
+            // affirmer (m5) ; la répartition, elle, n'a rien de négatif
+            // (`map_layout_allocation_test.dart`).
             if (rect.isEmpty) continue;
             expect(
               surface.contains(rect.topLeft) &&
@@ -1194,8 +1194,8 @@ void main() {
           ),
         ]) {
       (cas.android ? testWidgetsOnAndroid : testWidgetsOnWindows)(
-        '${cas.nom} : aucune erreur, aucune taille négative, carte visible '
-        'positive, rien hors de la zone sûre',
+        '${cas.nom} : aucune erreur, carte visible positive, rien hors de la '
+        'zone sûre',
         (WidgetTester tester) async {
           final MapLayoutInput entree = await mesurerPieces(
             tester,
@@ -1234,8 +1234,6 @@ void main() {
             final RenderBox boite = enfant as RenderBox;
             final Offset coin = boite.localToGlobal(Offset.zero);
             final Rect rect = coin & boite.size;
-            expect(boite.size.width, greaterThanOrEqualTo(0));
-            expect(boite.size.height, greaterThanOrEqualTo(0));
             if (rect.isEmpty) return;
             expect(rect.top, greaterThanOrEqualTo(sure.top - 1e-6));
             final MapLayoutSlot? slot =
@@ -1582,10 +1580,10 @@ Widget _piecesReelles({
                 notices: <Widget>[NoDataInAreaNotice(onWiden: rien)],
               ),
             ),
-            const MapLayoutChild(
+            MapLayoutChild(
               slot: MapLayoutSlot.blockLegend,
-              child: MapReadingBlockLegend(
-                legend: MapLegend(scale: MapScaleKind.debit, inBlock: true),
+              child: const MapReadingBlockLegend(
+                legend: MapLegend(scale: MapScaleKind.debit),
               ),
             ),
             MapLayoutChild(slot: MapLayoutSlot.bottom, child: bas),
@@ -1593,13 +1591,13 @@ Widget _piecesReelles({
               slot: MapLayoutSlot.band,
               child: DesignationBand(onDesignate: rien),
             ),
-            const MapLayoutChild(
+            MapLayoutChild(
               slot: MapLayoutSlot.reticle,
-              child: MapCenterReticle(),
+              child: const MapCenterReticle(),
             ),
-            const MapLayoutChild(
+            MapLayoutChild(
               slot: MapLayoutSlot.sheet,
-              child: SizedBox.shrink(),
+              child: const SizedBox.shrink(),
             ),
           ],
         ),

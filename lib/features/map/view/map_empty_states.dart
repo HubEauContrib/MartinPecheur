@@ -171,7 +171,7 @@ String mapSourceName(MapErrorSource? source) => switch (source) {
 
 /// Clé de l'action « Élargir la recherche ». Posée sur le nœud sémantique,
 /// donc sur la boîte entière : c'est elle que les tests tapent et mesurent,
-/// comme pour les puces d'échelle.
+/// comme pour les entrées du sélecteur de lecture.
 const Key widenSearchKey = ValueKey<String>('map-elargir-la-recherche');
 
 /// Clé de l'action « Effacer les filtres », posée comme [widenSearchKey] sur
@@ -522,7 +522,7 @@ class FilterHidesEverythingNotice extends StatelessWidget {
 
 /// L'action d'un avis : « Élargir la recherche » ou « Effacer les filtres ».
 /// Construite à la main plutôt qu'avec un bouton Material, pour la même
-/// raison que les puces d'échelle : la cible tactile de 44 pt
+/// raison que les entrées du sélecteur : la cible tactile de 44 pt
 /// (`04-ui.md § 3`) est ici une contrainte explicite, pas la densité que le
 /// thème veut bien accorder. Rendu et sémantique sont ceux d'« Élargir la
 /// recherche » avant `F8` ; seuls la clé, le libellé et le rappel varient.
@@ -530,7 +530,8 @@ class FilterHidesEverythingNotice extends StatelessWidget {
 /// Atteignable au clavier depuis `K1` de T3 (arbitrage du commanditaire du
 /// 2026-10-14) : [KeyboardFocusRing] en fait un arrêt de Tab, Entrée et Espace
 /// font ce que le tap fait. Son rang dans l'ordre de la carte est posé par
-/// `buildMapOverlays` (`mapTraversalOrderNotices`, juste après les puces).
+/// `buildMapOverlays` (`mapTraversalOrderNotices`, juste après les entrées du
+/// sélecteur).
 class _NoticeAction extends StatelessWidget {
   const _NoticeAction({
     required this.actionKey,
@@ -555,8 +556,8 @@ class _NoticeAction extends StatelessWidget {
       // geste porterait sinon lui-même : un double-tap au lecteur d'écran
       // n'activerait plus rien (relecture du 2026-09-23).
       onTap: onTap,
-      // Posé SOUS `Semantics`, comme les puces d'échelle : la clé reste la
-      // racine du sous-arbre où le focus se trouve.
+      // Posé SOUS `Semantics`, comme les entrées du sélecteur : la clé reste
+      // la racine du sous-arbre où le focus se trouve.
       child: KeyboardFocusRing(
         onActivate: onTap,
         child: GestureDetector(

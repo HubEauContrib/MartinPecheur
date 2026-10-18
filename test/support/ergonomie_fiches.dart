@@ -34,10 +34,12 @@ import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_vi
 
 /// La fiche station RÉELLE de La Loire à Blois, prête, avec son étoile —
 /// [etoile], vide et active par défaut ; `ergonomie_budget_test.dart` y passe
-/// l'étoile en échec d'écriture, le pire en-tête (spec § 6.1).
+/// l'étoile en échec d'écriture, le pire en-tête (spec § 6.1). [defilement] :
+/// le contrôleur du corps, comme `main.dart` en passe un aux trois panneaux.
 Widget ficheStationBlois({
   Key? key,
   FavoriteStar etoile = const FavoriteStar(filled: false, enabled: true),
+  ScrollController? defilement,
 }) {
   final StationCode code = StationCode('K447001001');
   final DateTime mesure = DateTime.utc(2026, 8, 27, 8);
@@ -86,6 +88,7 @@ Widget ficheStationBlois({
     favoriteStar: etoile,
     onToggleFavorite: () {},
     utcOffsetOf: (_) => const Duration(hours: 2),
+    bodyScrollController: defilement,
   );
 }
 
@@ -169,13 +172,11 @@ Widget ficheOndeChaon({
     favoriteStar: etoile,
     onToggleFavorite: () {},
     categorySymbol: (FlowCategory category, {required bool compact}) =>
-        ExcludeSemantics(
-          child: OndeMarkerShape(
-            category: category,
-            age: CampaignAge.recente,
-            observedAt: null,
-            compact: compact,
-          ),
+        OndeMarkerShape(
+          category: category,
+          age: CampaignAge.recente,
+          observedAt: null,
+          compact: compact,
         ),
   );
 }

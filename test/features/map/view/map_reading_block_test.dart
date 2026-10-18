@@ -124,7 +124,7 @@ MapReadingBlockFixed _fixed({
 );
 
 MapReadingBlockLegend _legend({MapScaleKind scale = MapScaleKind.ecoulement}) =>
-    MapReadingBlockLegend(legend: MapLegend(scale: scale, inBlock: true));
+    MapReadingBlockLegend(legend: MapLegend(scale: scale));
 
 /// [piece] posée à la hauteur serrée [height], ou à sa hauteur naturelle.
 Widget _sized(Widget piece, double? height) =>
@@ -283,7 +283,7 @@ void main() {
         ) async {
           final ({double min, double max}) legend = await _intrinsics(
             tester,
-            MapLegend(scale: kind, inBlock: true),
+            MapLegend(scale: kind),
             find.byType(MapLegend),
             width: width,
             textScale: scale,

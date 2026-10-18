@@ -386,7 +386,7 @@ Future<_Ecran> _monter(
               child: const SizedBox.expand(),
             ),
           ),
-          ...buildMapOverlays(
+          buildMapOverlays(
             scale: c.lecture,
             onSelect: (MapScaleKind _) {},
             onWiden: () {},
@@ -1993,6 +1993,7 @@ void main() {
   _groupeBandeANull();
   _groupeEnTeteQuiCede();
   _groupeRangDuBoutonALaColonne();
+  _groupeIntrinseques();
 
   // Garde-fou : la matrice est bien celle de la porte de faisabilité.
   test('la matrice compte 576 configurations', () {
@@ -3132,6 +3133,174 @@ void _groupeConstatsEnDeca() {
           }
         }
       }
+    }
+  });
+}
+
+// --- Relecture finale, m6 : les intrinsèques des vraies pièces ----------------
+
+/// Les `RenderObject` écrits à la main par la tranche que la mise en page de la
+/// carte interroge ou pose : ils disent leurs intrinsèques et leur mise en page
+/// à vide eux-mêmes (note d'architecture du plan, point 1).
+const List<String> _piecesEcritesALaMain = <String>[
+  'RenderMapLayout',
+  '_RenderReadingGrid',
+  '_RenderEntryBody',
+  '_RenderLegendHeader',
+  '_RenderFoldingColumn',
+  '_RenderBlockPiece',
+  '_RenderDesignationBand',
+  '_RenderSheetPanels',
+  '_RenderSheetFrameColumn',
+];
+
+/// Relecture finale de la branche (m6) : les VRAIES pièces, montées par
+/// [_monter] sur la vraie `buildMapOverlays`, sous `debugCheckIntrinsicSizes`.
+/// Flutter vérifie alors, pour CHAQUE boîte posée, des intrinsèques finies et
+/// positives, la minimale sous la maximale — à largeur et hauteur non bornées,
+/// puis aux bornes reçues —, une mise en page à vide égale à la mise en page
+/// réelle, et ses lignes de base à vide. Quelques configurations : téléphone,
+/// colonne et panneau, à 100 % et à 200 %, en mode, une fiche de chaque nature
+/// ouverte (la fiche station, et ses tuiles de mesure, aux trois largeurs) ; la
+/// bande posée, et retirée par le repli 6 (360 × 640 et 800 × 740, à 200 %).
+/// Chaque cas vérifie aussi que les pièces de la tranche sont dans l'arbre : la
+/// passe les couvre. Le drapeau est remis à faux avant la fin du cas, comme le
+/// cadre de test l'exige.
+void _groupeIntrinseques() {
+  group('relecture finale, m6 — les vraies pièces sous '
+      'debugCheckIntrinsicSizes', () {
+    // Chaque configuration, et le repli 6 qu'elle doit jouer (garde-fou : la
+    // passe éprouve la bande posée ET la bande retirée).
+    for (final (_Config, bool) cas in const <(_Config, bool)>[
+      (
+        _Config(
+          nomTaille: '360 × 640',
+          taille: Size(360, 640),
+          plateforme: TargetPlatform.android,
+          echelle: 2,
+          lecture: MapScaleKind.ecoulement,
+          enMode: true,
+          fiche: _Fiche.station,
+          avecAvis: true,
+          marge: true,
+        ),
+        true,
+      ),
+      (
+        _Config(
+          nomTaille: '390 × 844',
+          taille: Size(390, 844),
+          plateforme: TargetPlatform.android,
+          echelle: 1,
+          lecture: MapScaleKind.debit,
+          enMode: true,
+          fiche: _Fiche.onde,
+          avecAvis: false,
+          marge: false,
+        ),
+        false,
+      ),
+      (
+        _Config(
+          nomTaille: '700 × 740',
+          taille: Size(700, 740),
+          plateforme: TargetPlatform.windows,
+          echelle: 2,
+          lecture: MapScaleKind.crues,
+          enMode: true,
+          fiche: _Fiche.troncon,
+          avecAvis: true,
+          marge: false,
+        ),
+        false,
+      ),
+      (
+        _Config(
+          nomTaille: '700 × 740',
+          taille: Size(700, 740),
+          plateforme: TargetPlatform.windows,
+          echelle: 1,
+          lecture: MapScaleKind.debit,
+          enMode: true,
+          fiche: _Fiche.station,
+          avecAvis: false,
+          marge: false,
+        ),
+        false,
+      ),
+      (
+        _Config(
+          nomTaille: '800 × 740',
+          taille: Size(800, 740),
+          plateforme: TargetPlatform.windows,
+          echelle: 2,
+          lecture: MapScaleKind.debit,
+          enMode: true,
+          fiche: _Fiche.station,
+          avecAvis: true,
+          marge: false,
+        ),
+        true,
+      ),
+      (
+        _Config(
+          nomTaille: '1 280 × 740',
+          taille: Size(1280, 740),
+          plateforme: TargetPlatform.windows,
+          echelle: 1,
+          lecture: MapScaleKind.ecoulement,
+          enMode: true,
+          fiche: _Fiche.onde,
+          avecAvis: false,
+          marge: false,
+        ),
+        false,
+      ),
+    ]) {
+      final (_Config c, bool repli6) = cas;
+      _cas(
+        c,
+        'intrinsèques et mise en page à vide conformes pour chaque boîte, '
+        'pièces écrites à la main comprises',
+        (WidgetTester tester) async {
+          late final _Ecran e;
+          debugCheckIntrinsicSizes = true;
+          try {
+            e = await _monter(tester, c);
+          } finally {
+            debugCheckIntrinsicSizes = false;
+          }
+
+          expect(
+            e.erreurs,
+            isEmpty,
+            reason: e.erreurs.map((FlutterErrorDetails d) => '$d').join('\n'),
+          );
+          expect(tester.takeException(), isNull);
+          expect(
+            e.rapport.value!.allocation.bandWithdrawn,
+            repli6,
+            reason:
+                'garde-fou : le repli 6 ${repli6 ? 'ne joue plus' : 'joue'} '
+                '— la passe ne couvre plus ce qu’elle doit',
+          );
+          final Set<String> posees = <String>{};
+          void relever(RenderObject ro) {
+            posees.add(ro.runtimeType.toString());
+            ro.visitChildren(relever);
+          }
+
+          relever(tester.renderObject(find.byType(MapLayout)));
+          expect(
+            posees,
+            containsAll(<String>[
+              ..._piecesEcritesALaMain,
+              if (c.fiche == _Fiche.station) '_RenderMeasurementTiles',
+            ]),
+            reason: 'la passe ne couvre pas toutes les pièces de la tranche',
+          );
+        },
+      );
     }
   });
 }

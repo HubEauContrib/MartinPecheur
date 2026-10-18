@@ -63,6 +63,8 @@ import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/map_bottom.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
+import 'package:martinpecheur/features/map/view/map_layout.dart'
+    show mapReticleBandHeight;
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_reading_block.dart';
@@ -102,11 +104,6 @@ const ({String nature, bool etoile}) ficheOnde = (
   nature: ondeSheetNature,
   etoile: true,
 );
-
-/// La bande du réticule : le réticule et sa marge, au-dessus et au-dessous
-/// (spec § 5.6). La valeur que `D2` passe à `MapLayout.reticleBandHeight`.
-const double _hauteurBandeReticule =
-    mapCenterReticleSize + 2 * margeDeSurcouche;
 
 // --- Les mesures -------------------------------------------------------------
 
@@ -268,7 +265,6 @@ Future<MapLayoutInput> _mesurer(
                   key: _cleLegende,
                   child: MapLegend(
                     scale: lecture,
-                    inBlock: true,
                     floodInformationDate: _dateVigilance,
                     utcOffsetOf: _utc,
                   ),
@@ -373,7 +369,9 @@ Future<MapLayoutInput> _mesurer(
     band: enMode && largeurs.bandFits
         ? deux(_cleBande, largeurs.band)
         : PieceHeights.none,
-    reticleBand: enMode ? _hauteurBandeReticule : 0,
+    // La bande du réticule, lue dans `lib/` : celle que la composition passe
+    // à `MapLayout.reticleBandHeight`.
+    reticleBand: enMode ? mapReticleBandHeight : 0,
     sheet: fiche == null ? PieceHeights.none : deux(_cleFiche, largeurFiche),
     // Le plancher de la partie fixe : la cible tactile de la plateforme du
     // test (arbitrage 19), comme la pose la lit.

@@ -5,12 +5,15 @@
 // tests qui mesurent (`S6`) et par ceux qui posent la nouvelle disposition
 // (`D1`, `D2`, `D3`) : une taille recopiée ailleurs finirait par diverger.
 //
-// Aucune de ces valeurs n'est écrite dans `lib/` pour décider d'un repli
+// Aucune de ces tailles n'est écrite dans `lib/` pour décider d'un repli
 // (contrainte globale du plan) : ce sont les tailles AUXQUELLES on éprouve la
-// mise en page, pas des seuils qu'elle lit.
+// mise en page, pas des seuils qu'elle lit. La marge d'une surcouche, elle,
+// est une valeur de `lib/` : elle y est lue.
 import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter/painting.dart' show EdgeInsets;
 import 'package:flutter/widgets.dart' show Size;
+import 'package:martinpecheur/features/map/view/map_layout.dart'
+    show mapOverlayPadding;
 
 /// Les quatre tailles garanties (arbitrage 10) : deux téléphones Android, deux
 /// fenêtres Windows. Chacune nomme la plateforme à laquelle elle s'éprouve.
@@ -54,5 +57,8 @@ const EdgeInsets margeSystemeTelephone = EdgeInsets.only(top: 24, bottom: 48);
 const List<double> echellesDeTexte = <double>[1, 2];
 
 /// La marge d'une surcouche au bord de la carte, et l'écart entre deux groupes
-/// de pièces (`allocateMapLayout`, `gap`).
-const double margeDeSurcouche = 8;
+/// de pièces (`allocateMapLayout`, `gap`) : lue dans `lib/`
+/// ([mapOverlayPadding], celle que la composition passe à `MapLayout`), jamais
+/// recopiée — la porte (`S6`) mesurerait sinon en silence avec une valeur
+/// périmée.
+const double margeDeSurcouche = mapOverlayPadding;

@@ -106,7 +106,7 @@ void main() {
                 // « Élargir la recherche » (`NoStationInAreaNotice`), posé
                 // dans le bloc de lecture, en haut à gauche — exactement ce que le
                 // panneau ne doit plus recouvrir (point 3).
-                ...buildMapOverlays(
+                buildMapOverlays(
                   filterHidesEverything: false,
                   onClearFilters: () {},
                   filterActive: false,

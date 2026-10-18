@@ -5,7 +5,8 @@
 // telles quelles de `map_view.dart` par `D2` d'Ergonomie, pour que le bas ne
 // dépende pas de l'écran entier.
 
-/// L'ordre de tabulation déclaré (`K2`) : chips d'échelle → action de l'avis,
+/// L'ordre de tabulation déclaré (`K2`) : entrées du sélecteur de lecture
+/// (le nom de la constante date des puces d'échelle) → action de l'avis,
 /// s'il en porte une (`K1` de T3, [mapTraversalOrderNotices]) → boutons
 /// d'entrée (`F10b` de T3, [mapTraversalOrderEntryButtons]) → contrôles de
 /// zoom → carte → fiche, si une est ouverte → lien du bandeau
@@ -16,16 +17,17 @@ const double mapTraversalOrderChips = 1;
 
 /// Les avis de la carte (`K1` de T3, arbitrage du commanditaire du
 /// 2026-10-14) : leur action — « Élargir la recherche » ou « Effacer les
-/// filtres » — est un arrêt de Tab juste APRÈS les puces
+/// filtres » — est un arrêt de Tab juste APRÈS les entrées du sélecteur
 /// ([mapTraversalOrderChips]) et AVANT les boutons d'entrée
-/// ([mapTraversalOrderEntryButtons]), dans les deux dispositions : c'est sous
-/// les puces que l'avis s'affiche. Sans rang, `OrderedTraversalPolicy` la
-/// placerait après « ⚠ Avertissement », en dernier.
+/// ([mapTraversalOrderEntryButtons]), à toutes les largeurs : c'est sous le
+/// sélecteur, dans le bloc de lecture, que l'avis s'affiche. Sans rang,
+/// `OrderedTraversalPolicy` la placerait après « ⚠ Avertissement », en
+/// dernier.
 const double mapTraversalOrderNotices = 1.25;
 
 /// Le groupe des boutons d'entrée ([MapEntryButtons], `F10b` de T3) : entre
-/// les puces ([mapTraversalOrderChips]) et les contrôles de zoom
-/// ([mapTraversalOrderControls]). UNE valeur pour tout le groupe : à
+/// les entrées du sélecteur ([mapTraversalOrderChips]) et les contrôles de
+/// zoom ([mapTraversalOrderControls]). UNE valeur pour tout le groupe : à
 /// l'intérieur, Tab suit l'ordre de la colonne.
 const double mapTraversalOrderEntryButtons = 1.5;
 

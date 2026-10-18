@@ -49,7 +49,7 @@
 // pendant qu'on mesure la fluidité) pour que les trois lignes ET le rapport de `G2`
 // tiennent SANS défilement à 800 × 740, et que le panneau ne recouvre plus
 // les avis de carte (« ni station… », « Élargir la recherche », bandeau
-// d'erreur) posés SOUS les puces, en haut-gauche.
+// d'erreur) posés SOUS le sélecteur de lecture, en haut-gauche.
 //
 // Un seul [FrameTimingProbe], réutilisé pour les trois gestes l'un après
 // l'autre (jamais deux en même temps — un seul geste a lieu à la fois sur

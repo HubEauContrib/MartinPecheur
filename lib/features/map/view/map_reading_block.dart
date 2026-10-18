@@ -234,7 +234,7 @@ class MapReadingBlockNotices extends StatelessWidget {
 class MapReadingBlockLegend extends StatelessWidget {
   const MapReadingBlockLegend({required this.legend, super.key});
 
-  /// La légende « dans le bloc » (`MapLegend(inBlock: true)`).
+  /// La légende du bloc ([MapLegend]).
   final MapLegend legend;
 
   @override

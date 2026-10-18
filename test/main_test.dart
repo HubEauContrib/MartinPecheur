@@ -25,14 +25,15 @@ import 'package:flutter/material.dart'
         Checkbox,
         SelectableText,
         Element,
-        ExcludeSemantics,
         Navigator,
+        RenderObject,
         ScrollController,
         ScrollPosition,
         Scrollable,
         ScrollableState,
         Semantics,
         SingleChildScrollView,
+        Text,
         ValueKey;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
@@ -530,6 +531,25 @@ Offset _pointDansLaBande(WidgetTester tester) {
   return p;
 }
 
+/// [cible] est-il atteint par le parcours des annonces depuis [racine] ? C'est
+/// le parcours que Flutter suit pour bâtir l'arbre sémantique
+/// (`visitChildrenForSemantics`) : une enveloppe qui exclut des annonces
+/// (`ExcludeSemantics`, `Semantics(excludeSemantics: true)`) l'arrête.
+bool _annonce(RenderObject racine, RenderObject cible) {
+  bool atteint = false;
+  void visiter(RenderObject noeud) {
+    if (atteint) return;
+    if (identical(noeud, cible)) {
+      atteint = true;
+      return;
+    }
+    noeud.visitChildrenForSemantics(visiter);
+  }
+
+  visiter(racine);
+  return atteint;
+}
+
 void main() {
   // `main()` ne s'appelle pas ici (voir l'en-tête) : ce verrou-ci LIT le
   // texte de la racine. Le dépôt des favoris sérialise ses écritures par
@@ -762,7 +782,30 @@ void main() {
           historique.map((OndeMarkerShape s) => s.category.runtimeType),
           <Type>[Assec, EcoulementNonVisible, Ecoulement],
         );
-        // Le symbole est exclu des annonces : le texte dit déjà la catégorie.
+        // Le symbole n'est pas annoncé : le texte dit déjà la catégorie. Le
+        // parcours des annonces, depuis la fiche, ne l'atteint pas — quelle
+        // que soit l'enveloppe qui l'en exclut (relecture finale de la
+        // branche, m9 : la racine ne pose plus la sienne, la fiche garde la
+        // sienne). Le texte de la tuile, lui, est atteint : le parcours n'est
+        // pas vide.
+        final RenderObject panneau = tester.renderObject(
+          find.byType(OndeSheetPanel),
+        );
+        expect(
+          _annonce(
+            panneau,
+            tester.renderObject(
+              find
+                  .descendant(
+                    of: find.byKey(ondeCategoryTileKey),
+                    matching: find.byType(Text),
+                  )
+                  .first,
+            ),
+          ),
+          isTrue,
+          reason: 'le texte de la tuile n’est pas annoncé',
+        );
         for (final Element symbole
             in find
                 .descendant(
@@ -771,8 +814,9 @@ void main() {
                 )
                 .evaluate()) {
           expect(
-            symbole.findAncestorWidgetOfExactType<ExcludeSemantics>(),
-            isNotNull,
+            _annonce(panneau, symbole.renderObject!),
+            isFalse,
+            reason: 'le symbole ${symbole.widget} est annoncé',
           );
         }
       },

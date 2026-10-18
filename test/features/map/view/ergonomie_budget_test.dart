@@ -419,6 +419,9 @@ void main() {
                       }
                     }
                     if (repartition.overflows) {
+                      // Les hauteurs que `allocateMapLayout` rend, et non des
+                      // tailles de boîte : l'assertion n'est pas toujours
+                      // vraie (relecture finale de la branche, m5).
                       for (final double hauteur in <double>[
                         repartition.blockFixed,
                         repartition.notices,
@@ -427,7 +430,13 @@ void main() {
                         repartition.band,
                         repartition.reticleBand,
                       ]) {
-                        expect(hauteur, greaterThanOrEqualTo(0));
+                        expect(
+                          hauteur,
+                          greaterThanOrEqualTo(0),
+                          reason:
+                              '$configuration : une hauteur négative '
+                              '($repartition)',
+                        );
                       }
                       expect(
                         _hauteurPosee(entree, repartition),

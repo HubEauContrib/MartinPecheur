@@ -65,6 +65,18 @@ import 'package:martinpecheur/features/shared/sheet_frame.dart'
 import 'package:martinpecheur/features/shared/tap_target.dart'
     show minimumTapTarget;
 
+/// La marge d'une surcouche au bord de la carte visible, et l'écart entre deux
+/// groupes de pièces (`allocateMapLayout`, `gap`), en pixels logiques : ce que
+/// la composition (`buildMapOverlays`) passe à [MapLayout.padding]. Publique
+/// pour que la mesure de la porte (`S6`) la lise ici, sans la recopier.
+const double mapOverlayPadding = 8;
+
+/// La bande du réticule : le réticule et sa marge, au-dessus et au-dessous
+/// (spec § 5.6). Ce que la composition passe à [MapLayout.reticleBandHeight] ;
+/// publique pour la même raison que [mapOverlayPadding].
+const double mapReticleBandHeight =
+    mapCenterReticleSize + 2 * mapOverlayPadding;
+
 /// Les emplacements de [MapLayout]. Chacun est facultatif : absent, il vaut
 /// une pièce nulle.
 enum MapLayoutSlot {
@@ -118,11 +130,15 @@ final class MapLayoutReport {
   /// [MapLayout] (`D4` d'Ergonomie, arbitrage 12) : ce que la caméra doit
   /// éviter. Panneau : `right`, du bord gauche du panneau au bord de la
   /// surface ; fiche du bas : `bottom`, du haut de la fiche au bas de la
-  /// surface. La zone sûre n'y entre jamais (spec § 5.2 : « la carte, elle,
-  /// va jusqu'aux bords »). [EdgeInsets.zero] sans fiche ouverte, et pour une
-  /// fiche du bas posée à 0 px — en deçà des tailles garanties seulement :
-  /// depuis `D5`, la fiche garde au moins son en-tête épinglé, et depuis `D8`
-  /// la première rangée de cet en-tête (arbitrage 24).
+  /// surface. Seule compte la part que la fiche couvre, jusqu'au bord de la
+  /// surface : la marge système de son côté y entre — la marge du bas sous
+  /// une fiche du bas, celle de droite sous le panneau, où leur fond se
+  /// prolonge —, aucune autre marge de la zone sûre (spec § 5.2 : « la carte,
+  /// elle, va jusqu'aux bords »), et aucune sans fiche. [EdgeInsets.zero] sans
+  /// fiche ouverte, et pour une fiche du bas posée à 0 px — en deçà des
+  /// tailles garanties seulement : depuis `D5`, la fiche garde au moins son
+  /// en-tête épinglé, et depuis `D8` la première rangée de cet en-tête
+  /// (arbitrage 24).
   final EdgeInsets covered;
 
   @override
@@ -148,8 +164,16 @@ class MapLayoutParentData extends ContainerBoxParentData<RenderBox> {
 }
 
 /// Désigne l'emplacement de [child] dans [MapLayout].
+///
+/// Sa clé est son emplacement (`ValueKey(slot)`), comme celle d'un `LayoutId`
+/// est son identifiant : la bande et le réticule n'existent qu'en mode, et
+/// sans clé, allumer ou éteindre « Restrictions » ferait passer l'élément de la
+/// fiche, posée après eux, au widget de la bande — une fiche neuve, son corps
+/// revenu en haut, son focus perdu (I1 de la relecture finale de la branche).
+/// Aucune autre clé ne se passe : elle romprait cet appariement.
 class MapLayoutChild extends ParentDataWidget<MapLayoutParentData> {
-  const MapLayoutChild({required this.slot, required super.child, super.key});
+  MapLayoutChild({required this.slot, required super.child})
+    : super(key: ValueKey<MapLayoutSlot>(slot));
 
   final MapLayoutSlot slot;
 
@@ -464,7 +488,8 @@ class RenderMapLayout extends RenderBox
     // le panneau : la zone sûre moins lui).
     final double visibleRight = safe.left + widths.visible;
     final Rect visible;
-    // La part que la fiche couvre, sans la zone sûre (`D4`).
+    // La part que la fiche couvre, jusqu'au bord de la surface (`D4`, voir
+    // [MapLayoutReport.covered]).
     EdgeInsets covered = EdgeInsets.zero;
     if (!sheetOpen) {
       layoutChild(MapLayoutSlot.sheet, BoxConstraints.tight(Size.zero));

@@ -187,7 +187,7 @@ Future<void> main() async {
       ondeSheetViewModel: OndeSheetViewModel(onde: onde, favorites: favorites),
       favoritesViewModel: FavoritesViewModel(favorites: favorites),
       // La lecture Crues reste `LectureCruesNonDemandee` au lancement : rien
-      // n'est lu avant le choix de la puce « Vigilance crues ».
+      // n'est lu avant le choix de l'entrée « Vigilance crues » du sélecteur.
       floodLayerViewModel: FloodLayerViewModel(source: floodVigilanceSource),
       floodSheetViewModel: FloodSheetViewModel(
         links: const UrlLauncherExternalLinkOpener(),
@@ -588,17 +588,16 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                 // ligne d'historique, celui de la légende. Une campagne
                 // récente (`CampaignAge.recente`) : la couleur de la catégorie,
                 // jamais le gris d'une campagne ancienne, qu'aucun lieu ne
-                // date ici (`observedAt: null`, comme la légende) ; exclu des
-                // annonces, le texte de la fiche dit déjà la catégorie.
+                // date ici (`observedAt: null`, comme la légende). La fiche
+                // l'exclut elle-même des annonces (`_SymbolLine`) : son texte
+                // dit déjà la catégorie.
                 categorySymbol:
                     (FlowCategory category, {required bool compact}) =>
-                        ExcludeSemantics(
-                          child: OndeMarkerShape(
-                            category: category,
-                            age: CampaignAge.recente,
-                            observedAt: null,
-                            compact: compact,
-                          ),
+                        OndeMarkerShape(
+                          category: category,
+                          age: CampaignAge.recente,
+                          observedAt: null,
+                          compact: compact,
                         ),
                 bodyScrollController: _sheetScrollController,
               ),

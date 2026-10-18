@@ -1,6 +1,6 @@
 // Le filtre de la carte (T3) : ce qui masque des lieux à l'intérieur de
-// l'échelle affichée. Il ne choisit pas l'échelle — ce sont les puces
-// d'échelle, qui vivent dans la tranche carte. D'où deux membres nommés
+// l'échelle affichée. Il ne choisit pas l'échelle — c'est le sélecteur de
+// lecture, qui vit dans la tranche carte. D'où deux membres nommés
 // (`isActiveForFlow`, `isActiveForDischarge`) et aucun paramètre d'échelle :
 // ce domaine n'importe rien de `lib/features/`.
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';

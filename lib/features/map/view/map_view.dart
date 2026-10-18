@@ -800,17 +800,18 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
   return '$prefix$label';
 }
 
-/// Construit les surcouches de la carte, à poser PAR-DESSUS le `FlutterMap`
+/// Construit la surcouche de la carte, à poser PAR-DESSUS le `FlutterMap`
 /// dans son `Stack`. Fonction pure, testable sans rendre de carte — même
 /// esprit que [buildMapLayers], et pour la même raison : l'environnement de
 /// test refuse le chargement de tuiles.
 ///
 /// Depuis `D2` d'Ergonomie (cadrage du 2026-10-17, § 5 et § 6.5), elle rend
-/// UNE mise en page, [MapLayout], qui pose dans la **carte visible** — l'écran
-/// moins la fiche, dans la zone sûre de l'appareil — les pièces construites
-/// par `S1` à `S4` et `B1`, sur trois largeurs ([mapLayoutWidthFor] : moins de
-/// 600 px, de 600 à 799, 800 et plus), et répartit la hauteur dans l'ordre de
-/// repli de l'arbitrage 11 ([allocateMapLayout]) :
+/// UN widget, la mise en page [MapLayout], qui pose dans la **carte
+/// visible** — l'écran moins la fiche, dans la zone sûre de l'appareil — les
+/// pièces construites par `S1` à `S4` et `B1`, sur trois largeurs
+/// ([mapLayoutWidthFor] : moins de 600 px, de 600 à 799, 800 et plus), et
+/// répartit la hauteur dans l'ordre de repli de l'arbitrage 11
+/// ([allocateMapLayout]) :
 /// 1. le **bloc de lecture**, en trois pièces posées sans écart, en tête de la
 ///    carte visible — toute sa largeur au téléphone, 480 px au plus en haut à
 ///    gauche au-delà :
@@ -899,7 +900,7 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 /// lue, que la légende cite ; [floodSheet] est la fiche tronçon. Sur la
 /// lecture Crues, la fenêtre « ⚠ Avertissement » ajoute
 /// `floodWarningWindowText` sous le texte général (`BR-015`).
-List<Widget> buildMapOverlays({
+Widget buildMapOverlays({
   required MapScaleKind scale,
   required void Function(MapScaleKind kind) onSelect,
   required VoidCallback onWiden,
@@ -960,181 +961,175 @@ List<Widget> buildMapOverlays({
     floodNotices: floodNotices,
   );
 
-  return <Widget>[
-    // Une seule source de largeur : celle que la mise en page de la carte
-    // reçoit (et pose), lue ici par un `LayoutBuilder` — personne n'interroge
-    // les hauteurs intrinsèques de ce qui l'enveloppe.
-    LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final EdgeInsets safeInsets = MediaQuery.paddingOf(context);
-        final MapLayoutWidth width = mapLayoutWidthFor(constraints.maxWidth);
-        final bool compact = switch (width) {
-          MapLayoutWidth.compact => true,
-          MapLayoutWidth.wide || MapLayoutWidth.panel => false,
-        };
-        final bool sidePanel = switch (width) {
-          MapLayoutWidth.panel => true,
-          MapLayoutWidth.compact || MapLayoutWidth.wide => false,
-        };
-        return MapLayout(
-          padding: _overlayPadding,
-          safeInsets: safeInsets,
-          reticleBandHeight: mapCenterReticleSize + 2 * _overlayPadding,
-          report: layoutReport,
-          children: <Widget>[
-            // La partie fixe du bloc : le sélecteur entier sous son rang de
-            // tabulation ; le lien, plus profond, porte le sien (le dernier).
-            // Le texte propre de la fenêtre « ⚠ Avertissement » : celui de la
-            // crue sur la seule lecture Crues (cadrage § 7.7, `BR-015`) —
-            // trois branches, sans joker.
-            MapLayoutChild(
-              slot: MapLayoutSlot.blockFixed,
-              child: FocusTraversalOrder(
-                order: const NumericFocusOrder(mapTraversalOrderChips),
-                child: MapReadingBlockFixed(
-                  selector: MapReadingSelector(
-                    scale: scale,
-                    onSelect: onSelect,
-                    designationMode: designate != null,
-                    onToggleDesignationMode: onToggleDesignationMode,
-                  ),
-                  header: MapLegendHeader(
-                    scale: scale,
-                    warningLink: FocusTraversalOrder(
-                      order: const NumericFocusOrder(
-                        mapTraversalOrderWarningLink,
-                      ),
-                      child: WarningLink(
-                        extraText: switch (scale) {
-                          MapScaleKind.crues => floodWarningWindowText,
-                          MapScaleKind.ecoulement => null,
-                          MapScaleKind.debit => null,
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Les avis, nus, chacun sous le rang de tabulation des avis
-            // (`K1` de T3) : leur action suit les entrées du sélecteur.
-            MapLayoutChild(
-              slot: MapLayoutSlot.blockNotices,
-              child: MapReadingBlockNotices(
-                notices: <Widget>[
-                  for (final MapNotice notice in notices)
-                    FocusTraversalOrder(
-                      order: const NumericFocusOrder(mapTraversalOrderNotices),
-                      child: buildMapNotice(
-                        notice,
-                        onWiden: onWiden,
-                        onClearFilters: onClearFilters,
-                        onRetryFlood: onRetryFlood,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            MapLayoutChild(
-              slot: MapLayoutSlot.blockLegend,
-              child: MapReadingBlockLegend(
-                legend: MapLegend(
+  // Une seule source de largeur : celle que la mise en page de la carte
+  // reçoit (et pose), lue ici par un `LayoutBuilder` — personne n'interroge
+  // les hauteurs intrinsèques de ce qui l'enveloppe.
+  return LayoutBuilder(
+    builder: (BuildContext context, BoxConstraints constraints) {
+      final EdgeInsets safeInsets = MediaQuery.paddingOf(context);
+      final MapLayoutWidth width = mapLayoutWidthFor(constraints.maxWidth);
+      final bool compact = switch (width) {
+        MapLayoutWidth.compact => true,
+        MapLayoutWidth.wide || MapLayoutWidth.panel => false,
+      };
+      final bool sidePanel = switch (width) {
+        MapLayoutWidth.panel => true,
+        MapLayoutWidth.compact || MapLayoutWidth.wide => false,
+      };
+      return MapLayout(
+        padding: mapOverlayPadding,
+        safeInsets: safeInsets,
+        reticleBandHeight: mapReticleBandHeight,
+        report: layoutReport,
+        children: <Widget>[
+          // La partie fixe du bloc : le sélecteur entier sous son rang de
+          // tabulation ; le lien, plus profond, porte le sien (le dernier).
+          // Le texte propre de la fenêtre « ⚠ Avertissement » : celui de la
+          // crue sur la seule lecture Crues (cadrage § 7.7, `BR-015`) —
+          // trois branches, sans joker.
+          MapLayoutChild(
+            slot: MapLayoutSlot.blockFixed,
+            child: FocusTraversalOrder(
+              order: const NumericFocusOrder(mapTraversalOrderChips),
+              child: MapReadingBlockFixed(
+                selector: MapReadingSelector(
                   scale: scale,
-                  floodInformationDate: floodInformationDate,
-                  inBlock: true,
+                  onSelect: onSelect,
+                  designationMode: designate != null,
+                  onToggleDesignationMode: onToggleDesignationMode,
+                ),
+                header: MapLegendHeader(
+                  scale: scale,
+                  warningLink: FocusTraversalOrder(
+                    order: const NumericFocusOrder(
+                      mapTraversalOrderWarningLink,
+                    ),
+                    child: WarningLink(
+                      extraText: switch (scale) {
+                        MapScaleKind.crues => floodWarningWindowText,
+                        MapScaleKind.ecoulement => null,
+                        MapScaleKind.debit => null,
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Les avis, nus, chacun sous le rang de tabulation des avis
+          // (`K1` de T3) : leur action suit les entrées du sélecteur.
+          MapLayoutChild(
+            slot: MapLayoutSlot.blockNotices,
+            child: MapReadingBlockNotices(
+              notices: <Widget>[
+                for (final MapNotice notice in notices)
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(mapTraversalOrderNotices),
+                    child: buildMapNotice(
+                      notice,
+                      onWiden: onWiden,
+                      onClearFilters: onClearFilters,
+                      onRetryFlood: onRetryFlood,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          MapLayoutChild(
+            slot: MapLayoutSlot.blockLegend,
+            child: MapReadingBlockLegend(
+              legend: MapLegend(
+                scale: scale,
+                floodInformationDate: floodInformationDate,
+              ),
+            ),
+          ),
+          MapLayoutChild(
+            slot: MapLayoutSlot.bottom,
+            child: MapBottom(
+              compact: compact,
+              onOpenFilters: onOpenFilters,
+              onOpenFavorites: onOpenFavorites,
+              filterActive: filterActive,
+              onZoomIn: onZoomIn,
+              onZoomOut: onZoomOut,
+              onRecenter: onRecenter,
+            ),
+          ),
+          // La bande et le réticule, en mode seulement : la clé de
+          // `MapLayoutChild`, son emplacement, garde l'élément de la fiche,
+          // posée après eux, quand ils paraissent ou disparaissent (I1 de la
+          // relecture finale de la branche).
+          if (designate != null) ...<Widget>[
+            // Repli 6 : la mise en page ne peint, ne touche ni n'annonce la
+            // bande retirée, mais elle garde son nœud de focus ; le rapport
+            // (une trame après) l'exclut du focus et, sur le même fait, des
+            // annonces (`D3`). L'`ExcludeSemantics` est une redondance
+            // voulue : la mise en page exclut déjà des annonces ce qu'elle
+            // retire (`RenderMapLayout.visitChildrenForSemantics`).
+            MapLayoutChild(
+              slot: MapLayoutSlot.band,
+              child: ValueListenableBuilder<MapLayoutReport?>(
+                valueListenable: layoutReport,
+                builder:
+                    (
+                      BuildContext context,
+                      MapLayoutReport? report,
+                      Widget? band,
+                    ) {
+                      final bool withdrawn =
+                          report?.allocation.bandWithdrawn ?? false;
+                      return ExcludeSemantics(
+                        excluding: withdrawn,
+                        child: ExcludeFocus(excluding: withdrawn, child: band!),
+                      );
+                    },
+                child: FocusTraversalOrder(
+                  order: const NumericFocusOrder(mapTraversalOrderDesignate),
+                  child: DesignationBand(onDesignate: designate),
                 ),
               ),
             ),
             MapLayoutChild(
-              slot: MapLayoutSlot.bottom,
-              child: MapBottom(
-                compact: compact,
-                onOpenFilters: onOpenFilters,
-                onOpenFavorites: onOpenFavorites,
-                filterActive: filterActive,
-                onZoomIn: onZoomIn,
-                onZoomOut: onZoomOut,
-                onRecenter: onRecenter,
+              slot: MapLayoutSlot.reticle,
+              child: const MapCenterReticle(),
+            ),
+          ],
+          if (panels.isNotEmpty)
+            MapLayoutChild(
+              slot: MapLayoutSlot.sheet,
+              child: FocusTraversalOrder(
+                order: const NumericFocusOrder(mapTraversalOrderSheet),
+                child: MapSheetArea(
+                  key: mapSheetAreaKey,
+                  sidePanel: sidePanel,
+                  // Le fond se prolonge sous les marges système qui bordent
+                  // la fiche : le bas (et les côtés) pour la fiche du bas ; le
+                  // haut, le bas et la droite pour le panneau.
+                  extend: sidePanel
+                      ? EdgeInsets.fromLTRB(
+                          0,
+                          safeInsets.top,
+                          safeInsets.right,
+                          safeInsets.bottom,
+                        )
+                      : EdgeInsets.fromLTRB(
+                          safeInsets.left,
+                          0,
+                          safeInsets.right,
+                          safeInsets.bottom,
+                        ),
+                  panels: panels,
+                ),
               ),
             ),
-            if (designate != null) ...<Widget>[
-              // Repli 6 : la mise en page ne peint, ne touche ni n'annonce la
-              // bande retirée, mais elle garde son nœud de focus ; le rapport
-              // (une trame après) l'exclut du focus et, sur le même fait, des
-              // annonces (`D3`). L'`ExcludeSemantics` est une redondance
-              // voulue : la mise en page exclut déjà des annonces ce qu'elle
-              // retire (`RenderMapLayout.visitChildrenForSemantics`).
-              MapLayoutChild(
-                slot: MapLayoutSlot.band,
-                child: ValueListenableBuilder<MapLayoutReport?>(
-                  valueListenable: layoutReport,
-                  builder:
-                      (
-                        BuildContext context,
-                        MapLayoutReport? report,
-                        Widget? band,
-                      ) {
-                        final bool withdrawn =
-                            report?.allocation.bandWithdrawn ?? false;
-                        return ExcludeSemantics(
-                          excluding: withdrawn,
-                          child: ExcludeFocus(
-                            excluding: withdrawn,
-                            child: band!,
-                          ),
-                        );
-                      },
-                  child: FocusTraversalOrder(
-                    order: const NumericFocusOrder(mapTraversalOrderDesignate),
-                    child: DesignationBand(onDesignate: designate),
-                  ),
-                ),
-              ),
-              const MapLayoutChild(
-                slot: MapLayoutSlot.reticle,
-                child: MapCenterReticle(),
-              ),
-            ],
-            if (panels.isNotEmpty)
-              MapLayoutChild(
-                slot: MapLayoutSlot.sheet,
-                child: FocusTraversalOrder(
-                  order: const NumericFocusOrder(mapTraversalOrderSheet),
-                  child: MapSheetArea(
-                    key: mapSheetAreaKey,
-                    sidePanel: sidePanel,
-                    // Le fond se prolonge sous les marges système qui bordent
-                    // la fiche : le bas (et les côtés) pour la fiche du bas ; le
-                    // haut, le bas et la droite pour le panneau.
-                    extend: sidePanel
-                        ? EdgeInsets.fromLTRB(
-                            0,
-                            safeInsets.top,
-                            safeInsets.right,
-                            safeInsets.bottom,
-                          )
-                        : EdgeInsets.fromLTRB(
-                            safeInsets.left,
-                            0,
-                            safeInsets.right,
-                            safeInsets.bottom,
-                          ),
-                    panels: panels,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    ),
-  ];
+        ],
+      );
+    },
+  );
 }
 
 // `buildMapScreen` (bandeau `W3` + menu `W3b`) est retirée par `W3c` : `_MapViewState.build` rend directement `mapAndOverlays`.
-
-/// Marge d'une surcouche au bord de la carte visible, et écart entre deux
-/// groupes de pièces, en pixels logiques.
-const double _overlayPadding = 8;
 
 /// L'écran carte : fond IGN, attribution, et les marqueurs de stations du
 /// viewport. N'appelle aucun dépôt — il observe [viewModel] et lui demande
@@ -1202,8 +1197,9 @@ class MapView extends StatefulWidget {
   final void Function(OndePoint point)? onOndeTap;
 
   /// Le panneau de la fiche station, déjà composé avec son ViewModel par
-  /// `main.dart`, et affiché en bas de la carte. `null` tant qu'aucune fiche
-  /// n'est branchée — la carte reste alors ce qu'elle était en T0.
+  /// `main.dart`, et affiché en fiche du bas ou en panneau latéral. `null`
+  /// tant qu'aucune fiche n'est branchée — la carte reste alors ce qu'elle
+  /// était en T0.
   ///
   /// La fiche ne se ferme que par son propre bouton (et par
   /// `StationSheetViewModel.close`) : un tap sur la carte hors marqueur ne
@@ -1240,8 +1236,8 @@ class MapView extends StatefulWidget {
   /// `MapViewModel.designationMode`, allumé par le choix « Restrictions » du
   /// sélecteur). Injecté par `main.dart`, qui le branche sur la tranche
   /// restrictions : la carte ne la nomme pas (`feature-vers-feature`).
-  /// `null` : les gestes sont sans effet, et ni la puce « Restrictions » ni
-  /// le bouton n'existent.
+  /// `null` : les gestes sont sans effet, et ni l'entrée « Restrictions » du
+  /// sélecteur ni le bouton n'existent.
   final void Function(GeoPoint point)? onPointDesignated;
 
   /// Appelé par un tap, Entrée ou Espace sur le bouton « Favoris » du groupe
@@ -1254,10 +1250,10 @@ class MapView extends StatefulWidget {
   /// Le second ViewModel de l'écran (`L2` de T4, arbitrage 7, `ADR-014`
   /// amendé) : l'état de la lecture Crues, qui a son propre cycle de
   /// chargement. Construit et disposé par `main.dart`, comme [viewModel].
-  /// C'est cette vue qui le prévient — puce « Vigilance crues », relâchement
-  /// de geste sur cette lecture, « Réessayer » ; aucun ViewModel n'importe
-  /// l'autre. `null` : la lecture Crues n'est pas branchée, la puce ne fait
-  /// que changer d'échelle.
+  /// C'est cette vue qui le prévient — entrée « Vigilance crues » du
+  /// sélecteur, relâchement de geste sur cette lecture, « Réessayer » ; aucun
+  /// ViewModel n'importe l'autre. `null` : la lecture Crues n'est pas
+  /// branchée, l'entrée ne fait que changer d'échelle.
   final FloodLayerViewModel? floodLayer;
 
   /// Appelé avec le tronçon touché (trait ou étiquette) et la date de la
@@ -1470,11 +1466,11 @@ class _MapViewState extends State<MapView> {
     }
   }
 
-  /// Puce d'échelle (`M5` de T4, cadrage § 7.1) : change l'échelle, puis, sur
-  /// la lecture Crues, prévient [MapView.floodLayer] — activation (premier
-  /// chargement, ou relecture d'une carte déjà lue), puis l'emprise de la
-  /// caméra. Pendant un chargement, ni l'un ni l'autre ne relance rien
-  /// (Review Focus 2).
+  /// Entrée de lecture du sélecteur (`M5` de T4, cadrage § 7.1) : change
+  /// l'échelle, puis, sur la lecture Crues, prévient [MapView.floodLayer] —
+  /// activation (premier chargement, ou relecture d'une carte déjà lue), puis
+  /// l'emprise de la caméra. Pendant un chargement, ni l'un ni l'autre ne
+  /// relance rien (Review Focus 2).
   void _handleScaleSelected(MapScaleKind kind) {
     widget.viewModel.selectScale(kind);
     final FloodLayerViewModel? flood = widget.floodLayer;
@@ -1944,6 +1940,10 @@ class _MapViewState extends State<MapView> {
     // l'autre (`widget.stationSheet`) : `Element.updateChild` court-circuite
     // sur un widget identique, le replacer ici ne le reconstruit donc pas —
     // il porte son propre `ListenableBuilder` sur le ViewModel de la fiche.
+    // Encore faut-il que son élément reste le même quand la liste des pièces
+    // change : la bande et le réticule n'existent qu'en mode, et c'est la clé
+    // de chaque `MapLayoutChild`, son emplacement, qui garde la fiche quand
+    // « Restrictions » bascule (I1 de la relecture finale de la branche).
     //
     // Depuis `M5` de T4, il écoute aussi [MapView.floodLayer] ([_listenable]) :
     // l'état de la lecture Crues (avis, traits, étiquettes, date de la
@@ -2149,7 +2149,7 @@ class _MapViewState extends State<MapView> {
                         ),
                       ),
                     ),
-                    ...buildMapOverlays(
+                    buildMapOverlays(
                       scale: widget.viewModel.scale,
                       onSelect: _handleScaleSelected,
                       onWiden: _handleWiden,

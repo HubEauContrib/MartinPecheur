@@ -120,15 +120,7 @@ const String _mesureRecenteLabel = 'Mesure récente';
 /// par le commanditaire le 2026-09-22 (constat d'écran du lot 3).
 const String _selectionnezPourChargerLabel = 'Sélectionnez pour charger';
 
-/// Largeur maximale de la légende, en pixels logiques : au-delà, elle
-/// mangerait la carte sur un écran étroit.
-///
-/// **Publique** parce qu'elle a un appelant hors de ce fichier :
-/// `buildMapOverlays` (`map_view.dart`) s'en sert pour borner le bandeau
-/// d'erreur, qui ne doit jamais recouvrir la légende (`BR-008`).
-const double legendMaxWidth = 260;
-
-/// Largeur d'une case de la légende « dans le bloc » (`PD6`, `S2` d'Ergonomie) :
+/// Largeur d'une case de la légende (`PD6`, `S2` d'Ergonomie) :
 /// les rangées courtes — les six d'écoulement et les cinq de fraîcheur du débit
 /// — se posent dans un [Wrap] de cases de cette largeur, deux par ligne dès que
 /// le bloc a 320 de large (344 au téléphone), une seule en deçà. 156 laisse 132
@@ -138,8 +130,8 @@ const double legendMaxWidth = 260;
 /// pleine largeur.
 const double legendRowWidth = 156;
 
-/// Écart horizontal entre deux cases de la légende « dans le bloc », en pixels
-/// logiques : deux cases tiennent donc dans 320 de large (156 + 8 + 156).
+/// Écart horizontal entre deux cases de la légende, en pixels logiques : deux
+/// cases tiennent donc dans 320 de large (156 + 8 + 156).
 const double _legendRowSpacing = 8;
 
 /// Taille de texte d'une ligne de légende, en pixels logiques.
@@ -420,23 +412,21 @@ class _RenderLegendHeader extends RenderBox
       defaultHitTestChildren(result, position: position);
 }
 
-/// La légende de l'échelle active. Toujours visible, jamais repliée
-/// (`BR-008`).
+/// La légende de l'échelle active, dans le bloc de lecture (`S2` d'Ergonomie,
+/// posée par `MapReadingBlockLegend`). Toujours rendue (`BR-008`) ; elle
+/// défile quand la place manque (premier repli, écart à `BR-008` accepté le
+/// 2026-10-12 et prolongé par l'arbitrage 11).
 ///
-/// Deux formes. Hors du bloc de lecture ([inBlock] faux, le défaut — la
-/// légende actuelle de la carte, jusqu'à ce que `D2` branche le bloc) : une
-/// carte blanche d'au plus [legendMaxWidth], son titre en tête, une rangée par
-/// ligne. Dans le bloc ([inBlock] vrai, `S2` d'Ergonomie) : ni titre — il est
-/// dans [MapLegendHeader] —, ni carte, ni plafond — le bloc les porte —, et les
-/// rangées courtes (écoulement, fraîcheur du débit) en colonnes, dans un [Wrap]
-/// de cases de [legendRowWidth]. La légende Crues garde ses rangées pleine
-/// largeur.
+/// Une seule forme depuis `D2` : ni titre — le nom de la lecture est dans
+/// [MapLegendHeader] —, ni carte blanche, ni plafond de largeur — le bloc les
+/// porte —, et les rangées courtes (écoulement, fraîcheur du débit) en
+/// colonnes, dans un [Wrap] de cases de [legendRowWidth]. La légende Crues
+/// garde ses rangées pleine largeur.
 class MapLegend extends StatelessWidget {
   const MapLegend({
     required this.scale,
     this.floodInformationDate,
     this.utcOffsetOf = systemUtcOffsetOf,
-    this.inBlock = false,
     super.key,
   });
 
@@ -451,11 +441,6 @@ class MapLegend extends StatelessWidget {
   /// Décalage horaire injectable, pour qu'un test fixe le fuseau.
   final UtcOffsetOf utcOffsetOf;
 
-  /// Vrai quand la légende se pose dans le bloc de lecture : sans titre, sans
-  /// carte blanche, sans plafond de largeur, rangées courtes (écoulement,
-  /// fraîcheur du débit) en colonnes.
-  final bool inBlock;
-
   @override
   Widget build(BuildContext context) {
     // `switch` exhaustif sur un `enum` fermé (`BR-011`) : une échelle ajoutée
@@ -465,57 +450,21 @@ class MapLegend extends StatelessWidget {
       MapScaleKind.ecoulement => _flowRows(),
       MapScaleKind.crues => _floodRows(),
     };
-    if (inBlock) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: rows,
-      );
-    }
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: legendMaxWidth),
-      child: DecoratedBox(
-        // Fond opaque : un texte posé sur un fond de carte quelconque ne
-        // tient aucun contraste (`04-ui.md` § 3).
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.all(Radius.circular(4)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              // Le nom de l'échelle active, en tête : c'est la raison d'être
-              // de la légende (`BR-008`).
-              Text(
-                mapScaleLabel(scale),
-                style: const TextStyle(
-                  fontSize: _entryFontSize,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              ...rows,
-            ],
-          ),
-        ),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: rows,
     );
   }
 
-  /// Les rangées courtes [rows] : une par ligne hors du bloc, en colonnes dans
-  /// le bloc (`PD6`) — un [Wrap] de cases de [legendRowWidth] séparées de
-  /// [_legendRowSpacing], deux par ligne dès que la largeur le permet. Un
-  /// [Wrap] et non un `LayoutBuilder` : il sait rendre ses hauteurs
-  /// intrinsèques, que la mise en page du bloc interroge. Les phrases longues
-  /// ne passent pas par ici : elles restent pleine largeur, comme les rangées
-  /// de la légende Crues, dont les libellés publiés sont longs.
+  /// Les rangées courtes [rows], en colonnes (`PD6`) : un [Wrap] de cases de
+  /// [legendRowWidth] séparées de [_legendRowSpacing], deux par ligne dès que
+  /// la largeur le permet. Un [Wrap] et non un `LayoutBuilder` : il sait
+  /// rendre ses hauteurs intrinsèques, que la mise en page du bloc interroge.
+  /// Les phrases longues ne passent pas par ici : elles restent pleine
+  /// largeur, comme les rangées de la légende Crues, dont les libellés publiés
+  /// sont longs.
   List<Widget> _shortRows(List<Widget> rows) {
-    if (!inBlock) {
-      return rows;
-    }
     return <Widget>[
       Wrap(
         spacing: _legendRowSpacing,
