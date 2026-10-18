@@ -15,10 +15,14 @@
 // de les poser. Les règles de largeur et de recouvrement de ce fichier sont
 // donc celles que `D1` doit poser — mêmes nombres, mêmes écarts.
 //
+// La PARTIE FIXE du bloc est la vraie pièce, `MapReadingBlockFixed` (`B1`) :
+// ses hauteurs intrinsèques sont celles du sélecteur plus l'en-tête, sans écart
+// ni marge — celles que `S6` a mesurées avant elle, et qu'un test de `B1`
+// verrouille.
+//
 // Ce que ce fichier compose lui-même, faute de pièce encore livrée, et que
-// `B1`, `D1` et `D2` doivent reproduire à l'identique (sinon les mesures
-// d'ici ne décrivent plus l'écran) :
-// - la PARTIE FIXE du bloc = sélecteur + en-tête, sans écart ni marge (`B1`) ;
+// `D1` et `D2` doivent reproduire à l'identique (sinon les mesures d'ici ne
+// décrivent plus l'écran) :
 // - l'AVIS nu, sans la marge haute de 8 que l'actuel `buildMapOverlays` pose ;
 // - le BAS : en compact, la rangée « Favoris, Filtres … −, +, recentrer » puis
 //   [margeDeSurcouche] puis l'attribution ; au-delà, la colonne actuelle de
@@ -52,6 +56,7 @@ import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
+import 'package:martinpecheur/features/map/view/map_reading_block.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/favorite_star.dart';
@@ -180,8 +185,7 @@ bool _blocSurLeBas(
 
 // --- Les mesures -------------------------------------------------------------
 
-const Key _cleSelecteur = Key('mesure-selecteur');
-const Key _cleEntete = Key('mesure-entete');
+const Key _cleFixe = Key('mesure-partie-fixe');
 const Key _cleAvis = Key('mesure-avis');
 const Key _cleLegende = Key('mesure-legende');
 const Key _cleBas = Key('mesure-bas');
@@ -323,24 +327,23 @@ Future<MapLayoutInput> _mesurer(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 SizedBox(
-                  key: _cleSelecteur,
-                  child: MapReadingSelector(
-                    scale: lecture,
-                    onSelect: (MapScaleKind _) {},
-                    designationMode: enMode,
-                    onToggleDesignationMode: rien,
-                  ),
-                ),
-                SizedBox(
-                  key: _cleEntete,
-                  child: MapLegendHeader(
-                    scale: lecture,
-                    warningLink: WarningLink(
-                      extraText: switch (lecture) {
-                        MapScaleKind.crues => floodWarningWindowText,
-                        MapScaleKind.ecoulement => null,
-                        MapScaleKind.debit => null,
-                      },
+                  key: _cleFixe,
+                  child: MapReadingBlockFixed(
+                    selector: MapReadingSelector(
+                      scale: lecture,
+                      onSelect: (MapScaleKind _) {},
+                      designationMode: enMode,
+                      onToggleDesignationMode: rien,
+                    ),
+                    header: MapLegendHeader(
+                      scale: lecture,
+                      warningLink: WarningLink(
+                        extraText: switch (lecture) {
+                          MapScaleKind.crues => floodWarningWindowText,
+                          MapScaleKind.ecoulement => null,
+                          MapScaleKind.debit => null,
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -424,8 +427,6 @@ Future<MapLayoutInput> _mesurer(
       compact ||
       largeurDeLaBande >=
           boite(_cleBande).getMinIntrinsicWidth(double.infinity);
-  final PieceHeights selecteur = deux(_cleSelecteur, bloc);
-  final double entete = une(_cleEntete, bloc);
   return MapLayoutInput(
     available: taille.height - marge.vertical - 2 * margeDeSurcouche,
     width: mapLayoutWidthFor(taille.width),
@@ -437,10 +438,7 @@ Future<MapLayoutInput> _mesurer(
     bandFits: bandeTient,
     designation: enMode,
     sheetOpen: ficheOuverte,
-    blockFixed: PieceHeights(
-      min: selecteur.min + entete,
-      max: selecteur.max + entete,
-    ),
+    blockFixed: deux(_cleFixe, bloc),
     notices: avecAvis ? une(_cleAvis, bloc) : 0,
     legend: une(_cleLegende, bloc),
     bottom: une(_cleBas, largeurDuBas),
