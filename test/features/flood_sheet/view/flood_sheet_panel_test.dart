@@ -2,6 +2,13 @@
 // nom → encart → niveau → citation → date → bouton, les textes mot pour mot,
 // l'inconnu sans citation, le bulletin, l'avis de lien non ouvert.
 //
+// Depuis `F3` d'Ergonomie (cadrage du 2026-10-17, § 6.1, § 6.4, critère 13), la
+// fiche est dans le cadre commun (`SheetFrame`) : un en-tête épinglé — « Tronçon
+// Vigicrues », la fermeture, puis « ⚠ Avertissement » avec le texte de crue —
+// et un corps qui défile, dans l'ORDRE DE T4 (nom, encart, niveau, citations,
+// date, bulletin, adresse, avis de lien). Sans étoile : T5. Seul changement
+// d'ordre : « ⚠ Avertissement » passe avant le nom.
+//
 // Niveaux 2 à 4 : cas construits, niveaux jamais observés en production
 // (`VC-04`) ; seul le vert est une valeur publiée constatée.
 import 'package:flutter/material.dart';
@@ -14,7 +21,9 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
 import 'package:martinpecheur/features/flood_sheet/view/flood_warning_card.dart';
 import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
+import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 import 'package:martinpecheur/features/shared/flood_level_gauge.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/unopened_link_notice.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
@@ -44,42 +53,60 @@ FloodSheetState _open(FloodVigilanceLevel level, {int unopened = 0}) =>
       unopenedBulletinCount: unopened,
     );
 
+/// Le panneau dans une zone sans hauteur bornée (le défilement de la zone des
+/// fiches d'avant `D5`), ou, avec [height], dans une zone de cette hauteur : le
+/// corps du cadre défile alors sous l'en-tête épinglé (la fiche du bas, le
+/// panneau latéral).
 Widget _host(
   FloodSheetState state, {
   VoidCallback? onClose,
   VoidCallback? onOpenBulletin,
-}) => MaterialApp(
-  home: Scaffold(
-    body: SingleChildScrollView(
-      child: FloodSheetPanel(
-        state: state,
-        onClose: onClose ?? () {},
-        onOpenBulletin: onOpenBulletin ?? () {},
-        utcOffsetOf: (_) => const Duration(hours: 2),
-      ),
+  double? height,
+  ScrollController? bodyScrollController,
+}) {
+  final Widget panel = FloodSheetPanel(
+    state: state,
+    onClose: onClose ?? () {},
+    onOpenBulletin: onOpenBulletin ?? () {},
+    utcOffsetOf: (_) => const Duration(hours: 2),
+    bodyScrollController: bodyScrollController,
+  );
+  return MaterialApp(
+    home: Scaffold(
+      body: height == null
+          ? SingleChildScrollView(child: panel)
+          : Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(height: height, child: panel),
+            ),
     ),
-  ),
-);
+  );
+}
 
 void main() {
+  test('floodSheetNature : « Tronçon Vigicrues », le texte de T4 nommé', () {
+    expect(floodSheetNature, 'Tronçon Vigicrues');
+  });
+
   testWidgetsOnWindows('fermée : rien à l’écran', (WidgetTester tester) async {
     await tester.pumpWidget(_host(const FicheTronconFermee()));
 
+    expect(find.byType(SheetFrame), findsNothing);
     expect(find.byType(FloodWarningCard), findsNothing);
     expect(find.byKey(floodSheetCloseButtonKey), findsNothing);
   });
 
   testWidgetsOnWindows(
-    'ouverte : nom < encart < niveau < citation < date < bouton',
+    'ouverte : nature < « ⚠ Avertissement » < nom < encart < niveau < '
+    'citation < date < bouton',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(_host(_open(const Orange())));
 
-      final double header = tester
-          .getTopLeft(find.textContaining('Tronçon Vigicrues'))
-          .dy;
+      final double header = tester.getTopLeft(find.text(floodSheetNature)).dy;
+      final double warning = tester.getTopLeft(find.byKey(warningLinkKey)).dy;
       final double name = tester
           .getTopLeft(find.textContaining('Blavet aval'))
           .dy;
@@ -97,7 +124,8 @@ void main() {
           .getTopLeft(find.byKey(floodBulletinButtonKey))
           .dy;
 
-      expect(header, lessThan(name));
+      expect(header, lessThan(warning));
+      expect(warning, lessThan(name));
       expect(name, lessThan(card));
       expect(card, lessThan(level));
       expect(level, lessThan(quote));
@@ -263,22 +291,223 @@ void main() {
 
     await tester.tap(find.byKey(floodSheetCloseButtonKey));
     expect(closed, 1);
+    expect(find.byType(FavoriteStarButton), findsNothing);
     expect(find.byIcon(Icons.star), findsNothing);
     expect(find.byIcon(Icons.star_border), findsNothing);
   });
 
+  group('FloodSheetPanel — le cadre commun (F3 d’Ergonomie, spec § 6.1, § 6.4, '
+      'critère 13)', () {
+    testWidgetsOnWindows(
+      'l’en-tête épinglé porte la nature, « ⚠ Avertissement » et la '
+      'fermeture ; le corps porte le nom, l’encart et le bulletin',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_host(_open(const Orange(), unopened: 1)));
+
+        expect(find.byType(SheetFrame), findsOneWidget);
+        final Finder header = find.byKey(sheetFrameHeaderKey);
+        expect(
+          find.descendant(of: header, matching: find.text(floodSheetNature)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: header, matching: find.byType(WarningLink)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: header,
+            matching: find.byKey(floodSheetCloseButtonKey),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: header,
+            matching: find.textContaining('Blavet aval'),
+          ),
+          findsNothing,
+          reason: 'le nom publié est dans le corps, après l’en-tête',
+        );
+
+        final Finder body = find.byKey(sheetFrameBodyKey);
+        for (final Finder inBody in <Finder>[
+          find.textContaining('Blavet aval'),
+          find.byType(FloodWarningCard),
+          find.byType(FloodLevelGauge),
+          find.byKey(floodBulletinButtonKey),
+          find.byType(SelectableText),
+          find.byType(UnopenedLinkNotice),
+        ]) {
+          expect(
+            find.descendant(of: body, matching: inBody),
+            findsOneWidget,
+            reason: inBody.toString(),
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      'la fenêtre de l’en-tête ajoute le texte de crue, sous le texte général',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(_host(_open(const Jaune())));
+
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(sheetFrameHeaderKey),
+            matching: find.byKey(warningLinkKey),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(floodWarningWindowText), findsOneWidget);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'le corps défile sous l’en-tête, qui ne bouge pas ; le contrôleur reçu '
+      'pilote ce défilement',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final ScrollController controller = ScrollController();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          _host(
+            _open(const Orange()),
+            height: 300,
+            bodyScrollController: controller,
+          ),
+        );
+
+        final Rect headerBefore = tester.getRect(
+          find.byKey(sheetFrameHeaderKey),
+        );
+        final Rect closeBefore = tester.getRect(
+          find.byKey(floodSheetCloseButtonKey),
+        );
+        expect(controller.hasClients, isTrue);
+        expect(controller.position.maxScrollExtent, greaterThan(0));
+        expect(
+          controller.position.pixels,
+          0,
+          reason: 'une fiche s’ouvre en haut',
+        );
+
+        controller.jumpTo(controller.position.maxScrollExtent);
+        await tester.pump();
+
+        expect(tester.getRect(find.byKey(sheetFrameHeaderKey)), headerBefore);
+        expect(
+          tester.getRect(find.byKey(floodSheetCloseButtonKey)),
+          closeBefore,
+        );
+        expect(
+          tester.getTopLeft(find.textContaining('Blavet aval')).dy,
+          lessThan(headerBefore.bottom),
+          reason: 'le nom, premier du corps, est remonté sous l’en-tête',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'l’avis de lien non ouvert se montre dans le corps défilant, sous '
+      'l’en-tête',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _host(_open(const Orange(), unopened: 1), height: 300),
+        );
+        await tester.pump();
+
+        final Rect header = tester.getRect(find.byKey(sheetFrameHeaderKey));
+        final Rect notice = tester.getRect(find.byType(UnopenedLinkNotice));
+        expect(notice.bottom, lessThanOrEqualTo(300 + 0.5));
+        expect(notice.top, greaterThanOrEqualTo(header.bottom - 0.5));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'les intrinsèques : min = l’en-tête seul, max = la fiche entière, sans '
+      'LayoutBuilder ni Viewport dans le corps',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        // Bornée à 300 : le cadre est plus court que sa fiche entière.
+        await tester.pumpWidget(
+          _host(_open(const Orange(), unopened: 1), height: 300),
+        );
+        final RenderBox bounded = tester.renderObject<RenderBox>(
+          find.byType(SheetFrame),
+        );
+        final double width = bounded.size.width;
+        final double header = tester
+            .getSize(find.byKey(sheetFrameHeaderKey))
+            .height;
+        final double minIntrinsic = bounded.getMinIntrinsicHeight(width);
+        final double maxIntrinsic = bounded.getMaxIntrinsicHeight(width);
+
+        expect(minIntrinsic, closeTo(header, 0.5));
+        expect(maxIntrinsic, greaterThan(300));
+        expect(tester.takeException(), isNull);
+
+        // Non bornée : la fiche se pose à sa hauteur entière, celle que
+        // l’intrinsèque maximale annonçait.
+        await tester.pumpWidget(_host(_open(const Orange(), unopened: 1)));
+        expect(
+          tester.getSize(find.byType(SheetFrame)).height,
+          closeTo(maxIntrinsic, 0.5),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'un niveau non reconnu garde le même cadre et la même fenêtre',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_host(_open(const NiveauCruesInconnu(7))));
+
+        expect(find.byType(SheetFrame), findsOneWidget);
+        final SheetFrame frame = tester.widget<SheetFrame>(
+          find.byType(SheetFrame),
+        );
+        expect(frame.nature, floodSheetNature);
+        expect(frame.warningExtraText, floodWarningWindowText);
+        expect(frame.favoriteStar, isNull);
+        expect(frame.onToggleFavorite, isNull);
+        expect(frame.closeButtonKey, floodSheetCloseButtonKey);
+      },
+    );
+  });
+
   testWidgetsOnAndroid(
-    'Android : fermeture et bulletin à 48 au moins, la fiche défile',
+    'Android : fermeture et bulletin à 48 au moins, le corps défile sous '
+    'l’en-tête',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(_host(_open(const Rouge(), unopened: 1)));
+      await tester.pumpWidget(
+        _host(_open(const Rouge(), unopened: 1), height: 360),
+      );
 
       expect(minimumTapTarget, 48);
       final Size close = tester.getSize(find.byKey(floodSheetCloseButtonKey));
       expect(close.width, greaterThanOrEqualTo(48));
       expect(close.height, greaterThanOrEqualTo(48));
+      final Rect closeBefore = tester.getRect(
+        find.byKey(floodSheetCloseButtonKey),
+      );
 
       await tester.ensureVisible(find.byKey(floodBulletinButtonKey));
       await tester.pump();
@@ -286,11 +515,23 @@ void main() {
       expect(button.height, greaterThanOrEqualTo(48));
       expect(tester.takeException(), isNull);
 
+      // Le premier défilement du corps est le sien ; l'adresse sélectionnable
+      // en porte un autre, plus bas.
       final ScrollableState scrollable = tester.state<ScrollableState>(
-        find.byType(Scrollable).first,
+        find
+            .descendant(
+              of: find.byKey(sheetFrameBodyKey),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       expect(scrollable.position.maxScrollExtent, greaterThan(0));
       expect(scrollable.position.pixels, greaterThan(0));
+      expect(
+        tester.getRect(find.byKey(floodSheetCloseButtonKey)),
+        closeBefore,
+        reason: 'la fermeture est dans l’en-tête épinglé',
+      );
     },
   );
 }

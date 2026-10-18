@@ -119,3 +119,11 @@ Fonctionnalité: Consulter la vigilance crues
     Quand on les relit
     Alors aucun ne qualifie un débit (BR-003), aucun ne porte de verbe d'instruction sur un usage de l'eau ni de mot de garantie (BR-014)
     Et aucun ne rapproche un débit, une hauteur ou un écoulement d'un risque de crue (BR-015)
+
+  # ── Ergonomie — la fiche du tronçon dans le cadre commun (cadrage du 2026-10-17, critère 13 ; F3)
+
+  Scénario: La fiche du tronçon se pose dans le cadre commun des fiches, sans étoile, et garde l'ordre de T4
+    Étant donné la fiche d'un tronçon « Blavet » de niveau orange
+    Quand elle s'affiche
+    Alors son en-tête épinglé porte « Tronçon Vigicrues », la fermeture, puis le contrôle « ⚠ Avertissement » avec le texte de crue, sans étoile ni code (BR-015)
+    Et son corps, qui défile sous l'en-tête, garde l'ordre de T4 : le nom publié, l'encart « CE N'EST PAS UN SYSTÈME D'ALERTE », « Vigilance orange », la définition publiée suivie de « — Vigicrues », « Information de vigilance du 14/10/2026 à 15:55 — © VIGICRUES », « Lire le bulletin sur www.vigicrues.gouv.fr », puis son adresse

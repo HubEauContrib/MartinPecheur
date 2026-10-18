@@ -1,18 +1,29 @@
 // Le panneau de la fiche tronçon (F3 de T4, cadrage § 8) : rend l'état porté
 // par `FloodSheetViewModel`. `switch` exhaustif sur un `sealed` (`BR-011`).
 //
-// Contenu, DANS L'ORDRE (arbitrages 4 et 5 du cadrage) :
-// 1. « Tronçon Vigicrues », le nom publié, le contrôle « ⚠ Avertissement » ;
-// 2. l'encart de crue, non repliable, AVANT le niveau (`BR-015`) ;
-// 3. la jauge et le titre du niveau ;
-// 4. la définition publiée, CITÉE et attribuée — ou, pour un niveau inconnu,
-//    la phrase qui renvoie au bulletin, sans aucune citation (`BR-011`) ;
-// 5. la date de la carte lue et l'attribution ;
-// 6. le bouton du bulletin, l'adresse affichée et sélectionnable, l'avis de
-//    lien non ouvert.
+// Depuis `F3` d'Ergonomie (cadrage du 2026-10-17, § 6.1, § 6.4, critère 13), la
+// fiche est dans le cadre commun des fiches ([SheetFrame]) :
+// - l'EN-TÊTE épinglé porte « Tronçon Vigicrues » ([floodSheetNature]), la
+//   fermeture, puis le contrôle « ⚠ Avertissement » et le texte de crue
+//   ([floodWarningWindowText]) — SANS étoile (T5) ;
+// - le CORPS défile dessous, dans l'ORDRE DE T4 (arbitrages 4 et 5 du cadrage
+//   de T4) :
+//   1. le nom publié ;
+//   2. l'encart de crue, non repliable, AVANT le niveau (`BR-015`) ;
+//   3. la jauge et le titre du niveau ;
+//   4. la définition publiée, CITÉE et attribuée — ou, pour un niveau inconnu,
+//      la phrase qui renvoie au bulletin, sans aucune citation (`BR-011`) ;
+//   5. la date de la carte lue et l'attribution ;
+//   6. le bouton du bulletin, l'adresse affichée et sélectionnable, l'avis de
+//      lien non ouvert.
+// Seul changement d'ordre : « ⚠ Avertissement » passe avant le nom, dans
+// l'en-tête.
 //
-// Pas d'étoile (T5). L'application relaie : aucun niveau, seuil ni prévision
-// n'est déduit ici (`BR-015`).
+// L'application relaie : aucun niveau, seuil ni prévision n'est déduit ici
+// (`BR-015`).
+//
+// Le corps répond aux demandes de dimensions intrinsèques (contrat de
+// [SheetFrame.body]) : ni `LayoutBuilder` ni `ListView`.
 //
 // ⚠️ Cette tranche n'importe AUCUNE autre tranche : seulement `lib/domain/` et
 // `lib/features/shared/`.
@@ -26,9 +37,13 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/flood_sheet/view/flood_warning_card.dart';
 import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/shared/flood_level_gauge.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/unopened_link_notice.dart';
-import 'package:martinpecheur/features/shared/warning_link.dart';
+
+/// La ligne de nature de l'en-tête de la fiche (spec § 11.2) : le texte de T4,
+/// nommé. Aucun code n'est affiché — seule la station affiche le sien.
+const String floodSheetNature = 'Tronçon $floodSourceName';
 
 /// Clé du bouton « Fermer la fiche » — pour les tests.
 const Key floodSheetCloseButtonKey = Key('flood-sheet-close');
@@ -52,6 +67,7 @@ class FloodSheetPanel extends StatelessWidget {
     required this.onClose,
     required this.onOpenBulletin,
     this.utcOffsetOf = systemUtcOffsetOf,
+    this.bodyScrollController,
     super.key,
   });
 
@@ -68,123 +84,85 @@ class FloodSheetPanel extends StatelessWidget {
   /// défaut celui de la machine, injectable par un test.
   final UtcOffsetOf utcOffsetOf;
 
+  /// La position du corps du cadre, que l'appelant remet à zéro à chaque
+  /// ouverture (`K4` de T3), ou `null`.
+  final ScrollController? bodyScrollController;
+
   @override
   Widget build(BuildContext context) {
     return switch (state) {
       FicheTronconFermee() => const SizedBox.shrink(),
-      final FicheTronconOuverte open => _frame(open),
+      final FicheTronconOuverte open => SheetFrame(
+        nature: floodSheetNature,
+        closeButtonKey: floodSheetCloseButtonKey,
+        onClose: onClose,
+        warningExtraText: floodWarningWindowText,
+        bodyScrollController: bodyScrollController,
+        body: _body(open),
+      ),
     };
   }
 
-  Widget _frame(FicheTronconOuverte open) {
+  /// Le corps de la fiche ouverte, dans l'ordre de T4.
+  Widget _body(FicheTronconOuverte open) {
     final FloodVigilanceLevel level = open.section.level;
     final String? legend = publishedFloodLegend(level);
     final String? explanation = publishedFloodExplanation(level);
-    return Material(
-      elevation: 4,
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          open.section.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        const FloodWarningCard(),
+        const SizedBox(height: 8),
+        Row(
           children: <Widget>[
+            FloodLevelGauge(level: level, size: 26),
+            const SizedBox(width: 8),
             Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const Text(
-                    'Tronçon $floodSourceName',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    open.section.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const WarningLink(extraText: floodWarningWindowText),
-                  const SizedBox(height: 8),
-                  const FloodWarningCard(),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: <Widget>[
-                      FloodLevelGauge(level: level, size: 26),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          floodVigilanceTitle(level),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (legend != null) ...<Widget>[
-                    Text('« $legend »'),
-                    if (explanation != null) ...<Widget>[
-                      const SizedBox(height: 4),
-                      Text('« $explanation »'),
-                    ],
-                    const SizedBox(height: 4),
-                    const Text('— $floodSourceName'),
-                  ] else
-                    const Text(floodUnknownLevelText),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Information de vigilance du '
-                    '${formatLocalDateTime(open.informationDate, offsetOf: utcOffsetOf)}'
-                    ' — $floodAttribution',
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    key: floodBulletinButtonKey,
-                    onPressed: onOpenBulletin,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: Size.square(minimumTapTarget),
-                      visualDensity: VisualDensity.standard,
-                    ),
-                    child: const Text(floodBulletinButtonLabel),
-                  ),
-                  const SizedBox(height: 4),
-                  SelectableText(open.bulletinUri.toString()),
-                  if (open.unopenedBulletinCount > 0)
-                    UnopenedLinkNotice(
-                      key: ValueKey<int>(open.unopenedBulletinCount),
-                    ),
-                ],
+              child: Text(
+                floodVigilanceTitle(level),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
-            const SizedBox(width: 8),
-            _CloseButton(onClose: onClose),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Le bouton de fermeture, dimensionné à [minimumTapTarget] par un
-/// `SizedBox` explicite (mesurable par test, `04-ui.md` § 3).
-class _CloseButton extends StatelessWidget {
-  const _CloseButton({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Fermer la fiche',
-      child: GestureDetector(
-        key: floodSheetCloseButtonKey,
-        behavior: HitTestBehavior.opaque,
-        onTap: onClose,
-        child: SizedBox(
-          width: minimumTapTarget,
-          height: minimumTapTarget,
-          child: const Center(child: Icon(Icons.close)),
+        const SizedBox(height: 8),
+        if (legend != null) ...<Widget>[
+          Text('« $legend »'),
+          if (explanation != null) ...<Widget>[
+            const SizedBox(height: 4),
+            Text('« $explanation »'),
+          ],
+          const SizedBox(height: 4),
+          const Text('— $floodSourceName'),
+        ] else
+          const Text(floodUnknownLevelText),
+        const SizedBox(height: 8),
+        Text(
+          'Information de vigilance du '
+          '${formatLocalDateTime(open.informationDate, offsetOf: utcOffsetOf)}'
+          ' — $floodAttribution',
         ),
-      ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          key: floodBulletinButtonKey,
+          onPressed: onOpenBulletin,
+          style: OutlinedButton.styleFrom(
+            minimumSize: Size.square(minimumTapTarget),
+            visualDensity: VisualDensity.standard,
+          ),
+          child: const Text(floodBulletinButtonLabel),
+        ),
+        const SizedBox(height: 4),
+        SelectableText(open.bulletinUri.toString()),
+        if (open.unopenedBulletinCount > 0)
+          UnopenedLinkNotice(key: ValueKey<int>(open.unopenedBulletinCount)),
+      ],
     );
   }
 }

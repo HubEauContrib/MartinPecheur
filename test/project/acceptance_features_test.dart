@@ -434,10 +434,11 @@ void main() {
     final String contenu = contenusParFichier['crues.feature'] ?? '';
     expect(
       _scenariosByStory(contenu)[_cruesStory] ?? 0,
-      19,
+      20,
       reason:
-          'crues.feature porte dix-neuf scénarios sous US-21, un par '
-          'critère du cadrage de T4 (§ 10)',
+          'crues.feature porte vingt scénarios sous US-21 : dix-neuf, un par '
+          'critère du cadrage de T4 (§ 10), et celui de la fiche tronçon dans '
+          "le cadre commun (critère 13 de l'ergonomie, F3)",
     );
   });
 
@@ -895,6 +896,9 @@ void main() {
             '${floodLevelLabel(level)} — ${publishedFloodLegend(level)}',
       // `F3` : la fiche tronçon. Le Gherkin cite le titre de l'orange et celui
       // du niveau inconnu, la phrase de l'inconnu et le bouton du bulletin.
+      // `F3` d'Ergonomie y ajoute la nature de l'en-tête, dans le cadre commun.
+      'fiche, nature de l\'en-tête': floodSheetNature,
+      'fiche, contrôle d\'avertissement de l\'en-tête': '⚠ $warningLinkLabel',
       'fiche, titre orange': floodVigilanceTitle(const Orange()),
       'fiche, niveau inconnu': floodVigilanceTitle(
         const NiveauCruesInconnu(null),
