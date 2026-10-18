@@ -362,7 +362,12 @@ Future<MapLayoutInput> _mesurer(
     blockFixed: deux(_cleFixe, largeurs.block),
     notices: avecAvis ? une(_cleAvis, largeurs.block) : 0,
     legend: une(_cleLegende, largeurs.block),
-    bottom: une(_cleBas, largeurs.bottom),
+    // Le bas : la rangée ne cède jamais (min = max) ; la colonne dit sa
+    // hauteur repliée — l'attribution et son écart, sous ses boutons qui
+    // défilent (arbitrage 24, `D8`).
+    bottom: compact
+        ? PieceHeights.fixed(une(_cleBas, largeurs.bottom))
+        : deux(_cleBas, largeurs.bottom),
     // Une bande qui ne tient pas n'a pas de hauteur à dire : fiche ouverte,
     // `allocateMapLayout` la retire (repli 6 étendu, arbitrage 14).
     band: enMode && largeurs.bandFits
@@ -378,6 +383,11 @@ Future<MapLayoutInput> _mesurer(
     sheetFeatured: fiche == null
         ? 0
         : sheetFeaturedHeightOf(boite(_cleFiche), largeurFiche),
+    // La première rangée de l'en-tête (arbitrage 24, `D8`), lue comme la pose
+    // la lit.
+    sheetFirstRow: fiche == null
+        ? 0
+        : sheetFirstRowHeightOf(boite(_cleFiche), largeurFiche),
     gap: margeDeSurcouche,
   );
 }

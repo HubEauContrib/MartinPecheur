@@ -6,7 +6,10 @@
 // (la nature se replie sur la largeur, jamais d'ellipse), le contrôle
 // « ⚠ Avertissement » (`W3c`, présent dans tous les états d'une fiche), puis
 // l'avis d'échec d'écriture du favori quand il y en a un. Il ne cède jamais à
-// un repli (spec § 5.6) : c'est le corps qui défile quand la place manque.
+// un repli aux quatre tailles (spec § 5.6) : c'est le corps qui défile quand
+// la place manque ; en deçà, il cède, rogné par le bas, jamais sous sa première
+// rangée (arbitrage 24, `D8`) — son « ⚠ Avertissement » rogné sort alors de
+// l'ordre de tabulation, toujours annoncé ([RenderSheetClip], arbitrage 25).
 //
 // ⚠️ Ce que la mise en page de la carte (`D1`) interroge, sans `LayoutBuilder`
 // (note d'architecture du plan, point 1, amendé par `D7`) — TROIS hauteurs :
@@ -18,6 +21,10 @@
 //   qui la suit dans [NoMinIntrinsicHeight]. Un corps qui ne marque rien (un
 //   état « en cours », « en échec ») est entier ; la marge basse n'y entre pas ;
 // - `getMaxIntrinsicHeight` = l'en-tête et le corps ENTIER.
+// Et, depuis `D8` (arbitrage 24), la PREMIÈRE RANGÉE de l'en-tête
+// ([RenderSheetFirstRowHeight], lue par [sheetFirstRowHeightOf]) : sa marge
+// haute et la rangée « nature · étoile · fermeture » — en deçà des quatre
+// tailles, l'en-tête cède jusqu'à elle, jamais dessous.
 // Rien, dans le cadre, ne lève d'erreur sur une demande d'intrinsèques : un
 // défilement s'y fait par `SingleChildScrollView`, jamais par un `ListView` ni
 // un autre `Viewport`. Le CONTRAT vaut aussi pour le `body` que la fiche
@@ -36,7 +43,7 @@
 // une hauteur NON bornée (un parent qui défile), il se pose à sa hauteur
 // entière — un test de ce fichier le verrouille. L'en-tête est toujours posé
 // entier : sous lui, rien (en deçà des tailles garanties, la zone des fiches
-// rogne).
+// rogne, jusqu'à la première rangée au plus).
 //
 // Aucune tranche importée (`shared-sans-tranche`) : le cadre reçoit tout par
 // paramètre, jusqu'à la clé du bouton de fermeture, que chaque fiche garde
@@ -46,6 +53,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:martinpecheur/features/shared/favorite_star.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
@@ -100,12 +108,51 @@ abstract interface class RenderSheetFeaturedHeight {
 /// - sinon, sa hauteur intrinsèque minimale : rien n'est mis en avant au-delà
 ///   de sa hauteur repliée (une fiche fermée, une pièce de test, une
 ///   enveloppe qui change les hauteurs de ce qu'elle porte).
-double sheetFeaturedHeightOf(RenderBox box, double width) {
+double sheetFeaturedHeightOf(RenderBox box, double width) => _sheetHeightOf(
+  box,
+  width,
+  (RenderBox b) => b is RenderSheetFeaturedHeight
+      ? (b as RenderSheetFeaturedHeight).featuredHeight(width)
+      : null,
+);
+
+/// Une boîte qui dit, à une largeur, la hauteur de la PREMIÈRE RANGÉE de
+/// l'en-tête d'une fiche (arbitrage 24 du commanditaire, `D8`) : la marge
+/// haute de l'en-tête et la rangée « nature · étoile · fermeture ». En deçà
+/// des quatre tailles, l'en-tête cède — la zone des fiches le rogne par le
+/// bas —, jamais sous elle : l'étoile et la fermeture restent touchables.
+/// [SheetFrame] la dit ; la zone des fiches de la carte la dit pour ses
+/// panneaux. Elle se lit par [sheetFirstRowHeightOf].
+abstract interface class RenderSheetFirstRowHeight {
+  /// La hauteur de la première rangée de l'en-tête à [width] de large.
+  double firstRowHeight(double width);
+}
+
+/// La première rangée de l'en-tête de [box] à [width] de large (arbitrage
+/// 24), lue comme [sheetFeaturedHeightOf] lit la mesure mise en avant : celle
+/// que [box] dit s'il est une [RenderSheetFirstRowHeight], ou celle de son
+/// enfant au travers d'une enveloppe qui en garde les hauteurs ; sinon sa
+/// hauteur intrinsèque minimale — son en-tête entier, qui ne cède pas.
+double sheetFirstRowHeightOf(RenderBox box, double width) => _sheetHeightOf(
+  box,
+  width,
+  (RenderBox b) => b is RenderSheetFirstRowHeight
+      ? (b as RenderSheetFirstRowHeight).firstRowHeight(width)
+      : null,
+);
+
+/// La hauteur que [said] lit sur [box], ou sur l'enfant d'une enveloppe à
+/// enfant unique ([RenderProxyBox]) qui garde ses deux hauteurs intrinsèques ;
+/// sinon la hauteur intrinsèque minimale de [box].
+double _sheetHeightOf(
+  RenderBox box,
+  double width,
+  double? Function(RenderBox box) said,
+) {
   RenderBox current = box;
   while (true) {
-    if (current is RenderSheetFeaturedHeight) {
-      return (current as RenderSheetFeaturedHeight).featuredHeight(width);
-    }
+    final double? height = said(current);
+    if (height != null) return height;
     final RenderBox? child = current is RenderProxyBox ? current.child : null;
     if (child == null || !_keepsHeights(current, child, width)) {
       return box.getMinIntrinsicHeight(width);
@@ -242,23 +289,36 @@ class SheetFrame extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(child: Text(nature, style: _natureStyle)),
-                      if (star != null && toggle != null) ...<Widget>[
-                        FavoriteStarButton(star: star, onToggle: toggle),
-                        // 8 px entre l'étoile et la fermeture : deux actions
-                        // opposées dont les cibles ne se touchent pas. C'est
-                        // l'écart de l'amendement `S7b` (`docs/04-ui.md`,
-                        // vertical : l'étoile sous la fermeture), transposé
-                        // sur la rangée — choix de la boucle principale sur
-                        // le croquis du § 6.1. Sans étoile, pas de boîte vide.
-                        const SizedBox(width: 8),
+                  // La première rangée (arbitrage 24) : le cadre en lit la
+                  // hauteur (`RenderSheetFirstRowHeight`).
+                  _SheetFirstRow(
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(child: Text(nature, style: _natureStyle)),
+                        if (star != null && toggle != null) ...<Widget>[
+                          FavoriteStarButton(star: star, onToggle: toggle),
+                          // 8 px entre l'étoile et la fermeture : deux
+                          // actions opposées dont les cibles ne se touchent
+                          // pas. C'est l'écart de l'amendement `S7b`
+                          // (`docs/04-ui.md`, vertical : l'étoile sous la
+                          // fermeture), transposé sur la rangée — choix de la
+                          // boucle principale sur le croquis du § 6.1. Sans
+                          // étoile, pas de boîte vide.
+                          const SizedBox(width: 8),
+                        ],
+                        _CloseButton(
+                          buttonKey: closeButtonKey,
+                          onClose: onClose,
+                        ),
                       ],
-                      _CloseButton(buttonKey: closeButtonKey, onClose: onClose),
-                    ],
+                    ),
                   ),
-                  WarningLink(extraText: warningExtraText),
+                  // Rogné par la zone qui porte la fiche (en deçà, l'en-tête
+                  // qui cède, arbitrage 24), il sort de l'ordre de
+                  // tabulation et reste annoncé (arbitrage 25).
+                  _FocusableWhileShown(
+                    child: WarningLink(extraText: warningExtraText),
+                  ),
                   // `FavoriteStar` ne dit que `writeFailed` : la forme de
                   // l'étoile reste celle d'avant l'échec — pleine, c'est un
                   // retrait qui a échoué, vide un ajout. Une liste illisible
@@ -319,7 +379,7 @@ class _RenderSheetFrameColumn extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _SheetFrameParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _SheetFrameParentData>
-    implements RenderSheetFeaturedHeight {
+    implements RenderSheetFeaturedHeight, RenderSheetFirstRowHeight {
   RenderBox get _header => firstChild!;
   RenderBox get _body => lastChild!;
 
@@ -360,6 +420,40 @@ class _RenderSheetFrameColumn extends RenderBox
         _body.getMinIntrinsicHeight(width) - _bodyPadding.vertical;
     return _header.getMinIntrinsicHeight(width) +
         (featured > 0 ? _bodyPadding.top + featured : 0);
+  }
+
+  /// La marge haute de l'en-tête et sa première rangée (arbitrage 24), à la
+  /// largeur où l'en-tête la pose ; jamais plus que l'en-tête. Sans première
+  /// rangée repérée, l'en-tête entier : il ne cède pas.
+  @override
+  double firstRowHeight(double width) {
+    final double header = _header.getMinIntrinsicHeight(width);
+    final RenderBox? row = _firstRowIn(_header);
+    if (row == null) return header;
+    return math.min(
+      header,
+      _headerPadding.top +
+          row.getMaxIntrinsicHeight(
+            math.max(0, width - _headerPadding.horizontal),
+          ),
+    );
+  }
+
+  /// La première rangée posée dans [root], en profondeur d'abord : elle est
+  /// sur le chemin des premiers enfants de l'en-tête.
+  static RenderBox? _firstRowIn(RenderObject root) {
+    RenderBox? found;
+    void visit(RenderObject node) {
+      if (found != null) return;
+      if (node is _RenderSheetFirstRow) {
+        found = node;
+        return;
+      }
+      node.visitChildren(visit);
+    }
+
+    visit(root);
+    return found;
   }
 
   /// Les contraintes d'un enfant : toute la largeur bornée, au plus
@@ -430,6 +524,119 @@ class _RenderSheetFrameColumn extends RenderBox
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
       defaultHitTestChildren(result, position: position);
 }
+
+/// Une boîte qui rogne les fiches qu'elle porte (arbitrage 24 : en deçà des
+/// quatre tailles, la zone des fiches de la carte rogne l'en-tête qui cède) :
+/// elle dit où, dans son repère, ce qu'elle porte se voit. [SheetFrame] la lit
+/// pour sortir de l'ordre de tabulation son « ⚠ Avertissement » rogné
+/// (arbitrage 25) ; les annonces, elles, ne la lisent pas : il reste annoncé.
+abstract interface class RenderSheetClip {
+  /// La part de la boîte où ce qu'elle porte se voit, dans son repère ; `null`
+  /// quand elle ne rogne rien.
+  Rect? get sheetClip;
+}
+
+/// [child] reste dans l'ordre de tabulation tant qu'il se voit entier dans la
+/// [RenderSheetClip] qui l'enveloppe ; rogné, il en sort (`ExcludeFocus`),
+/// sans perdre son annonce ; il y revient dès que la place le montre
+/// (arbitrage 25). Relu après chaque trame où il se peint : la zone qui
+/// change de rognage se remet en page, donc se repeint, et lui avec elle.
+class _FocusableWhileShown extends StatefulWidget {
+  const _FocusableWhileShown({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_FocusableWhileShown> createState() => _FocusableWhileShownState();
+}
+
+class _FocusableWhileShownState extends State<_FocusableWhileShown> {
+  bool _shown = true;
+
+  void _onShown(bool shown) {
+    if (!mounted || shown == _shown) return;
+    setState(() => _shown = shown);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeFocus(
+      excluding: !_shown,
+      child: _ShownProbe(onShown: _onShown, child: widget.child),
+    );
+  }
+}
+
+class _ShownProbe extends SingleChildRenderObjectWidget {
+  const _ShownProbe({required this.onShown, required Widget child})
+    : super(child: child);
+
+  final ValueChanged<bool> onShown;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderShownProbe(onShown);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderShownProbe renderObject,
+  ) {
+    renderObject.onShown = onShown;
+  }
+}
+
+/// Après la trame où elle s'est peinte, dit si elle se voit entière dans la
+/// [RenderSheetClip] qui l'enveloppe (vrai sans elle, ou sans rognage).
+class _RenderShownProbe extends RenderProxyBox {
+  _RenderShownProbe(this.onShown);
+
+  ValueChanged<bool> onShown;
+  bool _scheduled = false;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+    if (_scheduled) return;
+    _scheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((Duration _) {
+      _scheduled = false;
+      if (!attached || !hasSize) return;
+      onShown(_shownWhole());
+    }, debugLabel: 'SheetFrame.warningShown');
+  }
+
+  bool _shownWhole() {
+    RenderObject? ancestor = parent;
+    while (ancestor != null && ancestor is! RenderSheetClip) {
+      ancestor = ancestor.parent;
+    }
+    if (ancestor == null) return true;
+    final Rect? clip = (ancestor as RenderSheetClip).sheetClip;
+    if (clip == null) return true;
+    final Rect mine = MatrixUtils.transformRect(
+      getTransformTo(ancestor),
+      Offset.zero & size,
+    );
+    return mine.top >= clip.top - _heightEpsilon &&
+        mine.bottom <= clip.bottom + _heightEpsilon &&
+        mine.left >= clip.left - _heightEpsilon &&
+        mine.right <= clip.right + _heightEpsilon;
+  }
+}
+
+/// Marque la première rangée de l'en-tête — nature, étoile, fermeture — pour
+/// que le cadre en lise la hauteur (arbitrage 24) ; elle pose, peint et
+/// touche comme son enfant.
+class _SheetFirstRow extends SingleChildRenderObjectWidget {
+  const _SheetFirstRow({required Widget child}) : super(child: child);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSheetFirstRow();
+}
+
+class _RenderSheetFirstRow extends RenderProxyBox {}
 
 /// Le bouton de fermeture, dimensionné à [minimumTapTarget] par un
 /// `SizedBox` explicite et non par les valeurs par défaut d'un bouton

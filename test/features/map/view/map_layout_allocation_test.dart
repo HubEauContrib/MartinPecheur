@@ -39,7 +39,10 @@ import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 /// [sheetFeatured] nulle : la fiche n'a pas d'autre mesure mise en avant que
 /// son en-tête (`sheet.min`), comme avant l'arbitrage 18 ; [blockFixedFloor]
 /// à 0 par défaut. Ces deux défauts rendent la répartition d'avant `D7` (le
-/// groupe « Arbitrage 19 » le vérifie).
+/// groupe « Arbitrage 19 » le vérifie). [bottomFolded] nulle : le bas ne se
+/// replie pas (min = max) ; [sheetFirstRow] nulle : l'en-tête de la fiche ne
+/// cède pas (sa première rangée est l'en-tête entier) — les répartitions
+/// d'avant `D8` (arbitrages 21 à 24).
 MapLayoutInput _input({
   required double available,
   MapLayoutWidth width = MapLayoutWidth.compact,
@@ -58,6 +61,8 @@ MapLayoutInput _input({
   bool reticleUnderBlock = true,
   double? sheetFeatured,
   double blockFixedFloor = 0,
+  double? bottomFolded,
+  double? sheetFirstRow,
 }) => MapLayoutInput(
   available: available,
   width: width,
@@ -70,11 +75,12 @@ MapLayoutInput _input({
   blockFixedFloor: blockFixedFloor,
   notices: notices,
   legend: legend,
-  bottom: bottom,
+  bottom: PieceHeights(min: bottomFolded ?? bottom, max: bottom),
   band: band,
   reticleBand: reticleBand,
   sheet: sheet,
   sheetFeatured: sheetFeatured ?? sheet.min,
+  sheetFirstRow: sheetFirstRow ?? sheet.min,
   gap: gap,
 );
 
@@ -746,28 +752,36 @@ void main() {
       },
     );
 
-    test("panel, en mode, SANS fiche, bande trop large : elle ne peut ni se "
-        "poser ni se retirer — débordement, pas de repli 6", () {
-      final MapLayoutAllocation allocation = allocateMapLayout(
-        _input(
-          available: 600,
-          width: MapLayoutWidth.panel,
-          blockOverBottom: false,
-          designation: true,
-          reticleBand: 64,
-          band: const PieceHeights(min: 48, max: 80),
-          bandFits: false,
-        ),
-      );
+    // Arbitrage 23 (2026-10-18, `D8`) : remplace « en mode, SANS fiche, bande
+    // trop large : elle ne peut ni se poser ni se retirer — débordement, pas de
+    // repli 6 » (R15). Une bande qui n'a pas de place, donc 0 px, se retire
+    // comme au repli 6 — ni peinte, ni touchable, ni atteinte par Tab, ni
+    // annoncée (la pose et la vue lisent `bandWithdrawn`).
+    test(
+      "panel, en mode, SANS fiche, bande trop large : elle reçoit 0 px, elle "
+      "se retire comme au repli 6, avec le réticule — rien ne déborde "
+      "(arbitrage 23)",
+      () {
+        final MapLayoutAllocation allocation = allocateMapLayout(
+          _input(
+            available: 600,
+            width: MapLayoutWidth.panel,
+            blockOverBottom: false,
+            designation: true,
+            reticleBand: 64,
+            band: const PieceHeights(min: 48, max: 80),
+            bandFits: false,
+          ),
+        );
 
-      expect(allocation.overflows, isTrue);
-      expect(allocation.bandWithdrawn, isFalse);
-      expect(allocation.folds, isNot(contains(6)));
-      // Ni posée ni retirée : la bande garde ses hauteurs dans la
-      // répartition (150 + 64 + 80 = 294 tient dans 600).
-      expect(allocation.band, 80);
-      expect(allocation.reticleBand, 64);
-    });
+        expect(allocation.folds, <int>[6]);
+        expect(allocation.bandWithdrawn, isTrue);
+        expect(allocation.band, 0);
+        expect(allocation.reticleBand, 0);
+        expect(allocation.blockFixed, 150);
+        expect(allocation.overflows, isFalse);
+      },
+    );
 
     test("panel, en mode, fiche ouverte, bande trop large ET hauteur qui "
         "manque : repli 6 d'emblée, puis 1 et 4 ; le repli 5 ne joue pas", () {
@@ -1559,6 +1573,295 @@ void main() {
       expect(allocation.overflows, isTrue);
       expect(allocation.sheet, 80);
       expect(allocation.blockFixed, 0);
+    });
+  });
+
+  group('Arbitrages 21 à 24 (D8) : ce qui cède pour la partie fixe', () {
+    // Ce qui cède pour elle, quand les six replis ne suffisent pas et qu'elle
+    // est à son plancher, la fiche du bas à son en-tête : 1. la bande du
+    // bouton et le réticule (repli 6 étendu, en mode même sans fiche) ; 2. à
+    // la largeur de la colonne, la colonne du bas, qui défile jusqu'à sa
+    // hauteur repliée (l'attribution reste) ; 3. l'en-tête de la fiche,
+    // jamais sous sa première rangée. Au-delà seulement (garde-fou c), la
+    // partie fixe passe sous son plancher.
+
+    /// Wide, sans fiche, hors mode : partie fixe 104/140, avis 137, légende
+    /// 63, colonne entière 300, repliée 28 (l'attribution et son écart),
+    /// plancher 48 — les hauteurs de 640 × 360 à 100 % (Roboto, Android).
+    MapLayoutInput colonne(double available) => _input(
+      available: available,
+      width: MapLayoutWidth.wide,
+      blockFixed: const PieceHeights(min: 104, max: 140),
+      notices: 137,
+      legend: 63,
+      bottom: 300,
+      bottomFolded: 28,
+      blockFixedFloor: 48,
+    );
+
+    test('sans fiche, à la largeur de la colonne : la colonne cède jusqu’à '
+        'rendre son plancher à la partie fixe, pas plus (arbitrage 24)', () {
+      // Replis 1, 3, 4 : 104 + 8 + 300 = 412 pour 344. Partie fixe à 48 :
+      // 356 ; la colonne donne 12, elle garde 288.
+      final MapLayoutAllocation allocation = allocateMapLayout(colonne(344));
+
+      expect(allocation.folds, <int>[1, 3, 4]);
+      expect(allocation.blockFixed, 48);
+      expect(allocation.bottom, 288);
+      expect(allocation.bandWithdrawn, isFalse);
+      expect(allocation.overflows, isTrue);
+    });
+
+    test(
+      'sans fiche, la place au-dessus du plancher : la partie fixe reçoit ce '
+      'qui reste, la colonne reste entière',
+      () {
+        // 412 pour 400 : la partie fixe reçoit 400 − 308 = 92.
+        final MapLayoutAllocation allocation = allocateMapLayout(colonne(400));
+
+        expect(allocation.blockFixed, 92);
+        expect(allocation.bottom, 300);
+        expect(allocation.overflows, isTrue);
+      },
+    );
+
+    test(
+      'la colonne à sa hauteur repliée ne suffit pas : la partie fixe passe '
+      'sous son plancher (garde-fou c), la colonne garde son attribution',
+      () {
+        // 48 + 8 + 28 = 84 pour 60 : la partie fixe reçoit 60 − 36 = 24.
+        final MapLayoutAllocation allocation = allocateMapLayout(colonne(60));
+
+        expect(allocation.bottom, 28);
+        expect(allocation.blockFixed, 24);
+        expect(allocation.overflows, isTrue);
+      },
+    );
+
+    test('au téléphone, la rangée ne cède jamais, même repliable', () {
+      // Compact, rangée 60 (repliée 20) : 100 + 8 + 60 = 168 pour 100 ; la
+      // partie fixe reçoit 32, sous son plancher de 44 ; la rangée reste
+      // entière.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(
+          available: 100,
+          bottomFolded: 20,
+          legend: 100,
+          blockFixedFloor: 44,
+        ),
+      );
+
+      expect(allocation.bottom, 60);
+      expect(allocation.blockFixed, 32);
+      expect(allocation.overflows, isTrue);
+    });
+
+    test('en mode, sans fiche, au téléphone : la bande et le réticule se '
+        'retirent avant que la partie fixe passe sous son plancher (repli 6 '
+        'étendu, arbitrage 21)', () {
+      // Repris de « au téléphone, en mode, fiche fermée : pas de repli 6 » :
+      // après 1, 3, 4, 5, la partie fixe recevait 28. Plancher 44 : bande et
+      // réticule retirés, 100 + 8 + 60 = 168 tient dans 200 ; le surplus de 32
+      // revient aux avis, au poids simple.
+      MapLayoutAllocation at(double available) => allocateMapLayout(
+        _input(
+          available: available,
+          designation: true,
+          legend: 100,
+          notices: 40,
+          reticleBand: 56,
+          band: const PieceHeights(min: 48, max: 80),
+          blockFixedFloor: 44,
+        ),
+      );
+
+      final MapLayoutAllocation retire = at(200);
+      expect(retire.folds, <int>[1, 3, 4, 5, 6]);
+      expect(retire.bandWithdrawn, isTrue);
+      expect(retire.band, 0);
+      expect(retire.reticleBand, 0);
+      expect(retire.blockFixed, 100);
+      expect(retire.notices, 32);
+      expect(retire.overflows, isFalse);
+
+      // 230 : la partie fixe reçoit 230 − 172 = 58, au-dessus de son
+      // plancher : la bande reste.
+      final MapLayoutAllocation garde = at(230);
+      expect(garde.folds, <int>[1, 3, 4, 5]);
+      expect(garde.bandWithdrawn, isFalse);
+      expect(garde.blockFixed, 58);
+    });
+
+    test(
+      'en mode, sans fiche, à la largeur de la colonne : d’abord la bande et '
+      'le réticule, puis la colonne (arbitrage 24)',
+      () {
+        // 640 × 360 à 100 %, en mode : bande 52/88 à côté de la colonne, bande
+        // du réticule 64. Replis 1, 3, 4 (le 5 ne libère rien à côté de la
+        // colonne) : 104 + 64 + 300 = 468 pour 344. Partie fixe à 48 : 412,
+        // encore trop — bande et réticule retirés : 104 + 8 + 300 = 412 ; la
+        // partie fixe à 48 : 356 ; la colonne donne 12.
+        final MapLayoutAllocation allocation = allocateMapLayout(
+          _input(
+            available: 344,
+            width: MapLayoutWidth.wide,
+            designation: true,
+            blockFixed: const PieceHeights(min: 104, max: 140),
+            notices: 137,
+            legend: 63,
+            bottom: 300,
+            bottomFolded: 28,
+            band: const PieceHeights(min: 52, max: 88),
+            reticleBand: 64,
+            blockFixedFloor: 48,
+          ),
+        );
+
+        expect(allocation.folds, <int>[1, 3, 4, 6]);
+        expect(allocation.bandWithdrawn, isTrue);
+        expect(allocation.band, 0);
+        expect(allocation.reticleBand, 0);
+        expect(allocation.blockFixed, 48);
+        expect(allocation.bottom, 288);
+      },
+    );
+
+    test('fiche du bas ouverte, en mode, à la largeur de la colonne : la bande '
+        'et le réticule, puis la colonne, puis l’en-tête de la fiche, jamais '
+        'sous sa première rangée — palier par palier', () {
+      // Partie fixe 100/150, colonne 300 (repliée 28), bande 48/80, bande du
+      // réticule 56, fiche : en-tête 108 (sa première rangée 60), entière
+      // 400 ; plancher 44. Après les replis 4 et 2 (le 5 ne libère rien) :
+      // 100 + 56 + 300 + 8 + 108 = 572. La partie fixe à 44 : 516.
+      MapLayoutAllocation at(double available) => allocateMapLayout(
+        _input(
+          available: available,
+          width: MapLayoutWidth.wide,
+          designation: true,
+          sheetOpen: true,
+          bottom: 300,
+          bottomFolded: 28,
+          band: const PieceHeights(min: 48, max: 80),
+          reticleBand: 56,
+          sheet: const PieceHeights(min: 108, max: 400),
+          sheetFirstRow: 60,
+          blockFixedFloor: 44,
+        ),
+      );
+
+      // 516 : la partie fixe à son plancher suffit ; la bande reste.
+      final MapLayoutAllocation plancher = at(516);
+      expect(plancher.folds, <int>[2, 4]);
+      expect(plancher.bandWithdrawn, isFalse);
+      expect(plancher.blockFixed, 44);
+      expect(plancher.bottom, 300);
+
+      // 515 : bande et réticule retirés (100 + 8 + 300 + 8 + 108 = 524), le
+      // surplus revient à la partie fixe : 91 ; la colonne reste entière.
+      final MapLayoutAllocation bande = at(515);
+      expect(bande.folds, <int>[2, 4, 6]);
+      expect(bande.bandWithdrawn, isTrue);
+      expect(bande.blockFixed, 91);
+      expect(bande.bottom, 300);
+      expect(bande.sheet, 108);
+
+      // 467 : la partie fixe à 44 (468) — la colonne donne 1.
+      final MapLayoutAllocation colonne = at(467);
+      expect(colonne.blockFixed, 44);
+      expect(colonne.bottom, 299);
+      expect(colonne.sheet, 108);
+
+      // 195 : la colonne à sa hauteur repliée (196) — l'en-tête donne 1.
+      final MapLayoutAllocation enTete = at(195);
+      expect(enTete.bottom, 28);
+      expect(enTete.sheet, 107);
+      expect(enTete.blockFixed, 44);
+
+      // 147 : l'en-tête à sa première rangée (148) — la partie fixe passe
+      // sous son plancher (garde-fou c).
+      final MapLayoutAllocation garde = at(147);
+      expect(garde.sheet, 60);
+      expect(garde.bottom, 28);
+      expect(garde.blockFixed, 43);
+      expect(garde.overflows, isTrue);
+    });
+
+    test('fiche du bas ouverte, hors mode, au téléphone : la rangée ne cède '
+        'pas, l’en-tête de la fiche cède jusqu’à sa première rangée, jamais '
+        'dessous', () {
+      // 360 × 300 à 200 % : partie fixe 341/485, avis 344, légende 216,
+      // rangée 122, fiche : en-tête 162 (première rangée 68), mise en avant
+      // 527, entière 946 ; plancher 48. La partie fixe à 48, la fiche à son
+      // en-tête : 48 + 8 + 122 + 8 + 162 = 348 pour 292 — l'en-tête donne 56.
+      MapLayoutAllocation at(double available) => allocateMapLayout(
+        _input(
+          available: available,
+          sheetOpen: true,
+          blockFixed: const PieceHeights(min: 341, max: 485),
+          notices: 344,
+          legend: 216,
+          bottom: 122,
+          sheet: const PieceHeights(min: 162, max: 946),
+          sheetFeatured: 527,
+          sheetFirstRow: 68,
+          blockFixedFloor: 48,
+        ),
+      );
+
+      final MapLayoutAllocation cede = at(292);
+      expect(cede.folds, <int>[1, 2, 3, 4]);
+      expect(cede.blockFixed, 48);
+      expect(cede.sheet, 106);
+      expect(cede.bottom, 122);
+      expect(cede.overflows, isTrue);
+
+      // 200 : l'en-tête à sa première rangée, 8 + 122 + 8 + 68 = 206 sans la
+      // partie fixe — elle reçoit 0 (garde-fou c), l'en-tête garde 68.
+      final MapLayoutAllocation garde = at(200);
+      expect(garde.sheet, 68);
+      expect(garde.blockFixed, 0);
+    });
+
+    test(
+      'à la largeur de la colonne, bloc étroit : l’en-tête de la fiche passe '
+      'devant la colonne, qui cède au-dessus de lui (arbitrage 22)',
+      () {
+        // Repris de « 640 × 360 : l'en-tête de fiche et la colonne ne tiennent
+        // pas ensemble » : la fiche à son en-tête (70) ; la colonne (288,
+        // repliée 28) reçoit 344 − 70 − 8 = 266 au lieu de descendre sur lui.
+        final MapLayoutAllocation allocation = allocateMapLayout(
+          _input(
+            available: 344,
+            width: MapLayoutWidth.wide,
+            blockOverBottom: false,
+            sheetOpen: true,
+            blockFixed: const PieceHeights(min: 90, max: 110),
+            legend: 60,
+            bottom: 288,
+            bottomFolded: 28,
+            sheet: const PieceHeights(min: 70, max: 320),
+            blockFixedFloor: 48,
+          ),
+        );
+
+        expect(allocation.sheet, 70);
+        expect(allocation.bottom, 266);
+        expect(allocation.blockFixed, 110);
+        expect(allocation.legend, 60);
+        expect(allocation.overflows, isTrue);
+      },
+    );
+
+    test('le bas posé compte dans l’égalité des répartitions', () {
+      expect(
+        allocateMapLayout(colonne(344)),
+        isNot(allocateMapLayout(colonne(345))),
+      );
+      expect(allocateMapLayout(colonne(344)), allocateMapLayout(colonne(344)));
+      expect(
+        allocateMapLayout(colonne(344)).toString(),
+        contains('bottom: 288.0'),
+      );
     });
   });
 }

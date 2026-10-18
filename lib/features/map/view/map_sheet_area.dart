@@ -13,7 +13,12 @@ import 'package:flutter/rendering.dart';
 import 'package:martinpecheur/features/shared/screen_layout.dart'
     show readingColumnWidth;
 import 'package:martinpecheur/features/shared/sheet_frame.dart'
-    show RenderSheetFeaturedHeight, sheetFeaturedHeightOf;
+    show
+        RenderSheetClip,
+        RenderSheetFeaturedHeight,
+        RenderSheetFirstRowHeight,
+        sheetFeaturedHeightOf,
+        sheetFirstRowHeightOf;
 
 /// La clé de la zone des fiches : la fiche du bas ou le panneau latéral.
 const Key mapSheetAreaKey = Key('map-sheet-area');
@@ -114,7 +119,10 @@ class _RenderSheetPanels extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _SheetPanelsParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _SheetPanelsParentData>
-    implements RenderSheetFeaturedHeight {
+    implements
+        RenderSheetFeaturedHeight,
+        RenderSheetFirstRowHeight,
+        RenderSheetClip {
   _RenderSheetPanels(this._maxContentWidth);
 
   double _maxContentWidth;
@@ -177,6 +185,13 @@ class _RenderSheetPanels extends RenderBox
   double featuredHeight(double width) =>
       _sum((RenderBox c) => sheetFeaturedHeightOf(c, _contentWidth(width)));
 
+  /// La première rangée de la zone (arbitrage 24, `D8`) : celle des panneaux,
+  /// lue de même. Un seul panneau est ouvert à la fois ; un panneau fermé
+  /// vaut 0 et ne décale rien.
+  @override
+  double firstRowHeight(double width) =>
+      _sum((RenderBox c) => sheetFirstRowHeightOf(c, _contentWidth(width)));
+
   /// Pose — ou mesure à sec, si [dry] — chaque panneau, et rend la taille de
   /// la zone : sa largeur entière, la somme des hauteurs des panneaux, dans
   /// ses contraintes.
@@ -185,7 +200,8 @@ class _RenderSheetPanels extends RenderBox
   /// du cadre, qui ne cède jamais) : aux tailles garanties, la mise en page
   /// de la carte la lui donne toujours ; en deçà, là où même l'en-tête ne
   /// tient pas, la zone ROGNE ce qui dépasse (ni peint ni touchable), au lieu
-  /// d'écraser l'en-tête dans une colonne qui déborde.
+  /// d'écraser l'en-tête dans une colonne qui déborde — jusqu'à sa première
+  /// rangée au plus, que la mise en page lui garde (arbitrage 24).
   Size _layout(BoxConstraints constraints, {required bool dry}) {
     final double width = constraints.maxWidth.isFinite
         ? constraints.maxWidth
@@ -227,6 +243,11 @@ class _RenderSheetPanels extends RenderBox
   /// Vrai quand les panneaux dépassent la zone (en deçà des tailles
   /// garanties) : la peinture est alors rognée à la zone.
   bool _clipped = false;
+
+  /// Ce qui se voit des panneaux, rognés (arbitrages 24 et 25) : la zone ;
+  /// `null` quand rien n'est rogné. Les annonces ne le lisent pas.
+  @override
+  Rect? get sheetClip => _clipped ? Offset.zero & size : null;
 
   final LayerHandle<ClipRectLayer> _clipLayer = LayerHandle<ClipRectLayer>();
 

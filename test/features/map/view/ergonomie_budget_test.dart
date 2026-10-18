@@ -148,7 +148,7 @@ double _hauteurPosee(MapLayoutInput entree, MapLayoutAllocation repartition) {
     MapLayoutWidth.compact => true,
     MapLayoutWidth.wide || MapLayoutWidth.panel => false,
   };
-  final double bas = compact || entree.blockOverBottom ? entree.bottom : 0;
+  final double bas = compact || entree.blockOverBottom ? repartition.bottom : 0;
   final double zoneDuBas = compact
       ? repartition.band +
             bas +
@@ -377,7 +377,22 @@ void main() {
                             '($repartition)',
                       );
                     }
+                    // `D8` (relecture, m1) : aux quatre tailles, ni la colonne
+                    // ni l'en-tête de la fiche ne cèdent (arbitrages 22 et 24 :
+                    // en deçà seulement).
+                    expect(
+                      repartition.bottom,
+                      moreOrLessEquals(entree.bottom.max, epsilon: 1e-6),
+                      reason: '$configuration : le bas cède ($repartition)',
+                    );
                     if (_ficheDuBas(entree)) {
+                      expect(
+                        repartition.sheet,
+                        greaterThanOrEqualTo(entree.sheet.min - 1e-6),
+                        reason:
+                            '$configuration : l’en-tête de la fiche cède '
+                            '($repartition)',
+                      );
                       // Arbitrage 19 : la partie fixe jamais sous son plancher
                       // aux quatre tailles ; la fiche sous sa mesure mise en
                       // avant seulement la partie fixe à son plancher.

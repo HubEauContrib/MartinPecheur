@@ -91,3 +91,27 @@ Fonctionnalité: Les quatre emplacements de l'avertissement
     Quand l'usager ouvre une fiche
     Alors elle s'ouvre en panneau de 380 px à droite, sur toute la hauteur de la fenêtre, un filet à sa gauche
     Et le bloc de lecture, avec le contrôle « ⚠ Avertissement » de la carte, et la colonne du bas restent dans la carte visible, à sa gauche, sans que rien ne les recouvre (BR-012)
+
+  # ── Ergonomie — en deçà des quatre tailles (cadrage du 2026-10-17, critère 6 ; arbitrages 10 et 21 à 26 ; D8)
+  # Mesuré en police Roboto à 360 × 300, 600 × 360, 640 × 360 et 844 × 390, à 100 % et 200 %, hors mode et en
+  # mode, sans fiche et fiche station ouverte, sans marge système et, à 360 × 300, sous la marge d'un téléphone.
+  # Limite acceptée par le commanditaire (arbitrage 26), à cette seule taille et cette seule échelle, fiche
+  # station ouverte : à 360 × 300 et 200 %, la première rangée de l'en-tête de la fiche fait 114 px, et la
+  # partie fixe n'en garde que 40 hors marge — les deux contrôles y restent atteignables, en glissant et au
+  # clavier — et 0 sous la marge d'un téléphone, où ils ne le sont plus ; la rangée du bas, restée devant la
+  # fiche, y descend de 16 px sur le haut de l'en-tête (sa marge et le haut de la nature), l'attribution entière.
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « D8 — critère 6 : la partie fixe garde une cible tactile, en deçà ».
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « I1, R15, D8 — en deçà : rien ne se recoupe, le bas et la fiche ».
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « D8 — arbitrages 25 et 26 : en-tête de fiche rogné, hors Tab ».
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « D8 — une bande du bouton à 0 px se retire (arbitrage 23) ».
+  # Vérifié par test/features/map/view/map_layout_allocation_test.dart, groupe « Arbitrages 21 à 24 (D8) : ce qui cède pour la partie fixe ».
+  # Vérifié par test/features/map/view/map_layout_test.dart, groupe « En deçà des quatre tailles ».
+  Scénario: En deçà des quatre tailles, « ⚠ Avertissement » et l'entrée « Restrictions » restent atteignables, en faisant défiler le bloc ou au clavier
+    Étant donné la carte sur un écran plus petit que les quatre tailles garanties, par exemple 360 × 300 ou 640 × 360 avec le texte à 200 %, une fiche ouverte ou non, le choix « Restrictions » allumé ou non
+    Quand l'usager fait glisser la partie fixe du bloc de lecture, ou avance au clavier jusqu'à l'un des deux contrôles
+    Alors « ⚠ Avertissement » et l'entrée « Restrictions » viennent en vue et s'atteignent ; le focus amène en vue le contrôle qui le reçoit (BR-012)
+    Et pour que la partie fixe garde la hauteur d'une cible tactile, cèdent dans cet ordre : le corps de la fiche du bas, sous sa mesure mise en avant, jusqu'à son en-tête ; la bande du bouton « Restrictions au centre de la carte » et le réticule, qui se retirent ; à la largeur de la colonne, ses boutons, qui défilent au-dessus de l'attribution, toujours affichée ; l'en-tête de la fiche, jamais sous sa rangée qui porte l'étoile et la fermeture
+    Et à 360 × 300 et 200 %, fiche station ouverte, la partie fixe n'a que 40 px, et aucune sous la marge d'un téléphone : limite acceptée à cette seule taille, cette seule échelle et cette fiche
+    Et à la largeur de la colonne, l'en-tête d'une fiche du bas passe devant la colonne, qui défile au-dessus de lui ; au téléphone, la rangée du bas reste devant la fiche ; l'étoile et la fermeture de la fiche restent touchables
+    Et quand l'en-tête de la fiche cède, son « ⚠ Avertissement » rogné sort de l'ordre de tabulation, reste annoncé par le lecteur d'écran, et revient dès que la place le montre ; celui de la carte reste atteignable, sauf à 360 × 300 et 200 %, fiche station ouverte, sous la marge d'un téléphone, où la partie fixe n'a plus de hauteur (limite acceptée, arbitrage 26)
+    Et une bande du bouton qui n'a pas de place se retire avec le réticule : elle n'est ni dessinée, ni touchable, ni atteinte au clavier, ni annoncée ; l'appui long et le clic droit désignent toujours un point

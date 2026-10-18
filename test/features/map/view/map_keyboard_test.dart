@@ -31,6 +31,7 @@ import 'package:martinpecheur/domain/warnings/warning_texts.dart'
     show initialWarningTitle;
 import 'package:martinpecheur/features/map/view/area_cluster_marker.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
+import 'package:martinpecheur/features/map/view/map_bottom.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show clearFiltersKey, widenSearchKey;
@@ -1599,10 +1600,12 @@ void main() {
   // à 799 px, panneau latéral dès 800), sur la vraie `MapView`, la carte vide
   // (l'avis d'absence et son action), hors mode et en mode, sans fiche puis la
   // fiche station RÉELLE ouverte. Le bouton de désignation n'est un arrêt que
-  // s'il n'est pas retiré : sans fiche, il ne l'est jamais ; fiche du bas
-  // ouverte, en police de test, le repli 6 le retire (rangée et colonne) ; au
-  // panneau de 1 280 × 740, il reste. Police de test : l'ordre ne dépend pas
-  // des hauteurs, seul le retrait du bouton en dépend, et il est lu.
+  // s'il n'est pas retiré : sans fiche, la hauteur ne le retire jamais, mais
+  // une bande sans place à côté de la colonne, si (arbitrage 23, `D8` — en
+  // police de test, à 700 px) ; fiche du bas ouverte, en police de test, le
+  // repli 6 le retire (rangée et colonne) ; au panneau de 1 280 × 740, il
+  // reste. Police de test : l'ordre ne dépend pas des hauteurs, seul le
+  // retrait du bouton en dépend, et il est lu.
   group('I1 — l’ordre K1 de T3 aux trois largeurs, sans fiche et fiche ouverte', () {
     for (final (String, Size, bool) largeur in <(String, Size, bool)>[
       ('rangée', const Size(360, 640), true),
@@ -1665,11 +1668,34 @@ void main() {
                             .first,
                       )
                       .excluding;
-              // Sans fiche, le repli 6 ne joue jamais ; au panneau de
-              // 1 280 × 740, la bande tient à côté de la colonne.
+              // Fiche du bas ouverte, en police de test, le repli 6 le retire
+              // (rangée et colonne) ; au panneau de 1 280 × 740, la bande tient
+              // à côté de la colonne. Sans fiche, la hauteur ne le retire
+              // jamais ; mais à côté de la colonne, une bande sans place — elle
+              // ne recevrait que 0 px — se retire comme au repli 6 (arbitrage
+              // 23, `D8`) : en police de test, la pilule de la colonne de
+              // 700 px est plus large que sa place. Ce que l'arbitrage 23
+              // corrige : avant lui, ce bouton posé à 0 px, peint sous l'écran,
+              // était un arrêt de tabulation.
+              final bool bandeSansPlace =
+                  enMode &&
+                  !avecFiche &&
+                  !rangee &&
+                  tester
+                          .renderObject<RenderBox>(find.byType(DesignationBand))
+                          .getMinIntrinsicWidth(double.infinity) >
+                      largeur.$2.width -
+                          3 * 8 -
+                          tester.getSize(find.byType(MapBottom)).width;
+              expect(
+                bandeSansPlace,
+                largeur.$1 == 'colonne' && enMode && !avecFiche,
+                reason: 'la place de la bande à côté de la colonne',
+              );
               expect(
                 boutonRetire,
-                enMode && avecFiche && largeur.$1 != 'panneau',
+                enMode &&
+                    (bandeSansPlace || (avecFiche && largeur.$1 != 'panneau')),
                 reason: 'retrait du bouton de désignation',
               );
               final List<(String, Finder)> nommes = <(String, Finder)>[

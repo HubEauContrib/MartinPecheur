@@ -20,16 +20,18 @@
 // - la zone sûre et les tailles en deçà ; la colonne au-dessus de la fiche du
 //   bas en wide ; les vraies hauteurs de `mesurerPieces` à 360 × 640 et 200 %
 //   (arbitrage 13 : la partie fixe reçoit le reste).
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart' show HitTestEntry, HitTestResult;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugCheckIntrinsicSizes;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
+import 'package:martinpecheur/features/map/view/map_bottom.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
-import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
-import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_layout.dart';
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
@@ -37,7 +39,7 @@ import 'package:martinpecheur/features/map/view/map_reading_block.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/sheet_frame.dart'
-    show RenderSheetFeaturedHeight;
+    show RenderSheetFeaturedHeight, RenderSheetFirstRowHeight;
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
@@ -65,6 +67,7 @@ final class _Pieces {
     this.bandMinWidth = 120,
     this.sheet,
     this.sheetFeatured,
+    this.bottomFolded,
   });
 
   final PieceHeights fixed;
@@ -80,6 +83,10 @@ final class _Pieces {
   /// en-tête, `sheet.min`.
   final double? sheetFeatured;
 
+  /// La hauteur repliée du bas (arbitrage 24 : la colonne défile jusqu'à
+  /// elle), ou `null` : il ne se replie pas.
+  final double? bottomFolded;
+
   _Pieces copyWith({double? notices, double? legend}) => _Pieces(
     fixed: fixed,
     notices: notices ?? this.notices,
@@ -90,6 +97,7 @@ final class _Pieces {
     bandMinWidth: bandMinWidth,
     sheet: sheet,
     sheetFeatured: sheetFeatured,
+    bottomFolded: bottomFolded,
   );
 }
 
@@ -116,6 +124,7 @@ Future<void> _poser(
   EdgeInsets marge = EdgeInsets.zero,
   _Compteurs? compteurs,
   Widget? auDessus,
+  List<String>? peintures,
 }) async {
   _fenetre(tester, taille);
   final _Compteurs c = compteurs ?? _Compteurs();
@@ -147,6 +156,9 @@ Future<void> _poser(
                     min: sheet?.min ?? 0,
                     max: sheet?.max ?? 0,
                     featured: pieces.sheetFeatured,
+                    onPaint: peintures == null
+                        ? null
+                        : () => peintures.add('fiche'),
                   ),
                 ),
                 MapLayoutChild(
@@ -177,9 +189,12 @@ Future<void> _poser(
                   slot: MapLayoutSlot.bottom,
                   child: _Stub(
                     key: _cle(MapLayoutSlot.bottom),
-                    min: pieces.bottom,
+                    min: pieces.bottomFolded ?? pieces.bottom,
                     max: pieces.bottom,
                     maxWidth: pieces.bottomWidth,
+                    onPaint: peintures == null
+                        ? null
+                        : () => peintures.add('bas'),
                   ),
                 ),
                 MapLayoutChild(
@@ -557,17 +572,19 @@ void main() {
   });
 
   group('Wide et panneau', () {
-    testWidgetsOnWindows('retirée n\'est pas « de taille nulle » : une bande '
-        'qui ne tient pas, sans fiche, est posée à hauteur 0 mais PEINTE, et '
-        'le réticule aussi ; retirée, ni l\'une ni l\'autre', (
-      WidgetTester tester,
-    ) async {
+    // Arbitrage 23 (2026-10-18, `D8`) : remplace « retirée n'est pas « de
+    // taille nulle » : une bande qui ne tient pas, sans fiche, est posée à
+    // hauteur 0 mais PEINTE, et le réticule aussi » (R15). Une bande à 0 px
+    // se retire comme au repli 6, fiche ouverte ou non.
+    testWidgetsOnWindows('une bande qui ne tient pas se retire — sans fiche '
+        '(arbitrage 23) comme fiche ouverte (arbitrage 14) : ni elle ni le '
+        'réticule ne sont peints', (WidgetTester tester) async {
       final ValueNotifier<MapLayoutReport?> rapport =
           ValueNotifier<MapLayoutReport?>(null);
       addTearDown(rapport.dispose);
       final _Compteurs nulle = _Compteurs();
       // Bande de 1 196 de place pour 2 000 de large au moins : elle ne tient
-      // pas ; sans fiche, elle ne se retire pas (débordement).
+      // pas ; sans fiche, elle se retire aussi, rien ne déborde.
       await _poser(
         tester,
         taille: const Size(1280, 740),
@@ -578,12 +595,13 @@ void main() {
         rapport: rapport,
         compteurs: nulle,
       );
-      expect(rapport.value!.allocation.bandWithdrawn, isFalse);
-      expect(rapport.value!.allocation.overflows, isTrue);
+      await tester.pump();
+      expect(rapport.value!.allocation.bandWithdrawn, isTrue);
+      expect(rapport.value!.allocation.overflows, isFalse);
       expect(_rect(tester, MapLayoutSlot.band).height, 0);
-      expect(nulle.bandePeinte, greaterThan(0));
-      expect(_peint(tester, find.byKey(_cle(MapLayoutSlot.band))), isTrue);
-      expect(_peint(tester, find.byType(MapCenterReticle)), isTrue);
+      expect(nulle.bandePeinte, 0);
+      expect(_peint(tester, find.byKey(_cle(MapLayoutSlot.band))), isFalse);
+      expect(_peint(tester, find.byType(MapCenterReticle)), isFalse);
 
       // La même bande, une fiche ouverte : repli 6 étendu, retirée.
       final _Compteurs retiree = _Compteurs();
@@ -851,11 +869,12 @@ void main() {
             blockFixedFloor: 48,
             notices: 0,
             legend: 100,
-            bottom: 60,
+            bottom: const PieceHeights.fixed(60),
             band: PieceHeights.none,
             reticleBand: 0,
             sheet: PieceHeights.none,
             sheetFeatured: 0,
+            sheetFirstRow: 0,
             gap: 8,
           ),
         ),
@@ -952,10 +971,14 @@ void main() {
       );
     }
 
-    testWidgetsOnWindows('640 × 360, wide : la colonne qui ne tient pas au-'
-        'dessus de la fiche se colle au haut de la carte visible', (
-      WidgetTester tester,
-    ) async {
+    // Arbitrage 22 (2026-10-18, `D8`) : remplace « 640 × 360, wide : la
+    // colonne qui ne tient pas au-dessus de la fiche se colle au haut de la
+    // carte visible » (`D1`, « il recouvre la fiche plutôt que de déborder »),
+    // R15. L'en-tête de la fiche passe devant le bas : la colonne cède — elle
+    // défile — au-dessus de la fiche.
+    testWidgetsOnWindows('640 × 360, wide : la fiche passe devant la colonne — '
+        'la colonne cède au-dessus de son en-tête, sans le recouvrir '
+        '(arbitrage 22)', (WidgetTester tester) async {
       final ValueNotifier<MapLayoutReport?> rapport =
           ValueNotifier<MapLayoutReport?>(null);
       addTearDown(rapport.dispose);
@@ -966,22 +989,171 @@ void main() {
           fixed: PieceHeights(min: 90, max: 110),
           legend: 60,
           bottom: 288,
+          bottomFolded: 28,
           sheet: PieceHeights(min: 70, max: 320),
         ),
         rapport: rapport,
       );
 
-      expect(rapport.value!.allocation.overflows, isTrue);
-      expect(rapport.value!.allocation.sheet, 70);
-      expect(_rect(tester, MapLayoutSlot.bottom).top, 8);
-      expect(_rect(tester, MapLayoutSlot.sheet).top, 290);
+      // 352 de disponible, la fiche à son en-tête (70) : la colonne reçoit
+      // 352 − 70 − 8 = 274, son bas à 8 px du haut de la fiche.
+      final MapLayoutAllocation allocation = rapport.value!.allocation;
+      expect(allocation.overflows, isTrue);
+      expect(allocation.sheet, 70);
+      expect(allocation.bottom, 274);
+      final Rect fiche = _rect(tester, MapLayoutSlot.sheet);
+      final Rect bas = _rect(tester, MapLayoutSlot.bottom);
+      expect(fiche.top, 290);
+      expect(bas, const Rect.fromLTRB(572, 8, 632, 282));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgetsOnWindows('en deçà, la fiche se peint et se touche DEVANT le '
+        'bas : là où le bas, à sa hauteur repliée, descend encore sur elle, '
+        'c’est elle qui reçoit le toucher (arbitrage 22)', (
+      WidgetTester tester,
+    ) async {
+      final ValueNotifier<MapLayoutReport?> rapport =
+          ValueNotifier<MapLayoutReport?>(null);
+      addTearDown(rapport.dispose);
+      final List<String> peintures = <String>[];
+      // Une colonne qui ne se replie pas (288) au-dessus d'un en-tête de 120 :
+      // 352 − 120 − 8 = 224 ne lui suffit pas, elle descend sur la fiche.
+      await _poser(
+        tester,
+        taille: const Size(640, 360),
+        pieces: const _Pieces(
+          fixed: PieceHeights(min: 90, max: 110),
+          bottom: 288,
+          sheet: PieceHeights(min: 120, max: 320),
+        ),
+        rapport: rapport,
+        peintures: peintures,
+      );
+
+      final Rect fiche = _rect(tester, MapLayoutSlot.sheet);
+      final Rect bas = _rect(tester, MapLayoutSlot.bottom);
+      final Rect recouvrement = fiche.intersect(bas);
+      expect(recouvrement.height, greaterThan(0), reason: '$fiche × $bas');
+      expect(peintures.indexOf('bas'), lessThan(peintures.indexOf('fiche')));
+      final HitTestResult touche = HitTestResult();
+      tester.binding.hitTestInView(
+        touche,
+        recouvrement.center,
+        tester.view.viewId,
+      );
+      expect(
+        touche.path.first.target,
+        same(tester.renderObject(find.byKey(_cle(MapLayoutSlot.sheet)))),
+      );
+    });
+
+    // Relecture de `D8` (Important 2) : l'arbitrage 22 borne « la fiche passe
+    // devant » à la largeur de la colonne. Au téléphone, la rangée reste
+    // devant la fiche, comme avant `D8` : l'attribution IGN reste entière.
+    testWidgetsOnAndroid('Android : 360 × 300, au téléphone, la RANGÉE reste '
+        'devant la fiche — là où elle descend sur elle, c’est la rangée qui se '
+        'peint par-dessus et se touche (arbitrage 22, à la colonne seulement)', (
+      WidgetTester tester,
+    ) async {
+      final ValueNotifier<MapLayoutReport?> rapport =
+          ValueNotifier<MapLayoutReport?>(null);
+      addTearDown(rapport.dispose);
+      final List<String> peintures = <String>[];
+      // Rangée 60, en-tête de fiche 250 qui ne cède pas : 0 + 60 + 8 + 250 =
+      // 318 pour 292 — la partie fixe à 0, la rangée posée de 8 à 68, la fiche
+      // de 50 à 300 : 18 px de recouvrement.
+      await _poser(
+        tester,
+        taille: const Size(360, 300),
+        pieces: const _Pieces(sheet: PieceHeights(min: 250, max: 400)),
+        rapport: rapport,
+        peintures: peintures,
+      );
+
+      final Rect fiche = _rect(tester, MapLayoutSlot.sheet);
+      final Rect bas = _rect(tester, MapLayoutSlot.bottom);
+      final Rect recouvrement = fiche.intersect(bas);
+      expect(recouvrement.height, 18, reason: '$fiche × $bas');
+      expect(peintures.indexOf('fiche'), lessThan(peintures.indexOf('bas')));
+      final HitTestResult touche = HitTestResult();
+      tester.binding.hitTestInView(
+        touche,
+        recouvrement.center,
+        tester.view.viewId,
+      );
+      expect(
+        touche.path.first.target,
+        same(tester.renderObject(find.byKey(_cle(MapLayoutSlot.bottom)))),
+      );
+    });
+
+    testWidgetsOnWindows('640 × 360, en mode, sans fiche : une bande qui n’a '
+        'pas de place reçoit 0 px et se retire comme au repli 6 — ni peinte, '
+        'ni touchable, le réticule avec elle (arbitrage 23)', (
+      WidgetTester tester,
+    ) async {
+      final ValueNotifier<MapLayoutReport?> rapport =
+          ValueNotifier<MapLayoutReport?>(null);
+      addTearDown(rapport.dispose);
+      final _Compteurs compteurs = _Compteurs();
+      // La bande demande 700 de large ; à gauche de la colonne (60), il reste
+      // 640 − 3 × 8 − 60 = 556.
+      await _poser(
+        tester,
+        taille: const Size(640, 360),
+        pieces: const _Pieces(
+          band: PieceHeights(min: 48, max: 80),
+          bandMinWidth: 700,
+        ),
+        rapport: rapport,
+        compteurs: compteurs,
+      );
+
+      final MapLayoutReport publie = rapport.value!;
+      expect(publie.allocation.bandWithdrawn, isTrue);
+      expect(publie.allocation.band, 0);
+      expect(publie.reticle, isNull);
+      expect(compteurs.bandePeinte, 0);
+      expect(_peint(tester, find.byKey(_cle(MapLayoutSlot.band))), isFalse);
+      expect(_peint(tester, find.byKey(mapCenterReticleKey)), isFalse);
+      expect(find.byKey(_cle(MapLayoutSlot.band)).hitTestable(), findsNothing);
     });
   });
 
   group('En deçà, aux hauteurs de mesurerPieces', () {
-    // Le vrai bas (rangée ou colonne) : posé à sa propre hauteur, bornée à la
-    // zone sûre, il recouvre la fiche plutôt que de déborder ; la fiche du bas
-    // ne dépasse jamais la zone sûre, la carte visible n'est jamais négative.
+    // Le vrai bas (rangée ou colonne), posé à la hauteur que la répartition
+    // lui rend : la colonne cède — elle défile — au-dessus de la fiche, plutôt
+    // que de descendre sur elle (arbitrage 22) ; la fiche du bas ne dépasse
+    // jamais la zone sûre, la carte visible n'est jamais négative.
+    //
+    // Chaque cas, à sa mesure ([mesures]) :
+    // - ⚠️ les deux premiers sont la LIMITE ACCEPTÉE par le commanditaire
+    //   (arbitrage 26, 2026-10-18) : à 360 × 300 et 200 %, fiche station (ici
+    //   le cadre composé, au pire en-tête — sa première rangée fait 114 px), la
+    //   partie fixe n'a que 40 px ; sous la marge d'un téléphone, 0, et la
+    //   rangée (122) descend de 16 px sur l'en-tête de la fiche. Au téléphone,
+    //   la RANGÉE reste devant la fiche (l'arbitrage 22 ne vaut qu'à la
+    //   colonne) : l'attribution reste entière ; seuls la marge haute de la
+    //   fiche et le haut de sa nature passent dessous ;
+    // - le troisième n'est PAS un écart : à 640 × 360 et 200 %, sous Windows,
+    //   la partie fixe tient son plancher, 44 (la cible tactile hors Android),
+    //   la colonne cédant au-dessus de la fiche, sans la recouvrir.
+    const Map<String, ({double fixe, double recouvrement})> mesures =
+        <String, ({double fixe, double recouvrement})>{
+          'Android : 360 × 300, 200 %, fiche station, sans marge': (
+            fixe: 40,
+            recouvrement: 0,
+          ),
+          'Android : 360 × 300, 200 %, fiche station, marge': (
+            fixe: 0,
+            recouvrement: 16,
+          ),
+          '640 × 360, 200 %, en mode, fiche station, marge': (
+            fixe: 44,
+            recouvrement: 0,
+          ),
+        };
     for (final ({
           String nom,
           Size taille,
@@ -1068,23 +1240,61 @@ void main() {
             expect(rect.top, greaterThanOrEqualTo(sure.top - 1e-6));
             final MapLayoutSlot? slot =
                 (boite.parentData! as MapLayoutParentData).slot;
-            // Un bas plus haut que la zone sûre moins ses marges n'a aucune
-            // hauteur où tenir : posé entier sous la marge du haut, il passe
-            // sous la marge système du bas, jamais hors de l'écran.
-            final bool basTropHaut =
-                slot == MapLayoutSlot.bottom &&
-                entree.bottom > sure.height - 2 * margeDeSurcouche;
-            if (basTropHaut) {
-              expect(rect.top, visible.top + margeDeSurcouche);
-              expect(rect.bottom, lessThanOrEqualTo(cas.taille.height));
-            } else {
-              expect(
-                rect.bottom,
-                lessThanOrEqualTo(sure.bottom + 1e-6),
-                reason: '$slot',
-              );
-            }
+            // Arbitrage 24 (`D8`) : remplace « un bas plus haut que la zone
+            // sûre moins ses marges, posé entier sous la marge du haut, passe
+            // sous la marge système du bas » (`D1`), R15. La colonne cède —
+            // elle défile — et reste, comme tout le reste, dans la zone sûre.
+            expect(
+              rect.bottom,
+              lessThanOrEqualTo(sure.bottom + 1e-6),
+              reason: '$slot',
+            );
           });
+          // Les écarts acceptés, à leur mesure (arbitrage 26) ; ailleurs, la
+          // partie fixe à son plancher au moins, et le bas jamais sur la fiche.
+          final MapLayoutAllocation repartition = rapport.value!.allocation;
+          final Rect bas = tester.getRect(find.byType(MapBottom));
+          final Rect fiche = rapport.value!.covered.bottom > 0
+              ? Rect.fromLTRB(
+                  0,
+                  cas.taille.height - rapport.value!.covered.bottom,
+                  cas.taille.width,
+                  cas.taille.height,
+                )
+              : Rect.zero;
+          final Rect recouvrement = bas.intersect(fiche);
+          final ({double fixe, double recouvrement}) attendu =
+              mesures[cas.nom]!;
+          expect(
+            repartition.blockFixed,
+            moreOrLessEquals(attendu.fixe, epsilon: 1e-6),
+            reason: 'la partie fixe ($repartition)',
+          );
+          expect(
+            math.max(0, recouvrement.height),
+            moreOrLessEquals(attendu.recouvrement, epsilon: 1e-6),
+            reason: 'le bas $bas sur la fiche $fiche',
+          );
+          if (recouvrement.height > 1e-6) {
+            // Au téléphone, la rangée devant la fiche : c'est elle qui se
+            // touche là où elles se recoupent — l'attribution, entière.
+            final HitTestResult touche = HitTestResult();
+            tester.binding.hitTestInView(
+              touche,
+              recouvrement.center,
+              tester.view.viewId,
+            );
+            final RenderObject attribution = tester.renderObject(
+              find.byType(IgnAttributionBadge),
+            );
+            expect(
+              touche.path.any(
+                (HitTestEntry e) => identical(e.target, attribution),
+              ),
+              isTrue,
+              reason: 'la rangée ne passe pas devant la fiche en $recouvrement',
+            );
+          }
         },
       );
     }
@@ -1116,7 +1326,7 @@ void main() {
             fixed: entree.blockFixed,
             notices: entree.notices,
             legend: entree.legend,
-            bottom: entree.bottom,
+            bottom: entree.bottom.max,
             band: entree.band,
             sheet: entree.sheet,
           ),
@@ -1153,7 +1363,7 @@ void main() {
           fixed: entree.blockFixed,
           notices: entree.notices,
           legend: entree.legend,
-          bottom: entree.bottom,
+          bottom: entree.bottom.max,
           band: entree.band,
         ),
         rapport: rapport,
@@ -1242,51 +1452,21 @@ void main() {
   });
 }
 
-/// Le vrai bas de la carte, composé comme `mesurerPieces` le compose : la
-/// rangée (compact) ou la colonne, l'attribution dessous.
+/// Le vrai bas de la carte, celui que `buildMapOverlays` et `mesurerPieces`
+/// posent (`MapBottom`) : la rangée (compact) ou la colonne, l'attribution
+/// dessous. Depuis `D8`, la colonne défile au-dessus de son attribution : une
+/// recopie ne dirait plus ses deux hauteurs.
 Widget _basReel({required bool compact}) {
   void rien() {}
-  return compact
-      ? Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                MapEntryButtons(
-                  axis: Axis.horizontal,
-                  onOpenFilters: rien,
-                  onOpenFavorites: rien,
-                  filterActive: false,
-                ),
-                const Spacer(),
-                MapControls(
-                  axis: Axis.horizontal,
-                  onZoomIn: rien,
-                  onZoomOut: rien,
-                  onRecenter: rien,
-                ),
-              ],
-            ),
-            const SizedBox(height: margeDeSurcouche),
-            const IgnAttributionBadge(),
-          ],
-        )
-      : Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            MapEntryButtons(
-              onOpenFilters: rien,
-              onOpenFavorites: rien,
-              filterActive: false,
-            ),
-            const SizedBox(height: mapControlsSpacing),
-            MapControls(onZoomIn: rien, onZoomOut: rien, onRecenter: rien),
-            const SizedBox(height: margeDeSurcouche),
-            const IgnAttributionBadge(),
-          ],
-        );
+  return MapBottom(
+    compact: compact,
+    onOpenFilters: rien,
+    onOpenFavorites: rien,
+    filterActive: false,
+    onZoomIn: rien,
+    onZoomOut: rien,
+    onRecenter: rien,
+  );
 }
 
 /// En deçà, aux hauteurs de `mesurerPieces` : le vrai bas, la vraie bande et
@@ -1345,7 +1525,13 @@ Widget _enDecaReel({
             ),
             MapLayoutChild(
               slot: MapLayoutSlot.sheet,
-              child: _Stub(min: entree.sheet.min, max: entree.sheet.max),
+              child: _Stub(
+                key: const Key('en-deca-fiche'),
+                min: entree.sheet.min,
+                max: entree.sheet.max,
+                featured: entree.sheetFeatured,
+                firstRow: entree.sheetFirstRow,
+              ),
             ),
           ],
         ),
@@ -1427,13 +1613,15 @@ Widget _piecesReelles({
 /// Posée, elle prend toute la largeur bornée qu'on lui donne et sa hauteur
 /// entière, ramenée à la hauteur maximale reçue (comme une pièce qui se replie
 /// ou défile). Elle prend les gestes posés sur elle. Comme une fiche
-/// (`RenderSheetFeaturedHeight`), elle dit sa mesure mise en avant :
-/// [featured], ou [min] sans elle.
+/// (`RenderSheetFeaturedHeight`, `RenderSheetFirstRowHeight`), elle dit sa
+/// mesure mise en avant, [featured], et la première rangée de son en-tête,
+/// [firstRow] (`D8`) ; sans elles, [min] : son en-tête ne cède pas.
 class _Stub extends LeafRenderObjectWidget {
   const _Stub({
     required this.min,
     required this.max,
     this.featured,
+    this.firstRow,
     this.minWidth = 0,
     this.maxWidth = 0,
     this.onPaint,
@@ -1443,6 +1631,7 @@ class _Stub extends LeafRenderObjectWidget {
   final double min;
   final double max;
   final double? featured;
+  final double? firstRow;
   final double minWidth;
   final double maxWidth;
   final VoidCallback? onPaint;
@@ -1452,6 +1641,7 @@ class _Stub extends LeafRenderObjectWidget {
     ..min = min
     ..max = max
     ..featured = featured
+    ..firstRow = firstRow
     ..minWidth = minWidth
     ..maxWidth = maxWidth
     ..onPaint = onPaint;
@@ -1462,6 +1652,7 @@ class _Stub extends LeafRenderObjectWidget {
       ..min = min
       ..max = max
       ..featured = featured
+      ..firstRow = firstRow
       ..minWidth = minWidth
       ..maxWidth = maxWidth
       ..onPaint = onPaint
@@ -1469,16 +1660,21 @@ class _Stub extends LeafRenderObjectWidget {
   }
 }
 
-class _RenderStub extends RenderBox implements RenderSheetFeaturedHeight {
+class _RenderStub extends RenderBox
+    implements RenderSheetFeaturedHeight, RenderSheetFirstRowHeight {
   double min = 0;
   double max = 0;
   double? featured;
+  double? firstRow;
   double minWidth = 0;
   double maxWidth = 0;
   VoidCallback? onPaint;
 
   @override
   double featuredHeight(double width) => featured ?? min;
+
+  @override
+  double firstRowHeight(double width) => firstRow ?? min;
 
   @override
   double computeMinIntrinsicHeight(double width) => min;

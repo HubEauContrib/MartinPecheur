@@ -15,7 +15,11 @@
 //   de 760), les intrinsèques sont lues à la largeur où le contenu est posé :
 //   la sous-allocation relevée à la relecture de `D2` est corrigée.
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SemanticsAction, SemanticsData;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/warnings/warning_texts.dart'
+    show warningLinkLabel;
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart'
     show MapLayoutInput;
 import 'package:martinpecheur/features/map/view/map_sheet_area.dart';
@@ -24,9 +28,10 @@ import 'package:martinpecheur/features/shared/screen_layout.dart'
     show readingColumnWidth;
 import 'package:martinpecheur/features/shared/sheet_frame.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart'
-    show WarningLink, WarningWindow;
+    show WarningLink, WarningWindow, warningLinkKey;
 
 import '../../../support/ergonomie_mesures.dart';
+import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
 const Key _premierDuCorps = Key('zone-premier-du-corps');
@@ -241,6 +246,37 @@ void main() {
     );
 
     testWidgetsOnWindows(
+      'la première rangée de la zone (arbitrage 24, D8) : celle de la fiche, '
+      'sous son en-tête ; deux panneaux, la somme',
+      (WidgetTester tester) async {
+        await _monter(tester, panneaux: <Widget>[_fiche()]);
+
+        final RenderBox cadre = tester.renderObject<RenderBox>(
+          find.byType(SheetFrame),
+        );
+        final double premiere = sheetFirstRowHeightOf(cadre, 400);
+        expect(premiere, lessThan(cadre.getMinIntrinsicHeight(400)));
+        expect(
+          sheetFirstRowHeightOf(_zone(tester), 400),
+          moreOrLessEquals(premiere),
+        );
+
+        await _monter(
+          tester,
+          panneaux: <Widget>[
+            const SizedBox(key: _panneauDuDessus, height: 60),
+            _fiche(),
+          ],
+          hauteur: 2000,
+        );
+        expect(
+          sheetFirstRowHeightOf(_zone(tester), 400),
+          moreOrLessEquals(60 + premiere),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
       'panneau latéral : la fiche prend la largeur entière du panneau',
       (WidgetTester tester) async {
         await _monter(
@@ -373,6 +409,47 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(WarningWindow), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'arbitrage 25 (D8) : rogné par la zone, le « ⚠ Avertissement » de la '
+      'fiche sort de l’ordre de tabulation et reste annoncé ; la zone '
+      'agrandie, il y revient',
+      (WidgetTester tester) async {
+        Future<bool> tabLAtteint() async {
+          bool atteint = false;
+          for (int i = 0; i < 4; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pump();
+            atteint |= focusedWithin(tester, find.byType(WarningLink));
+          }
+          return atteint;
+        }
+
+        await _monter(tester, panneaux: <Widget>[_fiche()], hauteur: 60);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.byType(WarningLink)).bottom,
+          greaterThan(tester.getRect(find.byKey(mapSheetAreaKey)).bottom),
+          reason: 'le cas suppose le contrôle rogné',
+        );
+        expect(await tabLAtteint(), isFalse, reason: 'Tab l’atteint, rogné');
+        final SemanticsHandle annonces = tester.ensureSemantics();
+        await tester.pump();
+        final SemanticsData noeud = tester
+            .getSemantics(find.byKey(warningLinkKey))
+            .getSemanticsData();
+        expect(noeud.label, warningLinkLabel);
+        expect(noeud.hasAction(SemanticsAction.tap), isTrue);
+        expect(noeud.flagsCollection.isHidden, isFalse);
+        annonces.dispose();
+
+        // La place le montre : il revient.
+        await _monter(tester, panneaux: <Widget>[_fiche()], hauteur: 300);
+        await tester.pumpAndSettle();
+        expect(await tabLAtteint(), isTrue, reason: 'Tab ne l’atteint plus');
         expect(tester.takeException(), isNull);
       },
     );

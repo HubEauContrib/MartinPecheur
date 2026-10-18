@@ -97,6 +97,8 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/domain/warnings/warning_texts.dart'
+    show warningLinkLabel;
 import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart'
     show floodBulletinButtonKey;
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
@@ -637,18 +639,39 @@ Map<String, Rect> _bloc(WidgetTester tester) {
   return rects;
 }
 
-/// Les éléments PEINTS du bas de la carte : les cinq boutons et l'attribution.
-Map<String, Rect> _bas(WidgetTester tester) => <String, Rect>{
-  for (final (String, Finder) p in <(String, Finder)>[
-    ('Favoris', find.byKey(mapFavoritesButtonKey)),
-    ('Filtres', find.byKey(mapFiltersButtonKey)),
-    ('−', find.byKey(mapZoomOutButtonKey)),
-    ('+', find.byKey(mapZoomInButtonKey)),
-    ('recentrer', find.byKey(mapRecenterButtonKey)),
-    ('attribution', find.byType(IgnAttributionBadge)),
-  ])
-    if (_present(p.$2)) p.$1: tester.getRect(p.$2),
-};
+/// La fenêtre du défilement de la colonne du bas, ou `null` : la rangée, ou
+/// pas de bas. En deçà des quatre tailles, la colonne cède en faisant défiler
+/// ses boutons au-dessus de l'attribution (arbitrage 24, `D8`).
+Rect? _fenetreDuBas(WidgetTester tester) {
+  final Finder defilement = find.descendant(
+    of: find.byType(MapBottom),
+    matching: find.byType(Scrollable),
+  );
+  return _present(defilement) ? tester.getRect(defilement.first) : null;
+}
+
+/// Les éléments PEINTS du bas de la carte : les cinq boutons et l'attribution
+/// — d'un bouton de la colonne, la part qui se voit dans la fenêtre de son
+/// défilement (rien, s'il a défilé hors d'elle : il n'y est pas peint).
+Map<String, Rect> _bas(WidgetTester tester) {
+  final Rect? fenetre = _fenetreDuBas(tester);
+  Rect vu(Rect r) => fenetre == null ? r : r.intersect(fenetre);
+  return <String, Rect>{
+    for (final (String, Finder) p in <(String, Finder)>[
+      ('Favoris', find.byKey(mapFavoritesButtonKey)),
+      ('Filtres', find.byKey(mapFiltersButtonKey)),
+      ('−', find.byKey(mapZoomOutButtonKey)),
+      ('+', find.byKey(mapZoomInButtonKey)),
+      ('recentrer', find.byKey(mapRecenterButtonKey)),
+    ])
+      if (_present(p.$2) &&
+          vu(tester.getRect(p.$2)).width > 0 &&
+          vu(tester.getRect(p.$2)).height > 0)
+        p.$1: vu(tester.getRect(p.$2)),
+    if (_present(find.byType(IgnAttributionBadge)))
+      'attribution': tester.getRect(find.byType(IgnAttributionBadge)),
+  };
+}
 
 /// Les éléments PEINTS de la bande du bouton : la pilule, et l'indice s'il
 /// n'est pas replié.
@@ -1967,6 +1990,9 @@ void main() {
   _groupesI1();
   _groupeReviewFocus5();
   _groupeConstatsEnDeca();
+  _groupeBandeANull();
+  _groupeEnTeteQuiCede();
+  _groupeRangDuBoutonALaColonne();
 
   // Garde-fou : la matrice est bien celle de la porte de faisabilité.
   test('la matrice compte 576 configurations', () {
@@ -2009,7 +2035,11 @@ String _mesureI1(WidgetTester tester, _Ecran e) {
 
 /// Amène [cible] sous le doigt en glissant sur la partie fixe du bloc, vers le
 /// haut puis, au bout, vers le bas. Rend `null` si elle est atteinte, sinon ce
-/// qui l'empêche.
+/// qui l'empêche. Le glisser part du centre de la fenêtre de la partie fixe
+/// et parcourt la moitié de sa hauteur — au moins une cible tactile (`D8`) :
+/// sur une fenêtre de 48 px, un demi-glisser de 24 px ne dépasserait guère le
+/// seuil d'un glisser au toucher (18 px), et un doigt réel continue au-delà de
+/// la fenêtre où il a commencé.
 Future<String?> _atteindreEnGlissant(
   WidgetTester tester,
   Finder cible,
@@ -2027,7 +2057,7 @@ Future<String?> _atteindreEnGlissant(
     final double avant = p.pixels;
     await tester.dragFrom(
       surface.center,
-      Offset(0, sens * (surface.height / 2).clamp(8, 200)),
+      Offset(0, sens * (surface.height / 2).clamp(minimumTapTarget, 200)),
     );
     await tester.pumpAndSettle();
     if ((p.pixels - avant).abs() < _tolerance) {
@@ -2067,11 +2097,20 @@ Future<String?> _atteindreAuClavier(
   return 'Tab ne l’atteint pas en 40 arrêts';
 }
 
+/// Les tailles en deçà qu'éprouvent I1 et D8 : celles de [taillesEnDeca] et
+/// 600 × 360, le bord bas de la colonne (mineur m2 de la relecture d'I1).
+const List<Size> _taillesEnDecaD8 = <Size>[
+  Size(360, 300),
+  Size(600, 360),
+  Size(640, 360),
+  Size(844, 390),
+];
+
 /// Les configurations d'I1 : en deçà (spec § 5.6, arbitrage 10, critère 6) et,
 /// aux deux téléphones garantis à 200 %, là où la partie fixe défile pour la
 /// fiche du bas (arbitrage 18).
 List<_Config> _configsI1() => <_Config>[
-  for (final Size taille in taillesEnDeca)
+  for (final Size taille in _taillesEnDecaD8)
     for (final double echelle in echellesDeTexte)
       for (final bool enMode in <bool>[false, true])
         for (final _Fiche fiche in <_Fiche>[_Fiche.aucune, _Fiche.station])
@@ -2104,30 +2143,60 @@ List<_Config> _configsI1() => <_Config>[
       ),
 ];
 
-/// ⚠️ ÉCARTS MESURÉS ET REMONTÉS AU COMMANDITAIRE (`I1` d'Ergonomie, Roboto,
-/// Android, 2026-10-18), pas des invariants voulus : en deçà, la partie fixe
-/// du bloc reçoit 0 px — le bas de la carte (colonne de 288 px dès 600 de
-/// large), la fiche du bas réduite à son en-tête et, en mode, la bande du
-/// bouton et celle du réticule prennent toute la hauteur. « ⚠ Avertissement »
-/// et « Restrictions » n'y sont atteignables ni en glissant ni au clavier,
-/// alors que l'arbitrage 10 le garantit en deçà. Le plancher de la partie fixe
-/// (arbitrage 19) n'y tient pas : la fiche réduite à son en-tête, la partie
-/// fixe passe sous lui (`allocateMapLayout`), et sans fiche il est nul.
-/// Corriger ce tableau À LA MAIN quand le commanditaire aura tranché : un cas
-/// qui en sort doit tenir l'invariant.
-const Set<String> _partieFixeANullEnDeca = <String>{
-  '360 × 300, 200 %, écoulement, hors mode, fiche station, avis, sans marge',
-  '360 × 300, 200 %, écoulement, en mode, sans fiche, avis, sans marge',
-  '360 × 300, 200 %, écoulement, en mode, fiche station, avis, sans marge',
-  '640 × 360, 100 %, écoulement, hors mode, fiche station, avis, sans marge',
-  '640 × 360, 100 %, écoulement, en mode, sans fiche, avis, sans marge',
-  '640 × 360, 100 %, écoulement, en mode, fiche station, avis, sans marge',
-  '640 × 360, 200 %, écoulement, hors mode, fiche station, avis, sans marge',
-  '640 × 360, 200 %, écoulement, en mode, sans fiche, avis, sans marge',
-  '640 × 360, 200 %, écoulement, en mode, fiche station, avis, sans marge',
-  '844 × 390, 200 %, écoulement, en mode, sans fiche, avis, sans marge',
+/// ⚠️ LIMITE ACCEPTÉE (arbitrage 26 du commanditaire, 2026-10-18 ; mesurée par
+/// `D8` d'Ergonomie, garde-fou c, Roboto, Android) : à 360 × 300 et
+/// 200 %, fiche station ouverte, l'ordre arbitré (bande et réticule, colonne,
+/// en-tête de la fiche jamais sous sa première rangée) ne rend à la partie
+/// fixe que 40 px, sous la cible tactile de 48. La première rangée de
+/// l'en-tête y fait 114 px (la nature « Station hydrométrique · K447001001 »
+/// sur plusieurs lignes, à côté de l'étoile et de la fermeture) ; la rangée du
+/// bas, 122, ne cède pas : 292 − (8 + 122 + 8 + 114) = 40. « ⚠ Avertissement »
+/// et « Restrictions » y restent atteignables en glissant et au clavier.
+/// Acceptée à cette seule taille et cette seule échelle, fiche station ouverte,
+/// et verrouillée à sa mesure : la valeur est la hauteur de la fenêtre de la
+/// partie fixe ; une mesure qui change fait rougir le cas. Aucun repli de plus.
+const Map<String, double> _plancherNonTenuEnDeca = <String, double>{
+  '360 × 300, 200 %, écoulement, hors mode, fiche station, avis, sans marge':
+      40,
+  '360 × 300, 200 %, écoulement, en mode, fiche station, avis, sans marge': 40,
 };
 
+/// Ce que le titre d'un cas d'I1 dit du plancher de la partie fixe.
+String _titrePlancher(_Config c) {
+  final double? ecart = _plancherNonTenuEnDeca[c.nom];
+  return ecart == null
+      ? 'I1, D8 : la partie fixe garde une cible tactile'
+      : 'limite acceptée (arbitrage 26) — la partie fixe n’a que '
+            '${ecart.round()} px';
+}
+
+/// Arbitrages 21 et 24 (`D8`) : la fenêtre de la partie fixe garde au moins
+/// une cible tactile, dans la zone sûre — sauf la limite acceptée de
+/// [_plancherNonTenuEnDeca] (arbitrage 26), tenue à sa mesure. Rend `null`
+/// si oui, sinon la mesure.
+String? _plancherTenu(WidgetTester tester, _Config c, Rect zone) {
+  final Rect fenetre = _fenetreFixe(tester, zone);
+  final double? ecart = _plancherNonTenuEnDeca[c.nom];
+  if (ecart != null) {
+    return (fenetre.height - ecart).abs() <= _tolerance
+        ? null
+        : 'limite acceptée (arbitrage 26) : la partie fixe devait avoir $ecart '
+              'px, elle en a ${fenetre.height} ($fenetre)';
+  }
+  return fenetre.height >= minimumTapTarget - _tolerance
+      ? null
+      : 'la partie fixe n’a que ${fenetre.height} px ($fenetre), sous la '
+            'cible tactile de $minimumTapTarget';
+}
+
+// `D8` d'Ergonomie (arbitrages 21 à 24) : REMPLACE les « CONSTAT remonté
+// (I1) » de `_partieFixeANullEnDeca` (dix configurations où la partie fixe
+// recevait 0 px) et les fenêtres de 21, 36 et 10 px de l'écart 3 et du mineur
+// m1 (R15). La table est vidée : chaque cas tient l'invariant — la partie
+// fixe garde une cible tactile, et « ⚠ Avertissement » et « Restrictions »
+// s'atteignent en glissant sur elle et au clavier —, sauf la limite acceptée
+// par l'arbitrage 26 ([_plancherNonTenuEnDeca], 40 px, atteignables quand
+// même).
 void _groupesI1() {
   final List<_Config> configs = _configsI1();
   final Map<String, Finder Function()> cibles = <String, Finder Function()>{
@@ -2135,105 +2204,73 @@ void _groupesI1() {
     '« ⚠ Avertissement »': _lienDeLaCarte,
   };
 
-  /// Le CONSTAT d'un écart remonté : la partie fixe à 0 px, et les deux
-  /// contrôles hors d'atteinte au toucher.
-  void constater(WidgetTester tester, _Ecran e) {
-    expect(
-      e.rapport.value!.allocation.blockFixed,
-      moreOrLessEquals(0, epsilon: _tolerance),
-      reason: _mesureI1(tester, e),
-    );
-    for (final Finder Function() cible in cibles.values) {
-      expect(cible().hitTestable(), findsNothing, reason: _mesureI1(tester, e));
-    }
-  }
-
-  group('I1 — « ⚠ Avertissement » et « Restrictions » atteignables en '
-      'glissant sur le bloc (en deçà, et là où la partie fixe défile)', () {
-    for (final _Config c in configs) {
-      final bool ecart = _partieFixeANullEnDeca.contains(c.nom);
-      _cas(
-        c,
-        ecart
-            ? 'CONSTAT remonté (I1) — la partie fixe reçoit 0 px : ni '
-                  '« ⚠ Avertissement » ni « Restrictions » ne s’atteignent en '
-                  'glissant ; aucune erreur de rendu'
-            : 'I1 : atteignables en glissant sur la partie fixe ; aucune '
-                  'erreur de rendu',
-        (WidgetTester tester) async {
-          final _Ecran e = await _monter(tester, c);
-          final Rect zone = _zoneSure(c);
-          expect(
-            e.erreurs,
-            isEmpty,
-            reason: e.erreurs.map((FlutterErrorDetails d) => '$d').join('\n'),
-          );
-          final List<String> echecs = <String>[];
-          for (final MapEntry<String, Finder Function()> cible
-              in cibles.entries) {
-            final String? echec = await _atteindreEnGlissant(
-              tester,
-              cible.value(),
-              zone,
-            );
-            if (echec != null) echecs.add('${cible.key} : $echec');
-          }
-          if (ecart) {
-            constater(tester, e);
-            expect(echecs, hasLength(2), reason: _mesureI1(tester, e));
-          } else {
-            expect(echecs, isEmpty, reason: _mesureI1(tester, e));
-          }
-        },
-      );
-    }
-  });
-
-  group('I1 — « ⚠ Avertissement » et « Restrictions » atteignables au '
-      'clavier, le focus les amène en vue (en deçà, et là où la partie fixe '
-      'défile)', () {
-    for (final _Config c in configs) {
-      final bool ecart = _partieFixeANullEnDeca.contains(c.nom);
-      _cas(
-        c,
-        ecart
-            ? 'CONSTAT remonté (I1) — la partie fixe reçoit 0 px : Tab '
-                  'focalise « Restrictions » puis « ⚠ Avertissement » sans '
-                  'pouvoir les amener en vue ; aucune erreur de rendu'
-            : 'I1 : Tab les atteint et les amène en vue ; aucune erreur de '
-                  'rendu',
-        (WidgetTester tester) async {
-          final _Ecran e = await _monter(tester, c);
-          final Rect zone = _zoneSure(c);
-          expect(
-            e.erreurs,
-            isEmpty,
-            reason: e.erreurs.map((FlutterErrorDetails d) => '$d').join('\n'),
-          );
-          final List<String> echecs = <String>[];
-          for (final MapEntry<String, Finder Function()> cible
-              in cibles.entries) {
-            final String? echec = await _atteindreAuClavier(
-              tester,
-              cible.value(),
-              zone,
-            );
-            if (echec != null) echecs.add('${cible.key} : $echec');
-          }
-          if (ecart) {
-            constater(tester, e);
-            // Le focus les atteint : c'est la hauteur qui manque, pas l'ordre.
+  group('D8 — critère 6 : la partie fixe garde une cible tactile, en deçà', () {
+    group('I1 — « ⚠ Avertissement » et « Restrictions » atteignables en '
+        'glissant sur le bloc (en deçà, et là où la partie fixe défile)', () {
+      for (final _Config c in configs) {
+        _cas(
+          c,
+          '${_titrePlancher(c)} ; atteignables en '
+          'glissant sur elle ; aucune erreur de rendu',
+          (WidgetTester tester) async {
+            final _Ecran e = await _monter(tester, c);
+            final Rect zone = _zoneSure(c);
             expect(
-              echecs.where((String l) => l.contains('focalisée')),
-              hasLength(2),
-              reason: '$echecs ; ${_mesureI1(tester, e)}',
+              e.erreurs,
+              isEmpty,
+              reason: e.erreurs.map((FlutterErrorDetails d) => '$d').join('\n'),
             );
-          } else {
+            final List<String> echecs = <String>[
+              ?_plancherTenu(tester, c, zone),
+            ];
+            for (final MapEntry<String, Finder Function()> cible
+                in cibles.entries) {
+              final String? echec = await _atteindreEnGlissant(
+                tester,
+                cible.value(),
+                zone,
+              );
+              if (echec != null) echecs.add('${cible.key} : $echec');
+            }
             expect(echecs, isEmpty, reason: _mesureI1(tester, e));
-          }
-        },
-      );
-    }
+          },
+        );
+      }
+    });
+
+    group('I1 — « ⚠ Avertissement » et « Restrictions » atteignables au '
+        'clavier, le focus les amène en vue (en deçà, et là où la partie fixe '
+        'défile)', () {
+      for (final _Config c in configs) {
+        _cas(
+          c,
+          '${_titrePlancher(c)} ; Tab les atteint '
+          'et les amène en vue ; aucune erreur de rendu',
+          (WidgetTester tester) async {
+            final _Ecran e = await _monter(tester, c);
+            final Rect zone = _zoneSure(c);
+            expect(
+              e.erreurs,
+              isEmpty,
+              reason: e.erreurs.map((FlutterErrorDetails d) => '$d').join('\n'),
+            );
+            final List<String> echecs = <String>[
+              ?_plancherTenu(tester, c, zone),
+            ];
+            for (final MapEntry<String, Finder Function()> cible
+                in cibles.entries) {
+              final String? echec = await _atteindreAuClavier(
+                tester,
+                cible.value(),
+                zone,
+              );
+              if (echec != null) echecs.add('${cible.key} : $echec');
+            }
+            expect(echecs, isEmpty, reason: _mesureI1(tester, e));
+          },
+        );
+      }
+    });
   });
 
   // R20 (spec § 5.1, § 11.3) : un téléphone en paysage passe en panneau
@@ -2433,6 +2470,422 @@ void _groupeReviewFocus5() {
   });
 }
 
+// --- D8 : une bande à 0 px se retire (arbitrage 23) --------------------------------
+
+/// Arbitrage 23 (`D8`) : en mode, sans fiche, une bande du bouton qui n'a pas
+/// de place à côté de la colonne reçoit 0 px ; elle se retire comme au repli
+/// 6 — ni peinte, ni touchable, ni atteinte par Tab, ni annoncée (I-c, branche
+/// du repli 6), le réticule avec elle. À 600 × 360 et 640 × 360 à 200 % (la
+/// mesure d'I1, écart 2b). Le retrait par la seule largeur, la hauteur ne
+/// manquant pas, est éprouvé sur des nombres (`map_layout_allocation_test`)
+/// et sur la pose (`map_layout_test`) : aucune taille mesurée ne le donne.
+void _groupeBandeANull() {
+  group('D8 — une bande du bouton à 0 px se retire (arbitrage 23)', () {
+    for (final Size taille in <Size>[
+      const Size(600, 360),
+      const Size(640, 360),
+    ]) {
+      final _Config c = _Config(
+        nomTaille: '${taille.width.round()} × ${taille.height.round()}',
+        taille: taille,
+        plateforme: TargetPlatform.android,
+        echelle: 2,
+        lecture: MapScaleKind.ecoulement,
+        enMode: true,
+        fiche: _Fiche.aucune,
+        avecAvis: true,
+        marge: false,
+      );
+      _cas(
+        c,
+        'la bande n’a pas de place : retirée avec le réticule — ni peinte, ni '
+        'touchable, ni focalisable, ni annoncée ; I-f',
+        (WidgetTester tester) async {
+          final _Ecran e = await _monter(tester, c);
+          final MapLayoutAllocation repartition = e.rapport.value!.allocation;
+          // La bande n'a pas de place (`bandFits` faux) : la pilule est plus
+          // large que la place à gauche de la colonne — le retrait vient de
+          // la largeur (23), pas seulement du plancher (21).
+          final double pilule = tester
+              .renderObject<RenderBox>(find.byType(DesignationBand))
+              .getMinIntrinsicWidth(double.infinity);
+          final double place =
+              taille.width -
+              3 * margeDeSurcouche -
+              tester.getSize(find.byType(MapBottom)).width;
+          expect(pilule, greaterThan(place), reason: 'la bande a sa place');
+          expect(repartition.bandWithdrawn, isTrue, reason: '$repartition');
+          expect(repartition.band, 0);
+          expect(repartition.reticleBand, 0);
+          expect(repartition.folds, contains(6));
+          final _Echecs echecs = _Echecs();
+          await _verifierReticuleEtFiche(tester, c, e, echecs);
+          echecs.conclure();
+        },
+      );
+    }
+  });
+}
+
+/// Relecture de `D8` (m5) : en police de test, à 700 px, la pilule n'a plus
+/// de place à côté de la colonne (arbitrage 23, `map_keyboard_test`) — le
+/// rang de tabulation du bouton de désignation n'y était plus éprouvé à la
+/// largeur de la colonne. En Roboto, à 700 × 900, la pilule tient : en mode,
+/// sans fiche, le bouton suit « recentrer » et précède le « ⚠ Avertissement »
+/// de la carte (`K1` de T3, spec § 5.7).
+void _groupeRangDuBoutonALaColonne() {
+  group('D8 — à la largeur de la colonne, le bouton de désignation garde son '
+      'rang de tabulation', () {
+    const _Config c = _Config(
+      nomTaille: '700 × 900',
+      taille: Size(700, 900),
+      plateforme: TargetPlatform.android,
+      echelle: 1,
+      lecture: MapScaleKind.ecoulement,
+      enMode: true,
+      fiche: _Fiche.aucune,
+      avecAvis: true,
+      marge: false,
+    );
+    _cas(
+      c,
+      'la pilule tient à côté de la colonne ; Tab : … recentrer → bouton de '
+      'désignation → « ⚠ Avertissement » de la carte',
+      (WidgetTester tester) async {
+        final _Ecran e = await _monter(tester, c);
+        expect(c.largeur, MapLayoutWidth.wide);
+        expect(e.rapport.value!.allocation.bandWithdrawn, isFalse);
+        final Finder recentrer = find.byKey(mapRecenterButtonKey);
+        final Finder bouton = find.byKey(mapDesignateCenterButtonKey);
+        for (int i = 0; i < 30 && !focusedWithin(tester, recentrer); i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(focusedWithin(tester, recentrer), isTrue, reason: 'recentrer');
+        // Un Tab de plus : le bouton ; encore un : « ⚠ Avertissement ».
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(focusedWithin(tester, bouton), isTrue, reason: 'le bouton');
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(focusedWithin(tester, _lienDeLaCarte()), isTrue, reason: '⚠');
+        _atteignable(bouton, 'le bouton de désignation');
+        expect(e.erreurs, isEmpty);
+      },
+    );
+  });
+}
+
+// --- D8 : l'en-tête de la fiche qui cède (arbitrages 24 à 26) ---------------------
+
+/// ⚠️ ÉCARTS MESURÉS, ARBITRÉS (arbitrages 24 et 25 du commanditaire,
+/// 2026-10-18), verrouillés à leur mesure : en deçà, là où l'en-tête de la
+/// fiche cède jusqu'à sa première rangée, son « ⚠ Avertissement » est rogné.
+/// Il sort alors de l'ordre de tabulation, reste annoncé, et revient dès que la
+/// place le montre (arbitrage 25). Valeur : la hauteur posée de la fiche
+/// (l'en-tête : 108 à 100 %, 162 à 200 % ; la première rangée : 60 et 114).
+const Map<String, double> _enTeteRogneEnDeca = <String, double>{
+  '360 × 300, 200 %, écoulement, hors mode, fiche station, avis, sans marge':
+      114,
+  '360 × 300, 200 %, écoulement, en mode, fiche station, avis, sans marge': 114,
+  '360 × 300, 100 %, écoulement, hors mode, fiche station, avis, marge': 80,
+  '360 × 300, 100 %, écoulement, en mode, fiche station, avis, marge': 80,
+  '360 × 300, 200 %, écoulement, hors mode, fiche station, avis, marge': 114,
+  '360 × 300, 200 %, écoulement, en mode, fiche station, avis, marge': 114,
+};
+
+/// La lecture signalée par la relecture de `D8` (lecture 4), conforme à la
+/// consigne et verrouillée à sa mesure : à 600 et 640 × 360, fiche station,
+/// le corps de la fiche cède sous sa mesure mise en avant avant la colonne
+/// (règle 1 de la consigne de `D8`) — la fiche à son en-tête (108), la tuile
+/// du débit sous elle, la colonne à 180 px (sur 300, ou 315 à 200 %).
+const Map<String, ({double fiche, double bas})>
+_ficheASonEnTeteEnDeca = <String, ({double fiche, double bas})>{
+  '600 × 360, 100 %, écoulement, hors mode, fiche station, avis, sans marge': (
+    fiche: 108,
+    bas: 180,
+  ),
+  '600 × 360, 100 %, écoulement, en mode, fiche station, avis, sans marge': (
+    fiche: 108,
+    bas: 180,
+  ),
+  '600 × 360, 200 %, écoulement, hors mode, fiche station, avis, sans marge': (
+    fiche: 108,
+    bas: 180,
+  ),
+  '600 × 360, 200 %, écoulement, en mode, fiche station, avis, sans marge': (
+    fiche: 108,
+    bas: 180,
+  ),
+  '640 × 360, 100 %, écoulement, hors mode, fiche station, avis, sans marge': (
+    fiche: 108,
+    bas: 180,
+  ),
+  '640 × 360, 100 %, écoulement, en mode, fiche station, avis, sans marge': (
+    fiche: 108,
+    bas: 180,
+  ),
+  '640 × 360, 200 %, écoulement, hors mode, fiche station, avis, sans marge': (
+    fiche: 108,
+    bas: 180,
+  ),
+  '640 × 360, 200 %, écoulement, en mode, fiche station, avis, sans marge': (
+    fiche: 108,
+    bas: 180,
+  ),
+};
+
+/// Arbitrage 25 : le « ⚠ Avertissement » de la fiche [zone], rogné par
+/// l'en-tête qui cède — ni entier dans la fiche, ni touchable ; hors de
+/// l'ordre de tabulation (Tab ne s'y arrête jamais, l'étoile de la fiche si :
+/// contrôle positif) ; toujours annoncé, son action ouvrant la fenêtre et sa
+/// phrase datée (son nœud porte le libellé et l'action, et n'est pas caché).
+Future<void> _verifierAvertissementRogne(
+  WidgetTester tester,
+  Finder zone,
+) async {
+  final Finder lien = find.descendant(
+    of: zone,
+    matching: find.byType(WarningLink),
+  );
+  final Finder etoile = find.descendant(
+    of: zone,
+    matching: find.byType(FavoriteStarButton),
+  );
+  final Rect r = tester.getRect(lien);
+  final Rect fiche = tester.getRect(zone);
+  expect(
+    r.bottom,
+    greaterThan(fiche.bottom + _tolerance),
+    reason: 'le « ⚠ » de la fiche $r n’est pas rogné par la fiche $fiche',
+  );
+  expect(lien.hitTestable(), findsNothing, reason: '« ⚠ » rogné touchable');
+  bool surLien = false;
+  bool surEtoile = false;
+  for (int i = 0; i < 40; i++) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    surLien |= focusedWithin(tester, lien);
+    surEtoile |= focusedWithin(tester, etoile);
+  }
+  expect(surLien, isFalse, reason: 'Tab s’arrête sur le « ⚠ » rogné');
+  expect(surEtoile, isTrue, reason: 'Tab ne passe pas par l’étoile');
+  final SemanticsHandle annonces = tester.ensureSemantics();
+  await tester.pump();
+  final SemanticsData noeud = tester
+      .getSemantics(
+        find.descendant(of: zone, matching: find.byKey(warningLinkKey)),
+      )
+      .getSemanticsData();
+  annonces.dispose();
+  expect(noeud.label, contains(warningLinkLabel), reason: 'non annoncé');
+  expect(noeud.hasAction(SemanticsAction.tap), isTrue, reason: 'sans action');
+  expect(noeud.flagsCollection.isHidden, isFalse, reason: 'annoncé caché');
+}
+
+/// Arbitrage 25, sa réciproque : le « ⚠ Avertissement » de la fiche [zone],
+/// entier, est un arrêt de Tab.
+Future<void> _verifierAvertissementAuClavier(
+  WidgetTester tester,
+  Finder zone,
+) async {
+  final Finder lien = find.descendant(
+    of: zone,
+    matching: find.byType(WarningLink),
+  );
+  bool surLien = false;
+  for (int i = 0; i < 40 && !surLien; i++) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    surLien = focusedWithin(tester, lien);
+  }
+  expect(surLien, isTrue, reason: 'Tab n’atteint pas le « ⚠ » entier');
+}
+
+/// Arbitrages 24 à 26 sous la marge d'un téléphone, et le retour du « ⚠ »
+/// quand la place le montre (arbitrage 25). À 360 × 300, fiche station :
+/// - à 100 % : la partie fixe à 48, l'en-tête rogné à 80, son « ⚠ » hors Tab
+///   et annoncé ;
+/// - à 200 % : la partie fixe à 0 (écart accepté, arbitrage 26), l'en-tête à
+///   sa première rangée (114) ; la rangée du bas descend de 16 px sur la
+///   fiche, et reste DEVANT elle (Important 2 de la relecture : l'arbitrage 22
+///   ne vaut qu'à la colonne) : l'attribution est entière et se touche
+///   jusqu'à son bas ; l'étoile et la fermeture, à 39–87 px du haut de la
+///   fiche, restent touchables.
+void _groupeEnTeteQuiCede() {
+  group('D8 — arbitrages 25 et 26 : en-tête de fiche rogné, hors Tab', () {
+    for (final double echelle in echellesDeTexte) {
+      for (final bool enMode in <bool>[false, true]) {
+        final _Config c = _Config(
+          nomTaille: '360 × 300',
+          taille: const Size(360, 300),
+          plateforme: TargetPlatform.android,
+          echelle: echelle,
+          lecture: MapScaleKind.ecoulement,
+          enMode: enMode,
+          fiche: _Fiche.station,
+          avecAvis: true,
+          marge: true,
+        );
+        final double fixe = echelle == 2 ? 0 : 48;
+        _cas(
+          c,
+          'sous la marge : partie fixe $fixe px, fiche à '
+          '${_enTeteRogneEnDeca[c.nom]} px ; « ⚠ » de fiche hors Tab, annoncé ; '
+          'étoile et fermeture touchables ; attribution entière ; I-f',
+          (WidgetTester tester) async {
+            final _Ecran e = await _monter(tester, c);
+            final MapLayoutAllocation repartition = e.rapport.value!.allocation;
+            final _Echecs echecs = _Echecs();
+            final Finder zone = _fiche(tester);
+            Finder dans(Finder f) => find.descendant(of: zone, matching: f);
+            await echecs.verifier('mesures', () async {
+              expect(
+                repartition.blockFixed,
+                moreOrLessEquals(fixe, epsilon: _tolerance),
+                reason: 'limite acceptée (arbitrage 26) : $repartition',
+              );
+              expect(
+                repartition.sheet,
+                moreOrLessEquals(
+                  _enTeteRogneEnDeca[c.nom]!,
+                  epsilon: _tolerance,
+                ),
+                reason: 'CONSTAT (arbitrage 25) : $repartition',
+              );
+            });
+            await echecs.verifier('étoile et fermeture', () async {
+              for (final (String, Finder) k in <(String, Finder)>[
+                ('fermeture', dans(find.byKey(stationSheetCloseButtonKey))),
+                ('étoile', dans(find.byType(FavoriteStarButton))),
+              ]) {
+                _atteignable(k.$2, '${k.$1} de la fiche');
+                _dedans(
+                  tester.getRect(k.$2),
+                  tester.getRect(zone),
+                  '${k.$1} de la fiche',
+                );
+              }
+            });
+            await echecs.verifier('l’attribution', () async {
+              final Finder attribution = find.byType(IgnAttributionBadge);
+              final Rect a = tester.getRect(attribution);
+              _dedans(a, _zoneSure(c), 'l’attribution');
+              // Touchée jusqu'à son bas : rien ne la recouvre.
+              for (final Offset p in <Offset>[
+                a.center,
+                Offset(a.center.dx, a.bottom - 2),
+              ]) {
+                expect(
+                  _toucheEn(tester, attribution, p),
+                  isTrue,
+                  reason: 'l’attribution $a recouverte en $p',
+                );
+              }
+            });
+            await echecs.verifier('arbitrage 25', () async {
+              await _verifierAvertissementRogne(tester, zone);
+            });
+            await echecs.verifier('I-f', () async {
+              expect(e.erreurs, isEmpty);
+            });
+            echecs.conclure();
+          },
+        );
+      }
+    }
+
+    // Arbitrage 25, « celui de la carte reste atteignable » : à 360 × 300 et
+    // 100 %, sous la marge, là où le « ⚠ » de la fiche sort de l'ordre de
+    // tabulation, celui de la carte s'atteint en glissant sur la partie fixe
+    // et au clavier (à 200 %, la partie fixe à 0 : limite de l'arbitrage 26).
+    for (final bool enMode in <bool>[false, true]) {
+      final _Config c = _Config(
+        nomTaille: '360 × 300',
+        taille: const Size(360, 300),
+        plateforme: TargetPlatform.android,
+        echelle: 1,
+        lecture: MapScaleKind.ecoulement,
+        enMode: enMode,
+        fiche: _Fiche.station,
+        avecAvis: true,
+        marge: true,
+      );
+      _cas(
+        c,
+        'sous la marge, le « ⚠ » de la fiche rogné : le « ⚠ Avertissement » '
+        'de la carte reste atteignable, en glissant et au clavier '
+        '(arbitrage 25)',
+        (WidgetTester tester) async {
+          final _Ecran e = await _monter(tester, c);
+          final Rect zone = _zoneSure(c);
+          final List<String> echecs = <String>[
+            ?_plancherTenu(tester, c, zone),
+            ?await _atteindreEnGlissant(tester, _lienDeLaCarte(), zone),
+          ];
+          final _Ecran remonte = await _monter(tester, c);
+          echecs.addAll(<String>[
+            ?await _atteindreAuClavier(tester, _lienDeLaCarte(), zone),
+          ]);
+          expect(echecs, isEmpty, reason: _mesureI1(tester, remonte));
+          expect(e.erreurs, isEmpty);
+          expect(remonte.erreurs, isEmpty);
+        },
+      );
+    }
+
+    // « Il revient dès que la place le montre » : 360 × 300, fiche station,
+    // sans marge — à 200 %, rogné et hors Tab ; le texte ramené à 100 %,
+    // l'en-tête entier, le « ⚠ » de la fiche est de nouveau un arrêt de Tab.
+    final _Config retour = _Config(
+      nomTaille: '360 × 300',
+      taille: const Size(360, 300),
+      plateforme: TargetPlatform.android,
+      echelle: 2,
+      lecture: MapScaleKind.ecoulement,
+      enMode: false,
+      fiche: _Fiche.station,
+      avecAvis: true,
+      marge: false,
+    );
+    _cas(
+      retour,
+      'le texte ramené à 100 %, le « ⚠ » de la fiche revient dans l’ordre de '
+      'tabulation (arbitrage 25)',
+      (WidgetTester tester) async {
+        final ValueNotifier<double> echelle = ValueNotifier<double>(2);
+        addTearDown(echelle.dispose);
+        final _Ecran e = await _monter(tester, retour, echelle: echelle);
+        final Finder zone = _fiche(tester);
+        await _verifierAvertissementRogne(tester, zone);
+        echelle.value = 1;
+        await tester.pumpAndSettle();
+        expect(
+          e.rapport.value!.allocation.sheet,
+          greaterThanOrEqualTo(
+            tester
+                    .getRect(
+                      find.descendant(
+                        of: zone,
+                        matching: find.byKey(sheetFrameHeaderKey),
+                      ),
+                    )
+                    .height -
+                _tolerance,
+          ),
+          reason: 'l’en-tête entier à 100 %',
+        );
+        _atteignable(
+          find.descendant(of: zone, matching: find.byType(WarningLink)),
+          '« ⚠ Avertissement » de la fiche',
+        );
+        await _verifierAvertissementAuClavier(tester, zone);
+        expect(e.erreurs, isEmpty);
+      },
+    );
+  });
+}
+
 // --- I1 : les anciens « CONSTAT » en deçà, remplacés (R15) -----------------------
 
 /// Les tailles des anciens « CONSTAT » en deçà (`task-D2-report.md`, R15) :
@@ -2465,55 +2918,32 @@ Set<String> _pairesQuiSeRecoupent(WidgetTester tester, _Config c, _Ecran e) {
   };
 }
 
-/// ⚠️ ÉCARTS MESURÉS ET REMONTÉS AU COMMANDITAIRE (`I1` d'Ergonomie, Roboto,
-/// Android, 2026-10-18), pas des invariants voulus — à la largeur de la
-/// colonne (600 à 799 px), en deçà :
-/// - fiche du bas ouverte : la colonne du bas (cinq boutons et attribution,
-///   posée entière, `D1` : « il recouvre la fiche plutôt que de déborder »)
-///   descend sur l'en-tête de la fiche ; « recentrer » et l'attribution
-///   couvrent son étoile et sa fermeture, qui ne s'atteignent plus au toucher
-///   (Échap ferme toujours la fiche) ;
-/// - en mode, sans fiche, à 200 % : la bande du bouton reçoit 0 px ; sa
-///   pilule, posée sous le bas de l'écran, y déborde (8 px visibles) et
-///   recoupe son indice.
-/// Corriger ce tableau À LA MAIN quand le commanditaire aura tranché.
-const Map<String, Set<String>> _recoupementsEnDeca = <String, Set<String>>{
-  '600 × 360, 100 %, écoulement, hors mode, fiche station, avis, sans marge':
-      <String>{'recentrer × fiche', 'attribution × fiche'},
-  '600 × 360, 100 %, écoulement, en mode, fiche station, avis, sans marge':
-      <String>{'recentrer × fiche', 'attribution × fiche'},
-  '600 × 360, 200 %, écoulement, hors mode, fiche station, avis, sans marge':
-      <String>{'recentrer × fiche', 'attribution × fiche'},
-  '600 × 360, 200 %, écoulement, en mode, fiche station, avis, sans marge':
-      <String>{'recentrer × fiche', 'attribution × fiche'},
-  '600 × 360, 200 %, écoulement, en mode, sans fiche, avis, sans marge':
-      <String>{'pilule × indice'},
-  '640 × 360, 100 %, écoulement, hors mode, fiche station, avis, sans marge':
-      <String>{'recentrer × fiche', 'attribution × fiche'},
-  '640 × 360, 100 %, écoulement, en mode, fiche station, avis, sans marge':
-      <String>{'recentrer × fiche', 'attribution × fiche'},
-  '640 × 360, 200 %, écoulement, hors mode, fiche station, avis, sans marge':
-      <String>{'recentrer × fiche', 'attribution × fiche'},
-  '640 × 360, 200 %, écoulement, en mode, fiche station, avis, sans marge':
-      <String>{'recentrer × fiche', 'attribution × fiche'},
-  '640 × 360, 200 %, écoulement, en mode, sans fiche, avis, sans marge':
-      <String>{'pilule × indice'},
-};
-
 /// R15 : les « CONSTAT » en deçà de l'ancienne disposition décrivaient des
 /// recouvrements (la pilule du bouton sur « ⚠ Avertissement » à 360 × 300, le
 /// groupe étendu sur la légende à 640 × 360, la légende dans la zone des
 /// contrôles à 800 × 400) et un bas qui défilait (« Favoris » dépassant de
 /// 12 px à 600 × 360 et 640 × 360). Leur invariant, sur la nouvelle
 /// disposition : aucune paire d'éléments PEINTS ne se recoupe (I-j) ; le bas
-/// de la carte est posé entier dans la zone sûre — il ne cède jamais — et ses
-/// cinq boutons s'atteignent au toucher ; fiche ouverte, son étoile, sa
-/// fermeture et son « ⚠ Avertissement » s'atteignent ; aucune erreur de rendu.
-/// Sauf les écarts remontés ([_recoupementsEnDeca]), constatés tels quels.
+/// de la carte est posé dans la zone sûre et ses cinq boutons s'atteignent ;
+/// fiche ouverte, son étoile et sa fermeture s'atteignent au toucher ; aucune
+/// erreur de rendu.
+///
+/// `D8` (arbitrages 21 à 24) remplace les « CONSTAT remonté (I1) » de
+/// `_recoupementsEnDeca` — à 600 × 360 et 640 × 360, la colonne descendait
+/// sur l'en-tête de la fiche (étoile et fermeture hors d'atteinte) ; en mode
+/// sans fiche à 200 %, la bande à 0 px se peignait sous l'écran : la table est
+/// vidée. Et l'invariant change là où les arbitrages le changent : à la
+/// largeur de la colonne, la colonne CÈDE — ses boutons défilent, ancrés en
+/// bas, au-dessus de l'attribution, qui reste entière et affichée ; un bouton
+/// défilé hors de vue s'atteint en glissant sur la colonne ou au clavier (le
+/// focus l'amène en vue). L'en-tête de la fiche peut céder, jamais sous sa
+/// première rangée : son « ⚠ Avertissement » s'atteint tant que l'en-tête est
+/// entier ; l'étoile et la fermeture, toujours. Rien du bas ne se peint sur la
+/// fiche (arbitrage 22).
 void _groupeConstatsEnDeca() {
-  group('I1, R15 — en deçà : rien ne se recoupe, le bas de la carte entier et '
-      'ses boutons atteignables, l’en-tête de la fiche atteignable (remplacent '
-      'les « CONSTAT » de l’ancienne disposition)', () {
+  // Remplace les « CONSTAT » de l'ancienne disposition (R15), puis ceux
+  // d'I1 (`D8`).
+  group('I1, R15, D8 — en deçà : rien ne se recoupe, le bas et la fiche', () {
     for (final (Size, TargetPlatform) t in _taillesDesConstats) {
       for (final double echelle in echellesDeTexte) {
         for (final bool enMode in <bool>[false, true]) {
@@ -2529,26 +2959,22 @@ void _groupeConstatsEnDeca() {
               avecAvis: true,
               marge: false,
             );
-            final Set<String>? ecart = _recoupementsEnDeca[c.nom];
-            final bool enTeteCouvert =
-                ecart != null && ecart.contains('recentrer × fiche');
             _cas(
               c,
-              ecart == null
-                  ? 'R15 : aucune paire peinte ne se recoupe ; le bas entier '
-                        'dans la zone sûre, ses cinq boutons atteignables'
-                        '${fiche == _Fiche.aucune ? '' : ' ; étoile, fermeture et « ⚠ Avertissement » de la fiche atteignables'}'
-                        ' ; I-f'
-                  : 'CONSTAT remonté (I1) — ${ecart.join(', ')} se recoupent'
-                        '${enTeteCouvert ? ' : étoile et fermeture de la fiche hors d’atteinte au toucher' : ''}'
-                        ' ; le bas entier, ses cinq boutons atteignables ; I-f',
+              'R15, D8 : aucune paire peinte ne se recoupe ; le bas dans la '
+              'zone sûre, l’attribution entière, ses cinq boutons '
+              'atteignables, au besoin en le faisant défiler'
+              '${fiche == _Fiche.aucune ? '' : ' ; étoile et fermeture de la fiche touchables, rien du bas sur elle'}'
+              ' ; I-f',
               (WidgetTester tester) async {
                 final _Ecran e = await _monter(tester, c);
                 final _Echecs echecs = _Echecs();
+                final MapLayoutAllocation repartition =
+                    e.rapport.value!.allocation;
                 await echecs.verifier('I-j', () async {
                   expect(
                     _pairesQuiSeRecoupent(tester, c, e),
-                    ecart ?? isEmpty,
+                    isEmpty,
                     reason: 'les paires peintes qui se recoupent',
                   );
                 });
@@ -2557,13 +2983,34 @@ void _groupeConstatsEnDeca() {
                   final RenderBox bas = tester.renderObject(
                     find.byType(MapBottom),
                   );
+                  // Posé à la hauteur que la répartition lui rend : entière,
+                  // ou — la colonne, en deçà — repliée jusqu'à son
+                  // attribution au plus.
                   expect(
                     bas.size.height,
-                    moreOrLessEquals(
-                      bas.getMaxIntrinsicHeight(bas.size.width),
-                      epsilon: _tolerance,
+                    moreOrLessEquals(repartition.bottom, epsilon: _tolerance),
+                    reason: 'le bas posé ($repartition)',
+                  );
+                  expect(
+                    bas.size.height,
+                    greaterThanOrEqualTo(
+                      bas.getMinIntrinsicHeight(bas.size.width) - _tolerance,
                     ),
-                    reason: 'le bas cède',
+                    reason: 'le bas sous sa hauteur repliée',
+                  );
+                  _dedans(
+                    tester.getRect(find.byType(MapBottom)),
+                    zone,
+                    'le bas',
+                  );
+                  final Rect attribution = tester.getRect(
+                    find.byType(IgnAttributionBadge),
+                  );
+                  _dedans(attribution, zone, 'l’attribution');
+                  _dedans(
+                    attribution,
+                    tester.getRect(find.byType(MapBottom)),
+                    'l’attribution (dans le bas)',
                   );
                   for (final MapEntry<String, Rect> p in _bas(tester).entries) {
                     _dedans(p.value, zone, p.key);
@@ -2575,18 +3022,77 @@ void _groupeConstatsEnDeca() {
                     ('+', mapZoomInButtonKey),
                     ('recentrer', mapRecenterButtonKey),
                   ]) {
-                    _atteignable(find.byKey(b.$2), b.$1);
+                    final Finder bouton = find.byKey(b.$2);
+                    // Défilé hors de vue : amené comme le focus l'amène.
+                    if (bouton.hitTestable().evaluate().isEmpty) {
+                      await _amener(tester, bouton);
+                    }
+                    _atteignable(bouton, b.$1);
                   }
+                  _atteignable(
+                    find.byType(IgnAttributionBadge),
+                    'l’attribution',
+                  );
                 });
                 if (fiche != _Fiche.aucune) {
                   await echecs.verifier('l’en-tête de la fiche', () async {
                     final Finder zone = _fiche(tester);
                     Finder dans(Finder f) =>
                         find.descendant(of: zone, matching: f);
-                    _atteignable(
-                      dans(find.byType(WarningLink)),
-                      '« ⚠ Avertissement » de la fiche',
-                    );
+                    final double enTete = tester
+                        .getRect(dans(find.byKey(sheetFrameHeaderKey)))
+                        .height;
+                    // L'en-tête entier, sauf là où il cède (arbitrage 24),
+                    // constaté à sa mesure : son « ⚠ » y est rogné, hors Tab
+                    // et annoncé (arbitrage 25).
+                    final double? rogne = _enTeteRogneEnDeca[c.nom];
+                    if (rogne == null) {
+                      expect(
+                        repartition.sheet,
+                        greaterThanOrEqualTo(enTete - _tolerance),
+                        reason: 'l’en-tête de la fiche cède ($repartition)',
+                      );
+                      _atteignable(
+                        dans(find.byType(WarningLink)),
+                        '« ⚠ Avertissement » de la fiche',
+                      );
+                    } else {
+                      expect(
+                        repartition.sheet,
+                        moreOrLessEquals(rogne, epsilon: _tolerance),
+                        reason:
+                            'CONSTAT (D8, arbitrage 25) : la fiche posée à '
+                            '$rogne px — écart corrigé ? retirer la ligne de '
+                            '_enTeteRogneEnDeca',
+                      );
+                      await _verifierAvertissementRogne(tester, zone);
+                    }
+                    // Arbitrage 26 et relecture de `D8` (lecture 4) : à 600 et
+                    // 640 × 360, fiche station, le corps cède sous sa mesure
+                    // avant la colonne — la fiche réduite à son en-tête (la
+                    // tuile du débit sous elle), la colonne à 180 px.
+                    final ({double fiche, double bas})? lecture =
+                        _ficheASonEnTeteEnDeca[c.nom];
+                    if (lecture != null) {
+                      expect(
+                        repartition.sheet,
+                        moreOrLessEquals(lecture.fiche, epsilon: _tolerance),
+                        reason: 'la fiche posée ($repartition)',
+                      );
+                      expect(
+                        repartition.bottom,
+                        moreOrLessEquals(lecture.bas, epsilon: _tolerance),
+                        reason: 'la colonne posée ($repartition)',
+                      );
+                      expect(
+                        find
+                            .byKey(stationDischargeTileKey)
+                            .hitTestable()
+                            .evaluate(),
+                        isEmpty,
+                        reason: 'la tuile du débit se voit',
+                      );
+                    }
                     for (final (String, Finder) k in <(String, Finder)>[
                       (
                         'fermeture',
@@ -2594,16 +3100,21 @@ void _groupeConstatsEnDeca() {
                       ),
                       ('étoile', dans(find.byType(FavoriteStarButton))),
                     ]) {
-                      if (enTeteCouvert) {
-                        expect(
-                          k.$2.hitTestable(),
-                          findsNothing,
-                          reason: '${k.$1} ${tester.getRect(k.$2)}',
-                        );
-                      } else {
-                        _atteignable(k.$2, '${k.$1} de la fiche');
-                      }
+                      _atteignable(k.$2, '${k.$1} de la fiche');
+                      _dedans(
+                        tester.getRect(k.$2),
+                        tester.getRect(zone),
+                        '${k.$1} de la fiche (entière dans la fiche)',
+                      );
                     }
+                    final Rect bas = tester
+                        .getRect(find.byType(MapBottom))
+                        .intersect(tester.getRect(zone));
+                    expect(
+                      bas.width <= _tolerance || bas.height <= _tolerance,
+                      isTrue,
+                      reason: 'le bas se pose sur la fiche ($bas)',
+                    );
                   });
                 }
                 await echecs.verifier('I-f', () async {

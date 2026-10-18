@@ -721,6 +721,100 @@ void main() {
     );
   });
 
+  group('SheetFrame — la première rangée de l’en-tête (arbitrage 24, D8)', () {
+    // En deçà des quatre tailles, l'en-tête de la fiche cède — la zone des
+    // fiches le rogne par le bas —, jamais sous sa première rangée : nature,
+    // étoile et fermeture restent entières et touchables. Sa hauteur, lue
+    // par `sheetFirstRowHeightOf`, est la marge haute de l'en-tête et la
+    // rangée.
+
+    /// Le bas de la première rangée : celui de la rangée qui porte la
+    /// fermeture, compté depuis le haut du cadre.
+    double basDeLaRangee(WidgetTester tester) =>
+        _rect(
+          tester,
+          find
+              .ancestor(of: find.byKey(_closeKey), matching: find.byType(Row))
+              .first,
+        ).bottom -
+        _rect(tester, find.byType(SheetFrame)).top;
+
+    for (final (String, double) cas in <(String, double)>[
+      ('100 %', 1),
+      ('200 %, la nature sur plusieurs lignes', 2),
+    ]) {
+      testWidgetsOnAndroid('Android : ${cas.$1} — la marge haute et la rangée '
+          'nature · étoile · fermeture, sous l’en-tête entier', (
+        WidgetTester tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(cas.$2)),
+              child: Scaffold(
+                body: SingleChildScrollView(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(
+                      width: 360,
+                      child: _frame(
+                        star: const FavoriteStar(
+                          filled: false,
+                          enabled: true,
+                          writeFailed: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final double premiere = sheetFirstRowHeightOf(_frameBox(tester), 360);
+        expect(premiere, closeTo(basDeLaRangee(tester), 0.01));
+        expect(premiere, greaterThanOrEqualTo(12 + minimumTapTarget - 0.01));
+        expect(
+          premiere,
+          lessThan(_rect(tester, find.byKey(sheetFrameHeaderKey)).height),
+        );
+      });
+    }
+
+    testWidgetsOnWindows('sheetFirstRowHeightOf traverse une enveloppe qui '
+        'garde les hauteurs ; une boîte quelconque rend sa hauteur repliée — '
+        'son en-tête ne cède pas', (WidgetTester tester) async {
+      const Key enveloppe = Key('test-sheet-first-row-wrap');
+      await _pumpUnbounded(
+        tester,
+        SizedBox(
+          key: enveloppe,
+          child: _frame(star: _emptyStar),
+        ),
+      );
+      expect(
+        sheetFirstRowHeightOf(
+          tester.renderObject<RenderBox>(find.byKey(enveloppe)),
+          400,
+        ),
+        closeTo(sheetFirstRowHeightOf(_frameBox(tester), 400), 0.01),
+      );
+      expect(
+        sheetFirstRowHeightOf(
+          tester.renderObject<RenderBox>(find.byKey(_bodyTopKey)),
+          400,
+        ),
+        closeTo(
+          tester
+              .renderObject<RenderBox>(find.byKey(_bodyTopKey))
+              .getMinIntrinsicHeight(400),
+          0.01,
+        ),
+      );
+    });
+  });
+
   group('SheetFrame — l\'avis d\'échec d\'écriture du favori', () {
     testWidgetsOnWindows(
       'étoile pleine en échec : la phrase du retrait, sous l\'en-tête, en '

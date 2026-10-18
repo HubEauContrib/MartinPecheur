@@ -17,31 +17,41 @@
 //    faisabilité (`S6`, `mesurerPieces`) ;
 // 4. les intrinsèques des enfants, lues à ces largeurs AVANT toute pose — et,
 //    pour la fiche, sa hauteur mise en avant (`sheetFeaturedHeightOf`,
-//    arbitrage 18) —, le plancher de la partie fixe (la cible tactile de la
-//    plateforme, arbitrage 19), puis [allocateMapLayout] ;
-// 5. chaque enfant posé avec la hauteur allouée : la partie fixe, la bande et
-//    la fiche se replient d'elles-mêmes (note d'architecture) ; les trois
-//    pièces du bloc sont posées À CHAQUE mise en page, même à 0 ;
+//    arbitrage 18) et sa première rangée (`sheetFirstRowHeightOf`, arbitrage
+//    24) —, le plancher de la partie fixe (la cible tactile de la plateforme,
+//    arbitrages 19 et 21), puis [allocateMapLayout] ;
+// 5. chaque enfant posé avec la hauteur allouée : la partie fixe, la bande, la
+//    fiche et la colonne du bas se replient d'elles-mêmes (note
+//    d'architecture) ; les trois pièces du bloc sont posées À CHAQUE mise en
+//    page, même à 0 ;
 // 6. les positions, puis le réticule ;
 // 7. le rapport ([MapLayoutReport]), publié après la trame s'il a changé.
 //
 // ## Ce qui se peint et se touche
 //
-// Ordre de peinture : la fiche d'abord — rien ne se peint SOUS elle qui
-// appartienne à la carte, c'est elle qui est dessous si un recouvrement
-// arrive en deçà des tailles garanties —, puis le bloc, le bas, la bande, le
-// réticule en dernier (rien ne se peint sur lui). Le toucher suit l'ordre
-// inverse. Cette boîte ne prend aucun geste elle-même : hors des pièces, la
-// carte dessous le reçoit. Les pièces du bloc absorbent sur leur surface
-// (`B1`), la bande et le bas ne prennent un geste que sur leurs éléments
-// (`S4`) : chacune en décide. Repli 6 : la bande et le réticule sont posés à
-// taille nulle et ne sont ni peints, ni touchables, ni annoncés ; ils restent
-// dans l'arbre (leurs intrinsèques restent lisibles). La bande retirée garde
-// son nœud de focus : un `RenderObject` ne peut pas en retirer un ; la
-// composition (`D2`) l'exclut par `ExcludeFocus`, à l'écoute du rapport. Elle
-// l'enveloppe aussi d'un `ExcludeSemantics` (`D3`) : une redondance voulue,
-// puisque [RenderMapLayout.visitChildrenForSemantics] exclut déjà des
-// annonces ce qui est retiré ; aucun test ne distingue les deux.
+// Ordre de peinture, à la largeur de la colonne : le bas d'abord, puis la
+// fiche — l'en-tête de la fiche passe devant la colonne (arbitrage 22, `D8`) :
+// là où, en deçà des tailles garanties, même la colonne repliée descendrait
+// sur elle, c'est la fiche qui se voit et se touche —, puis le bloc (la fiche
+// ne le recouvre jamais), la bande, le réticule en dernier (rien ne se peint
+// sur lui). Au téléphone, comme avant `D8` : la fiche d'abord, puis le bloc,
+// la rangée — devant la fiche, l'attribution entière (l'arbitrage 22 ne vaut
+// qu'à la colonne) —, la bande, le réticule. Aux tailles garanties, rien ne
+// se recoupe : l'ordre n'y change rien. Le toucher suit l'ordre inverse.
+// Cette boîte ne prend aucun geste elle-même : hors des pièces, la carte
+// dessous le reçoit. Les pièces du bloc absorbent sur leur surface (`B1`), la
+// bande et le bas ne prennent un geste que sur leurs éléments (`S4`) :
+// chacune en décide. Repli 6 — faute de hauteur, faute de
+// largeur (une bande qui ne recevrait que 0 px, arbitrages 14 et 23) ou pour
+// le plancher de la partie fixe (arbitrage 21) : la bande et le réticule sont
+// posés à taille nulle et ne sont ni peints, ni touchables, ni annoncés ; ils
+// restent dans l'arbre (leurs intrinsèques restent lisibles). La bande
+// retirée garde son nœud de focus : un `RenderObject` ne peut pas en retirer
+// un ; la composition (`D2`) l'exclut par `ExcludeFocus`, à l'écoute du
+// rapport. Elle l'enveloppe aussi d'un `ExcludeSemantics` (`D3`) : une
+// redondance voulue, puisque [RenderMapLayout.visitChildrenForSemantics]
+// exclut déjà des annonces ce qui est retiré ; aucun test ne distingue les
+// deux.
 import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
@@ -51,7 +61,7 @@ import 'package:martinpecheur/features/map/view/map_center_reticle.dart'
     show mapCenterReticleSize;
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 import 'package:martinpecheur/features/shared/sheet_frame.dart'
-    show sheetFeaturedHeightOf;
+    show sheetFeaturedHeightOf, sheetFirstRowHeightOf;
 import 'package:martinpecheur/features/shared/tap_target.dart'
     show minimumTapTarget;
 
@@ -111,7 +121,8 @@ final class MapLayoutReport {
   /// surface. La zone sûre n'y entre jamais (spec § 5.2 : « la carte, elle,
   /// va jusqu'aux bords »). [EdgeInsets.zero] sans fiche ouverte, et pour une
   /// fiche du bas posée à 0 px — en deçà des tailles garanties seulement :
-  /// depuis `D5`, la fiche garde au moins son en-tête épinglé.
+  /// depuis `D5`, la fiche garde au moins son en-tête épinglé, et depuis `D8`
+  /// la première rangée de cet en-tête (arbitrage 24).
   final EdgeInsets covered;
 
   @override
@@ -235,6 +246,10 @@ class RenderMapLayout extends RenderBox
   /// Le repli 6 de la dernière mise en page : bande et réticule ni peints, ni
   /// touchables, ni annoncés.
   bool _bandWithdrawn = false;
+
+  /// Le bas de la dernière mise en page est la rangée du téléphone (compact) :
+  /// elle se peint devant la fiche ; la colonne, derrière (arbitrage 22).
+  bool _row = false;
 
   /// Les enfants par emplacement, relevés à la dernière mise en page : la
   /// peinture et le toucher les relisent sans reparcourir la liste (un ajout
@@ -391,10 +406,10 @@ class RenderMapLayout extends RenderBox
         blockFixed: heights(MapLayoutSlot.blockFixed, widths.block),
         notices: maxHeight(MapLayoutSlot.blockNotices, widths.block),
         legend: maxHeight(MapLayoutSlot.blockLegend, widths.block),
-        bottom: maxHeight(MapLayoutSlot.bottom, widths.bottom),
-        // Une bande qui ne tient pas n'a pas de hauteur à dire : fiche
-        // ouverte, `allocateMapLayout` la retire (repli 6 étendu, arbitrage
-        // 14) ; sans fiche, elle déborde.
+        bottom: heights(MapLayoutSlot.bottom, widths.bottom),
+        // Une bande qui ne tient pas n'a pas de hauteur à dire :
+        // `allocateMapLayout` la retire, fiche ouverte ou non (repli 6
+        // étendu, arbitrages 14 et 23).
         band: designation && widths.bandFits
             ? heights(MapLayoutSlot.band, widths.band)
             : PieceHeights.none,
@@ -411,10 +426,17 @@ class RenderMapLayout extends RenderBox
                 widths.sheet,
               )
             : 0,
+        sheetFirstRow: sheetOpen
+            ? sheetFirstRowHeightOf(
+                children[MapLayoutSlot.sheet]!,
+                widths.sheet,
+              )
+            : 0,
         gap: padding,
       ),
     );
     _bandWithdrawn = allocation.bandWithdrawn;
+    _row = compact;
 
     // 5. La pose. Une pièce absente vaut zéro.
     Size layoutChild(MapLayoutSlot slot, BoxConstraints constraints) {
@@ -494,22 +516,17 @@ class RenderMapLayout extends RenderBox
     stackPiece(MapLayoutSlot.blockNotices, allocation.notices);
     stackPiece(MapLayoutSlot.blockLegend, allocation.legend);
 
-    // Le bas : au bas de la carte visible, à sa propre hauteur, bornée à la
-    // zone sûre ; jamais au-dessus du haut de la carte visible. En deçà des
-    // tailles garanties, il recouvre alors la fiche (peinte dessous) plutôt
-    // que de déborder. Un bas plus haut que la zone sûre elle-même (la colonne
-    // à 640 × 360 et 200 %, sous la marge d'un téléphone) n'a aucune hauteur
-    // où tenir : il est posé entier, son haut à la marge du haut, et passe
-    // sous la marge système du bas plutôt que de lever un débordement.
+    // Le bas : au bas de la carte visible, à la hauteur que la répartition
+    // lui rend — entière, sauf la colonne en deçà des tailles garanties, qui
+    // fait alors défiler ses boutons au-dessus de son attribution, pour la
+    // partie fixe et sous l'en-tête de la fiche (arbitrages 22 et 24) ;
+    // jamais au-dessus du haut de la carte visible. Là où même sa hauteur
+    // repliée ne tient pas (garde-fou c de `D8`), la fiche passe devant la
+    // colonne, la rangée du téléphone devant la fiche (ordre de peinture et
+    // de toucher).
     final Size bottom = layoutChild(
       MapLayoutSlot.bottom,
-      widthAndMaxHeight(
-        widths.bottom,
-        math.max(
-          safe.height - 2 * padding,
-          maxHeight(MapLayoutSlot.bottom, widths.bottom),
-        ),
-      ),
+      widthAndMaxHeight(widths.bottom, allocation.bottom),
     );
     final double bottomTop = math.max(
       visible.bottom - padding - bottom.height,
@@ -584,8 +601,21 @@ class RenderMapLayout extends RenderBox
 
   // --- Peinture, toucher, annonces --------------------------------------------
 
-  /// Les emplacements dans l'ordre de peinture (voir l'en-tête du fichier).
-  static const List<MapLayoutSlot> _paintOrder = <MapLayoutSlot>[
+  /// Les emplacements dans l'ordre de peinture (voir l'en-tête du fichier),
+  /// à la largeur de la colonne : la fiche devant le bas (arbitrage 22).
+  static const List<MapLayoutSlot> _columnPaintOrder = <MapLayoutSlot>[
+    MapLayoutSlot.bottom,
+    MapLayoutSlot.sheet,
+    MapLayoutSlot.blockFixed,
+    MapLayoutSlot.blockNotices,
+    MapLayoutSlot.blockLegend,
+    MapLayoutSlot.band,
+    MapLayoutSlot.reticle,
+  ];
+
+  /// Au téléphone : la rangée devant la fiche, comme avant `D8` —
+  /// l'arbitrage 22 ne vaut qu'à la colonne, et l'attribution reste entière.
+  static const List<MapLayoutSlot> _rowPaintOrder = <MapLayoutSlot>[
     MapLayoutSlot.sheet,
     MapLayoutSlot.blockFixed,
     MapLayoutSlot.blockNotices,
@@ -594,6 +624,10 @@ class RenderMapLayout extends RenderBox
     MapLayoutSlot.band,
     MapLayoutSlot.reticle,
   ];
+
+  /// L'ordre de peinture de la dernière mise en page.
+  List<MapLayoutSlot> get _paintOrder =>
+      _row ? _rowPaintOrder : _columnPaintOrder;
 
   /// Retirés par le repli 6 : ni peints, ni touchables, ni annoncés.
   bool _withdrawn(MapLayoutSlot slot) =>
