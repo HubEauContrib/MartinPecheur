@@ -51,6 +51,8 @@ import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
         designationEntrySubtitle,
         readingEntrySemanticsLabel;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
+    show ondeHistoriqueTitre, ondeSheetNature;
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart'
@@ -832,6 +834,36 @@ void main() {
             isTrue,
             reason:
                 'fiche-station.feature ne contient pas « ${libelle.value} », '
+                'le libellé du code pour ${libelle.key}',
+          );
+        });
+      }
+    },
+  );
+
+  // Même lien pour `ecoulement-onde.feature` (`F2` d'Ergonomie, critère 12) :
+  // l'en-tête de la fiche, son contrôle d'avertissement et le titre de
+  // l'historique, lus dans le code, cherchés entre guillemets français.
+  group(
+    'les libellés portés par le code figurent dans ecoulement-onde.feature',
+    () {
+      final String ficheOnde =
+          contenusParFichier['ecoulement-onde.feature'] ?? '';
+
+      final Map<String, String> libellesFicheOnde = <String, String>{
+        'en-tête de la fiche': ondeSheetNature,
+        'contrôle d\'avertissement de l\'en-tête': '⚠ $warningLinkLabel',
+        'historique': ondeHistoriqueTitre,
+      };
+      for (final MapEntry<String, String> libelle
+          in libellesFicheOnde.entries) {
+        test('ecoulement-onde.feature cite « ${libelle.value} » '
+            '(${libelle.key})', () {
+          expect(
+            _containsQuoted(ficheOnde, libelle.value),
+            isTrue,
+            reason:
+                'ecoulement-onde.feature ne contient pas « ${libelle.value} », '
                 'le libellé du code pour ${libelle.key}',
           );
         });
