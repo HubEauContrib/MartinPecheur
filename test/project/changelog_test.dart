@@ -827,7 +827,9 @@ void main() {
 
   // Task O1 du plan d'ergonomie ouvre la version 0.6.0 ; Task P3 la datera,
   // la porte de la tranche étant constatée sur Windows et sur Android. Le cas
-  // « ouverte, pas datée » (le 3) est celui que P3 inversera, comme pour 0.3.0.
+  // « ouverte, pas datée » (le 3) est celui que P3 inversera, comme pour 0.3.0 ;
+  // P3 réécrira aussi le verrou du chapeau (« le code de la tranche est
+  // livré », « la porte reste à passer »).
   group('version 0.6.0 (Tasks O1 et P3 du plan d\'ergonomie)', () {
     late String contenuChangelog;
 
@@ -884,16 +886,16 @@ void main() {
       expect(ligne, '## [0.6.0] — à publier');
     });
 
-    test('le chapeau de 0.6.0 dit la tranche d\'ergonomie, en cours, avant '
-        'T5, et que rien n\'en est encore livré', () {
+    test('le chapeau de 0.6.0 dit la tranche d\'ergonomie, avant T5, son code '
+        'livré et sa porte restant à passer', () {
       final String section = section060();
       final String chapeau = section
           .substring(section.indexOf('\n'))
           .replaceAll(RegExp(r'\s+'), ' ');
       expect(chapeau, contains('Tranche d\'ergonomie, avant T5'));
       expect(chapeau, contains('Version ouverte, pas publiée'));
-      expect(chapeau, contains('la tranche est en cours'));
-      expect(chapeau, contains('rien n\'en est encore livré'));
+      expect(chapeau, contains('le code de la tranche est livré'));
+      expect(chapeau, contains('la porte reste à passer'));
     });
   });
 }

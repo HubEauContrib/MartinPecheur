@@ -140,6 +140,15 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
     Et à 360 × 640 et 200 %, là où ces replis ne suffisent pas, le haut du bloc de lecture défile : « ⚠ Avertissement » et « Restrictions » s'y atteignent en le faisant défiler (arbitrage 13)
     Et, une fiche ouverte au bas de l'écran, son corps ne défile que jusqu'à sa mesure mise en avant — la tuile du débit d'une station, la tuile de la catégorie d'un point ONDE, le niveau de vigilance d'un tronçon — ; là où ces replis ne la lui laissent pas, à toute taille, le haut du bloc de lecture défile, jusqu'à la hauteur d'une cible tactile, et « ⚠ Avertissement » et « Restrictions » s'y atteignent en le faisant défiler ; sous cette hauteur, le corps de la fiche défile sous sa mesure mise en avant, jamais son en-tête (arbitrages 18 et 19)
 
+  # ── Ergonomie — le bouton de retour s'annonce « Retour » (cadrage du 2026-10-17, arbitrage 8, critère 14 ; L1)
+  # La règle vient de l'arbitrage 8 de la spec d'ergonomie (docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md) : aucun BR ne la porte ; BR-013 est cité parce que l'encart renforcé reste le premier contenu de l'écran que le scénario ouvre.
+  # Vérifié par test/main_test.dart (« L1 : le bouton de retour de l ecran des
+  # restrictions s annonce « Retour » ») et test/features/shared/screen_layout_test.dart.
+  Scénario: Le bouton de retour de l'écran s'annonce « Retour »
+    Étant donné l'écran des restrictions ouvert depuis la carte, dont l'encart renforcé est le premier contenu (BR-013)
+    Quand l'usager consulte l'info-bulle du bouton de retour
+    Alors elle dit « Retour », jamais « Back »
+
   # ── US-07 — niveau de gravité, zones, profil, usages ─────────────────────
 
   Scénario: Le niveau de gravité s'affiche avec sa date de début de validité
@@ -303,10 +312,3 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
     Quand l'écran l'affiche
     Alors il affiche « Le texte de l'arrêté n'est pas accessible depuis l'application : la source n'en transmet pas l'adresse. » (BR-007)
     Et l'action « Consulter les arrêtés en vigueur » de l'encart reste disponible (BR-013)
-
-  # Vérifié par test/main_test.dart (« L1 : le bouton de retour de l ecran des
-  # restrictions s annonce « Retour » ») et test/features/shared/screen_layout_test.dart.
-  Scénario: Le bouton de retour de l'écran s'annonce « Retour »
-    Étant donné l'écran des restrictions ouvert depuis la carte, dont l'encart renforcé est le premier contenu (BR-013)
-    Quand l'usager consulte l'info-bulle du bouton de retour
-    Alors elle dit « Retour », jamais « Back »

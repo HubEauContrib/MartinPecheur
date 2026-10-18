@@ -10,7 +10,7 @@
 > ✅ implémenté · 🔄 décidé ou en cours · 💭 spéculatif · ⬜ à faire. Un constat garde sa date, sa cible,
 > son mode (débogage ou release) et qui l'a fait.
 
-**Mis à jour :** 2026-10-17
+**Mis à jour :** 2026-10-18
 
 ## Où on en est
 
@@ -32,10 +32,10 @@ l'écran des restrictions. Le modal et le contrôle sont constatés à l'écran 
 renforcé n'est vu qu'« en tête », en débogage sur Windows (2026-10-04), « non repliable » non constaté ;
 aucune publication Android (`A⏸3`, `A⏸5`).
 
-## Vérifié au 2026-10-17
+## Vérifié au 2026-10-18
 
-Sur le sommet `e401fb9` de T4, avec les documents de la clôture de `0.5.0` (`P3`) : `flutter analyze` →
-« No issues found! », `flutter test` → « +3978: All tests passed! » (3 973 avant `P3`, 3 313 au départ de T4), `dart format` sans diff.
+Sur le sommet `f6c4c13` de la tranche d'ergonomie, avec les documents de la seconde partie de `X1` : `flutter analyze` →
+« No issues found! », `flutter test` → « +7047: All tests passed! » (3 978 à la clôture de T4), `dart format` sans diff.
 
 **Réserve durable sur les polices de mesure.** Onze fichiers de test mesurent en Roboto, chargée depuis
 le SDK Flutter (`FLUTTER_ROOT`) : `map_reading_selector_test.dart`, `map_legend_test.dart`,
@@ -151,6 +151,41 @@ release est celui de `data/app.so`, daté du 2026-10-17 à 19:58, après le dern
   l'écran ; `NFR-01` sur Android ; le rythme de publication de Vigicrues.
 - Le détail de ce que chaque « ok » recouvre n'est pas rapporté. L'API Vigicrues n'est jamais appelée
   par un test.
+
+### Ergonomie — code de `0.6.0` (avant la porte)
+
+Le code de la tranche est livré ; **rien n'en est constaté à l'écran**, et toute mesure de disposition est
+faite en Roboto (voir « Réserve durable » plus haut). Les constats dus à la porte (`P1` Windows, `P2`
+Android) sont ceux du cadrage, § 10 (a à j : bloc de lecture, bas de la carte, fiches en panneau et au bas,
+fiches ONDE et tronçon dans le même cadre, mode « Restrictions » et réticule, carte qui ne bouge pas, 200 %, écran divisé, redimensionnement à 800 px,
+« Retour » au Narrateur, menu en français), plus ce que la tranche a ajouté en route :
+
+- **Le bloc de lecture** : la ligne des quatre entrées. Sa marge horizontale est de 6 px (au lieu de 8) pour
+  tenir quatre colonnes à 480 px en Roboto, et « Restrictions » n'y tient qu'à 3,1 px près : en **Segoe UI
+  réelle**, la grille peut passer en 2 × 2 à 100 % (aucun mot coupé, budget de hauteur différent). Le
+  **rayon de 8** de la carte, le bloc **sans marge interne** et son **ombre** (celle de la pilule du bouton)
+  sont des choix faits sans lire la maquette, que les agents ne peuvent pas ouvrir. La **couture** de la
+  carte, peinte par pièces, n'est prouvée que sous le rastériseur des tests, pas sous Impeller.
+- **À 390 × 844 et 200 %**, la marge n'est que de 6 px : une marge système réelle du `Pixel_7` plus haute que
+  celle du test ferait défiler le bloc.
+- **Fiche du bas ouverte** (arbitrages 19 et 20) : à 360 × 640 et 100 %, en mode « Restrictions », le
+  repli 6 retire le bouton et le réticule pour toute fiche ; à 360 × 640 et 100 %, avec l'avis d'échec
+  d'écriture du favori, la partie fixe du bloc défile de 15 px ; à 200 % sur un téléphone, elle tombe à 48 px
+  (une cible tactile) ; la **marge basse de 12 px** du corps n'entre pas dans la mesure mise en avant :
+  posée à sa mesure, la tuile touche le bas de la fiche. Le filet de l'en-tête de fiche touche l'avis
+  d'échec d'écriture du favori, qui n'a pas de marge.
+- **Cadre commun des fiches** : le filet `#C9CFC4` sous l'en-tête et les 8 px entre l'étoile et la
+  fermeture (choix de la boucle principale sur le croquis, `S3`), à voir sur les trois fiches.
+- **Panneau ouvert, en mode « Restrictions »** : à 800 × 740 et 100 %, la mesure de `S6` donnait une bande
+  du bouton de 176,5 px, la pilule à un mot par ligne (164 px de haut) ; mesure antérieure à l'arbitrage 14,
+  non revérifiée, à voir à la porte Windows.
+- **Fiches** : l'habillage des tuiles et l'écart entre elles (`stationTileGap`), acceptés en relecture, à voir.
+- **En deçà des quatre tailles** (arbitrages 21 à 26, `D8`) : la **colonne du bas qui défile** au-dessus de
+  l'attribution en paysage (600 et 640 × 360) ; le « ⚠ Avertissement » **de la fiche rogné**, hors de
+  l'ordre de tabulation mais annoncé (arbitrage 25) ; la **limite acceptée** de 360 × 300 et 200 %, fiche
+  station ouverte, où la partie fixe n'a que 40 px (0 sous la marge d'un téléphone, arbitrage 26). Cette
+  fenêtre-là **ne se constate pas sur l'émulateur `Pixel_7`** (il faudrait un écran divisé
+  ou un autre profil).
 
 ### Android
 

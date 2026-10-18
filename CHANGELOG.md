@@ -15,9 +15,81 @@ observable n'y figure pas.
 
 Tranche d'ergonomie, avant T5 : une lecture à la fois sur la carte, des fiches
 qui ne recouvrent plus la carte (cadrage du 2026-10-17). **Version ouverte, pas
-publiée** : la tranche est en cours et rien n'en est encore livré. Cette
-section s'écrira d'après le code livré ; la porte (exécutable de release
-Windows lancé hors Flutter, émulateur Pixel_7 en débogage) reste à passer.
+publiée** : le code de la tranche est livré, la porte reste à passer
+(exécutable de release Windows lancé hors Flutter, émulateur Pixel_7 en
+débogage). « Ajouté » et « Modifié » sont écrits en une fois, d'après le code
+livré, et vérifiés par `flutter test` ; **rien n'en est constaté à l'écran**, et
+les mesures de disposition sont faites en Roboto, jamais en Segoe UI réelle.
+« Modifié » dit ce qui change par rapport à `0.5.0`.
+
+### Ajouté
+
+- Panneau latéral : dès 800 px de large (toute fenêtre Windows, une tablette en
+  paysage), une fiche s'ouvre à droite, sur 380 px et toute la hauteur, un
+  filet à sa gauche ; la carte reste à sa gauche, bloc de lecture et colonne de
+  boutons compris. Sous 800 px, la fiche se pose au bas de l'écran, sous la
+  carte visible.
+- Les textes intégrés de Material passent en français (`flutter_localizations`,
+  locale `fr`) : le bouton de retour des écrans pleins s'annonce « Retour »
+  (point 51), et le menu d'une adresse sélectionnable est en français.
+- En deçà des quatre tailles garanties (360 × 300, 640 × 360, téléphones en
+  paysage), « ⚠ Avertissement » et l'entrée « Restrictions » restent atteignables
+  : la partie fixe du bloc garde au moins la hauteur d'une cible tactile
+  (48 sur Android, 44 ailleurs), la colonne de boutons défile au-dessus de
+  l'attribution, et l'en-tête d'une fiche passe devant elle. Limite acceptée à
+  360 × 300 et 200 %, fiche station ouverte : la partie fixe n'y garde que 40 px.
+
+### Modifié
+
+- Sous 600 px, une rangée au bas de la carte remplace la colonne de boutons :
+  « Favoris » et « Filtres » à gauche, −, + et recentrer à droite, l'attribution
+  IGN dessous. À partir de 600 px, la colonne de cinq boutons reste à droite.
+- En mode « Restrictions », le réticule et le bouton « Restrictions au centre de
+  la carte » se posent au centre de la carte visible, entre le bloc de lecture et
+  la bande du bouton : le bouton désigne le point sous le réticule, et + et −
+  zooment autour de ce point. Là où la place manque, une fiche ouverte retire le
+  bouton et le réticule jusqu'à sa fermeture ; l'appui long et le clic droit
+  désignent toujours.
+- Windows : la fenêtre s'ouvre avec une zone cliente d'au moins 800 × 740, soit
+  1 280 × 740 à 100 % (1 264 × 681 auparavant).
+
+- La carte porte un seul **bloc de lecture** : un sélecteur à quatre entrées
+  (écoulement, débit, vigilance crues, puis l'interrupteur « Restrictions »),
+  chacune avec son titre et son sous-titre annoncés ensemble, remplace les
+  puces d'échelle ; dessous, l'en-tête « Légende · <lecture> », l'avis éventuel
+  et la légende. Une seule lecture est affichée à la fois (`BR-008`).
+- Le contrôle « ⚠ Avertissement » de la carte passe dans l'en-tête du bloc, à
+  droite du nom de la lecture, ou dessous quand le nom ne tient pas à côté sans
+  couper un mot. Il reste toujours présent, fiche ouverte ou non.
+- Une fiche ne recouvre plus la carte : au téléphone, elle prend sa hauteur sur
+  la carte visible ; la carte ne bouge ni à l'ouverture ni à la fermeture, et
+  recentrer ou cadrer une pastille tiennent compte de la partie cachée. Quand la
+  hauteur manque, la place se rend dans un ordre arbitré, selon le cas, et
+  seulement là où il le faut. Sans fiche au bas : la légende défile, puis le
+  corps d'une fiche en panneau, l'avis, les sous-titres du sélecteur et
+  l'indice sous le bouton cèdent, et enfin, en mode « Restrictions », le bouton
+  et le réticule se retirent. Fiche du bas ouverte, « Restrictions » éteinte :
+  la légende, les sous-titres, le corps de la fiche, puis l'avis. Fiche du bas
+  ouverte, « Restrictions » allumée : la légende, l'avis, les sous-titres,
+  l'indice, le corps de la fiche, puis le bouton et le réticule. La fiche garde
+  au moins sa mesure mise en avant (le débit, la catégorie ou le niveau) ; là
+  où cela ne suffit pas, la partie fixe du bloc défile, jusqu'à la hauteur
+  d'une cible tactile (à 360 × 640 et 200 % notamment).
+- Les trois fiches partagent un cadre commun : un en-tête épinglé (nature,
+  code pour une station, étoile de favori quand la fiche en porte une,
+  fermeture, puis « ⚠ Avertissement »), séparé du corps par un filet, qui défile
+  dessous ; une fiche s'ouvre toujours par le haut.
+- La fiche station se lit par ordre d'importance : titre, « cours d'eau ·
+  Département NN », tuile **Débit** mise en avant puis tuile **Hauteur** (chacune
+  avec sa date et sa source, côte à côte quand elles tiennent), puis « Statut
+  (Hub'Eau) » et « Qualification (Hub'Eau) » au-dessus de leurs valeurs.
+- La fiche du point ONDE montre la catégorie avec son symbole de légende, dans
+  une tuile qui dit aussi la modalité officielle et la campagne datée et
+  sourcée ; l'historique des campagnes porte un symbole par ligne.
+- La fiche tronçon Vigicrues garde son contenu et son ordre de `0.5.0` sous le
+  cadre commun ; « ⚠ Avertissement » passe avant le nom, dans l'en-tête.
+- L'écran « Sécheresse et restrictions » ne change pas, hors l'annonce « Retour »
+  de sa barre de titre.
 
 ## [0.5.0] — 2026-10-17
 
