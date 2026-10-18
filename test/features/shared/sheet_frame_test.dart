@@ -39,6 +39,13 @@ const String _nature = 'Station hydrométrique · K447001001';
 
 const FavoriteStar _emptyStar = FavoriteStar(filled: false, enabled: true);
 
+/// La dépendance que ces mesures exercent : `sheetFeaturedHeightOf` retombe en
+/// silence sur l'en-tête si la forme interne de `Material` change.
+const String _featuredDependency =
+    'sheetFeaturedHeightOf traverse le Material (RenderPhysicalModel, '
+    '_RenderInkFeatures) par RenderProxyBox : si Flutter change cette forme, '
+    "la hauteur retombe sur l'en-tête (lib/features/shared/sheet_frame.dart)";
+
 /// Un corps de [height] pixels exactement, son premier élément en haut.
 Widget _body(double height) => SizedBox(
   height: height,
@@ -553,42 +560,44 @@ void main() {
     double featuredOf(WidgetTester tester, double width) =>
         sheetFeaturedHeightOf(_frameBox(tester), width);
 
-    testWidgetsOnWindows(
-      'trois hauteurs : l\'en-tête seul, l\'en-tête et la mesure mise en avant '
-      '(marge haute du corps comprise, jusqu\'au bas de la mesure), la fiche '
-      'entière',
-      (WidgetTester tester) async {
-        await _pumpUnbounded(
-          tester,
-          _frame(star: _emptyStar, body: featuredBody()),
-        );
+    testWidgetsOnWindows('trois hauteurs : l\'en-tête seul, l\'en-tête et la mesure mise en avant '
+        '(marge haute du corps comprise, jusqu\'au bas de la mesure), la fiche '
+        'entière', (WidgetTester tester) async {
+      await _pumpUnbounded(
+        tester,
+        _frame(star: _emptyStar, body: featuredBody()),
+      );
 
-        final Rect frame = _rect(tester, find.byType(SheetFrame));
-        final double header = _rect(
-          tester,
-          find.byKey(sheetFrameHeaderKey),
-        ).height;
-        final double width = frame.width;
-        expect(
-          _frameBox(tester).getMinIntrinsicHeight(width),
-          closeTo(header, 0.01),
-        );
-        expect(featuredOf(tester, width), closeTo(header + 8 + 120, 0.01));
-        expect(
-          featuredOf(tester, width),
-          closeTo(
-            _rect(tester, find.byKey(featuredKey)).bottom - frame.top,
-            0.01,
-          ),
-          reason: 'la mesure mise en avant finit au bas de l’élément',
-        );
-        expect(
-          _frameBox(tester).getMaxIntrinsicHeight(width),
-          closeTo(frame.height, 0.01),
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+      final Rect frame = _rect(tester, find.byType(SheetFrame));
+      final double header = _rect(
+        tester,
+        find.byKey(sheetFrameHeaderKey),
+      ).height;
+      final double width = frame.width;
+      expect(
+        _frameBox(tester).getMinIntrinsicHeight(width),
+        closeTo(header, 0.01),
+      );
+      expect(
+        featuredOf(tester, width),
+        closeTo(header + 8 + 120, 0.01),
+        reason: _featuredDependency,
+      );
+      expect(
+        featuredOf(tester, width),
+        closeTo(
+          _rect(tester, find.byKey(featuredKey)).bottom - frame.top,
+          0.01,
+        ),
+        reason:
+            'la mesure mise en avant finit au bas de l’élément ; $_featuredDependency',
+      );
+      expect(
+        _frameBox(tester).getMaxIntrinsicHeight(width),
+        closeTo(frame.height, 0.01),
+      );
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgetsOnWindows(
       'un corps qui ne marque rien (un état « en cours ») : la mesure mise en '

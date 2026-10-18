@@ -23,6 +23,7 @@ import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart'
     show
         Checkbox,
+        SelectableText,
         Element,
         ExcludeSemantics,
         Navigator,
@@ -56,7 +57,7 @@ import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
 import 'package:martinpecheur/domain/restrictions/zones_at_point.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart'
-    show floodPublicSiteUrl, restrictionsPublicSiteUrl;
+    show floodBulletinUri, restrictionsPublicSiteUrl;
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
@@ -1579,6 +1580,29 @@ void main() {
         expect(find.byType(RestrictionsScreen), findsOneWidget);
         expect(find.byTooltip('Retour'), findsOneWidget);
         expect(find.byTooltip('Back'), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'L1 : le menu du clic droit du texte sélectionnable de l ecran des '
+      'restrictions est en français (racine réelle)',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app(await acknowledged(), _restrictions()));
+        await designate(tester);
+        final Finder selectable = find.widgetWithText(
+          SelectableText,
+          restrictionsPublicSiteUrl,
+        );
+        await tester.ensureVisible(selectable);
+        await tester.pumpAndSettle();
+        await tester.tapAt(
+          tester.getCenter(selectable),
+          buttons: kSecondaryButton,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Tout sélectionner'), findsOneWidget);
+        expect(find.text('Select all'), findsNothing);
       },
     );
 
@@ -3400,7 +3424,7 @@ void main() {
         // est le bas de la fenêtre quelle que soit la position.
         final Rect window = tester.getRect(sheetScrollable());
         final Rect last = tester.getRect(
-          find.textContaining('$floodPublicSiteUrl/bulletin_local/'),
+          find.text(floodBulletinUri('8').toString()),
         );
         expect(
           last.top >= window.top && last.bottom <= window.bottom,
