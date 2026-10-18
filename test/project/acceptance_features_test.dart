@@ -950,4 +950,77 @@ void main() {
       }
     }
   });
+
+  // `D3` d'Ergonomie : un scénario lié à son test par un commentaire
+  // « Vérifié par <fichier>, groupe « <nom> » » — le fichier existe et porte un
+  // groupe de ce nom.
+  group('D3 d’Ergonomie — les scénarios liés à leur test', () {
+    final RegExp lien = RegExp(
+      r'^[ \t]*#[ \t]*Vérifié par (test/\S+\.dart), groupe « ([^»]+) »',
+      multiLine: true,
+    );
+
+    test('chaque « Vérifié par …, groupe « … » » des .feature nomme un '
+        'groupe qui existe', () {
+      for (final MapEntry<String, String> entree
+          in contenusParFichier.entries) {
+        for (final RegExpMatch m in lien.allMatches(entree.value)) {
+          final File fichier = File(m.group(1)!);
+          expect(
+            fichier.existsSync(),
+            isTrue,
+            reason: '${entree.key} cite ${m.group(1)}, absent du disque',
+          );
+          expect(
+            fichier.readAsStringSync().contains("'${m.group(2)!}"),
+            isTrue,
+            reason:
+                '${entree.key} cite le groupe « ${m.group(2)} », absent de '
+                '${m.group(1)}',
+          );
+        }
+      }
+    });
+
+    test('restrictions.feature : le bouton désigne le point sous le réticule, '
+        'et les deux scénarios du réticule sont liés au test de D3', () {
+      // Fins de ligne normalisées : le dépôt peut être extrait en CRLF.
+      final String contenu = (contenusParFichier['restrictions.feature'] ?? '')
+          .replaceAll('\r\n', '\n');
+      for (final String titre in <String>[
+        "Scénario: Un point se désigne par le bouton, par un appui long ou par "
+            "un clic droit, et par rien d'autre",
+        'Scénario: Le choix « Restrictions » allumé, le réticule marque le '
+            'point que le bouton désigne, et « + » et « − » zooment autour '
+            'de lui',
+      ]) {
+        final int debut = contenu.indexOf(titre);
+        expect(debut, isNonNegative, reason: 'scénario absent : $titre');
+        // Le bloc de commentaires juste au-dessus du scénario.
+        final int blanc = contenu.lastIndexOf('\n\n', debut);
+        final String commentaires = contenu.substring(
+          blanc < 0 ? 0 : blanc,
+          debut,
+        );
+        final RegExpMatch? m = lien.firstMatch(commentaires);
+        expect(
+          m,
+          isNotNull,
+          reason: 'aucun « Vérifié par » au-dessus de $titre',
+        );
+        expect(
+          m!.group(1),
+          'test/features/map/view/map_designation_reticle_test.dart',
+        );
+      }
+      final String designation = _scenariosOf(contenu).firstWhere(
+        (String s) => s.contains('Un point se désigne par le bouton'),
+      );
+      expect(designation, contains('le point sous le réticule'));
+      expect(
+        designation,
+        isNot(contains('le centre de la carte, celui que marque le réticule')),
+      );
+    });
+  });
 }

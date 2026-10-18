@@ -20,7 +20,7 @@ Savoir ce qui est restreint là où l'on se trouve, pour son profil d'usager, et
 
 ~~L'usager ouvre l'écran « Sécheresse et restrictions », ou tape une zone colorée sur la carte en échelle 3.~~ L'usager **désigne un point sur la carte**, de l'une de trois manières (conception de l'écran, § 2) :
 
-- **le choix « Restrictions » du sélecteur de la carte**, puis le bouton « Restrictions au centre de la carte », qui désigne le centre de la caméra (c'est l'équivalent au clavier et au lecteur d'écran) ;
+- **le choix « Restrictions » du sélecteur de la carte**, puis le bouton « Restrictions au centre de la carte », qui désigne ~~le centre de la caméra~~ le point sous le réticule, au centre de la carte visible (tranche d'ergonomie, `D3`, 2026-10-18 ; `docs/04-ui.md` § 3) (c'est l'équivalent au clavier et au lecteur d'écran) ;
 - un **appui long** sur la carte (toucher) ;
 - un **clic droit** sur la carte (souris).
 

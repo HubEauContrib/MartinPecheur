@@ -36,7 +36,10 @@
 // taille nulle et ne sont ni peints, ni touchables, ni annoncés ; ils restent
 // dans l'arbre (leurs intrinsèques restent lisibles). La bande retirée garde
 // son nœud de focus : un `RenderObject` ne peut pas en retirer un ; la
-// composition (`D2`) l'exclut par `ExcludeFocus`, à l'écoute du rapport.
+// composition (`D2`) l'exclut par `ExcludeFocus`, à l'écoute du rapport. Elle
+// l'enveloppe aussi d'un `ExcludeSemantics` (`D3`) : une redondance voulue,
+// puisque [RenderMapLayout.visitChildrenForSemantics] exclut déjà des
+// annonces ce qui est retiré ; aucun test ne distingue les deux.
 import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';

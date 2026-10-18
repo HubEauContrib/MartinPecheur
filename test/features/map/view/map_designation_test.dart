@@ -3,7 +3,8 @@
 // appui long ET clic droit à une position d'écran appellent chacun
 // `MapView.onPointDesignated` une fois, avec le `GeoPoint` que la caméra donne
 // pour cette position ; le tap simple sur le fond n'appelle rien ; le bouton
-// « Restrictions au centre de la carte » désigne le centre de la caméra ;
+// « Restrictions au centre de la carte » désigne le point sous le réticule
+// (`D3` d'Ergonomie ; ses cas en Roboto : `map_designation_reticle_test.dart`) ;
 // l'épingle est tenue par l'état de la vue carte, inerte, hors tabulation.
 //
 // `E5` (2026-10-03) : le bouton, son indice et le réticule n'existent que dans
@@ -178,6 +179,11 @@ Offset _centreDuReticule(WidgetTester tester) => Offset(
           tester.getRect(find.byType(DesignationBand)).top) /
       2,
 );
+
+/// Le point de la carte SOUS le réticule (`D3` d'Ergonomie, spec § 5.5) : celui
+/// que la caméra rend pour le centre du réticule tel qu'il est posé à l'écran.
+GeoPoint _pointSousLeReticule(WidgetTester tester) =>
+    _pointAt(tester, tester.getCenter(find.byKey(mapCenterReticleKey)));
 
 /// Un point DANS la bande du bouton, hors de la pilule et de l'indice :
 /// d'abord sur la rangée de la pilule, à mi-chemin entre le bord gauche de la
@@ -799,20 +805,15 @@ void main() {
       },
     );
 
-    testWidgetsOnWindows('un tap désigne le centre de la caméra', (
-      WidgetTester tester,
-    ) async {
+    testWidgetsOnWindows('un tap désigne le point sous le réticule (D3 '
+        'd’Ergonomie, spec § 5.5)', (WidgetTester tester) async {
       final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
 
       await tester.tap(find.byKey(mapDesignateCenterButtonKey));
       await tester.pumpAndSettle();
 
       expect(designated, hasLength(1));
-      final LatLng centre = _camera(tester).center;
-      _expectClose(
-        designated.single,
-        GeoPoint(latitude: centre.latitude, longitude: centre.longitude),
-      );
+      _expectClose(designated.single, _pointSousLeReticule(tester));
     });
 
     testWidgetsOnWindows('atteint par Tab, activé par Entrée puis par Espace', (
@@ -1443,15 +1444,13 @@ void main() {
 
           expect(tester.takeException(), isNull);
           expect(designated, hasLength(1));
-          // Le point désigné est celui que la caméra rend pour le centre de
-          // l'écran — le point sous le réticule —, et celui de son centre.
-          _expectClose(
-            designated.single,
-            _pointAt(tester, tester.getCenter(find.byType(FlutterMap))),
-          );
+          // Le point désigné est celui que la caméra rend pour le centre du
+          // réticule (`D3` d'Ergonomie : au centre de la carte visible, et non
+          // plus au centre de la caméra), dans les bornes de `GeoPoint`.
+          _expectClose(designated.single, _pointSousLeReticule(tester));
           expect(
-            designated.single.latitude,
-            closeTo(camera.center.latitude, 1e-6),
+            designated.single.latitude.abs(),
+            lessThanOrEqualTo(SphericalMercator.maxLatitude),
           );
         },
       );
@@ -2024,14 +2023,12 @@ void main() {
         await tester.tap(find.byKey(mapDesignateCenterButtonKey));
         await tester.pumpAndSettle();
         expect(find.byKey(designatedPointPinKey), findsOneWidget);
-        expect(
-          _pinTip(tester).dx,
-          closeTo(tester.getTopLeft(find.byType(FlutterMap)).dx + 500, 1),
+        // `D3` d'Ergonomie : la pointe de l'épingle est au centre du réticule.
+        final Offset reticule = tester.getCenter(
+          find.byKey(mapCenterReticleKey),
         );
-        expect(
-          _pinTip(tester).dy,
-          closeTo(tester.getTopLeft(find.byType(FlutterMap)).dy + 350, 1),
-        );
+        expect(_pinTip(tester).dx, closeTo(reticule.dx, 1));
+        expect(_pinTip(tester).dy, closeTo(reticule.dy, 1));
       },
     );
 

@@ -121,6 +121,10 @@ const String _ouvreurDeLien =
     'test/data/links/url_launcher_external_link_opener_test.dart';
 const String _designationCarte =
     'test/features/map/view/map_designation_test.dart';
+// `D3` d'Ergonomie : la désignation sous le réticule et le zoom autour de lui,
+// mesurés en Roboto, dans leur propre fichier.
+const String _designationReticule =
+    'test/features/map/view/map_designation_reticle_test.dart';
 // `D2` d'Ergonomie : le sélecteur de lecture remplace les puces d'échelle, et
 // les invariants de disposition remplacent les mesures de l'ancienne (R15).
 const String _selecteurLecture =
@@ -238,6 +242,7 @@ const Map<String, List<String>> _citationsExigees = <String, List<String>>{
     _mapperZones,
     _equivalenceProfil,
     _designationCarte,
+    _designationReticule,
     _boutonDesignation,
     _selecteurLecture,
     _invariantsDisposition,

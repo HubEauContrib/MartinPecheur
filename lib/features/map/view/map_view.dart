@@ -1059,7 +1059,10 @@ List<Widget> buildMapOverlays({
             if (designate != null) ...<Widget>[
               // Repli 6 : la mise en page ne peint, ne touche ni n'annonce la
               // bande retirée, mais elle garde son nœud de focus ; le rapport
-              // (une trame après) l'en exclut.
+              // (une trame après) l'exclut du focus et, sur le même fait, des
+              // annonces (`D3`). L'`ExcludeSemantics` est une redondance
+              // voulue : la mise en page exclut déjà des annonces ce qu'elle
+              // retire (`RenderMapLayout.visitChildrenForSemantics`).
               MapLayoutChild(
                 slot: MapLayoutSlot.band,
                 child: ValueListenableBuilder<MapLayoutReport?>(
@@ -1069,10 +1072,17 @@ List<Widget> buildMapOverlays({
                         BuildContext context,
                         MapLayoutReport? report,
                         Widget? band,
-                      ) => ExcludeFocus(
-                        excluding: report?.allocation.bandWithdrawn ?? false,
-                        child: band!,
-                      ),
+                      ) {
+                        final bool withdrawn =
+                            report?.allocation.bandWithdrawn ?? false;
+                        return ExcludeSemantics(
+                          excluding: withdrawn,
+                          child: ExcludeFocus(
+                            excluding: withdrawn,
+                            child: band!,
+                          ),
+                        );
+                      },
                   child: FocusTraversalOrder(
                     order: const NumericFocusOrder(mapTraversalOrderDesignate),
                     child: DesignationBand(onDesignate: designate),
@@ -1225,7 +1235,8 @@ class MapView extends StatefulWidget {
   /// Appelé avec le lieu désigné (`E1` de T2, conception § 2) : un appui
   /// long ou un clic droit sur la carte — le point que la caméra donne pour
   /// la position du geste, **hors mode comme en mode** —, ou le bouton
-  /// « Restrictions au centre de la carte » — le centre de la caméra, qui
+  /// « Restrictions au centre de la carte » — le point sous le réticule, au
+  /// centre de la carte visible (`D3` d'Ergonomie) —, qui
   /// n'existe que dans le mode de désignation (`E5`,
   /// `MapViewModel.designationMode`, allumé par le choix « Restrictions » du
   /// sélecteur). Injecté par `main.dart`, qui le branche sur la tranche
@@ -1364,8 +1375,21 @@ class _MapViewState extends State<MapView> {
   void _handleSecondaryTap(TapPosition position, LatLng point) =>
       _designate(point);
 
-  /// Bouton « Restrictions au centre de la carte » : le centre de la caméra.
-  void _handleDesignateCenter() => _designate(_mapController.camera.center);
+  /// Bouton « Restrictions au centre de la carte » (`D3` d'Ergonomie, spec
+  /// § 5.5) : le point SOUS le réticule, que la mise en page pose au centre de
+  /// la carte visible ([MapLayoutReport.reticle], dans le repère du `Stack`,
+  /// qui est celui de `FlutterMap`). Le bouton n'existe qu'en mode, et n'est
+  /// touchable ni focalisable que si le réticule est posé ; avant le premier
+  /// rapport, le centre de la caméra.
+  void _handleDesignateCenter() {
+    final MapCamera camera = _mapController.camera;
+    final Rect? reticle = _layoutReport.value?.reticle;
+    _designate(
+      reticle == null
+          ? camera.center
+          : camera.screenOffsetToLatLng(reticle.center),
+    );
+  }
 
   /// Sans rappel, aucune désignation : ni appel, ni épingle.
   void _designate(LatLng point) {
@@ -1731,21 +1755,41 @@ class _MapViewState extends State<MapView> {
     _signalFloodViewport(bounds);
   }
 
-  /// Bouton `+` de [MapControls] (`K1`) : un cran de [zoomStep] au même
-  /// centre — jamais construit quand `MapViewModel.canZoomIn` est faux
-  /// (voir [buildMapOverlays]).
-  void _handleZoomIn() {
-    final MapCamera camera = _mapController.camera;
-    _afterCameraMove(
-      _mapController.move(camera.center, camera.zoom + zoomStep),
-    );
-  }
+  /// `+` : un cran de [zoomStep]. Le bouton de [MapControls] (`K1`) n'est pas
+  /// construit quand `MapViewModel.canZoomIn` est faux (voir
+  /// [buildMapOverlays]) ; le clavier ([_handleZoomIntent]) l'appelle sans
+  /// regarder `canZoomIn` : c'est [_zoomBy] qui borne.
+  void _handleZoomIn() => _zoomBy(zoomStep);
 
-  /// Bouton `−` de [MapControls] (`K1`) : symétrique de [_handleZoomIn].
-  void _handleZoomOut() {
+  /// `−` : symétrique de [_handleZoomIn].
+  void _handleZoomOut() => _zoomBy(-zoomStep);
+
+  /// Un cran de zoom de [delta], ramené d'abord dans les bornes de la caméra
+  /// (`MapCamera.clampZoom`, comme la molette de `flutter_map`) ; un cran sans
+  /// effet (zoom déjà à sa borne) ne fait rien, ni déplacement ni
+  /// rechargement. En mode « Restrictions », réticule posé (`D3` d'Ergonomie,
+  /// spec § 5.5) : autour du réticule (`MapCamera.focusedZoomCenter`, calculé
+  /// sur le zoom BORNÉ), pour que le point visé ne glisse pas. Hors mode, ou
+  /// réticule retiré (repli 6) : au même centre de caméra.
+  ///
+  /// Limite connue, non corrigée : contre le bord nord ou sud du monde, la
+  /// contrainte de caméra (`CameraConstraint.containLatitude`) recale le
+  /// centre APRÈS ce calcul, et le point visé glisse — comme à la molette de
+  /// `flutter_map`.
+  void _zoomBy(double delta) {
     final MapCamera camera = _mapController.camera;
+    final double zoom = camera.clampZoom(camera.zoom + delta);
+    if (zoom == camera.zoom) {
+      return;
+    }
+    final Rect? reticle = _layoutReport.value?.reticle;
     _afterCameraMove(
-      _mapController.move(camera.center, camera.zoom - zoomStep),
+      _mapController.move(
+        reticle == null
+            ? camera.center
+            : camera.focusedZoomCenter(reticle.center, zoom),
+        zoom,
+      ),
     );
   }
 

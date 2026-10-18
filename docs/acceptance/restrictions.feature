@@ -101,19 +101,34 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
   Scénario: Le choix « Restrictions » fait apparaître le bouton de désignation sans changer l'échelle affichée
     Étant donné la carte en échelle « Écoulement », avec ses marqueurs et sa légende
     Quand l'usager actionne le choix « Restrictions »
-    Alors le bouton « Restrictions au centre de la carte », son indice de geste et un réticule au centre de la carte apparaissent
+    Alors le bouton « Restrictions au centre de la carte », son indice de geste et un réticule au centre de la carte visible apparaissent
     Et « Écoulement » reste allumé, avec ses marqueurs et sa légende : « Restrictions » n'est pas une troisième échelle et ne dessine aucune échelle de sécheresse sur la carte (BR-008)
 
-  # Vérifié par D3 : « le centre de la carte, celui que marque le réticule » est, depuis
-  # la tranche d'ergonomie, le point sous le réticule, au centre de la carte visible ;
-  # entre D2 et D3, le bouton désigne encore le centre de la caméra.
+  # Depuis la tranche d'ergonomie, le point visé par le bouton est le point sous le réticule, au
+  # centre de la carte visible, et non plus le centre de la caméra.
+  # Vérifié par test/features/map/view/map_designation_reticle_test.dart, groupe « D3 d’Ergonomie — le réticule au centre de la carte visible ».
   Scénario: Un point se désigne par le bouton, par un appui long ou par un clic droit, et par rien d'autre
     Étant donné la carte affichée
     Quand l'usager désigne un point de l'une de ces trois façons : avec le choix « Restrictions » allumé, en actionnant « Restrictions au centre de la carte », touché ou atteint par la tabulation puis activé par Entrée ou Espace ; par un appui long, au toucher, ou par un clic droit, à la souris, sur un point de la carte, que le choix soit allumé ou non
-    Alors l'écran « Sécheresse et restrictions » s'ouvre pour le point visé : le centre de la carte, celui que marque le réticule, pour le bouton ; le point sous le pointeur pour l'appui long et le clic droit
+    Alors l'écran « Sécheresse et restrictions » s'ouvre pour le point visé : le point sous le réticule, au centre de la carte visible, pour le bouton ; le point sous le pointeur pour l'appui long et le clic droit
     Et l'encart renforcé en est le premier contenu (BR-013)
     Et le bouton de retour ou Échap ramène à la carte, où une épingle marque le point désigné jusqu'à la désignation suivante (Q-2b)
     Et aucune fiche station ni fiche point ONDE ne propose d'ouvrir cet écran : il ne s'atteint que par la désignation d'un point (cadrage Q1)
+
+  # Critère 5 du cadrage de la tranche d'ergonomie (§ 9). Aussi vérifié par
+  # test/features/map/view/map_layout_invariants_test.dart (place du réticule aux quatre tailles ;
+  # réticule fixe quand un avis paraît, arbitrage 15).
+  # Vérifié par test/features/map/view/map_designation_reticle_test.dart, groupe « D3 d’Ergonomie — le réticule au centre de la carte visible ».
+  Scénario: Le choix « Restrictions » allumé, le réticule marque le point que le bouton désigne, et « + » et « − » zooment autour de lui
+    Étant donné la carte, le choix « Restrictions » allumé, une fiche ouverte ou non
+    Quand l'usager regarde la carte
+    Alors le réticule est au centre horizontal de la carte visible, à mi-hauteur entre la partie fixe du bloc de lecture (sélecteur et en-tête) et la bande du bouton « Restrictions au centre de la carte »
+    Et il ne bouge pas quand un avis paraît, celui d'une absence (BR-007) comme celui d'un chargement
+    Quand il actionne « Restrictions au centre de la carte »
+    Alors le point désigné est le point sous le réticule
+    Quand il actionne « + » puis « − »
+    Alors la carte zoome autour du réticule : le point sous lui reste le même, sauf contre le bord nord ou sud du monde, où la carte est recalée
+    Et là où le bouton et le réticule se retirent, une fiche ouverte, l'appui long désigne toujours le point sous le doigt, et le choix « Restrictions » reste allumé ; la fiche fermée, le bouton et le réticule reviennent
 
   Scénario: Aux quatre tailles garanties, rien ne recouvre le sélecteur, « ⚠ Avertissement », le réticule, le bouton de désignation ni « Restrictions »
     Étant donné la carte à 360 × 640 ou 390 × 844 sous Android, à 800 × 740 ou 1 280 × 740 sous Windows, le texte à 100 % ou à 200 %

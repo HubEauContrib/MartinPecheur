@@ -1,6 +1,7 @@
-// Le réticule au centre exact de la carte (`E1` de T2, canvas de design du
-// 2026-09-29) : il montre ce que désigne le bouton « Restrictions au centre de
-// la carte ». Une croix à quatre branches et un petit cercle central, trait
+// Le réticule (`E1` de T2, canvas de design du 2026-09-29), posé depuis la
+// tranche d'ergonomie au centre de la carte visible par `MapLayout` (`D1`,
+// `D3`) : il montre ce que désigne le bouton « Restrictions au centre de la
+// carte ». Une croix à quatre branches et un petit cercle central, trait
 // noir sur halo blanc — lisible sur tout fond de carte.
 //
 // Ce n'est PAS une forme d'échelle d'état (`04-ui.md` § 2) : ni rond plein, ni

@@ -37,10 +37,11 @@ aucune publication Android (`A⏸3`, `A⏸5`).
 Sur le sommet `e401fb9` de T4, avec les documents de la clôture de `0.5.0` (`P3`) : `flutter analyze` →
 « No issues found! », `flutter test` → « +3978: All tests passed! » (3 973 avant `P3`, 3 313 au départ de T4), `dart format` sans diff.
 
-**Réserve durable sur les polices de mesure.** Neuf fichiers de test mesurent en Roboto, chargée depuis
+**Réserve durable sur les polices de mesure.** Dix fichiers de test mesurent en Roboto, chargée depuis
 le SDK Flutter (`FLUTTER_ROOT`) : `map_reading_selector_test.dart`, `map_legend_test.dart`,
-`map_reading_block_test.dart`, `map_layout_test.dart`, `map_layout_invariants_test.dart`, `sheet_frame_test.dart`, `station_summary_sheet_test.dart`,
-`ergonomie_budget_test.dart` (ils échouent si la police manque) et `restrictions_scale_text_test.dart` (ignoré si `FLUTTER_ROOT` manque hors intégration
+`map_reading_block_test.dart`, `map_layout_test.dart`, `map_layout_invariants_test.dart`, `sheet_frame_test.dart`,
+`station_summary_sheet_test.dart`, `ergonomie_budget_test.dart`, `map_designation_reticle_test.dart` (ils échouent si
+la police manque) et `restrictions_scale_text_test.dart` (ignoré si `FLUTTER_ROOT` manque hors intégration
 continue). Sous Windows, Roboto y est enregistrée sous le nom « Segoe UI », un substitut : **Segoe UI réelle n'est jamais
 mesurée.**
 

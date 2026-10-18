@@ -84,7 +84,6 @@ import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
-import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
@@ -92,7 +91,6 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
-import 'package:martinpecheur/domain/units/quantities.dart';
 import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
 import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
@@ -110,12 +108,11 @@ import 'package:martinpecheur/features/map/view/map_sheet_area.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
-import 'package:martinpecheur/features/shared/favorite_star.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
-import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/ergonomie_fiches.dart';
 import '../../../support/ergonomie_mesures.dart';
 import '../../../support/focus.dart';
 import '../../../support/layout_sizes.dart';
@@ -312,58 +309,6 @@ const Key _ficheStationKey = Key('invariants-fiche-station');
 const Key _ficheTronconKey = Key('invariants-fiche-troncon');
 const Key _temoinKey = Key('invariants-carte-temoin');
 
-/// La fiche station RÉELLE de La Loire à Blois, prête, avec son étoile.
-Widget _ficheStationBlois() {
-  final StationCode code = StationCode('K447001001');
-  final DateTime mesure = DateTime.utc(2026, 8, 27, 8);
-  const Qualification qualification = Qualification(
-    statusCode: 12,
-    statusLabel: 'Pré-validée',
-    qualificationCode: 20,
-    qualificationLabel: 'Bonne',
-  );
-  return StationSheetPanel(
-    key: _ficheStationKey,
-    state: Prete(
-      StationSheetData(
-        station: Station(
-          code: code,
-          label: 'La Loire à Blois',
-          latitude: 47.584957074,
-          longitude: 1.335147948,
-          departement: DepartementCode('41'),
-          riverLabel: 'la Loire',
-          inService: true,
-        ),
-        discharge: HydroObservation(
-          station: code,
-          measuredAt: mesure,
-          grandeur: Grandeur.debit,
-          discharge: const CubicMetresPerSecond(47.8),
-          level: null,
-          qualification: qualification,
-        ),
-        level: HydroObservation(
-          station: code,
-          measuredAt: mesure,
-          grandeur: Grandeur.hauteur,
-          discharge: null,
-          level: const Metres(-1.232),
-          qualification: qualification,
-        ),
-        freshness: Freshness.fraiche,
-        statusLabel: 'Pré-validée',
-        qualificationLabel: 'Bonne',
-        stalenessNotice: null,
-      ),
-    ),
-    onClose: () {},
-    favoriteStar: const FavoriteStar(filled: false, enabled: true),
-    onToggleFavorite: () {},
-    utcOffsetOf: (_) => const Duration(hours: 2),
-  );
-}
-
 /// La fiche tronçon RÉELLE, niveau « Jaune » : la définition citée la plus
 /// longue (cas construit, niveau jamais observé en production — `VC-04`).
 Widget _ficheTroncon() => FloodSheetPanel(
@@ -453,7 +398,7 @@ Future<_Ecran> _monter(
             // Comme `main.dart` : les trois panneaux toujours fournis, vides
             // à l'état fermé.
             stationSheet: switch (c.fiche) {
-              _Fiche.station => _ficheStationBlois(),
+              _Fiche.station => ficheStationBlois(key: _ficheStationKey),
               _Fiche.aucune || _Fiche.troncon => const SizedBox.shrink(),
             },
             ondeSheet: const SizedBox.shrink(),
@@ -676,24 +621,6 @@ Map<String, Rect> _bande(WidgetTester tester, _Ecran e) => <String, Rect>{
     'indice': tester.getRect(find.byKey(mapDesignateCenterHintKey)),
 };
 
-/// L'enfant de la mise en page de la carte qui porte [f] : le `RenderBox`
-/// dont le parent est [RenderMapLayout], et ce parent.
-(RenderMapLayout, RenderBox)? _emplacement(WidgetTester tester, Finder f) {
-  RenderObject? ro = tester.renderObject(f);
-  while (ro != null) {
-    final RenderObject? parent = ro.parent;
-    if (parent is RenderMapLayout && ro is RenderBox) return (parent, ro);
-    ro = parent;
-  }
-  return null;
-}
-
-/// La mise en page peint-elle la pièce qui porte [f] ?
-bool _peint(WidgetTester tester, Finder f) {
-  final (RenderMapLayout, RenderBox)? place = _emplacement(tester, f);
-  return place == null || place.$1.paintsChild(place.$2);
-}
-
 /// Amène [f] en vue en faisant défiler ses défilements (comme le focus le
 /// fait), puis laisse la trame se poser.
 Future<void> _amener(WidgetTester tester, Finder f) async {
@@ -774,14 +701,37 @@ Future<void> _verifierReticuleEtFiche(
         // Repli 6 : ni peints, ni touchables, ni focalisables.
         expect(rapport.reticle, isNull, reason: 'réticule retiré au rapport');
         final Finder pilule = find.byKey(mapDesignateCenterButtonKey);
-        expect(_peint(tester, pilule), isFalse, reason: 'bande peinte');
         expect(
-          _peint(tester, find.byKey(mapCenterReticleKey)),
+          peintParLaCarte(tester, pilule),
+          isFalse,
+          reason: 'bande peinte',
+        );
+        expect(
+          peintParLaCarte(tester, find.byKey(mapCenterReticleKey)),
           isFalse,
           reason: 'réticule peint',
         );
         expect(pilule.hitTestable(), findsNothing, reason: 'bouton touchable');
+        // Ni annoncé (`D3` : la bande retirée est exclue des annonces).
+        // Contrôle positif : l'arbre des annonces est bien construit — l'entrée
+        // « Restrictions » y est.
+        final SemanticsHandle annonces = tester.ensureSemantics();
+        await tester.pump();
+        expect(
+          find.bySemanticsLabel('Restrictions au centre de la carte'),
+          findsNothing,
+          reason: 'bouton retiré annoncé',
+        );
+        expect(
+          tester.getSemantics(find.byKey(mapDesignationChipKey)).label,
+          isNotEmpty,
+          reason: 'l’entrée « Restrictions » n’est pas annoncée',
+        );
+        annonces.dispose();
         // Tab ne s'arrête jamais sur le bouton ; Entrée ne désigne pas.
+        // Contrôle positif : la tabulation circule (elle atteint l'entrée
+        // « Restrictions »).
+        bool surRestrictions = false;
         for (int i = 0; i < 24; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
@@ -790,7 +740,12 @@ Future<void> _verifierReticuleEtFiche(
             isFalse,
             reason: 'Tab s’arrête sur le bouton retiré',
           );
+          surRestrictions |= focusedWithin(
+            tester,
+            find.byKey(mapDesignationChipKey),
+          );
         }
+        expect(surRestrictions, isTrue, reason: 'Tab ne circule pas');
         // Le nœud du bouton LUI-MÊME (celui de son `KeyboardFocusRing`) :
         // demandé, il ne prend pas le focus, et Entrée ne désigne rien.
         final FocusNode? noeud = tester
@@ -1400,6 +1355,75 @@ void main() {
         expect(sans.erreurs, isEmpty);
         expect(avec.erreurs, isEmpty);
       });
+    }
+  });
+
+  // `D3` d'Ergonomie (spec § 5.5, point 63) : en mode, la bande du bouton ne
+  // monte jamais sur le bloc de lecture — aux quatre tailles et EN DEÇÀ, à
+  // 360 × 300, à 100 % et 200 %, sans fiche et la fiche station ouverte, avec
+  // l'avis (le bloc le plus haut). Là où le repli 6 la retire, il n'y a rien à
+  // recouper : le cas le dit.
+  group('D3, point 63 — en mode, la bande du bouton ne monte jamais sur le '
+      'bloc de lecture, 360 × 300 compris', () {
+    for (final ({String nom, Size taille, TargetPlatform plateforme}) t
+        in <({String nom, Size taille, TargetPlatform plateforme})>[
+          ...taillesGaranties,
+          (
+            nom: '360 × 300',
+            taille: const Size(360, 300),
+            plateforme: TargetPlatform.android,
+          ),
+        ]) {
+      for (final double echelle in echellesDeTexte) {
+        for (final _Fiche fiche in <_Fiche>[_Fiche.aucune, _Fiche.station]) {
+          final _Config c = _Config(
+            nomTaille: t.nom,
+            taille: t.taille,
+            plateforme: t.plateforme,
+            echelle: echelle,
+            lecture: MapScaleKind.ecoulement,
+            enMode: true,
+            fiche: fiche,
+            avecAvis: true,
+            marge: false,
+          );
+          _cas(
+            c,
+            'la bande sous le bloc, sans le recouper (ou retirée, repli 6)',
+            (WidgetTester tester) async {
+              final _Ecran e = await _monter(tester, c);
+              final MapLayoutReport? rapport = e.rapport.value;
+              expect(rapport, isNotNull, reason: 'aucun rapport publié');
+              expect(e.erreurs, isEmpty);
+              if (rapport!.allocation.bandWithdrawn) {
+                expect(
+                  peintParLaCarte(tester, find.byType(DesignationBand)),
+                  isFalse,
+                  reason: 'la bande retirée est peinte',
+                );
+                return;
+              }
+              final Rect bande = tester.getRect(find.byType(DesignationBand));
+              final Rect fixe = tester.getRect(
+                find.byType(MapReadingBlockFixed),
+              );
+              expect(
+                bande.top,
+                greaterThanOrEqualTo(fixe.bottom - _tolerance),
+                reason: 'la bande $bande monte sur la partie fixe $fixe',
+              );
+              final List<String> recoupes = <String>[
+                for (final MapEntry<String, Rect> piece in _bloc(
+                  tester,
+                ).entries)
+                  if (_recoupe(piece.value, bande))
+                    '${piece.key} ${piece.value}',
+              ];
+              expect(recoupes, isEmpty, reason: 'la bande $bande recoupe');
+            },
+          );
+        }
+      }
     }
   });
 
