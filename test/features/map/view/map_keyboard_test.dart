@@ -36,13 +36,19 @@ import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show clearFiltersKey, widenSearchKey;
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
+import 'package:martinpecheur/features/map/view/map_sheet_area.dart'
+    show mapSheetAreaKey;
+import 'package:martinpecheur/features/map/view/map_traversal_order.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart' show SheetFrame;
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/android_platform.dart';
+import '../../../support/ergonomie_fiches.dart';
 import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
@@ -1569,6 +1575,203 @@ void main() {
       },
     );
   });
+
+  // `I1` d'Ergonomie (spec § 5.7, R9) : les constantes de l'ordre de
+  // tabulation sont celles de T3, inchangées par la nouvelle disposition.
+  test('I1 — les constantes mapTraversalOrder* sont inchangées', () {
+    expect(
+      <double>[
+        mapTraversalOrderChips,
+        mapTraversalOrderNotices,
+        mapTraversalOrderEntryButtons,
+        mapTraversalOrderControls,
+        mapTraversalOrderDesignate,
+        mapTraversalOrderCarte,
+        mapTraversalOrderSheet,
+        mapTraversalOrderWarningLink,
+      ],
+      <double>[1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4],
+    );
+  });
+
+  // `I1` d'Ergonomie (spec § 5.7) : l'ordre `K1` de T3, gardé aux TROIS
+  // largeurs de la nouvelle disposition (rangée au téléphone, colonne de 600
+  // à 799 px, panneau latéral dès 800), sur la vraie `MapView`, la carte vide
+  // (l'avis d'absence et son action), hors mode et en mode, sans fiche puis la
+  // fiche station RÉELLE ouverte. Le bouton de désignation n'est un arrêt que
+  // s'il n'est pas retiré : sans fiche, il ne l'est jamais ; fiche du bas
+  // ouverte, en police de test, le repli 6 le retire (rangée et colonne) ; au
+  // panneau de 1 280 × 740, il reste. Police de test : l'ordre ne dépend pas
+  // des hauteurs, seul le retrait du bouton en dépend, et il est lu.
+  group('I1 — l’ordre K1 de T3 aux trois largeurs, sans fiche et fiche ouverte', () {
+    for (final (String, Size, bool) largeur in <(String, Size, bool)>[
+      ('rangée', const Size(360, 640), true),
+      ('colonne', const Size(700, 900), true),
+      ('panneau', const Size(1280, 740), false),
+    ]) {
+      for (final bool enMode in <bool>[false, true]) {
+        for (final bool avecFiche in <bool>[false, true]) {
+          final String nom =
+              '${largeur.$2.width.round()} × ${largeur.$2.height.round()} '
+              '(${largeur.$1}), ${enMode ? 'en mode' : 'hors mode'}, '
+              '${avecFiche ? 'fiche ouverte' : 'sans fiche'}';
+          final bool rangee = largeur.$1 == 'rangée';
+          final void Function(String, Future<void> Function(WidgetTester)) cas =
+              largeur.$3 ? testWidgetsOnAndroid : testWidgetsOnWindows;
+          cas(
+            '${largeur.$3 ? 'Android : ' : ''}$nom : entrées (quatre) → '
+            '« Élargir la recherche » → « Favoris » → « Filtres » → '
+            '${rangee ? '−, +' : '+, −'}, recentrer → (bouton de désignation, '
+            'en mode, s’il n’est pas retiré) → carte → (fiche) → '
+            '« ⚠ Avertissement » de la carte, en dernier',
+            (WidgetTester tester) async {
+              tester.view.physicalSize = largeur.$2;
+              tester.view.devicePixelRatio = 1;
+              addTearDown(tester.view.reset);
+              final MapViewModel viewModel = _viewModel();
+              addTearDown(viewModel.dispose);
+              await tester.pumpWidget(
+                MaterialApp(
+                  home: MapView(
+                    viewModel: viewModel,
+                    onOpenFavorites: () {},
+                    onPointDesignated: (GeoPoint point) {},
+                    onStationTap: (StationCode code) {},
+                    stationSheet: avecFiche
+                        ? ficheStationBlois()
+                        : const SizedBox.shrink(),
+                    onCloseSheets: () {},
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+              if (enMode) {
+                viewModel.toggleDesignationMode();
+                await tester.pumpAndSettle();
+              }
+              expect(tester.takeException(), isNull);
+              expect(find.byKey(widenSearchKey), findsOneWidget);
+
+              final Finder pilule = find.byKey(mapDesignateCenterButtonKey);
+              final bool boutonRetire =
+                  enMode &&
+                  tester
+                      .widget<ExcludeFocus>(
+                        find
+                            .ancestor(
+                              of: pilule,
+                              matching: find.byType(ExcludeFocus),
+                            )
+                            .first,
+                      )
+                      .excluding;
+              // Sans fiche, le repli 6 ne joue jamais ; au panneau de
+              // 1 280 × 740, la bande tient à côté de la colonne.
+              expect(
+                boutonRetire,
+                enMode && avecFiche && largeur.$1 != 'panneau',
+                reason: 'retrait du bouton de désignation',
+              );
+              final List<(String, Finder)> nommes = <(String, Finder)>[
+                for (final MapScaleKind kind in MapScaleKind.values)
+                  (kind.name, find.byKey(ValueKey<MapScaleKind>(kind))),
+                ('Restrictions', find.byKey(mapDesignationChipKey)),
+                ('Élargir la recherche', find.byKey(widenSearchKey)),
+                ('Favoris', find.byKey(mapFavoritesButtonKey)),
+                ('Filtres', find.byKey(mapFiltersButtonKey)),
+                ('−', find.byKey(mapZoomOutButtonKey)),
+                ('+', find.byKey(mapZoomInButtonKey)),
+                ('recentrer', find.byKey(mapRecenterButtonKey)),
+                if (enMode) ('désignation', pilule),
+                ('⚠ Avertissement', _lienDeLaCarte()),
+              ];
+              String? arret() {
+                if (_carteFocused()) return 'carte';
+                if (focusedWithin(tester, find.byKey(mapSheetAreaKey))) {
+                  return 'fiche';
+                }
+                for (final (String, Finder) n in nommes) {
+                  if (focusedWithin(tester, n.$2)) return n.$1;
+                }
+                return null;
+              }
+
+              final List<String?> vus = <String?>[];
+              for (int i = 0; i < 40; i++) {
+                await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+                await tester.pump();
+                final String? a = arret();
+                if (vus.isNotEmpty && a == vus.first && a != vus.last) break;
+                if (vus.isEmpty || vus.last != a) vus.add(a);
+              }
+              expect(vus, <String>[
+                for (final MapScaleKind kind in MapScaleKind.values) kind.name,
+                'Restrictions',
+                'Élargir la recherche',
+                'Favoris',
+                'Filtres',
+                if (rangee) ...<String>['−', '+'] else ...<String>['+', '−'],
+                'recentrer',
+                if (enMode && !boutonRetire) 'désignation',
+                'carte',
+                if (avecFiche) 'fiche',
+                '⚠ Avertissement',
+              ], reason: 'bouton de désignation retiré : $boutonRetire');
+            },
+          );
+        }
+      }
+    }
+  });
+
+  // `I1` d'Ergonomie (spec § 5.7) : `Échap` ferme la fiche ouverte aux trois
+  // largeurs (fiche du bas sous 800 px, panneau latéral au-delà).
+  group('I1 — Échap ferme la fiche ouverte, aux trois largeurs', () {
+    for (final (String, Size, bool) largeur in <(String, Size, bool)>[
+      ('rangée', const Size(360, 640), true),
+      ('colonne', const Size(700, 900), true),
+      ('panneau', const Size(1280, 740), false),
+    ]) {
+      final void Function(String, Future<void> Function(WidgetTester)) cas =
+          largeur.$3 ? testWidgetsOnAndroid : testWidgetsOnWindows;
+      cas(
+        '${largeur.$3 ? 'Android : ' : ''}${largeur.$2.width.round()} × '
+        '${largeur.$2.height.round()} (${largeur.$1}), fiche station ouverte, '
+        'le focus dans la fiche : Échap la ferme',
+        (WidgetTester tester) async {
+          tester.view.physicalSize = largeur.$2;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          int fermetures = 0;
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MapView(
+                viewModel: _viewModel(),
+                onStationTap: (StationCode code) {},
+                stationSheet: ficheStationBlois(),
+                onCloseSheets: () => fermetures++,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byKey(mapSheetAreaKey), findsOneWidget);
+          // Le focus posé DANS la fiche (son étoile, premier arrêt du cadre).
+          for (int i = 0; i < 40; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pump();
+            if (focusedWithin(tester, find.byKey(mapSheetAreaKey))) break;
+          }
+          expect(focusedWithin(tester, find.byKey(mapSheetAreaKey)), isTrue);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+
+          expect(fermetures, 1);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  });
 }
 
 /// Un panneau de fiche MINIMAL mais FOCALISABLE, pour vérifier que l'ordre
@@ -1583,3 +1786,18 @@ class _FocusableTestSheet extends StatelessWidget {
   Widget build(BuildContext context) =>
       const KeyboardFocusRing(child: SizedBox(width: 10, height: 10));
 }
+
+/// Le « ⚠ Avertissement » de la carte : celui qui n'est pas dans une fiche
+/// (le cadre commun des fiches porte le sien, `S3` d'Ergonomie).
+Finder _lienDeLaCarte() => find.byElementPredicate((Element e) {
+  if (e.widget is! WarningLink) return false;
+  bool dansUneFiche = false;
+  e.visitAncestorElements((Element a) {
+    if (a.widget is SheetFrame) {
+      dansUneFiche = true;
+      return false;
+    }
+    return true;
+  });
+  return !dansUneFiche;
+}, description: 'le « ⚠ Avertissement » de la carte');

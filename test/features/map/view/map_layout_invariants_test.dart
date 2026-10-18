@@ -73,6 +73,7 @@
 // Un cas qui affirme plusieurs invariants les vérifie TOUS et nomme, dans son
 // échec, chacun de ceux qui ne tiennent pas (« I-a : … ») : le décompte des
 // rouges par invariant se lit dans la sortie.
+import 'dart:math' as math;
 import 'dart:typed_data' show ByteData;
 import 'dart:ui' as ui;
 
@@ -96,6 +97,8 @@ import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
+import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart'
+    show floodBulletinButtonKey;
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/map_bottom.dart';
@@ -113,6 +116,8 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
     show ondeCategoryTileKey;
+import 'package:martinpecheur/features/shared/favorite_star_button.dart'
+    show FavoriteStarButton;
 import 'package:martinpecheur/features/shared/flood_level_gauge.dart';
 import 'package:martinpecheur/features/shared/sheet_frame.dart'
     show
@@ -1959,9 +1964,663 @@ void main() {
     }
   });
 
+  _groupesI1();
+  _groupeReviewFocus5();
+  _groupeConstatsEnDeca();
+
   // Garde-fou : la matrice est bien celle de la porte de faisabilité.
   test('la matrice compte 576 configurations', () {
     expect(matrice, hasLength(576));
     expect(matrice.where((_Config c) => c.android), hasLength(384));
+  });
+}
+
+// --- I1 : glisser, clavier, en deçà --------------------------------------------
+
+/// Le centre de [f] est-il atteignable au toucher, dans [zone] ?
+bool _atteint(WidgetTester tester, Finder f, Rect zone) =>
+    f.hitTestable().evaluate().isNotEmpty &&
+    zone.contains(tester.getRect(f).center);
+
+/// Le défilement de la partie fixe du bloc.
+ScrollPosition _positionFixe(WidgetTester tester) => tester
+    .state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(MapReadingBlockFixed),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    )
+    .position;
+
+/// La fenêtre de la partie fixe du bloc : ce qui s'en voit dans la zone sûre.
+Rect _fenetreFixe(WidgetTester tester, Rect zone) =>
+    tester.getRect(find.byType(MapReadingBlockFixed)).intersect(zone);
+
+/// La mesure d'un cas, dite dans son échec : la partie fixe posée, sa
+/// position de défilement, la répartition.
+String _mesureI1(WidgetTester tester, _Ecran e) {
+  final ScrollPosition p = _positionFixe(tester);
+  return 'partie fixe ${tester.getRect(find.byType(MapReadingBlockFixed))}, '
+      'défilée de ${p.pixels} sur ${p.maxScrollExtent}, répartition '
+      '${e.rapport.value?.allocation}';
+}
+
+/// Amène [cible] sous le doigt en glissant sur la partie fixe du bloc, vers le
+/// haut puis, au bout, vers le bas. Rend `null` si elle est atteinte, sinon ce
+/// qui l'empêche.
+Future<String?> _atteindreEnGlissant(
+  WidgetTester tester,
+  Finder cible,
+  Rect zone,
+) async {
+  double sens = -1;
+  bool retourne = false;
+  for (int i = 0; i < 40; i++) {
+    if (_atteint(tester, cible, zone)) return null;
+    final Rect surface = _fenetreFixe(tester, zone);
+    if (surface.width < 1 || surface.height < 1) {
+      return 'la partie fixe n’a aucune surface où glisser ($surface)';
+    }
+    final ScrollPosition p = _positionFixe(tester);
+    final double avant = p.pixels;
+    await tester.dragFrom(
+      surface.center,
+      Offset(0, sens * (surface.height / 2).clamp(8, 200)),
+    );
+    await tester.pumpAndSettle();
+    if ((p.pixels - avant).abs() < _tolerance) {
+      if (retourne) return 'le glisser ne la fait plus défiler';
+      sens = -sens;
+      retourne = true;
+    }
+  }
+  return 'non atteinte après 40 glissers';
+}
+
+/// Tab jusqu'à ce que le focus soit dans [cible], puis : le focus l'a-t-il
+/// amenée en vue — entière, ou, si elle est plus haute que la fenêtre de la
+/// partie fixe, sur toute la hauteur de cette fenêtre ? Rend `null` si oui,
+/// sinon ce qui manque.
+Future<String?> _atteindreAuClavier(
+  WidgetTester tester,
+  Finder cible,
+  Rect zone,
+) async {
+  for (int i = 0; i < 40; i++) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    if (focusedWithin(tester, cible)) {
+      final Rect r = tester.getRect(cible);
+      final Rect fenetre = _fenetreFixe(tester, zone);
+      final Rect vu = r.intersect(fenetre);
+      final bool enVue =
+          vu.width >= 1 &&
+          vu.height >= 1 &&
+          vu.height >= math.min(r.height, fenetre.height) - _tolerance;
+      return enVue
+          ? null
+          : 'focalisée, mais pas amenée en vue ($r, fenêtre $fenetre)';
+    }
+  }
+  return 'Tab ne l’atteint pas en 40 arrêts';
+}
+
+/// Les configurations d'I1 : en deçà (spec § 5.6, arbitrage 10, critère 6) et,
+/// aux deux téléphones garantis à 200 %, là où la partie fixe défile pour la
+/// fiche du bas (arbitrage 18).
+List<_Config> _configsI1() => <_Config>[
+  for (final Size taille in taillesEnDeca)
+    for (final double echelle in echellesDeTexte)
+      for (final bool enMode in <bool>[false, true])
+        for (final _Fiche fiche in <_Fiche>[_Fiche.aucune, _Fiche.station])
+          _Config(
+            nomTaille: '${taille.width.round()} × ${taille.height.round()}',
+            taille: taille,
+            // En deçà, ce sont des téléphones (en paysage pour deux d'entre
+            // elles) : une fenêtre Windows ne descend pas sous 800 × 740.
+            plateforme: TargetPlatform.android,
+            echelle: echelle,
+            lecture: MapScaleKind.ecoulement,
+            enMode: enMode,
+            fiche: fiche,
+            avecAvis: true,
+            marge: false,
+          ),
+  for (final ({String nom, Size taille, TargetPlatform plateforme}) t
+      in taillesGaranties.take(2))
+    for (final bool enMode in <bool>[false, true])
+      _Config(
+        nomTaille: t.nom,
+        taille: t.taille,
+        plateforme: t.plateforme,
+        echelle: 2,
+        lecture: MapScaleKind.debit,
+        enMode: enMode,
+        fiche: _Fiche.station,
+        avecAvis: false,
+        marge: false,
+      ),
+];
+
+/// ⚠️ ÉCARTS MESURÉS ET REMONTÉS AU COMMANDITAIRE (`I1` d'Ergonomie, Roboto,
+/// Android, 2026-10-18), pas des invariants voulus : en deçà, la partie fixe
+/// du bloc reçoit 0 px — le bas de la carte (colonne de 288 px dès 600 de
+/// large), la fiche du bas réduite à son en-tête et, en mode, la bande du
+/// bouton et celle du réticule prennent toute la hauteur. « ⚠ Avertissement »
+/// et « Restrictions » n'y sont atteignables ni en glissant ni au clavier,
+/// alors que l'arbitrage 10 le garantit en deçà. Le plancher de la partie fixe
+/// (arbitrage 19) n'y tient pas : la fiche réduite à son en-tête, la partie
+/// fixe passe sous lui (`allocateMapLayout`), et sans fiche il est nul.
+/// Corriger ce tableau À LA MAIN quand le commanditaire aura tranché : un cas
+/// qui en sort doit tenir l'invariant.
+const Set<String> _partieFixeANullEnDeca = <String>{
+  '360 × 300, 200 %, écoulement, hors mode, fiche station, avis, sans marge',
+  '360 × 300, 200 %, écoulement, en mode, sans fiche, avis, sans marge',
+  '360 × 300, 200 %, écoulement, en mode, fiche station, avis, sans marge',
+  '640 × 360, 100 %, écoulement, hors mode, fiche station, avis, sans marge',
+  '640 × 360, 100 %, écoulement, en mode, sans fiche, avis, sans marge',
+  '640 × 360, 100 %, écoulement, en mode, fiche station, avis, sans marge',
+  '640 × 360, 200 %, écoulement, hors mode, fiche station, avis, sans marge',
+  '640 × 360, 200 %, écoulement, en mode, sans fiche, avis, sans marge',
+  '640 × 360, 200 %, écoulement, en mode, fiche station, avis, sans marge',
+  '844 × 390, 200 %, écoulement, en mode, sans fiche, avis, sans marge',
+};
+
+void _groupesI1() {
+  final List<_Config> configs = _configsI1();
+  final Map<String, Finder Function()> cibles = <String, Finder Function()>{
+    '« Restrictions »': () => find.byKey(mapDesignationChipKey),
+    '« ⚠ Avertissement »': _lienDeLaCarte,
+  };
+
+  /// Le CONSTAT d'un écart remonté : la partie fixe à 0 px, et les deux
+  /// contrôles hors d'atteinte au toucher.
+  void constater(WidgetTester tester, _Ecran e) {
+    expect(
+      e.rapport.value!.allocation.blockFixed,
+      moreOrLessEquals(0, epsilon: _tolerance),
+      reason: _mesureI1(tester, e),
+    );
+    for (final Finder Function() cible in cibles.values) {
+      expect(cible().hitTestable(), findsNothing, reason: _mesureI1(tester, e));
+    }
+  }
+
+  group('I1 — « ⚠ Avertissement » et « Restrictions » atteignables en '
+      'glissant sur le bloc (en deçà, et là où la partie fixe défile)', () {
+    for (final _Config c in configs) {
+      final bool ecart = _partieFixeANullEnDeca.contains(c.nom);
+      _cas(
+        c,
+        ecart
+            ? 'CONSTAT remonté (I1) — la partie fixe reçoit 0 px : ni '
+                  '« ⚠ Avertissement » ni « Restrictions » ne s’atteignent en '
+                  'glissant ; aucune erreur de rendu'
+            : 'I1 : atteignables en glissant sur la partie fixe ; aucune '
+                  'erreur de rendu',
+        (WidgetTester tester) async {
+          final _Ecran e = await _monter(tester, c);
+          final Rect zone = _zoneSure(c);
+          expect(
+            e.erreurs,
+            isEmpty,
+            reason: e.erreurs.map((FlutterErrorDetails d) => '$d').join('\n'),
+          );
+          final List<String> echecs = <String>[];
+          for (final MapEntry<String, Finder Function()> cible
+              in cibles.entries) {
+            final String? echec = await _atteindreEnGlissant(
+              tester,
+              cible.value(),
+              zone,
+            );
+            if (echec != null) echecs.add('${cible.key} : $echec');
+          }
+          if (ecart) {
+            constater(tester, e);
+            expect(echecs, hasLength(2), reason: _mesureI1(tester, e));
+          } else {
+            expect(echecs, isEmpty, reason: _mesureI1(tester, e));
+          }
+        },
+      );
+    }
+  });
+
+  group('I1 — « ⚠ Avertissement » et « Restrictions » atteignables au '
+      'clavier, le focus les amène en vue (en deçà, et là où la partie fixe '
+      'défile)', () {
+    for (final _Config c in configs) {
+      final bool ecart = _partieFixeANullEnDeca.contains(c.nom);
+      _cas(
+        c,
+        ecart
+            ? 'CONSTAT remonté (I1) — la partie fixe reçoit 0 px : Tab '
+                  'focalise « Restrictions » puis « ⚠ Avertissement » sans '
+                  'pouvoir les amener en vue ; aucune erreur de rendu'
+            : 'I1 : Tab les atteint et les amène en vue ; aucune erreur de '
+                  'rendu',
+        (WidgetTester tester) async {
+          final _Ecran e = await _monter(tester, c);
+          final Rect zone = _zoneSure(c);
+          expect(
+            e.erreurs,
+            isEmpty,
+            reason: e.erreurs.map((FlutterErrorDetails d) => '$d').join('\n'),
+          );
+          final List<String> echecs = <String>[];
+          for (final MapEntry<String, Finder Function()> cible
+              in cibles.entries) {
+            final String? echec = await _atteindreAuClavier(
+              tester,
+              cible.value(),
+              zone,
+            );
+            if (echec != null) echecs.add('${cible.key} : $echec');
+          }
+          if (ecart) {
+            constater(tester, e);
+            // Le focus les atteint : c'est la hauteur qui manque, pas l'ordre.
+            expect(
+              echecs.where((String l) => l.contains('focalisée')),
+              hasLength(2),
+              reason: '$echecs ; ${_mesureI1(tester, e)}',
+            );
+          } else {
+            expect(echecs, isEmpty, reason: _mesureI1(tester, e));
+          }
+        },
+      );
+    }
+  });
+
+  // R20 (spec § 5.1, § 11.3) : un téléphone en paysage passe en panneau
+  // latéral, par la largeur.
+  group('I1 — 844 × 390 passe en panneau latéral (R20)', () {
+    for (final double echelle in echellesDeTexte) {
+      final _Config c = _Config(
+        nomTaille: '844 × 390',
+        taille: const Size(844, 390),
+        plateforme: TargetPlatform.android,
+        echelle: echelle,
+        lecture: MapScaleKind.ecoulement,
+        enMode: false,
+        fiche: _Fiche.station,
+        avecAvis: false,
+        marge: false,
+      );
+      _cas(
+        c,
+        'la fiche station s’ouvre en panneau de 380 px à droite, sur '
+        'toute la hauteur ; le bloc et la colonne à sa gauche ; aucune '
+        'erreur de rendu',
+        (WidgetTester tester) async {
+          final _Ecran e = await _monter(tester, c);
+          expect(e.erreurs, isEmpty);
+          expect(c.largeur, MapLayoutWidth.panel);
+          final Rect panneau = tester.getRect(_fiche(tester));
+          expect(
+            panneau,
+            rectMoreOrLessEquals(
+              const Rect.fromLTRB(844 - mapSidePanelWidth, 0, 844, 390),
+              epsilon: _tolerance,
+            ),
+          );
+          for (final Rect piece in <Rect>[
+            ..._bloc(tester).values,
+            ..._bas(tester).values,
+          ]) {
+            expect(
+              piece.right,
+              lessThanOrEqualTo(panneau.left + _tolerance),
+              reason: '$piece passe sous le panneau $panneau',
+            );
+          }
+        },
+      );
+    }
+  });
+}
+
+// --- I1 : Review Focus 5 ---------------------------------------------------------
+
+/// Review Focus 5 (plan d'Ergonomie, `I1`) : la fiche ouverte, son corps
+/// défilé au bout, Tab entre dans la fiche puis la parcourt. Chaque contrôle
+/// qui reçoit le focus est entier dans la partie de la fiche qui le porte : un
+/// contrôle de l'en-tête dans l'en-tête épinglé, un contrôle du corps dans la
+/// fenêtre du corps — jamais sous l'en-tête. La fiche station n'a aucun arrêt
+/// dans son corps (étoile et « ⚠ Avertissement » sont dans l'en-tête) ; la
+/// fiche tronçon y porte « Lire le bulletin » et l'adresse sélectionnable.
+void _groupeReviewFocus5() {
+  group('I1, Review Focus 5 — Tab dans une fiche défilée au bout : chaque '
+      'contrôle focalisé est entier dans sa partie, jamais sous l’en-tête', () {
+    for (final _Fiche fiche in <_Fiche>[_Fiche.station, _Fiche.troncon]) {
+      for (final ({String nom, Size taille, TargetPlatform plateforme}) t
+          in <({String nom, Size taille, TargetPlatform plateforme})>[
+            taillesGaranties.first,
+            taillesGaranties.last,
+          ]) {
+        // Au panneau de 1 280 × 740, à 100 %, le corps tient sans défiler.
+        for (final double echelle in <double>[
+          if (t.taille.width < mapSidePanelMinWidth) 1,
+          2,
+        ]) {
+          final _Config c = _Config(
+            nomTaille: t.nom,
+            taille: t.taille,
+            plateforme: t.plateforme,
+            echelle: echelle,
+            lecture: MapScaleKind.ecoulement,
+            enMode: false,
+            fiche: fiche,
+            avecAvis: false,
+            marge: false,
+          );
+          final bool arretsDansLeCorps = switch (fiche) {
+            _Fiche.troncon => true,
+            _Fiche.station || _Fiche.aucune || _Fiche.onde => false,
+          };
+          _cas(
+            c,
+            'Review Focus 5 : corps défilé au bout, Tab de l’étoile '
+            '${arretsDansLeCorps ? 'aux contrôles du corps' : 'à « ⚠ Avertissement » de la fiche (aucun arrêt dans le corps)'}'
+            ' — chacun entier dans sa partie',
+            (WidgetTester tester) async {
+              final _Ecran e = await _monter(tester, c);
+              expect(e.erreurs, isEmpty);
+              final Finder zone = _fiche(tester);
+              final Finder enTete = find.descendant(
+                of: zone,
+                matching: find.byKey(sheetFrameHeaderKey),
+              );
+              final Finder corps = find.descendant(
+                of: zone,
+                matching: find.byKey(sheetFrameBodyKey),
+              );
+              final ScrollPosition position = tester
+                  .state<ScrollableState>(
+                    find
+                        .descendant(
+                          of: corps,
+                          matching: find.byType(Scrollable),
+                        )
+                        .first,
+                  )
+                  .position;
+              expect(
+                position.maxScrollExtent,
+                greaterThan(0),
+                reason:
+                    'le corps doit défiler pour que le cas dise quelque chose',
+              );
+              // Deux départs : le corps défilé au bout (le cas du plan), puis
+              // ramené en tête — « Lire le bulletin » est alors sous la
+              // fenêtre du corps, et c'est le focus qui doit l'y amener.
+              for (final (String, double) depart in <(String, double)>[
+                ('défilé au bout', position.maxScrollExtent),
+                ('ramené en tête', 0),
+              ]) {
+                position.jumpTo(depart.$2);
+                await tester.pumpAndSettle();
+                if (arretsDansLeCorps && depart.$2 == 0) {
+                  // Contrôle positif : avant le Tab, le bouton n'est pas
+                  // entier dans la fenêtre du corps.
+                  final Rect bouton = tester.getRect(
+                    find.byKey(floodBulletinButtonKey),
+                  );
+                  expect(
+                    bouton.bottom,
+                    greaterThan(tester.getRect(corps).bottom),
+                    reason: 'le bouton $bouton est déjà en vue',
+                  );
+                }
+
+                // Tab jusqu'à entrer dans la fiche.
+                for (int i = 0; i < 40 && !focusedWithin(tester, zone); i++) {
+                  await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+                  await tester.pumpAndSettle();
+                }
+                expect(
+                  focusedWithin(tester, zone),
+                  isTrue,
+                  reason: '${depart.$1} : Tab entre dans la fiche',
+                );
+                final List<String> arrets = <String>[];
+                final List<String> ecarts = <String>[];
+                int dansLeCorps = 0;
+                while (focusedWithin(tester, zone) && arrets.length < 12) {
+                  final FocusNode noeud = FocusManager.instance.primaryFocus!;
+                  final Rect r = noeud.rect;
+                  final bool tete = focusedWithin(tester, enTete);
+                  final Rect partie = tester.getRect(tete ? enTete : corps);
+                  final String nom = '${noeud.context?.widget.runtimeType} $r';
+                  arrets.add('${tete ? 'en-tête' : 'corps'} : $nom');
+                  if (!tete) dansLeCorps++;
+                  final bool entier =
+                      r.top >= partie.top - _tolerance &&
+                      r.bottom <= partie.bottom + _tolerance &&
+                      r.left >= partie.left - _tolerance &&
+                      r.right <= partie.right + _tolerance;
+                  if (!entier) {
+                    ecarts.add(
+                      '$nom hors de '
+                      '${tete ? 'l’en-tête' : 'la fenêtre du corps'} $partie',
+                    );
+                  }
+                  if (!tete &&
+                      r.top < tester.getRect(enTete).bottom - _tolerance) {
+                    ecarts.add('$nom sous l’en-tête ${tester.getRect(enTete)}');
+                  }
+                  await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+                  await tester.pumpAndSettle();
+                }
+                final String vus = '${depart.$1} :\n${arrets.join('\n')}';
+                expect(ecarts, isEmpty, reason: vus);
+                expect(
+                  dansLeCorps,
+                  arretsDansLeCorps ? greaterThan(0) : 0,
+                  reason: vus,
+                );
+              }
+              expect(e.erreurs, isEmpty);
+            },
+          );
+        }
+      }
+    }
+  });
+}
+
+// --- I1 : les anciens « CONSTAT » en deçà, remplacés (R15) -----------------------
+
+/// Les tailles des anciens « CONSTAT » en deçà (`task-D2-report.md`, R15) :
+/// 360 × 300, 600 × 360, 640 × 360 et 800 × 400 (`map_view_test`, Windows),
+/// avec 844 × 390, la dernière de [taillesEnDeca].
+const List<(Size, TargetPlatform)> _taillesDesConstats =
+    <(Size, TargetPlatform)>[
+      (Size(360, 300), TargetPlatform.android),
+      (Size(600, 360), TargetPlatform.android),
+      (Size(640, 360), TargetPlatform.android),
+      (Size(844, 390), TargetPlatform.android),
+      (Size(800, 400), TargetPlatform.windows),
+    ];
+
+/// Les paires d'éléments PEINTS qui se recoupent (les éléments d'I-j), nommées
+/// sans leurs rectangles.
+Set<String> _pairesQuiSeRecoupent(WidgetTester tester, _Config c, _Ecran e) {
+  final bool bandeRetiree = e.rapport.value?.allocation.bandWithdrawn ?? false;
+  final List<MapEntry<String, Rect>> peints = <String, Rect>{
+    ..._bloc(tester),
+    ..._bas(tester),
+    if (c.enMode && !bandeRetiree) ..._bande(tester, e),
+    if (c.fiche != _Fiche.aucune) 'fiche': tester.getRect(_fiche(tester)),
+  }.entries.toList();
+  return <String>{
+    for (int i = 0; i < peints.length; i++)
+      for (int j = i + 1; j < peints.length; j++)
+        if (_recoupe(peints[i].value, peints[j].value))
+          '${peints[i].key} × ${peints[j].key}',
+  };
+}
+
+/// ⚠️ ÉCARTS MESURÉS ET REMONTÉS AU COMMANDITAIRE (`I1` d'Ergonomie, Roboto,
+/// Android, 2026-10-18), pas des invariants voulus — à la largeur de la
+/// colonne (600 à 799 px), en deçà :
+/// - fiche du bas ouverte : la colonne du bas (cinq boutons et attribution,
+///   posée entière, `D1` : « il recouvre la fiche plutôt que de déborder »)
+///   descend sur l'en-tête de la fiche ; « recentrer » et l'attribution
+///   couvrent son étoile et sa fermeture, qui ne s'atteignent plus au toucher
+///   (Échap ferme toujours la fiche) ;
+/// - en mode, sans fiche, à 200 % : la bande du bouton reçoit 0 px ; sa
+///   pilule, posée sous le bas de l'écran, y déborde (8 px visibles) et
+///   recoupe son indice.
+/// Corriger ce tableau À LA MAIN quand le commanditaire aura tranché.
+const Map<String, Set<String>> _recoupementsEnDeca = <String, Set<String>>{
+  '600 × 360, 100 %, écoulement, hors mode, fiche station, avis, sans marge':
+      <String>{'recentrer × fiche', 'attribution × fiche'},
+  '600 × 360, 100 %, écoulement, en mode, fiche station, avis, sans marge':
+      <String>{'recentrer × fiche', 'attribution × fiche'},
+  '600 × 360, 200 %, écoulement, hors mode, fiche station, avis, sans marge':
+      <String>{'recentrer × fiche', 'attribution × fiche'},
+  '600 × 360, 200 %, écoulement, en mode, fiche station, avis, sans marge':
+      <String>{'recentrer × fiche', 'attribution × fiche'},
+  '600 × 360, 200 %, écoulement, en mode, sans fiche, avis, sans marge':
+      <String>{'pilule × indice'},
+  '640 × 360, 100 %, écoulement, hors mode, fiche station, avis, sans marge':
+      <String>{'recentrer × fiche', 'attribution × fiche'},
+  '640 × 360, 100 %, écoulement, en mode, fiche station, avis, sans marge':
+      <String>{'recentrer × fiche', 'attribution × fiche'},
+  '640 × 360, 200 %, écoulement, hors mode, fiche station, avis, sans marge':
+      <String>{'recentrer × fiche', 'attribution × fiche'},
+  '640 × 360, 200 %, écoulement, en mode, fiche station, avis, sans marge':
+      <String>{'recentrer × fiche', 'attribution × fiche'},
+  '640 × 360, 200 %, écoulement, en mode, sans fiche, avis, sans marge':
+      <String>{'pilule × indice'},
+};
+
+/// R15 : les « CONSTAT » en deçà de l'ancienne disposition décrivaient des
+/// recouvrements (la pilule du bouton sur « ⚠ Avertissement » à 360 × 300, le
+/// groupe étendu sur la légende à 640 × 360, la légende dans la zone des
+/// contrôles à 800 × 400) et un bas qui défilait (« Favoris » dépassant de
+/// 12 px à 600 × 360 et 640 × 360). Leur invariant, sur la nouvelle
+/// disposition : aucune paire d'éléments PEINTS ne se recoupe (I-j) ; le bas
+/// de la carte est posé entier dans la zone sûre — il ne cède jamais — et ses
+/// cinq boutons s'atteignent au toucher ; fiche ouverte, son étoile, sa
+/// fermeture et son « ⚠ Avertissement » s'atteignent ; aucune erreur de rendu.
+/// Sauf les écarts remontés ([_recoupementsEnDeca]), constatés tels quels.
+void _groupeConstatsEnDeca() {
+  group('I1, R15 — en deçà : rien ne se recoupe, le bas de la carte entier et '
+      'ses boutons atteignables, l’en-tête de la fiche atteignable (remplacent '
+      'les « CONSTAT » de l’ancienne disposition)', () {
+    for (final (Size, TargetPlatform) t in _taillesDesConstats) {
+      for (final double echelle in echellesDeTexte) {
+        for (final bool enMode in <bool>[false, true]) {
+          for (final _Fiche fiche in <_Fiche>[_Fiche.aucune, _Fiche.station]) {
+            final _Config c = _Config(
+              nomTaille: '${t.$1.width.round()} × ${t.$1.height.round()}',
+              taille: t.$1,
+              plateforme: t.$2,
+              echelle: echelle,
+              lecture: MapScaleKind.ecoulement,
+              enMode: enMode,
+              fiche: fiche,
+              avecAvis: true,
+              marge: false,
+            );
+            final Set<String>? ecart = _recoupementsEnDeca[c.nom];
+            final bool enTeteCouvert =
+                ecart != null && ecart.contains('recentrer × fiche');
+            _cas(
+              c,
+              ecart == null
+                  ? 'R15 : aucune paire peinte ne se recoupe ; le bas entier '
+                        'dans la zone sûre, ses cinq boutons atteignables'
+                        '${fiche == _Fiche.aucune ? '' : ' ; étoile, fermeture et « ⚠ Avertissement » de la fiche atteignables'}'
+                        ' ; I-f'
+                  : 'CONSTAT remonté (I1) — ${ecart.join(', ')} se recoupent'
+                        '${enTeteCouvert ? ' : étoile et fermeture de la fiche hors d’atteinte au toucher' : ''}'
+                        ' ; le bas entier, ses cinq boutons atteignables ; I-f',
+              (WidgetTester tester) async {
+                final _Ecran e = await _monter(tester, c);
+                final _Echecs echecs = _Echecs();
+                await echecs.verifier('I-j', () async {
+                  expect(
+                    _pairesQuiSeRecoupent(tester, c, e),
+                    ecart ?? isEmpty,
+                    reason: 'les paires peintes qui se recoupent',
+                  );
+                });
+                await echecs.verifier('le bas', () async {
+                  final Rect zone = _zoneSure(c);
+                  final RenderBox bas = tester.renderObject(
+                    find.byType(MapBottom),
+                  );
+                  expect(
+                    bas.size.height,
+                    moreOrLessEquals(
+                      bas.getMaxIntrinsicHeight(bas.size.width),
+                      epsilon: _tolerance,
+                    ),
+                    reason: 'le bas cède',
+                  );
+                  for (final MapEntry<String, Rect> p in _bas(tester).entries) {
+                    _dedans(p.value, zone, p.key);
+                  }
+                  for (final (String, Key) b in <(String, Key)>[
+                    ('Favoris', mapFavoritesButtonKey),
+                    ('Filtres', mapFiltersButtonKey),
+                    ('−', mapZoomOutButtonKey),
+                    ('+', mapZoomInButtonKey),
+                    ('recentrer', mapRecenterButtonKey),
+                  ]) {
+                    _atteignable(find.byKey(b.$2), b.$1);
+                  }
+                });
+                if (fiche != _Fiche.aucune) {
+                  await echecs.verifier('l’en-tête de la fiche', () async {
+                    final Finder zone = _fiche(tester);
+                    Finder dans(Finder f) =>
+                        find.descendant(of: zone, matching: f);
+                    _atteignable(
+                      dans(find.byType(WarningLink)),
+                      '« ⚠ Avertissement » de la fiche',
+                    );
+                    for (final (String, Finder) k in <(String, Finder)>[
+                      (
+                        'fermeture',
+                        dans(find.byKey(stationSheetCloseButtonKey)),
+                      ),
+                      ('étoile', dans(find.byType(FavoriteStarButton))),
+                    ]) {
+                      if (enTeteCouvert) {
+                        expect(
+                          k.$2.hitTestable(),
+                          findsNothing,
+                          reason: '${k.$1} ${tester.getRect(k.$2)}',
+                        );
+                      } else {
+                        _atteignable(k.$2, '${k.$1} de la fiche');
+                      }
+                    }
+                  });
+                }
+                await echecs.verifier('I-f', () async {
+                  expect(
+                    e.erreurs,
+                    isEmpty,
+                    reason: e.erreurs
+                        .map((FlutterErrorDetails d) => '$d')
+                        .join('\n'),
+                  );
+                });
+                echecs.conclure();
+              },
+            );
+          }
+        }
+      }
+    }
   });
 }

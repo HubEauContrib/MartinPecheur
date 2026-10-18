@@ -49,7 +49,7 @@ const double mapSidePanelRuleWidth = 1;
 /// panneaux, `K4` de T3). Les hauteurs intrinsèques de la zone, et sa hauteur
 /// mise en avant (`D7`), sont la somme de celles des panneaux, lues à la
 /// largeur où leur contenu est posé — la
-/// largeur de lecture au plus pour la fiche du bas : de 776 à 799 px, la
+/// largeur de lecture au plus pour la fiche du bas : au-delà de 760 px, la
 /// hauteur n'est plus lue plus large qu'elle n'est posée.
 class MapSheetArea extends StatelessWidget {
   const MapSheetArea({

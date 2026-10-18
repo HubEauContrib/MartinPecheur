@@ -47,6 +47,8 @@ import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart'
     show floodCoverageText;
+import 'package:martinpecheur/features/map/view/map_sheet_area.dart'
+    show mapSheetAreaKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
@@ -655,6 +657,15 @@ void main() {
       );
 
       expect(find.byType(FloodSheetPanel), findsOneWidget);
+      // `M1` de la relecture de `D5`, porté par `I1` : rendue DANS la zone des
+      // fiches (l'absence d'ancêtre défilant, seule, vaut aussi hors d'elle).
+      expect(
+        find.descendant(
+          of: find.byKey(mapSheetAreaKey),
+          matching: find.byType(FloodSheetPanel),
+        ),
+        findsOneWidget,
+      );
       // Aucun défilement entre la carte et le panneau : la zone ne défile pas.
       expect(
         find.ancestor(

@@ -48,6 +48,8 @@
 // dart:io n'est pas employé ici ; la police vient de `chargerRoboto`, que
 // l'appelant charge dans son `setUpAll`.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
@@ -72,6 +74,8 @@ import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_mod
     show ondeSeasonNotice;
 import 'package:martinpecheur/features/shared/favorite_star.dart';
 import 'package:martinpecheur/features/shared/flood_level_gauge.dart';
+import 'package:martinpecheur/features/shared/screen_layout.dart'
+    show readingColumnWidth;
 import 'package:martinpecheur/features/shared/sheet_frame.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
@@ -334,6 +338,14 @@ Future<MapLayoutInput> _mesurer(
     padding: margeDeSurcouche,
     reticleWidth: mapCenterReticleSize,
   );
+  // La largeur où la zone des fiches pose la fiche (`MapSheetArea`) : celle
+  // du panneau, ou celle de la fiche du bas plafonnée à la largeur de lecture
+  // (R18) — `M6` de la relecture de `D5`.
+  final double largeurFiche = switch (largeurs.width) {
+    MapLayoutWidth.panel => largeurs.sheet,
+    MapLayoutWidth.compact ||
+    MapLayoutWidth.wide => math.min(largeurs.sheet, readingColumnWidth),
+  };
   return MapLayoutInput(
     available: mapLayoutAvailableHeight(
       safeHeight: taille.height - marge.vertical,
@@ -357,7 +369,7 @@ Future<MapLayoutInput> _mesurer(
         ? deux(_cleBande, largeurs.band)
         : PieceHeights.none,
     reticleBand: enMode ? _hauteurBandeReticule : 0,
-    sheet: fiche == null ? PieceHeights.none : deux(_cleFiche, largeurs.sheet),
+    sheet: fiche == null ? PieceHeights.none : deux(_cleFiche, largeurFiche),
     // Le plancher de la partie fixe : la cible tactile de la plateforme du
     // test (arbitrage 19), comme la pose la lit.
     blockFixedFloor: minimumTapTarget,
@@ -365,7 +377,7 @@ Future<MapLayoutInput> _mesurer(
     // la lit : au travers de l'enveloppe de mesure, sur le cadre.
     sheetFeatured: fiche == null
         ? 0
-        : sheetFeaturedHeightOf(boite(_cleFiche), largeurs.sheet),
+        : sheetFeaturedHeightOf(boite(_cleFiche), largeurFiche),
     gap: margeDeSurcouche,
   );
 }

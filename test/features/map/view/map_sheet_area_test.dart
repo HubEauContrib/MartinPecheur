@@ -11,16 +11,22 @@
 //   défile ;
 // - les panneaux s'empilent, et le panneau du dessous reçoit la hauteur que
 //   celui du dessus laisse ;
-// - de 776 à 799 px de large (fiche du bas, contenu dans la largeur de lecture
+// - au-delà de 760 px de large (fiche du bas, contenu dans la largeur de lecture
 //   de 760), les intrinsèques sont lues à la largeur où le contenu est posé :
 //   la sous-allocation relevée à la relecture de `D2` est corrigée.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/features/map/view/map_layout_allocation.dart'
+    show MapLayoutInput;
 import 'package:martinpecheur/features/map/view/map_sheet_area.dart';
+import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/screen_layout.dart'
     show readingColumnWidth;
 import 'package:martinpecheur/features/shared/sheet_frame.dart';
+import 'package:martinpecheur/features/shared/warning_link.dart'
+    show WarningLink, WarningWindow;
 
+import '../../../support/ergonomie_mesures.dart';
 import '../../../support/windows_platform.dart';
 
 const Key _premierDuCorps = Key('zone-premier-du-corps');
@@ -250,8 +256,8 @@ void main() {
     );
 
     testWidgetsOnWindows(
-      'de 776 à 799 px, fiche du bas : le contenu est posé dans la largeur de '
-      'lecture, et ses hauteurs sont lues à cette largeur (sous-allocation '
+      'au-delà de 760 px, fiche du bas : le contenu est posé dans la largeur '
+      'de lecture, et ses hauteurs sont lues à cette largeur (sous-allocation '
       'relevée à la relecture de D2)',
       (WidgetTester tester) async {
         // Un texte dont le nombre de lignes change entre 760 et 790 px.
@@ -287,6 +293,87 @@ void main() {
           moreOrLessEquals(395),
           reason: 'centré dans la zone',
         );
+      },
+    );
+
+    // `M6` de la relecture de `D5`, porté par `I1` : l'oracle des mesures
+    // (`mesurerPieces`) lit la fiche du bas comme la zone la pose — à la
+    // largeur de lecture au plus —, pas à la largeur de la zone sûre.
+    testWidgetsOnWindows(
+      'au-delà de 760 px, fiche du bas : l’oracle des mesures lit la fiche à '
+      'la largeur de lecture, comme la zone',
+      (WidgetTester tester) async {
+        final String long = List<String>.filled(400, 'mot').join(' ');
+        final Widget fiche = Text(long);
+        final MapLayoutInput mesure = await mesurerPieces(
+          tester,
+          taille: const Size(790, 740),
+          echelle: 1,
+          lecture: MapScaleKind.ecoulement,
+          enMode: false,
+          fiche: ficheStation,
+          ficheReelle: fiche,
+          avecAvis: false,
+          marge: EdgeInsets.zero,
+        );
+        await _monter(
+          tester,
+          panneaux: <Widget>[fiche],
+          largeur: 790,
+          hauteur: 2000,
+        );
+        expect(
+          mesure.sheet.max,
+          moreOrLessEquals(_zone(tester).getMaxIntrinsicHeight(790)),
+          reason: 'hauteur entière lue par l’oracle et par la zone',
+        );
+        expect(
+          mesure.sheet.min,
+          moreOrLessEquals(_zone(tester).getMinIntrinsicHeight(790)),
+        );
+      },
+    );
+
+    // `M3` de la relecture de `D5`, porté par `I1` : en deçà, la zone peut être
+    // plus basse que l'en-tête du cadre ; elle rogne alors sa peinture, et ce
+    // qui est rogné n'est pas touchable.
+    testWidgetsOnWindows(
+      'en deçà : une zone de 60 px sous un en-tête plus haut — aucune '
+      'exception, la peinture rognée, un toucher posé sur la partie rognée de '
+      '« ⚠ Avertissement » n’ouvre pas sa fenêtre ; sur sa partie visible, si',
+      (WidgetTester tester) async {
+        await _monter(tester, panneaux: <Widget>[_fiche()], hauteur: 60);
+        expect(tester.takeException(), isNull);
+
+        final Rect zone = tester.getRect(find.byKey(mapSheetAreaKey));
+        final Rect enTete = tester.getRect(find.byKey(sheetFrameHeaderKey));
+        final Rect lien = tester.getRect(find.byType(WarningLink));
+        expect(zone.height, moreOrLessEquals(60));
+        expect(enTete.height, greaterThan(60), reason: 'en-tête $enTete');
+        // Le cas suppose le contrôle à cheval sur le bord bas de la zone.
+        expect(lien.top, lessThan(zone.bottom), reason: 'lien $lien');
+        expect(lien.bottom, greaterThan(90), reason: 'lien $lien');
+        expect(
+          _zone(tester),
+          paints..clipRect(rect: Offset.zero & zone.size),
+          reason: 'la peinture est rognée à la zone',
+        );
+
+        // Sous le bord de la zone, sur le contrôle rogné : rien ne s'ouvre.
+        await tester.tapAt(
+          // y = 90 : sur « ⚠ Avertissement », sous le bord de la zone.
+          Offset(lien.center.dx, 90),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(WarningWindow), findsNothing);
+
+        // Contrôle positif : sur sa partie visible, la fenêtre s'ouvre.
+        await tester.tapAt(
+          Offset(lien.center.dx, (lien.top + zone.bottom) / 2),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(WarningWindow), findsOneWidget);
+        expect(tester.takeException(), isNull);
       },
     );
   });
