@@ -5,6 +5,13 @@
 // arbitré. Elle ne connaît aucune taille d'écran : aucun seuil de taille n'y
 // décide d'un repli, seules les hauteurs mesurées le décident.
 //
+// Arbitrages du commanditaire du 2026-10-18, relevés par la porte de
+// faisabilité (`S6`) : à 360 × 640 et 200 %, là où l'ordre de repli ne suffit
+// pas, la partie fixe défile (13) — `overflows`, aucun repli de plus ; le
+// repli 6 s'étend au-delà du téléphone (14) — en mode, fiche ouverte, une
+// bande du bouton qui ne tient pas en largeur à côté de la colonne du bas se
+// retire avec le réticule (`MapLayoutInput.bandFits`).
+//
 // Aucun import, ni Flutter ni `dart:ui` : elle s'éprouve seule, sur des
 // nombres. Le `RenderObject` de la carte (`D1`) lit les intrinsèques de ses
 // enfants, l'appelle, et pose chaque enfant avec la hauteur rendue.
@@ -68,6 +75,7 @@ final class MapLayoutInput {
     required this.available,
     required this.width,
     required this.blockOverBottom,
+    required this.bandFits,
     required this.designation,
     required this.sheetOpen,
     required this.blockFixed,
@@ -91,6 +99,20 @@ final class MapLayoutInput {
   /// colonne. Faux, le bas n'entre pas dans la somme, mais il borne quand même
   /// (règle : [allocateMapLayout]).
   final bool blockOverBottom;
+
+  /// La bande du bouton tient en largeur : faux quand, au-delà du téléphone,
+  /// la largeur laissée à la bande à côté de la colonne du bas est inférieure
+  /// à sa largeur intrinsèque minimale ; toujours vrai en compact, où la bande
+  /// passe au-dessus de la rangée. Hors mode, non lu.
+  ///
+  /// Quand il est faux :
+  /// - en mode, fiche ouverte, la bande et la bande du réticule sont retirées
+  ///   d'emblée, à toute largeur (repli 6 étendu, arbitrage 14 du
+  ///   commanditaire, 2026-10-18) ;
+  /// - en mode sans fiche, la bande ne peut ni se poser ni se retirer :
+  ///   [MapLayoutAllocation.overflows], et la bande garde ses hauteurs dans la
+  ///   répartition.
+  final bool bandFits;
 
   /// Le mode « Restrictions » : bande du bouton et bande du réticule posées.
   /// Hors mode, l'appelant passe [band] et [reticleBand] nuls.
@@ -162,16 +184,23 @@ final class MapLayoutAllocation {
   /// Repli 5 : la bande passe à sa pilule seule.
   final bool hintFolded;
 
-  /// Repli 6 : bande et bande du réticule retirées.
+  /// Repli 6 : bande et bande du réticule retirées — faute de hauteur au
+  /// téléphone, ou faute de largeur, fiche ouverte, à toute largeur
+  /// (arbitrage 14).
   final bool bandWithdrawn;
 
-  /// La hauteur disponible ne suffit pas, en deçà des quatre tailles : soit,
-  /// même après les six replis, la somme la dépasse — la partie fixe reçoit
-  /// ce qui reste et défilera ; soit la colonne du bas, qui ne cède jamais,
-  /// ne tient pas avec l'en-tête de la fiche du bas (wide, bloc étroit) ou
-  /// seule (panneau, ou sans fiche) — le reste est alors réparti comme
-  /// d'habitude. `overflows` ne dit donc pas, à lui seul, que la partie fixe
-  /// est rognée.
+  /// La place ne suffit pas, en HAUTEUR ou en LARGEUR. Trois causes :
+  /// - hauteur : même après les six replis, la somme dépasse la hauteur
+  ///   disponible — la partie fixe reçoit ce qui reste et défilera ;
+  /// - hauteur : la colonne du bas, qui ne cède jamais, ne tient pas avec
+  ///   l'en-tête de la fiche du bas (wide, bloc étroit) ou seule (panneau, ou
+  ///   sans fiche) ;
+  /// - largeur : en mode sans fiche, la bande ne tient pas
+  ///   ([MapLayoutInput.bandFits] faux) et ne peut ni se poser ni se retirer.
+  /// Dans ces deux derniers cas, le reste est réparti comme d'habitude. `overflows` ne dit donc pas, à lui seul, que la partie
+  /// fixe est rognée. Aux quatre tailles, il ne se rencontre qu'à 360 × 640
+  /// et 200 %, où la partie fixe qui défile est acceptée (arbitrage 13 du
+  /// commanditaire, 2026-10-18).
   final bool overflows;
 
   /// Les replis en vigueur dans la répartition rendue, dans l'ordre :
@@ -246,6 +275,13 @@ final class MapLayoutAllocation {
 /// 4. les sous-titres, 5. l'indice, 6. au téléphone, en mode, fiche ouverte,
 ///    la bande et le réticule — tout ou rien, et seulement s'ils libèrent une
 ///    hauteur.
+/// Repli 6 étendu (arbitrage 14 du commanditaire, 2026-10-18) : en mode,
+/// fiche ouverte, une bande qui ne tient pas en largeur
+/// ([MapLayoutInput.bandFits] faux) est retirée d'emblée avec la bande du
+/// réticule, à toute largeur, avant toute répartition : le repli 6 est alors
+/// en vigueur même si la hauteur ne manque pas. En mode sans fiche, une bande
+/// qui ne tient pas donne `overflows` et le reste se répartit comme
+/// d'habitude.
 /// Un repli tout ou rien peut libérer plus qu'il ne manque : ce surplus revient
 /// aux replis par degrés, le plus tardif d'abord (avis, fiche, légende) ; un
 /// repli tout ou rien joué n'est jamais défait. Si les six ne suffisent pas,
@@ -264,6 +300,12 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
         MapLayoutWidth.compact => true,
         MapLayoutWidth.wide || MapLayoutWidth.panel => false,
       };
+  // Repli 6 étendu (arbitrage 14) : en mode, une bande qui ne tient pas en
+  // largeur se retire d'emblée si une fiche est ouverte, à toute largeur ;
+  // sans fiche, elle ne peut ni se poser ni se retirer.
+  final bool bandMisfits = input.designation && !input.bandFits;
+  final bool withdrawnAtOnce = bandMisfits && input.sheetOpen;
+  final bool bandOverflows = bandMisfits && !input.sheetOpen;
   final bool bottomCounted = switch (input.width) {
     MapLayoutWidth.compact => true,
     MapLayoutWidth.wide || MapLayoutWidth.panel => input.blockOverBottom,
@@ -302,8 +344,8 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
     blockFixed: blockFixed.max,
     notices: notices,
     legend: legend,
-    reticleBand: _nonNegative(input.reticleBand),
-    band: band.max,
+    reticleBand: withdrawnAtOnce ? 0 : _nonNegative(input.reticleBand),
+    band: withdrawnAtOnce ? 0 : band.max,
     sheet: sheetCounted ? sheetMax : 0,
   );
 
@@ -330,9 +372,11 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
   final bool subtitlesFolded = play(
     heights.copyWith(blockFixed: blockFixed.min),
   );
-  final bool hintFolded = play(heights.copyWith(band: band.min));
+  final bool hintFolded =
+      !withdrawnAtOnce && play(heights.copyWith(band: band.min));
   final bool bandWithdrawn =
-      withdrawable && play(heights.copyWith(band: 0, reticleBand: 0));
+      withdrawnAtOnce ||
+      (withdrawable && play(heights.copyWith(band: 0, reticleBand: 0)));
 
   final bool stackOverflows = stack.total(heights) > available + _tolerance;
   if (stackOverflows) {
@@ -381,7 +425,7 @@ MapLayoutAllocation allocateMapLayout(MapLayoutInput input) {
     subtitlesFolded: subtitlesFolded,
     hintFolded: hintFolded,
     bandWithdrawn: bandWithdrawn,
-    overflows: stackOverflows || bottomOverflows,
+    overflows: stackOverflows || bottomOverflows || bandOverflows,
     folds: List<int>.unmodifiable(<int>[
       if (heights.legend < legend) 1,
       if (sheetCounted && heights.sheet < sheet.max) 2,

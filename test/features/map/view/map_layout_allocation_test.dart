@@ -7,6 +7,9 @@
 //   arbitré (1. légende · 2. fiche · 3. avis · 4. sous-titres · 5. indice ·
 //   6. au téléphone, en mode, fiche ouverte : bande et réticule), chacun
 //   seulement de ce qu'il faut ;
+// - le repli 6 étendu (arbitrage 14) : en mode, fiche ouverte, une bande qui
+//   ne tient pas en largeur (`bandFits` faux) se retire d'emblée, à toute
+//   largeur ; sans fiche, elle donne `overflows` ;
 // - les écarts se comptent par groupe — bloc (partie fixe, avis, légende),
 //   bande du réticule, zone du bas, fiche — : un `gap` entre deux groupes
 //   consécutifs non nuls, aucun dans le bloc, aucun de part et d'autre de la
@@ -43,10 +46,12 @@ MapLayoutInput _input({
   double reticleBand = 0,
   PieceHeights sheet = PieceHeights.none,
   double gap = 8,
+  bool bandFits = true,
 }) => MapLayoutInput(
   available: available,
   width: width,
   blockOverBottom: blockOverBottom,
+  bandFits: bandFits,
   designation: designation,
   sheetOpen: sheetOpen,
   blockFixed: blockFixed,
@@ -589,6 +594,130 @@ void main() {
       expect(allocation.notices, 8);
       expect(allocation.sheet, 80);
       expect(allocation.legend, 0);
+      expect(allocation.overflows, isFalse);
+    });
+  });
+
+  group('Le repli 6 étendu : la bande qui ne tient pas en largeur (arbitrage 14)', () {
+    test("panel, en mode, fiche ouverte, bande trop large pour sa place : "
+        "bande et réticule retirés d'emblée, repli 6, rien ne déborde", () {
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(
+          available: 600,
+          width: MapLayoutWidth.panel,
+          blockOverBottom: false,
+          designation: true,
+          sheetOpen: true,
+          reticleBand: 64,
+          band: const PieceHeights(min: 48, max: 80),
+          sheet: const PieceHeights(min: 80, max: 300),
+          bandFits: false,
+        ),
+      );
+
+      expect(allocation.folds, <int>[6]);
+      expect(allocation.bandWithdrawn, isTrue);
+      expect(allocation.band, 0);
+      expect(allocation.reticleBand, 0);
+      expect(allocation.blockFixed, 150);
+      expect(allocation.overflows, isFalse);
+    });
+
+    test(
+      "wide, en mode, fiche du bas ouverte : le même retrait, à toute "
+      "largeur — 150 + 8 + 60 + 8 + 300 = 526 tient dans 600 sans autre repli",
+      () {
+        final MapLayoutAllocation allocation = allocateMapLayout(
+          _input(
+            available: 600,
+            width: MapLayoutWidth.wide,
+            designation: true,
+            sheetOpen: true,
+            reticleBand: 64,
+            band: const PieceHeights(min: 48, max: 80),
+            sheet: const PieceHeights(min: 80, max: 300),
+            bandFits: false,
+          ),
+        );
+
+        expect(allocation.folds, <int>[6]);
+        expect(allocation.bandWithdrawn, isTrue);
+        expect(allocation.sheet, 300);
+        expect(allocation.overflows, isFalse);
+      },
+    );
+
+    test("panel, en mode, SANS fiche, bande trop large : elle ne peut ni se "
+        "poser ni se retirer — débordement, pas de repli 6", () {
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(
+          available: 600,
+          width: MapLayoutWidth.panel,
+          blockOverBottom: false,
+          designation: true,
+          reticleBand: 64,
+          band: const PieceHeights(min: 48, max: 80),
+          bandFits: false,
+        ),
+      );
+
+      expect(allocation.overflows, isTrue);
+      expect(allocation.bandWithdrawn, isFalse);
+      expect(allocation.folds, isNot(contains(6)));
+      // Ni posée ni retirée : la bande garde ses hauteurs dans la
+      // répartition (150 + 64 + 80 = 294 tient dans 600).
+      expect(allocation.band, 80);
+      expect(allocation.reticleBand, 64);
+    });
+
+    test("panel, en mode, fiche ouverte, bande trop large ET hauteur qui "
+        "manque : repli 6 d'emblée, puis 1 et 4 ; le repli 5 ne joue pas", () {
+      // Bande et réticule retirés : bloc 150 + 100, écart, bas 60 = 318 pour
+      // 200. Repli 1 : 150 + 8 + 60 = 218 ; repli 4 : 100 + 8 + 60 = 168 ;
+      // les 32 de surplus reviennent à la légende.
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(
+          available: 200,
+          width: MapLayoutWidth.panel,
+          designation: true,
+          sheetOpen: true,
+          legend: 100,
+          reticleBand: 64,
+          band: const PieceHeights(min: 48, max: 80),
+          sheet: const PieceHeights(min: 80, max: 300),
+          bandFits: false,
+        ),
+      );
+
+      expect(allocation.folds, <int>[1, 4, 6]);
+      expect(allocation.bandWithdrawn, isTrue);
+      expect(allocation.hintFolded, isFalse);
+      expect(allocation.subtitlesFolded, isTrue);
+      expect(allocation.band, 0);
+      expect(allocation.reticleBand, 0);
+      expect(allocation.blockFixed, 100);
+      expect(allocation.legend, 32);
+      expect(allocation.overflows, isFalse);
+    });
+
+    test("bande qui tient (bandFits vrai) : même répartition qu'avant — en "
+        "panel, fiche ouverte, aucun repli", () {
+      final MapLayoutAllocation allocation = allocateMapLayout(
+        _input(
+          available: 600,
+          width: MapLayoutWidth.panel,
+          blockOverBottom: false,
+          designation: true,
+          sheetOpen: true,
+          reticleBand: 64,
+          band: const PieceHeights(min: 48, max: 80),
+          sheet: const PieceHeights(min: 80, max: 300),
+        ),
+      );
+
+      expect(allocation.folds, isEmpty);
+      expect(allocation.bandWithdrawn, isFalse);
+      expect(allocation.band, 80);
       expect(allocation.overflows, isFalse);
     });
   });

@@ -1,9 +1,12 @@
-// Le chargeur de Roboto des tests qui mesurent (`S1` d'Ergonomie, décision de
-// la boucle principale du 2026-10-18) : la fonction `_chargerRoboto` de
-// `test/features/map/view/map_overlays_phone_test.dart`, DÉPLACÉE telle
-// quelle, pour qu'aucun nouveau fichier n'en recopie une version privée. Les
-// copies privées encore présentes disparaissent avec leurs fichiers (`D2`).
-// `S6` y ajoute ce qui lui manque.
+// Le chargeur de Roboto de TOUS les tests qui mesurent — le sélecteur (`S1`
+// d'Ergonomie), l'en-tête et la légende du bloc (`S2`), les pièces de la carte
+// et leur répartition (`S6`, `test/support/ergonomie_mesures.dart`), puis la
+// mise en page qui les pose (`B1`, `D1`, `D2` et suivants). Créé par `S1`
+// (décision de la boucle principale du 2026-10-18) : la fonction
+// `_chargerRoboto` de `test/features/map/view/map_overlays_phone_test.dart`,
+// DÉPLACÉE telle quelle, pour qu'aucun nouveau fichier n'en recopie une
+// version privée. Les copies privées encore présentes disparaissent avec
+// leurs fichiers (`D2`).
 //
 // dart:io est autorisé ici (test/support/), jamais sous lib/domain/.
 import 'dart:io';
