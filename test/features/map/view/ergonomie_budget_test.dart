@@ -38,8 +38,10 @@ import 'package:flutter/painting.dart' show EdgeInsets, Size;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/map/view/map_layout_allocation.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/shared/favorite_star.dart';
 
 import '../../../support/android_platform.dart';
+import '../../../support/ergonomie_fiches.dart';
 import '../../../support/ergonomie_mesures.dart';
 import '../../../support/layout_sizes.dart';
 import '../../../support/roboto.dart';
@@ -235,6 +237,20 @@ void main() {
                       lecture: lecture,
                       enMode: enMode,
                       fiche: fiche,
+                      // `D5` : les VRAIES fiches (`F1`, `F3`), à l'en-tête le
+                      // plus haut — l'étoile de la station en échec
+                      // d'écriture, son avis épinglé sous elle.
+                      ficheReelle: fiche == null
+                          ? null
+                          : fiche.etoile
+                          ? ficheStationBlois(
+                              etoile: const FavoriteStar(
+                                filled: false,
+                                enabled: true,
+                                writeFailed: true,
+                              ),
+                            )
+                          : ficheTronconBlavet(),
                       avecAvis: avecAvis,
                       marge: marge,
                     );

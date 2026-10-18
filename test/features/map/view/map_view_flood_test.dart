@@ -53,6 +53,8 @@ import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show sheetFrameBodyKey;
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
@@ -212,7 +214,6 @@ Future<_Harness> _pumpMap(
   WidgetTester tester, {
   Size taille = const Size(800, 700),
   Widget floodSheet = const SizedBox.shrink(),
-  ScrollController? sheetScrollController,
   VoidCallback? onCloseSheets,
 }) async {
   tester.view.physicalSize = taille;
@@ -236,7 +237,6 @@ Future<_Harness> _pumpMap(
         onFloodSectionTap: (FloodSection section, DateTime date) =>
             touchers.add((section: section, date: date)),
         floodSheet: floodSheet,
-        sheetScrollController: sheetScrollController,
         onCloseSheets: onCloseSheets,
       ),
     ),
@@ -627,30 +627,51 @@ void main() {
     },
   );
 
+  // `D5` d'Ergonomie (R15) : remplace « la fiche tronçon injectée est rendue
+  // dans la zone des fiches, avec le défilement de la racine », qui tenait
+  // l'identité du contrôleur de la ZONE. La zone ne défile plus : c'est le
+  // corps du cadre de la fiche qui défile, sous le contrôleur que la racine
+  // passe au panneau (`bodyScrollController`).
   testWidgetsOnWindows(
-    'la fiche tronçon injectée est rendue dans la zone des fiches, avec le '
-    'défilement de la racine',
+    'la fiche tronçon injectée est rendue dans la zone des fiches, qui ne '
+    'défile pas : son corps défile sous le contrôleur de la racine (D5)',
     (WidgetTester tester) async {
-      const Key ficheKey = Key('fiche-troncon');
       final ScrollController controller = ScrollController();
       addTearDown(controller.dispose);
       await _pumpMap(
         tester,
-        floodSheet: const SizedBox(key: ficheKey, width: 200, height: 80),
-        sheetScrollController: controller,
+        floodSheet: FloodSheetPanel(
+          state: FicheTronconOuverte(
+            section: _section('J9', const Jaune(), <GeoPoint>[
+              GeoPoint(latitude: 47, longitude: 1),
+              GeoPoint(latitude: 47.1, longitude: 1.1),
+            ]),
+            informationDate: _date,
+          ),
+          onClose: () {},
+          onOpenBulletin: () {},
+          bodyScrollController: controller,
+        ),
       );
 
-      expect(find.byKey(ficheKey), findsOneWidget);
-      final SingleChildScrollView defilement = tester
-          .widget<SingleChildScrollView>(
-            find
-                .ancestor(
-                  of: find.byKey(ficheKey),
-                  matching: find.byType(SingleChildScrollView),
-                )
-                .first,
-          );
-      expect(identical(defilement.controller, controller), isTrue);
+      expect(find.byType(FloodSheetPanel), findsOneWidget);
+      // Aucun défilement entre la carte et le panneau : la zone ne défile pas.
+      expect(
+        find.ancestor(
+          of: find.byType(FloodSheetPanel),
+          matching: find.byType(Scrollable),
+        ),
+        findsNothing,
+        reason: 'la zone des fiches ne défile plus elle-même',
+      );
+      final SingleChildScrollView corps = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: find.byType(FloodSheetPanel),
+          matching: find.byKey(sheetFrameBodyKey),
+        ),
+      );
+      expect(identical(corps.controller, controller), isTrue);
+      expect(controller.hasClients, isTrue);
     },
   );
 

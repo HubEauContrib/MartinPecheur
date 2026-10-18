@@ -31,15 +31,16 @@
 //   quand le rapport dit le repli 6 (`bandWithdrawn`) : bande et réticule ni
 //   peints, ni touchables, ni focalisables (Tab ne s'arrête pas sur le
 //   bouton, Entrée ne désigne pas) ;
-// - I-e : la fiche ne recoupe ni le bloc ni le bas ; la fiche du bas est posée
-//   au bas de la zone sûre, son fond blanc prolongé jusqu'au bord de l'écran
-//   (spec § 6.5) ; le panneau latéral à droite, sur toute la hauteur ;
+// - I-e : l'en-tête de la fiche entier, dans la fiche et dans la zone sûre
+//   (`D5` : il ne cède jamais, seul le corps défile) ; la fiche ne recoupe ni
+//   le bloc ni le bas ; la fiche du bas est posée au bas de la zone sûre, son
+//   fond blanc prolongé jusqu'au bord de l'écran (spec § 6.5) ; le panneau
+//   latéral à droite, sur toute la hauteur ;
 // - I-f : aucune erreur de rendu ;
-// - I-g : les replis joués (le rapport de la mise en page) sont ceux que
-//   `allocateMapLayout(await mesurerPieces(...))` rend — sur les
-//   configurations SANS fiche seulement jusqu'à `D5` : la zone des fiches
-//   provisoire annonce une hauteur repliée nulle (`NoMinIntrinsicHeight`),
-//   que la mesure (le vrai cadre) ne reproduit pas ;
+// - I-g : les replis joués (le rapport de la mise en page) et la hauteur de la
+//   fiche sont ceux que `allocateMapLayout(await mesurerPieces(...))` rend, à
+//   toutes les configurations — fiche ouverte comprise depuis `D5`, la mesure
+//   montant alors la vraie fiche (`ficheReelle`) ;
 // - I-h : avec un avis, son action atteignable, au besoin en faisant défiler
 //   les avis — sauf en mode, fiche du bas ouverte, là où l'avis s'efface pour
 //   que le réticule ne bouge pas (arbitrages 15 et 16) ;
@@ -76,8 +77,6 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:martinpecheur/domain/floods/flood_section.dart';
-import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/geo/bounds.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
@@ -92,7 +91,6 @@ import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
-import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/map_bottom.dart';
@@ -108,6 +106,8 @@ import 'package:martinpecheur/features/map/view/map_sheet_area.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show sheetFrameBodyKey, sheetFrameHeaderKey;
 import 'package:martinpecheur/features/shared/warning_link.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart';
 
@@ -309,29 +309,8 @@ const Key _ficheStationKey = Key('invariants-fiche-station');
 const Key _ficheTronconKey = Key('invariants-fiche-troncon');
 const Key _temoinKey = Key('invariants-carte-temoin');
 
-/// La fiche tronçon RÉELLE, niveau « Jaune » : la définition citée la plus
-/// longue (cas construit, niveau jamais observé en production — `VC-04`).
-Widget _ficheTroncon() => FloodSheetPanel(
-  key: _ficheTronconKey,
-  state: FicheTronconOuverte(
-    section: FloodSection(
-      code: FloodSectionCode('TRC1'),
-      name: 'Blavet aval',
-      territoryCode: '12',
-      level: const Jaune(),
-      lines: <List<GeoPoint>>[
-        <GeoPoint>[
-          GeoPoint(latitude: 47.8, longitude: -3.2),
-          GeoPoint(latitude: 47.9, longitude: -3.1),
-        ],
-      ],
-    ),
-    informationDate: _dateCrues,
-  ),
-  onClose: () {},
-  onOpenBulletin: () {},
-  utcOffsetOf: (_) => const Duration(hours: 2),
-);
+/// La fiche tronçon RÉELLE (`ficheTronconBlavet`), sous la clé des cas.
+Widget _ficheTroncon() => ficheTronconBlavet(key: _ficheTronconKey);
 
 // --- Le montage ---------------------------------------------------------------
 
@@ -798,16 +777,19 @@ Future<void> _verifierReticuleEtFiche(
   await echecs.verifier('I-e', () async {
     if (c.fiche == _Fiche.aucune) return;
     final Rect fiche = tester.getRect(_fiche(tester));
-    // Jusqu'à `D5`, la zone provisoire annonce une hauteur repliée nulle :
-    // là où la place manque, le repli 2 peut la réduire à rien. Une fiche
-    // sans hauteur ne l'est donc que par le repli 2.
-    if (fiche.height <= _tolerance) {
-      expect(
-        rapport?.allocation.folds,
-        contains(2),
-        reason: 'la fiche ouverte $fiche n’a pas de hauteur hors du repli 2',
-      );
-    }
+    // `D5` : l'en-tête de la fiche — nature, étoile, fermeture,
+    // « ⚠ Avertissement » — ne cède jamais (spec § 5.6, § 6.1) ; seul le
+    // corps défile. Il est donc entier, dans la fiche et dans la zone sûre, à
+    // toutes les configurations : la fiche est visible partout.
+    final Rect enTete = tester.getRect(
+      find.descendant(
+        of: _fiche(tester),
+        matching: find.byKey(sheetFrameHeaderKey),
+      ),
+    );
+    expect(enTete.height, greaterThan(0), reason: 'l’en-tête de la fiche');
+    _dedans(enTete, fiche, 'l’en-tête de la fiche (dans la fiche)');
+    _dedans(enTete, zone, 'l’en-tête de la fiche');
     final Map<String, Rect> autres = <String, Rect>{
       ..._bloc(tester),
       ..._bas(tester),
@@ -1270,10 +1252,12 @@ void main() {
     }
   });
 
+  // `D5` : I-g s'étend aux configurations AVEC fiche — la zone des fiches ne
+  // cède plus que le corps du cadre, et la mesure monte la VRAIE fiche, celle
+  // que l'écran pose (`mesurerPieces(ficheReelle:)`).
   group('I-g — les replis joués sont ceux de la répartition des pièces '
-      'mesurées (sans fiche, jusqu’à D5)', () {
+      'mesurées (toutes les configurations, fiche ouverte comprise)', () {
     for (final _Config c in matrice) {
-      if (c.fiche != _Fiche.aucune) continue;
       _cas(
         c,
         'I-g : les replis joués sont ceux de allocateMapLayout sur les pièces '
@@ -1286,7 +1270,16 @@ void main() {
               echelle: c.echelle,
               lecture: c.lecture,
               enMode: c.enMode,
-              fiche: null,
+              fiche: switch (c.fiche) {
+                _Fiche.aucune => null,
+                _Fiche.station => ficheStation,
+                _Fiche.troncon => ficheTroncon,
+              },
+              ficheReelle: switch (c.fiche) {
+                _Fiche.aucune => null,
+                _Fiche.station => ficheStationBlois(),
+                _Fiche.troncon => _ficheTroncon(),
+              },
               avecAvis: c.avecAvis,
               marge: c.insets,
               avis: _avisDe(c.lecture),
@@ -1303,6 +1296,11 @@ void main() {
             expect(jouee.subtitlesFolded, attendue.subtitlesFolded);
             expect(jouee.hintFolded, attendue.hintFolded);
             expect(jouee.bandWithdrawn, attendue.bandWithdrawn);
+            expect(
+              jouee.sheet,
+              moreOrLessEquals(attendue.sheet),
+              reason: 'hauteur de la fiche',
+            );
           });
           await echecs.verifier('I-f', () async {
             expect(e.erreurs, isEmpty);
@@ -1657,11 +1655,11 @@ void main() {
           marge: false,
         );
         final _Ecran e = await _monter(tester, c);
-        // Le défilement de la zone : le premier sous elle (la fiche tronçon
-        // porte d'autres défilements, plus bas).
+        // Le défilement du corps de la fiche (`D5`) : le premier sous lui (la
+        // fiche tronçon porte d'autres défilements, plus bas).
         final Finder defilement = find
             .descendant(
-              of: find.byKey(mapSheetAreaKey),
+              of: find.byKey(sheetFrameBodyKey),
               matching: find.byType(Scrollable),
             )
             .first;
@@ -1699,13 +1697,14 @@ void main() {
     );
   });
 
-  group('Review Focus 3 — l’échelle du texte change, fiche station ouverte', () {
-    testWidgetsOnAndroid(
-      'Android : 360 × 640, fiche station ouverte, texte '
-      '200 % → 100 % → 200 % : aucune erreur, la fiche reste ouverte et garde '
-      'une hauteur, les sous-titres suivent la répartition et sont entiers à '
-      '100 %, le rapport ne change qu’une fois par changement d’échelle',
-      (WidgetTester tester) async {
+  group(
+    'Review Focus 3 — l’échelle du texte change, fiche station ouverte',
+    () {
+      testWidgetsOnAndroid('Android : 360 × 640, fiche station ouverte, texte '
+          '200 % → 100 % → 200 % : aucune erreur, la fiche reste ouverte, son '
+          'en-tête entier, les sous-titres suivent la répartition — repliés à '
+          '200 %, entiers à 100 % —, le rapport ne change qu’une fois par '
+          'changement d’échelle', (WidgetTester tester) async {
         const _Config c = _Config(
           nomTaille: '360 × 640',
           taille: Size(360, 640),
@@ -1735,8 +1734,7 @@ void main() {
         }
 
         // La fiche reste ouverte ET visible : la zone garde la hauteur que la
-        // répartition lui donne (jusqu'à `D5`, la zone provisoire peut céder
-        // jusqu'à quelques pixels).
+        // répartition lui donne, au moins l'en-tête épinglé (`D5`).
         void ficheVisible(String quand) {
           expect(find.byKey(_ficheStationKey), findsOneWidget, reason: quand);
           expect(
@@ -1744,10 +1742,20 @@ void main() {
             greaterThan(0),
             reason: '$quand : la répartition ne donne plus rien à la fiche',
           );
+          // `D5` : la zone garde au moins l'en-tête épinglé, entier.
+          final Rect zone = tester.getRect(find.byKey(mapSheetAreaKey));
+          final Rect enTete = tester.getRect(find.byKey(sheetFrameHeaderKey));
+          expect(enTete.height, greaterThan(0), reason: quand);
           expect(
-            tester.getRect(find.byKey(mapSheetAreaKey)).height,
-            greaterThan(0),
-            reason: '$quand : la zone des fiches n’a plus de hauteur',
+            zone.height,
+            greaterThanOrEqualTo(enTete.height - _tolerance),
+            reason: '$quand : la zone des fiches n’a plus son en-tête',
+          );
+          expect(
+            enTete.top >= zone.top - _tolerance &&
+                enTete.bottom <= zone.bottom + _tolerance,
+            isTrue,
+            reason: '$quand : l’en-tête $enTete sort de la zone $zone',
           );
         }
 
@@ -1771,10 +1779,20 @@ void main() {
         }
         // Revenue à 200 %, la répartition est celle du départ.
         expect(e.rapport.value!.allocation, a200);
+        // Review Focus 3 (`D5`, que la zone provisoire empêchait de voir) :
+        // fiche station ouverte, les sous-titres sont repliés à 200 % (repli
+        // 4) et entiers à 100 %, selon `allocateMapLayout`.
+        expect(a200.subtitlesFolded, isTrue, reason: 'à 200 %, repliés');
+        expect(a200.folds, contains(4), reason: 'à 200 %, le repli 4 joue');
         expect(publies.first!.allocation.subtitlesFolded, isFalse);
-      },
-    );
-  });
+        expect(
+          publies.first!.allocation.folds,
+          isNot(contains(4)),
+          reason: 'à 100 %, entiers',
+        );
+      });
+    },
+  );
 
   group('K1 de T3 — l’ordre de tabulation au téléphone (spec § 5.7)', () {
     for (final ({String nom, Size taille, TargetPlatform plateforme}) t

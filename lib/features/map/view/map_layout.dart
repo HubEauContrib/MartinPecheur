@@ -104,8 +104,8 @@ final class MapLayoutReport {
   /// surface ; fiche du bas : `bottom`, du haut de la fiche au bas de la
   /// surface. La zone sûre n'y entre jamais (spec § 5.2 : « la carte, elle,
   /// va jusqu'aux bords »). [EdgeInsets.zero] sans fiche ouverte, et pour une
-  /// fiche du bas posée à 0 px : jusqu'à `D5`, la zone des fiches provisoire
-  /// (hauteur repliée nulle) peut y tomber quand la place manque.
+  /// fiche du bas posée à 0 px — en deçà des tailles garanties seulement :
+  /// depuis `D5`, la fiche garde au moins son en-tête épinglé.
   final EdgeInsets covered;
 
   @override
@@ -439,7 +439,7 @@ class RenderMapLayout extends RenderBox
       );
       final double top = safe.bottom - sheet.height;
       place(MapLayoutSlot.sheet, Offset(safe.left, top));
-      // Posée à 0 px (zone provisoire jusqu'à `D5`), elle ne couvre rien.
+      // Posée à 0 px (en deçà des tailles garanties), elle ne couvre rien.
       if (sheet.height > 0) {
         covered = EdgeInsets.only(bottom: size.height - top);
       }

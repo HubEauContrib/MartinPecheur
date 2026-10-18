@@ -26,14 +26,20 @@
 // est mesuré nu, comme le bloc le pose (`MapReadingBlockNotices`) ; l'appelant
 // peut passer celui que la carte pose pour sa lecture (`avis`).
 //
-// Ce que ce fichier compose lui-même, faute de pièce encore livrée, et que
-// `D5` doit reproduire ou remplacer (sinon les mesures d'ici ne décrivent plus
-// l'écran) :
+// Ce que ce fichier compose lui-même quand l'appelant ne fournit pas la vraie
+// fiche ([mesurerPieces] sans `ficheReelle`) :
 // - l'EN-TÊTE d'une fiche à étoile, mesuré au pire : avec l'avis d'échec
 //   d'écriture du favori, épinglé sous lui (spec § 6.1 : il ne cède jamais) ;
 // - les CORPS des fiches, pour leur hauteur entière seulement : une recopie
-//   approchée des fiches actuelles (station, point ONDE, tronçon) — la hauteur
-//   entière ne décide que du repli 2, jamais d'un débordement.
+//   approchée des fiches (station, point ONDE, tronçon) — la hauteur entière
+//   ne décide que du repli 2, jamais d'un débordement.
+// `D5` a constaté l'écart : le corps approché de la station est plus bas que
+// la vraie fiche de `F1` (ses tuiles) ; 21 configurations sur 432 de
+// `ergonomie_budget_test.dart` jouent le repli 2 avec la vraie, pas avec lui.
+// La porte (`ergonomie_budget_test.dart`) et I-g
+// (`map_layout_invariants_test.dart`) mesurent donc les VRAIES fiches, par
+// `ficheReelle` ; les corps approchés ne servent plus qu'aux appelants qui
+// n'en passent pas (`map_layout_test.dart`).
 //
 // dart:io n'est pas employé ici ; la police vient de `chargerRoboto`, que
 // l'appelant charge dans son `setUpAll`.
@@ -121,6 +127,10 @@ Widget _corpsApproche(String nature) => switch (nature) {
 /// (`NoDataInAreaNotice`) ; `D2` (I-g) y passe l'avis que la carte pose pour
 /// la lecture éprouvée, pour que la mesure décrive l'écran.
 ///
+/// [ficheReelle] (`D5`) : la VRAIE fiche à mesurer à la place du cadre
+/// composé ici — le panneau même que l'écran éprouvé pose (I-g, fiche
+/// ouverte). [fiche] reste requise : elle dit qu'une fiche est ouverte.
+///
 /// ⚠️ Elle REMPLACE l'arbre monté (`pumpWidget`) et pose, le temps de la
 /// mesure, une vue de 2 400 × 4 000 : à appeler AVANT de monter l'écran
 /// éprouvé, jamais après. Elle rétablit, en sortant, la taille et la densité
@@ -135,6 +145,7 @@ Future<MapLayoutInput> mesurerPieces(
   required bool avecAvis,
   required EdgeInsets marge,
   Widget? avis,
+  Widget? ficheReelle,
 }) async {
   final Size vueTrouvee = tester.view.physicalSize;
   final double densiteTrouvee = tester.view.devicePixelRatio;
@@ -153,6 +164,7 @@ Future<MapLayoutInput> mesurerPieces(
       avecAvis: avecAvis,
       marge: marge,
       avis: avis,
+      ficheReelle: ficheReelle,
     );
   } finally {
     tester.view.physicalSize = vueTrouvee;
@@ -170,7 +182,12 @@ Future<MapLayoutInput> _mesurer(
   required bool avecAvis,
   required EdgeInsets marge,
   required Widget? avis,
+  required Widget? ficheReelle,
 }) async {
+  assert(
+    ficheReelle == null || fiche != null,
+    'une fiche réelle à mesurer est une fiche ouverte : fiche requise',
+  );
   final bool compact = switch (mapLayoutWidthFor(taille.width)) {
     MapLayoutWidth.compact => true,
     MapLayoutWidth.wide || MapLayoutWidth.panel => false,
@@ -246,23 +263,27 @@ Future<MapLayoutInput> _mesurer(
                 if (fiche != null)
                   SizedBox(
                     key: _cleFiche,
-                    child: SheetFrame(
-                      nature: fiche.nature,
-                      closeButtonKey: const Key('mesure-fermer'),
-                      onClose: rien,
-                      // L'en-tête le plus haut : l'avis d'échec d'écriture
-                      // du favori s'épingle sous lui (spec § 6.1). Étoile vide :
-                      // l'avis d'un ajout en échec, le plus long des deux.
-                      favoriteStar: fiche.etoile
-                          ? const FavoriteStar(
-                              filled: false,
-                              enabled: true,
-                              writeFailed: true,
-                            )
-                          : null,
-                      onToggleFavorite: fiche.etoile ? rien : null,
-                      body: _corpsApproche(fiche.nature),
-                    ),
+                    // La vraie fiche quand l'appelant la fournit (`D5`, I-g) ;
+                    // sinon le cadre composé ici, au pire en-tête.
+                    child:
+                        ficheReelle ??
+                        SheetFrame(
+                          nature: fiche.nature,
+                          closeButtonKey: const Key('mesure-fermer'),
+                          onClose: rien,
+                          // L'en-tête le plus haut : l'avis d'échec d'écriture
+                          // du favori s'épingle sous lui (spec § 6.1). Étoile vide :
+                          // l'avis d'un ajout en échec, le plus long des deux.
+                          favoriteStar: fiche.etoile
+                              ? const FavoriteStar(
+                                  filled: false,
+                                  enabled: true,
+                                  writeFailed: true,
+                                )
+                              : null,
+                          onToggleFavorite: fiche.etoile ? rien : null,
+                          body: _corpsApproche(fiche.nature),
+                        ),
                   ),
               ],
             ),

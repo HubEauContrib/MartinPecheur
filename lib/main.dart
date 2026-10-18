@@ -29,6 +29,8 @@ import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/floods/flood_vigilance_source.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
+import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
+import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/restrictions/alert_zone.dart'
@@ -41,6 +43,7 @@ import 'package:martinpecheur/features/favorites/view_model/favorites_view_model
 import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
 import 'package:martinpecheur/features/flood_sheet/view_model/flood_sheet_view_model.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
@@ -283,9 +286,11 @@ class MartinPecheurApp extends StatefulWidget {
   State<MartinPecheurApp> createState() => _MartinPecheurAppState();
 }
 
-// L'état de la racine porte le contrôleur du défilement de la zone des fiches
-// et l'écoute qui le remet à zéro (`K4` de T3), et, depuis `F4` de T4,
-// l'écoute qui ferme la fiche tronçon en quittant la lecture Crues.
+// L'état de la racine porte le contrôleur du défilement du CORPS des fiches —
+// passé aux trois panneaux, dont le cadre défile son corps sous l'en-tête
+// épinglé (`D5` d'Ergonomie) — et l'écoute qui le remet à zéro (`K4` de T3),
+// et, depuis `F4` de T4, l'écoute qui ferme la fiche tronçon en quittant la
+// lecture Crues.
 //
 // La règle : toute ouverture de fiche, d'où qu'elle vienne, montre la fiche
 // depuis son haut. Sans cela, la position de défilement survit au changement
@@ -465,8 +470,10 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
     }
   }
 
-  /// Sans client, aucune zone des fiches n'est à l'écran (avertissement
-  /// initial non acquitté) : il n'y a rien à ramener.
+  /// Sans client, aucun corps de fiche n'est à l'écran (aucune fiche ouverte,
+  /// ou l'avertissement initial non acquitté) : il n'y a rien à ramener, et
+  /// le cadre de la fiche qui s'ouvre part de son haut. Passer d'une fiche à
+  /// une autre recrée son cadre, qui part lui aussi de son haut.
   void _showSheetFromTop() {
     if (_sheetScrollController.hasClients) {
       _sheetScrollController.jumpTo(0);
@@ -543,6 +550,9 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                     favoriteStar: stationSheetViewModel.favoriteStar,
                     onToggleFavorite: () =>
                         unawaited(stationSheetViewModel.toggleFavorite()),
+                    // `K4` de T3, `D5` d'Ergonomie : le corps du cadre défile
+                    // sous ce contrôleur, remis à zéro à chaque ouverture.
+                    bodyScrollController: _sheetScrollController,
                   ),
             ),
             // Même câblage pour la fiche ONDE (T1-U4) : la carte ne connaît
@@ -563,6 +573,26 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                 favoriteStar: ondeSheetViewModel.favoriteStar,
                 onToggleFavorite: () =>
                     unawaited(ondeSheetViewModel.toggleFavorite()),
+                // `D5` d'Ergonomie, spec § 6.3, `PD8` : le symbole de la
+                // catégorie, FOURNI par cette racine — la fiche ONDE n'importe
+                // pas la tranche carte (`feature-vers-feature`). En grand, dans
+                // la tuile, le symbole du marqueur ; en petit, sur chaque
+                // ligne d'historique, celui de la légende. Une campagne
+                // récente (`CampaignAge.recente`) : la couleur de la catégorie,
+                // jamais le gris d'une campagne ancienne, qu'aucun lieu ne
+                // date ici (`observedAt: null`, comme la légende) ; exclu des
+                // annonces, le texte de la fiche dit déjà la catégorie.
+                categorySymbol:
+                    (FlowCategory category, {required bool compact}) =>
+                        ExcludeSemantics(
+                          child: OndeMarkerShape(
+                            category: category,
+                            age: CampaignAge.recente,
+                            observedAt: null,
+                            compact: compact,
+                          ),
+                        ),
+                bodyScrollController: _sheetScrollController,
               ),
             ),
             // La lecture Crues (T4, `M5`) et la fiche tronçon (`F4`) : le
@@ -584,11 +614,9 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                 onClose: floodSheetViewModel.close,
                 onOpenBulletin: () =>
                     unawaited(floodSheetViewModel.openBulletin()),
+                bodyScrollController: _sheetScrollController,
               ),
             ),
-            // `K4` de T3 : le défilement de la zone des fiches, remis à zéro par
-            // cette racine à chaque ouverture de fiche (voir [initState]).
-            sheetScrollController: _sheetScrollController,
             // `Échap` (`K2`) : ferme la fiche ouverte, qu'elle soit station,
             // ONDE ou tronçon — cette racine est la seule à connaître les
             // ViewModels de fiche (règle `feature-vers-feature`), au même

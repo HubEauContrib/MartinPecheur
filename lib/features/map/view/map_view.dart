@@ -144,8 +144,6 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
-import 'package:martinpecheur/features/shared/sheet_frame.dart'
-    show NoMinIntrinsicHeight;
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
@@ -851,11 +849,11 @@ String _ondeSemanticLabel(OndeObservation observation, CampaignAge age) {
 ///    (R18) ; dès 800 px en **panneau latéral** de 380 px, à droite, sur toute
 ///    la hauteur, un filet à gauche. Leur fond blanc se prolonge sous la marge
 ///    système (spec § 6.5 : « au bas de l'écran ») ; le contenu reste dans la
-///    zone sûre. **Provisoirement** (jusqu'à `D5`), la zone des fiches défile
-///    elle-même, par [sheetScrollController] (`K4` de T3 : la racine de
-///    composition la ramène en haut à chaque ouverture), et annonce une
-///    hauteur repliée nulle ([NoMinIntrinsicHeight]) : c'est elle qui cède au
-///    repli 2.
+///    zone sûre. La zone ne défile pas (`D5`, arbitrage 3) : chaque panneau
+///    — un `SheetFrame` — défile son corps sous son en-tête épinglé, qui ne
+///    cède jamais ; au repli 2, c'est ce corps qui cède. La position du corps
+///    est tenue par la racine de composition, qui la passe aux panneaux
+///    (`bodyScrollController`, `K4` de T3) : cette vue ne la connaît pas.
 ///
 /// Aucune fiche ne se peint jamais sur le bloc ni sur le bas ; la carte, elle,
 /// ne bouge pas quand une fiche s'ouvre ou se ferme (arbitrage 12) : cette
@@ -933,11 +931,6 @@ List<Widget> buildMapOverlays({
   MapErrorSource? errorSource,
   Widget? stationSheet,
   Widget? ondeSheet,
-  // `K4` de T3 : le contrôleur du défilement de la zone des fiches, tenu par
-  // la racine de composition, qui remet la position à zéro à chaque
-  // ouverture de fiche. `null` : le défilement garde son contrôleur interne.
-  // `D5` le passe aux corps des fiches.
-  ScrollController? sheetScrollController,
   // `S10` de T3 : l'ouverture de l'écran « Favoris », injectée par la racine
   // de composition. `null` : le bouton « Favoris » est absent du groupe des
   // boutons d'entrée.
@@ -1126,7 +1119,6 @@ List<Widget> buildMapOverlays({
                             safeInsets.right,
                             safeInsets.bottom,
                           ),
-                    scrollController: sheetScrollController,
                     panels: panels,
                   ),
                 ),
@@ -1169,7 +1161,6 @@ class MapView extends StatefulWidget {
     this.ondeSheet,
     this.onCloseSheets,
     this.onPointDesignated,
-    this.sheetScrollController,
     this.onOpenFavorites,
     this.floodLayer,
     this.onFloodSectionTap,
@@ -1252,13 +1243,6 @@ class MapView extends StatefulWidget {
   /// `null` : les gestes sont sans effet, et ni la puce « Restrictions » ni
   /// le bouton n'existent.
   final void Function(GeoPoint point)? onPointDesignated;
-
-  /// Le contrôleur du défilement de la zone des fiches (`K4` de T3), créé et
-  /// possédé par `main.dart` : la racine de composition est la seule à savoir
-  /// quand une fiche s'ouvre, et y remet la position à zéro. Cette vue le
-  /// passe, elle ne le dispose pas. `null` : aucune remise à zéro, le
-  /// défilement garde son contrôleur interne.
-  final ScrollController? sheetScrollController;
 
   /// Appelé par un tap, Entrée ou Espace sur le bouton « Favoris » du groupe
   /// des boutons d'entrée (`S10` de T3, arbitrage 8 du cadrage) : ouvre
@@ -1749,9 +1733,9 @@ class _MapViewState extends State<MapView> {
   /// La part de la carte que la fiche couvre (`D4` d'Ergonomie, arbitrage
   /// 12), telle que la mise en page la publie ([MapLayoutReport.covered], dans
   /// le repère de `FlutterMap`, sans la zone sûre). [EdgeInsets.zero] avant le
-  /// premier rapport, sans fiche, et pour une fiche posée à 0 px : jusqu'à
-  /// `D5`, la zone des fiches provisoire peut tomber à 0 px quand la place
-  /// manque, et ne cache alors rien. Zéro aussi si la fiche couvrait toute la
+  /// premier rapport, sans fiche, et pour une fiche posée à 0 px (en deçà des
+  /// tailles garanties seulement : depuis `D5`, la fiche garde au moins son
+  /// en-tête), qui ne cache alors rien. Zéro aussi si la fiche couvrait toute la
   /// carte (en deçà des tailles garanties) : `CameraFit` diviserait par une
   /// taille nulle.
   EdgeInsets _hiddenInsets() {
@@ -2196,7 +2180,6 @@ class _MapViewState extends State<MapView> {
                           : widget.viewModel.toggleDesignationMode,
                       stationSheet: widget.stationSheet,
                       ondeSheet: widget.ondeSheet,
-                      sheetScrollController: widget.sheetScrollController,
                       onOpenFavorites: widget.onOpenFavorites,
                       floodNotices: flood == null
                           ? const <MapNotice>[]

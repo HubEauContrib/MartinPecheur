@@ -48,8 +48,6 @@ import 'package:martinpecheur/features/map/view/map_layout.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_reading_block.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
-import 'package:martinpecheur/features/map/view/map_sheet_area.dart'
-    show mapSheetAreaKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
@@ -57,6 +55,8 @@ import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show sheetFrameBodyKey;
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
@@ -2590,12 +2590,13 @@ void main() {
           ouverte.value = true;
           await tester.pumpAndSettle();
           // Garde-fous : la fiche est ouverte, réduit la carte visible, et
-          // elle défile.
+          // son corps défile (`D5` : la zone ne défile plus, le corps du cadre
+          // défile sous l'en-tête épinglé).
           _carteVisibleReduite(tester, taille);
           final ScrollableState defilement = tester.state<ScrollableState>(
             find
                 .descendant(
-                  of: find.byKey(mapSheetAreaKey),
+                  of: find.byKey(sheetFrameBodyKey),
                   matching: find.byType(Scrollable),
                 )
                 .first,
@@ -2603,12 +2604,13 @@ void main() {
           expect(
             defilement.position.maxScrollExtent,
             greaterThan(0),
-            reason: 'la fiche doit être plus haute que sa zone',
+            reason: 'le corps de la fiche doit être plus haut que sa place',
           );
-          // De vrais gestes posés sur la fiche : une molette, puis un glisser.
-          final Offset surLaFiche = tester.getCenter(
-            find.byKey(mapSheetAreaKey),
-          );
+          // De vrais gestes posés sur le corps de la fiche : une molette, puis
+          // un glisser.
+          final Rect corps = tester.getRect(find.byKey(sheetFrameBodyKey));
+          expect(corps.height, greaterThan(0), reason: 'le corps a une place');
+          final Offset surLaFiche = corps.center;
           final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
           await tester.sendEventToBinding(souris.hover(surLaFiche));
           await tester.sendEventToBinding(souris.scroll(const Offset(0, 120)));

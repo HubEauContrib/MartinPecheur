@@ -23,7 +23,10 @@ import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart'
     show
         Checkbox,
+        Element,
+        ExcludeSemantics,
         Navigator,
+        ScrollController,
         ScrollPosition,
         Scrollable,
         ScrollableState,
@@ -44,6 +47,7 @@ import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/geo/viewport_filter.dart'
     show defaultViewportMargin;
 import 'package:martinpecheur/domain/links/external_link_opener.dart';
+import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
@@ -75,18 +79,22 @@ import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
     show mapDesignationChipKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
+import 'package:martinpecheur/features/map/view/onde_marker.dart'
+    show OndeMarkerShape;
 import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart'
     show FloodLayerViewModel, LectureCruesNonDemandee;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
-    show OndeSheetPanel;
+    show OndeSheetPanel, ondeCategoryTileKey;
 import 'package:martinpecheur/features/onde_sheet/view_model/onde_sheet_view_model.dart';
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/restrictions/view_model/restrictions_view_model.dart';
 import 'package:martinpecheur/features/shared/data_sources_view.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart'
     show favoriteRemoveFailedText, favoriteStarButtonKey;
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show sheetFrameBodyKey, sheetFrameHeaderKey;
 import 'package:martinpecheur/features/shared/warning_link.dart'
     show warningLinkKey, warningWindowRegionKey, warningWindowSourcesLinkKey;
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart'
@@ -182,6 +190,63 @@ final class _PendingOndeObservationRepository
     OndeStationCode station, {
     int limit = 5,
   }) => Completer<List<OndeObservation>>().future;
+}
+
+/// Une source ONDE dont l'historique répond sans attente : trois campagnes
+/// du point demandé, la plus récente en tête (`D5` d'Ergonomie, le symbole
+/// fourni à la fiche ONDE).
+final class _HistoryOndeObservationRepository
+    implements OndeObservationRepository {
+  @override
+  Future<OndeSweep> latestWithinBounds(
+    Bounds bounds, {
+    required DateTime since,
+  }) async =>
+      const OndeSweep(observations: <OndeObservation>[], unreadableRows: 0);
+
+  @override
+  Future<List<OndeObservation>> historyFor(
+    OndeStationCode station, {
+    int limit = 5,
+  }) async {
+    final OndePoint point = OndePoint(
+      code: station,
+      label: 'LA RIVIERE AUX LOCHES A CHAON',
+      latitude: 47.610620493,
+      longitude: 2.173858157,
+      waterCourseLabel: 'ruisseau la rivière aux loches',
+      departement: null,
+    );
+    OndeObservation campagne(
+      DateTime date,
+      FlowCategory category,
+      String code,
+      String label,
+    ) => OndeObservation(
+      station: station,
+      point: point,
+      observedAt: date,
+      category: category,
+      rawFlowCode: code,
+      officialLabel: label,
+      campaignCode: '1',
+    );
+    return <OndeObservation>[
+      campagne(DateTime.utc(2026, 9, 25), const Assec(), '3', 'Assec'),
+      campagne(
+        DateTime.utc(2026, 8, 25),
+        const EcoulementNonVisible(),
+        '2',
+        'Ecoulement non visible',
+      ),
+      campagne(
+        DateTime.utc(2026, 7, 25),
+        const Ecoulement(),
+        '1',
+        'Ecoulement visible',
+      ),
+    ];
+  }
 }
 
 /// Double de [AcknowledgementRepository], programmable en lecture — même
@@ -354,6 +419,75 @@ FloodSection _troncon(String code) => FloodSection(
 
 /// La date de la carte de vigilance des cas de `F4`.
 final DateTime _floodDate = DateTime.utc(2026, 10, 14, 13, 55, 31);
+
+/// Le défilement du corps de la fiche ouverte (`D5` d'Ergonomie) : celui du
+/// cadre commun (`SheetFrame`), sous son en-tête épinglé. La zone des fiches
+/// ne défile plus ; une seule fiche est ouverte à la fois. Le premier
+/// défilement sous le corps est le sien (la fiche tronçon en porte d'autres,
+/// plus bas).
+Finder _sheetBodyScrollable() => find
+    .descendant(
+      of: find.byKey(sheetFrameBodyKey),
+      matching: find.byType(Scrollable),
+    )
+    .first;
+
+ScrollPosition _sheetBodyPosition(WidgetTester tester) =>
+    tester.state<ScrollableState>(_sheetBodyScrollable()).position;
+
+/// Fait défiler le corps de la fiche ouverte au bout et rend la position
+/// atteinte ; l'en-tête, lui, reste en place (spec § 9, critère 10).
+Future<double> _scrollSheetBodyToEnd(WidgetTester tester) async {
+  final ScrollPosition position = _sheetBodyPosition(tester);
+  expect(
+    position.maxScrollExtent,
+    greaterThan(0),
+    reason: 'le corps de la fiche doit être plus haut que sa place',
+  );
+  final Rect header = tester.getRect(find.byKey(sheetFrameHeaderKey));
+  position.jumpTo(position.maxScrollExtent);
+  await tester.pump();
+  expect(position.pixels, greaterThan(0), reason: 'défilée au bout');
+  expect(
+    tester.getRect(find.byKey(sheetFrameHeaderKey)),
+    header,
+    reason: 'l’en-tête reste en place quand le corps défile',
+  );
+  return position.pixels;
+}
+
+/// Le corps de la fiche [panel] est montré depuis son haut (position 0), et
+/// son en-tête épinglé — qui porte « ⚠ Avertissement » — est entier dans
+/// l'écran.
+void _expectSheetShownFromTop(
+  WidgetTester tester,
+  Finder panel,
+  double before,
+) {
+  expect(
+    _sheetBodyPosition(tester).pixels,
+    0,
+    reason: 'la position de défilement est conservée (avant : $before)',
+  );
+  final Finder header = find.descendant(
+    of: panel,
+    matching: find.byKey(sheetFrameHeaderKey),
+  );
+  expect(header, findsOneWidget, reason: 'l’en-tête de la fiche ouverte');
+  expect(
+    find.descendant(of: header, matching: find.byKey(warningLinkKey)),
+    findsOneWidget,
+    reason: '« ⚠ Avertissement » dans l’en-tête',
+  );
+  final Rect rect = tester.getRect(header);
+  final double screenHeight =
+      tester.view.physicalSize.height / tester.view.devicePixelRatio;
+  expect(
+    rect.top >= 0 && rect.bottom <= screenHeight,
+    isTrue,
+    reason: 'en-tête à $rect, écran de $screenHeight px de haut',
+  );
+}
 
 /// Un point DANS la bande du bouton de désignation (`DesignationBand`), hors
 /// de la pilule et de l'indice : à côté de la pilule, sinon à côté de
@@ -530,6 +664,97 @@ void main() {
     );
   });
 
+  // `D5` d'Ergonomie (spec § 6.3, `PD8`) : la fiche ONDE ne dessine aucun
+  // symbole et n'importe pas la tranche carte (`feature-vers-feature`) ; la
+  // racine de composition lui FOURNIT celui de la carte — en grand, dans la
+  // tuile, le symbole du marqueur ; en petit, sur chaque ligne d'historique,
+  // celui de la légende.
+  group('le symbole d ecoulement fourni a la fiche ONDE (D5 d Ergonomie) — '
+      'composition reelle', () {
+    testWidgetsOnWindows(
+      'fiche ONDE prete : un symbole de la carte dans la tuile, un symbole de '
+      'legende par ligne d historique, chacun de la categorie de sa campagne',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final WarningsViewModel warnings = WarningsViewModel(
+          acknowledgements: _AcknowledgementRepositoryDouble(
+            storedVersion: warningTextVersion,
+          ),
+          currentWarningVersion: warningTextVersion,
+        );
+        await warnings.load();
+        final OndeSheetViewModel onde = OndeSheetViewModel(
+          onde: _HistoryOndeObservationRepository(),
+          favorites: InMemoryFavoriteRepository(),
+        );
+        await tester.pumpWidget(_app(warnings, null, null, onde));
+
+        await onde.open(
+          OndePoint(
+            code: OndeStationCode('K4520001'),
+            label: 'LA RIVIERE AUX LOCHES A CHAON',
+            latitude: 47.610620493,
+            longitude: 2.173858157,
+            waterCourseLabel: 'ruisseau la rivière aux loches',
+            departement: null,
+          ),
+        );
+        await tester.pump();
+        expect(onde.state, isA<OndeSheetPrete>());
+
+        final Finder dansLaTuile = find.descendant(
+          of: find.byKey(ondeCategoryTileKey),
+          matching: find.byType(OndeMarkerShape),
+        );
+        expect(dansLaTuile, findsOneWidget);
+        final OndeMarkerShape tuile = tester.widget<OndeMarkerShape>(
+          dansLaTuile,
+        );
+        expect(tuile.category, isA<Assec>(), reason: 'la dernière campagne');
+        expect(tuile.compact, isFalse, reason: 'le symbole de la carte');
+        expect(tuile.observedAt, isNull, reason: 'un symbole, pas un lieu');
+
+        final List<OndeMarkerShape> fiche = tester
+            .widgetList<OndeMarkerShape>(
+              find.descendant(
+                of: find.byType(OndeSheetPanel),
+                matching: find.byType(OndeMarkerShape),
+              ),
+            )
+            .toList();
+        final List<OndeMarkerShape> historique = <OndeMarkerShape>[
+          for (final OndeMarkerShape s in fiche)
+            if (!identical(s, tuile)) s,
+        ];
+        expect(historique, hasLength(3), reason: 'une par ligne d historique');
+        expect(
+          historique.every((OndeMarkerShape s) => s.compact),
+          isTrue,
+          reason: 'le symbole de légende, en petit',
+        );
+        expect(
+          historique.map((OndeMarkerShape s) => s.category.runtimeType),
+          <Type>[Assec, EcoulementNonVisible, Ecoulement],
+        );
+        // Le symbole est exclu des annonces : le texte dit déjà la catégorie.
+        for (final Element symbole
+            in find
+                .descendant(
+                  of: find.byType(OndeSheetPanel),
+                  matching: find.byType(OndeMarkerShape),
+                )
+                .evaluate()) {
+          expect(
+            symbole.findAncestorWidgetOfExactType<ExcludeSemantics>(),
+            isNotNull,
+          );
+        }
+      },
+    );
+  });
+
   // `K4` de T3 : toute ouverture de fiche montre la fiche depuis son haut. La
   // zone des fiches défile (2026-10-13) et sa position survivait au changement
   // de fiche quand la donnée arrive sans trame entre « en cours » et
@@ -565,17 +790,14 @@ void main() {
       departement: null,
     );
 
-    /// Monte la racine à 800 × 640, police à 200 %, avec les VRAIS ViewModels
-    /// de fiche et des dépôts qui répondent sans attente. `D2` d’Ergonomie :
-    /// c’était un téléphone, 360 × 640 ; en police de test (un carré d’un em
-    /// par glyphe), la partie fixe du bloc de lecture y prend toute la
-    /// hauteur, et la zone des fiches provisoire (jusqu’à `D5`) n’y reçoit
-    /// plus rien. À 800 px, la fiche s’ouvre en panneau latéral, sur toute la
-    /// hauteur, plus haute que lui : ce que ces cas éprouvent — la position
-    /// remise à zéro à chaque ouverture (`K4` de T3) — ne dépend pas de la
-    /// place de la fiche.
+    /// Monte la racine sur un téléphone, 360 × 640, police à 200 %, avec les
+    /// VRAIS ViewModels de fiche et des dépôts qui répondent sans attente.
+    /// `D2` d’Ergonomie l’avait passée à 800 × 640 : la zone des fiches
+    /// provisoire n’y recevait plus rien, en police de test (un carré d’un em
+    /// par glyphe). `D5` la ramène au téléphone : la fiche y garde au moins
+    /// son en-tête épinglé, et c’est son CORPS qui défile.
     Future<_SheetsRoot> pumpPhone(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(800, 640);
+      tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       tester.platformDispatcher.textScaleFactorTestValue = 2;
@@ -595,14 +817,9 @@ void main() {
       return (station: station, onde: onde, favorites: favorites);
     }
 
-    /// Le défilement de la zone des fiches : les deux panneaux y sont, l'un
-    /// des deux fermé.
-    Finder sheetScrollable() => find
-        .ancestor(
-          of: find.byType(StationSheetPanel),
-          matching: find.byType(Scrollable),
-        )
-        .first;
+    /// Le défilement du corps de la fiche ouverte (`D5` d'Ergonomie) : celui
+    /// du cadre commun, sous l'en-tête épinglé — une seule fiche est ouverte.
+    Finder sheetScrollable() => _sheetBodyScrollable();
 
     ScrollPosition sheetPosition(WidgetTester tester) =>
         tester.state<ScrollableState>(sheetScrollable()).position;
@@ -618,46 +835,21 @@ void main() {
       await tester.idle();
     }
 
-    /// Fait défiler la fiche ouverte au bout, et rend la position atteinte.
-    Future<double> scrollToEnd(WidgetTester tester) async {
-      final ScrollPosition position = sheetPosition(tester);
-      expect(
-        position.maxScrollExtent,
-        greaterThan(0),
-        reason: 'la fiche doit être plus haute que la carte',
-      );
-      position.jumpTo(position.maxScrollExtent);
-      await tester.pump();
-      expect(position.pixels, greaterThan(0), reason: 'défilée au bout');
-      return position.pixels;
-    }
+    /// Fait défiler le corps de la fiche ouverte au bout, vérifie que
+    /// l'en-tête n'a pas bougé, et rend la position atteinte.
+    Future<double> scrollToEnd(WidgetTester tester) =>
+        _scrollSheetBodyToEnd(tester);
 
-    /// La position vaut 0 et le haut du contrôle « ⚠ Avertissement » de la
-    /// fiche [panel] est dans la fenêtre de défilement.
-    void expectShownFromTop(WidgetTester tester, Finder panel, double before) {
-      expect(
-        sheetPosition(tester).pixels,
-        0,
-        reason: 'la position de défilement est conservée (avant : $before)',
-      );
-      final Rect window = tester.getRect(sheetScrollable());
-      final double top = tester
-          .getRect(
-            find.descendant(of: panel, matching: find.byKey(warningLinkKey)),
-          )
-          .top;
-      expect(
-        top >= window.top && top < window.bottom,
-        isTrue,
-        reason: 'haut de « ⚠ Avertissement » à $top, fenêtre $window',
-      );
-    }
+    /// Le corps de la fiche [panel] est montré depuis son haut (position 0),
+    /// sous son en-tête épinglé, entier dans l'écran.
+    void expectShownFromTop(WidgetTester tester, Finder panel, double before) =>
+        _expectSheetShownFromTop(tester, panel, before);
 
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : station A defilee au bout, puis station '
+      'Android : 360 x 640, 200 % : station A defilee au bout, puis station '
       'B ouverte sans trame entre « en cours » et « prete » — a la premiere '
-      'trame ou B est prete, la position vaut 0 et « Avertissement » est '
-      'dans la fenetre',
+      'trame ou B est prete, la position du corps vaut 0 et l en-tete, qui '
+      'porte « Avertissement », est a l ecran',
       (WidgetTester tester) async {
         final _SheetsRoot root = await pumpPhone(tester);
 
@@ -682,7 +874,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : fiche station defilee au bout, puis un '
+      'Android : 360 x 640, 200 % : fiche station defilee au bout, puis un '
       'point ONDE ouvert sans trame — la fiche ONDE est montree depuis son '
       'haut',
       (WidgetTester tester) async {
@@ -708,7 +900,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : fiche ONDE defilee au bout, puis une '
+      'Android : 360 x 640, 200 % : fiche ONDE defilee au bout, puis une '
       'station ouverte sans trame — la fiche station est montree depuis son '
       'haut',
       (WidgetTester tester) async {
@@ -736,7 +928,7 @@ void main() {
     // Vert avant comme après `K4` : seule une OUVERTURE ramène la fiche en
     // haut.
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : une bascule de favori sur une fiche '
+      'Android : 360 x 640, 200 % : une bascule de favori sur une fiche '
       'defilee ne remet pas la position a 0',
       (WidgetTester tester) async {
         final _SheetsRoot root = await pumpPhone(tester);
@@ -941,7 +1133,7 @@ void main() {
     // La racine s'abonne à des ViewModels reçus par son constructeur : s'ils
     // changent, ses écoutes les suivent (`didUpdateWidget`).
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : racine remontee avec d autres ViewModels '
+      'Android : 360 x 640, 200 % : racine remontee avec d autres ViewModels '
       'de fiche — une ouverture sur les nouveaux ramene la fiche en haut',
       (WidgetTester tester) async {
         await pumpPhone(tester);
@@ -2358,13 +2550,13 @@ void main() {
     // chemin des favoris, par quelque moyen que ce soit ; l'écoute de `K4` a
     // ses propres verrous, dans son groupe.
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : station A defilee au bout, puis '
+      'Android : 360 x 640, 200 % : station A defilee au bout, puis '
       '« Favoris », puis le favori d une AUTRE station — a la premiere trame '
       'ou sa fiche est prete, la position vaut 0',
       (WidgetTester tester) async {
-        // 800 × 640 et non plus 360 × 640 : voir `pumpPhone` du groupe `K4`
-        // (`D2` d'Ergonomie).
-        tester.view.physicalSize = const Size(800, 640);
+        // Au téléphone, comme `pumpPhone` du groupe `K4` : `D5` d'Ergonomie
+        // y ramène le cas, que `D2` avait passé à 800 × 640.
+        tester.view.physicalSize = const Size(360, 640);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         tester.platformDispatcher.textScaleFactorTestValue = 2;
@@ -2399,26 +2591,12 @@ void main() {
             FavoritesViewModel(favorites: favorites),
           ),
         );
-        Finder sheetScrollable() => find
-            .ancestor(
-              of: find.byType(StationSheetPanel),
-              matching: find.byType(Scrollable),
-            )
-            .first;
-        ScrollPosition sheetPosition() =>
-            tester.state<ScrollableState>(sheetScrollable()).position;
+        // Le corps de la fiche ouverte (`D5` d'Ergonomie).
+        ScrollPosition sheetPosition() => _sheetBodyPosition(tester);
 
         mapView(tester).onStationTap!(StationCode('K447001001'));
         await tester.pumpAndSettle();
-        expect(
-          sheetPosition().maxScrollExtent,
-          greaterThan(0),
-          reason: 'la fiche doit être plus haute que la carte',
-        );
-        sheetPosition().jumpTo(sheetPosition().maxScrollExtent);
-        await tester.pump();
-        final double before = sheetPosition().pixels;
-        expect(before, greaterThan(0), reason: 'défilée au bout');
+        final double before = await _scrollSheetBodyToEnd(tester);
 
         mapView(tester).onOpenFavorites!();
         await tester.pumpAndSettle();
@@ -2441,20 +2619,10 @@ void main() {
 
         await tester.pumpAndSettle();
         expect(find.byType(FavoritesScreen), findsNothing);
-        expect(sheetPosition().pixels, 0);
-        final Rect window = tester.getRect(sheetScrollable());
-        final double top = tester
-            .getRect(
-              find.descendant(
-                of: find.byType(StationSheetPanel),
-                matching: find.byKey(warningLinkKey),
-              ),
-            )
-            .top;
-        expect(
-          top >= window.top && top < window.bottom,
-          isTrue,
-          reason: 'haut de « ⚠ Avertissement » à $top, fenêtre $window',
+        _expectSheetShownFromTop(
+          tester,
+          find.byType(StationSheetPanel),
+          before,
         );
       },
     );
@@ -3070,16 +3238,26 @@ void main() {
       return viewModel;
     }
 
-    /// Monte la racine à 800 × 640 (panneau latéral : voir `pumpPhone` du
-    /// groupe `K4`, `D2` d’Ergonomie), avec les VRAIS ViewModels de fiche.
+    /// Monte la racine sur un téléphone, 360 × 640 et 200 % par défaut
+    /// (ramenée là par `D5` d’Ergonomie : voir `pumpPhone` du groupe `K4`),
+    /// avec les VRAIS ViewModels de fiche.
+    ///
+    /// Les deux cas du BOUTON DU BULLETIN, en bas du corps, demandent un corps
+    /// qui ait une fenêtre : à 360 × 640, en police de test (un carré d’un em
+    /// par glyphe), la fiche n’y garde que son en-tête épinglé, à 200 % comme
+    /// à 100 % — le corps cède au repli 2 —, et en Roboto à 200 % aussi
+    /// (`ergonomie_replis_releves.dart`). Ils se montent donc sur l’autre
+    /// téléphone garanti, 390 × 844, à 100 % ([size], [textScale]).
     Future<_SheetsRoot> pumpPhone(
       WidgetTester tester,
-      FloodSheetViewModel floodSheet,
-    ) async {
-      tester.view.physicalSize = const Size(800, 640);
+      FloodSheetViewModel floodSheet, {
+      double textScale = 2,
+      Size size = const Size(360, 640),
+    }) async {
+      tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      tester.platformDispatcher.textScaleFactorTestValue = textScale;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
       final InMemoryFavoriteRepository favorites = InMemoryFavoriteRepository();
@@ -3110,76 +3288,63 @@ void main() {
     MapView mapView(WidgetTester tester) =>
         tester.widget<MapView>(find.byType(MapView));
 
-    /// Le défilement de la zone des fiches, trouvé par la fiche STATION.
-    Finder sheetScrollable() => find
-        .ancestor(
-          of: find.byType(StationSheetPanel),
-          matching: find.byType(Scrollable),
-        )
-        .first;
+    /// Le défilement du corps de la fiche ouverte (`D5` d'Ergonomie).
+    Finder sheetScrollable() => _sheetBodyScrollable();
 
     ScrollPosition sheetPosition(WidgetTester tester) =>
-        tester.state<ScrollableState>(sheetScrollable()).position;
+        _sheetBodyPosition(tester);
 
-    Future<double> scrollToEnd(WidgetTester tester) async {
-      final ScrollPosition position = sheetPosition(tester);
-      expect(
-        position.maxScrollExtent,
-        greaterThan(0),
-        reason: 'la fiche doit être plus haute que la carte',
-      );
-      position.jumpTo(position.maxScrollExtent);
-      await tester.pump();
-      expect(position.pixels, greaterThan(0), reason: 'défilée au bout');
-      return position.pixels;
-    }
+    Future<double> scrollToEnd(WidgetTester tester) =>
+        _scrollSheetBodyToEnd(tester);
 
-    void expectFloodSheetFromTop(WidgetTester tester, double before) {
-      expect(
-        sheetPosition(tester).pixels,
-        0,
-        reason: 'la position de défilement est conservée (avant : $before)',
-      );
-      final Rect window = tester.getRect(sheetScrollable());
-      final double top = tester
-          .getRect(
-            find.descendant(
-              of: find.byType(FloodSheetPanel),
-              matching: find.byKey(warningLinkKey),
-            ),
-          )
-          .top;
-      expect(
-        top >= window.top && top < window.bottom,
-        isTrue,
-        reason: 'haut de « ⚠ Avertissement » à $top, fenêtre $window',
-      );
-    }
+    void expectFloodSheetFromTop(WidgetTester tester, double before) =>
+        _expectSheetShownFromTop(tester, find.byType(FloodSheetPanel), before);
 
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : le panneau de la fiche troncon est dans '
-      'la zone des fiches, qui defile jusqu a son bouton du bulletin',
+      'Android : 390 x 844, 100 % : le panneau de la fiche troncon est dans '
+      'la zone des fiches ; son corps defile, sous le MEME controleur que la '
+      'fiche station, jusqu a son bouton du bulletin',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
           links: _NeverOpensLinks(),
         );
-        await pumpPhone(tester, floodSheet);
+        await pumpPhone(
+          tester,
+          floodSheet,
+          textScale: 1,
+          size: const Size(390, 844),
+        );
+
+        // `D5` d'Ergonomie : la zone ne défile plus, chaque fiche défile son
+        // corps — sous le MÊME contrôleur, celui de la racine (`K4`).
+        ScrollController? bodyController() => tester
+            .widget<SingleChildScrollView>(find.byKey(sheetFrameBodyKey))
+            .controller;
+        mapView(tester).onStationTap!(StationCode('K447001001'));
+        await tester.idle();
+        await tester.pump();
+        final ScrollController? stationController = bodyController();
+        expect(stationController, isNotNull);
 
         mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
         await tester.pump();
 
         expect(floodSheet.state, isA<FicheTronconOuverte>());
-        // Le MÊME défilement que celui des deux autres fiches.
         expect(
-          tester.state<ScrollableState>(
-            find
-                .ancestor(
-                  of: find.byType(FloodSheetPanel),
-                  matching: find.byType(Scrollable),
-                )
-                .first,
+          find.descendant(
+            of: find.byType(FloodSheetPanel),
+            matching: find.byKey(sheetFrameBodyKey),
           ),
-          same(tester.state<ScrollableState>(sheetScrollable())),
+          findsOneWidget,
+        );
+        expect(bodyController(), same(stationController));
+        expect(
+          find.ancestor(
+            of: find.byType(FloodSheetPanel),
+            matching: find.byType(Scrollable),
+          ),
+          findsNothing,
+          reason: 'aucun défilement de zone autour du panneau',
         );
         await scrollToEnd(tester);
         // Au bout du défilement, le bas de la fiche est dans la fenêtre.
@@ -3203,7 +3368,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : troncon A defile au bout, puis troncon '
+      'Android : 360 x 640, 200 % : troncon A defile au bout, puis troncon '
       'B — la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
@@ -3226,7 +3391,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : le MEME troncon rouvert apres defilement '
+      'Android : 360 x 640, 200 % : le MEME troncon rouvert apres defilement '
       '— la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
@@ -3245,7 +3410,7 @@ void main() {
     );
 
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : fiche station defilee au bout, puis un '
+      'Android : 360 x 640, 200 % : fiche station defilee au bout, puis un '
       'troncon — la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
@@ -3271,16 +3436,27 @@ void main() {
     // lui-même dans le champ après la trame : la position est donc suivie à
     // chaque changement, pour qu'aucun passage par 0 n'échappe.
     testWidgetsOnAndroid(
-      'Android : 800 x 640, 200 % : l echec d ouverture du bulletin, en bas '
+      'Android : 390 x 844, 100 % : l echec d ouverture du bulletin, en bas '
       'de la fiche defilee, ne la ramene jamais en haut',
       (WidgetTester tester) async {
         final FloodSheetViewModel floodSheet = FloodSheetViewModel(
           links: _NeverOpensLinks(),
         );
-        await pumpPhone(tester, floodSheet);
+        await pumpPhone(
+          tester,
+          floodSheet,
+          textScale: 1,
+          size: const Size(390, 844),
+        );
         mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
         await tester.pump();
         await scrollToEnd(tester);
+        // Le bouton, en bas du corps, amené en entier dans la fenêtre du corps
+        // (au téléphone, elle est plus basse que le bouton et l'adresse qui le
+        // suit) : la position reste loin du haut.
+        await tester.ensureVisible(find.byKey(floodBulletinButtonKey));
+        await tester.pumpAndSettle();
+        expect(sheetPosition(tester).pixels, greaterThan(0));
 
         final ScrollPosition position = sheetPosition(tester);
         final List<double> seen = <double>[];

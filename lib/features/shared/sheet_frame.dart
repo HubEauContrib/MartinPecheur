@@ -26,11 +26,11 @@
 //
 // Sous une hauteur BORNÉE (la fiche du bas, le panneau latéral), le corps est
 // un `Flexible` : il prend ce que l'en-tête laisse et défile. Sous une hauteur
-// NON bornée (la zone des fiches d'avant `D5`, qui défile elle-même), le même
-// `Flexible`, dans une `Column` de taille minimale, se pose à la hauteur du
-// corps : `RenderFlex` ne partage l'espace libre que si l'axe principal est
-// borné, sinon il donne à l'enfant souple des contraintes non bornées — aucune
-// branche ici, et un test de ce fichier le verrouille.
+// NON bornée (un parent qui défile, comme la zone des fiches d'avant `D5`),
+// le même `Flexible`, dans une `Column` de taille minimale, se pose à la
+// hauteur du corps : `RenderFlex` ne partage l'espace libre que si l'axe
+// principal est borné, sinon il donne à l'enfant souple des contraintes non
+// bornées — aucune branche ici, et un test de ce fichier le verrouille.
 //
 // Aucune tranche importée (`shared-sans-tranche`) : le cadre reçoit tout par
 // paramètre, jusqu'à la clé du bouton de fermeture, que chaque fiche garde

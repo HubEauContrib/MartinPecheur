@@ -48,3 +48,16 @@ Fonctionnalité: Le contenu de la fiche station hydrométrique
     Alors la carte ne se déplace pas et ses lieux ne se rechargent pas
     Et une fois une fiche ouverte, recentrer pose le centre de démarrage au centre de la partie de la carte que la fiche ne couvre pas
     Et hors mode « Restrictions », « + » et « − » zooment autour de ce centre ; cadrer une pastille pose ses lieux dans cette partie (BR-008, ADR-015)
+
+  # ── Ergonomie — l'en-tête de la fiche s'épingle, le corps défile (cadrage du 2026-10-17, arbitrage 3, critère 10 ; D5)
+  # La règle vient de l'arbitrage 3 de la spec d'ergonomie (docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md, § 6.1) : aucun BR ne la porte ; BR-012 est cité pour « ⚠ Avertissement », que l'en-tête garde à l'écran.
+  # Vérifié par test/main_test.dart, groupe « une fiche s ouvre par le haut (K4 de T3) — composition reelle »
+  # Vérifié par test/main_test.dart, groupe « la fiche troncon dans la zone des fiches (F4 de T4) — composition » (début du nom)
+  # Vérifié par test/features/map/view/map_sheet_area_test.dart, groupe « zone des fiches (D5 d’Ergonomie) — en-tête épinglé, corps défilant »
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « I-c, I-e, I-f — réticule et fiche »
+
+  Scénario: L'en-tête d'une fiche reste en place quand elle défile ; une fiche s'ouvre toujours par le haut
+    Étant donné une fiche ouverte plus haute que la place que la carte lui laisse
+    Quand l'usager fait défiler la fiche
+    Alors seul son corps défile : son en-tête — sa nature, le code pour une station, l'étoile quand la fiche en porte une, la fermeture et « ⚠ Avertissement » — reste en place, entier à l'écran (BR-012)
+    Et quand une autre fiche s'ouvre, ou la même à nouveau, son corps se montre depuis son haut
