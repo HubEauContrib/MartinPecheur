@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'package:martinpecheur/data/floods/cached_flood_vigilance_source.dart';
 import 'package:martinpecheur/data/floods/vigicrues_endpoint.dart';
@@ -324,6 +325,8 @@ class MartinPecheurApp extends StatefulWidget {
 // gardée, et comparée par `switch` exhaustif, jamais par `==` : une échelle
 // ajoutée sans branche ne compile pas (`BR-011`).
 class _MartinPecheurAppState extends State<MartinPecheurApp> {
+  // Ce contrôleur peut porter deux positions le temps d'une trame (l'ancien
+  // cadre et le nouveau) : n'y lire jamais `.position` ni `.offset`.
   final ScrollController _sheetScrollController = ScrollController();
 
   /// Le dernier état vu de chaque ViewModel de fiche, comparé par identité.
@@ -472,8 +475,9 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
 
   /// Sans client, aucun corps de fiche n'est à l'écran (aucune fiche ouverte,
   /// ou l'avertissement initial non acquitté) : il n'y a rien à ramener, et
-  /// le cadre de la fiche qui s'ouvre part de son haut. Passer d'une fiche à
-  /// une autre recrée son cadre, qui part lui aussi de son haut.
+  /// le cadre de la fiche qui s'ouvre part de son haut. Passer à une fiche
+  /// d'une autre nature recrée son cadre, qui part lui aussi de son haut ; deux
+  /// fiches de même nature gardent le leur, d'où ce `jumpTo(0)`.
   void _showSheetFromTop() {
     if (_sheetScrollController.hasClients) {
       _sheetScrollController.jumpTo(0);
@@ -497,6 +501,10 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
         widget.fluidityStationPoints;
     return MaterialApp(
       title: 'MartinPêcheur',
+      // Textes intégrés de Material en français (« Retour » du `BackButton`).
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const <Locale>[Locale('fr')],
+      locale: const Locale('fr'),
       // `ListenableBuilder` sur `warningsViewModel` : tant que
       // `requiresAcknowledgement` est vrai, `home` vaut [InitialWarningView]
       // et [MapView] — donc `FlutterMap`, donc tout le reste de

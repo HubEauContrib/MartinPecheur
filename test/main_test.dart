@@ -56,7 +56,7 @@ import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/restrictions/restriction_source.dart';
 import 'package:martinpecheur/domain/restrictions/zones_at_point.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart'
-    show restrictionsPublicSiteUrl;
+    show floodPublicSiteUrl, restrictionsPublicSiteUrl;
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
@@ -81,6 +81,8 @@ import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart'
     show OndeMarkerShape;
+import 'package:martinpecheur/features/map/view/station_marker.dart'
+    show compactMarkerSize, stationMarkerSize;
 import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart'
     show FloodLayerViewModel, LectureCruesNonDemandee;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -323,6 +325,15 @@ final class _CountingFloodSource implements FloodVigilanceSource {
     calls++;
     return Completer<FloodVigilanceMap>().future;
   }
+}
+
+/// Le retour de la route poussée, comme `WidgetTester.pageBack` — qui cherche
+/// l'info-bulle anglaise « Back » — mais sur l'info-bulle française de la
+/// racine (`L1` d'Ergonomie).
+Future<void> _retour(WidgetTester tester) async {
+  final Finder retour = find.byTooltip('Retour');
+  expect(retour, findsOneWidget, reason: 'un seul retour à l\'écran');
+  await tester.tap(retour);
 }
 
 MartinPecheurApp _app(
@@ -715,6 +726,11 @@ void main() {
         expect(tuile.category, isA<Assec>(), reason: 'la dernière campagne');
         expect(tuile.compact, isFalse, reason: 'le symbole de la carte');
         expect(tuile.observedAt, isNull, reason: 'un symbole, pas un lieu');
+        expect(
+          tester.getSize(dansLaTuile),
+          const Size.square(stationMarkerSize),
+          reason: 'la taille rendue du symbole de la carte',
+        );
 
         final List<OndeMarkerShape> fiche = tester
             .widgetList<OndeMarkerShape>(
@@ -734,6 +750,13 @@ void main() {
           isTrue,
           reason: 'le symbole de légende, en petit',
         );
+        for (final OndeMarkerShape s in historique) {
+          expect(
+            tester.getSize(find.byWidget(s)),
+            const Size.square(compactMarkerSize),
+            reason: 'la taille rendue du symbole de légende',
+          );
+        }
         expect(
           historique.map((OndeMarkerShape s) => s.category.runtimeType),
           <Type>[Assec, EcoulementNonVisible, Ecoulement],
@@ -1368,7 +1391,7 @@ void main() {
 
           await tester.tap(find.byKey(initialWarningSourcesLinkKey));
           await tester.pumpAndSettle();
-          await tester.pageBack();
+          await _retour(tester);
           await tester.pumpAndSettle();
 
           expect(find.byType(DataSourcesView), findsNothing);
@@ -1405,7 +1428,7 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.byType(DataSourcesView), findsOneWidget);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
         expect(find.byType(DataSourcesView), findsNothing);
         expect(find.byKey(warningWindowRegionKey), findsOneWidget);
@@ -1420,7 +1443,7 @@ void main() {
 
         await tester.tap(find.byKey(initialWarningSourcesLinkKey));
         await tester.pumpAndSettle();
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(initialWarningCheckboxKey));
         await tester.pump();
@@ -1547,6 +1570,19 @@ void main() {
     });
 
     testWidgetsOnWindows(
+      'L1 : le bouton de retour de l ecran des restrictions s annonce '
+      '« Retour »',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app(await acknowledged(), _restrictions()));
+        await designate(tester);
+
+        expect(find.byType(RestrictionsScreen), findsOneWidget);
+        expect(find.byTooltip('Retour'), findsOneWidget);
+        expect(find.byTooltip('Back'), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
       'bouton de retour : route retiree, ViewModel ferme, carte '
       'de nouveau visible',
       (WidgetTester tester) async {
@@ -1554,7 +1590,7 @@ void main() {
         await tester.pumpWidget(_app(await acknowledged(), restrictions));
         await designate(tester);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
 
         expect(find.byType(RestrictionsScreen), findsNothing);
@@ -1579,7 +1615,7 @@ void main() {
         expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
         expect(find.byKey(restrictionsPointBannerKey), findsOneWidget);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pump(const Duration(milliseconds: 50));
 
         // Le verrou contre une reponse tardive reste pose des le retrait...
@@ -1611,7 +1647,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byKey(restrictionsZoneCardKey(0)), findsOneWidget);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pump(const Duration(milliseconds: 50));
         expect(restrictions.state, isA<RestrictionsFermees>());
         // Le bouton de la carte, dessous, recoit l'appui (le mode est reste
@@ -1674,7 +1710,7 @@ void main() {
         );
         expect(notice, findsOneWidget);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pump(const Duration(milliseconds: 50));
 
         expect(restrictions.state, isA<RestrictionsFermees>());
@@ -1814,7 +1850,7 @@ void main() {
         await tester.pumpWidget(_app(await acknowledged(), restrictions));
         await designate(tester);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
         source.completers.single.complete(
           ZonesAtPoint(
@@ -1853,7 +1889,7 @@ void main() {
         final RestrictionsState state = restrictions.state;
         expect(state, isA<RestrictionsEnCours>());
         expect((state as RestrictionsEnCours).point, source.requested.last);
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
         expect(find.byType(RestrictionsScreen), findsNothing);
         expect(find.byType(MapView), findsOneWidget);
@@ -1870,7 +1906,7 @@ void main() {
         await tester.pumpWidget(_app(await acknowledged(), restrictions));
 
         await designate(tester);
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
         // Le mode est resté actif au retour : le bouton est là, sans rappuyer
         // sur la puce.
@@ -1882,7 +1918,7 @@ void main() {
         expect(state, isA<RestrictionsEnCours>());
         expect((state as RestrictionsEnCours).point, source.requested.last);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
         expect(find.byType(RestrictionsScreen), findsNothing);
       },
@@ -1897,7 +1933,7 @@ void main() {
         expect(echelleSelectionnee(tester, MapScaleKind.ecoulement), isTrue);
 
         await designate(tester);
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
 
         expect(find.byType(RestrictionsScreen), findsNothing);
@@ -1926,7 +1962,7 @@ void main() {
         expect(find.byType(RestrictionsScreen), findsOneWidget);
         expect(source.requested, hasLength(1));
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
 
         expect(find.byType(RestrictionsScreen), findsNothing);
@@ -1964,7 +2000,7 @@ void main() {
       expect(find.byType(RestrictionsScreen), findsOneWidget);
       expect(source.requested, hasLength(1));
 
-      await tester.pageBack();
+      await _retour(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(RestrictionsScreen), findsNothing);
@@ -2145,6 +2181,18 @@ void main() {
     );
 
     testWidgetsOnWindows(
+      'L1 : le bouton de retour de l ecran « Favoris » s annonce « Retour »',
+      (WidgetTester tester) async {
+        await pumpRoot(tester);
+
+        await openFavorites(tester);
+
+        expect(find.byTooltip('Retour'), findsOneWidget);
+        expect(find.byTooltip('Back'), findsNothing);
+      },
+    );
+
+    testWidgetsOnWindows(
       'ouvrir « Favoris » ferme la fiche station ouverte et montre l ecran',
       (WidgetTester tester) async {
         final _FavoritesRoot root = await pumpRoot(tester);
@@ -2186,7 +2234,7 @@ void main() {
         expect(find.text(favoritesEmptyText), findsOneWidget);
         expect(find.text('La Loire à Blois'), findsNothing);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
         await root.favorites.add(blois());
 
@@ -2219,7 +2267,7 @@ void main() {
         );
         expect(find.text('La Loire à Blois'), findsOneWidget);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
 
         expect(find.byType(FavoritesScreen, skipOffstage: false), findsNothing);
@@ -2239,7 +2287,7 @@ void main() {
         await openFavorites(tester);
         expect(find.text('La Loire à Blois'), findsOneWidget);
 
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pump(const Duration(milliseconds: 50));
 
         expect(root.list.state, isA<FavorisFermes>());
@@ -2269,7 +2317,7 @@ void main() {
 
         await openFavorites(tester);
         expect(find.text(favoritesEmptyText), findsOneWidget);
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
         expect(find.byType(FavoritesScreen), findsNothing);
         expect(find.byType(MapView), findsOneWidget);
@@ -2496,7 +2544,7 @@ void main() {
         expect(find.byKey(mapFiltersActiveMarkKey), findsOneWidget);
 
         await openFavorites(tester);
-        await tester.pageBack();
+        await _retour(tester);
         await tester.pumpAndSettle();
 
         expect(root.map.filter, filter);
@@ -3347,13 +3395,17 @@ void main() {
           reason: 'aucun défilement de zone autour du panneau',
         );
         await scrollToEnd(tester);
-        // Au bout du défilement, le bas de la fiche est dans la fenêtre.
+        // Au bout du défilement, le dernier élément du corps (l'adresse du
+        // bulletin) est dans la fenêtre du corps — le bas du panneau, lui,
+        // est le bas de la fenêtre quelle que soit la position.
         final Rect window = tester.getRect(sheetScrollable());
-        final Rect panel = tester.getRect(find.byType(FloodSheetPanel));
+        final Rect last = tester.getRect(
+          find.textContaining('$floodPublicSiteUrl/bulletin_local/'),
+        );
         expect(
-          panel.bottom > window.top && panel.bottom <= window.bottom,
+          last.top >= window.top && last.bottom <= window.bottom,
           isTrue,
-          reason: 'bas de la fiche à ${panel.bottom}, fenêtre $window',
+          reason: 'adresse du bulletin à $last, fenêtre $window',
         );
         // Et le bouton du bulletin s'y amène en entier.
         await tester.ensureVisible(find.byKey(floodBulletinButtonKey));

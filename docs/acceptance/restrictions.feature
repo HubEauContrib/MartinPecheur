@@ -302,3 +302,10 @@ Fonctionnalité: L'écran « Sécheresse et restrictions » au point désigné
     Quand l'écran l'affiche
     Alors il affiche « Le texte de l'arrêté n'est pas accessible depuis l'application : la source n'en transmet pas l'adresse. » (BR-007)
     Et l'action « Consulter les arrêtés en vigueur » de l'encart reste disponible (BR-013)
+
+  # Vérifié par test/main_test.dart (« L1 : le bouton de retour de l ecran des
+  # restrictions s annonce « Retour » ») et test/features/shared/screen_layout_test.dart.
+  Scénario: Le bouton de retour de l'écran s'annonce « Retour »
+    Étant donné l'écran des restrictions ouvert depuis la carte, dont l'encart renforcé est le premier contenu (BR-013)
+    Quand l'usager consulte l'info-bulle du bouton de retour
+    Alors elle dit « Retour », jamais « Back »
