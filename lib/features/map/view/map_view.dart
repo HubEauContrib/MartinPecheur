@@ -159,6 +159,14 @@ import 'package:martinpecheur/features/shared/warning_link.dart';
 //   `lib/src/map/camera/camera_fit.dart` l. 21 ;
 // - `LatLngBounds(LatLng corner1, LatLng corner2)` — deux coins opposés,
 //   quel que soit l'ordre — `lib/src/geo/latlng_bounds.dart`.
+// `D4` d'Ergonomie, lu dans le même paquet : `CameraFit.bounds({…,
+// EdgeInsets padding, …})` (`camera_fit.dart` l. 21-28) cadre dans la caméra
+// moins `padding` et décale le centre de la moitié de `padding.right −
+// padding.left` (et du bas moins le haut) ; `MapController.move(center, zoom,
+// {Offset offset})` (`map_controller.dart` l. 39-57) pose `center` à `offset`
+// du centre de la vue, et ne projette rien quand `offset` est nul ;
+// `MapCamera.focusedZoomCenter(Offset cursorPos, double zoom)` (`camera.dart`
+// l. 420) garde le point sous `cursorPos` en place au nouveau zoom.
 // [_MapViewState._handleClusterSelect] n'applique que ce que
 // `MapViewModel.zoomTargetFor` (Z3) a déjà décidé : aucune géométrie n'est
 // calculée ici.
@@ -1709,6 +1717,11 @@ class _MapViewState extends State<MapView> {
   /// n'avait aucun effet (cible égale à la position courante, ou
   /// contrainte de caméra qui le refuse) : rien à signaler alors, la caméra
   /// n'a pas bougé.
+  ///
+  /// `D4` d'Ergonomie (arbitrage 12, spec § 5.2) : le cadrage se fait dans la
+  /// carte visible — la marge `padding` est la partie que la fiche cache
+  /// ([_hiddenInsets]) ; un membre seul est posé au centre de la carte non
+  /// couverte, comme le recentrage ([_centreInUncoveredMap]).
   void _handleClusterSelect(MapAreaCluster cluster) {
     final bool moved = switch (widget.viewModel.zoomTargetFor(cluster)) {
       CoverBounds(bounds: final Bounds bounds, minZoom: final double minZoom) =>
@@ -1718,6 +1731,7 @@ class _MapViewState extends State<MapView> {
               LatLng(bounds.south, bounds.west),
               LatLng(bounds.north, bounds.east),
             ),
+            padding: _hiddenInsets(),
             minZoom: minZoom,
           ),
         ),
@@ -1726,11 +1740,51 @@ class _MapViewState extends State<MapView> {
         longitude: final double lon,
         zoom: final double zoom,
       ) =>
-        _mapController.move(LatLng(lat, lon), zoom),
+        _centreInUncoveredMap(LatLng(lat, lon), zoom),
     };
 
     _afterCameraMove(moved);
   }
+
+  /// La part de la carte que la fiche couvre (`D4` d'Ergonomie, arbitrage
+  /// 12), telle que la mise en page la publie ([MapLayoutReport.covered], dans
+  /// le repère de `FlutterMap`, sans la zone sûre). [EdgeInsets.zero] avant le
+  /// premier rapport, sans fiche, et pour une fiche posée à 0 px : jusqu'à
+  /// `D5`, la zone des fiches provisoire peut tomber à 0 px quand la place
+  /// manque, et ne cache alors rien. Zéro aussi si la fiche couvrait toute la
+  /// carte (en deçà des tailles garanties) : `CameraFit` diviserait par une
+  /// taille nulle.
+  EdgeInsets _hiddenInsets() {
+    final EdgeInsets hidden = _layoutReport.value?.covered ?? EdgeInsets.zero;
+    final Size size = _mapController.camera.nonRotatedSize;
+    if (hidden.horizontal >= size.width || hidden.vertical >= size.height) {
+      return EdgeInsets.zero;
+    }
+    return hidden;
+  }
+
+  /// Le centre de la carte que la fiche ne couvre pas, dans le repère de
+  /// `FlutterMap` — la SEULE construction de ce point, pour le recentrage, le
+  /// membre seul d'une pastille et le zoom hors mode. Sans fiche, le centre
+  /// de la caméra.
+  Offset _uncoveredCentre() => _hiddenInsets()
+      .deflateRect(Offset.zero & _mapController.camera.nonRotatedSize)
+      .center;
+
+  /// Pose [target] au centre de la carte non couverte, au zoom [zoom] :
+  /// `MapController.move` et son décalage d'écran (`offset`, lu dans
+  /// `flutter_map` 8.3.2, `map_controller.dart` l. 39-57 : le point visé est
+  /// posé à `offset` du centre de la vue). Sans fiche, le décalage est nul et
+  /// `moveRaw` ne projette rien : recentrer une caméra déjà en place ne
+  /// déplace rien, n'émet rien et ne recharge rien, comme avant `D4`. `move`
+  /// borne aussi le zoom (`clampZoom`).
+  bool _centreInUncoveredMap(LatLng target, double zoom) => _mapController.move(
+    target,
+    zoom,
+    offset:
+        _uncoveredCentre() -
+        _mapController.camera.nonRotatedSize.center(Offset.zero),
+  );
 
   /// Signale au ViewModel un déplacement de caméra qui vient d'aboutir —
   /// avec l'emprise et le zoom **résultants** ([_mapController.camera], lu
@@ -1770,7 +1824,9 @@ class _MapViewState extends State<MapView> {
   /// rechargement. En mode « Restrictions », réticule posé (`D3` d'Ergonomie,
   /// spec § 5.5) : autour du réticule (`MapCamera.focusedZoomCenter`, calculé
   /// sur le zoom BORNÉ), pour que le point visé ne glisse pas. Hors mode, ou
-  /// réticule retiré (repli 6) : au même centre de caméra.
+  /// réticule retiré (repli 6) : autour du centre de la carte visible (`D4`
+  /// d'Ergonomie, arbitrage 12 : « zoomer tient compte de la partie
+  /// cachée ») — sans fiche, le centre de la caméra, comme avant.
   ///
   /// Limite connue, non corrigée : contre le bord nord ou sud du monde, la
   /// contrainte de caméra (`CameraConstraint.containLatitude`) recale le
@@ -1782,23 +1838,26 @@ class _MapViewState extends State<MapView> {
     if (zoom == camera.zoom) {
       return;
     }
-    final Rect? reticle = _layoutReport.value?.reticle;
-    _afterCameraMove(
-      _mapController.move(
-        reticle == null
-            ? camera.center
-            : camera.focusedZoomCenter(reticle.center, zoom),
-        zoom,
-      ),
-    );
+    // Rien à compenser (ni réticule, ni fiche) : le même centre de caméra,
+    // sans projection — `focusedZoomCenter` autour du centre de la vue le
+    // ferait dériver de quelques 1e-14°, et un recentrage qui suivrait ne
+    // serait plus un no-op.
+    final Offset? reticle = _layoutReport.value?.reticle?.center;
+    final LatLng center = reticle == null && _hiddenInsets() == EdgeInsets.zero
+        ? camera.center
+        : camera.focusedZoomCenter(reticle ?? _uncoveredCentre(), zoom);
+    _afterCameraMove(_mapController.move(center, zoom));
   }
 
   /// Bouton de recentrage de [MapControls] (`K1`) : ramène la caméra à
   /// l'emprise de démarrage — même centre et même zoom qu'au lancement de
   /// l'écran (`initialMapCenterLatitude`/`Longitude`, [initialMapZoom]).
+  /// `D4` d'Ergonomie (arbitrage 12) : ce centre est posé au centre de la
+  /// carte non couverte ([_centreInUncoveredMap]) ; sans fiche, au centre de
+  /// la caméra, sans rien déplacer si elle y est déjà, comme avant.
   void _handleRecenter() {
     _afterCameraMove(
-      _mapController.move(
+      _centreInUncoveredMap(
         const LatLng(initialMapCenterLatitude, initialMapCenterLongitude),
         initialMapZoom,
       ),

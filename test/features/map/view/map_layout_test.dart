@@ -754,9 +754,11 @@ void main() {
         Rect visible = const Rect.fromLTWH(0, 0, 360, 640),
         Rect? reticle = const Rect.fromLTWH(156, 300, 48, 48),
         double available = 624,
+        EdgeInsets covered = EdgeInsets.zero,
       }) => MapLayoutReport(
         visible: visible,
         reticle: reticle,
+        covered: covered,
         allocation: allocateMapLayout(
           MapLayoutInput(
             available: available,
@@ -794,6 +796,18 @@ void main() {
       // La répartition : 300 de disponible font replier la légende.
       expect(rapport(available: 300).allocation, isNot(rapport().allocation));
       expect(rapport(available: 300), isNot(rapport()));
+      // La part que la fiche couvre (`D4`) : présente, ou autre.
+      const EdgeInsets fiche = EdgeInsets.only(bottom: 200);
+      expect(rapport(covered: fiche), isNot(rapport()));
+      expect(rapport(covered: fiche), rapport(covered: fiche));
+      expect(
+        rapport(covered: fiche).hashCode,
+        rapport(covered: fiche).hashCode,
+      );
+      expect(
+        rapport(covered: const EdgeInsets.only(right: 200)),
+        isNot(rapport(covered: fiche)),
+      );
     });
   });
 

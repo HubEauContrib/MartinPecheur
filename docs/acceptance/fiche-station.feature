@@ -34,3 +34,17 @@ Fonctionnalité: Le contenu de la fiche station hydrométrique
     Alors son en-tête porte « Station hydrométrique · K447001001 » et le contrôle « ⚠ Avertissement »
     Et son corps se lit dans l'ordre : le nom, le cours d'eau et le département, la tuile du débit puis celle de la hauteur, chacune avec sa valeur, sa date de mesure et sa source (BR-001)
     Et dessous « Statut (Hub'Eau) » et « Qualification (Hub'Eau) », chacun au-dessus de sa valeur, puis l'avis de fraîcheur quand il y en a un (BR-006)
+
+  # ── Ergonomie — la carte ne bouge pas sous une fiche (cadrage du 2026-10-17, arbitrage 12, critère 9 ; D4)
+  # La règle vient de l'arbitrage 12 de la spec d'ergonomie (docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md) : aucun BR ne la porte ; BR-008 est cité pour la carte et ses lectures.
+  # Vérifié par test/features/map/view/map_view_test.dart, groupe « MapView — critère 9, la carte ne bouge pas sous une fiche (D4 d’Ergonomie) »
+  # Vérifié par test/features/map/view/map_view_test.dart, groupe « MapView — les boutons de zoom (K1) » (début du nom ; cas « D4 : … » et « sans fiche, recentrer au démarrage … »)
+  # Vérifié par test/features/map/view/map_view_test.dart, groupe « MapView — la sélection d une pastille recharge l emprise » (début du nom ; cas « D4 : … »)
+  # Vérifié par test/features/map/view/map_designation_reticle_test.dart, groupe « recentrer au téléphone, marge système posée (D4 d’Ergonomie) »
+
+  Scénario: Ouvrir ou fermer une fiche ne déplace pas la carte ; recentrer, zoomer et cadrer une pastille se font dans la carte visible
+    Étant donné la carte affichée, sans fiche ouverte
+    Quand une fiche s'ouvre, défile puis se ferme
+    Alors la carte ne se déplace pas et ses lieux ne se rechargent pas
+    Et une fois une fiche ouverte, recentrer pose le centre de démarrage au centre de la partie de la carte que la fiche ne couvre pas
+    Et hors mode « Restrictions », « + » et « − » zooment autour de ce centre ; cadrer une pastille pose ses lieux dans cette partie (BR-008, ADR-015)

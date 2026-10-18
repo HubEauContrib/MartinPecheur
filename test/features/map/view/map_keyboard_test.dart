@@ -1471,12 +1471,23 @@ void main() {
           stationPoints: _StationsStub(stations),
           delay: (Duration duration) => Future<void>.value(),
         );
+        // La fiche s'ouvre APRÈS les quatre crans de zoom : fiche ouverte,
+        // `+` zoome autour du centre de la carte visible (`D4` d'Ergonomie),
+        // et les stations, groupées au centre de la caméra, sortiraient du
+        // champ. Ouvrir la fiche ne déplace pas la carte (critère 9).
+        final ValueNotifier<bool> ouverte = ValueNotifier<bool>(false);
+        addTearDown(ouverte.dispose);
         await tester.pumpWidget(
           MaterialApp(
-            home: MapView(
-              viewModel: viewModel,
-              onStationTap: (StationCode code) {},
-              stationSheet: const _FocusableTestSheet(key: Key('fiche-1200')),
+            home: ValueListenableBuilder<bool>(
+              valueListenable: ouverte,
+              builder: (BuildContext context, bool fiche, Widget? _) => MapView(
+                viewModel: viewModel,
+                onStationTap: (StationCode code) {},
+                stationSheet: fiche
+                    ? const _FocusableTestSheet(key: Key('fiche-1200'))
+                    : const SizedBox.shrink(),
+              ),
             ),
           ),
         );
@@ -1487,6 +1498,8 @@ void main() {
           await tester.tap(find.byKey(mapZoomInButtonKey));
           await tester.pumpAndSettle();
         }
+        ouverte.value = true;
+        await tester.pumpAndSettle();
         expect(viewModel.level, isNull);
         // `find.byType` seul remonterait aussi la pastille de référence
         // que porte `MapLegend` (toujours rendue, `BR-008`) : on ne

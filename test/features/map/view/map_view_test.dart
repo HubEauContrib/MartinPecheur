@@ -10,6 +10,9 @@
 // Le chargement lui-même n'est plus ici : il appartient au ViewModel
 // (`test/features/map/view_model/map_view_model_test.dart`), qui le teste
 // sans monter aucun widget (R3, arbitrage 2026-09-13).
+import 'dart:async' show StreamSubscription;
+
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
@@ -45,6 +48,8 @@ import 'package:martinpecheur/features/map/view/map_layout.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
 import 'package:martinpecheur/features/map/view/map_reading_block.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
+import 'package:martinpecheur/features/map/view/map_sheet_area.dart'
+    show mapSheetAreaKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
@@ -55,6 +60,7 @@ import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
+import '../../../support/ergonomie_fiches.dart';
 import '../../../support/focus.dart';
 import '../../../support/windows_platform.dart';
 
@@ -1908,27 +1914,7 @@ void main() {
         // hit-test dans ce montage (l'empilement `flutter_map` place
         // d'autres `RenderPointerListener` au même point), sans rapport
         // avec le câblage vérifié ici.
-        final GestureDetector detecteur = tester.widget<GestureDetector>(
-          find.byWidgetPredicate(
-            // `widget.child is AreaClusterMarker` ne suffit plus depuis `K2`
-            // (2026-09-23, arbitrage du commanditaire) : `_areaClusterMarkers`
-            // pose désormais un `KeyboardFocusRing` entre le `GestureDetector`
-            // et `AreaClusterMarker` (focus clavier de la pastille, groupe
-            // « carte »). On cherche donc le `GestureDetector` qui a un
-            // `AreaClusterMarker` comme DESCENDANT, pas comme enfant direct.
-            (Widget widget) =>
-                widget is GestureDetector &&
-                widget.child is FocusTraversalOrder &&
-                (widget.child! as FocusTraversalOrder).child
-                    is KeyboardFocusRing &&
-                ((widget.child! as FocusTraversalOrder).child
-                            as KeyboardFocusRing)
-                        .child
-                    is AreaClusterMarker,
-          ),
-        );
-        detecteur.onTap!();
-        await tester.pumpAndSettle();
+        await _toucherLaPastille(tester);
 
         expect(viewModel.level, AreaLevel.departement);
         expect(onde.callCount, greaterThanOrEqualTo(2));
@@ -1966,28 +1952,103 @@ void main() {
         expect(viewModel.level, AreaLevel.region);
         expect(find.byType(AreaClusterMarker), findsOneWidget);
 
-        final GestureDetector detecteur = tester.widget<GestureDetector>(
-          find.byWidgetPredicate(
-            // Voir le commentaire du groupe précédent : `KeyboardFocusRing`
-            // s'intercale désormais entre le `GestureDetector` et
-            // `AreaClusterMarker` (`K2`, 2026-09-23).
-            (Widget widget) =>
-                widget is GestureDetector &&
-                widget.child is FocusTraversalOrder &&
-                (widget.child! as FocusTraversalOrder).child
-                    is KeyboardFocusRing &&
-                ((widget.child! as FocusTraversalOrder).child
-                            as KeyboardFocusRing)
-                        .child
-                    is AreaClusterMarker,
-          ),
-        );
-        detecteur.onTap!();
-        await tester.pumpAndSettle();
+        await _toucherLaPastille(tester);
 
         // Niveau individuel : `levelFor(9)` rend `null` — c'est bien vers
         // `individualMarkersFromZoom` que `CentreOn` a déplacé la caméra.
         expect(viewModel.level, isNull);
+      },
+    );
+
+    // `D4` d'Ergonomie (arbitrage 12, spec § 5.2, `ADR-015`) : cadrer une
+    // pastille se fait dans la carte visible, fiche du bas ouverte.
+    // Deux points voisins d'une même région, l'un au nord de l'autre : leur
+    // emprise, plus haute que large, remplit la hauteur de la caméra si le
+    // cadrage ignore la fiche — et le point sud tombe dessous.
+    OndePoint pointVoisin(String code, double latitude, double longitude) =>
+        OndePoint(
+          code: OndeStationCode(code),
+          label: 'Point $code',
+          latitude: latitude,
+          longitude: longitude,
+          waterCourseLabel: 'Ruisseau $code',
+          departement: const AdministrativeArea(code: '45', label: 'LOIRET'),
+          region: const AdministrativeArea(
+            code: '24',
+            label: 'Centre-Val de Loire',
+          ),
+        );
+
+    testWidgetsOnWindows(
+      'D4 : fiche du bas ouverte à 700 × 740, la pastille sélectionnée '
+      '(CoverBounds) — l emprise des membres est dans la carte visible',
+      (WidgetTester tester) async {
+        final OndePoint nord = pointVoisin('05500011', 47.6, 2.2);
+        final OndePoint sud = pointVoisin('05500012', 46.8, 2.3);
+        final ValueNotifier<bool> ouverte = ValueNotifier<bool>(true);
+        addTearDown(ouverte.dispose);
+        final MapViewModel viewModel = await _monterAvecFiche(
+          tester,
+          taille: const Size(700, 740),
+          ouverte: ouverte,
+          onde: _SpyOndeObservationRepository(<OndeObservation>[
+            for (final OndePoint p in <OndePoint>[nord, sud])
+              _observation(
+                p,
+                category: const Assec(),
+                observedAt: DateTime.utc(2026, 9, 1),
+              ),
+          ]),
+        );
+        expect(viewModel.level, AreaLevel.region);
+        final Rect visible = _carteVisibleReduite(tester, const Size(700, 740));
+
+        await _toucherLaPastille(tester);
+
+        final MapCamera camera = _mapCamera(tester);
+        for (final OndePoint p in <OndePoint>[nord, sud]) {
+          final Offset ecran = camera.latLngToScreenOffset(
+            LatLng(p.latitude, p.longitude),
+          );
+          expect(
+            visible.inflate(0.5).contains(ecran),
+            isTrue,
+            reason: '${p.label} en $ecran, hors de la carte visible $visible',
+          );
+        }
+      },
+    );
+
+    testWidgetsOnWindows(
+      'D4 : fiche du bas ouverte à 700 × 740, la pastille d un seul membre '
+      '(CentreOn) — le membre au centre de la carte visible, zoom 9',
+      (WidgetTester tester) async {
+        final OndePoint seul = pointVoisin('05500013', 47.2, 2.25);
+        final ValueNotifier<bool> ouverte = ValueNotifier<bool>(true);
+        addTearDown(ouverte.dispose);
+        await _monterAvecFiche(
+          tester,
+          taille: const Size(700, 740),
+          ouverte: ouverte,
+          onde: _SpyOndeObservationRepository(<OndeObservation>[
+            _observation(
+              seul,
+              category: const Assec(),
+              observedAt: DateTime.utc(2026, 9, 1),
+            ),
+          ]),
+        );
+        final Rect visible = _carteVisibleReduite(tester, const Size(700, 740));
+
+        await _toucherLaPastille(tester);
+
+        final MapCamera camera = _mapCamera(tester);
+        expect(camera.zoom, individualMarkersFromZoom);
+        final Offset ecran = camera.latLngToScreenOffset(
+          LatLng(seul.latitude, seul.longitude),
+        );
+        expect(ecran.dx, closeTo(visible.center.dx, 0.5));
+        expect(ecran.dy, closeTo(visible.center.dy, 0.5));
       },
     );
   });
@@ -2342,6 +2403,245 @@ void main() {
         expect(centreLongitude, closeTo(initialMapCenterLongitude, 0.01));
       },
     );
+
+    // `D4` d'Ergonomie (arbitrage 12, spec § 5.2) : recentrer et zoomer
+    // tiennent compte de la partie de la carte que la fiche cache.
+    testWidgetsOnWindows(
+      'D4 : recentrer, panneau ouvert à 1 280 × 740 — (46,6 ; 2,2) au centre '
+      'de la carte visible, zoom 5',
+      (WidgetTester tester) async {
+        final ValueNotifier<bool> ouverte = ValueNotifier<bool>(true);
+        addTearDown(ouverte.dispose);
+        await _monterAvecFiche(
+          tester,
+          taille: const Size(1280, 740),
+          ouverte: ouverte,
+        );
+        final Rect visible = _carteVisibleReduite(
+          tester,
+          const Size(1280, 740),
+        );
+
+        // La caméra bouge d'abord : un cran de zoom.
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(mapRecenterButtonKey));
+        await tester.pumpAndSettle();
+
+        final MapCamera camera = _mapCamera(tester);
+        expect(camera.zoom, initialMapZoom);
+        final LatLng auCentre = camera.screenOffsetToLatLng(visible.center);
+        expect(auCentre.latitude, closeTo(initialMapCenterLatitude, 1e-3));
+        expect(auCentre.longitude, closeTo(initialMapCenterLongitude, 1e-3));
+      },
+    );
+
+    testWidgetsOnWindows(
+      'sans fiche, recentrer au démarrage sans avoir bougé : aucun '
+      'MapEventMove, aucun appel de plus aux dépôts (D4, identique à avant)',
+      (WidgetTester tester) async {
+        final ValueNotifier<bool> ouverte = ValueNotifier<bool>(false);
+        addTearDown(ouverte.dispose);
+        final _CountingStations stations = _CountingStations(<StationPoint>[
+          _blois(),
+        ]);
+        final _SpyHydroObservationRepository observations =
+            _SpyHydroObservationRepository();
+        final _SpyOndeObservationRepository onde =
+            _SpyOndeObservationRepository(const <OndeObservation>[]);
+        await _monterAvecFiche(
+          tester,
+          taille: const Size(1280, 740),
+          ouverte: ouverte,
+          stations: stations,
+          observations: observations,
+          onde: onde,
+        );
+        final List<MapEventMove> deplacements = _ecouterLesDeplacements(tester);
+        final MapCamera avant = _mapCamera(tester);
+        final (int, int, int) appelsAvant = (
+          stations.callCount,
+          observations.callCount,
+          onde.callCount,
+        );
+
+        await tester.tap(find.byKey(mapRecenterButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(deplacements, isEmpty, reason: 'la caméra a bougé');
+        expect(_mapCamera(tester).center, avant.center);
+        expect(_mapCamera(tester).zoom, avant.zoom);
+        expect(
+          (stations.callCount, observations.callCount, onde.callCount),
+          appelsAvant,
+          reason: 'un dépôt a été rappelé',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'sans fiche, hors mode, + puis − puis recentrer : le centre revient '
+      'égal à l initial, et le recentrage n émet aucun MapEventMove',
+      (WidgetTester tester) async {
+        final ValueNotifier<bool> ouverte = ValueNotifier<bool>(false);
+        addTearDown(ouverte.dispose);
+        await _monterAvecFiche(
+          tester,
+          taille: const Size(1280, 740),
+          ouverte: ouverte,
+        );
+        final MapCamera initiale = _mapCamera(tester);
+
+        await tester.tap(find.byKey(mapZoomInButtonKey));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapZoomOutButtonKey));
+        await tester.pumpAndSettle();
+        expect(_mapCamera(tester).center, initiale.center);
+        expect(_mapCamera(tester).zoom, initiale.zoom);
+
+        final List<MapEventMove> deplacements = _ecouterLesDeplacements(tester);
+        await tester.tap(find.byKey(mapRecenterButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(deplacements, isEmpty, reason: 'le recentrage a bougé');
+        expect(_mapCamera(tester).center, initiale.center);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'D4 : + et −, fiche du bas ouverte à 700 × 740 — le point au centre de '
+      'la carte visible est le même avant et après',
+      (WidgetTester tester) async {
+        final ValueNotifier<bool> ouverte = ValueNotifier<bool>(true);
+        addTearDown(ouverte.dispose);
+        await _monterAvecFiche(
+          tester,
+          taille: const Size(700, 740),
+          ouverte: ouverte,
+        );
+        final Rect visible = _carteVisibleReduite(tester, const Size(700, 740));
+
+        for (final Key bouton in <Key>[
+          mapZoomInButtonKey,
+          mapZoomOutButtonKey,
+        ]) {
+          final double zoomAvant = _mapCamera(tester).zoom;
+          final LatLng avant = _mapCamera(tester)
+              .screenOffsetToLatLng(visible.center);
+
+          await tester.tap(find.byKey(bouton));
+          await tester.pumpAndSettle();
+
+          final MapCamera camera = _mapCamera(tester);
+          expect(camera.zoom, isNot(zoomAvant), reason: '$bouton sans effet');
+          final LatLng apres = camera.screenOffsetToLatLng(visible.center);
+          expect(apres.latitude, closeTo(avant.latitude, 1e-6));
+          expect(apres.longitude, closeTo(avant.longitude, 1e-6));
+        }
+      },
+    );
+  });
+
+  // `D4` d'Ergonomie, critère 9 (spec § 9) et arbitrage 12 : la carte ne
+  // bouge pas quand une fiche s'ouvre, défile ou se ferme.
+  group('MapView — critère 9, la carte ne bouge pas sous une fiche (D4 d’Ergonomie)', () {
+    // Le texte à 200 % à 1 280 × 740 : la fiche de Blois, en police de test,
+    // tient sinon dans le panneau de 740 px et ne défile pas.
+    for (final (Size, double) cas in <(Size, double)>[
+      (const Size(700, 740), 1),
+      (const Size(1280, 740), 2),
+    ]) {
+      final Size taille = cas.$1;
+      testWidgetsOnWindows(
+        'à ${taille.width.toInt()} × ${taille.height.toInt()}, texte à '
+        '${(cas.$2 * 100).round()} %, la fiche défilée à la molette puis au '
+        'glisser : aucun appel de plus aux dépôts, aucun MapEventMove, la '
+        'caméra inchangée',
+        (WidgetTester tester) async {
+          final ValueNotifier<bool> ouverte = ValueNotifier<bool>(false);
+          addTearDown(ouverte.dispose);
+          final _CountingStations stations = _CountingStations(<StationPoint>[
+            _blois(),
+          ]);
+          final _SpyHydroObservationRepository observations =
+              _SpyHydroObservationRepository();
+          final _SpyOndeObservationRepository onde =
+              _SpyOndeObservationRepository(const <OndeObservation>[]);
+          await _monterAvecFiche(
+            tester,
+            taille: taille,
+            echelle: cas.$2,
+            ouverte: ouverte,
+            stations: stations,
+            observations: observations,
+            onde: onde,
+          );
+          final List<MapEventMove> deplacements = _ecouterLesDeplacements(
+            tester,
+          );
+          final MapCamera avant = _mapCamera(tester);
+          final (int, int, int) appelsAvant = (
+            stations.callCount,
+            observations.callCount,
+            onde.callCount,
+          );
+
+          ouverte.value = true;
+          await tester.pumpAndSettle();
+          // Garde-fous : la fiche est ouverte, réduit la carte visible, et
+          // elle défile.
+          _carteVisibleReduite(tester, taille);
+          final ScrollableState defilement = tester.state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byKey(mapSheetAreaKey),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          );
+          expect(
+            defilement.position.maxScrollExtent,
+            greaterThan(0),
+            reason: 'la fiche doit être plus haute que sa zone',
+          );
+          // De vrais gestes posés sur la fiche : une molette, puis un glisser.
+          final Offset surLaFiche = tester.getCenter(
+            find.byKey(mapSheetAreaKey),
+          );
+          final TestPointer souris = TestPointer(1, PointerDeviceKind.mouse);
+          await tester.sendEventToBinding(souris.hover(surLaFiche));
+          await tester.sendEventToBinding(souris.scroll(const Offset(0, 120)));
+          await tester.pumpAndSettle();
+          final double apresMolette = defilement.position.pixels;
+          expect(
+            apresMolette,
+            greaterThan(0),
+            reason: 'la molette n’a rien fait',
+          );
+          await tester.dragFrom(surLaFiche, const Offset(0, -60));
+          await tester.pumpAndSettle();
+          expect(
+            defilement.position.pixels,
+            greaterThan(apresMolette),
+            reason: 'le glisser n’a rien fait',
+          );
+          ouverte.value = false;
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+          expect(deplacements, isEmpty, reason: 'la carte a bougé');
+          final MapCamera apres = _mapCamera(tester);
+          expect(apres.center, avant.center);
+          expect(apres.zoom, avant.zoom);
+          expect(
+            (stations.callCount, observations.callCount, onde.callCount),
+            appelsAvant,
+            reason: 'un dépôt a été rappelé',
+          );
+        },
+      );
+    }
   });
 
   group('MapView — un filtre qui masque tout (F8 de T3)', () {
@@ -2650,4 +2950,126 @@ final class _SwitchableOndeObservationRepository
     OndeStationCode station, {
     int limit = 5,
   }) async => const <OndeObservation>[];
+}
+
+// --- D4 d'Ergonomie : la caméra et la partie cachée -------------------------
+
+/// Un [StationPointRepository] qui rend [points] et COMPTE ses appels à
+/// [withinBounds] : un rechargement des lieux s'y lit (critère 9).
+final class _CountingStations implements StationPointRepository {
+  _CountingStations(this.points);
+
+  final List<StationPoint> points;
+
+  int callCount = 0;
+
+  @override
+  Future<List<StationPoint>> withinBounds(
+    Bounds bounds, {
+    double margin = defaultViewportMargin,
+  }) async {
+    callCount++;
+    return points;
+  }
+
+  @override
+  Future<List<StationPoint>> all() async => points;
+}
+
+/// La vraie [MapView] à [taille], la fiche station RÉELLE de Blois ouverte
+/// tant que [ouverte] est vrai (fermée : un panneau vide, comme `main.dart`).
+Future<MapViewModel> _monterAvecFiche(
+  WidgetTester tester, {
+  required Size taille,
+  double echelle = 1,
+  required ValueNotifier<bool> ouverte,
+  StationPointRepository? stations,
+  HydroObservationRepository? observations,
+  OndeObservationRepository? onde,
+}) async {
+  tester.view.physicalSize = taille;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final MapViewModel viewModel = MapViewModel(
+    stationPoints: stations ?? _EmptyStationPointRepository(),
+    observations: observations ?? _EmptyHydroObservationRepository(),
+    onde: onde ?? _EmptyOndeObservationRepository(),
+  );
+  final Widget fiche = ficheStationBlois();
+  await tester.pumpWidget(
+    MaterialApp(
+      builder: (BuildContext context, Widget? child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(echelle)),
+        child: child!,
+      ),
+      home: ValueListenableBuilder<bool>(
+        valueListenable: ouverte,
+        builder: (BuildContext context, bool ouverteMaintenant, Widget? _) =>
+            MapView(
+              viewModel: viewModel,
+              onStationTap: (StationCode _) {},
+              stationSheet: ouverteMaintenant ? fiche : const SizedBox.shrink(),
+            ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return viewModel;
+}
+
+/// La caméra de la carte montée.
+MapCamera _mapCamera(WidgetTester tester) =>
+    MapCamera.of(tester.element(find.byType(TileLayer)));
+
+/// La carte visible du dernier rapport de la mise en page — garde-fou : une
+/// fiche est ouverte et la réduit (sinon le cas ne prouverait rien).
+Rect _carteVisibleReduite(WidgetTester tester, Size taille) {
+  final MapLayoutReport? rapport = tester
+      .widget<MapLayout>(find.byType(MapLayout))
+      .report
+      .value;
+  expect(rapport, isNotNull, reason: 'aucun rapport publié');
+  final Rect visible = rapport!.visible;
+  expect(
+    visible.right < taille.width - 1 || visible.bottom < taille.height - 1,
+    isTrue,
+    reason: 'la fiche ne réduit pas la carte visible $visible',
+  );
+  return visible;
+}
+
+/// Les `MapEventMove` que la carte montée émet à partir de maintenant : un
+/// déplacement de caméra, quel qu'il soit, s'y lit.
+List<MapEventMove> _ecouterLesDeplacements(WidgetTester tester) {
+  final List<MapEventMove> deplacements = <MapEventMove>[];
+  final StreamSubscription<MapEvent> abonnement =
+      MapController.of(tester.element(find.byType(TileLayer))).mapEventStream
+          .listen((MapEvent e) {
+            if (e is MapEventMove) deplacements.add(e);
+          });
+  addTearDown(abonnement.cancel);
+  return deplacements;
+}
+
+/// Touche la pastille dessinée : invoque directement le `GestureDetector`
+/// posé par `_areaClusterMarkers` (`tester.tap()` par coordonnées échoue le
+/// hit-test dans ce montage). Depuis `K2` (2026-09-23), un
+/// `FocusTraversalOrder` puis un `KeyboardFocusRing` s'intercalent entre le
+/// détecteur et `AreaClusterMarker` : on cherche le détecteur qui l'a pour
+/// descendant, pas pour enfant direct.
+Future<void> _toucherLaPastille(WidgetTester tester) async {
+  final GestureDetector detecteur = tester.widget<GestureDetector>(
+    find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is GestureDetector &&
+          widget.child is FocusTraversalOrder &&
+          (widget.child! as FocusTraversalOrder).child is KeyboardFocusRing &&
+          ((widget.child! as FocusTraversalOrder).child as KeyboardFocusRing)
+                  .child
+              is AreaClusterMarker,
+    ),
+  );
+  detecteur.onTap!();
+  await tester.pumpAndSettle();
 }

@@ -78,13 +78,14 @@ enum MapLayoutSlot {
 }
 
 /// Ce que la vue doit savoir de la dernière mise en page (note
-/// d'architecture, 5) : la carte visible, le réticule, la répartition.
-/// Égalité par valeur.
+/// d'architecture, 5) : la carte visible, le réticule, la répartition, et la
+/// part de la surface que la fiche couvre (`D4`). Égalité par valeur.
 final class MapLayoutReport {
   const MapLayoutReport({
     required this.visible,
     required this.reticle,
     required this.allocation,
+    required this.covered,
   });
 
   /// La carte visible, dans le repère de [MapLayout] : la surface moins la
@@ -97,20 +98,31 @@ final class MapLayoutReport {
   /// La répartition de la hauteur ([allocateMapLayout]).
   final MapLayoutAllocation allocation;
 
+  /// La part de la surface que la fiche couvre, en écarts aux bords de
+  /// [MapLayout] (`D4` d'Ergonomie, arbitrage 12) : ce que la caméra doit
+  /// éviter. Panneau : `right`, du bord gauche du panneau au bord de la
+  /// surface ; fiche du bas : `bottom`, du haut de la fiche au bas de la
+  /// surface. La zone sûre n'y entre jamais (spec § 5.2 : « la carte, elle,
+  /// va jusqu'aux bords »). [EdgeInsets.zero] sans fiche ouverte, et pour une
+  /// fiche du bas posée à 0 px : jusqu'à `D5`, la zone des fiches provisoire
+  /// (hauteur repliée nulle) peut y tomber quand la place manque.
+  final EdgeInsets covered;
+
   @override
   bool operator ==(Object other) =>
       other is MapLayoutReport &&
       other.visible == visible &&
       other.reticle == reticle &&
-      other.allocation == allocation;
+      other.allocation == allocation &&
+      other.covered == covered;
 
   @override
-  int get hashCode => Object.hash(visible, reticle, allocation);
+  int get hashCode => Object.hash(visible, reticle, allocation, covered);
 
   @override
   String toString() =>
       'MapLayoutReport(visible: $visible, reticle: $reticle, '
-      'allocation: $allocation)';
+      'allocation: $allocation, covered: $covered)';
 }
 
 /// L'emplacement d'un enfant de [MapLayout].
@@ -401,6 +413,8 @@ class RenderMapLayout extends RenderBox
     // le panneau : la zone sûre moins lui).
     final double visibleRight = safe.left + widths.visible;
     final Rect visible;
+    // La part que la fiche couvre, sans la zone sûre (`D4`).
+    EdgeInsets covered = EdgeInsets.zero;
     if (!sheetOpen) {
       layoutChild(MapLayoutSlot.sheet, BoxConstraints.tight(Size.zero));
       place(MapLayoutSlot.sheet, safe.bottomRight);
@@ -411,6 +425,7 @@ class RenderMapLayout extends RenderBox
         BoxConstraints.tight(Size(widths.sheet, safe.height)),
       );
       place(MapLayoutSlot.sheet, Offset(visibleRight, safe.top));
+      covered = EdgeInsets.only(right: size.width - visibleRight);
       visible = Rect.fromLTRB(safe.left, safe.top, visibleRight, safe.bottom);
     } else {
       // Jamais plus haute que la zone sûre : la carte visible n'est jamais
@@ -424,6 +439,10 @@ class RenderMapLayout extends RenderBox
       );
       final double top = safe.bottom - sheet.height;
       place(MapLayoutSlot.sheet, Offset(safe.left, top));
+      // Posée à 0 px (zone provisoire jusqu'à `D5`), elle ne couvre rien.
+      if (sheet.height > 0) {
+        covered = EdgeInsets.only(bottom: size.height - top);
+      }
       visible = Rect.fromLTRB(safe.left, safe.top, visibleRight, top);
     }
 
@@ -515,6 +534,7 @@ class RenderMapLayout extends RenderBox
         visible: visible,
         reticle: reticleShown ? reticleOffset & reticle : null,
         allocation: allocation,
+        covered: covered,
       ),
     );
   }

@@ -44,6 +44,8 @@ import 'package:martinpecheur/features/map/view/map_empty_states.dart'
 import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_layout.dart';
 import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
+import 'package:martinpecheur/features/map/view/map_sheet_area.dart'
+    show mapSheetAreaKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
@@ -53,6 +55,7 @@ import 'package:martinpecheur/features/map/view_model/map_zoom_bounds.dart'
 
 import '../../../support/android_platform.dart';
 import '../../../support/ergonomie_fiches.dart';
+import '../../../support/layout_sizes.dart' show margeSystemeTelephone;
 import '../../../support/roboto.dart';
 import '../../../support/windows_platform.dart';
 
@@ -699,5 +702,162 @@ void main() {
         _expectClose(_pointSousLeReticule(tester), carte.designated.single);
       });
     }
+  });
+
+  // `D4` d'Ergonomie, retouche : la caméra ne tient compte QUE de la partie
+  // cachée par la fiche, jamais de la zone sûre (spec § 5.2 : « la carte,
+  // elle, va jusqu'aux bords »). Au téléphone, avec la marge d'un téléphone.
+  group('recentrer au téléphone, marge système posée (D4 d’Ergonomie)', () {
+    final FakeViewPadding marge = FakeViewPadding(
+      top: margeSystemeTelephone.top,
+      bottom: margeSystemeTelephone.bottom,
+    );
+    const Size taille = Size(390, 844);
+
+    for (final bool fiche in <bool>[false, true]) {
+      _surAndroid(
+        '390 × 844, ${fiche ? 'fiche du bas ouverte' : 'sans fiche'} : '
+        'recentrer pose (46,6 ; 2,2) au centre de la carte que la fiche ne '
+        'couvre pas, sans décalage dû à la zone sûre',
+        (WidgetTester tester) async {
+          await _monterD3(tester, taille: taille, fiche: fiche, marge: marge);
+          final MapLayoutReport rapport = _rapport(tester)!;
+          // Garde-fous : la zone sûre est posée ; la fiche, si ouverte, a une
+          // hauteur et couvre le bas de l'écran.
+          expect(rapport.visible.top, margeSystemeTelephone.top);
+          // La fiche posée, lue à l'écran : la zone des fiches.
+          final Rect zone = tester.getRect(find.byKey(mapSheetAreaKey));
+          expect(
+            zone.height > 0,
+            fiche,
+            reason: fiche ? 'fiche ouverte sans hauteur' : 'fiche posée',
+          );
+          expect(
+            rapport.covered,
+            fiche
+                ? EdgeInsets.only(bottom: taille.height - zone.top)
+                : EdgeInsets.zero,
+            reason: 'la part couverte n’est pas la fiche seule',
+          );
+          // Le centre attendu : la carte entière moins la fiche seule.
+          final Offset attendu = Rect.fromLTRB(
+            0,
+            0,
+            taille.width,
+            fiche ? zone.top : taille.height,
+          ).center;
+
+          await tester.tap(find.byKey(mapZoomInButtonKey));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(mapRecenterButtonKey));
+          await tester.pumpAndSettle();
+
+          final MapCamera camera = _camera(tester);
+          expect(camera.zoom, initialMapZoom);
+          final Offset ecran = camera.latLngToScreenOffset(
+            const LatLng(initialMapCenterLatitude, initialMapCenterLongitude),
+          );
+          expect(ecran.dx, closeTo(attendu.dx, 0.5));
+          expect(ecran.dy, closeTo(attendu.dy, 0.5));
+        },
+      );
+    }
+  });
+
+  // `D4` d'Ergonomie, Review Focus 1 : franchir 800 px de large, fiche
+  // ouverte, fait passer la fiche du panneau au bas de l'écran puis la ramène ;
+  // elle reste ouverte, rien ne se recharge. En Roboto : en police de test, la
+  // partie fixe du bloc est si haute qu'à 760 × 740 la zone des fiches
+  // provisoire (jusqu'à `D5`) cède toute sa hauteur. Lecture « Débit » :
+  // l'avis d'absence de l'écoulement la lui prendrait aussi.
+  group('redimensionner la fenêtre, fiche station ouverte (D4 d’Ergonomie, '
+      'Review Focus 1)', () {
+    testWidgetsOnWindows(
+      'à 1 280 × 740, fiche station ouverte et défilée, la fenêtre passe à '
+      '760 px de large puis revient : la fiche reste ouverte (panneau → fiche '
+      'du bas → panneau), aucun rechargement, aucune erreur de rendu',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final _Stations stations = _Stations(<StationPoint>[
+          _stationAuCentre(),
+        ]);
+        final MapViewModel viewModel = MapViewModel(
+          stationPoints: stations,
+          observations: _NoHydro(),
+          onde: _NoOnde(),
+          delay: (Duration _) => Future<void>.value(),
+        );
+        const Key fiche = Key('fiche-station-d4');
+        await tester.pumpWidget(
+          MaterialApp(
+            // Texte à 200 % : la fiche est plus haute que le panneau, elle
+            // défile.
+            builder: (BuildContext context, Widget? child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: MapView(
+              viewModel: viewModel,
+              onStationTap: (StationCode _) {},
+              stationSheet: ficheStationBlois(key: fiche),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        // Lecture « Débit », une station dans l'emprise : aucun avis d'absence
+        // ne prend la hauteur de la fiche.
+        viewModel.selectScale(MapScaleKind.debit);
+        await tester.pumpAndSettle();
+        final Finder defilement = find
+            .descendant(
+              of: find.byKey(mapSheetAreaKey),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        final ScrollableState avant = tester.state<ScrollableState>(defilement);
+        expect(
+          avant.position.maxScrollExtent,
+          greaterThan(0),
+          reason: 'la fiche doit être plus haute que le panneau',
+        );
+        avant.position.jumpTo(avant.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        final Element element = tester.element(find.byKey(fiche));
+        final MapCamera camera = _camera(tester);
+        final int nombre = stations.chargements;
+
+        for (final (Size, bool) etape in <(Size, bool)>[
+          (const Size(760, 740), false),
+          (const Size(1280, 740), true),
+        ]) {
+          tester.view.physicalSize = etape.$1;
+          await tester.pumpAndSettle();
+          final String a = 'à ${etape.$1.width.toInt()} px';
+          expect(tester.takeException(), isNull, reason: a);
+          expect(
+            identical(tester.element(find.byKey(fiche)), element),
+            isTrue,
+            reason: '$a, la fiche est recréée',
+          );
+          expect(
+            identical(tester.state<ScrollableState>(defilement), avant),
+            isTrue,
+            reason: '$a, le défilement de la fiche est recréé',
+          );
+          // Panneau : à droite, sur toute la hauteur ; fiche du bas : sur
+          // toute la largeur, au bas de l'écran. Dans les deux cas, ouverte.
+          final Rect zone = tester.getRect(find.byKey(mapSheetAreaKey));
+          expect(zone.height, greaterThan(0), reason: '$a, fiche fermée');
+          expect(zone.left > 0, etape.$2, reason: '$a, fiche en $zone');
+          expect(zone.bottom, moreOrLessEquals(740), reason: a);
+          expect(_camera(tester).center, camera.center, reason: a);
+          expect(_camera(tester).zoom, camera.zoom, reason: a);
+          expect(stations.chargements, nombre, reason: '$a, rechargée');
+        }
+      },
+    );
   });
 }
