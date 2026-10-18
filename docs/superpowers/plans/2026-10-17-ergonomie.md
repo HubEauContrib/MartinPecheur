@@ -314,6 +314,8 @@ Le plan fixe ce mécanisme, parce qu'aucune tâche ne pourrait le choisir seule 
 6. compact, en mode, fiche ouverte : bande et bande du réticule à 0 (`bandWithdrawn`).
 Si cela ne suffit toujours pas : `overflows` vrai, la partie fixe reçoit ce qui reste (elle défilera : en deçà). Hors mode : `band` et `reticleBand` sont nuls à l'entrée.
 
+**Amendé à l'exécution de `S5` (2026-10-18, relectures) :** les écarts se comptent **par groupe** — [bloc = partie fixe + avis + légende, sans écart interne (`B1`)] · [bande du réticule, qui porte ses marges : aucun écart de part et d'autre] · [zone du bas, un `gap` entre bande et rangée en compact] · [fiche hors panel] ; un `gap` entre deux groupes consécutifs non nuls ; un groupe à 0 n'en a plus. Le surplus d'un repli tout ou rien (4, 5, 6) revient aux avis, puis à la fiche, puis à la légende ; `folds` = les replis en vigueur à la fin (p. ex. `[1, 2, 4]`). En wide, bloc étroit (`blockOverBottom` faux), fiche du bas ouverte, la colonne, qui ne cède jamais, **plafonne la fiche** à `available − bas − gap` (repli 2), `overflows` si l'en-tête n'y tient pas ; en panel ou sans fiche, `bas > available` → `overflows` (spec § 6.5). Toutes les comparaisons à `1e-6` près.
+
 **Cas de test** (`test`, nombres seuls)
 - Tout tient : aucun repli, chaque pièce à son max.
 - Il manque 30 px, légende de 100 : `folds == [1]`, légende 70.
