@@ -10,7 +10,7 @@
 > ✅ implémenté · 🔄 décidé ou en cours · 💭 spéculatif · ⬜ à faire. Un constat garde sa date, sa cible,
 > son mode (débogage ou release) et qui l'a fait.
 
-**Mis à jour :** 2026-10-18
+**Mis à jour :** 2026-10-19
 
 ## Où on en est
 
@@ -23,7 +23,7 @@
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
 | **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : le point 64 à l'écran, les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») |
 | **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | 🔄 **en cours**, plan `docs/superpowers/plans/2026-10-17-ergonomie.md` — cadrée le 2026-10-17 (cadrage approuvé par le commanditaire le même jour, `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md`, douze arbitrages) ; **avant T5** (arbitrages 16 et 17 du cadrage de T5) ; nom « Ergonomie », sans numéro, version `0.6.0` (T5 passe à `0.7.0`) ; porte sur Windows et Android |
-| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** jusqu'à la tranche d'ergonomie (arbitrage 16) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
+| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** jusqu'à la tranche d'ergonomie (arbitrage 16), puis l'ADR d'empaquetage MSIX (arbitrage du 2026-10-19) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
 `BR-013` ; l'étiquette est discutée au point 52). Les quatre sont posés dans le code : le modal du premier
@@ -342,6 +342,16 @@ Une case vide est une case vide, pas un « probablement ».
   fiche tronçon (point 64) : on le fige par test et on le regarde à la porte. » Figé par les cas « CONSTAT —
   K1 de T4 » et « CONSTAT — K1b de T4 » de `test/features/map/view/map_overlays_phone_test.dart` (supprimé par `D2` d'Ergonomie, remplacé par `map_layout_invariants_test.dart`) ; à voir à
   l'écran à la porte (`P1`, `P2`), en Segoe UI et sur l'émulateur.
+- **2026-10-19** — publication sur le Microsoft Store, question fermée « ADR d'empaquetage MSIX », réponse
+  « Après l'ergonomie » : « Oui, mais après la tranche d'ergonomie et avant T5 : je crée le compte d'ici
+  là. » L'ADR d'empaquetage MSIX pour le Store s'écrit entre la clôture de l'ergonomie et le plan de T5 ; le
+  commanditaire crée d'ici là son compte Partner Center. L'ADR reste à écrire et à arbitrer : aucune
+  bibliothèque n'est ajoutée, aucune publication n'est décidée. Relevé sur le web le 2026-10-19, à revérifier
+  dans l'ADR : inscription d'un particulier gratuite (annonce Microsoft du 2025-09-10) ; paquet `msix`
+  3.18.0, MIT, Windows, éditeur vérifié `kremer.software` ; un MSIX soumis au Store est signé par le Store,
+  un installeur EXE ou MSI doit l'être par l'éditeur, d'un certificat payant. Lien avec T5 : sans MSIX,
+  `cancel` et `getActiveNotifications` du plugin de notifications ne font rien
+  (`spike/t5_tache_de_fond/RELEVE-BIBLIOTHEQUES.md`).
 
 ## Faits sans autre trace
 
@@ -362,5 +372,6 @@ le point 64 (et la disposition des puces, point 61), les niveaux 2 à 4 à l'occ
 (point 62) se constate s'il le veut, ou reste « non vérifié ». **T5 est cadrée** (2026-10-17), son plan suspendu : la
 **tranche d'ergonomie** — maquette du 2026-10-03 et points 49, 51, 60, 61, 63, 64 — passe avant ; elle est **en cours d'exécution**
 (cadrée le 2026-10-17, `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md` ; plan
-`docs/superpowers/plans/2026-10-17-ergonomie.md`, version `0.6.0` ouverte) ; le plan de T5 s'écrira ensuite, sur les
+`docs/superpowers/plans/2026-10-17-ergonomie.md`, version `0.6.0` ouverte) ; vient ensuite l'**ADR d'empaquetage
+MSIX** pour le Microsoft Store (arbitrage du 2026-10-19) ; le plan de T5 s'écrira après, sur les
 écrans refaits (cadrage de T5, § 7 et § 13 ; cadrage d'ergonomie, § 12).
