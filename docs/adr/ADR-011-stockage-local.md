@@ -188,6 +188,16 @@ cible**) :
 **Si l'amendement est revu :** une classe, `lib/data/preferences/`, et une migration de la valeur
 déjà écrite.
 
+### Amendement du 2026-10-17 — le suivi et les avis en shared_preferences (T5, arbitrage 6)
+
+T5 (arbitrage 6 du 2026-10-17) : le suivi des lieux et les avis reçus sont en `shared_preferences`, deux clés JSON versionnées, 100 avis au plus. Le moteur structuré reste ouvert jusqu'au hors-ligne (`US-10`).
+
+**La décision.** Le suivi des lieux et les avis reçus de T5 se persistent dans `shared_preferences`, sans bibliothèque nouvelle : **deux clés**, `follow_ups` (le suivi : les réglages « Me prévenir », le dernier état connu de chaque lieu suivi, la dernière vérification et les séries d'échecs) et `notices` (les avis reçus, **100 au plus**, les plus récents), chacune portant **une chaîne JSON versionnée**, comme `favorites`. Chaque clé est derrière un port du domaine (`FollowUpRepository`, `NoticeRepository`), réalisé sous `lib/data/follow_up/` ; seul `main.dart` connaît l'implémentation. Une entrée dont le type est inconnu est gardée telle quelle et réécrite à l'identique ; une racine illisible est dite, jamais lue comme vide (`BR-011`). Le moteur structuré reste ouvert jusqu'au hors-ligne (`US-10`). Voir [`ADR-017`](ADR-017-verifier-les-lieux-suivis-depuis-l-appareil.md).
+
+**Ce que les faits relevés le 2026-10-12 impliquent encore, sans qu'on y ait retouché.** Le cache du paquet est écrit avant le magasin et l'implémentation Windows réécrit tout le fichier, partagé entre toutes les clés : les deux nouvelles clés héritent des limites de `favorites` (écriture refusée, fichier illisible). **Risque noté pour l'étape 2 :** avec l'API historique (`SharedPreferences.getInstance()`), qui garde un cache mémoire par processus, une tâche de fond qui écrit pendant que l'application tourne ne voit pas, et n'est pas vue par, le cache de l'application ; ce risque n'est pas éprouvé et relève de la tranche de l'étape 2.
+
+**Si l'amendement est revu :** si les avis dépassaient ce qu'une clé porte sans gêne, ou si l'étape 2 exigeait une écriture partagée entre processus, une classe sous `lib/data/follow_up/` et une migration des deux valeurs déjà écrites ; le domaine et les écrans ne bougent pas.
+
 ---
 
 ## Conséquences

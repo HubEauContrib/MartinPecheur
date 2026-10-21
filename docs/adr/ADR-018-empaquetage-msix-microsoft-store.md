@@ -9,7 +9,7 @@
 - **Date :** 2026-10-21
 - **Numéro :** `ADR-018`, et non `ADR-017` : ce numéro est **réservé** par le cadrage de T5, approuvé le
   2026-10-17, à « Vérifier les lieux suivis depuis l'appareil, sans serveur »
-  (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, § 11.1).
+  (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, § 11.1) — écrit depuis : [`ADR-017`](ADR-017-verifier-les-lieux-suivis-depuis-l-appareil.md).
 - **État du code :** ✅ **configuré le 2026-10-21** : `msix: ^3.18.0` en `dev_dependencies` (résolu en
   3.18.0), section `msix_config` dans `pubspec.yaml`, avec le logo propre à l'application
   (`windows/store/logo.png`, piste A choisie par le commanditaire le 2026-10-21) ; le tout verrouillé par

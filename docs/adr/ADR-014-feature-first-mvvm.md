@@ -8,6 +8,7 @@
   tranches** vit dans **`lib/features/shared/`**. Voir § « [La règle des imports, et son verrou](#la-règle-des-imports-et-son-verrou) »,
   sixième règle `shared-sans-tranche`. Le reste de cet ADR est inchangé.
 - **Amendement du 2026-10-14 (T4) :** un écran peut avoir plus d'un ViewModel quand une lecture a son propre cycle de chargement. Voir § « Amendement du 2026-10-14 (T4) » ci-dessous.
+- **Amendement du 2026-10-17 (T5) :** un cas d'usage du domaine, `FollowUpCheck`, réunit plusieurs dépôts hors de tout écran. Voir § « Amendement du 2026-10-17 (T5) » ci-dessous et [`ADR-017`](ADR-017-verifier-les-lieux-suivis-depuis-l-appareil.md).
 
 ## Contexte
 
@@ -181,6 +182,12 @@ pas encore occupée.
 #### Amendement du 2026-10-14 (T4)
 
 Un écran peut avoir plus d'un ViewModel quand une lecture a son propre cycle de chargement (T4, `FloodLayerViewModel`, arbitrage 7 du 2026-10-14). Chacun reste sans widget, testable sans rendu, et appelle son dépôt par un appel typé ; aucun n'importe l'autre ; la vue les relie. Précédent : les fiches injectées, chacune avec son ViewModel, depuis T1.
+
+#### Amendement du 2026-10-17 (T5)
+
+Un cas d'usage du domaine, `FollowUpCheck` (T5, arbitrage 7 du 2026-10-17), réunit plusieurs dépôts hors de tout écran — la vérification part au lancement et au retour au premier plan, et partira demain d'une tâche de fond. C'est le cas que la décision annonçait (« le jour où un écran croisera… »). Il vit sous `lib/domain/`, Dart pur, sur des ports ; aucune couche `application/` n'est créée ; un ViewModel l'appelle par un appel typé. Les sept règles de `layers_test.dart` ne changent pas. Voir [`ADR-017`](ADR-017-verifier-les-lieux-suivis-depuis-l-appareil.md).
+
+**Si l'amendement est revu :** le cas d'usage redescend dans un ViewModel (ce que `ADR-017` écarte, parce que la vérification part sans écran) ; ni `lib/data/` ni les règles de couches ne sont touchés.
 
 ## Conséquences
 
