@@ -11,6 +11,11 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [1.1.0]
+
+Sixième tranche (T5) : être prévenu, quand l'application est ouverte, d'un
+changement publié sur un lieu suivi. Version ouverte, non publiée.
+
 ## [1.0.1] — 2026-10-21
 
 Même application que `1.0.0`, avec l'icône du martin-pêcheur, sous un nouveau

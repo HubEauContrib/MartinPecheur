@@ -1017,19 +1017,9 @@ void main() {
           .replaceAll(RegExp(r'\s+'), ' ');
     }
 
-    test('pubspec.yaml porte version: 1.0.1+8', () {
-      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
-      expect(
-        RegExp(
-          r'^version:\s*1\.0\.1\+8\s*$',
-          multiLine: true,
-        ).hasMatch(contenuPubspec),
-        isTrue,
-        reason:
-            'un tag et un journal qui divergent laissent personne savoir ce '
-            'que contient le binaire installé',
-      );
-    });
+    // Le verrou « pubspec.yaml porte version: 1.0.1+8 » est retiré : le pubspec
+    // est passé à 1.1.0+9 (ouverture de T5, PD1). Le groupe 1.1.0 porte le
+    // verrou de version courant.
 
     test('une section ## [1.0.1] — 2026-10-21, une seule, sous [Non publié] '
         'et au-dessus de [1.0.0]', () {
@@ -1063,6 +1053,48 @@ void main() {
         contenuChangelog.substring(debut, suivante),
         isNot(contains('martin-pêcheur')),
       );
+    });
+  });
+
+  // Ouverture de la version 1.1.0 par la tranche T5 (PD1 du plan de T5).
+  group('version 1.1.0 (T5)', () {
+    late String contenuChangelog;
+
+    setUpAll(() {
+      contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    });
+
+    test('pubspec.yaml porte version: 1.1.0+9', () {
+      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        RegExp(
+          r'^version:\s*1\.1\.0\+9\s*$',
+          multiLine: true,
+        ).hasMatch(contenuPubspec),
+        isTrue,
+        reason:
+            'un tag et un journal qui divergent laissent personne savoir ce '
+            'que contient le binaire installé',
+      );
+    });
+
+    test('une section ## [1.1.0], une seule, sous [Non publié] et au-dessus '
+        'de [1.0.1], ouverte : son chapeau dit « Version ouverte »', () {
+      final int occurrences = RegExp(
+        r'^## \[1\.1\.0\]',
+        multiLine: true,
+      ).allMatches(contenuChangelog).length;
+      expect(occurrences, 1);
+      final int nonPublie = contenuChangelog.indexOf('## [Non publié]');
+      final int v110 = contenuChangelog.indexOf('## [1.1.0]');
+      final int v101 = contenuChangelog.indexOf('## [1.0.1]');
+      expect(nonPublie, lessThan(v110));
+      expect(v110, lessThan(v101));
+      final int suivante = contenuChangelog.indexOf('\n## [', v110 + 1);
+      final String section = contenuChangelog
+          .substring(v110, suivante)
+          .replaceAll(RegExp(r'\s+'), ' ');
+      expect(section, contains('Version ouverte'));
     });
   });
 }

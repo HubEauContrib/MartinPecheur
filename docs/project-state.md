@@ -23,7 +23,7 @@
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
 | **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») ; le point 64 est sans objet depuis la porte d'ergonomie (`R16`) |
 | **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | ✅ **close** — `0.6.0` ; plan `docs/superpowers/plans/2026-10-17-ergonomie.md`, cadrage `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md` (approuvé le 2026-10-17 ; vingt-six arbitrages au total) ; porte franchie sur Windows (exécutable de release lancé hors Flutter, 2026-10-19, « Oui, tout vu ») et sur Android (émulateur `Pixel_7`, débogage, « validé », rapporté le 2026-10-21), constats du commanditaire ; nom « Ergonomie », sans numéro (T5 devait passer à `0.7.0` ; depuis `1.0.0`, sa version se refixe au plan de T5). **Non constaté** : le détail de `P2`, la version installée et la marge système de l'émulateur, les tailles en deçà, TalkBack (« Ergonomie — code de `0.6.0` ») |
-| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan écrit le 2026-10-21, à approuver** (`docs/superpowers/plans/2026-10-21-t5-suivi-des-lieux.md`, sur les écrans refaits par la tranche d'ergonomie : 33 tâches, version `1.1.0`, quatre questions ouvertes au commanditaire) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
+| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **en cours** — plan `docs/superpowers/plans/2026-10-21-t5-suivi-des-lieux.md`, version `1.1.0` ouverte ; cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages), plan approuvé le 2026-10-21 (33 tâches, sur les écrans refaits par la tranche d'ergonomie) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
 `BR-013` ; l'étiquette est discutée au point 52). Les quatre sont posés dans le code : le modal du premier
@@ -384,6 +384,11 @@ Une case vide est une case vide, pas un « probablement ».
   dans le binaire, « Faits sans autre trace ») ; Android et iOS ne le sont pas. **Non constaté** : ces icônes
   à l'écran. Aucune recherche de marque déposée
   proche n'a été faite.
+- **2026-10-21** — plan de T5 approuvé par le commanditaire (`docs/superpowers/plans/2026-10-21-t5-suivi-des-lieux.md`),
+  avec les recommandations de `Q1` à `Q4` : liste de favoris illisible traitée comme un stockage illisible
+  (`Q1`) ; textes des deux échecs d'écriture (`Q2`) ; texte d'un avis enregistré illisible (`Q3`) ; lien
+  Vigicrues en tête d'« Avis reçus » seulement (`Q4`, `PD14`). Les décisions `PD1` à `PD20`, réversibles,
+  restent celles du plan. Version `1.1.0+9` ouverte par `O1`.
 
 ## Faits sans autre trace
 
@@ -436,5 +441,5 @@ chargement parce qu'il gardait la version `1.0.0.0`. La version passe à `1.0.1`
 l'exécutable de release, le vérifie, construit le paquet `1.0.1.0` et le soumet (« Faits sans autre trace »). Claude n'a constaté
 ni la politique de confidentialité, ni l'acceptation du contrat du développeur, ni la fiche du Store ; la porte
 de mise en production n'est pas notée franchie ici. Le **plan de T5** est écrit le 2026-10-21 sur les écrans refaits
-(`docs/superpowers/plans/2026-10-21-t5-suivi-des-lieux.md`) : il attend l'approbation du commanditaire et ses
-réponses aux questions `Q1` à `Q4`, puis la tâche `A0` (branche `feat/t5-suivi`, plan committé).
+(`docs/superpowers/plans/2026-10-21-t5-suivi-des-lieux.md`), approuvé par le commanditaire le 2026-10-21 avec les
+recommandations de `Q1` à `Q4`. La version `1.1.0` est ouverte (`O1`) ; la prochaine tâche est `T5-O2`.
