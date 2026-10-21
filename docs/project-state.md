@@ -22,8 +22,8 @@
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 porte non franchie : restent `A1`, `E4`, `P1`, `P2` (25 tâches closes sur 29) — `0.3.0` datée et taguée sans elle, sur décision du commanditaire |
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
 | **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») ; le point 64 est sans objet depuis la porte d'ergonomie (`R16`) |
-| **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | ✅ **close** — `0.6.0` ; plan `docs/superpowers/plans/2026-10-17-ergonomie.md`, cadrage `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md` (approuvé le 2026-10-17 ; vingt-six arbitrages au total) ; porte franchie sur Windows (exécutable de release lancé hors Flutter, 2026-10-19, « Oui, tout vu ») et sur Android (émulateur `Pixel_7`, débogage, « validé », rapporté le 2026-10-21), constats du commanditaire ; nom « Ergonomie », sans numéro (T5 passe à `0.7.0`). **Non constaté** : le détail de `P2`, la version installée et la marge système de l'émulateur, les tailles en deçà, TalkBack (« Ergonomie — code de `0.6.0` ») |
-| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** : la tranche d'ergonomie (arbitrage 16) est close, reste avant lui l'ADR d'empaquetage MSIX (arbitrage du 2026-10-19) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
+| **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | ✅ **close** — `0.6.0` ; plan `docs/superpowers/plans/2026-10-17-ergonomie.md`, cadrage `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md` (approuvé le 2026-10-17 ; vingt-six arbitrages au total) ; porte franchie sur Windows (exécutable de release lancé hors Flutter, 2026-10-19, « Oui, tout vu ») et sur Android (émulateur `Pixel_7`, débogage, « validé », rapporté le 2026-10-21), constats du commanditaire ; nom « Ergonomie », sans numéro (T5 devait passer à `0.7.0` ; depuis `1.0.0`, sa version se refixe au plan de T5). **Non constaté** : le détail de `P2`, la version installée et la marge système de l'émulateur, les tailles en deçà, TalkBack (« Ergonomie — code de `0.6.0` ») |
+| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** : la tranche d'ergonomie (arbitrage 16) est close, reste avant lui l'ADR d'empaquetage MSIX, `ADR-018`, proposé le 2026-10-21 (arbitrage du 2026-10-19) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
 `BR-013` ; l'étiquette est discutée au point 52). Les quatre sont posés dans le code : le modal du premier
@@ -361,6 +361,11 @@ Une case vide est une case vide, pas un « probablement ».
   Store `9NLKQL1WKQFK`, constaté le 2026-10-21 : seul produit de « Applications et jeux », statut « Non
   soumis » (un autre ID collé plus tôt ne correspond à aucun produit de la liste). Rien n'est soumis ; l'ADR
   d'empaquetage reprendra ces valeurs.
+- **2026-10-21** — version `1.0.0`, décision du commanditaire : « mettre la version 1.0.0 », puis « après
+  avoir committé mettre le tag 1.0.0 ». `pubspec.yaml` passe à `1.0.0+7` : même application que `0.6.0`,
+  datée au `CHANGELOG`. Raison : le Microsoft Store refuse une version dont le premier nombre vaut 0
+  (`ADR-018`, arbitrage 2). La mise en production n'est pas décidée par là, et la porte de T2 reste due. La
+  version de T5, prévue à `0.7.0+7` (R13 de T5 dans le cadrage d'ergonomie), se refixe au plan de T5.
 
 ## Faits sans autre trace
 
@@ -375,11 +380,13 @@ Une case vide est une case vide, pas un « probablement ».
 ## Prochaine étape
 
 La **tranche d'ergonomie est close** : la porte est franchie sur Windows (2026-10-19) et Android (rapportée le
-2026-10-21), et `0.6.0` est datée du 2026-10-21. Aucun tag n'est posé, rien n'est poussé ni fusionné : décisions
-du commanditaire. Restent à constater à l'écran, s'il le veut : le détail de `P2`, les niveaux 2 à 4 de crue à
+2026-10-21), et `0.6.0` est datée du 2026-10-21, suivie le même jour de `1.0.0`, même application sous le
+numéro qu'exige le Microsoft Store. Restent à constater à l'écran, s'il le veut : le détail de `P2`, les niveaux 2 à 4 de crue à
 l'occasion d'un épisode ; et à relever, émulateur `Pixel_7` lancé : la marge système et la version installée,
 par `adb`. **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas
-dit (point 62) se constate s'il le veut, ou reste « non vérifié ». Vient ensuite l'**ADR d'empaquetage MSIX**
-pour le Microsoft Store (arbitrage du 2026-10-19 ; nom réservé le 2026-10-21, à soumettre avant le 2027-01-21 environ),
-puis le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
+dit (point 62) se constate s'il le veut, ou reste « non vérifié ». L'**ADR d'empaquetage MSIX**, `ADR-018`, est
+proposé le 2026-10-21 et en partie arbitré (version `1.0.0`) ; reste à arbitrer l'outil `msix`. Une soumission
+au Store (nom réservé le 2026-10-21, à soumettre avant le 2027-01-21 environ) demande encore un logo propre à
+l'application, une politique de confidentialité, l'acceptation du contrat du développeur, la fiche du Store et
+la porte de mise en production. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
 cadrage d'ergonomie, § 12).

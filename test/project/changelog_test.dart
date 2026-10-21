@@ -847,19 +847,9 @@ void main() {
       );
     }
 
-    test('pubspec.yaml porte version: 0.6.0+6', () {
-      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
-      expect(
-        RegExp(
-          r'^version:\s*0\.6\.0\+6\s*$',
-          multiLine: true,
-        ).hasMatch(contenuPubspec),
-        isTrue,
-        reason:
-            'un tag et un journal qui divergent laissent personne savoir ce '
-            'que contient le binaire installé',
-      );
-    });
+    // Le verrou « pubspec.yaml porte version: 0.6.0+6 » est retiré : le
+    // pubspec est passé à 1.0.0+7 (décision du commanditaire du 2026-10-21,
+    // ADR-018). Le groupe 1.0.0 porte le verrou de version courant.
 
     test('une section ## [0.6.0], une seule, sous [Non publié] et au-dessus '
         'de [0.5.0]', () {
@@ -961,5 +951,59 @@ void main() {
       expect(nonVerifie, contains('La porte de T2 n\'est pas franchie'));
       expect(nonVerifie, contains('`A⏸3`'));
     });
+  });
+
+  // Décision du commanditaire du 2026-10-21 : la version passe à 1.0.0, datée
+  // et étiquetée, parce que le Microsoft Store refuse un premier nombre à 0
+  // (ADR-018). Même application que 0.6.0.
+  group('version 1.0.0 (décision du commanditaire du 2026-10-21)', () {
+    late String contenuChangelog;
+
+    setUpAll(() {
+      contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    });
+
+    test('pubspec.yaml porte version: 1.0.0+7', () {
+      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        RegExp(
+          r'^version:\s*1\.0\.0\+7\s*$',
+          multiLine: true,
+        ).hasMatch(contenuPubspec),
+        isTrue,
+        reason:
+            'un tag et un journal qui divergent laissent personne savoir ce '
+            'que contient le binaire installé',
+      );
+    });
+
+    test('une section ## [1.0.0] — 2026-10-21, une seule, sous [Non publié] '
+        'et au-dessus de [0.6.0]', () {
+      final int occurrences = RegExp(
+        r'^## \[1\.0\.0\]',
+        multiLine: true,
+      ).allMatches(contenuChangelog).length;
+      expect(occurrences, 1);
+      expect(contenuChangelog, contains('## [1.0.0] — 2026-10-21\n'));
+      final int nonPublie = contenuChangelog.indexOf('## [Non publié]');
+      final int v100 = contenuChangelog.indexOf('## [1.0.0]');
+      final int v060 = contenuChangelog.indexOf('## [0.6.0]');
+      expect(nonPublie, lessThan(v100));
+      expect(v100, lessThan(v060));
+    });
+
+    test(
+      'la section 1.0.0 dit que rien ne change et que rien n\'est soumis',
+      () {
+        final int debut = contenuChangelog.indexOf('## [1.0.0]');
+        final int suivante = contenuChangelog.indexOf('\n## [', debut + 1);
+        final String section = contenuChangelog
+            .substring(debut, suivante)
+            .replaceAll(RegExp(r'\s+'), ' ');
+        expect(section, contains('Aucune fonctionnalité ne change'));
+        expect(section, contains('rien n\'est soumis au Store'));
+        expect(section, contains('la porte de T2 reste due'));
+      },
+    );
   });
 }

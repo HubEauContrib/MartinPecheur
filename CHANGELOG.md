@@ -11,6 +11,22 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [1.0.0] — 2026-10-21
+
+Même application que `0.6.0`, sous un nouveau numéro : la première version
+destinée au Microsoft Store, datée et étiquetée sur décision du commanditaire
+du 2026-10-21. Le Store refuse une version dont le premier nombre vaut 0
+(exigences d'un paquet MSIX, relues le 2026-10-21 ; `ADR-018`). Aucun paquet
+MSIX n'est construit et rien n'est soumis au Store ; la mise en production
+reste une décision du commanditaire, et la porte de T2 reste due.
+
+### Modifié
+
+- Le numéro de version passe de `0.6.0` à `1.0.0` (numéro de construction
+  `7`) : c'est lui qu'affichent les propriétés du fichier sous Windows et les
+  informations de l'application sous Android. Aucune fonctionnalité ne change
+  par rapport à `0.6.0`.
+
 ## [0.6.0] — 2026-10-21
 
 Tranche d'ergonomie, avant T5 : une lecture à la fois sur la carte, des fiches

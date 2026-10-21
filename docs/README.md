@@ -95,6 +95,7 @@ de ses arbitrages ; le plan correspondant est ci-dessus.
 | [ADR-014](adr/ADR-014-feature-first-mvvm.md) | **Feature-first + MVVM** (`ChangeNotifier`), à la place du CQRS léger | Accepté — arbitrage du commanditaire du 2026-09-13 |
 | [ADR-015](adr/ADR-015-regroupement-par-zone-administrative.md) | **Regroupement par zone administrative** sous le zoom 9 (région, puis département), `F2c` au-delà | Accepté — arbitrage du commanditaire du 2026-09-22 |
 | [ADR-016](adr/ADR-016-integration-vigicrues.md) | **Intégrer Vigicrues derrière une abstraction** (`FloodVigilanceSource`), GeoJSON national mis en cache | Accepté ⚠️ — **en partie arbitré le 2026-10-14** (1, 6, 10, 12) ; les choix d'architecture `R1` à `R5` sont tranchés par défaut |
+| [ADR-018](adr/ADR-018-empaquetage-msix-microsoft-store.md) | **Empaquetage MSIX pour le Microsoft Store** par le paquet `msix`, en dépendance de développement (`ADR-017` est réservé par le cadrage de T5) | **Proposé** le 2026-10-21 — **en partie arbitré** le même jour (version `1.0.0`) ; l'outil reste à arbitrer, rien n'est ajouté |
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».
