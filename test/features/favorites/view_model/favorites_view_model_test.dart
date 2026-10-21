@@ -8,6 +8,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/preferences/shared_preferences_favorite_repository.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
+import 'package:martinpecheur/domain/follow_up/flood_threshold.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up_repository.dart';
+import 'package:martinpecheur/domain/follow_up/followed_place.dart';
+import 'package:martinpecheur/domain/follow_up/notice_repository.dart';
+import 'package:martinpecheur/domain/follow_up/received_notice.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
@@ -16,6 +23,8 @@ import 'package:martinpecheur/features/favorites/view_model/favorites_view_model
 
 import '../../../support/fake_shared_preferences.dart';
 import '../../../support/in_memory_favorite_repository.dart';
+import '../../../support/in_memory_follow_up_repository.dart';
+import '../../../support/in_memory_notice_repository.dart';
 
 StationFavorite _station() => StationFavorite(
   code: StationCode('K447001001'),
@@ -51,6 +60,8 @@ String _name(FavoritesState state) => switch (state) {
 
 void main() {
   late InMemoryFavoriteRepository repository;
+  late InMemoryFollowUpRepository followUps;
+  late InMemoryNoticeRepository notices;
   late FavoritesViewModel viewModel;
   late List<String> notified;
   var viewModelDisposed = false;
@@ -58,7 +69,13 @@ void main() {
   void build(List<Favorite> initial) {
     viewModelDisposed = false;
     repository = InMemoryFavoriteRepository(initial);
-    viewModel = FavoritesViewModel(favorites: repository);
+    followUps = InMemoryFollowUpRepository();
+    notices = InMemoryNoticeRepository();
+    viewModel = FavoritesViewModel(
+      favorites: repository,
+      followUps: followUps,
+      notices: notices,
+    );
     notified = <String>[];
     viewModel.addListener(() => notified.add(_name(viewModel.state)));
   }
@@ -363,7 +380,11 @@ void main() {
           );
       await real.add(_station());
       await real.add(_onde());
-      final FavoritesViewModel screen = FavoritesViewModel(favorites: real);
+      final FavoritesViewModel screen = FavoritesViewModel(
+        favorites: real,
+        followUps: InMemoryFollowUpRepository(),
+        notices: InMemoryNoticeRepository(),
+      );
       addTearDown(screen.dispose);
       await screen.load();
       expect((screen.state as FavorisLus).favorites, <Favorite>[
@@ -447,6 +468,181 @@ void main() {
       await a;
 
       expect(viewModel.state, isA<FavorisLus>());
+    });
+  });
+
+  group('rappel du réglage « Me prévenir » et avis non lus (V3 de T5)', () {
+    FloodSectionFavorite section() => FloodSectionFavorite(
+      code: FloodSectionCode('LC135_TR1'),
+      name: 'La Loire',
+      addedAt: DateTime.utc(2026, 10, 13, 9),
+    );
+
+    DroughtFollowUpStarted notice({required bool read}) =>
+        DroughtFollowUpStarted(
+          placeLabel: 'La Loire à Blois',
+          zones: const <KnownZone>[],
+          readAt: DateTime.utc(2026, 10, 20, 8),
+          receivedAt: DateTime.utc(2026, 10, 20, 8),
+          read: read,
+        );
+
+    FloodSectionPlace sectionPlace() =>
+        FloodSectionPlace(FloodSectionCode('LC135_TR1'));
+
+    test('rappel des trois sortes de lieu', () async {
+      viewModel.dispose();
+      build(<Favorite>[section(), _onde(), _station()]);
+      await followUps.followFlood(sectionPlace(), FloodThreshold.orange);
+      await followUps.followDrought(StationPlace(StationCode('K447001001')));
+      await followUps.followDrought(
+        OndePointPlace(OndeStationCode('K4640001')),
+      );
+
+      await viewModel.load();
+
+      expect(
+        viewModel.reminderOf(section()),
+        floodFollowUpReminder(FloodThreshold.orange),
+      );
+      expect(viewModel.reminderOf(_station()), droughtFollowUpReminder);
+      expect(viewModel.reminderOf(_onde()), droughtFollowUpReminder);
+    });
+
+    test('aucun rappel pour un lieu non suivi', () async {
+      viewModel.dispose();
+      build(<Favorite>[section(), _station()]);
+      await followUps.followDrought(StationPlace(StationCode('K447001001')));
+
+      await viewModel.load();
+
+      expect(viewModel.reminderOf(section()), isNull);
+      expect(viewModel.reminderOf(_unreadable), isNull);
+    });
+
+    test('suivi illisible : aucun rappel, les favoris restent lus', () async {
+      await followUps.followDrought(StationPlace(StationCode('K447001001')));
+      followUps.readError = const SuiviIllisible('x');
+
+      await viewModel.load();
+
+      expect(viewModel.state, isA<FavorisLus>());
+      expect(viewModel.reminderOf(_station()), isNull);
+    });
+
+    test(
+      'compte des non lus ; un illisible, un lu ne sont pas comptés',
+      () async {
+        viewModel.dispose();
+        build(<Favorite>[_station()]);
+        notices = InMemoryNoticeRepository(<ReceivedNotice>[
+          const UnreadableNotice(raw: '{}'),
+          notice(read: false),
+          notice(read: true),
+          notice(read: false),
+        ]);
+        viewModel.dispose();
+        viewModel = FavoritesViewModel(
+          favorites: repository,
+          followUps: followUps,
+          notices: notices,
+        );
+
+        await viewModel.load();
+
+        expect(viewModel.unreadNotices, 2);
+      },
+    );
+
+    test('avis illisibles : null, les favoris restent lus', () async {
+      notices.readError = const ListeDAvisIllisible('x');
+
+      await viewModel.load();
+
+      expect(viewModel.unreadNotices, isNull);
+      expect(viewModel.state, isA<FavorisLus>());
+    });
+
+    test('avant toute lecture : null', () {
+      expect(viewModel.unreadNotices, isNull);
+    });
+
+    test('remove d\'un tronçon suivi éteint son suivi', () async {
+      viewModel.dispose();
+      build(<Favorite>[section(), _station()]);
+      await followUps.followFlood(sectionPlace(), FloodThreshold.jaune);
+      await viewModel.load();
+      expect(viewModel.reminderOf(section()), isNotNull);
+
+      await viewModel.remove(section());
+
+      expect(followUpOf(followUps.stored.followUps, sectionPlace()), isNull);
+      expect(viewModel.writeFailed, isFalse);
+      expect((viewModel.state as FavorisLus).favorites, <Favorite>[_station()]);
+    });
+
+    test('remove : un échec de unfollow est ignoré', () async {
+      viewModel.dispose();
+      build(<Favorite>[section(), _station()]);
+      await followUps.followFlood(sectionPlace(), FloodThreshold.jaune);
+      await viewModel.load();
+      followUps.writeError = StateError('boum');
+
+      await viewModel.remove(section());
+
+      expect(viewModel.writeFailed, isFalse);
+      expect(repository.stored, <Favorite>[_station()]);
+      expect((viewModel.state as FavorisLus).favorites, <Favorite>[_station()]);
+    });
+
+    test('remove en échec : le suivi reste, writeFailed', () async {
+      viewModel.dispose();
+      build(<Favorite>[section()]);
+      await followUps.followFlood(sectionPlace(), FloodThreshold.jaune);
+      await viewModel.load();
+      repository.writeError = StateError('boum');
+
+      await viewModel.remove(section());
+
+      expect(viewModel.writeFailed, isTrue);
+      expect(followUps.stored.followUps, hasLength(1));
+    });
+
+    test('remove d\'une entrée illisible : aucune écriture du suivi', () async {
+      viewModel.dispose();
+      build(<Favorite>[_unreadable, _station()]);
+      await viewModel.load();
+      final int writes = followUps.writeCalls;
+
+      await viewModel.remove(_unreadable);
+
+      expect(followUps.writeCalls, writes);
+    });
+
+    test('refreshUnreadNotices met le compte à jour sans toucher aux '
+        'favoris', () async {
+      await viewModel.load();
+      expect(viewModel.unreadNotices, 0);
+      final int favoriteReads = repository.readCalls;
+      notified.clear();
+      await notices.addAll(<ReadableNotice>[notice(read: false)]);
+
+      await viewModel.refreshUnreadNotices();
+
+      expect(viewModel.unreadNotices, 1);
+      expect(repository.readCalls, favoriteReads);
+      expect(notified, hasLength(1));
+      expect(notified, everyElement('lus(2)'));
+      expect(viewModel.state, isA<FavorisLus>());
+    });
+
+    test('refreshUnreadNotices : avis devenus illisibles, null', () async {
+      await viewModel.load();
+      notices.readError = const ListeDAvisIllisible('x');
+
+      await viewModel.refreshUnreadNotices();
+
+      expect(viewModel.unreadNotices, isNull);
     });
   });
 }

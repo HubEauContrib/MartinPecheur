@@ -112,6 +112,7 @@ import 'features/restrictions/zones_samples.dart';
 import 'support/android_platform.dart';
 import 'support/in_memory_favorite_repository.dart';
 import 'support/in_memory_follow_up_repository.dart';
+import 'support/in_memory_notice_repository.dart';
 import 'support/windows_platform.dart';
 
 /// Dépôts vides, juste assez pour CONSTRUIRE les trois autres ViewModels :
@@ -370,7 +371,12 @@ MartinPecheurApp _app(
         floodSheetViewModel ?? _floodSheet(favorites: favorites),
     restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
     favoritesViewModel:
-        favoritesViewModel ?? FavoritesViewModel(favorites: favorites),
+        favoritesViewModel ??
+        FavoritesViewModel(
+          favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
+          notices: InMemoryNoticeRepository(),
+        ),
     mapViewModel:
         mapViewModel ??
         MapViewModel(
@@ -599,9 +605,16 @@ void main() {
       reason: 'la fiche ONDE recoit CETTE MEME instance',
     );
     expect(
-      root,
-      contains('favoritesViewModel: FavoritesViewModel(favorites: favorites)'),
-      reason: 'l ecran « Favoris » recoit CETTE MEME instance (S11)',
+      RegExp(
+        r'favoritesViewModel: FavoritesViewModel\(\s*'
+        r'favorites: favorites,\s*'
+        r'followUps: followUps,\s*'
+        r'notices: notices,?\s*\)',
+      ).hasMatch(root),
+      isTrue,
+      reason:
+          'l ecran « Favoris » recoit CETTE MEME instance des favoris (S11), '
+          'du suivi et des avis (V3 de T5)',
     );
   });
 
@@ -2232,7 +2245,11 @@ void main() {
         favorites: favorites,
         followUps: InMemoryFollowUpRepository(),
       );
-      final FavoritesViewModel list = FavoritesViewModel(favorites: favorites);
+      final FavoritesViewModel list = FavoritesViewModel(
+        favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
+        notices: InMemoryNoticeRepository(),
+      );
       final MapViewModel map = MapViewModel(
         stationPoints: _EmptyStationPointRepository(),
         observations: _EmptyHydroObservationRepository(),
@@ -2730,7 +2747,11 @@ void main() {
               favorites: favorites,
               followUps: InMemoryFollowUpRepository(),
             ),
-            FavoritesViewModel(favorites: favorites),
+            FavoritesViewModel(
+              favorites: favorites,
+              followUps: InMemoryFollowUpRepository(),
+              notices: InMemoryNoticeRepository(),
+            ),
           ),
         );
         // Le corps de la fiche ouverte (`D5` d'Ergonomie).
@@ -2876,6 +2897,25 @@ void main() {
     );
   });
 
+  // `V3` de T5 : le dépôt des avis sérialise ses lire-puis-écrire par instance ;
+  // UNE construction, passée à l'écran « Favoris ».
+  test('la racine ne construit qu une seule instance du depot des avis', () {
+    final String root = File('lib/main.dart').readAsStringSync();
+
+    expect(
+      RegExp(r'SharedPreferencesNoticeRepository\(').allMatches(root),
+      hasLength(1),
+      reason: 'une seule construction, partagee par tous ses clients',
+    );
+    expect(
+      root,
+      contains(
+        'final NoticeRepository notices = '
+        'SharedPreferencesNoticeRepository();',
+      ),
+    );
+  });
+
   // `V2` de T5 : les fiches station et ONDE reçoivent la MÊME instance du
   // dépôt des suivis que la fiche tronçon.
   test('la racine passe la meme instance du depot des suivis aux fiches '
@@ -2957,7 +2997,11 @@ void main() {
         favorites: favorites,
         followUps: InMemoryFollowUpRepository(),
       );
-      final FavoritesViewModel list = FavoritesViewModel(favorites: favorites);
+      final FavoritesViewModel list = FavoritesViewModel(
+        favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
+        notices: InMemoryNoticeRepository(),
+      );
       final MapViewModel map = MapViewModel(
         stationPoints: _EmptyStationPointRepository(),
         observations: _EmptyHydroObservationRepository(),

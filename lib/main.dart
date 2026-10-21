@@ -7,6 +7,7 @@ import 'package:martinpecheur/data/floods/cached_flood_vigilance_source.dart';
 import 'package:martinpecheur/data/floods/vigicrues_endpoint.dart';
 import 'package:martinpecheur/data/floods/vigicrues_flood_vigilance_source.dart';
 import 'package:martinpecheur/data/follow_up/shared_preferences_follow_up_repository.dart';
+import 'package:martinpecheur/data/follow_up/shared_preferences_notice_repository.dart';
 import 'package:martinpecheur/data/http/hub_eau_client.dart';
 import 'package:martinpecheur/data/http/json_http_client.dart';
 import 'package:martinpecheur/data/links/url_launcher_external_link_opener.dart';
@@ -31,6 +32,7 @@ import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/floods/flood_vigilance_source.dart';
 import 'package:martinpecheur/domain/follow_up/follow_up_repository.dart';
+import 'package:martinpecheur/domain/follow_up/notice_repository.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
@@ -161,6 +163,10 @@ Future<void> main() async {
   // INSTANCE, comme celui des favoris. Verrou : `test/main_test.dart`.
   final FollowUpRepository followUps = SharedPreferencesFollowUpRepository();
 
+  // Les avis reçus (T5, `V3`) : UNE SEULE instance, comme les autres dépôts.
+  // Verrou : `test/main_test.dart`.
+  final NoticeRepository notices = SharedPreferencesNoticeRepository();
+
   // Vigicrues (T4, `F4`) : la source n'est nommée qu'ICI, hors de
   // `lib/data/floods/` (confinement, `ADR-016` ;
   // `test/data/floods/flood_vocabulary_confinement_test.dart`), décorée par
@@ -198,7 +204,11 @@ Future<void> main() async {
         favorites: favorites,
         followUps: followUps,
       ),
-      favoritesViewModel: FavoritesViewModel(favorites: favorites),
+      favoritesViewModel: FavoritesViewModel(
+        favorites: favorites,
+        followUps: followUps,
+        notices: notices,
+      ),
       // La lecture Crues reste `LectureCruesNonDemandee` au lancement : rien
       // n'est lu avant le choix de l'entrée « Vigilance crues » du sélecteur.
       floodLayerViewModel: FloodLayerViewModel(source: floodVigilanceSource),

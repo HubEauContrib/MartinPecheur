@@ -30,6 +30,8 @@ import '../../../project/vocabulary_lists.dart';
 import '../../../support/android_platform.dart';
 import '../../../support/focus.dart';
 import '../../../support/in_memory_favorite_repository.dart';
+import '../../../support/in_memory_follow_up_repository.dart';
+import '../../../support/in_memory_notice_repository.dart';
 import '../../../support/windows_platform.dart';
 
 const String _noMeasure =
@@ -639,6 +641,8 @@ void main() {
             InMemoryFavoriteRepository(<Favorite>[_onde(), _station()]);
         final FavoritesViewModel viewModel = FavoritesViewModel(
           favorites: repository,
+          followUps: InMemoryFollowUpRepository(),
+          notices: InMemoryNoticeRepository(),
         );
         addTearDown(viewModel.dispose);
         await tester.pumpWidget(
@@ -1185,6 +1189,8 @@ void main() {
               ]);
           final FavoritesViewModel viewModel = FavoritesViewModel(
             favorites: repository,
+            followUps: InMemoryFollowUpRepository(),
+            notices: InMemoryNoticeRepository(),
           );
           addTearDown(viewModel.dispose);
           await tester.pumpWidget(

@@ -13,12 +13,19 @@
 // est sa garde.
 //
 // ⚠️ Un ViewModel ne connaît aucun widget : ce fichier n'importe que
-// `foundation.dart`, pour [ChangeNotifier]. Aucun texte d'écran ici : ils
-// sont à la vue. Le verrou est `test/architecture/layers_test.dart`.
+// `foundation.dart`, pour [ChangeNotifier]. Les seuls textes rendus ici sont
+// les rappels de « Me prévenir », tirés du domaine ; les autres sont à la
+// vue. Le verrou est `test/architecture/layers_test.dart`.
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
+import 'package:martinpecheur/domain/follow_up/flood_threshold.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up_repository.dart';
+import 'package:martinpecheur/domain/follow_up/followed_place.dart';
+import 'package:martinpecheur/domain/follow_up/notice_repository.dart';
+import 'package:martinpecheur/domain/follow_up/received_notice.dart';
 
 /// État de l'écran « Favoris ». `sealed` + `switch` exhaustif (BR-011).
 sealed class FavoritesState {
@@ -54,9 +61,23 @@ final class FavorisIllisibles extends FavoritesState {
 
 /// ViewModel de l'écran « Favoris ».
 final class FavoritesViewModel extends ChangeNotifier {
-  FavoritesViewModel({required this._favorites});
+  FavoritesViewModel({
+    required this._favorites,
+    required this._followUps,
+    required this._notices,
+  });
 
   final FavoriteRepository _favorites;
+  final FollowUpRepository _followUps;
+  final NoticeRepository _notices;
+
+  // Le suivi lu avec la liste (T5, V3) ; `null` s'il est illisible ou pas
+  // encore lu : aucun rappel, les favoris restent lus.
+  FollowUpBook? _book;
+
+  // Le nombre d'avis non lus ; `null` si les avis sont illisibles ou pas encore
+  // lus.
+  int? _unreadNotices;
 
   FavoritesState _state = const FavorisFermes();
 
@@ -89,15 +110,72 @@ final class FavoritesViewModel extends ChangeNotifier {
     _busy = false;
     _writeFailed = false;
     _emit(generation, const FavorisEnLecture());
-    final FavoritesState read = await _read();
+    final (FavoritesState read, FollowUpBook? book, int? unread) = await (
+      _read(),
+      _readBook(),
+      _readUnread(),
+    ).wait;
+    if (_disposed || generation != _generation) {
+      return;
+    }
+    _book = book;
+    _unreadNotices = unread;
     _emit(generation, read);
   }
 
-  /// Retire [favorite] puis relit le dépôt, sans repasser par la lecture.
+  /// Le rappel du réglage « Me prévenir » de [favorite], ou `null` : lieu non
+  /// suivi, entrée illisible, ou suivi illisible.
+  String? reminderOf(Favorite favorite) {
+    final FollowedPlace? place = followedPlaceOf(favorite);
+    final FollowUpBook? book = _book;
+    if (place == null || book == null) {
+      return null;
+    }
+    return switch (followUpOf(book.followUps, place)) {
+      FloodFollowUp(:final FloodThreshold threshold) => floodFollowUpReminder(
+        threshold,
+      ),
+      DroughtFollowUp() => droughtFollowUpReminder,
+      UnreadableFollowUp() || null => null,
+    };
+  }
+
+  /// Le nombre d'avis lisibles non lus ; `null` si les avis sont illisibles ou
+  /// pas encore lus.
+  int? get unreadNotices => _unreadNotices;
+
+  /// Relit seulement les avis, sans repasser par [FavorisEnLecture]. Une
+  /// lecture tardive (écran rouvert ou fermé entre-temps) n'écrit rien.
+  Future<void> refreshUnreadNotices() async {
+    if (_disposed) {
+      return;
+    }
+    final int generation = _generation;
+    final int? unread = await _readUnread();
+    if (_disposed || generation != _generation) {
+      return;
+    }
+    _unreadNotices = unread;
+    notifyListeners();
+  }
+
+  /// Retire [favorite] puis éteint le suivi de son lieu (un échec de
+  /// `unfollow` est ignoré : l'orphelin tombe à la vérification suivante), puis
+  /// relit le dépôt, sans repasser par la lecture.
   /// Ignoré pendant une écriture, sur un écran fermé ou en lecture. L'échec ne
   /// se lève pas : [writeFailed], état inchangé.
-  Future<void> remove(Favorite favorite) =>
-      _write(() => _favorites.remove(favorite));
+  Future<void> remove(Favorite favorite) => _write(() async {
+    await _favorites.remove(favorite);
+    final FollowedPlace? place = followedPlaceOf(favorite);
+    if (place == null) {
+      return;
+    }
+    try {
+      await _followUps.unfollow(place);
+    } on Object {
+      // Ignoré : le suivi orphelin sera retiré à la vérification suivante.
+    }
+  });
 
   /// Repart d'une liste vide : `clear()` puis relecture. Mêmes garde et échec
   /// que [remove] ; en échec, l'état (typiquement [FavorisIllisibles]) reste.
@@ -144,11 +222,15 @@ final class FavoritesViewModel extends ChangeNotifier {
     if (_disposed || generation != _generation) {
       return;
     }
-    final FavoritesState read = await _read();
+    final (FavoritesState read, FollowUpBook? book) = await (
+      _read(),
+      _readBook(),
+    ).wait;
     if (_disposed || generation != _generation) {
       return;
     }
     _busy = false;
+    _book = book;
     _state = read;
     notifyListeners();
   }
@@ -163,6 +245,29 @@ final class FavoritesViewModel extends ChangeNotifier {
       return FavorisLus(List<Favorite>.unmodifiable(all));
     } on Object {
       return const FavorisIllisibles();
+    }
+  }
+
+  /// Lit le suivi. Toute levée vaut « suivi illisible » (`null`). Ne lève
+  /// jamais.
+  Future<FollowUpBook?> _readBook() async {
+    try {
+      return await _followUps.read();
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Compte les avis lisibles non lus ; `null` si illisibles. Ne lève jamais.
+  Future<int?> _readUnread() async {
+    try {
+      final List<ReceivedNotice> all = await _notices.readAll();
+      return all
+          .whereType<ReadableNotice>()
+          .where((ReadableNotice n) => !n.read)
+          .length;
+    } on Object {
+      return null;
     }
   }
 
