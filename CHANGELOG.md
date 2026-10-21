@@ -11,16 +11,20 @@ observable n'y figure pas.
 
 ## [Non publié]
 
-## [0.6.0] — à publier
+## [0.6.0] — 2026-10-21
 
 Tranche d'ergonomie, avant T5 : une lecture à la fois sur la carte, des fiches
-qui ne recouvrent plus la carte (cadrage du 2026-10-17). **Version ouverte, pas
-publiée** : le code de la tranche est livré, la porte reste à passer
-(exécutable de release Windows lancé hors Flutter, émulateur Pixel_7 en
-débogage). « Ajouté » et « Modifié » sont écrits en une fois, d'après le code
-livré, et vérifiés par `flutter test` ; **rien n'en est constaté à l'écran**, et
-les mesures de disposition sont faites en Roboto, jamais en Segoe UI réelle.
-« Modifié » dit ce qui change par rapport à `0.5.0`.
+qui ne recouvrent plus la carte (cadrage du 2026-10-17). **Version datée du
+2026-10-21**, après les constats de la porte par le commanditaire. La porte de
+la tranche est franchie sur les deux cibles, Windows (exécutable de release
+lancé hors Flutter) et Android (émulateur Pixel_7, en débogage) : « Constaté à
+l'exécution » recopie ce que le commanditaire a dit, « Non vérifié » ce qu'il
+n'a pas dit. Aucun tag n'est posé et la mise en production reste une décision
+du commanditaire ; la porte de T2 reste due. « Ajouté » et « Modifié » sont
+écrits d'après le code livré sur `feat/ergonomie` et vérifiés par
+`flutter test` (mesures de disposition en Roboto) ; seul ce que « Constaté à
+l'exécution » dit a été vu à l'écran. « Modifié » dit ce qui
+change par rapport à `0.5.0`.
 
 ### Ajouté
 
@@ -90,6 +94,56 @@ les mesures de disposition sont faites en Roboto, jamais en Segoe UI réelle.
   cadre commun ; « ⚠ Avertissement » passe avant le nom, dans l'en-tête.
 - L'écran « Sécheresse et restrictions » ne change pas, hors l'annonce « Retour »
   de sa barre de titre.
+
+### Constaté à l'exécution
+
+Constats du commanditaire, recopiés tels qu'il les a dits. Le code Dart de la
+release Windows est celui de `data/app.so`, daté du 2026-10-18 à 23:54, après
+le commit `7ce3f73` (23:44), dernier changement de `lib/`.
+
+- Le 2026-10-19, sur Windows, exécutable de release lancé hors Flutter, code de
+  `7ce3f73` (`P1`) : « c'est bon », précisé par question fermée — « Oui, tout
+  vu » : constats `a` à `j` du cadrage (§ 10) vus et conformes, à la taille du
+  lancement et à 800 × 740, texte à 100 % puis 200 %, dont `h` (zone cliente
+  de 1 280 × 740) et `i` (« Retour » au Narrateur). Points vus en Segoe UI réelle (grille du
+  sélecteur, rayon, ombre et couture du bloc, filet des fiches, tuiles de la
+  fiche station, pilule à 800 × 740 et 100 %) : « Vus, conformes ». Aucun
+  écart dicté.
+- Rapporté le 2026-10-21, sur Android, émulateur Pixel_7, en débogage (`P2`) :
+  « j'ai testé la 10 P2 c'est validé ». Aucun détail point par point ; la date
+  du test n'est pas dite.
+- Sur la construction du 2026-10-18 (23:54), sur Windows, dossier de
+  publication de l'exécutable de release de `0.6.0` : **35 Mo**, 36 224 870 octets, 15 fichiers, budget de
+  60 Mo tenu (`NFR-06`). Repère de `0.5.0` : 35 748 882 octets, 15 fichiers.
+  Relevé par la boucle principale, non rapporté par le commanditaire.
+
+### Non vérifié
+
+- **Ce que « validé » ne dit pas, sur Android** : le détail de `P2` (constats
+  `a` à `g` et `j`, police à 100 % puis 200 %, `g` en écran divisé) n'est pas
+  rapporté ; la **version installée** sur l'émulateur n'a pas été relue par
+  `adb` (émulateur éteint au moment du relevé) ; la **marge système** réelle du
+  Pixel_7 (barre d'état, barre de navigation) n'a été ni relevée ni comparée à
+  celle des tests (24 en haut, 48 en bas) — à 390 × 844 et 200 %, il ne reste
+  que 6 px de jeu, et une marge réelle plus haute ferait défiler le bloc.
+- **En deçà des quatre tailles garanties** : 360 × 300 (dont la limite
+  acceptée à 200 %, fiche station ouverte, où la partie fixe n'a que 40 px) et
+  les téléphones en paysage (600 et 640 × 360) ne sont pas constatés : la
+  fenêtre minimale de Windows est de 800 × 740, et l'émulateur Pixel_7
+  demanderait un écran divisé ou un autre profil (le détail de `g` n'est pas
+  rapporté). Ils ne sont éprouvés qu'en test.
+- **Aucune annonce à TalkBack constatée** ; au Narrateur, seul « Retour »
+  (`i`) est constaté.
+- **Mesures en Roboto** : les tests de disposition mesurent en Roboto,
+  enregistrée sous le nom « Segoe UI » sous Windows ; **Segoe UI réelle** est
+  vue à l'écran (`P1`), jamais mesurée.
+- **Zone cliente de lancement** à 125, 150 et 200 % de mise à l'échelle de
+  Windows : non constatée. La fluidité (`NFR-01`) n'est pas remesurée sur la
+  disposition de `0.6.0`.
+- **La porte de T2 n'est pas franchie** : `A1`, `E4`, `P1` et `P2` de T2
+  restent dus (voir `0.3.0`). La **publication** Android reste différée :
+  signature (`A⏸3`) et préversion (`A⏸5`) ; aucun appareil réel (`A⏸4`).
+  **iOS** n'a jamais été compilé.
 
 ## [0.5.0] — 2026-10-17
 

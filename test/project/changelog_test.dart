@@ -825,11 +825,10 @@ void main() {
     });
   });
 
-  // Task O1 du plan d'ergonomie ouvre la version 0.6.0 ; Task P3 la datera,
-  // la porte de la tranche étant constatée sur Windows et sur Android. Le cas
-  // « ouverte, pas datée » (le 3) est celui que P3 inversera, comme pour 0.3.0 ;
-  // P3 réécrira aussi le verrou du chapeau (« le code de la tranche est
-  // livré », « la porte reste à passer »).
+  // Task O1 du plan d'ergonomie ouvre la version 0.6.0 ; Task P3 la date : la
+  // porte de la tranche est constatée sur Windows et sur Android, « Constaté à
+  // l'exécution » recopie ces constats et « Non vérifié » dit ce qui n'a pas
+  // été dit.
   group('version 0.6.0 (Tasks O1 et P3 du plan d\'ergonomie)', () {
     late String contenuChangelog;
 
@@ -876,26 +875,91 @@ void main() {
       expect(v060, lessThan(v050));
     });
 
-    test('la version 0.6.0 est ouverte, pas datée : la porte de la tranche '
-        'd\'ergonomie n\'est pas passée', () {
+    String sousSection(String titre) {
+      final String section = section060();
+      final int debut = section.indexOf('### $titre');
+      expect(debut, isNot(-1), reason: 'aucune sous-section ### $titre');
+      final int suivante = section.indexOf('\n### ', debut + 1);
+      return section
+          .substring(debut, suivante == -1 ? section.length : suivante)
+          .replaceAll(RegExp(r'\s+'), ' ');
+    }
+
+    test('la version 0.6.0 est datée du 2026-10-21 : une version sans date '
+        'n\'est pas close', () {
       final String? ligne = contenuChangelog
           .split('\n')
           .map((String l) => l.trimRight())
           .where((String l) => l.startsWith('## [0.6.0]'))
           .firstOrNull;
-      expect(ligne, '## [0.6.0] — à publier');
+      expect(ligne, '## [0.6.0] — 2026-10-21');
     });
 
-    test('le chapeau de 0.6.0 dit la tranche d\'ergonomie, avant T5, son code '
-        'livré et sa porte restant à passer', () {
+    test('le chapeau de 0.6.0 dit la tranche d\'ergonomie, avant T5, la porte '
+        'franchie sur les deux cibles, et qu\'aucun tag n\'est posé', () {
       final String section = section060();
       final String chapeau = section
-          .substring(section.indexOf('\n'))
+          .substring(section.indexOf('\n'), section.indexOf('\n### '))
           .replaceAll(RegExp(r'\s+'), ' ');
       expect(chapeau, contains('Tranche d\'ergonomie, avant T5'));
-      expect(chapeau, contains('Version ouverte, pas publiée'));
-      expect(chapeau, contains('le code de la tranche est livré'));
-      expect(chapeau, contains('la porte reste à passer'));
+      expect(chapeau, isNot(contains('Version ouverte')));
+      expect(chapeau, isNot(contains('la porte reste à passer')));
+      expect(
+        chapeau,
+        contains(
+          'La porte de la tranche est franchie sur les deux cibles, Windows '
+          '(exécutable de release lancé hors Flutter) et Android (émulateur '
+          'Pixel_7, en débogage)',
+        ),
+      );
+      expect(chapeau, contains('Aucun tag'));
+      expect(chapeau, contains('mise en production'));
+    });
+
+    test('Ajouté, Modifié, Constaté à l\'exécution puis Non vérifié, dans cet '
+        'ordre', () {
+      final String section = section060();
+      final int ajoute = section.indexOf('### Ajouté');
+      final int modifie = section.indexOf('### Modifié');
+      final int constate = section.indexOf('### Constaté à l\'exécution');
+      final int nonVerifie = section.indexOf('### Non vérifié');
+      expect(ajoute, isNot(-1));
+      expect(ajoute, lessThan(modifie));
+      expect(modifie, lessThan(constate));
+      expect(constate, lessThan(nonVerifie));
+    });
+
+    test('Constaté à l\'exécution recopie les constats de la porte, datés, '
+        'par cible, et le code de la release', () {
+      final String constate = sousSection('Constaté à l\'exécution');
+      expect(constate, contains('2026-10-19'));
+      expect(constate, contains('7ce3f73'));
+      expect(constate, contains('« c\'est bon »'));
+      expect(constate, contains('« Oui, tout vu »'));
+      expect(constate, contains('« Vus, conformes »'));
+      expect(constate, contains('Aucun écart dicté'));
+      expect(
+        constate,
+        contains(
+          'Rapporté le 2026-10-21, sur Android, émulateur Pixel_7, en '
+          'débogage',
+        ),
+      );
+      expect(constate, contains('« j\'ai testé la 10 P2 c\'est validé »'));
+      expect(constate, contains('36 224 870'));
+    });
+
+    test('Non vérifié nomme ce que « validé » ne dit pas, les tailles en deçà, '
+        'les lecteurs d\'écran et les portes restées dues', () {
+      final String nonVerifie = sousSection('Non vérifié');
+      expect(nonVerifie, contains('le détail de `P2`'));
+      expect(nonVerifie, contains('version installée'));
+      expect(nonVerifie, contains('marge système'));
+      expect(nonVerifie, contains('360 × 300'));
+      expect(nonVerifie, contains('TalkBack'));
+      expect(nonVerifie, contains('Segoe UI réelle'));
+      expect(nonVerifie, contains('La porte de T2 n\'est pas franchie'));
+      expect(nonVerifie, contains('`A⏸3`'));
     });
   });
 }
