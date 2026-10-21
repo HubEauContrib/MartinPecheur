@@ -357,9 +357,10 @@ Une case vide est une case vide, pas un « probablement ».
   applications du compte. Valeurs du manifeste relevées à l'écran le 2026-10-21 (« Identité du produit ») :
   `Package/Identity/Name` = `46Monbsoft.com.MartinPcheur`, `Package/Identity/Publisher` =
   `CN=6D56381B-9EA9-4C93-83CC-28D86DB31617`, `Package/Properties/PublisherDisplayName` = `Monbsoft`. Elles sont
-  publiques par nature (manifeste de tout paquet publié) ; aucun identifiant de compte n'est écrit ici. L'ID
-  Store n'est pas recopié : deux valeurs ont été vues pour le même nom de paquet, à éclaircir par le
-  commanditaire. Rien n'est soumis ; l'ADR d'empaquetage reprendra ces valeurs.
+  publiques par nature (manifeste de tout paquet publié) ; aucun identifiant de compte n'est écrit ici. ID
+  Store `9NLKQL1WKQFK`, constaté le 2026-10-21 : seul produit de « Applications et jeux », statut « Non
+  soumis » (un autre ID collé plus tôt ne correspond à aucun produit de la liste). Rien n'est soumis ; l'ADR
+  d'empaquetage reprendra ces valeurs.
 
 ## Faits sans autre trace
 
