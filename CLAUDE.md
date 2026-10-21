@@ -19,7 +19,7 @@
 | T3 | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` |
 | T4 | Crues : vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` |
 | Ergonomie | Maquette du 2026-10-03 (sélecteur, fiches, panneau Windows) et points d'interface ouverts | ✅ close — `0.6.0` |
-| T5 | Être prévenu, sans serveur ni compte | 🔄 cadrée — plan suspendu derrière l'ADR d'empaquetage MSIX |
+| T5 | Être prévenu, sans serveur ni compte | 🔄 cadrée — plan à écrire |
 
 Détail, constats non faits, points ouverts : `docs/project-state.md`.
 
@@ -142,7 +142,8 @@ test/
   project/                      ← non-régression sur la doc et la configuration : domain-model.md,
                                   nfr.md, CHANGELOG, Gherkin, traçabilité, vocabulaire, textes
                                   d'avertissement, identifiants iOS et Android, taille minimale
-                                  Windows. `dart:io` y est autorisé, jamais sous lib/domain/
+                                  Windows, identité du paquet MSIX (ADR-018). `dart:io` y est
+                                  autorisé, jamais sous lib/domain/
   fixtures/                     ← réponses d'API et extraits de référentiel réels, datés dans leur
                                   nom : une fixture est un fait constaté, jamais une invention
 android/  ios/  windows/        ← versionnés. android/ : le GABARIT Flutter de plateforme
@@ -180,6 +181,7 @@ docs/
 | Graphes | courbe de débit (`US-11`) | 💭 à trancher |
 | Tests | **`flutter test`** — `test/architecture/` d'abord, puis domaine, data, features (dont les `view_model`, sans rendu), plus `test/project/` sur la doc et la configuration | ✅ `flutter test` vert ; décompte du jour : `docs/project-state.md`. ⚠️ **Onze fichiers mesurent en Roboto**, chargée depuis le SDK Flutter (`FLUTTER_ROOT`), et non en police de test : `test/features/map/view/map_reading_selector_test.dart`, `map_legend_test.dart`, `map_reading_block_test.dart`, `map_layout_test.dart`, `map_layout_invariants_test.dart`, `ergonomie_budget_test.dart`, `map_designation_reticle_test.dart`, `test/features/shared/sheet_frame_test.dart`, `test/features/station_sheet/view/station_summary_sheet_test.dart` et `test/features/onde_sheet/view/onde_summary_sheet_test.dart` (par `test/support/roboto.dart`, `chargerRoboto`) — tous échouent si la police manque —, `test/features/restrictions/view/restrictions_scale_text_test.dart` (ignoré, `markTestSkipped`, si `FLUTTER_ROOT` manque hors intégration continue). Leurs cas sous Windows mesurent en Roboto enregistrée sous le nom « Segoe UI », un substitut : **Segoe UI réelle n'est jamais mesurée**. Les verrous de gestes de la carte et du défilement de l'écran des restrictions tournent en plateforme Windows (la barre de défilement automatique du bureau y change ce que reçoit la carte). Plateforme des tests de widget : « Conventions » |
 | Percentiles | **script Dart** produisant `assets/percentiles/` (`ADR-003`) | 🔄 |
+| Empaquetage Windows | **`msix` ^3.18.0** en **dépendance de développement** (`ADR-018`), section `msix_config` de `pubspec.yaml` à l'identité de Partner Center, verrouillée par `test/project/msix_config_test.dart` | ✅ configuré · 🔄 **jamais lancé** : `dart run msix:create --store` est lancé par le commanditaire et produit `build/windows/x64/runner/Release/martinpecheur.msix` ; avec `build_windows: false`, il emballe l'exécutable de release **déjà construit et vérifié**, donc **après** sa vérification. ⚠️ **Pas de `logo_path`** tant que l'application n'a pas son logo : le paquet porte alors le logo de Flutter et **ne se soumet pas** |
 
 > Toute bibliothèque retenue est vérifiée sur `pub.dev` avant d'être ajoutée : **version, licence compatible GPL-3.0, plateformes — Windows incluse —, date de dernière publication.** On lit la signature dans le paquet installé, on ne l'écrit pas de mémoire.
 
@@ -245,7 +247,7 @@ Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 - **Diagrammes** : dispersés **à côté** de la sous-partie qu'ils illustrent, jamais en section dédiée. **Mermaid inline** uniquement.
 - Templates : `docs/{br,use-cases,adr}/*-template.md`.
 - **Trois ADR ont été tranchés sans arbitrage du commanditaire** (`ADR-002`, `004`, `006`) ; `ADR-016` l'est en partie (arbitrages 1, 6, 10 et 12 du commanditaire, le 2026-10-14 ; les choix d'architecture `R1` à `R5` sont tranchés par défaut). Chacun porte une section « Si la décision est revue ». Ne pas les traiter comme définitifs. **`ADR-004` est en partie arbitré le 2026-09-27** (cadrage de T2) : chemin nominal VigiEau sans repli data.gouv, eaux superficielles d'abord et autres zones nommées, un seul appel par point filtré par profil dans le domaine ; ses autres choix restent proposés.
-- **`ADR-013` et `ADR-014` sont, eux, des arbitrages du commanditaire** — bascule Flutter et Windows première cible (2026-09-12, écrit a posteriori le 2026-09-13), feature-first + MVVM (2026-09-13). Ils ne se révisent pas par défaut. **`ADR-015`** (2026-09-22, regroupement des marqueurs par zone administrative sous le zoom 9) est aussi un arbitrage du commanditaire ; seuls ses **seuils de zoom** (7 et 9) sont révisables, sur constat d'écran. `ADR-011` (2026-09-18) est aussi un arbitrage du commanditaire, **limité à la préférence simple** : le moteur de donnée structurée reste ouvert. Dans `ADR-006`, **seul** le libellé « Non renseigné » est arbitré (2026-09-18) ; le reste garde son statut par défaut.
+- **`ADR-013` et `ADR-014` sont, eux, des arbitrages du commanditaire** — bascule Flutter et Windows première cible (2026-09-12, écrit a posteriori le 2026-09-13), feature-first + MVVM (2026-09-13). Ils ne se révisent pas par défaut. **`ADR-015`** (2026-09-22, regroupement des marqueurs par zone administrative sous le zoom 9) est aussi un arbitrage du commanditaire ; seuls ses **seuils de zoom** (7 et 9) sont révisables, sur constat d'écran. `ADR-011` (2026-09-18) est aussi un arbitrage du commanditaire, **limité à la préférence simple** : le moteur de donnée structurée reste ouvert. Dans `ADR-006`, **seul** le libellé « Non renseigné » est arbitré (2026-09-18) ; le reste garde son statut par défaut. **`ADR-018`** (2026-10-21, empaquetage MSIX par `msix`, version `1.0.0`) est un arbitrage du commanditaire.
 
 ---
 
@@ -265,7 +267,7 @@ Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 ### Le poste et le bac à sable
 
 - **Aucun chemin de poste dans le dépôt** : le projet se développe sur plusieurs ordinateurs. `flutter` et `dart` sont sur le PATH ; ce qui est propre à une machine vit dans `CLAUDE.local.md` et `.claude/settings.local.json`, tous deux ignorés par git
-- **Le bac à sable de Claude ne construit rien en natif.** `flutter run -d windows`, `flutter build windows` et `flutter run -d emulator-5554` sont lancés **par le commanditaire** : une commande par bloc `bash`, avec le résultat attendu énoncé. Ce résultat est **constaté, jamais supposé**
+- **Le bac à sable de Claude ne construit rien en natif.** `flutter run -d windows`, `flutter build windows`, `dart run msix:create --store` (qui emballe l'exécutable de release déjà construit, sans le reconstruire) et `flutter run -d emulator-5554` sont lancés **par le commanditaire** : une commande par bloc `bash`, avec le résultat attendu énoncé. Ce résultat est **constaté, jamais supposé**
 - Claude lance lui-même `flutter analyze`, `flutter test`, `dart format`
 - **Ne rien toucher à Bitdefender ni au système**
 - **`gh` dépend du poste** — constater par `command -v gh` (ou le chemin d'installation) et `gh auth status` avant de déléguer une opération GitHub au commanditaire ; sa présence se note dans `CLAUDE.local.md`, pas ici

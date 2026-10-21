@@ -23,7 +23,7 @@
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
 | **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») ; le point 64 est sans objet depuis la porte d'ergonomie (`R16`) |
 | **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | ✅ **close** — `0.6.0` ; plan `docs/superpowers/plans/2026-10-17-ergonomie.md`, cadrage `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md` (approuvé le 2026-10-17 ; vingt-six arbitrages au total) ; porte franchie sur Windows (exécutable de release lancé hors Flutter, 2026-10-19, « Oui, tout vu ») et sur Android (émulateur `Pixel_7`, débogage, « validé », rapporté le 2026-10-21), constats du commanditaire ; nom « Ergonomie », sans numéro (T5 devait passer à `0.7.0` ; depuis `1.0.0`, sa version se refixe au plan de T5). **Non constaté** : le détail de `P2`, la version installée et la marge système de l'émulateur, les tailles en deçà, TalkBack (« Ergonomie — code de `0.6.0` ») |
-| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** : la tranche d'ergonomie (arbitrage 16) est close, reste avant lui l'ADR d'empaquetage MSIX, `ADR-018`, proposé le 2026-10-21 (arbitrage du 2026-10-19) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
+| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan à écrire** : la tranche d'ergonomie (arbitrage 16) est close, et l'ADR d'empaquetage MSIX, `ADR-018`, est accepté le 2026-10-21 (arbitrage du 2026-10-19) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
 `BR-013` ; l'étiquette est discutée au point 52). Les quatre sont posés dans le code : le modal du premier
@@ -34,8 +34,9 @@ aucune publication Android (`A⏸3`, `A⏸5`).
 
 ## Vérifié au 2026-10-21
 
-Sur le code de `7ce3f73` (code de la tranche d'ergonomie, inchangé depuis), avec les documents de la clôture de `0.6.0` :
-`flutter analyze` → « No issues found! », `flutter test` → « +7059: All tests passed! » (3 978 à la clôture de T4),
+Sur le code de `7ce3f73` (code de la tranche d'ergonomie : `lib/` inchangé depuis), avec la version `1.0.0+7`,
+l'outil `msix` et sa configuration (`ADR-018`, 2026-10-21) : `flutter analyze` → « No issues found! »,
+`flutter test` → « +7072: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
 `dart format` sans diff.
 
 **Réserve durable sur les polices de mesure.** Onze fichiers de test mesurent en Roboto, chargée depuis
@@ -366,6 +367,12 @@ Une case vide est une case vide, pas un « probablement ».
   datée au `CHANGELOG`. Raison : le Microsoft Store refuse une version dont le premier nombre vaut 0
   (`ADR-018`, arbitrage 2). La mise en production n'est pas décidée par là, et la porte de T2 reste due. La
   version de T5, prévue à `0.7.0+7` (R13 de T5 dans le cadrage d'ergonomie), se refixe au plan de T5.
+- **2026-10-21** — outil d'empaquetage, décision du commanditaire : « j'accepte l'outil msix » (`ADR-018`,
+  arbitrage 1, désormais accepté). `msix` ^3.18.0 en dépendance de développement, `msix_config` dans
+  `pubspec.yaml`, sans `logo_path`, avec `build_windows: false` (arbitrage 3 : le paquet emballe l'exécutable
+  de release déjà vérifié). Aucun paquet n'est construit : `dart run msix:create --store` est lancé par le
+  commanditaire, après `flutter build windows --release` et la vérification de l'exécutable ; tant que l'application n'a pas son logo, le paquet porte celui de Flutter et ne se soumet
+  pas. `NFR-05` revérifié à cet ajout : outil de construction seul, rien n'entre dans l'application.
 
 ## Faits sans autre trace
 
@@ -385,7 +392,7 @@ numéro qu'exige le Microsoft Store. Restent à constater à l'écran, s'il le v
 l'occasion d'un épisode ; et à relever, émulateur `Pixel_7` lancé : la marge système et la version installée,
 par `adb`. **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas
 dit (point 62) se constate s'il le veut, ou reste « non vérifié ». L'**ADR d'empaquetage MSIX**, `ADR-018`, est
-proposé le 2026-10-21 et en partie arbitré (version `1.0.0`) ; reste à arbitrer l'outil `msix`. Une soumission
+accepté le 2026-10-21 et configuré ; le premier paquet reste à construire par le commanditaire. Une soumission
 au Store (nom réservé le 2026-10-21, à soumettre avant le 2027-01-21 environ) demande encore un logo propre à
 l'application, une politique de confidentialité, l'acceptation du contrat du développeur, la fiche du Store et
 la porte de mise en production. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;

@@ -1,5 +1,5 @@
 name: martinpecheur
-description: "Application Flutter qui informe les usagers d'une rivière française sur son état — écoulement, débit, sécheresse — à partir des APIs publiques Hub'Eau et VigiEau."
+description: "Application Flutter qui informe les usagers d'une rivière française sur son état — écoulement, débit, sécheresse, vigilance crues — à partir des APIs publiques Hub'Eau, VigiEau et Vigicrues."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -48,6 +48,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  msix: ^3.18.0               # 2026-06-27, MIT, kremer.software vérifié, Windows ; outil de construction du MSIX (ADR-018)
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -88,3 +89,18 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Paquet MSIX du Microsoft Store (ADR-018), construit par `dart run msix:create --store`.
+# L'identité est celle de Partner Center, vérifiée par test/project/msix_config_test.dart.
+# Pas de msix_version : msix dérive a.b.c.0 de `version:`. Pas de logo_path tant que
+# l'application n'a pas son logo : msix y met alors le logo de Flutter, non soumettable.
+# build_windows: false : le paquet emballe l'exécutable de release déjà construit et vérifié.
+msix_config:
+  display_name: MartinPêcheur
+  publisher_display_name: Monbsoft
+  identity_name: 46Monbsoft.com.MartinPcheur
+  publisher: CN=6D56381B-9EA9-4C93-83CC-28D86DB31617
+  capabilities: internetClient
+  languages: fr-fr
+  install_certificate: false
+  build_windows: false
