@@ -380,7 +380,9 @@ Une case vide est une case vide, pas un « probablement ».
   1440 × 2160, vignettes 300, 150 et 71 px). Puis, même jour, décision du commanditaire : « applique le logo
   martin-pêcheur aux icônes de l'application (exécutable Windows, Android, iOS), pour que l'application et le
   Store aient la même icône » — fait, à la place du logo de Flutter (`test/project/app_icons_test.dart`).
-  **Non constaté** : aucune cible n'a été reconstruite avec ces icônes. Aucune recherche de marque déposée
+  Seul Windows est reconstruit avec ces icônes (exécutable de release du 2026-10-21, 10 h 59 ; icône relue
+  dans le binaire, « Faits sans autre trace ») ; Android et iOS ne le sont pas. **Non constaté** : ces icônes
+  à l'écran. Aucune recherche de marque déposée
   proche n'a été faite.
 
 ## Faits sans autre trace
@@ -392,6 +394,19 @@ Une case vide est une case vide, pas un « probablement ».
 - **Hashes introuvables dans les plans** : les titres de tâches du plan de T0 (fusion en squash), le tableau
   `R1`-`R6` du plan de T0 et le § « Préalable » du plan de T1 citent des commits qu'aucune branche de ce
   clone ne porte ; les plans ne sont pas corrigés.
+- **Première soumission au Microsoft Store, refusée le 2026-10-21** (ID Store `9NLKQL1WKQFK`). Rapport de
+  certification : politique **10.1.1.11 « On Device Tiles »**, les icônes de tuile du produit « include a
+  default image » ; paquet en cause `martinpecheur.msix`. **Cause** : le paquet déposé avait été construit
+  avant le logo (`windows/store/logo.png` créé à 10 h 39, `logo_path` committé à 10 h 57). Sans `logo_path`,
+  `msix` 3.18.0 remplit les tuiles de ses icônes par défaut, le logo de Flutter (`lib/assets/icons/` du
+  paquet). Hypothèse de Claude tirée des horodatages, confirmée par le commanditaire : « j'avais envoyé un
+  paquet construit plus tôt ». **Paquet de remplacement** : `build/windows/x64/runner/Release/martinpecheur.msix`
+  du 2026-10-21, 11 h 00, qui emballe l'exécutable de release de 10 h 59. Vérifié par Claude, paquet
+  décompressé : ses 82 images de tuiles et de logos sont tirées du martin-pêcheur ; aucun de ses 83 PNG n'est
+  identique, par empreinte MD5, à une icône par défaut de `msix` ; `resources.pri` les indexe toutes
+  (`MakePri dump`) ; l'icône de `martinpecheur.exe`, extraite du binaire, est le martin-pêcheur. Renvoi
+  annoncé par le commanditaire le 2026-10-21 : « Je renvoie celui de 11 h 00. » **Non constaté** : les tuiles
+  à l'écran (paquet jamais installé), le résultat de la nouvelle certification.
 
 ## Prochaine étape
 
@@ -401,8 +416,9 @@ numéro qu'exige le Microsoft Store. Restent à constater à l'écran, s'il le v
 l'occasion d'un épisode ; et à relever, émulateur `Pixel_7` lancé : la marge système et la version installée,
 par `adb`. **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas
 dit (point 62) se constate s'il le veut, ou reste « non vérifié ». L'**ADR d'empaquetage MSIX**, `ADR-018`, est
-accepté le 2026-10-21 et configuré ; le premier paquet reste à construire par le commanditaire. Une soumission
-au Store (nom réservé le 2026-10-21, à soumettre avant le 2027-01-21 environ) demande encore un paquet construit
-avec le logo, une politique de confidentialité, l'acceptation du contrat du développeur, la fiche du Store
-(textes et captures) et la porte de mise en production. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
+accepté le 2026-10-21 et configuré. Une première soumission au Store a été refusée le 2026-10-21 (politique
+10.1.1.11 : paquet construit sans le logo) ; le commanditaire renvoie le paquet de 11 h 00, construit avec le
+logo, et le résultat de la nouvelle certification est attendu (« Faits sans autre trace »). Claude n'a constaté
+ni la politique de confidentialité, ni l'acceptation du contrat du développeur, ni la fiche du Store ; la porte
+de mise en production n'est pas notée franchie ici. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
 cadrage d'ergonomie, § 12).
