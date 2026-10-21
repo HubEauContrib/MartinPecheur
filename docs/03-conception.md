@@ -2,23 +2,9 @@
 
 **Cible** : **Flutter / Dart**, **Windows en première cible construite** ([`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md)) ; Android réactivé le 2026-09-18 (jamais construit ni lancé), iOS configuré (jamais compilé).
 
-> ⚠️ **Deux bascules de stack avant celle-ci.** Ce document décrivait d'abord .NET MAUI, puis React
-> Native + MapLibre : [`ADR-005`](adr/ADR-005-stack-maui-blazor-hybrid.md), [`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md),
-> [`ADR-009`](adr/ADR-009-cible-windows.md) et [`ADR-010`](adr/ADR-010-react-native.md) racontent
-> pourquoi chacune a été abandonnée. La cible actuelle est tranchée par [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md)
-> (arbitrage du commanditaire du 2026-09-12).
-
 ## 1. Stack
 
-### 1.1 Ce qui a été éliminé
-
-Deux bibliothèques de carte liées à une plateforme native (`Microsoft.Maui.Controls.Maps`, puis
-`react-native-maps`) ont été écartées avant Flutter : incompatibles avec des **tuiles
-personnalisées** et avec le **hors-ligne**, deux exigences du produit — la contrainte vient du
-produit, pas de la technologie. Sur Flutter, `flutter_map` (retenu, voir `CLAUDE.md` § Stack) répond
-aux deux.
-
-### 1.2 Le choix — [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md), [`ADR-014`](adr/ADR-014-feature-first-mvvm.md)
+### 1.1 Le choix — [`ADR-013`](adr/ADR-013-bascule-flutter-cible-windows.md), [`ADR-014`](adr/ADR-014-feature-first-mvvm.md)
 
 **`flutter_map`**, fond de tuiles raster IGN Géoplateforme (WMTS KVP).
 
@@ -26,15 +12,13 @@ aux deux.
 |---|---|
 | Regroupement de ~4 150 points | Regroupement par zone administrative sous le zoom 9, sans bibliothèque ([`ADR-015`](adr/ADR-015-regroupement-par-zone-administrative.md)) |
 | Tuiles WMTS personnalisées | `TileLayer(urlTemplate: …)`, gabarit KVP passé tel quel |
-| **Hors-ligne** | Cache de tuiles **intégré à `flutter_map` depuis 8.2** pour les zones déjà parcourues ; aucun téléchargement de zone à la demande — le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste non livré |
+| **Hors-ligne** | Cache de tuiles **intégré à `flutter_map` depuis 8.2** pour les zones déjà parcourues ; aucun téléchargement de zone à la demande, sorti de la v1 (`US-20`, arbitrage du 2026-08-24, confirmé le 2026-10-21) — le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste livré en partie |
 | Rendu | Widgets Flutter, compilés nativement sur chaque cible |
 
-**Fond de carte** : IGN Géoplateforme WMTS (Licence Ouverte, cohérent avec des données françaises), OSM en repli (ODbL). *Inchangé à travers les trois stacks — ce choix ne dépendait d'aucune d'elles.*
+**Fond de carte** : IGN Géoplateforme WMTS (Licence Ouverte, cohérent avec des données françaises), OSM en repli (ODbL).
 **Stockage local** : `shared_preferences` pour la préférence simple ([`ADR-011`](adr/ADR-011-stockage-local.md)) ; ~~moteur structuré (favoris, cache persistant) encore à trancher.~~ **Depuis T3 (arbitrage 2 du 2026-10-12, `ADR-011` amendé), les favoris y sont aussi** : une clé, une chaîne JSON versionnée (`{ "version": 1, "favoris": [ … ] }`), derrière l'interface `FavoriteRepository` du domaine ; ✅ codé, vérifié par test, non constaté à l'écran. Le **moteur structuré** (cache persistant, hors-ligne) reste **à trancher, ouvert jusqu'au hors-ligne** ([`US-10`](02-specifications.md), [`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md)) : T3 ne le tranche pas.
 
 ## 2. Architecture
-
-> ⚠️ **Cette section est réécrite le 2026-09-13** ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md), arbitrage du commanditaire). Elle décrivait une architecture en couches avec un contrat `Query`/`Command` et un registre de gestionnaires, repris d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) : ce volet est abandonné.
 
 **Feature-first + MVVM**, l'architecture recommandée par l'équipe Flutter (guide lu le 2026-09-13). Deux couches, et une **tranche par écran** :
 
@@ -135,7 +119,7 @@ flowchart LR
 >
 > Une observation peut être **fraîchement téléchargée et vieille de neuf jours** : c'est le cas en production (`BR-001`). Appliquer « 2 × TTL » à l'âge de la mesure déclarerait périmée une observation de 40 minutes, à qui `BR-005` laisse 24 heures.
 
-> Cette règle est portée par **un composant unique** — le décorateur de dépôt `CachePolicy`, sous `lib/data/` ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md) ; le principe « un seul endroit » vient d'[`ADR-008`](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md), son véhicule a changé) — jamais recopiée dans un dépôt nu, un ViewModel ou un widget.
+> Cette règle est portée par **un composant unique** — le décorateur de dépôt `CachePolicy`, sous `lib/data/` ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md)) — jamais recopiée dans un dépôt nu, un ViewModel ou un widget.
 
 ### 4.2 Implémentation — client HTTP
 
@@ -147,21 +131,19 @@ flowchart LR
 
 ### 4.3 Hors-ligne « dernière carte consultée » — 💭 non livré, mécanisme à trancher
 
-Cette section décrit un **besoin**, pas un mécanisme retenu : le hors-ligne cartographique a
-échoué sur la stack précédente ([`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md)) et
-n'a pas été repris depuis la bascule Flutter. Sur `flutter_map`, seul le cache de tuiles déjà
-parcourues sert hors réseau (constaté le 2026-09-13, `NV-W2`) ; aucun téléchargement de zone à la
-demande n'existe. Le besoin fonctionnel reste :
+Cette section décrit un **besoin**, pas un mécanisme retenu. Sur `flutter_map`, seul le cache de
+tuiles déjà parcourues sert hors réseau (constaté le 2026-09-13, `NV-W2`). Le **pré-téléchargement
+de zone est sorti de la v1** (`US-20`, arbitrage du commanditaire du 2026-08-24, confirmé le
+2026-10-21) : aucun mécanisme de téléchargement n'est à concevoir. Le besoin fonctionnel reste :
 
 1. À chaque stabilisation de la carte, retenir la dernière bbox + zoom consultés.
 2. Les stations et points ONDE de cette bbox, avec leur dernière observation connue, doivent être
    disponibles hors réseau — sans duplication avec le cache déjà en mémoire.
-3. Un mécanisme de téléchargement explicite pour la bbox ± marge reste **à concevoir** : aucune
-   bibliothèque de tuiles hors-ligne n'est retenue à ce jour.
-4. Au lancement sans réseau : centrage sur la dernière vue → marqueurs au dernier état connu →
+3. Au lancement sans réseau : centrage sur la dernière vue → marqueurs au dernier état connu →
    bandeau persistant « Mode hors-ligne — données du JJ/MM/AAAA à HH:MM ».
 
-Le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **non livré**.
+Le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **livré en partie** :
+seul le cache de tuiles l'est.
 
 ## 5. Arborescence des écrans
 
@@ -216,6 +198,5 @@ Navigateur racine
 | Codes station | Interroger des codes à 10 caractères, jamais des codes site — sinon doublons |
 | Volume de marqueurs | Clustering obligatoire dès le zoom départemental ; chargement par viewport avec anti-rebond de 300–500 ms |
 | Batterie et GPS | Géolocalisation ponctuelle uniquement, précision approximative, aucun suivi continu ni tâche de fond |
-| WebView | Mémoire et temps de démarrage à mesurer sur Android d'entrée de gamme, dans le spike |
 | Référentiel | Filtrer `EnService = false` et les coordonnées absentes avant affichage |
 | Asset percentiles | Le script de build est un livrable versionné, avec sa procédure de régénération documentée |

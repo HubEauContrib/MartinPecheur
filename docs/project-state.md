@@ -212,7 +212,7 @@ Les numéros sont ceux d'origine : ils sont cités ailleurs et ne se réutilisen
 | 6 | **Script Dart de génération des percentiles** (`ADR-003`) ; `assets/percentiles/` n'existe pas | Lot d'outillage à chiffrer ; d'ici là, sur l'échelle « débit », toute station est `Indéterminé` (`BR-004`) |
 | 7 | **Hôte macOS** pour construire iOS (`NV-W4`) | Matériel, sans date ; bloque la livraison iOS, pas le développement |
 | 9 | **Android** : construction de débogage constatée le 2026-10-14 sur le code de `0.4.0` | Commanditaire : (a) ce que cette construction apporte à `A1` de T2, qui demande le code de `0.3.0` avec `url_launcher` ; `A⏸2` (NDK `28.2.13676358` présent, `ndkVersion = flutter.ndkVersion`) reste 🔄, statut non déplacé ; (b) `adb` ne voit pas le Galaxy A54 réel (`A⏸4` ⏸) ; (c) `NV-5`, tenue sur Android d'entrée de gamme réel, jamais mesurée ; (d) `A⏸3` et `A⏸5` ⏸ ; question du 2026-10-04 sur l'APK de débogage de `0.2.0` (qui l'a lancé, ce qui a été vu) sans réponse, l'artefact étant remplacé |
-| 10 | **Hors-ligne de zone** : le `Must` d'`UC-005` et d'`US-10` n'est pas livré ; le cache de tuiles ne sert que les zones déjà parcourues | La question d'`ADR-012` est déplacée, pas résolue : `ADR-013` ne tranche aucune de ses options A, B ou C. Commanditaire |
+| 10 | **Hors-ligne de la dernière carte** (`US-10`, `UC-005`) : seul le cache de tuiles des zones déjà parcourues est livré ; la persistance de `DerniereVueCarte` et le bandeau « Mode hors-ligne » ne le sont pas. Le **pré-téléchargement de zone est sorti de la v1** (`US-20`, arbitrage du 2026-08-24, confirmé le 2026-10-21) | Le reste d'`US-10` est à porter par une tranche ; il relève du moteur de stockage structuré qu'`ADR-011` laisse ouvert (point 1). Commanditaire |
 | 11 | **Bibliothèque de graphes** pour la courbe de débit (`US-11`) : aucune relevée | Question fermée au commanditaire, quand `US-11` entrera dans une tranche |
 | 14 | **`Q-01` à `Q-04`** (appel groupé, `bbox`, `fields`, latence de `/v2/hydrometrie`) mesurés une seule fois, le 2026-09-18 (`T-15`) | Pas de campagne répétée. `D5` garde la forme garantie (un appel par station) : l'appel groupé ne garantit pas une mesure par station ; une bascule serait une décision du commanditaire |
 | 17 | **Collision de nom public `EnEchec`** entre `lib/domain/observation/station_map_state.dart` et `lib/features/station_sheet/view_model/station_sheet_view_model.dart` (les deux classes existent, vérifié le 2026-10-15) | À préfixer si un fichier doit importer les deux ; les états ONDE et restrictions sont déjà préfixés |
@@ -249,7 +249,7 @@ Les numéros sont ceux d'origine : ils sont cités ailleurs et ne se réutilisen
 - 18 — deux requêtes de `StationSheetViewModel.open()` — clos le 2026-09-14 : hauteur affichée par `U1`.
 - 19 — fuseau affiché — clos le 2026-09-23 : heure locale sans suffixe, `H1`.
 - 21 — `NV-W6`, rechargement par cran de molette — clos le 2026-09-27 : 5 appels pour 6 crans, sans anti-rebond.
-- 23 — six PNG hérités d'Expo — clos le 2026-09-23 : retirés par `X5`.
+- 23 — six PNG hérités de l'ancienne architecture — clos le 2026-09-23 : retirés par `X5`.
 - 24 — branche de T1 non fusionnée — clos le 2026-09-23 : fusionnée sur `dev`.
 - 26 — `Q-05`, `code_ecoulement` nul — clos le 2026-09-14 : rendu `Inconnu(null)`, consigné dans `onde.md` (`T-14 e`).
 - 28 — « Non renseigné » contre `ADR-006` — clos le 2026-09-18 : gardé, `ADR-006` amendé.

@@ -5,7 +5,7 @@
 - **Branche :** `feat/bascule-flutter-trois-cibles`, créée depuis `dev` (`81f380e`)
 - **Projet jetable :** `spike/porte_flutter/` — rien n'est écrit dans `lib/` à la racine
 - **Plan suivi :** [`2026-08-24-porte-spike-flutter.md`](../../docs/superpowers/plans/2026-08-24-porte-spike-flutter.md), à partir de la Task 3
-- **Design :** [`2026-08-24-bascule-flutter-trois-cibles-design.md`](../../docs/superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md), section 7
+- **Design :** `2026-08-24-bascule-flutter-trois-cibles-design.md`, section 7 — retiré du dépôt le 2026-10-21, consultable dans l'historique git · **Décision :** [`ADR-013`](../../docs/adr/ADR-013-bascule-flutter-cible-windows.md)
 - **Mise à jour :** 2026-09-12 — Android ignoré jusqu'à nouvel ordre, `F2b`/`F2c` codées (`207edec`) non mesurées.
 
 > ⚠️ Ce document distingue ce qui est **constaté** (à l'écran, dans une sortie de commande) de ce qui
@@ -16,7 +16,7 @@
 ## 1. Versions réellement liées
 
 Relevées par `flutter pub deps --style=compact` le 2026-09-09, après `flutter pub add`. On vérifie
-ce qui est lié, on ne le suppose pas — c'est la leçon de l'option E d'`ADR-012`.
+ce qui est lié, on ne le suppose pas.
 
 | Composant | Version liée | Licence | Note |
 |---|---|---|---|
@@ -120,7 +120,7 @@ Cinq écarts avec le brief du 2026-09-09, tous constatés par exécution.
 | 2 | **Le NDK `28.2.13676358` exigé par Flutter 3.47.1 est absent** ; seul le `27.1.12297006` est là. Gradle tente de l'installer via `sdkmanager.bat`, qui plante (`0xC0000409`) | `ndkVersion` épinglé à `27.1.12297006` dans le spike (`a3276d0`). Aucun code natif dans le spike. **Dette pour la phase 2** : installer le NDK 28.2 ou reconduire l'épingle. ⏸ différé (arbitrage 2026-09-12) |
 | 3 | **`adb` ne voit pas le Galaxy A54** (ni `flutter devices`, ni `adb devices -l`, câble branché, mode USB et autorisation vérifiés côté téléphone sans effet) | `F1` Android constaté sur émulateur, pas sur matériel. La preuve « appareil réel » reste à faire — l'APK profile est prêt pour une installation manuelle. ⏸ différé (arbitrage 2026-09-12) |
 | 4 | **Aucun AVD sur le poste**, et les dossiers `system-images` du SDK utilisateur étaient **vides** (0 octet). L'ancien SDK Visual Studio conservait une image `android-36` `x86_64` complète (2,3 Go) | Image recopiée dans le SDK utilisateur, AVD `Pixel_7` recréé par `avdmanager` (Android 16, Google Play). Aucun téléchargement |
-| 5 | **Sur Windows, la molette ne zoome pas** ; le glisser fonctionne | Constat brut, non diagnostiqué. `flutter_map` active `scrollWheelZoom` par défaut dans `InteractionOptions.flags` : à instruire dans le **lot clavier/souris** qu'`ADR-009` avait chiffré et qu'`ADR-013` doit reprendre. Ce n'est pas un critère de `F1`, qui ne demandait que « manipulable à la souris ou pas du tout » |
+| 5 | **Sur Windows, la molette ne zoome pas** ; le glisser fonctionne | Constat brut, non diagnostiqué. `flutter_map` active `scrollWheelZoom` par défaut dans `InteractionOptions.flags` : à instruire dans le **lot clavier/souris** qu'`ADR-013` doit reprendre. Ce n'est pas un critère de `F1`, qui ne demandait que « manipulable à la souris ou pas du tout » |
 
 Le poste est par ailleurs conforme : Flutter 3.47.1 hors PATH, Visual Studio 2026 avec le workload
 C++ (vert), Windows vert.

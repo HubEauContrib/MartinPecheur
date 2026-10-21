@@ -1005,8 +1005,8 @@ Windows le 2026-09-27 (`P1`) ; les constats d'écran lot par lot sont dans
 
 - `lib/application/` : bus de messages, `Query`/`Command` et gestionnaires
   (`ADR-014`).
-- Traces de l'ancienne architecture React Native : deux guides APK et six
-  images héritées d'Expo (les ADR remplacés sont gardés).
+- Traces de l'ancienne architecture : deux guides APK et six images héritées de l'outillage
+  précédent, aucune référencée par `pubspec.yaml`.
 
 ### Constaté à l'exécution
 

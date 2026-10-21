@@ -1569,25 +1569,25 @@ git add CHANGELOG.md pubspec.yaml docs CLAUDE.md test && git commit -m "docs: ou
 
 ---
 
-### Task X5 : Purger toute trace de l'ancienne architecture React Native (demande du commanditaire, 2026-09-14)
+### Task X5 : Purger toute trace de l'ancienne architecture (demande du commanditaire, 2026-09-14)
 
-**Files:** modifiés `docs/project-state.md` (historique replié), `docs/README.md` (table « Organisation »), `docs/01-analyse.md`, `docs/03-conception.md`, `docs/04-ui.md`, `docs/guide-installation.md`, `docs/nfr.md` si des constats `NV-1`…`NV-6` MapLibre y subsistent · supprimés `docs/guide-release.md` et `docs/guide-test-appareil.md` (APK, Android réel : à réécrire pour Flutter le jour où Android revient, pas à conserver tels quels), les six PNG hérités d'Expo sous `assets/` (`android-icon-*.png`, `favicon.png`, `icon.png`, `splash-icon.png`, aucun n'est référencé par `pubspec.yaml`) · vérifié `spike/porte_flutter/COMPTE-RENDU.md` (Flutter : conservé)
+**Files:** modifiés `docs/project-state.md` (historique replié), `docs/README.md` (table « Organisation »), `docs/01-analyse.md`, `docs/03-conception.md`, `docs/04-ui.md`, `docs/guide-installation.md`, `docs/nfr.md` si des constats `NV-1`…`NV-6` de l'ancienne carte y subsistent · supprimés `docs/guide-release.md` et `docs/guide-test-appareil.md` (APK, Android réel : à réécrire pour Flutter le jour où Android revient, pas à conserver tels quels), les six PNG hérités de l'ancienne architecture sous `assets/` (`android-icon-*.png`, `favicon.png`, `icon.png`, `splash-icon.png`, aucun n'est référencé par `pubspec.yaml`) · vérifié `spike/porte_flutter/COMPTE-RENDU.md` (Flutter : conservé)
 
-**Demande :** « à la fin de T1, je veux que l'on supprime tout de l'ancienne architecture React Native, aussi dans la doc » (2026-09-14). Les traces induisent en erreur : le brief d'une session et plusieurs agents s'y sont trompés le 2026-09-13.
+**Demande :** à la fin de T1, supprimer tout de l'ancienne architecture, aussi dans la doc (2026-09-14). Les traces induisent en erreur : le brief d'une session et plusieurs agents s'y sont trompés le 2026-09-13.
 
-**Invariant concilié — ✅ arbitré le 2026-09-18 :** `docs/README.md` § Règles d'écriture et `CLAUDE.md` disent qu'un ADR obsolète **n'est jamais supprimé**, il passe à « Remplacé par … ». `ADR-005` (MAUI), `ADR-008`, `ADR-009`, `ADR-010` (React Native) et `ADR-012` (`createPack`) sont dans ce cas : ils sont **gardés** avec leur statut (ce sont les seules traces de *pourquoi* deux stacks ont été abandonnées), tout le reste est purgé. L'alternative `docs/adr/archive/` est écartée. L'ancienne étape 1 (question fermée) est **supprimée** (révision du 2026-09-22).
+**Invariant concilié — ✅ arbitré le 2026-09-18, puis révisé le 2026-10-21 :** `docs/README.md` § Règles d'écriture et `CLAUDE.md` disent qu'un ADR obsolète **n'est jamais supprimé**, il passe à « Remplacé par … ». Les ADR remplacés avaient d'abord été **gardés** avec leur statut, tout le reste étant purgé ; ils ont été **supprimés le 2026-10-21, sur arbitrage du commanditaire**, et restent dans l'historique git. L'alternative `docs/adr/archive/` est écartée. L'ancienne étape 1 (question fermée) est **supprimée** (révision du 2026-09-22).
 
 ⚠️ **`node_modules/`** (430 entrées au 2026-09-22, héritées de l'outillage Node) subsiste sur le poste, non versionné : il n'entre dans aucun commit et **est à supprimer par le commanditaire**. La règle qui l'exclut n'est ni dans `.gitignore` ni dans `.git/info/exclude` — à vérifier par `git status --ignored` avant `X5`, pour qu'un `git add docs assets` ne le ramasse pas ailleurs. Même traitement que les caches résiduels sous `android/` (point 22 de `docs/project-state.md`). Aucune commande de suppression hors dépôt n'est lancée par Claude.
 
-**Critère de fin :** `grep -rniE "react native|expo|maplibre|createpack|jest|tsc|typescript" docs CLAUDE.md README.md --include=*.md` ne rend que les ADR conservés et `ADR-013` (qui raconte la bascule) ; `git ls-files assets` ne liste que `assets/referentiel/stations.json` ; `docs/README.md` ne référence plus de guide APK ; `flutter test test/project/` vert (les tests de docs lisent `nfr.md`, `domain-model.md`, `CHANGELOG.md`).
+**Critère de fin :** une recherche des noms des anciennes piles dans `docs CLAUDE.md README.md` (`--include=*.md`) ne rend que `ADR-013` (qui racontait alors la bascule) — et, à l'époque, les ADR alors conservés, supprimés depuis le 2026-10-21 ; `git ls-files assets` ne liste que `assets/referentiel/stations.json` ; `docs/README.md` ne référence plus de guide APK ; `flutter test test/project/` vert (les tests de docs lisent `nfr.md`, `domain-model.md`, `CHANGELOG.md`).
 
 - [ ] ~~**Étape 1** — poser la question fermée sur les ADR ; attendre la réponse.~~ **Supprimée le 2026-09-22** : arbitrée le 2026-09-18, ADR remplacés gardés.
-- [x] **Étape 2** — purger `docs/project-state.md` (retirer le `<details>` historique, garder une ligne « historique des stacks : voir ADR-005, 010, 013 »), `docs/README.md`, les documents de cadrage, `guide-installation.md`.
+- [x] **Étape 2** — purger `docs/project-state.md` (retirer le `<details>` historique, garder une ligne « historique des stacks : voir ADR-013 »), `docs/README.md`, les documents de cadrage, `guide-installation.md`.
 - [x] **Étape 3** — `git rm` des deux guides et des six PNG ; vérifier qu'aucun test ne les lit. Signaler au commanditaire que `node_modules/` reste à supprimer par lui.
-- [x] **Étape 4** (2026-09-23 — deux guides APK et six PNG Expo retirés, `git ls-files assets` ne liste plus que le référentiel ; `UC-005` et `ADR-012` amendés pour ne plus pointer vers `createPack` comme vers un fait vivant ni vers un guide supprimé) — critère de fin, `flutter analyze`, `flutter test`, commit.
+- [x] **Étape 4** (2026-09-23 — deux guides APK et six PNG hérités retirés, `git ls-files assets` ne liste plus que le référentiel ; `UC-005` amendé pour ne plus pointer vers un fait périmé ni vers un guide supprimé) — critère de fin, `flutter analyze`, `flutter test`, commit.
 
 ```bash
-git add docs assets CLAUDE.md && git commit -m "docs: purger les traces de l architecture React Native, sauf les ADR remplaces" -m "Demande du commanditaire du 2026-09-14. Les guides APK et les PNG Expo sont supprimes, l historique de project-state.md retire ; les ADR remplaces restent, avec leur statut : ce sont les seules traces de pourquoi deux stacks ont ete abandonnees."
+git add docs assets CLAUDE.md && git commit -m "docs: purger les traces de l ancienne architecture" -m "Demande du commanditaire du 2026-09-14. Les guides APK et les PNG herites sont supprimes, l historique de project-state.md retire."
 ```
 
 ## Lot 7 — La porte de T1
@@ -1711,7 +1711,7 @@ Chacune est appliquée dans le plan. Aucune n'est irréversible ; toutes se disc
 | **4 — Avertissements** | `W1` → `W3`, **`W3b`**, **`W3c`**, **`W2b`**, **`H1`**, `W4`, `W5` (9) — ✅ **clos le 2026-09-23**, `W3c` constaté à l'écran par le commanditaire | stockage et `ADR-011`, modal, bandeau, **contrôle « ⚠ Avertissement » qui remplace bandeau, menu et encart daté** (`W3c`, 2026-09-23), **formateur de date unique en heure locale** (`H1`, 2026-09-22), encart daté, balayage de vocabulaire et texte de l'encart renforcé — son widget en T2 |
 | **4 bis — Regroupement par zone** | `Z1` → `Z4` (4) | **`ADR-015`** (2026-09-22) : ADR et amendement de `04-ui.md § 4` (`Z1`, faite le 2026-09-22, `0a3b594`), rattachement région/département dans le domaine et les données, `mostSevere` (`Z2`), niveau de zoom dans `MapViewModel`, préchargement inhibé sous 9 (`Z3`), pastille, goldens et constat d'écran (`Z4`) — exécuté entre `H2` et `K1` |
 | **5 — Clavier/souris** | **`H2`**, `K1` → `K3` (4) | **décisions de la carte rendues au ViewModel** (`H2`, 2026-09-22), boutons de zoom, raccourcis et focus, taille de fenêtre minimale |
-| **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge React Native (`X5`, demande du 2026-09-14) |
+| **6 — Documentation** | `X1` → `X5` (5) | Gherkin, traçabilité, `NFR-01` mesuré, `CHANGELOG` `0.2.0`, purge de l'ancienne architecture (`X5`, demande du 2026-09-14) |
 | **7 — Porte** | `P1`, `P2` (2) | exécutable Windows, **cinq constats**, `0.2.0` datée et taguée |
 | **Android** (hors décompte) | `A⏸1` → `A⏸5` (5) | différées le 2026-09-12, **différé levé le 2026-09-18** : `A⏸1` ✅, `A⏸2` 🔄 à constater par une construction, `A⏸3`→`A⏸5` ⏸ |
 

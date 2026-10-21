@@ -38,6 +38,6 @@ Test unitaire sur l'agrégateur : un ensemble de 19 `Ecoulement` + 1 `Assec` ren
 ## Liens
 
 - Use cases : `UC-001`
-- ADR liés : `ADR-005`, `ADR-006`
+- ADR liés : `ADR-006`, `ADR-015`
 - Écran : [`04-ui.md § 4`](../04-ui.md)
 - Voir aussi : `BR-008`

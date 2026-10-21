@@ -1,11 +1,11 @@
-# ADR-013 — Bascule vers Flutter, et Windows en première cible construite
+# ADR-013 — Flutter, et Windows en première cible construite
 
 - **Statut :** **Accepté — arbitrage du commanditaire du 2026-09-12** (porte de spike franchie sur `F1` et `F3`), Android différé le même jour, **différé levé le 2026-09-18** (voir
   « [Amendement du 2026-09-18 — Android réactivé](#amendement-du-2026-09-18--android-réactivé) »).
   Le **reste** de cet ADR est inchangé : Windows demeure la première cible construite.
-- **Date :** 2026-09-13 · **amendé le 2026-09-18**
-- **Remplace :** [`ADR-010`](ADR-010-react-native.md) (React Native, abandon de MAUI et de Windows)
-- **Rétablit l'intention de :** [`ADR-009`](ADR-009-cible-windows.md) — **sans le réactiver.** `ADR-009` reste « Remplacé par `ADR-010` » : il décrivait une cible Windows **MAUI `SingleProject`**, avec `TargetFrameworks`, `WindowsPackageType` et `Platforms/Windows`. Rien de cela ne survit. Ce qui revient, c'est **le besoin** qu'`ADR-009` documentait — voir son propre Contexte — pas sa mise en œuvre
+- **Date :** 2026-09-13 · **amendé le 2026-09-18** · **amendé le 2026-10-21** (arbitrages du
+  commanditaire : historique des stacks antérieures retiré, section « Pourquoi Flutter » reprise des
+  faits relevés le 2026-08-24 ; pré-téléchargement de zone hors v1)
 
 > ⚠️ **Cet ADR est écrit a posteriori.** La porte de spike a été exécutée le **2026-09-09**, la
 > décision arbitrée le **2026-09-12**, ce document rédigé le **2026-09-13** (et versionné sur `feat/t1-mvvm-fiche-station` le **2026-09-14**), après la livraison de
@@ -18,21 +18,38 @@
 
 ## Contexte
 
+### Pourquoi Flutter
+
+Le 2026-08-24, le commanditaire a fait de **Windows une cible produit**, aux côtés d'Android et
+d'iOS : des usagers consulteront l'état de la rivière depuis un PC. Le critère de choix retenu ce
+jour-là est **la qualité technique** ; une réécriture est acceptée si elle est justifiée. Le même
+jour, le **pré-téléchargement de zone cartographique sort de la v1** (`US-20`) — arbitrage confirmé
+le 2026-10-21.
+
+**Le fait structurant :** `flutter_map`, en Dart pur, est le seul moteur cartographique
+multi-plateforme relevé qui couvre Android, iOS **et** Windows sans passer par une WebView.
+
+Relevé le 2026-08-24 sur pub.dev et la documentation Flutter. ⚠️ **Documentation et métadonnées
+seulement, rien n'a été exécuté** : d'où la porte de spike.
+
+| Fait | Constat |
+|---|---|
+| Flutter — Android, iOS, Windows | Les trois en tier **`Supported`**, aucune mention `beta`. Android 24→37, iOS 15→26, Windows 10 et 11, `x64` **et** `Arm64` |
+| `flutter_map` **8.3.1** | Plateformes verbatim : *« Android, iOS, Linux, macOS, web, Windows »*. **BSD-3-Clause**, 100 % Dart |
+| `maplibre_gl` **0.27.0** | *« Not supported: desktop targets (Windows, macOS, Linux) »* — **Windows exclu** |
+| `maplibre` (maplibre.dart) **0.3.5** | Windows listé, mais : *« Windows & macOS: maplibre-gl-js through a WebView »*. Ce n'est pas du natif |
+| `drift` **2.34.3** | **MIT**, plateformes Android, iOS, Linux, macOS, web **et Windows** |
+| `sqflite` **2.4.3** | Plateformes « Android, iOS, macOS ». **Windows absent** — renvoyé vers `sqflite_common_ffi` |
+| `flutter_map_marker_cluster` **8.2.2** | Contrainte `flutter_map: ^8.2.2` — **compatible 8.x**. BSD-3 |
+| `flutter_map_supercluster` **4.3.0** | 🚨 Contrainte `flutter_map: ^5.0.0`, publié trois ans plus tôt — **inutilisable en 8.x** |
+
 ### La chaîne des faits, datée
 
 | Date | Fait | Source |
 |---|---|---|
-| 2026-07-31 | [`ADR-010`](ADR-010-react-native.md) retient **React Native** et **abandonne Windows**, un jour après l'avoir ajouté (`ADR-009`). L'appui décisif est le hors-ligne cartographique : `OfflineManager.createPack` est réputé **fourni**, là où .NET exigeait un lot à chiffrer | `ADR-010` |
-| 2026-08-15 | **`createPack` tue le processus** — `SIGABRT` sur une `std::regex_error` non rattrapée dans le fil `DatabaseFileSource`, ~0,7 s après la création du pack, **4 essais sur 4**, base vierge comprise, et avec le **style vectoriel de démonstration** de MapLibre (donc ni l'IGN, ni le raster). `11.3.6` était déjà la dernière version publiée | [`ADR-012`](ADR-012-hors-ligne-cartographique-bloque.md) |
-| 2026-08-18 | **Option D** — le plantage **se reproduit sur `arm64` réel** (Samsung Galaxy A54, `SM-A546E`, Android 16, `arm64-v8a`). Ce n'était pas l'émulateur. ⚠️ La signature `regex_error` **n'a pas été relevée** sur cet appareil (politique de terminal Knox/MDM révoquant `adbd`) : le niveau de preuve y est inférieur à celui du 2026-08-15 | `ADR-012` § « Résultat de D » |
-| 2026-08-24 | **Option E épuisée** — le SDK natif est épinglable par propriété Gradle, et **quatre versions essayées donnent quatre fois le même plantage** : `13.0.0`, `13.1.0`, `13.2.0` (défaut du paquet), `13.5.1` (dernière publiée). `12.0.0` **ne compile pas** (`ColorReliefLayer` introuvable), ce qui borne l'espace de recherche à `[13.0.0 … 13.5.1]`. ⚠️ Huit versions intercalaires restent formellement non essayées : **E est réputée épuisée, pas démontrée épuisée** | `ADR-012` § « Résultat de E » |
 | 2026-09-09 | **Porte de spike Flutter exécutée** — `F1` ✅ sur Windows, `F3` ✅, `F2` **rouge** sur la règle fixée d'avance (chiffres ci-dessous) | [`COMPTE-RENDU.md`](../../spike/porte_flutter/COMPTE-RENDU.md) |
 | 2026-09-12 | **Arbitrage du commanditaire** : verdict favorable sur `F1` + `F3`, `F2c` retenue par défaut, **Android ⏸ différé jusqu'à nouvel ordre**, arbre git frais | [`project-state.md`](../project-state.md) § Arbitrages récents |
 | 2026-09-13 | **T0 livrée** — 31 tâches sur 31, PR #11 fusionnée sur `dev` (`015a245`), version `0.1.0`, **248 tests** (247 du plan + `changelog_test`), constatés par `flutter test` le 2026-09-13, tag `v0.1.0` posé localement (non poussé) | plan T0 § Avancement, [`CHANGELOG.md`](../../CHANGELOG.md) |
-
-> Le tag `archive/pre-flutter-2026-09-09`, cité par `project-state.md` (arbitrage du 2026-09-12, retiré
-> de ce fichier le 2026-10-15) comme portant le spike et l'outillage précédent, **n'est pas présent dans
-> ce clone** (`git tag --list` ne le liste pas).
 
 ### Ce que la porte de spike a mesuré, le 2026-09-09
 
@@ -51,9 +68,8 @@ elle rend la remesure possible, elle ne la programme pas (voir l'amendement en f
 ### Versions réellement liées
 
 Relevées le 2026-09-09 par `flutter pub deps --style=compact` dans le projet de spike, puis le
-2026-09-13 dans `pubspec.yaml` à la racine. **On vérifie ce qui est lié, on ne le suppose pas** —
-c'est la leçon de l'option E d'`ADR-012`, où une propriété Gradle mal nommée aurait donné l'illusion
-d'un essai concluant.
+2026-09-13 dans `pubspec.yaml` à la racine. **On vérifie ce qui est lié, on ne le suppose pas** : une
+propriété de construction mal nommée peut donner l'illusion d'un essai concluant.
 
 | Composant | Au spike (2026-09-09) | Dans le projet (2026-09-13) | Licence |
 |---|---|---|---|
@@ -69,17 +85,17 @@ d'un essai concluant.
 
 ## Décision
 
-**Le projet passe à Flutter, et Windows redevient la première — et pour l'instant la seule — cible
-construite.**
+**Le projet passe à Flutter, et Windows est la première cible construite** — la seule à la date de
+la décision (2026-09-12) ; pour Android, voir l'amendement du 2026-09-18 et la note du 2026-10-14.
 
-| Composant | Retenu | Remplace (`ADR-010`) |
-|---|---|---|
-| Langage | **Dart**, `strict-casts` / `strict-inference` / `strict-raw-types` | TypeScript `strict` |
-| Runtime | **Flutter stable** | React Native + Expo |
-| Carte | **`flutter_map`**, tuiles **raster WMTS IGN Géoplateforme** (KVP) | MapLibre Native via `@maplibre/maplibre-react-native` |
-| Marqueurs | **viewport plus une marge, sans regroupement** (`F2c`) | clustering natif MapLibre |
-| Hors-ligne carto | **cache de tuiles intégré à `flutter_map`** (voir ➖ ci-dessous) | `OfflineManager.createPack` — en panne (`ADR-012`) |
-| Attribution | « © IGN Géoplateforme — Licence Ouverte », **affichée à l'écran** | *inchangé* |
+| Composant | Retenu |
+|---|---|
+| Langage | **Dart**, `strict-casts` / `strict-inference` / `strict-raw-types` |
+| Runtime | **Flutter stable** |
+| Carte | **`flutter_map`**, tuiles **raster WMTS IGN Géoplateforme** (KVP) |
+| Marqueurs | **viewport plus une marge, sans regroupement** (`F2c`) |
+| Hors-ligne carto | **cache de tuiles intégré à `flutter_map`** (voir ➖ ci-dessous) |
+| Attribution | « © IGN Géoplateforme — Licence Ouverte », **affichée à l'écran** |
 
 ### Les cibles, et leur état réel
 
@@ -119,12 +135,10 @@ Android du 2026-09-12 est levé.** Android redevient une **cible active**.
   réel) reste **ouvert**. Toutes les mesures de fluidité existantes viennent d'un émulateur.
 
 **Conséquence sur le dépôt :** **`android/` redevient versionné** — le **gabarit** Flutter de
-plateforme seulement. Les caches de construction restent hors dépôt ; un résidu de 2,5 Go hérité de
-l'outillage précédent (2026-08-24) subsiste sur le poste, à supprimer **par le commanditaire** —
-Flutter construit dans `build/` à la racine, pas dans `android/app/build`, ces caches sont donc
-**inertes pour Flutter**. L'écart constaté le 2026-09-13 plus bas (« aucune plateforme Android
-Flutter n'est générée ni versionnée ») **est levé** : le commentaire de `.gitignore` cesse
-d'anticiper, il décrit l'état du dépôt.
+plateforme seulement. Les caches de construction restent hors dépôt ; des caches résiduels de 2,5 Go
+subsistent sur le poste, à supprimer **par le commanditaire** — Flutter construit dans `build/` à la
+racine, pas dans `android/app/build`, ces caches sont donc **inertes pour Flutter**. Le commentaire de
+`.gitignore` décrit désormais l'état du dépôt.
 
 **Ce que cet amendement ne change PAS :**
 
@@ -134,10 +148,9 @@ d'anticiper, il décrit l'état du dépôt.
   `lib/domain/` pur, les sept règles de couches. Une cible de plus n'est pas une décision
   d'architecture.
 - **iOS reste configuré et jamais compilé** (aucun hôte macOS, `NV-W4`).
-- **Le hors-ligne de zone reste non tranché** :
-  [`ADR-012`](ADR-012-hors-ligne-cartographique-bloque.md) et ses options A, B, C sont toujours
-  ouvertes — le `Must` d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md) n'est pas
-  livré. Réactiver Android ne le rapproche d'aucune résolution.
+- **Le hors-ligne de la dernière carte reste livré en partie** : le `Must` d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md)
+  n'est couvert que par le cache des tuiles déjà parcourues. Réactiver Android n'y change rien. Le
+  pré-téléchargement de zone, lui, est hors v1 (arbitrage du 2026-08-24, confirmé le 2026-10-21).
 - **`F2` n'est pas rouverte** : `F2c` (viewport plus marge, sans regroupement) reste l'approche par
   défaut tant qu'aucune mesure ne réhabilite le regroupement.
 
@@ -158,18 +171,13 @@ stations sont toutes dessinées**. Ce n'est pas un défaut caché, c'est le coû
 - **`windows/` et `ios/` sont versionnés** — ils se modifient à la main. C'est ce que `.gitignore`
   annonce depuis sa troisième ligne : *« `android/`, `ios/` et `windows/` sont VERSIONNÉS : ils se
   modifient à la main et portent la signature de release (ADR-013). »*
-  ⚠️ ~~**Écart constaté le 2026-09-13** : `git ls-files` ne suit que `ios/` et `windows/`. **Aucune
-  plateforme Android Flutter n'est générée ni versionnée** ; un résidu non suivi de l'ancienne stack
-  (dossier `android/` daté du 2026-08-24) peut subsister sur un poste — à supprimer, jamais à
-  commiter (`CHANGELOG.md` § Différé) — le commentaire de `.gitignore` anticipe la levée de
-  l'arbitrage ⏸, il ne décrit pas l'état du dépôt.~~
-  ✅ **Écart levé le 2026-09-18** (voir l'amendement) : la plateforme Android est générée et le
+  ✅ **Depuis le 2026-09-18** (voir l'amendement), la plateforme Android est générée et son
   **gabarit** est versionné. Seuls les **caches résiduels** du poste restent à supprimer, par le
   commanditaire, et ne se committent jamais.
 - **Dart strict non négociable** : `flutter_lints`, `language: strict-casts, strict-inference,
   strict-raw-types`, `avoid_dynamic_calls`, `always_declare_return_types`, `prefer_final_locals`.
   `dynamic` implicite interdit.
-- **Plus d'outillage Node.** Le générateur de percentiles d'[`ADR-003`](ADR-003-reference-percentiles-en-asset.md)
+- **Aucun outillage Node.** Le générateur de percentiles d'[`ADR-003`](ADR-003-reference-percentiles-en-asset.md)
   sera un **script Dart** (arbitrage du 2026-09-12).
 
 ```mermaid
@@ -193,11 +201,11 @@ flowchart TD
 > et la dernière ligne de la construction, le premier écran vu. La publication reste différée
 > (`A⏸3`, `A⏸5`), aucun appareil réel (`A⏸4`), aucune release Android.
 
-### Ce que la bascule ne touche pas
+### Ce que ce choix ne touche pas
 
-Le **cadrage produit est indépendant de la stack** et n'a pas été refait : les quatre documents de
-cadrage, les **14 règles métier**, les **6 cas d'usage**, les **17 contraintes d'API vérifiées**, et
-les ADR [`001`](ADR-001-api-hydrometrie-v2.md), [`002`](ADR-002-qualification-du-debit.md),
+Le **cadrage produit est indépendant de la stack** : les quatre documents de cadrage, les **14 règles
+métier**, les **6 cas d'usage**, les **17 contraintes d'API vérifiées**, et les ADR
+[`001`](ADR-001-api-hydrometrie-v2.md), [`002`](ADR-002-qualification-du-debit.md),
 [`003`](ADR-003-reference-percentiles-en-asset.md), [`004`](ADR-004-integration-vigieau.md),
 [`006`](ADR-006-onde-quatre-categories.md), [`007`](ADR-007-ecarter-qualite-eau.md). Les quatre
 avertissements (`BR-012`, `BR-013`) restent une condition de mise en production, sur toute cible.
@@ -208,35 +216,29 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
 
 ### ➕
 
-- **Le blocage d'`ADR-012` cesse d'être la question centrale.** `createPack` n'est plus sur le chemin
-  critique : l'arbitrage entre A, B et C ne porte plus que sur le **téléchargement de zone**
-  (`UC-005`), pas sur la faisabilité de la carte.
-- **Windows revient, et il est *construit*.** Le besoin qu'`ADR-009` documentait — déboguer la carte
-  sur le poste, sans cycle de déploiement mobile — est satisfait, cette fois avec un binaire
-  **lancé hors outil** : dossier de publication **31 Mo** pour un budget de 60 Mo, dont
-  `flutter_windows.dll` 21 Mo et le référentiel 6,4 Mo (constaté le 2026-09-13, `CHANGELOG.md` — le
-  nombre de fichiers n'y est pas relevé).
+- **Windows est *construit*.** Déboguer la carte sur le poste, sans cycle de déploiement mobile, se
+  fait avec un binaire **lancé hors outil** : dossier de publication **31 Mo** pour un budget de
+  60 Mo, dont `flutter_windows.dll` 21 Mo et le référentiel 6,4 Mo (constaté le 2026-09-13,
+  `CHANGELOG.md` — le nombre de fichiers n'y est pas relevé).
 - **Le rendu carto est natif**, sans WebView à nourrir : `flutter_map` dessine dans le moteur Flutter.
-- **Dart rend au compilateur ce que TypeScript exigeait en discipline.** `ADR-010` notait que `BR-011`
-  (nomenclature tolérante à l'inconnu) et `BR-002` (unités) reposaient en TypeScript sur des
-  `switch` gardés par `never` et des types *branded* — « une discipline à tenir », écrivait-il. En
-  Dart, ce sont des `sealed class` à `switch` exhaustif et des `extension type` : **oublier une
-  branche est une erreur de compilation**.
-- **Zéro bibliothèque hors des quatre déclarées.** `flutter_map`, `latlong2`, `http`, `flutter_lints`.
+- **Dart rend au compilateur ce qui serait sinon une discipline.** `BR-011` (nomenclature tolérante à
+  l'inconnu) et `BR-002` (unités) s'écrivent en `sealed class` à `switch` exhaustif et en
+  `extension type` : **oublier une branche est une erreur de compilation**.
+- **Quatre bibliothèques seulement à la date de la décision** (2026-09-13) : `flutter_map`,
+  `latlong2`, `http`, `flutter_lints`. Les suivantes s'ajoutent tranche par tranche, chacune
+  vérifiée sur pub.dev avant d'entrer (`CLAUDE.md` § Stack).
 
 ### ➖
 
-- **Le code React Native est jeté. C'est la deuxième bascule de stack du projet** — .NET MAUI le
-  2026-07-31, React Native le 2026-09-12 — et donc le deuxième socle applicatif abandonné en six
-  semaines. Le cadrage produit, lui, n'a été refait ni l'une ni l'autre fois : c'est précisément ce
-  qui rend ces bascules soutenables, et il ne faut pas en conclure qu'elles sont bon marché.
 - **Le hors-ligne cartographique n'est pas réglé.** `flutter_map` embarque un cache de tuiles depuis
   la 8.2 (`BuiltInMapCachingProvider`, 1 Go, actif par défaut hors web) — **constaté dans la
   documentation seulement au spike**, puis **constaté à l'écran le 2026-09-13** : carte réseau
   désactivée, la carte s'ouvre et le fond s'affiche **sur les zones déjà parcourues** (`NV-W2`,
   [`docs/nfr.md`](../nfr.md)). ⚠️ Une zone **jamais chargée** n'a pas été constatée, et **aucun
-  téléchargement de zone à la demande n'existe** : le `Must` d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md)
-  et d'`US-10` reste **non livré**. Un cache opportuniste n'est pas un pack hors-ligne.
+  téléchargement de zone à la demande n'existe** — il est hors v1 (`US-20`, arbitrage du 2026-08-24,
+  confirmé le 2026-10-21) : hors réseau, une zone jamais parcourue reste sans fond. Le `Must`
+  d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md) et d'`US-10` reste **livré en
+  partie** : ni la persistance de `DerniereVueCarte`, ni le bandeau hors-ligne.
 - **`F2` n'est pas tranchée, et aucune mesure de fluidité n'existe sur Windows.** `NFR-01`
   (rastérisation `p90` ≤ 16,7 ms, trames en retard < 5 %) est **non mesuré** sur la seule cible
   construite — `NV-W3` dans `docs/nfr.md`, ouvert sans date. Le binaire de T0 a été jugé à l'œil, pas
@@ -253,40 +255,19 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
   compilé.** Ce qui reste dû est inchangé : `adb` ne voit pas le Galaxy A54, `NV-5` est ouvert, la
   publication Android (`A⏸3`, `A⏸5`) est différée.
 - **La spec d'UI est écrite pour le mobile.** [`04-ui.md`](../04-ui.md) suppose un écran étroit et le
-  tactile ; le lot clavier/souris et responsive qu'`ADR-009` signalait comme à chiffrer reste dû. Premier élément
-  de ce lot déjà instruit : la molette. Elle **ne zoomait pas** au spike (2026-09-09) ; elle **zoome**
-  à l'exécution de T0 (2026-09-13). `NV-W1` est **clos** dans `docs/nfr.md`, mais la cause de l'écart
-  **n'est pas établie** — seule sa disparition est constatée.
+  tactile ; le lot clavier/souris et responsive reste dû. Premier élément de ce lot déjà instruit :
+  la molette. Elle **ne zoomait pas** au spike (2026-09-09) ; elle **zoome** à l'exécution de T0
+  (2026-09-13). `NV-W1` est **clos** dans `docs/nfr.md`, mais la cause de l'écart **n'est pas
+  établie** — seule sa disparition est constatée.
 
 ---
 
 ## Alternatives écartées
 
-- **Rester sur React Native et arbitrer entre les options A, B ou C d'[`ADR-012`](ADR-012-hors-ligne-cartographique-bloque.md).**
-  Les trois restaient ouvertes, D ayant reproduit le plantage sur `arm64` réel et E étant épuisée :
-  - **A — signaler le défaut en amont et attendre.** Coût immédiat quasi nul, **échéance non
-    maîtrisée**, et `11.3.6` était déjà la dernière version publiée : rien vers quoi se replier. Le
-    hors-ligne serait resté indisponible sans date.
-  - **B — écrire le téléchargeur de tuiles et son stockage.** C'est **exactement le lot qu'`ADR-010`
-    comptait supprimer**, et le seul motif qui avait fait préférer React Native à .NET : parcours des
-    tuiles d'une emprise, file d'attente, reprise, quotas, et les conditions d'usage de l'IGN à
-    vérifier avant d'aspirer un département. Retenir B, c'était garder la stack en ayant perdu la
-    raison de l'avoir choisie.
-  - **C — sortir le hors-ligne cartographique de la v1.** Il faudrait le retirer explicitement
-    d'`UC-005` et d'`US-10`, où il est un `Must` : **une réduction de promesse produit**, pas un
-    arbitrage technique.
-
-  Écartées par l'arbitrage du 2026-09-12. ⚠️ **À noter honnêtement : la bascule Flutter ne tranche
-  aucune des trois.** Elle déplace la question — le hors-ligne de zone reste à traiter, et l'option
-  B, si elle revient, coûtera en Dart ce qu'elle aurait coûté en TypeScript.
-- **Revenir à .NET MAUI ([`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md)).** Écarté par l'arbitrage
-  du commanditaire du 2026-07-31, qui a révisé la contrainte « la stack reste dans l'écosystème
-  .NET ». `ADR-005` actait lui-même le coût de cette contrainte sur la carto mobile. Aucun fait
-  nouveau ne la rouvre.
-- **Flutter avec MapLibre natif** plutôt que `flutter_map` en raster. **Non essayé** : aucun spike,
-  aucune version relevée, aucune mesure. Ce n'est donc pas une option écartée sur preuve, mais une
-  **piste non instruite** — à ouvrir par un spike si la tenue en charge ou le hors-ligne de zone
-  l'exigent, jamais à présenter comme évaluée.
+- **Flutter avec MapLibre natif** (`maplibre_gl`) plutôt que `flutter_map` en raster. Sa
+  documentation exclut Windows (`maplibre_gl` 0.27.0, relevé du 2026-08-24). **Non essayé** : aucun
+  spike, aucune mesure. Ce n'est donc pas une option écartée sur preuve, mais une
+  **piste non instruite** — à ouvrir par un spike si la tenue en charge l'exige, jamais à présenter comme évaluée.
 
 ---
 
@@ -299,7 +280,7 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
   `package:flutter`, `package:flutter_map`, `package:latlong2`, `package:http`, `package:drift`,
   `package:sqflite`, `dart:io` et `dart:ui`.
 - **Les fixtures de `test/fixtures/` sont indépendantes de la stack** : ce sont des réponses d'API
-  capturées et datées (`test/fixtures/CAPTURES.md`). Elles survivraient à une troisième bascule.
+  capturées et datées (`test/fixtures/CAPTURES.md`). Elles survivraient à un changement de stack.
 - **Ce qui serait à refaire :** l'intégralité de `lib/data/`, `lib/features/`, `lib/main.dart`, les
   dossiers de plateforme, et la chaîne de build. Le code reste dans l'historique git — T0 est
   fusionnée sous `015a245` (PR #11), version `0.1.0`.
@@ -308,12 +289,7 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
 
 ## Liens
 
-- **Remplace :** [`ADR-010`](ADR-010-react-native.md)
-- **Rétablit l'intention de :** [`ADR-009`](ADR-009-cible-windows.md) — sans le réactiver
-- **Antérieurs :** [`ADR-005`](ADR-005-stack-maui-blazor-hybrid.md) (MAUI, écarté le 2026-07-31),
-  [`ADR-012`](ADR-012-hors-ligne-cartographique-bloque.md) (le blocage qui a déclenché le spike)
-- **Complété par :** [`ADR-014`](ADR-014-feature-first-mvvm.md) — feature-first + MVVM, qui retire le
-  volet CQRS léger hérité d'[`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md)
+- **Complété par :** [`ADR-014`](ADR-014-feature-first-mvvm.md) — feature-first + MVVM
 - **Toujours en vigueur :** [`ADR-001`](ADR-001-api-hydrometrie-v2.md),
   [`ADR-002`](ADR-002-qualification-du-debit.md), [`ADR-003`](ADR-003-reference-percentiles-en-asset.md),
   [`ADR-004`](ADR-004-integration-vigieau.md), [`ADR-006`](ADR-006-onde-quatre-categories.md),
