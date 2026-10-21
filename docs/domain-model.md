@@ -265,6 +265,66 @@ Règles pures des tronçons (`flood_section_rules.dart`), toutes **par les segme
 - `floodLabelsFor` — les tronçons étiquetés qui ont une ancre, dans l'ordre de tabulation : distance
   de l'ancre au centre, puis code.
 
+## Contexte Suivi — ce que l'on relit, et quand (T5)
+
+Le **suivi** est le choix de l'usager d'être prévenu d'un changement **publié** sur un lieu qu'il a
+en favori (`BR-016`). L'application ne calcule rien : le seuil d'un tronçon est un niveau publié,
+comparé à un autre niveau publié, et un lieu de sécheresse est relu pour ses zones citées. Ce
+contexte (`lib/domain/follow_up/`) ne contient que l'identité du lieu, le réglage, et ce que l'on a
+lu la dernière fois ; il n'importe que `lib/domain/`.
+
+- `FollowedPlace` — sealed, trois branches : `FloodSectionPlace` (code du tronçon), et sous
+  `DroughtPlace`, `StationPlace` et `OndePointPlace`. `followedPlaceOf(favorite)` la déduit d'un
+  favori, `null` pour un `UnreadableFavorite`.
+- `FloodThreshold` — enum `jaune`, `orange`, `rouge`, **sans branche inconnue** : c'est une valeur de
+  l'usager, non une donnée reçue. `floodFollowUpReminder` et `droughtFollowUpReminder` portent les
+  rappels du réglage.
+- `FollowUp` — sealed, trois branches : `FloodFollowUp` (lieu, seuil, `LastKnownFloodLevel?`,
+  `FailureSeries?`), `DroughtFollowUp` (lieu, `LastKnownZones?`, `FailureSeries?`) et
+  `UnreadableFollowUp` (texte brut, gardé à l'identique). `FailureSeries` (`checkImpossible`,
+  `notVerifiable`) dit qu'un échec est déjà annoncé : il ne se répète pas dans une même série.
+- Derniers états : `LastKnownFloodLevel` (niveau et date de l'information de vigilance),
+  `LastKnownZones` (date de lecture et liste non modifiable de `KnownZone`). Leurs égalités passent
+  par `sameFloodLevel`, `sameDroughtSeverity` et `sameZoneKind` : même branche, et même valeur brute
+  pour un inconnu. Le brut d'un niveau de crue inconnu peut être une `Map` ou une `List` : deux
+  bruts sont égaux si leur encodage JSON l'est.
+- `followUpOf`, `placeOfFollowUp`, `followsAnyPlace` — règles pures de recherche.
+
+Le port est `FollowUpRepository` : `read` (un `FollowUpBook`, livre vide si rien n'est stocké),
+`followFlood` (change le seuil en **gardant** le dernier état), `followDrought`, `unfollow`, `clear`
+(« Repartir sans lieu suivi », sans décoder), et `recordCheck(CheckRecord)`, qui **reporte sur l'état
+stocké au moment de l'écriture** : il garde le seuil stocké, ignore un lieu éteint entre-temps, et ne
+retire un orphelin que s'il est encore égal à sa lecture. Un réglage changé pendant une vérification
+est donc gardé. L'échec est **levé**, `FollowUpStorageFailure` à deux branches, `SuiviIllisible` et
+`EcritureDuSuiviEnEchec`, et une racine illisible n'est jamais écrasée.
+
+```mermaid
+classDiagram
+    class FollowedPlace
+    <<sealed>> FollowedPlace
+    FollowedPlace <|-- FloodSectionPlace
+    FollowedPlace <|-- DroughtPlace
+    class DroughtPlace
+    <<sealed>> DroughtPlace
+    DroughtPlace <|-- StationPlace
+    DroughtPlace <|-- OndePointPlace
+    class FollowUp
+    <<sealed>> FollowUp
+    FollowUp <|-- FloodFollowUp
+    FollowUp <|-- DroughtFollowUp
+    FollowUp <|-- UnreadableFollowUp
+    FloodFollowUp --> FloodSectionPlace
+    FloodFollowUp --> FloodThreshold
+    FloodFollowUp --> LastKnownFloodLevel
+    DroughtFollowUp --> DroughtPlace
+    DroughtFollowUp --> LastKnownZones
+    LastKnownZones --> KnownZone
+    FollowUpRepository --> FollowUpBook
+    FollowUpRepository --> CheckRecord
+    FollowUpStorageFailure <|-- SuiviIllisible
+    FollowUpStorageFailure <|-- EcritureDuSuiviEnEchec
+```
+
 ## Agrégats
 
 - **Station observée** — racine `Station`, dernière observation connue par `Grandeur`. Une
