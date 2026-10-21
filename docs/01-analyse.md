@@ -109,8 +109,8 @@ VigiEau : le **site** (`https://vigieau.gouv.fr/`, pied de page : « licence eta
 
 > C'était l'inconnue qui portait tout le fond cartographique. Une URL KVP n'est pas la forme
 > `/{z}/{x}/{y}.png` qu'attendent la plupart des styles, et rien ne garantissait *a priori* qu'un
-> client de tuiles ne réencoderait pas les séparateurs de requête. **Aucun des deux clients
-> essayés ne le fait.**
+> client de tuiles ne réencoderait pas les séparateurs de requête. **Ni le client de tuiles essayé
+> le 2026-08-15, ni `flutter_map` (`F1`, 2026-09-09) ne le font.**
 
 ⚠️ **Ce qui reste non vérifié :** la tenue de ~4 150 marqueurs sur un Android d'entrée de gamme
 (`NV-5`).

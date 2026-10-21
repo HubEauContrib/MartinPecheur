@@ -53,7 +53,7 @@ Permettre à l'usager de savoir **ce que le préfet a arrêté là où il désig
 
 | Élément | Vers | Motif |
 |---|---|---|
-| Géolocalisation ponctuelle | T3 au plus tôt | bibliothèque à ajouter, `NFR-05` à instruire, moins fiable sur poste fixe — Q1 |
+| Géolocalisation ponctuelle | T3 au plus tôt | bibliothèque à ajouter, `NFR-05` à instruire, moins fiable sur poste fixe (💭 non vérifié) — Q1 |
 | Échelle 3 sur la carte (pastilles ou zones colorées) | T3 / `US-17` | demande soit des géométries de zones (exports data.gouv, non vérifiés), soit un agrégat départemental — Q6 |
 | Repli `DataGouvBulkRestrictionSource` | après une rupture constatée | lourd, non vérifié par appel réel, ne filtre pas par profil (`ADR-004` ➖) — Q3 |
 | Persistance hors-ligne des restrictions au-delà de la session | avec `US-10` / `UC-005` (T3) | exige le moteur structuré laissé ouvert par `ADR-011` — Q7 |

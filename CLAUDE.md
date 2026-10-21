@@ -244,7 +244,7 @@ Docs transverses : `docs/glossary.md` · `docs/context-map.md` · `docs/project-
 Cadrage produit : `docs/01-analyse.md` → `docs/04-ui.md`.
 
 - `NNN` = 3 chiffres séquentiels, jamais réutilisés. `slug` = kebab-case français.
-- On **ne supprime pas** un artefact obsolète → statut `Remplacé par …`. Seule exception : les ADR écrits pour les stacks antérieures à Flutter (`005`, `008`, `009`, `010`, `012`), retirés le 2026-10-21 sur arbitrage du commanditaire ; leurs numéros ne sont pas réutilisés.
+- On **ne supprime pas** un artefact obsolète → statut `Remplacé par …`. Seule exception : les ADR écrits pour les stacks antérieures à Flutter (`005`, `008`, `009`, `010`, `012`) et les deux specs de `docs/superpowers/specs/` qui les accompagnaient (`2026-08-18-test-appareil-reel-m4-m5-design.md`, `2026-08-24-bascule-flutter-trois-cibles-design.md`), retirés le 2026-10-21 sur arbitrage du commanditaire ; les numéros d'ADR ne sont pas réutilisés.
 - **Une contrainte d'API subie n'est pas une règle métier** : elle va au tableau `C-xx` de `01-analyse.md`, pas dans `br/`.
 - **Diagrammes** : dispersés **à côté** de la sous-partie qu'ils illustrent, jamais en section dédiée. **Mermaid inline** uniquement.
 - Templates : `docs/{br,use-cases,adr}/*-template.md`.

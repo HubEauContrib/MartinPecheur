@@ -143,7 +143,7 @@ Compte utilisateur · notifications push · prévision ou modélisation hydrolog
 
 | Situation | Détection | Comportement |
 |---|---|---|
-| **Hors ligne** | Absence de réseau — mécanisme de détection non conçu (`UC-005` non livré) | Carte servie depuis le cache, bandeau persistant « Mode hors-ligne — données du JJ/MM à HH:MM », rafraîchissement désactivé |
+| **Hors ligne** | Absence de réseau — mécanisme de détection non conçu (`UC-005` livré en partie : seul le cache de tuiles l'est) | Carte servie depuis le cache, bandeau persistant « Mode hors-ligne — données du JJ/MM à HH:MM », rafraîchissement désactivé |
 | **Aucune station dans la zone — échelle écoulement** | Résultat vide sur la bbox, stations ET points ONDE lus (échelle écoulement) | « Il n'y a ni station de mesure ni point d'observation dans le secteur affiché. Ce n'est pas un signe que tout va bien : c'est simplement que personne ne mesure ici. » + action « Élargir la recherche » |
 | **Aucune station de mesure dans la zone — échelle débit** | Résultat vide sur la bbox pour les stations, échelle débit active ; l'ONDE n'est pas interrogée (`BR-008`) | « Il n'y a aucune station de mesure dans le secteur affiché. Cela ne dit rien de l'état des cours d'eau : le débit n'est simplement pas mesuré ici. » + action « Élargir la recherche » |
 | **Zone hors couverture ONDE** | Aucun point ONDE, et département hors périmètre (DOM) | « Le réseau ONDE ne suit que certains petits cours d'eau de France hexagonale et de Corse. » |

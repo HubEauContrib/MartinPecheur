@@ -3,7 +3,9 @@
 - **Statut :** **Accepté — arbitrage du commanditaire du 2026-09-12** (porte de spike franchie sur `F1` et `F3`), Android différé le même jour, **différé levé le 2026-09-18** (voir
   « [Amendement du 2026-09-18 — Android réactivé](#amendement-du-2026-09-18--android-réactivé) »).
   Le **reste** de cet ADR est inchangé : Windows demeure la première cible construite.
-- **Date :** 2026-09-13 · **amendé le 2026-09-18**
+- **Date :** 2026-09-13 · **amendé le 2026-09-18** · **amendé le 2026-10-21** (arbitrages du
+  commanditaire : historique des stacks antérieures retiré, section « Pourquoi Flutter » reprise des
+  faits relevés le 2026-08-24 ; pré-téléchargement de zone hors v1)
 
 > ⚠️ **Cet ADR est écrit a posteriori.** La porte de spike a été exécutée le **2026-09-09**, la
 > décision arbitrée le **2026-09-12**, ce document rédigé le **2026-09-13** (et versionné sur `feat/t1-mvvm-fiche-station` le **2026-09-14**), après la livraison de
@@ -222,7 +224,9 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
 - **Dart rend au compilateur ce qui serait sinon une discipline.** `BR-011` (nomenclature tolérante à
   l'inconnu) et `BR-002` (unités) s'écrivent en `sealed class` à `switch` exhaustif et en
   `extension type` : **oublier une branche est une erreur de compilation**.
-- **Zéro bibliothèque hors des quatre déclarées.** `flutter_map`, `latlong2`, `http`, `flutter_lints`.
+- **Quatre bibliothèques seulement à la date de la décision** (2026-09-13) : `flutter_map`,
+  `latlong2`, `http`, `flutter_lints`. Les suivantes s'ajoutent tranche par tranche, chacune
+  vérifiée sur pub.dev avant d'entrer (`CLAUDE.md` § Stack).
 
 ### ➖
 

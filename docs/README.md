@@ -145,8 +145,9 @@ Les numéros `005`, `008`, `009`, `010` et `012` portaient les ADR écrits pour 
 - **`NNN`** = numéro sur 3 chiffres, séquentiel, jamais réutilisé.
 - **`slug`** = kebab-case court, en français, cohérent avec le titre.
 - Un artefact = un fichier. On **ne supprime pas** un BR/UC/ADR obsolète : on passe son statut à
-  `Remplacé par …`. Seule exception : les ADR des stacks antérieures à Flutter, retirés le
-  2026-10-21 sur arbitrage du commanditaire (voir l'index des décisions).
+  `Remplacé par …`. Seule exception : les ADR des stacks antérieures à Flutter et les deux specs
+  qui les accompagnaient, retirés le 2026-10-21 sur arbitrage du commanditaire (voir l'index des
+  décisions et la table des cadrages).
 - Les **diagrammes** sont **dispersés à côté de la sous-partie qu'ils illustrent** — séquence sous le
   flux nominal, cycle de vie sous l'invariant, composants sous la décision. Pas de section dédiée.
   Optionnels : seulement s'ils complètent le propos.

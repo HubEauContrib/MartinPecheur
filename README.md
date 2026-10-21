@@ -86,10 +86,10 @@ mise en production.
 |---|---|
 | **Cadrage produit** — analyse, spécifications, 14 règles métier, 6 cas d'usage, 17 contraintes d'API vérifiées par appel réel | ✅ terminé, indépendant de la stack |
 | **Référentiel des stations** — 4 150 stations Hub'Eau figées dans [`assets/referentiel/stations.json`](assets/referentiel/stations.json) | ✅ |
-| **Stack** — **Flutter**, trois cibles | ✅ décidée le 2026-08-24, porte franchie le 2026-09-12 · 🔄 `ADR-013` à écrire |
+| **Stack** — **Flutter**, trois cibles | ✅ décidée le 2026-08-24, porte franchie le 2026-09-12 · [`ADR-013`](docs/adr/ADR-013-bascule-flutter-cible-windows.md) |
 | **Porte de spike `F1`–`F3`** — fond IGN, exécutable Windows, clustering | ✅ franchie le 2026-09-12 sur Windows (`F1`, `F3`) · `F2` non tranchée · Android non éprouvé à la porte (différé le 2026-09-12, levé le 2026-09-18) — [compte rendu](spike/porte_flutter/COMPTE-RENDU.md) |
-| **Socle applicatif Dart** (`lib/`) | 🔄 T0 à venir, Windows d'abord |
-| **Cibles** | Windows construite · Android 🔄 **réactivé le 2026-09-18** : plateforme générée et testée, émulateur démarré, **jamais encore construite ni lancée** · iOS configuré, non compilé |
+| **Socle applicatif Dart** (`lib/`) | ✅ livré tranche par tranche, Windows d'abord — état détaillé : [`docs/project-state.md`](docs/project-state.md) |
+| **Cibles** | Windows construite · Android construite et lancée **en débogage** sur l'émulateur `Pixel_7` (2026-10-14), aucune release · iOS configuré, non compilé |
 
 ## Démarrage rapide
 
@@ -115,7 +115,7 @@ flutter doctor -v
 | `flutter analyze` · `flutter test` | Analyse statique Dart et tests du socle, test d'architecture en premier | 🔄 avec `lib/` |
 | `flutter run -d windows` | Lancer l'application | 🔄 |
 | `flutter build windows --release` | Livrable Windows | ✅ éprouvé par le spike (`F3`) |
-| `flutter build apk` | Livrable Android | 🔄 cible réactivée le 2026-09-18, **jamais encore construite** ; signature de publication toujours ⏸ (`A⏸3`) |
+| `flutter build apk` | Livrable Android | 🔄 construite en débogage seulement (2026-10-14) ; signature de publication toujours ⏸ (`A⏸3`) |
 
 Aucune tâche n'est considérée terminée si la chaîne de vérification ne passe pas.
 
@@ -159,10 +159,10 @@ Détail : [`docs/03-conception.md`](docs/03-conception.md) ·
 | Composant | Choix | État |
 |---|---|---|
 | Langage, runtime | **Dart 3.13** · **Flutter 3.47** stable | ✅ installés, `flutter doctor` vert sur Windows |
-| Cibles | **Android**, **iOS**, **Windows** | Windows ✅ construite · Android 🔄 **réactivé le 2026-09-18** : plateforme générée et testée, émulateur démarré, **jamais encore construite ni lancée** · iOS 🔄 configuré, non compilé |
+| Cibles | **Android**, **iOS**, **Windows** | Windows ✅ construite · Android ✅ construite et lancée **en débogage** sur l'émulateur `Pixel_7` (2026-10-14) ; aucune release, aucun appareil réel · iOS 🔄 configuré, non compilé |
 | Carte | **`flutter_map`** 8.x, rendu Dart natif, fond **IGN Géoplateforme** (WMTS `PLANIGNV2`) | ✅ `F1` franchie sur Windows |
-| Clustering | `flutter_map_marker_cluster` 8.2.x | ⏸ `F2` non tranchée — par défaut, marqueurs du viewport sans clustering |
-| Stockage local | `drift` candidat — `sqflite` seul ne couvre pas Windows | 💭 `ADR-011` réservé |
+| Marqueurs | Regroupement par zone administrative, sans bibliothèque ([`ADR-015`](docs/adr/ADR-015-regroupement-par-zone-administrative.md)) | ✅ une pastille par région sous le zoom 7, par département de 7 à 9 ; marqueurs du viewport à partir du zoom 9 |
+| Stockage local | `shared_preferences` pour la préférence simple et les favoris ([`ADR-011`](docs/adr/ADR-011-stockage-local.md)) · moteur structuré : `drift` candidat — `sqflite` seul ne couvre pas Windows | ✅ préférence simple · 💭 moteur structuré non tranché |
 | Gestion d'état | `ChangeNotifier` + `ListenableBuilder`, zéro dépendance ([`ADR-014`](docs/adr/ADR-014-feature-first-mvvm.md)) | ✅ un ViewModel par écran |
 
 ## Contribuer
