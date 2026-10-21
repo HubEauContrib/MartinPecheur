@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/preferences/shared_preferences_favorite_repository.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
@@ -164,6 +165,23 @@ void main() {
 
       expect(await repository.readAll(), <Favorite>[onde]);
       expect(fake.writtenValues, hasLength(1));
+    });
+
+    test('add d\'un tronçon déjà présent sous un autre nom : rien ne change '
+        '(M1 de T5)', () async {
+      final FakeSharedPreferences fake = FakeSharedPreferences();
+      final SharedPreferencesFavoriteRepository repository = _repository(fake);
+      FloodSectionFavorite section(String name) => FloodSectionFavorite(
+        code: FloodSectionCode('LP106'),
+        name: name,
+        addedAt: DateTime.utc(2026, 10, 13, 9),
+      );
+
+      await repository.add(section('Loire amont'));
+      await repository.add(section('Loire (autre nom)'));
+
+      expect(fake.writtenValues, hasLength(1));
+      expect(await repository.readAll(), <Favorite>[section('Loire amont')]);
     });
 
     test('add(station) deux fois : un seul setString ; remove d\'un absent : '

@@ -12,6 +12,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
@@ -1500,5 +1501,101 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+  });
+
+  group('FavoritesScreen — le favori tronçon (M1 de T5)', () {
+    FloodSectionFavorite section() => FloodSectionFavorite(
+      code: FloodSectionCode('LP106'),
+      name: 'Loire amont',
+      addedAt: DateTime.utc(2026, 10, 13, 9),
+    );
+
+    testWidgetsOnWindows(
+      'la ligne porte le nom, « Tronçon Vigicrues » et « Ajouté le … »',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_app(FavorisLus(<Favorite>[section()])));
+
+        expect(floodSectionFavoriteKind, 'Tronçon Vigicrues');
+        expect(
+          find.descendant(of: _row(0), matching: find.byType(Text)),
+          findsNWidgets(3),
+        );
+        expect(
+          <String>[
+            for (final Text t in tester.widgetList<Text>(
+              find.descendant(of: _row(0), matching: find.byType(Text)),
+            ))
+              t.data ?? '',
+          ],
+          <String>['Loire amont', 'Tronçon Vigicrues', 'Ajouté le 13/10/2026'],
+        );
+      },
+    );
+
+    testWidgetsOnWindows('un tap sur la ligne ne déclenche pas onOpen', (
+      WidgetTester tester,
+    ) async {
+      final _Calls calls = _Calls();
+      await tester.pumpWidget(
+        _app(FavorisLus(<Favorite>[section()]), calls: calls),
+      );
+
+      await tester.tap(_row(0));
+      await tester.pump();
+
+      expect(calls.opened, isEmpty);
+      expect(calls.removed, isEmpty);
+    });
+
+    testWidgetsOnWindows(
+      '« Retirer des favoris : <nom> » appelle onRemove avec ce tronçon',
+      (WidgetTester tester) async {
+        final _Calls calls = _Calls();
+        await tester.pumpWidget(
+          _app(FavorisLus(<Favorite>[section()]), calls: calls),
+        );
+
+        expect(
+          tester
+              .getSemantics(
+                find.descendant(
+                  of: _remove(0),
+                  matching: find.byKey(favoriteStarButtonKey),
+                ),
+              )
+              .getSemanticsData()
+              .label,
+          'Retirer des favoris : Loire amont',
+        );
+        await tester.tap(_remove(0));
+        await tester.pump();
+
+        expect(calls.removed, <Favorite>[section()]);
+        expect(calls.opened, isEmpty);
+      },
+    );
+
+    testWidgetsOnAndroid(
+      'Android : à 360 × 640 et 200 % de police, la ligne est entière et le '
+      'retrait mesure 48 × 48',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        await tester.pumpWidget(_app(FavorisLus(<Favorite>[section()])));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(_remove(0)), const Size(48, 48));
+        final Rect row = tester.getRect(_row(0));
+        expect(row.left, greaterThanOrEqualTo(0));
+        expect(row.right, lessThanOrEqualTo(360));
+        expect(find.text('Loire amont'), findsOneWidget);
+        expect(find.text('Tronçon Vigicrues'), findsOneWidget);
+      },
+    );
   });
 }

@@ -18,6 +18,7 @@ import 'dart:convert';
 
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
@@ -29,6 +30,7 @@ const int favoritesFormatVersion = 1;
 
 const String _typeStation = 'station';
 const String _typeOnde = 'onde';
+const String _typeTroncon = 'troncon';
 
 /// Lit la valeur stockée [stored]. `null` (rien n'a jamais été écrit) rend
 /// une liste vide. Une entrée illisible est rendue [UnreadableFavorite], à sa
@@ -110,6 +112,12 @@ Object? _encodeEntry(Favorite favorite) => switch (favorite) {
       'region': _encodeArea(favorite.point.region),
     },
   },
+  FloodSectionFavorite() => <String, Object?>{
+    'type': _typeTroncon,
+    'ajoute_le': favorite.addedAt.toIso8601String(),
+    'code': favorite.code.value,
+    'nom': favorite.name,
+  },
   UnreadableFavorite() => jsonDecode(favorite.raw) as Object?,
 };
 
@@ -158,6 +166,7 @@ Favorite? _readEntry(Object? entry) {
   return switch (entry['type']) {
     _typeStation => _readStation(entry, addedAt),
     _typeOnde => _readOnde(entry['point'], addedAt),
+    _typeTroncon => _readSection(entry, addedAt),
     _ => null,
   };
 }
@@ -190,6 +199,26 @@ StationFavorite? _readStation(Map<String, Object?> entry, DateTime addedAt) {
   return StationFavorite(code: stationCode, label: label, addedAt: addedAt);
 }
 
+FloodSectionFavorite? _readSection(
+  Map<String, Object?> entry,
+  DateTime addedAt,
+) {
+  final Object? code = entry['code'];
+  final Object? name = entry['nom'];
+  if (code is! String ||
+      code.trim().isEmpty ||
+      name is! String ||
+      name.trim().isEmpty) {
+    return null;
+  }
+
+  return FloodSectionFavorite(
+    code: FloodSectionCode(code),
+    name: name,
+    addedAt: addedAt,
+  );
+}
+
 OndePointFavorite? _readOnde(Object? point, DateTime addedAt) {
   if (point is! Map<String, Object?>) {
     return null;
@@ -204,8 +233,12 @@ OndePointFavorite? _readOnde(Object? point, DateTime addedAt) {
       label is! String ||
       latitude is! num ||
       !latitude.isFinite ||
+      latitude < -90 ||
+      latitude > 90 ||
       longitude is! num ||
       !longitude.isFinite ||
+      longitude < -180 ||
+      longitude > 180 ||
       waterCourseLabel is! String?) {
     return null;
   }
@@ -260,6 +293,7 @@ String? _labelOf(Object? entry) {
   final Object? point = entry['point'];
 
   return _nonBlank(entry['libelle']) ??
+      _nonBlank(entry['nom']) ??
       (point is Map<String, Object?> ? _nonBlank(point['libelle']) : null);
 }
 

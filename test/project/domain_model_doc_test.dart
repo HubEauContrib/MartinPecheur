@@ -60,6 +60,7 @@ const List<String> typesDuDomaine = <String>[
   'Favorite',
   'StationFavorite',
   'OndePointFavorite',
+  'FloodSectionFavorite',
   'UnreadableFavorite',
   'FavoriteRepository',
   'FavoriteStorageFailure',

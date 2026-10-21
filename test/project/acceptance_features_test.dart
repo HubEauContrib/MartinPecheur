@@ -1013,7 +1013,9 @@ void main() {
   group('les libellés portés par le code figurent dans suivi.feature', () {
     final String suivi = contenusParFichier['suivi.feature'] ?? '';
 
-    final Map<String, String> libellesSuivi = <String, String>{};
+    final Map<String, String> libellesSuivi = <String, String>{
+      'floodSectionFavoriteKind': floodSectionFavoriteKind,
+    };
 
     test('suivi.feature existe et n\'est pas vide', () {
       expect(suivi.trim(), isNotEmpty);

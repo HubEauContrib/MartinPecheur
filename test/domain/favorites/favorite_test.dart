@@ -1,6 +1,7 @@
-// Le favori : type clos à trois branches (S1 de T3, BR-011).
+// Le favori : type clos à quatre branches (S1 de T3, BR-011).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
@@ -32,6 +33,7 @@ StationFavorite _station({
 String _branch(Favorite f) => switch (f) {
   StationFavorite() => 'station',
   OndePointFavorite() => 'onde',
+  FloodSectionFavorite() => 'troncon',
   UnreadableFavorite() => 'illisible',
 };
 
@@ -196,6 +198,71 @@ void main() {
       expect(
         const UnreadableFavorite(raw: '{}', label: 'x'),
         isNot(const UnreadableFavorite(raw: '{}')),
+      );
+    });
+  });
+
+  group('le favori tronçon (M1 de T5)', () {
+    FloodSectionFavorite section({
+      String code = 'LP106',
+      String name = 'Loire amont',
+      DateTime? addedAt,
+    }) => FloodSectionFavorite(
+      code: FloodSectionCode(code),
+      name: name,
+      addedAt: addedAt ?? _added,
+    );
+
+    test('il se construit et porte code, nom et date', () {
+      final FloodSectionFavorite f = section();
+      expect(f.code, FloodSectionCode('LP106'));
+      expect(f.name, 'Loire amont');
+      expect(f.addedAt, _added);
+      expect(_branch(f), 'troncon');
+    });
+
+    test('addedAt local → ArgumentError', () {
+      expect(
+        () => section(addedAt: DateTime(2026, 10, 11)),
+        throwsArgumentError,
+      );
+    });
+
+    test('nom blanc → ArgumentError', () {
+      expect(() => section(name: '  '), throwsArgumentError);
+    });
+
+    test('même code, noms différents : le même lieu, mais pas égaux', () {
+      final FloodSectionFavorite a = section();
+      final FloodSectionFavorite b = section(name: 'Loire (autre nom)');
+      expect(sameFavoritePlace(a, b), isTrue);
+      expect(a, isNot(b));
+      expect(a, section());
+      expect(a.hashCode, section().hashCode);
+    });
+
+    test('un tronçon et une station de même valeur de code : jamais le même '
+        'lieu', () {
+      final FloodSectionFavorite t = section(code: 'K447001001');
+      final StationFavorite s = _station();
+      expect(sameFavoritePlace(t, s), isFalse);
+      expect(sameFavoritePlace(s, t), isFalse);
+      expect(
+        sameFavoritePlace(t, const UnreadableFavorite(raw: '{}')),
+        isFalse,
+      );
+    });
+
+    test('floodSectionFavoriteIn trouve le tronçon, ou rend null', () {
+      final FloodSectionFavorite t = section();
+      final List<Favorite> list = <Favorite>[_station(), t];
+      expect(floodSectionFavoriteIn(list, FloodSectionCode('LP106')), same(t));
+      expect(floodSectionFavoriteIn(list, FloodSectionCode('LP107')), isNull);
+      expect(
+        floodSectionFavoriteIn(<Favorite>[
+          _station(code: 'K447001001'),
+        ], FloodSectionCode('K447001001')),
+        isNull,
       );
     });
   });

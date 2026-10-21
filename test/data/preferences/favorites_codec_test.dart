@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/preferences/favorites_codec.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
+import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
@@ -516,6 +517,109 @@ void main() {
         isTrue,
         reason: line,
       );
+    }
+  });
+
+  group('le favori tronçon (M1 de T5)', () {
+    const String sectionEntry =
+        '{"type":"troncon","ajoute_le":"2026-10-13T09:00:00.000Z",'
+        '"code":"LP106","nom":"Loire amont"}';
+
+    FloodSectionFavorite section() => FloodSectionFavorite(
+      code: FloodSectionCode('LP106'),
+      name: 'Loire amont',
+      addedAt: DateTime.utc(2026, 10, 13, 9),
+    );
+
+    test('texte exact : type, ajoute_le, code, nom', () {
+      expect(
+        encodeFavorites(<Favorite>[section()]),
+        _value(<String>[sectionEntry]),
+      );
+    });
+
+    test('aller-retour des quatre types, dans l ordre', () {
+      final List<Favorite> favorites = <Favorite>[
+        _ondeFavorite(),
+        section(),
+        _stationFavorite(),
+        decodeFavorites(_value(<String>[_designatedEntry])).single,
+      ];
+
+      final List<Favorite> read = decodeFavorites(encodeFavorites(favorites));
+
+      expect(read, favorites);
+      expect(read[1], isA<FloodSectionFavorite>());
+      expect(read[3], isA<UnreadableFavorite>());
+    });
+
+    test('la version écrite reste 1', () {
+      final Map<String, Object?> root = jsonDecode(
+        encodeFavorites(<Favorite>[section()]),
+      ) as Map<String, Object?>;
+      expect(root['version'], 1);
+    });
+
+    for (final (String why, String entry) in <(String, String)>[
+      ('code vide', '{"type":"troncon","code":""}'),
+      (
+        'code vide avec date et nom',
+        '{"type":"troncon","ajoute_le":"2026-10-13T09:00:00.000Z",'
+            '"code":"","nom":"Loire amont"}',
+      ),
+      (
+        'nom blanc',
+        '{"type":"troncon","ajoute_le":"2026-10-13T09:00:00.000Z",'
+            '"code":"LP106","nom":"  "}',
+      ),
+      (
+        'nom absent',
+        '{"type":"troncon","ajoute_le":"2026-10-13T09:00:00.000Z",'
+            '"code":"LP106"}',
+      ),
+      (
+        'date sans fuseau',
+        '{"type":"troncon","ajoute_le":"2026-10-13T09:00:00",'
+            '"code":"LP106","nom":"Loire amont"}',
+      ),
+    ]) {
+      test('$why : gardé en UnreadableFavorite et réécrit à l identique', () {
+        final List<Favorite> read = decodeFavorites(_value(<String>[entry]));
+
+        expect(read.single, isA<UnreadableFavorite>());
+        expect(
+          encodeFavorites(read),
+          _value(<String>[jsonEncode(jsonDecode(entry))]),
+        );
+      });
+    }
+  });
+
+  group('plage des coordonnées d un point ONDE (M1 de T5)', () {
+    String entry(String latitude, String longitude) =>
+        '{"type":"onde","ajoute_le":"2026-10-12T08:30:00.000Z","point":'
+        '{"code":"K4640001","libelle":"LA BONNEURE A MILLANCAY",'
+        '"latitude":$latitude,"longitude":$longitude,"cours_d_eau":null,'
+        '"departement":null,"region":null}}';
+
+    for (final (String latitude, String longitude) in <(String, String)>[
+      ('91', '1.7'),
+      ('-91', '1.7'),
+      ('47.4', '181'),
+      ('47.4', '-181'),
+    ]) {
+      test('latitude $latitude, longitude $longitude : illisible', () {
+        expect(_single(entry(latitude, longitude)), isA<UnreadableFavorite>());
+      });
+    }
+
+    for (final (String latitude, String longitude) in <(String, String)>[
+      ('90', '180'),
+      ('-90', '-180'),
+    ]) {
+      test('latitude $latitude, longitude $longitude : bornes lues', () {
+        expect(_single(entry(latitude, longitude)), isA<OndePointFavorite>());
+      });
     }
   });
 }

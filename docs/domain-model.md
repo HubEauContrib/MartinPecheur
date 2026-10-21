@@ -198,10 +198,12 @@ sont écrites à la main dans `lib/domain/restrictions/value_equality.dart`, fac
 
 Un **favori** est un lieu que l'usager choisit de retrouver. L'application en garde l'identité
 copiée à l'ajout — nom, code, date d'ajout —, jamais une mesure. `Favorite` est un type clos à
-trois branches (`BR-011`) :
+quatre branches (`BR-011`) :
 
 - `StationFavorite` — code station et libellé, **sans coordonnées** ;
 - `OndePointFavorite` — le point ONDE **entier** (la fiche s'ouvre avec lui) ;
+- `FloodSectionFavorite` — code du tronçon de vigilance et **nom publié au moment de l'ajout**
+  (copié, jamais rafraîchi) ; la clé d'un lieu est son code (T5, `M1`) ;
 - `UnreadableFavorite` — une entrée que cette version ne sait pas lire : gardée, affichée par son
   libellé s'il est connu, retirable par son texte brut.
 
@@ -220,6 +222,7 @@ classDiagram
     class Favorite { <<sealed>> }
     class StationFavorite { +StationCode code +String label +DateTime addedAt }
     class OndePointFavorite { +OndePoint point +DateTime addedAt }
+    class FloodSectionFavorite { +FloodSectionCode code +String name +DateTime addedAt }
     class UnreadableFavorite { +String raw +String? label }
     class FavoriteRepository { <<interface>> readAll() add() remove() clear() }
     class FavoriteStorageFailure { <<sealed>> +String diagnostic }
@@ -227,6 +230,7 @@ classDiagram
     class EcritureDeFavorisEnEchec
     Favorite <|-- StationFavorite
     Favorite <|-- OndePointFavorite
+    Favorite <|-- FloodSectionFavorite
     Favorite <|-- UnreadableFavorite
     FavoriteRepository ..> Favorite
     FavoriteRepository ..> FavoriteStorageFailure : lève

@@ -1,6 +1,6 @@
 // Le favori (S1 de T3) : un lieu que l'usager choisit de retrouver. L'application
 // en garde l'IDENTITÉ copiée à l'ajout (nom, code, date d'ajout), jamais une
-// mesure. Type clos à trois branches (BR-011) : une entrée que cette version
+// mesure. Type clos à quatre branches (BR-011) : une entrée que cette version
 // ne sait pas lire reste un favori, affiché et retirable par son texte brut.
 //
 // La clé d'un lieu est le COUPLE type et code : un code ONDE est une chaîne
@@ -9,11 +9,13 @@
 //
 // Dart pur : aucune dépendance d'infrastructure.
 
+import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
-/// Un favori. Trois branches, closes : station hydrométrique, point ONDE,
+/// Un favori. Quatre branches, closes : station hydrométrique, point ONDE,
+/// tronçon de vigilance,
 /// entrée illisible.
 sealed class Favorite {
   const Favorite();
@@ -91,6 +93,42 @@ final class OndePointFavorite extends Favorite {
   );
 }
 
+/// Un tronçon de vigilance en favori (M1 de T5) : son code et le nom publié
+/// AU MOMENT DE L'AJOUT. Le nom est une copie d'identité, jamais un état ; il
+/// ne se rafraîchit pas.
+final class FloodSectionFavorite extends Favorite {
+  /// Lève une [ArgumentError] si [addedAt] n'est pas en UTC ou si [name] est
+  /// blanc.
+  FloodSectionFavorite({
+    required this.code,
+    required this.name,
+    required this.addedAt,
+  }) {
+    _requireUtc(addedAt);
+    if (name.trim().isEmpty) {
+      throw ArgumentError.value(name, 'name', 'nom blanc');
+    }
+  }
+
+  final FloodSectionCode code;
+
+  /// Le nom publié du tronçon, copié à l'ajout.
+  final String name;
+
+  /// Instant d'ajout, en UTC.
+  final DateTime addedAt;
+
+  @override
+  bool operator ==(Object other) =>
+      other is FloodSectionFavorite &&
+      other.code == code &&
+      other.name == name &&
+      other.addedAt == addedAt;
+
+  @override
+  int get hashCode => Object.hash(code, name, addedAt);
+}
+
 /// Une entrée stockée que cette version ne sait pas lire : gardée, affichée
 /// par son [label] s'il est connu, retirable par son texte [raw].
 final class UnreadableFavorite extends Favorite {
@@ -116,8 +154,11 @@ bool sameFavoritePlace(Favorite a, Favorite b) => switch ((a, b)) {
   (final OndePointFavorite x, final OndePointFavorite y) =>
     x.point.code == y.point.code,
   (final UnreadableFavorite x, final UnreadableFavorite y) => x.raw == y.raw,
+  (final FloodSectionFavorite x, final FloodSectionFavorite y) =>
+    x.code == y.code,
   (StationFavorite(), _) => false,
   (OndePointFavorite(), _) => false,
+  (FloodSectionFavorite(), _) => false,
   (UnreadableFavorite(), _) => false,
 };
 
@@ -141,6 +182,19 @@ OndePointFavorite? ondePointFavoriteIn(
 ) {
   for (final Favorite f in favorites) {
     if (f is OndePointFavorite && f.point.code == code) {
+      return f;
+    }
+  }
+  return null;
+}
+
+/// Le favori tronçon de code [code] dans [favorites], ou `null`.
+FloodSectionFavorite? floodSectionFavoriteIn(
+  Iterable<Favorite> favorites,
+  FloodSectionCode code,
+) {
+  for (final Favorite f in favorites) {
+    if (f is FloodSectionFavorite && f.code == code) {
       return f;
     }
   }

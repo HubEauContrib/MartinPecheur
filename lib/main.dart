@@ -812,6 +812,9 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
                                         unawaited(
                                           ondeSheetViewModel.open(point),
                                         );
+                                      // Le temps que `C2` y mette l'ouverture.
+                                      case FloodSectionFavorite():
+                                        break;
                                       // Une entrée non lisible ne s'ouvre pas
                                       // (`BR-011`) : l'écran ne la propose
                                       // d'ailleurs pas.

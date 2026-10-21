@@ -28,6 +28,7 @@ import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/formatting/display_date.dart';
 import 'package:martinpecheur/domain/geo/administrative_area.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 import 'package:martinpecheur/features/favorites/view_model/favorites_view_model.dart';
 import 'package:martinpecheur/features/shared/action_color.dart';
 import 'package:martinpecheur/features/shared/favorite_star.dart';
@@ -71,6 +72,9 @@ const String stationFavoriteKind = 'Station hydrométrique';
 
 /// Nature d'un favori point ONDE (`glossary.md`).
 const String ondeFavoriteKind = 'Point ONDE';
+
+/// Nature d'un favori tronçon de vigilance (M1 de T5).
+const String floodSectionFavoriteKind = 'Tronçon $floodSourceName';
 
 /// Préfixe de la date d'ajout, suivie de `JJ/MM/AAAA`.
 const String favoriteAddedOnPrefix = 'Ajouté le ';
@@ -319,6 +323,13 @@ class _FavoriteRow extends StatelessWidget {
         ],
         true,
         '$removeNamedFavoritePrefix${point.label}',
+      ),
+      // Pas d'ouverture tant que `C2` ne l'a pas branchée.
+      FloodSectionFavorite(:final String name, :final DateTime addedAt) => (
+        name,
+        <String>[floodSectionFavoriteKind, _addedOn(addedAt)],
+        false,
+        '$removeNamedFavoritePrefix$name',
       ),
       // Ni date, ni ouverture : rien d'autre ne se lit de cette entrée.
       UnreadableFavorite(:final String? label) => (
