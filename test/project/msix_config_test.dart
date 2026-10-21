@@ -87,6 +87,37 @@ void main() {
     );
   });
 
+  group('logo du paquet (ADR-018)', () {
+    test('msix_config porte logo_path: windows/store/logo.png', () {
+      expect(
+        blocDePremierNiveau(pubspec, 'msix_config'),
+        matches(
+          RegExp(r'^  logo_path: windows/store/logo\.png\s*$', multiLine: true),
+        ),
+        reason:
+            'sans logo_path, msix met le logo de Flutter dans le paquet, que '
+            'la politique 10.1.1 du Store interdit',
+      );
+    });
+
+    test("windows/store/logo.png est un PNG carré d'au moins 400 px", () {
+      final File logo = File('windows/store/logo.png');
+      expect(logo.existsSync(), isTrue, reason: 'le logo doit exister');
+      final List<int> octets = logo.readAsBytesSync();
+      // Signature PNG, puis largeur et hauteur en tête du bloc IHDR.
+      expect(octets.sublist(0, 8), <int>[137, 80, 78, 71, 13, 10, 26, 10]);
+      int entier(int debut) =>
+          (octets[debut] << 24) |
+          (octets[debut + 1] << 16) |
+          (octets[debut + 2] << 8) |
+          octets[debut + 3];
+      final int largeur = entier(16);
+      final int hauteur = entier(20);
+      expect(largeur, hauteur, reason: 'le logo du paquet est carré');
+      expect(largeur, greaterThanOrEqualTo(400), reason: 'README de msix');
+    });
+  });
+
   test('le premier nombre de la version ne vaut pas 0 : le Store le refuse '
       '(ADR-018)', () {
     final RegExpMatch? version = RegExp(

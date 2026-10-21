@@ -92,14 +92,15 @@ flutter:
 
 # Paquet MSIX du Microsoft Store (ADR-018), construit par `dart run msix:create --store`.
 # L'identité est celle de Partner Center, vérifiée par test/project/msix_config_test.dart.
-# Pas de msix_version : msix dérive a.b.c.0 de `version:`. Pas de logo_path tant que
-# l'application n'a pas son logo : msix y met alors le logo de Flutter, non soumettable.
+# Pas de msix_version : msix dérive a.b.c.0 de `version:`. logo_path : rendu de
+# windows/store/logo.svg (les sources et images du Store sont à côté).
 # build_windows: false : le paquet emballe l'exécutable de release déjà construit et vérifié.
 msix_config:
   display_name: MartinPêcheur
   publisher_display_name: Monbsoft
   identity_name: 46Monbsoft.com.MartinPcheur
   publisher: CN=6D56381B-9EA9-4C93-83CC-28D86DB31617
+  logo_path: windows/store/logo.png
   capabilities: internetClient
   languages: fr-fr
   install_certificate: false

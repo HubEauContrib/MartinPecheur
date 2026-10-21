@@ -9,8 +9,9 @@
   2026-10-17, à « Vérifier les lieux suivis depuis l'appareil, sans serveur »
   (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, § 11.1).
 - **État du code :** ✅ **configuré le 2026-10-21** : `msix: ^3.18.0` en `dev_dependencies` (résolu en
-  3.18.0), section `msix_config` dans `pubspec.yaml`, **sans `logo_path`** tant que l'application n'a pas
-  son logo ; le tout verrouillé par `test/project/msix_config_test.dart`. 🔄 **Aucun paquet n'a été
+  3.18.0), section `msix_config` dans `pubspec.yaml`, avec le logo propre à l'application
+  (`windows/store/logo.png`, piste A choisie par le commanditaire le 2026-10-21) ; le tout verrouillé par
+  `test/project/msix_config_test.dart`. 🔄 **Aucun paquet n'a été
   construit** : `dart run msix:create --store` n'a jamais tourné.
 - **Portée :** l'outil d'empaquetage, l'identité du paquet, sa version, qui construit quoi. **Cet ADR ne
   décide aucune publication**, qui reste une décision du commanditaire.
@@ -126,15 +127,20 @@ n'entre dans `lib/` ; l'outil assemble le paquet à partir de l'exécutable de r
      publisher_display_name: Monbsoft
      identity_name: 46Monbsoft.com.MartinPcheur
      publisher: CN=6D56381B-9EA9-4C93-83CC-28D86DB31617
+     logo_path: windows/store/logo.png
      capabilities: internetClient
      languages: fr-fr
      install_certificate: false
      build_windows: false
    ```
 
-   - **Pas encore de `logo_path`** : il s'ajoute avec le logo propre à MartinPêcheur (« at least
-     400x400px », d'après le README de `msix`). D'ici là, l'outil met le logo de Flutter dans le paquet : un paquet construit sert à
-     vérifier la chaîne, **il ne se soumet pas**.
+   - **`logo_path: windows/store/logo.png`** : le logo propre à MartinPêcheur (piste A, « Profil », choisie
+     par le commanditaire le 2026-10-21), 1080 × 1080, rendu de `windows/store/logo.svg` (le README de
+     `msix` demande « at least 400x400px »). Sans lui, l'outil mettrait le logo de Flutter dans le paquet.
+     Les images de la fiche du Store (1:1 et 9:16) sont rendues à côté, depuis leurs propres sources
+     (`windows/store/README.md`). Les icônes de l'application elle-même (exécutable Windows, Android, iOS)
+     portent le même martin-pêcheur depuis le 2026-10-21, à la place du logo de Flutter (décision du
+     commanditaire ; `test/project/app_icons_test.dart`).
    - **Pas de `msix_version`** : la version vient de `pubspec.yaml`, seule source ; l'outil la dérive en
      `a.b.c.0`.
    - **Pas de `store: true`** : le paquet du Store se demande par `--store`.

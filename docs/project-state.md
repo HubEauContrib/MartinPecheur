@@ -35,8 +35,9 @@ aucune publication Android (`A⏸3`, `A⏸5`).
 ## Vérifié au 2026-10-21
 
 Sur le code de `7ce3f73` (code de la tranche d'ergonomie : `lib/` inchangé depuis), avec la version `1.0.0+7`,
-l'outil `msix` et sa configuration (`ADR-018`, 2026-10-21) : `flutter analyze` → « No issues found! »,
-`flutter test` → « +7072: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
+l'outil `msix` et sa configuration, le logo et les icônes de l'application (`ADR-018`, 2026-10-21) :
+`flutter analyze` → « No issues found! »,
+`flutter test` → « +7116: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
 `dart format` sans diff.
 
 **Réserve durable sur les polices de mesure.** Onze fichiers de test mesurent en Roboto, chargée depuis
@@ -369,10 +370,18 @@ Une case vide est une case vide, pas un « probablement ».
   version de T5, prévue à `0.7.0+7` (R13 de T5 dans le cadrage d'ergonomie), se refixe au plan de T5.
 - **2026-10-21** — outil d'empaquetage, décision du commanditaire : « j'accepte l'outil msix » (`ADR-018`,
   arbitrage 1, désormais accepté). `msix` ^3.18.0 en dépendance de développement, `msix_config` dans
-  `pubspec.yaml`, sans `logo_path`, avec `build_windows: false` (arbitrage 3 : le paquet emballe l'exécutable
-  de release déjà vérifié). Aucun paquet n'est construit : `dart run msix:create --store` est lancé par le
-  commanditaire, après `flutter build windows --release` et la vérification de l'exécutable ; tant que l'application n'a pas son logo, le paquet porte celui de Flutter et ne se soumet
-  pas. `NFR-05` revérifié à cet ajout : outil de construction seul, rien n'entre dans l'application.
+  `pubspec.yaml`, avec `build_windows: false` (arbitrage 3 : le paquet emballe l'exécutable de release déjà
+  vérifié). Aucun paquet n'est construit par Claude : `dart run msix:create --store` est lancé par le
+  commanditaire, après `flutter build windows --release` et la vérification de l'exécutable. `NFR-05`
+  revérifié à cet ajout : outil de construction seul, rien n'entre dans l'application.
+- **2026-10-21** — logo, choix du commanditaire : piste A, « Profil » (un martin-pêcheur de profil au-dessus
+  d'une vague, sur fond bleu nuit), parmi trois proposées. Sources et rendus sous `windows/store/` : le logo du
+  paquet (`logo_path`) et les images de la fiche du Store (1:1 en 1080 et 2160, 9:16 en 720 × 1080 et
+  1440 × 2160, vignettes 300, 150 et 71 px). Puis, même jour, décision du commanditaire : « applique le logo
+  martin-pêcheur aux icônes de l'application (exécutable Windows, Android, iOS), pour que l'application et le
+  Store aient la même icône » — fait, à la place du logo de Flutter (`test/project/app_icons_test.dart`).
+  **Non constaté** : aucune cible n'a été reconstruite avec ces icônes. Aucune recherche de marque déposée
+  proche n'a été faite.
 
 ## Faits sans autre trace
 
@@ -393,7 +402,7 @@ l'occasion d'un épisode ; et à relever, émulateur `Pixel_7` lancé : la marge
 par `adb`. **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas
 dit (point 62) se constate s'il le veut, ou reste « non vérifié ». L'**ADR d'empaquetage MSIX**, `ADR-018`, est
 accepté le 2026-10-21 et configuré ; le premier paquet reste à construire par le commanditaire. Une soumission
-au Store (nom réservé le 2026-10-21, à soumettre avant le 2027-01-21 environ) demande encore un logo propre à
-l'application, une politique de confidentialité, l'acceptation du contrat du développeur, la fiche du Store et
-la porte de mise en production. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
+au Store (nom réservé le 2026-10-21, à soumettre avant le 2027-01-21 environ) demande encore un paquet construit
+avec le logo, une politique de confidentialité, l'acceptation du contrat du développeur, la fiche du Store
+(textes et captures) et la porte de mise en production. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
 cadrage d'ergonomie, § 12).

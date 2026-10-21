@@ -11,6 +11,14 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+### Modifié
+
+- L'icône de l'application est un martin-pêcheur, sur Windows (exécutable et
+  fenêtre), Android et iOS, à la place du logo de Flutter posé par le gabarit :
+  la même icône que le paquet du Microsoft Store (décision du commanditaire du
+  2026-10-21). Écrit d'après les fichiers, vérifié par
+  `test/project/app_icons_test.dart` ; jamais vu sur une cible construite.
+
 ## [1.0.0] — 2026-10-21
 
 Même application que `0.6.0`, sous un nouveau numéro : la première version
