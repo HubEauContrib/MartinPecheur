@@ -186,12 +186,18 @@ Future<void> main() async {
         observations: observations,
         stations: AssetStationRepository(stationsRead.stations),
         favorites: favorites,
+        followUps: followUps,
       ),
       // Le MÊME dépôt ONDE décoré que celui du ViewModel de la carte : le
       // cache est une politique unique, partagée, jamais recopiée par
       // tranche (CLAUDE.md, invariants).
-      // Les favoris : la MÊME instance que celle de la fiche station.
-      ondeSheetViewModel: OndeSheetViewModel(onde: onde, favorites: favorites),
+      // Les favoris et le suivi : les MÊMES instances que celles de la fiche
+      // station.
+      ondeSheetViewModel: OndeSheetViewModel(
+        onde: onde,
+        favorites: favorites,
+        followUps: followUps,
+      ),
       favoritesViewModel: FavoritesViewModel(favorites: favorites),
       // La lecture Crues reste `LectureCruesNonDemandee` au lancement : rien
       // n'est lu avant le choix de l'entrée « Vigilance crues » du sélecteur.

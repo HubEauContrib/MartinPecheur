@@ -384,12 +384,14 @@ MartinPecheurApp _app(
           observations: _EmptyHydroObservationRepository(),
           stations: _EmptyStationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         ),
     ondeSheetViewModel:
         ondeSheetViewModel ??
         OndeSheetViewModel(
           onde: _EmptyOndeObservationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         ),
   );
 }
@@ -639,6 +641,7 @@ void main() {
           observations: _EmptyHydroObservationRepository(),
           stations: _BloisStationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         );
         minimumWindow(tester);
         await tester.pumpWidget(_app(await acknowledged(), null, sheet, null));
@@ -674,6 +677,7 @@ void main() {
         final OndeSheetViewModel sheet = OndeSheetViewModel(
           onde: _EmptyOndeObservationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         );
         minimumWindow(tester);
         await tester.pumpWidget(_app(await acknowledged(), null, null, sheet));
@@ -730,6 +734,7 @@ void main() {
         final OndeSheetViewModel onde = OndeSheetViewModel(
           onde: _HistoryOndeObservationRepository(),
           favorites: InMemoryFavoriteRepository(),
+          followUps: InMemoryFollowUpRepository(),
         );
         await tester.pumpWidget(_app(warnings, null, null, onde));
 
@@ -886,10 +891,12 @@ void main() {
         observations: _EmptyHydroObservationRepository(),
         stations: _BloisStationRepository(),
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       final OndeSheetViewModel onde = OndeSheetViewModel(
         onde: _EmptyOndeObservationRepository(),
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       await tester.pumpWidget(_app(await acknowledged(), null, station, onde));
       return (station: station, onde: onde, favorites: favorites);
@@ -1060,6 +1067,7 @@ void main() {
           observations: _EmptyHydroObservationRepository(),
           stations: _PendingStationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         );
         int notifications = 0;
         station.addListener(() => notifications++);
@@ -1121,6 +1129,7 @@ void main() {
           observations: _EmptyHydroObservationRepository(),
           stations: _PendingStationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         );
         await tester.pumpWidget(_app(await acknowledged(), null, station));
 
@@ -1183,6 +1192,7 @@ void main() {
         final OndeSheetViewModel onde = OndeSheetViewModel(
           onde: _PendingOndeObservationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         );
         int notifications = 0;
         onde.addListener(() => notifications++);
@@ -1222,10 +1232,12 @@ void main() {
           observations: _EmptyHydroObservationRepository(),
           stations: _BloisStationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         );
         final OndeSheetViewModel onde = OndeSheetViewModel(
           onde: _EmptyOndeObservationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         );
         final MartinPecheurApp first = tester.widget<MartinPecheurApp>(
           find.byType(MartinPecheurApp),
@@ -2213,10 +2225,12 @@ void main() {
         observations: _EmptyHydroObservationRepository(),
         stations: stations ?? _EmptyStationRepository(),
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       final OndeSheetViewModel onde = OndeSheetViewModel(
         onde: _EmptyOndeObservationRepository(),
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       final FavoritesViewModel list = FavoritesViewModel(favorites: favorites);
       final MapViewModel map = MapViewModel(
@@ -2704,6 +2718,7 @@ void main() {
           observations: _EmptyHydroObservationRepository(),
           stations: _BloisStationRepository(),
           favorites: favorites,
+          followUps: InMemoryFollowUpRepository(),
         );
         await tester.pumpWidget(
           _app(
@@ -2713,6 +2728,7 @@ void main() {
             OndeSheetViewModel(
               onde: _EmptyOndeObservationRepository(),
               favorites: favorites,
+              followUps: InMemoryFollowUpRepository(),
             ),
             FavoritesViewModel(favorites: favorites),
           ),
@@ -2860,6 +2876,27 @@ void main() {
     );
   });
 
+  // `V2` de T5 : les fiches station et ONDE reçoivent la MÊME instance du
+  // dépôt des suivis que la fiche tronçon.
+  test('la racine passe la meme instance du depot des suivis aux fiches '
+      'station et ONDE', () {
+    final String root = File('lib/main.dart').readAsStringSync();
+
+    for (final String viewModel in <String>[
+      'StationSheetViewModel',
+      'OndeSheetViewModel',
+    ]) {
+      expect(
+        RegExp(
+          // Sans traverser la construction d'un AUTRE ViewModel.
+          viewModel + r'\((?:(?!ViewModel\()[^;])*?followUps: followUps[,)]',
+        ).hasMatch(root),
+        isTrue,
+        reason: '$viewModel recoit CETTE instance',
+      );
+    }
+  });
+
   // `F4` de T4, Review Focus 5 : jamais deux fiches ensemble. La racine ferme
   // la fiche tronçon à chaque autre entrée — fiche station, fiche ONDE,
   // `Échap`, désignation, « Favoris », ouverture d'un favori —, et quand
@@ -2913,10 +2950,12 @@ void main() {
         observations: _EmptyHydroObservationRepository(),
         stations: _BloisStationRepository(),
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       final OndeSheetViewModel onde = OndeSheetViewModel(
         onde: _EmptyOndeObservationRepository(),
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       final FavoritesViewModel list = FavoritesViewModel(favorites: favorites);
       final MapViewModel map = MapViewModel(
@@ -3420,10 +3459,12 @@ void main() {
         observations: _EmptyHydroObservationRepository(),
         stations: _BloisStationRepository(),
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       final OndeSheetViewModel onde = OndeSheetViewModel(
         onde: _EmptyOndeObservationRepository(),
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       await tester.pumpWidget(
         _app(

@@ -36,11 +36,15 @@
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up_repository.dart';
+import 'package:martinpecheur/domain/follow_up/followed_place.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
 import 'package:martinpecheur/domain/onde/onde_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
 import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/features/shared/favorite_star.dart';
+import 'package:martinpecheur/features/shared/follow_up_toggle.dart';
 
 /// Rappel permanent du rythme réel des campagnes ONDE, mot pour mot comme
 /// `BR-010` et `UC-004 § 5` le fixent. Affiché dans TOUS les cas : c'est ce
@@ -178,11 +182,13 @@ final class OndeSheetViewModel extends ChangeNotifier {
   OndeSheetViewModel({
     required this._onde,
     required this._favorites,
+    required this._followUps,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
   final OndeObservationRepository _onde;
   final FavoriteRepository _favorites;
+  final FollowUpRepository _followUps;
   final DateTime Function() _now;
 
   OndeSheetState _state = const OndeSheetFermee();
@@ -204,9 +210,22 @@ final class OndeSheetViewModel extends ChangeNotifier {
   /// [toggleFavorite] copie dans le favori. `null` fiche fermée.
   OndePoint? _point;
 
-  /// Vrai dès que la lecture des favoris de l'`open()` courant a abouti —
-  /// en liste ou en échec. Tant qu'il est faux, aucune étoile n'est due.
+  /// Vrai dès que les deux lectures (favoris, suivi) de l'`open()` courant
+  /// ont abouti — en valeur ou en échec. Tant qu'il est faux, ni étoile ni
+  /// interrupteur ne sont dus.
   bool _favoritesRead = false;
+
+  /// Le suivi n'a pas pu être lu : l'interrupteur est inactif (PD18).
+  bool _followUpUnreadable = false;
+
+  /// Le point est suivi pour les restrictions, tel que lu ou écrit.
+  bool _followed = false;
+
+  /// Une écriture du suivi (interrupteur) court.
+  bool _followWriting = false;
+
+  /// La dernière écriture du suivi a échoué.
+  bool _followWriteFailed = false;
 
   /// La lecture des favoris de l'`open()` courant a levé : rien n'est su du
   /// point, et rien ne s'écrit par-dessus une liste illisible.
@@ -241,8 +260,29 @@ final class OndeSheetViewModel extends ChangeNotifier {
     }
     return FavoriteStar(
       filled: _favorite != null,
-      enabled: !_writing,
+      enabled: !_writing && !_followWriting,
       writeFailed: _writeFailed,
+    );
+  }
+
+  /// L'interrupteur « Me prévenir des restrictions sécheresse », ou `null` :
+  /// fiche hors de l'état [OndeSheetPrete], point qui n'est pas en favori, ou
+  /// suivi pas encore lu (PD18). Suivi illisible : inactif, éteint.
+  FollowUpToggle? get droughtFollowUp {
+    if (_state is! OndeSheetPrete || !_favoritesRead || _favorite == null) {
+      return null;
+    }
+    if (_followUpUnreadable) {
+      return FollowUpToggle(
+        on: false,
+        enabled: false,
+        writeFailed: _followWriteFailed,
+      );
+    }
+    return FollowUpToggle(
+      on: _followed,
+      enabled: !_writing && !_followWriting,
+      writeFailed: _followWriteFailed,
     );
   }
 
@@ -318,21 +358,43 @@ final class OndeSheetViewModel extends ChangeNotifier {
     }
   }
 
-  /// Lit les favoris pour l'`open()` de numéro [generation]. Toute levée —
-  /// les deux branches de `FavoriteStorageFailure` comme une autre — vaut
-  /// « liste illisible ». Ne lève jamais.
+  /// Lit les favoris et le suivi pour l'`open()` de numéro [generation]. Toute
+  /// levée — les deux branches de `FavoriteStorageFailure` comme une autre —
+  /// vaut « illisible ». Ne lève jamais. Les deux lectures sont publiées
+  /// ENSEMBLE : l'étoile ne répond qu'une fois le suivi connu.
   Future<void> _readFavorite(int generation, OndePoint point) async {
     OndePointFavorite? favorite;
     bool unreadable = false;
-    try {
-      favorite = ondePointFavoriteIn(await _favorites.readAll(), point.code);
-    } on Object {
-      unreadable = true;
+    bool followed = false;
+    bool followUpUnreadable = false;
+
+    Future<void> readFavorites() async {
+      try {
+        favorite = ondePointFavoriteIn(await _favorites.readAll(), point.code);
+      } on Object {
+        unreadable = true;
+      }
     }
-    _changeStar(generation, () {
+
+    Future<void> readFollowUp() async {
+      try {
+        final FollowUpBook book = await _followUps.read();
+        followed = followUpOf(
+          book.followUps,
+          OndePointPlace(point.code),
+        ) is DroughtFollowUp;
+      } on Object {
+        followUpUnreadable = true;
+      }
+    }
+
+    await Future.wait<void>(<Future<void>>[readFavorites(), readFollowUp()]);
+    _change(generation, () {
       _favoritesRead = true;
       _favoritesUnreadable = unreadable;
       _favorite = favorite;
+      _followUpUnreadable = followUpUnreadable;
+      _followed = followed;
     });
   }
 
@@ -352,7 +414,7 @@ final class OndeSheetViewModel extends ChangeNotifier {
     }
     final OndePointFavorite? current = _favorite;
     final int generation = _generation;
-    _changeStar(generation, () {
+    _change(generation, () {
       _writing = true;
       _writeFailed = false;
     });
@@ -372,15 +434,75 @@ final class OndeSheetViewModel extends ChangeNotifier {
         next = added;
       }
     } on Object {
-      _changeStar(generation, () {
+      _change(generation, () {
         _writing = false;
         _writeFailed = true;
       });
       return;
     }
-    _changeStar(generation, () {
+
+    // Un suivi resté d'un ancien favori ne revient jamais (PD20). À l'AJOUT,
+    // l'échec de l'extinction se dit : le favori est ajouté, l'interrupteur
+    // montre l'état réellement stocké et porte `writeFailed`. Au RETRAIT, cet
+    // échec est ignoré : l'orphelin tombe à la vérification suivante.
+    bool unfollowed = true;
+    try {
+      await _followUps.unfollow(OndePointPlace(point.code));
+    } on Object {
+      unfollowed = false;
+    }
+    _change(generation, () {
       _writing = false;
       _favorite = next;
+      if (unfollowed) {
+        _followed = false;
+        _followWriteFailed = false;
+      } else if (next != null) {
+        _followWriteFailed = true;
+      }
+    });
+  }
+
+  /// Allume ou éteint le suivi des restrictions du point : écrit
+  /// `DroughtFollowUp` ou fait `unfollow`. Sans effet quand l'interrupteur
+  /// n'est pas dû, qu'il est inactif ou que ce ViewModel est disposé. L'échec
+  /// ne se lève pas : il se lit dans `droughtFollowUp.writeFailed`, l'état
+  /// d'avant étant gardé.
+  Future<void> toggleDroughtFollowUp() async {
+    if (_disposed) {
+      return;
+    }
+    final FollowUpToggle? toggle = droughtFollowUp;
+    final OndePoint? point = _point;
+    if (toggle == null || !toggle.enabled || point == null) {
+      return;
+    }
+    final OndePointPlace place = OndePointPlace(point.code);
+    final bool target = !toggle.on;
+    final int generation = _generation;
+    _change(generation, () {
+      _followWriting = true;
+      _followWriteFailed = false;
+    });
+    try {
+      if (target) {
+        await _followUps.followDrought(place);
+      } else {
+        await _followUps.unfollow(place);
+      }
+    } on Object catch (error) {
+      _change(generation, () {
+        _followWriting = false;
+        _followWriteFailed = true;
+        if (error is SuiviIllisible) {
+          _followUpUnreadable = true;
+        }
+      });
+      return;
+    }
+    _change(generation, () {
+      _followWriting = false;
+      _followed = target;
     });
   }
 
@@ -401,18 +523,24 @@ final class OndeSheetViewModel extends ChangeNotifier {
     _favorite = null;
     _writing = false;
     _writeFailed = false;
+    _followUpUnreadable = false;
+    _followed = false;
+    _followWriting = false;
+    _followWriteFailed = false;
   }
 
   /// Applique [change] à ce qui est su du favori si [generation] est toujours
   /// la dernière demandée et que ce ViewModel n'est pas disposé (même garde que
-  /// [_emit]) ; ne notifie que si [favoriteStar] en sort changée.
-  void _changeStar(int generation, void Function() change) {
+  /// [_emit]) ; ne notifie que si [favoriteStar] ou [droughtFollowUp] en
+  /// sortent changés.
+  void _change(int generation, void Function() change) {
     if (_disposed || generation != _generation) {
       return;
     }
-    final FavoriteStar? before = favoriteStar;
+    final FavoriteStar? starBefore = favoriteStar;
+    final FollowUpToggle? toggleBefore = droughtFollowUp;
     change();
-    if (favoriteStar != before) {
+    if (favoriteStar != starBefore || droughtFollowUp != toggleBefore) {
       notifyListeners();
     }
   }

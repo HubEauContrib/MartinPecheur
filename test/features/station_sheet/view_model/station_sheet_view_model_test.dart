@@ -9,6 +9,9 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up_repository.dart';
+import 'package:martinpecheur/domain/follow_up/followed_place.dart';
 import 'package:martinpecheur/domain/observation/freshness.dart';
 import 'package:martinpecheur/domain/observation/hydro_observation.dart';
 import 'package:martinpecheur/domain/onde/onde_point.dart';
@@ -17,9 +20,11 @@ import 'package:martinpecheur/domain/repositories/repositories.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/units/quantities.dart';
 import 'package:martinpecheur/features/shared/favorite_star.dart';
+import 'package:martinpecheur/features/shared/follow_up_toggle.dart';
 import 'package:martinpecheur/features/station_sheet/view_model/station_sheet_view_model.dart';
 
 import '../../../support/in_memory_favorite_repository.dart';
+import '../../../support/in_memory_follow_up_repository.dart';
 
 StationCode _codeBlois() => StationCode('K447001001');
 StationCode _codeGoyaves() => StationCode('1011000101');
@@ -157,6 +162,7 @@ void main() {
         observations: observations,
         stations: stations,
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
         now: () => DateTime.utc(2026, 9, 13, 10),
       );
       addTearDown(viewModel.dispose);
@@ -178,6 +184,7 @@ void main() {
         observations: observations,
         stations: stations,
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       addTearDown(viewModel.dispose);
 
@@ -202,6 +209,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
       now: () => measuredAt,
     );
     addTearDown(viewModel.dispose);
@@ -224,6 +232,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
       now: () => DateTime.utc(2026, 9, 13, 10),
     );
     addTearDown(viewModel.dispose);
@@ -276,6 +285,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
       now: () => DateTime.utc(2026, 9, 13, 10),
       utcOffsetOf: (DateTime _) => const Duration(hours: 2),
     );
@@ -300,6 +310,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
       now: () => measuredAt.add(const Duration(hours: 1)),
     );
     addTearDown(freshViewModel.dispose);
@@ -312,6 +323,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
       now: () => measuredAt.add(const Duration(hours: 3)),
     );
     addTearDown(staleViewModel.dispose);
@@ -335,6 +347,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
       now: () => DateTime.utc(2026, 9, 13, 10),
     );
     addTearDown(viewModel.dispose);
@@ -352,6 +365,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     addTearDown(viewModel.dispose);
 
@@ -374,6 +388,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     addTearDown(viewModel.dispose);
 
@@ -402,6 +417,7 @@ void main() {
         observations: observations,
         stations: stations,
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
       );
       addTearDown(viewModel.dispose);
 
@@ -430,6 +446,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     addTearDown(viewModel.dispose);
 
@@ -448,6 +465,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     addTearDown(viewModel.dispose);
 
@@ -464,6 +482,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     addTearDown(viewModel.dispose);
 
@@ -479,6 +498,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     addTearDown(viewModel.dispose);
     int notifications = 0;
@@ -498,6 +518,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     addTearDown(viewModel.dispose);
 
@@ -532,6 +553,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     addTearDown(viewModel.dispose);
 
@@ -556,6 +578,7 @@ void main() {
       observations: observations,
       stations: stations,
       favorites: favorites,
+      followUps: InMemoryFollowUpRepository(),
     );
     int notifications = 0;
     viewModel.addListener(() => notifications++);
@@ -594,6 +617,7 @@ void main() {
         observations: observations,
         stations: stations,
         favorites: favorites,
+        followUps: InMemoryFollowUpRepository(),
         // Une horloge LOCALE : l'instant d'ajout doit sortir en UTC.
         now: () => clock.toLocal(),
       );
@@ -1108,6 +1132,314 @@ void main() {
       expect(viewModel.favoriteStar, isNull);
       await viewModel.toggleFavorite();
       expect(favorites.writeCalls, 0);
+    });
+  });
+
+  group('Me prevenir des restrictions secheresse', () {
+    late InMemoryFollowUpRepository followUps;
+
+    setUp(() {
+      followUps = InMemoryFollowUpRepository();
+    });
+
+    final StationPlace place = StationPlace(_codeBlois());
+    const FollowUpToggle offActive = FollowUpToggle(on: false, enabled: true);
+    const FollowUpToggle onActive = FollowUpToggle(on: true, enabled: true);
+    const FavoriteStar filledInactive = FavoriteStar(
+      filled: true,
+      enabled: false,
+    );
+
+    StationSheetViewModel build() {
+      final StationSheetViewModel viewModel = StationSheetViewModel(
+        observations: observations,
+        stations: stations,
+        favorites: favorites,
+        followUps: followUps,
+        now: () => DateTime.utc(2026, 10, 21, 9),
+      );
+      addTearDown(viewModel.dispose);
+      return viewModel;
+    }
+
+    FollowUpBook bookWith(List<FollowUp> stored) =>
+        FollowUpBook(followUps: stored);
+
+    test('absent hors favori, fiche Prete', () async {
+      final StationSheetViewModel viewModel = build();
+
+      await viewModel.open(_codeBlois());
+
+      expect(viewModel.state, isA<Prete>());
+      expect(viewModel.droughtFollowUp, isNull);
+    });
+
+    test('absent hors de l etat pret — EnCours, EnEchec, Introuvable — meme '
+        'etoile pleine', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+
+      final Completer<Station?> pending = Completer<Station?>();
+      stations.answer = (StationCode code) => pending.future;
+      final Future<void> opening = viewModel.open(_codeBlois());
+      await Future<void>.delayed(Duration.zero);
+      expect(viewModel.state, isA<EnCours>());
+      expect(viewModel.droughtFollowUp, isNull);
+      pending.complete(_station(_codeBlois()));
+      await opening;
+      expect(viewModel.state, isA<Prete>());
+      expect(viewModel.droughtFollowUp, offActive);
+
+      observations.answer = (StationCode code, Grandeur grandeur) async =>
+          throw Exception('panne');
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<EnEchec>());
+      expect(viewModel.favoriteStar, _filledActive);
+      expect(viewModel.droughtFollowUp, isNull);
+
+      stations.answer = (StationCode code) async => null;
+      await viewModel.open(_codeBlois());
+      expect(viewModel.state, isA<Introuvable>());
+      expect(viewModel.favoriteStar, _filledActive);
+      expect(viewModel.droughtFollowUp, isNull);
+    });
+
+    test('favori deja ajoute : eteint par defaut, actif', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+
+      await viewModel.open(_codeBlois());
+
+      expect(viewModel.droughtFollowUp, offActive);
+    });
+
+    test('a l ajout de l etoile : eteint, meme si un suivi restait stocke '
+        'pour ce lieu, et le suivi stocke est retire', () async {
+      followUps = InMemoryFollowUpRepository(
+        bookWith(<FollowUp>[DroughtFollowUp(place: place)]),
+      );
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      expect(viewModel.droughtFollowUp, isNull);
+
+      await viewModel.toggleFavorite();
+
+      expect(viewModel.droughtFollowUp, offActive);
+      expect(followUps.stored.followUps, isEmpty);
+    });
+
+    test('l allumer ecrit DroughtFollowUp(StationPlace) ; l eteindre fait '
+        'unfollow', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+
+      await viewModel.toggleDroughtFollowUp();
+
+      expect(followUps.stored.followUps, <FollowUp>[
+        DroughtFollowUp(place: place),
+      ]);
+      expect(viewModel.droughtFollowUp, onActive);
+
+      await viewModel.toggleDroughtFollowUp();
+
+      expect(followUps.stored.followUps, isEmpty);
+      expect(viewModel.droughtFollowUp, offActive);
+    });
+
+    test('un suivi stocke est lu allume a l ouverture', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      followUps = InMemoryFollowUpRepository(
+        bookWith(<FollowUp>[DroughtFollowUp(place: place)]),
+      );
+      final StationSheetViewModel viewModel = build();
+
+      await viewModel.open(_codeBlois());
+
+      expect(viewModel.droughtFollowUp, onActive);
+    });
+
+    test('retirer l etoile fait unfollow', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      followUps = InMemoryFollowUpRepository(
+        bookWith(<FollowUp>[DroughtFollowUp(place: place)]),
+      );
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+
+      await viewModel.toggleFavorite();
+
+      expect(favorites.stored, isEmpty);
+      expect(followUps.stored.followUps, isEmpty);
+      expect(viewModel.droughtFollowUp, isNull);
+    });
+
+    test('suivi illisible : interrupteur inactif, sur « Non », et aucune '
+        'ecriture', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      followUps.readError = const SuiviIllisible('x');
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+
+      expect(
+        viewModel.droughtFollowUp,
+        const FollowUpToggle(on: false, enabled: false),
+      );
+      expect(viewModel.favoriteStar, _filledActive);
+
+      await viewModel.toggleDroughtFollowUp();
+
+      expect(followUps.writeCalls, 0);
+    });
+
+    test('ecriture en echec : writeFailed, l etat d avant est garde ; un '
+        'choix reussi l efface', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      followUps.writeError = const EcritureDuSuiviEnEchec('x');
+
+      await viewModel.toggleDroughtFollowUp();
+
+      expect(
+        viewModel.droughtFollowUp,
+        const FollowUpToggle(on: false, enabled: true, writeFailed: true),
+      );
+      expect(followUps.stored.followUps, isEmpty);
+
+      followUps.writeError = null;
+      await viewModel.toggleDroughtFollowUp();
+
+      expect(viewModel.droughtFollowUp, onActive);
+    });
+
+    test('a l ajout de l etoile, si unfollow echoue : l interrupteur montre '
+        'l etat reellement stocke ET porte writeFailed', () async {
+      followUps = InMemoryFollowUpRepository(
+        bookWith(<FollowUp>[DroughtFollowUp(place: place)]),
+      );
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      followUps.writeError = const EcritureDuSuiviEnEchec('x');
+
+      await viewModel.toggleFavorite();
+
+      expect(favorites.stored, hasLength(1));
+      expect(viewModel.favoriteStar, _filledActive);
+      expect(
+        viewModel.droughtFollowUp,
+        const FollowUpToggle(on: true, enabled: true, writeFailed: true),
+      );
+    });
+
+    test('au retrait de l etoile, l echec de unfollow est ignore : aucun '
+        'writeFailed, l orphelin reste stocke', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      followUps = InMemoryFollowUpRepository(
+        bookWith(<FollowUp>[DroughtFollowUp(place: place)]),
+      );
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      followUps.writeError = const EcritureDuSuiviEnEchec('x');
+
+      await viewModel.toggleFavorite();
+
+      expect(favorites.stored, isEmpty);
+      expect(followUps.stored.followUps, hasLength(1));
+      expect(viewModel.favoriteStar, _emptyActive);
+      expect(viewModel.droughtFollowUp, isNull);
+    });
+
+    test('writeFailed retombe a l ecriture reussie du suivi, y compris une '
+        'extinction reussie a l ajout suivant', () async {
+      followUps = InMemoryFollowUpRepository(
+        bookWith(<FollowUp>[DroughtFollowUp(place: place)]),
+      );
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      followUps.writeError = const EcritureDuSuiviEnEchec('x');
+      await viewModel.toggleFavorite();
+      expect(viewModel.droughtFollowUp?.writeFailed, isTrue);
+      await viewModel.toggleFavorite();
+      expect(favorites.stored, isEmpty);
+
+      followUps.writeError = null;
+      await viewModel.toggleFavorite();
+
+      expect(viewModel.droughtFollowUp, offActive);
+      expect(followUps.stored.followUps, isEmpty);
+    });
+
+    test('inactif pendant l ecriture du suivi, etoile comprise ; une seconde '
+        'bascule n appelle pas le depot', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      final Completer<void> gate = Completer<void>();
+      followUps.writeGate = gate;
+      final List<FollowUpToggle?> seen = <FollowUpToggle?>[];
+      viewModel.addListener(() => seen.add(viewModel.droughtFollowUp));
+
+      final Future<void> toggling = viewModel.toggleDroughtFollowUp();
+      expect(
+        viewModel.droughtFollowUp,
+        const FollowUpToggle(on: false, enabled: false),
+      );
+      expect(viewModel.favoriteStar, filledInactive);
+
+      await viewModel.toggleDroughtFollowUp();
+      await viewModel.toggleFavorite();
+      expect(followUps.writeCalls, 1);
+      expect(favorites.writeCalls, 0);
+
+      gate.complete();
+      await toggling;
+
+      expect(viewModel.droughtFollowUp, onActive);
+      expect(viewModel.favoriteStar, _filledActive);
+      expect(seen, <FollowUpToggle?>[
+        const FollowUpToggle(on: false, enabled: false),
+        onActive,
+      ]);
+    });
+
+    test('inactif pendant l ecriture de l etoile', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      final Completer<void> gate = Completer<void>();
+      favorites.writeGate = gate;
+
+      final Future<void> toggling = viewModel.toggleFavorite();
+      expect(
+        viewModel.droughtFollowUp,
+        const FollowUpToggle(on: false, enabled: false),
+      );
+      await viewModel.toggleDroughtFollowUp();
+      expect(followUps.writeCalls, 0);
+
+      gate.complete();
+      await toggling;
+      expect(viewModel.droughtFollowUp, isNull);
+    });
+
+    test('fiche fermee pendant l ecriture : la reponse tardive n ecrit rien '
+        'dans la fiche', () async {
+      favorites = InMemoryFavoriteRepository(<Favorite>[_favoriteBlois()]);
+      final StationSheetViewModel viewModel = build();
+      await viewModel.open(_codeBlois());
+      final Completer<void> gate = Completer<void>();
+      followUps.writeGate = gate;
+      final Future<void> toggling = viewModel.toggleDroughtFollowUp();
+
+      viewModel.close();
+      expect(viewModel.droughtFollowUp, isNull);
+      gate.complete();
+      await toggling;
+
+      expect(viewModel.droughtFollowUp, isNull);
+      await viewModel.toggleDroughtFollowUp();
+      expect(followUps.writeCalls, 1);
     });
   });
 }
