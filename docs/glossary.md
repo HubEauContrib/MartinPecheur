@@ -37,6 +37,11 @@ modèle et les APIs.
 | **Territoire de vigilance crues** | `FloodSection.territoryCode` (T4) | Le territoire de vigilance auquel Vigicrues rattache un tronçon, désigné par son code tel que publié. |
 | **Niveau de vigilance crues** | `FloodVigilanceLevel` (T4) | Vert, jaune, orange ou rouge, d'après la nomenclature Sandre 837. Toute autre valeur s'affiche « Niveau non reconnu » (`BR-011`). L'application relaie le niveau publié, elle ne le déduit pas. |
 | **Information de vigilance** | `FloodVigilanceMap` (T4) | La carte de vigilance publiée par Vigicrues, datée par Vigicrues. Sans date lisible, elle n'est pas affichée (`BR-001`). |
+| **Lieu suivi** | `FollowedPlace` (T5) | Un favori — station, point ONDE ou tronçon de vigilance crues — pour lequel l'usager a demandé à être prévenu (« Me prévenir »). L'application en garde l'identité et le réglage, jamais une mesure (`BR-016`). |
+| **Avis** | `ReceivedNotice` (T5) | Ce que l'application écrit, après une vérification, quand un niveau publié a changé sur un lieu suivi, ou quand une vérification n'a pas pu se faire. Il porte une seule échelle (`BR-008`), le lieu, le niveau publié et le précédent, la date de l'information ou de l'arrêté, la source et sa date de réception (`BR-001`, `BR-016`). Il en existe de plusieurs sortes : le changement d'un niveau publié, le « Suivi commencé » de la première lecture réussie d'un lieu (qui dit l'état publié lu), la vérification impossible, et le lieu non vérifiable. Il relaie un changement publié ; il ne prévoit rien. |
+| **Seuil de vigilance** | `FloodThreshold` (T5) | Le niveau de vigilance crues que l'usager choisit pour un tronçon suivi : un niveau **publié** par Vigicrues, comparé à un autre niveau publié. **Ce n'est jamais un seuil hydrologique** : l'application ne calcule aucun niveau (`BR-015`, `BR-016`). |
+| **Vérification** | `FollowUpCheck` (T5) | La relecture, depuis l'appareil, des niveaux publiés des lieux suivis : au lancement, au retour au premier plan, ou sur « Vérifier maintenant ». Une seule à la fois ; sans lieu suivi, elle n'appelle aucune source. Elle ne tourne que lorsque l'application est ouverte (`ADR-017`). |
+| **Vérification impossible** | `CheckImpossible` (T5, branche de `ReceivedNotice`) | Une vérification qui n'a pas pu lire une source. Elle est dite par un avis, jamais tue, et elle ne dit rien du risque de crue ni des restrictions en vigueur (`BR-007`, `BR-016`). |
 | **Vigicrues** | — | Le service de l'État qui publie la vigilance crues : le SCHAPI et le réseau Vigicrues. L'application le cite et lui attribue ce qu'elle relaie ; elle n'en est pas l'auteur. |
 | **UDI** | — | La zone desservie par un même réseau d'eau du robinet. **Concerne l'eau potable, pas la rivière.** Hors périmètre v1 (`ADR-007`). |
 
@@ -51,6 +56,8 @@ modèle et les APIs.
 | `Carte` | Agrégation, clustering, échelles d'état, hors-ligne. |
 | `Avertissement` | Les quatre emplacements, acquittement, textes de limites. |
 | `Crues` | Vigilance crues publiée par Vigicrues, relayée par tronçon, datée et attribuée ; l'application ne calcule aucun niveau ni risque (`BR-015`). |
+| `Favoris` | L'identité des lieux que l'usager choisit de retrouver — station, point ONDE, tronçon —, copiée à l'ajout, jamais une mesure ; stockée sur l'appareil. |
+| `Suivi` | Les lieux suivis, leurs réglages « Me prévenir », la vérification faite depuis l'appareil et les avis reçus ; l'application relaie un changement de niveau publié, elle ne calcule rien (`BR-016`). |
 
 ## Vocabulaire proscrit
 

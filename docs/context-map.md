@@ -1,6 +1,6 @@
 # Carte des contextes
 
-~~Six contextes bornés~~ ~~Sept contextes bornés~~ **Huit contextes bornés** (le huitième, `Crues`, est ajouté le 2026-10-14 : il est codé par T4, `lib/domain/floods/` ; le septième, `Favoris`, est ajouté le 2026-10-14 : il est codé par T3, `lib/domain/favorites/`), aucun backend. Toutes les sources sont des **APIs publiques
+~~Six contextes bornés~~ ~~Sept contextes bornés~~ ~~Huit contextes bornés~~ **Neuf contextes bornés** (le neuvième, `Suivi`, est ajouté le 2026-10-17 : cadré pour T5, `lib/domain/follow_up/` ; le huitième, `Crues`, est ajouté le 2026-10-14 : il est codé par T4, `lib/domain/floods/` ; le septième, `Favoris`, est ajouté le 2026-10-14 : il est codé par T3, `lib/domain/favorites/`), aucun backend. Toutes les sources sont des **APIs publiques
 externes**, sans authentification et **sans SLA** — le contrat est subi, jamais négocié. Le septième contexte n'a **aucune source externe** : il vit dans le stockage local de l'appareil.
 
 ```mermaid
@@ -23,6 +23,7 @@ flowchart TB
         AVE["Avertissement<br/>4 emplacements, acquittement"]
         FAV["Favoris<br/>identité d'un lieu copiée à l'ajout, jamais une mesure"]
         CRU["Crues<br/>vigilance par tronçon, datée, relayée sans calcul"]
+        SUI["Suivi<br/>lieux suivis, vérification, avis reçus"]
     end
 
     ASSET[["Asset embarqué<br/>référence percentiles<br/>généré au build"]]
@@ -36,6 +37,10 @@ flowchart TB
     DG -. "repli différé (T2, Q3-B)" .-> RES
     IGN --> CAR
     VC --> CRU
+    SUI -. "client : lit la vigilance publiée" .-> CRU
+    SUI -. "client : un appel par lieu suivi" .-> RES
+    SUI -. "lit les favoris" .-> FAV
+    AVE -.-> SUI
     CRU --> CAR
     AVE -.-> CRU
     ASSET --> HYD
@@ -66,7 +71,11 @@ flowchart TB
 | `Ecoulement` → `Carte` | Fournisseur | Échelle 1 (écoulement) |
 | `Restrictions` → `Carte` | Fournisseur | Échelle 3 (sévérité sécheresse) — 🔄 **non livrée sur la carte en T2** (Q6-A) : T2 livre un écran distinct, atteint par la désignation d'un point, et la carte ne connaît pas la tranche `restrictions` (un rappel injecté par `main.dart`) |
 | `Crues` → `Carte` | Fournisseur | Échelle 4 (vigilance crues) — un calque de traits et des étiquettes ; `FloodLayerViewModel` dans la tranche carte (`ADR-014` amendé) |
-| `Avertissement` → tous | **Transverse, non négociable** | ~~Aucun écran ne s'affranchit de `BR-012` / `BR-013`~~ **Aucun écran qui montre une mesure ou un état ne s'affranchit de `BR-012` / `BR-013`** (nuancé le 2026-10-14, arbitrage du commanditaire sur question fermée « Nuancer la phrase »). L'écran « Favoris » n'a pas de contrôle « ⚠ Avertissement » : il ne montre que l'identité des lieux, aucune mesure ni aucun état ; les fiches qu'il ouvre portent le contrôle. L'encart de crue de `BR-015` compte parmi les emplacements : en tête de la fiche tronçon, et le texte de la fenêtre « ⚠ Avertissement » sur la lecture Crues. |
+| **Sens des relations de `Suivi`** | Convention | Pour `Suivi`, la flèche suit l'appel (client → fournisseur), comme pour `Avertissement` → tous, et non le sens fournisseur → aval des autres lignes |
+| `Suivi` → `Favoris` | Lecture | Un lieu suivi est un favori : le suivi lit la liste des favoris (`FavoriteRepository`) pour savoir quels lieux vérifier ; il en garde l'identité, jamais une mesure (`BR-016`) |
+| `Suivi` → `Crues` | Client | La vérification lit la vigilance publiée par Vigicrues, par le même cache de 30 min, seulement si un tronçon est suivi (`ADR-017`, `NFR-07`) ; le seuil est un niveau publié, comparé à un autre niveau publié (`BR-015`, `BR-016`) |
+| `Suivi` → `Restrictions` | Client | La vérification interroge `RestrictionSource` pour chaque station ou point ONDE suivi, l'un après l'autre, par le cache de 6 h (`ADR-017`, `NFR-07`) ; une zone plus citée n'est jamais dite « levée » (`BR-007`, `BR-016`) |
+| `Avertissement` → tous | **Transverse, non négociable** | ~~Aucun écran ne s'affranchit de `BR-012` / `BR-013`~~ **Aucun écran qui montre une mesure ou un état ne s'affranchit de `BR-012` / `BR-013`** (nuancé le 2026-10-14, arbitrage du commanditaire sur question fermée « Nuancer la phrase »). L'écran « Favoris » n'a pas de contrôle « ⚠ Avertissement » : il ne montre que l'identité des lieux, aucune mesure ni aucun état ; les fiches qu'il ouvre portent le contrôle. L'encart de crue de `BR-015` compte parmi les emplacements : en tête de la fiche tronçon, et le texte de la fenêtre « ⚠ Avertissement » sur la lecture Crues. L'avertissement de suivi de `BR-016` s'y ajoute : encart non repliable en tête de l'écran « Avis reçus », repris sous chaque réglage « Me prévenir », et texte de la fenêtre « ⚠ Avertissement » de cet écran. |
 | Asset percentiles → `Hydrometrie` | Fournisseur, lecture seule | Généré hors application (`ADR-003`) |
 | `Hydrometrie`, `Ecoulement` ↔ `Favoris` | **Partenaires**, dans les deux sens | La fiche d'une station et celle d'un point ONDE lisent, ajoutent et retirent un favori (l'étoile) ; l'écran « Favoris » en lit, retire et vide la liste (« Repartir d'une liste vide » appelle `FavoriteRepository.clear`), et `main.dart` rouvre la fiche du lieu. Ce qui passe : un `StationCode` et un libellé, ou un `OndePoint` entier — **jamais une mesure** (`BR-001`). Le favori ne relit pas le référentiel : le libellé est copié à l'ajout |
 | `Favoris` → `Carte` | **Aucune relation de données** | Le bouton « Favoris » de la carte est un rappel que `main.dart` injecte ; la carte ne connaît pas la tranche `favorites`, et ouvrir un favori ne la déplace pas (arbitrage 6 du 2026-10-12) |
@@ -79,7 +88,7 @@ une décision préfectorale et une vigilance publiée par l'État sont quatre na
 ## Comment un écran atteint un contexte
 
 Un contexte borné est atteint **par un dépôt, jamais autrement**. Le chemin est le même pour
-~~les six~~ ~~les sept~~ les huit, et il est direct — **View → ViewModel → Repository → Service**
+~~les six~~ ~~les sept~~ ~~les huit~~ les neuf, et il est direct — **View → ViewModel → Repository → Service**
 ([`ADR-014`](adr/ADR-014-feature-first-mvvm.md), *feature-first* + MVVM) :
 
 ```mermaid

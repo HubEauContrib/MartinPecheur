@@ -1,6 +1,6 @@
 # BR-011 — Toute nomenclature tolère une valeur inconnue
 
-- **Statut :** Accepté · **amendé le 2026-10-14 (T4, vigilance crues)**
+- **Statut :** Accepté · **amendé le 2026-10-14 (T4, vigilance crues)** · **amendé le 2026-10-17 (T5, suivi)**
 - **Date :** 2026-07-30
 - **Contexte borné :** Referentiel · Hydrometrie · Ecoulement · Restrictions · Crues
 
@@ -35,6 +35,7 @@ Ces sources sont publiques, sans SLA, et évoluent sans préavis. Un `switch` ex
 - S'applique aussi aux **champs supplémentaires** : une réponse contenant des champs inconnus est désérialisée sans échec.
 - Ne s'applique **pas** aux ruptures structurelles : un changement de forme de réponse VigiEau ~~déclenche le repli de `ADR-004`~~ rend une `ReponseIllisible` — racine qui n'est pas un tableau, élément qui n'est pas un objet, champ obligatoire absent ou mal typé (nom de zone, arrêté, date de début de validité, usages, et pour chaque usage son nom, sa thématique, sa description et les quatre booléens `concerne*`) —, **pour toute la réponse** (« tout ou rien », AR-2 du 2026-09-27) : aucune zone lisible n'est affichée à côté d'une zone perdue. Ce n'est jamais une valeur « non renseigné ». Le repli data.gouv d'`ADR-004` est **différé** (Q3-B, 2026-09-27) : l'écran nomme l'échec et renvoie au site public. Un booléen manquant ne se remplace par aucune valeur : `false` cacherait une restriction à un profil concerné, `true` en attribuerait une à un profil non visé.
 - Pour Vigicrues, une carte de vigilance dont la racine n'est pas une `FeatureCollection`, sans `features`, ou sans date lisible, est illisible **pour toute la réponse** ; une entité sans code, sans nom, sans code de territoire ou sans tracé lisible est **écartée et comptée**, entité par entité, et l'avis dit le compte.
+- Suivi stocké (T5) : une entrée de suivi ou d'avis illisible est gardée telle quelle et réécrite à l'identique ; une racine illisible est dite, jamais lue comme vide.
 
 ## Vérifiable par
 
@@ -42,7 +43,7 @@ Test unitaire par nomenclature : une valeur hors énumération renvoie `Inconnu`
 
 ## Liens
 
-- Use cases : tous, `UC-009`
-- ADR liés : `ADR-001`, `ADR-004`, `ADR-006`, `ADR-016`
+- Use cases : tous, `UC-009`, `UC-010`
+- ADR liés : `ADR-001`, `ADR-004`, `ADR-006`, `ADR-016`, `ADR-017`
 - Contraintes d'API : `C-10`, `C-11`
 - Voir aussi : `BR-006`, `BR-007`

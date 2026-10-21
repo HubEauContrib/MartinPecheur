@@ -126,6 +126,8 @@ Les numéros `005`, `008`, `009`, `010` et `012` portaient les ADR écrits pour 
 | [BR-012](br/BR-012-acquittement-au-premier-lancement.md) | Acquittement explicite au 1er lancement | Avertissement |
 | [BR-013](br/BR-013-avertissement-renforce-sur-ecrans-ressource.md) | Avertissement renforcé sur les écrans ressource | Avertissement |
 | [BR-014](br/BR-014-aucun-verbe-d-instruction.md) | Aucun verbe d'instruction sur un usage de l'eau | Transverse |
+| [BR-015](br/BR-015-relayer-la-vigilance-crues-ne-rien-predire.md) | Relayer la vigilance crues, ne rien prédire | Crues · Avertissement |
+| [BR-016](br/BR-016-un-avis-relaie-un-changement-publie.md) | Un avis relaie un changement publié ; le silence n'est jamais une absence | Suivi · Avertissement |
 
 ## Index des cas d'usage
 

@@ -1,6 +1,6 @@
 # BR-001 — Aucune valeur sans sa date de mesure
 
-- **Statut :** Accepté · **amendé le 2026-10-14 (T4, vigilance crues)**
+- **Statut :** Accepté · **amendé le 2026-10-14 (T4, vigilance crues)** · **amendé le 2026-10-17 (T5, suivi)**
 - **Date :** 2026-07-30
 - **Contexte borné :** Hydrometrie · Ecoulement · Restrictions · Crues
 
@@ -30,6 +30,7 @@ Les deux sont servies par le même endpoint, avec la même promesse de mise à j
 - Valeur nulle : on affiche l'absence et la date de la tentative, pas un blanc.
 - Violation : la vue ne doit pas pouvoir se construire. Le type de rendu porte la date comme champ requis, non nullable.
 - Vigilance crues : la date de l'information de vigilance (`DtHrInfoVigiCru`) figure sur la légende de la lecture et sur la fiche du tronçon, avec « © VIGICRUES ». Une carte de vigilance sans date lisible n'est pas affichée.
+- Avis (T5) : chaque avis porte la date de l'information de vigilance ou la date d'entrée en vigueur de l'arrêté, et sa date de réception.
 
 ## Vérifiable par
 
@@ -37,7 +38,7 @@ Test de composant : construire une vue de valeur sans date échoue à la compila
 
 ## Liens
 
-- Use cases : `UC-003`, `UC-004`, `UC-005`, `UC-009`
-- ADR liés : `ADR-001`, `ADR-016`
+- Use cases : `UC-003`, `UC-004`, `UC-005`, `UC-009`, `UC-010`
+- ADR liés : `ADR-001`, `ADR-016`, `ADR-017`
 - Contraintes d'API : `C-01`, voir [`01-analyse.md § 5`](../01-analyse.md)
 - Voir aussi : `BR-005` (péremption), `BR-006` (statut de qualification)

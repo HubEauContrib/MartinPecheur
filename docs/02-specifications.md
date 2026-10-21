@@ -77,6 +77,8 @@ limites et le test qui la prouve. **Ce tableau est un index, pas la source.**
 | [BR-012](br/BR-012-acquittement-au-premier-lancement.md) | Acquittement explicite au premier lancement | Avertissement |
 | [BR-013](br/BR-013-avertissement-renforce-sur-ecrans-ressource.md) | Avertissement renforcé sur les écrans de ressource | Avertissement |
 | [BR-014](br/BR-014-aucun-verbe-d-instruction.md) | Aucun verbe d'instruction sur un usage de l'eau | Transverse |
+| [BR-015](br/BR-015-relayer-la-vigilance-crues-ne-rien-predire.md) | Relayer la vigilance crues, ne rien prédire | Crues · Avertissement |
+| [BR-016](br/BR-016-un-avis-relaie-un-changement-publie.md) | Un avis relaie un changement publié ; le silence n'est jamais une absence | Suivi · Avertissement |
 
 Les contraintes purement techniques — codes ONDE en chaînes, HTTP 206 en succès, codes
 station plutôt que site — ne sont **pas** des règles métier. Elles figurent au tableau
