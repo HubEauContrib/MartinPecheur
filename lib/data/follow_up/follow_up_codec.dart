@@ -21,15 +21,13 @@
 
 import 'dart:convert';
 
+import 'package:martinpecheur/data/follow_up/stored_words.dart';
 import 'package:martinpecheur/domain/floods/flood_section.dart';
-import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
 import 'package:martinpecheur/domain/follow_up/flood_threshold.dart';
 import 'package:martinpecheur/domain/follow_up/follow_up.dart';
 import 'package:martinpecheur/domain/follow_up/follow_up_repository.dart';
 import 'package:martinpecheur/domain/follow_up/followed_place.dart';
 import 'package:martinpecheur/domain/onde/onde_station_code.dart';
-import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
-import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/station/station.dart';
 
 /// La version de la forme stockée que ce code écrit, et la plus haute qu'il
@@ -85,7 +83,7 @@ FollowUpBook decodeFollowUps(String? stored) {
   final Object? lastCheck = root['derniere_verification'];
   DateTime? lastCheckAt;
   if (lastCheck != null) {
-    lastCheckAt = _readInstant(lastCheck);
+    lastCheckAt = readStoredInstant(lastCheck);
     if (lastCheckAt == null) {
       throw const SuiviIllisible(
         "derniere_verification n'est pas un instant UTC",
@@ -120,12 +118,14 @@ Object? _encodeEntry(FollowUp followUp) => switch (followUp) {
   FloodFollowUp() => <String, Object?>{
     'type': _typeFlood,
     'code': followUp.place.code.value,
-    'seuil': followUp.threshold.name,
+    'seuil': encodeStoredThreshold(followUp.threshold),
     'dernier': followUp.lastKnown == null
         ? null
         : <String, Object?>{
-            'niveau': _encodeLevel(followUp.lastKnown!.level),
-            'information': _encodeInstant(followUp.lastKnown!.informationDate),
+            'niveau': encodeStoredLevel(followUp.lastKnown!.level),
+            'information': encodeStoredInstant(
+              followUp.lastKnown!.informationDate,
+            ),
           },
     'serie': _encodeSeries(followUp.series),
   },
@@ -135,23 +135,16 @@ Object? _encodeEntry(FollowUp followUp) => switch (followUp) {
     'dernier': followUp.lastKnown == null
         ? null
         : <String, Object?>{
-            'lu_le': _encodeInstant(followUp.lastKnown!.readAt),
+            'lu_le': encodeStoredInstant(followUp.lastKnown!.readAt),
             'zones': <Object?>[
               for (final KnownZone zone in followUp.lastKnown!.zones)
-                <String, Object?>{
-                  'nom': zone.name,
-                  'type_de_zone': _encodeZoneKind(zone.kind),
-                  'gravite': _encodeSeverity(zone.severity),
-                  'arrete_depuis': _encodeInstant(zone.decreeValidFrom),
-                },
+                encodeStoredZone(zone),
             ],
           },
     'serie': _encodeSeries(followUp.series),
   },
   UnreadableFollowUp() => jsonDecode(followUp.raw) as Object?,
 };
-
-String _encodeInstant(DateTime instant) => instant.toUtc().toIso8601String();
 
 Map<String, Object?> _encodeDroughtPlace(DroughtPlace place) => switch (place) {
   // Verbatim : ni rogné, ni recasé.
@@ -165,29 +158,6 @@ Map<String, Object?> _encodeDroughtPlace(DroughtPlace place) => switch (place) {
   },
 };
 
-Object? _encodeLevel(FloodVigilanceLevel level) => switch (level) {
-  Vert() => 'vert',
-  Jaune() => 'jaune',
-  Orange() => 'orange',
-  Rouge() => 'rouge',
-  NiveauCruesInconnu() => <String, Object?>{'inconnu': level.raw},
-};
-
-Object? _encodeSeverity(DroughtSeverity severity) => switch (severity) {
-  Vigilance() => 'vigilance',
-  Alerte() => 'alerte',
-  AlerteRenforcee() => 'alerte-renforcee',
-  Crise() => 'crise',
-  GraviteInconnue() => <String, Object?>{'inconnue': severity.rawValue},
-};
-
-Object? _encodeZoneKind(ZoneKind kind) => switch (kind) {
-  EauxSuperficielles() => 'eaux-superficielles',
-  EauxSouterraines() => 'eaux-souterraines',
-  EauPotable() => 'eau-potable',
-  TypeZoneInconnu() => <String, Object?>{'inconnu': kind.rawValue},
-};
-
 String? _encodeSeries(FailureSeries? series) => switch (series) {
   null => null,
   FailureSeries.checkImpossible => 'verification-impossible',
@@ -196,11 +166,6 @@ String? _encodeSeries(FailureSeries? series) => switch (series) {
 
 // ---------------------------------------------------------------------------
 // Lecture
-
-/// Une entrée que cette version ne sait pas lire.
-final class _Unreadable implements Exception {
-  const _Unreadable();
-}
 
 /// Le suivi que porte [entry], ou l'entrée gardée telle quelle.
 ///
@@ -211,7 +176,7 @@ final class _Unreadable implements Exception {
 FollowUp _decodeEntry(Object? entry) {
   try {
     return _readEntry(entry);
-  } on _Unreadable {
+  } on UnreadableStoredEntry {
     // Gardée telle quelle, ci-dessous.
   } on ArgumentError {
     // Un code que son type refuse : l'entrée est illisible.
@@ -232,38 +197,33 @@ FollowUp _decodeEntry(Object? entry) {
 
 FollowUp _readEntry(Object? entry) {
   if (entry is! Map<String, Object?>) {
-    throw const _Unreadable();
+    throw const UnreadableStoredEntry();
   }
   // Le type est une chaîne libre du stockage : tout ce qui n'est pas connu de
   // cette version — absent compris — est illisible.
   return switch (entry['type']) {
     _typeFlood => _readFlood(entry),
     _typeDrought => _readDrought(entry),
-    _ => throw const _Unreadable(),
+    _ => throw const UnreadableStoredEntry(),
   };
 }
 
 FloodFollowUp _readFlood(Map<String, Object?> entry) {
   final Object? code = entry['code'];
   if (code is! String) {
-    throw const _Unreadable();
+    throw const UnreadableStoredEntry();
   }
-  final FloodThreshold threshold = switch (entry['seuil']) {
-    'jaune' => FloodThreshold.jaune,
-    'orange' => FloodThreshold.orange,
-    'rouge' => FloodThreshold.rouge,
-    _ => throw const _Unreadable(),
-  };
+  final FloodThreshold threshold = readStoredThreshold(entry['seuil']);
 
   final Object? last = entry['dernier'];
   LastKnownFloodLevel? lastKnown;
   if (last != null) {
     if (last is! Map<String, Object?> || !last.containsKey('niveau')) {
-      throw const _Unreadable();
+      throw const UnreadableStoredEntry();
     }
     lastKnown = LastKnownFloodLevel(
-      level: _readLevel(last['niveau']),
-      informationDate: _requireInstant(last['information']),
+      level: readStoredLevel(last['niveau']),
+      informationDate: requireStoredInstant(last['information']),
     );
   }
 
@@ -278,31 +238,33 @@ FloodFollowUp _readFlood(Map<String, Object?> entry) {
 DroughtFollowUp _readDrought(Map<String, Object?> entry) {
   final Object? place = entry['lieu'];
   if (place is! Map<String, Object?>) {
-    throw const _Unreadable();
+    throw const UnreadableStoredEntry();
   }
   final Object? code = place['code'];
   if (code is! String) {
-    throw const _Unreadable();
+    throw const UnreadableStoredEntry();
   }
   final DroughtPlace droughtPlace = switch (place['type']) {
     _placeStation => StationPlace(StationCode(code)),
     _placeOnde => OndePointPlace(OndeStationCode(code)),
-    _ => throw const _Unreadable(),
+    _ => throw const UnreadableStoredEntry(),
   };
 
   final Object? last = entry['dernier'];
   LastKnownZones? lastKnown;
   if (last != null) {
     if (last is! Map<String, Object?>) {
-      throw const _Unreadable();
+      throw const UnreadableStoredEntry();
     }
     final Object? zones = last['zones'];
     if (zones is! List<Object?>) {
-      throw const _Unreadable();
+      throw const UnreadableStoredEntry();
     }
     lastKnown = LastKnownZones(
-      readAt: _requireInstant(last['lu_le']),
-      zones: <KnownZone>[for (final Object? zone in zones) _readZone(zone)],
+      readAt: requireStoredInstant(last['lu_le']),
+      zones: <KnownZone>[
+        for (final Object? zone in zones) readStoredZone(zone),
+      ],
     );
   }
 
@@ -313,97 +275,9 @@ DroughtFollowUp _readDrought(Map<String, Object?> entry) {
   );
 }
 
-KnownZone _readZone(Object? zone) {
-  if (zone is! Map<String, Object?>) {
-    throw const _Unreadable();
-  }
-  final Object? name = zone['nom'];
-  if (name is! String) {
-    throw const _Unreadable();
-  }
-
-  return KnownZone(
-    name: name,
-    kind: _readZoneKind(zone['type_de_zone']),
-    severity: _readSeverity(zone['gravite']),
-    decreeValidFrom: _requireInstant(zone['arrete_depuis']),
-  );
-}
-
-FloodVigilanceLevel _readLevel(Object? value) {
-  if (value is Map<String, Object?> &&
-      value.length == 1 &&
-      value.containsKey('inconnu')) {
-    return NiveauCruesInconnu(value['inconnu']);
-  }
-
-  return switch (value) {
-    'vert' => const Vert(),
-    'jaune' => const Jaune(),
-    'orange' => const Orange(),
-    'rouge' => const Rouge(),
-    _ => throw const _Unreadable(),
-  };
-}
-
-DroughtSeverity _readSeverity(Object? value) {
-  if (value is Map<String, Object?> &&
-      value.length == 1 &&
-      value.containsKey('inconnue')) {
-    final Object? raw = value['inconnue'];
-    if (raw != null && raw is! String) {
-      throw const _Unreadable();
-    }
-
-    return GraviteInconnue(raw as String?);
-  }
-
-  return switch (value) {
-    'vigilance' => const Vigilance(),
-    'alerte' => const Alerte(),
-    'alerte-renforcee' => const AlerteRenforcee(),
-    'crise' => const Crise(),
-    _ => throw const _Unreadable(),
-  };
-}
-
-ZoneKind _readZoneKind(Object? value) {
-  if (value is Map<String, Object?> &&
-      value.length == 1 &&
-      value.containsKey('inconnu')) {
-    final Object? raw = value['inconnu'];
-    if (raw != null && raw is! String) {
-      throw const _Unreadable();
-    }
-
-    return TypeZoneInconnu(raw as String?);
-  }
-
-  return switch (value) {
-    'eaux-superficielles' => const EauxSuperficielles(),
-    'eaux-souterraines' => const EauxSouterraines(),
-    'eau-potable' => const EauPotable(),
-    _ => throw const _Unreadable(),
-  };
-}
-
 FailureSeries? _readSeries(Object? value) => switch (value) {
   null => null,
   'verification-impossible' => FailureSeries.checkImpossible,
   'non-verifiable' => FailureSeries.notVerifiable,
-  _ => throw const _Unreadable(),
+  _ => throw const UnreadableStoredEntry(),
 };
-
-/// Un instant ISO 8601 portant son fuseau, rendu en UTC. Une date sans fuseau
-/// serait lue à l'heure du poste : refusée.
-DateTime? _readInstant(Object? value) {
-  if (value is! String) {
-    return null;
-  }
-  final DateTime? parsed = DateTime.tryParse(value);
-
-  return parsed != null && parsed.isUtc ? parsed : null;
-}
-
-DateTime _requireInstant(Object? value) =>
-    _readInstant(value) ?? (throw const _Unreadable());
