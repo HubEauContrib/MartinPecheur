@@ -349,6 +349,17 @@ Une case vide est une case vide, pas un « probablement ».
   un installeur EXE ou MSI doit l'être par l'éditeur, d'un certificat payant. Lien avec T5 : sans MSIX,
   `cancel` et `getActiveNotifications` du plugin de notifications ne font rien
   (`spike/t5_tache_de_fond/RELEVE-BIBLIOTHEQUES.md`).
+- **2026-10-21** — produit Microsoft Store créé et nom réservé par le commanditaire dans Partner Center. Type
+  « Application MSIX ou PWA » (fixé à la création ; passer à « EXE ou MSI » demanderait un autre produit,
+  d'après une réponse Microsoft Q&A d'avril 2023, non officielle). Nom « MartinPêcheur » réservé le
+  2026-10-21 : à soumettre dans les trois mois, **avant le 2027-01-21 environ**, sinon la réservation est
+  perdue (texte de Partner Center). Nom d'éditeur affiché `Monbsoft`, choisi parce qu'il vaut pour toutes les
+  applications du compte. Valeurs du manifeste relevées à l'écran le 2026-10-21 (« Identité du produit ») :
+  `Package/Identity/Name` = `46Monbsoft.com.MartinPcheur`, `Package/Identity/Publisher` =
+  `CN=6D56381B-9EA9-4C93-83CC-28D86DB31617`, `Package/Properties/PublisherDisplayName` = `Monbsoft`. Elles sont
+  publiques par nature (manifeste de tout paquet publié) ; aucun identifiant de compte n'est écrit ici. L'ID
+  Store n'est pas recopié : deux valeurs ont été vues pour le même nom de paquet, à éclaircir par le
+  commanditaire. Rien n'est soumis ; l'ADR d'empaquetage reprendra ces valeurs.
 
 ## Faits sans autre trace
 
@@ -368,6 +379,6 @@ du commanditaire. Restent à constater à l'écran, s'il le veut : le détail de
 l'occasion d'un épisode ; et à relever, émulateur `Pixel_7` lancé : la marge système et la version installée,
 par `adb`. **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas
 dit (point 62) se constate s'il le veut, ou reste « non vérifié ». Vient ensuite l'**ADR d'empaquetage MSIX**
-pour le Microsoft Store (arbitrage du 2026-10-19 ; le commanditaire crée d'ici là son compte Partner Center),
+pour le Microsoft Store (arbitrage du 2026-10-19 ; nom réservé le 2026-10-21, à soumettre avant le 2027-01-21 environ),
 puis le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
 cadrage d'ergonomie, § 12).
