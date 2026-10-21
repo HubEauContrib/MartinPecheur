@@ -406,6 +406,66 @@ classDiagram
     DroughtZoneChange ..> LastKnownZones : compare deux
 ```
 
+### La vérification — `FollowUpCheck`
+
+`FollowUpCheck` (`follow_up_check.dart`) est le cas d'usage du domaine qui relit les lieux suivis
+(arbitrage 7). Il ne dépend que de ports : `FavoriteRepository`, `FollowUpRepository`,
+`NoticeRepository`, `FloodVigilanceSource`, `RestrictionSource` et `StationRepository`, plus une
+horloge injectée. Son seul appelant est le ViewModel des avis (`PD6`). `run()` rend un
+`CheckOutcome`, sealed à quatre branches : `CheckDone(newNotices)`, `NothingFollowed`,
+`CheckBlockedByUnreadableStorage` et `CheckNotRecorded(noticesWritten)`, qui vaut 0 quand c'est
+l'écriture des avis qui a échoué. `run()` ne lève jamais.
+
+```mermaid
+sequenceDiagram
+    participant VM as ViewModel des avis
+    participant C as FollowUpCheck
+    participant S as Sources, vues fraîches
+    participant R as Dépôts (suivi, avis, favoris)
+    VM->>C: run() — une seule à la fois
+    C->>R: lire suivi, avis, favoris
+    alt un stockage illisible
+        C-->>VM: CheckBlockedByUnreadableStorage (aucun appel, rien d'écrit)
+    else
+        C->>S: crues si un tronçon est suivi, puis restrictions point par point
+        C->>R: écrire les avis, PUIS reporter derniers états et séries
+        C-->>VM: CheckDone(n) · NothingFollowed · CheckNotRecorded
+    end
+```
+
+Le déroulé, en bref :
+
+1. **Une à la fois** : un `run()` pendant qu'une vérification court rend son `Future` ; la garde
+   se libère dans un `finally`.
+2. **Stockage** : si la lecture du suivi, des avis ou des favoris lève (`Q1`), la vérification
+   rend `CheckBlockedByUnreadableStorage`, sans appel ni écriture.
+3. **Appariement**, dans l'ordre des favoris : un suivi lisible sans favori est un **orphelin**,
+   passé tel qu'il a été lu ; un `UnreadableFollowUp` est ignoré et gardé.
+4. **Rien à vérifier** : `NothingFollowed`, sans appel de source ; les orphelins éventuels sont
+   retirés par `recordCheck`, dont l'échec est ignoré.
+5. **Horloge** lue une fois, en UTC : elle date chaque avis (`receivedAt`) et `checkedAt`.
+6. **Crues**, seulement si un tronçon est suivi. Un échec met tous les tronçons en série
+   `checkImpossible` sans toucher à leur dernier état, et **un** `CheckImpossible` nomme ceux dont
+   la série s'ouvre. Un tronçon absent de la carte donne `PlaceNotVerifiable`
+   (`SectionMaybeUnreadable` si des entités ont été écartées, sinon `SectionAbsent`), une fois
+   par série. Un tronçon lu donne « Suivi commencé » à sa première lecture, sinon
+   `FloodLevelChanged` quand `floodNoticeDue` le veut ; son dernier état devient toujours le
+   niveau et la date lus.
+7. **Sécheresse** : stations et points ONDE l'un après l'autre. Une station absente du
+   référentiel donne `PlaceNotVerifiable(StationAbsent())`, une fois par série. Le point se
+   construit dans le `try` de la lecture : hors plage, il donne la cause `unreadable`. Un échec ne
+   met en série que ce lieu ; les autres se lisent. Une lecture donne « Suivi commencé », sinon un
+   `DroughtZoneChanged` par élément de `droughtZoneChanges`. Un `CheckImpossible` par cause dont
+   des lieux ouvrent leur série : injoignable, refusée, illisible (`PD4`).
+8. **Ordre des avis** : le bloc crues, puis le bloc sécheresse ; dans chacun, « Vérification
+   impossible » en tête, puis les lieux dans l'ordre des favoris.
+9. **Écritures** (`PD13`) : les avis d'abord, par `addAll`, s'il y en a ; en échec,
+   `CheckNotRecorded(0)` et rien d'autre ne s'écrit, si bien que la vérification suivante redonne
+   les mêmes avis. Puis `recordCheck` avec les seuls suivis changés et les orphelins ; en échec,
+   `CheckNotRecorded(n)`, et les avis déjà écrits peuvent revenir une fois. Sinon `CheckDone(n)`.
+   `recordCheck` reporte sur l'état stocké : un seuil changé ou un suivi éteint pendant la
+   vérification est gardé tel que l'usager l'a laissé.
+
 ## Agrégats
 
 - **Station observée** — racine `Station`, dernière observation connue par `Grandeur`. Une

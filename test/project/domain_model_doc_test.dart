@@ -116,6 +116,12 @@ const List<String> typesDuDomaine = <String>[
   'ListeDAvisIllisible',
   'EcritureDAvisEnEchec',
   'DroughtZoneChange',
+  'CheckOutcome',
+  'CheckDone',
+  'NothingFollowed',
+  'CheckBlockedByUnreadableStorage',
+  'CheckNotRecorded',
+  'FollowUpCheck',
 ];
 
 /// Types envisagés mais pas encore écrits sous lib/domain/ (Écoulement
