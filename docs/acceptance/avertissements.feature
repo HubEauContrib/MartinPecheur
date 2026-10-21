@@ -38,7 +38,8 @@ Fonctionnalité: Les quatre emplacements de l'avertissement
   Scénario: Le contrôle « ⚠ Avertissement » de la carte reste présent à tous les niveaux de zoom
     Étant donné un usager qui a déjà acquitté l'écran du premier lancement
     Quand il consulte la carte, à n'importe quel niveau de zoom
-    Alors le contrôle « ⚠ Avertissement » reste présent au-dessus de la légende
+    Alors l'en-tête « Légende · Écoulement » porte le contrôle « ⚠ Avertissement », à droite du nom de la lecture, ou dessous et aligné à droite quand le nom ne tient pas à côté sans couper un mot
+    Et l'en-tête d'une autre lecture le porte de même, avec son propre nom : « Légende · Débit relatif à l'historique », « Légende · Vigilance crues »
     Et l'ouverture de ce contrôle affiche le même texte que celui du modal initial (BR-012)
 
   Scénario: Le contrôle « ⚠ Avertissement » d'une fiche datée porte la phrase propre à cette fiche
@@ -70,3 +71,47 @@ Fonctionnalité: Les quatre emplacements de l'avertissement
     Quand il ouvre le contrôle « ⚠ Avertissement » de la carte, ou celui d'une fiche, puis le lien « D'où vient cette donnée ? » de la fenêtre
     Alors l'écran « D'où vient cette donnée ? » s'ouvre par-dessus la fenêtre
     Et le retour ramène à la fenêtre d'avertissement, telle qu'elle était (BR-012)
+
+  # ── Ergonomie — le bloc de lecture et la place des fiches (cadrage du 2026-10-17, critères 1, 7 et 8 ; D2)
+
+  Scénario: Le bloc de lecture porte, dans l'ordre, le sélecteur, l'en-tête qui porte « ⚠ Avertissement », l'avis éventuel et la légende
+    Étant donné la carte, en tête de laquelle se pose le bloc de lecture
+    Quand un avis s'affiche, puis disparaît
+    Alors le bloc porte, de haut en bas, le sélecteur à quatre entrées, l'en-tête « Légende · Écoulement » qui porte « ⚠ Avertissement », l'avis quand il y en a un, puis la légende
+    Et « ⚠ Avertissement » ne bouge pas quand l'avis paraît : l'avis s'intercale entre l'en-tête et la légende (BR-012, BR-008)
+
+  Scénario: Sous 800 px, une fiche ouverte se pose au bas de l'écran, sans recouvrir le bloc de lecture ni le bas de la carte
+    Étant donné la carte sur une fenêtre de moins de 800 px de large
+    Quand l'usager ouvre une fiche station, une fiche point ONDE ou une fiche tronçon
+    Alors la fiche se pose au bas de l'écran, sur toute sa largeur, son contenu dans la largeur de lecture, et la carte visible se réduit au-dessus d'elle
+    Et elle ne recouvre jamais le bloc de lecture ni le bas de la carte : le contrôle « ⚠ Avertissement » de la carte reste présent et atteignable dans l'en-tête du bloc, en plus de celui de la fiche (BR-012)
+
+  Scénario: Dès 800 px, une fiche s'ouvre en panneau à droite, sur toute la hauteur, le bloc de lecture et la colonne restant à sa gauche
+    Étant donné la carte sur une fenêtre de 800 px de large ou plus, toute fenêtre Windows comprise
+    Quand l'usager ouvre une fiche
+    Alors elle s'ouvre en panneau de 380 px à droite, sur toute la hauteur de la fenêtre, un filet à sa gauche
+    Et le bloc de lecture, avec le contrôle « ⚠ Avertissement » de la carte, et la colonne du bas restent dans la carte visible, à sa gauche, sans que rien ne les recouvre (BR-012)
+
+  # ── Ergonomie — en deçà des quatre tailles (cadrage du 2026-10-17, critère 6 ; arbitrages 10 et 21 à 26 ; D8)
+  # Mesuré en police Roboto à 360 × 300, 600 × 360, 640 × 360 et 844 × 390, à 100 % et 200 %, hors mode et en
+  # mode, sans fiche et fiche station ouverte, sans marge système et, à 360 × 300, sous la marge d'un téléphone.
+  # Limite acceptée par le commanditaire (arbitrage 26), à cette seule taille et cette seule échelle, fiche
+  # station ouverte : à 360 × 300 et 200 %, la première rangée de l'en-tête de la fiche fait 114 px, et la
+  # partie fixe n'en garde que 40 hors marge — les deux contrôles y restent atteignables, en glissant et au
+  # clavier — et 0 sous la marge d'un téléphone, où ils ne le sont plus ; la rangée du bas, restée devant la
+  # fiche, y descend de 16 px sur le haut de l'en-tête (sa marge et le haut de la nature), l'attribution entière.
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « D8 — critère 6 : la partie fixe garde une cible tactile, en deçà ».
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « I1, R15, D8 — en deçà : rien ne se recoupe, le bas et la fiche ».
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « D8 — arbitrages 25 et 26 : en-tête de fiche rogné, hors Tab ».
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « D8 — une bande du bouton à 0 px se retire (arbitrage 23) ».
+  # Vérifié par test/features/map/view/map_layout_allocation_test.dart, groupe « Arbitrages 21 à 24 (D8) : ce qui cède pour la partie fixe ».
+  # Vérifié par test/features/map/view/map_layout_test.dart, groupe « En deçà des quatre tailles ».
+  Scénario: En deçà des quatre tailles, « ⚠ Avertissement » et l'entrée « Restrictions » restent atteignables, en faisant défiler le bloc ou au clavier
+    Étant donné la carte sur un écran plus petit que les quatre tailles garanties, par exemple 360 × 300 ou 640 × 360 avec le texte à 200 %, une fiche ouverte ou non, le choix « Restrictions » allumé ou non
+    Quand l'usager fait glisser la partie fixe du bloc de lecture, ou avance au clavier jusqu'à l'un des deux contrôles
+    Alors « ⚠ Avertissement » et l'entrée « Restrictions » viennent en vue et s'atteignent ; le focus amène en vue le contrôle qui le reçoit (BR-012)
+    Et pour que la partie fixe garde la hauteur d'une cible tactile, cèdent dans cet ordre : le corps de la fiche du bas, sous sa mesure mise en avant, jusqu'à son en-tête ; la bande du bouton « Restrictions au centre de la carte » et le réticule, qui se retirent ; à la largeur de la colonne, ses boutons, qui défilent au-dessus de l'attribution, toujours affichée ; l'en-tête de la fiche, jamais sous sa rangée qui porte l'étoile et la fermeture
+    Et à 360 × 300 et 200 %, fiche station ouverte, la partie fixe n'a que 40 px, et aucune sous la marge d'un téléphone : limite acceptée à cette seule taille, cette seule échelle et cette fiche
+    Et à la largeur de la colonne, l'en-tête d'une fiche du bas passe devant la colonne, qui défile au-dessus de lui ; au téléphone, la rangée du bas reste devant la fiche ; l'étoile et la fermeture de la fiche restent touchables
+    Et quand l'en-tête de la fiche cède, son « ⚠ Avertissement » rogné sort de l'ordre de tabulation, reste annoncé par le lecteur d'écran, et revient dès que la place le montre ; celui de la carte reste atteignable, sauf à 360 × 300 et 200 %, fiche station ouverte, sous la marge d'un téléphone, où la partie fixe n'a plus de hauteur (limite acceptée, arbitrage 26)
+    Et une bande du bouton qui n'a pas de place se retire avec le réticule : elle n'est ni dessinée, ni touchable, ni atteinte au clavier, ni annoncée ; l'appui long et le clic droit désignent toujours un point

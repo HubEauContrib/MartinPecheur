@@ -59,7 +59,10 @@
 // montrée en entier ici et nulle part ailleurs — voir `station_marker.dart`,
 // qui explique pourquoi le « ? » n'est pas peint sur les 4 150 pastilles.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:martinpecheur/domain/floods/flood_vigilance_level.dart';
 import 'package:martinpecheur/domain/floods/published_flood_definitions.dart';
 import 'package:martinpecheur/domain/formatting/display_date.dart';
@@ -117,16 +120,26 @@ const String _mesureRecenteLabel = 'Mesure récente';
 /// par le commanditaire le 2026-09-22 (constat d'écran du lot 3).
 const String _selectionnezPourChargerLabel = 'Sélectionnez pour charger';
 
-/// Largeur maximale de la légende, en pixels logiques : au-delà, elle
-/// mangerait la carte sur un écran étroit.
-///
-/// **Publique** parce qu'elle a un appelant hors de ce fichier :
-/// `buildMapOverlays` (`map_view.dart`) s'en sert pour borner le bandeau
-/// d'erreur, qui ne doit jamais recouvrir la légende (`BR-008`).
-const double legendMaxWidth = 260;
+/// Largeur d'une case de la légende (`PD6`, `S2` d'Ergonomie) :
+/// les rangées courtes — les six d'écoulement et les cinq de fraîcheur du débit
+/// — se posent dans un [Wrap] de cases de cette largeur, deux par ligne dès que
+/// le bloc a 320 de large (344 au téléphone), une seule en deçà. 156 laisse 132
+/// au libellé après le symbole de 24 : « Dernière mesure il y a plus de 24 h »
+/// passe à la ligne, aucun mot n'est coupé. Les rangées de la légende Crues ne
+/// sont pas courtes (leurs libellés publiés sont longs) : elles gardent la
+/// pleine largeur.
+const double legendRowWidth = 156;
+
+/// Écart horizontal entre deux cases de la légende, en pixels logiques : deux
+/// cases tiennent donc dans 320 de large (156 + 8 + 156).
+const double _legendRowSpacing = 8;
 
 /// Taille de texte d'une ligne de légende, en pixels logiques.
 const double _entryFontSize = 12;
+
+/// Taille du texte de l'en-tête de légende, en pixels logiques : un cran
+/// au-dessus des lignes (12), pour que le nom de la lecture se lise en premier.
+const double _headerFontSize = 13;
 
 /// Les niveaux de la légende Crues, dans l'ordre de lecture : les quatre
 /// niveaux publiés, puis l'aveu d'un niveau non reconnu.
@@ -185,8 +198,230 @@ const List<FlowCategory> _flowCategories = <FlowCategory>[
   Inconnu(null),
 ];
 
-/// La légende de l'échelle active. Toujours visible, jamais repliée
-/// (`BR-008`).
+/// Le texte de l'en-tête de légende de [kind] (`S2` d'Ergonomie, § 11.2, mot
+/// pour mot) : « Légende · » suivi du nom de la lecture, [mapScaleLabel] —
+/// jamais une reformulation locale. C'est le nom de la lecture active que
+/// `BR-008` exige en permanence ; il quitte le titre de [MapLegend] pour
+/// l'en-tête du bloc de lecture, où « ⚠ Avertissement » le suit.
+String mapLegendHeaderText(MapScaleKind kind) =>
+    'Légende · ${mapScaleLabel(kind)}';
+
+/// Écart entre le texte de l'en-tête et le lien, quand ils tiennent côte à
+/// côte, en pixels logiques.
+const double _headerGap = 8;
+
+/// L'en-tête de la légende, dans le bloc de lecture (`S2` d'Ergonomie) : le
+/// texte [mapLegendHeaderText] (13, gras, annoncé comme un titre) et
+/// [warningLink].
+///
+/// **Le texte ne coupe jamais un mot.** Le lien est à droite du texte quand le
+/// mot le plus long du texte tient dans la largeur que le lien laisse (largeur
+/// intrinsèque minimale du texte, plus l'écart, plus le lien, dans la largeur
+/// de l'en-tête) ; le texte passe alors à la ligne entre ses mots. Sinon — à
+/// 200 % sur 344 de large, par exemple — le lien passe **sous** le texte,
+/// aligné à droite, et le texte prend toute la largeur. Le lien garde, dans
+/// les deux cas, sa largeur entière : « ⚠ Avertissement » ne cède à aucune
+/// taille (arbitrage 11). Hauteur d'au moins [minimumTapTarget].
+///
+/// [warningLink] est reçu, pas construit : l'en-tête ne connaît ni la phrase
+/// propre à la lecture (le texte de crue de `BR-015`) ni l'ordre de focus de
+/// la carte, que l'appelant décide.
+///
+/// Aucun `LayoutBuilder` : une pièce de mise en page interroge les hauteurs
+/// intrinsèques de l'en-tête, qui doivent suivre la même règle que la mise en
+/// page. Le choix côte à côte ou l'un sous l'autre se prend donc dans un
+/// `RenderObject` ([_RenderLegendHeader]) qui rend ses hauteurs intrinsèques,
+/// sa mise en page à vide et sa mise en page réelle par la même règle. Écrit
+/// pour le sens de lecture de gauche à droite, seul sens de l'application.
+class MapLegendHeader extends StatelessWidget {
+  const MapLegendHeader({
+    required this.scale,
+    required this.warningLink,
+    super.key,
+  });
+
+  /// La lecture active, dont l'en-tête dit le nom.
+  final MapScaleKind scale;
+
+  /// Le contrôle « ⚠ Avertissement », posé à droite du texte, ou dessous.
+  final Widget warningLink;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minimumTapTarget),
+      child: _LegendHeaderLayout(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Semantics(
+              header: true,
+              child: Text(
+                mapLegendHeaderText(scale),
+                style: const TextStyle(
+                  fontSize: _headerFontSize,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          warningLink,
+        ],
+      ),
+    );
+  }
+}
+
+/// La mise en page de [MapLegendHeader] : deux enfants, le texte puis le lien.
+class _LegendHeaderLayout extends MultiChildRenderObjectWidget {
+  const _LegendHeaderLayout({required super.children});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderLegendHeader();
+}
+
+/// Le `RenderObject` de [_LegendHeaderLayout] : le texte, premier enfant, et le
+/// lien, second. Une seule règle sert la mise en page réelle, la mise en page à
+/// vide ([_arrange]) et les hauteurs intrinsèques ([_heightAt]).
+class _RenderLegendHeader extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+  RenderBox get _text => firstChild!;
+  RenderBox get _link => lastChild!;
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! MultiChildLayoutParentData) {
+      child.parentData = MultiChildLayoutParentData();
+    }
+  }
+
+  /// Vrai quand le texte tient à côté d'un lien de [linkWidth] de large dans
+  /// [width] sans couper un mot : son mot le plus long, plus l'écart, plus le
+  /// lien. Une largeur non bornée laisse toujours la place.
+  bool _fitsBeside(double width, double linkWidth) =>
+      !width.isFinite ||
+      _text.getMinIntrinsicWidth(double.infinity) + _headerGap + linkWidth <=
+          width;
+
+  /// La disposition de l'en-tête sous [constraints] : sa taille, et la place du
+  /// texte et du lien. [layoutChild] pose les enfants pour de bon
+  /// ([ChildLayoutHelper.layoutChild]) ou à vide
+  /// ([ChildLayoutHelper.dryLayoutChild]) ; la règle est la même.
+  ({Size size, Offset textOffset, Offset linkOffset}) _arrange(
+    BoxConstraints constraints,
+    ChildLayouter layoutChild,
+  ) {
+    final double width = constraints.maxWidth;
+    // Le lien se pose à sa largeur naturelle, sur une ligne : son libellé est
+    // un seul mot, il ne se replie pas.
+    final Size link = layoutChild(_link, BoxConstraints(maxWidth: width));
+    if (_fitsBeside(width, link.width)) {
+      final Size text = layoutChild(
+        _text,
+        BoxConstraints(maxWidth: width - link.width - _headerGap),
+      );
+      final Size size = constraints.constrain(
+        Size(
+          width.isFinite ? width : text.width + _headerGap + link.width,
+          math.max(text.height, link.height),
+        ),
+      );
+      return (
+        size: size,
+        textOffset: Offset(0, (size.height - text.height) / 2),
+        linkOffset: Offset(
+          size.width - link.width,
+          (size.height - link.height) / 2,
+        ),
+      );
+    }
+    final Size text = layoutChild(_text, BoxConstraints(maxWidth: width));
+    final Size size = constraints.constrain(
+      Size(width, text.height + link.height),
+    );
+    return (
+      size: size,
+      textOffset: Offset.zero,
+      linkOffset: Offset(size.width - link.width, text.height),
+    );
+  }
+
+  @override
+  void performLayout() {
+    final ({Size size, Offset textOffset, Offset linkOffset}) arrangement =
+        _arrange(constraints, ChildLayoutHelper.layoutChild);
+    size = arrangement.size;
+    (_text.parentData! as MultiChildLayoutParentData).offset =
+        arrangement.textOffset;
+    (_link.parentData! as MultiChildLayoutParentData).offset =
+        arrangement.linkOffset;
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      _arrange(constraints, ChildLayoutHelper.dryLayoutChild).size;
+
+  /// La hauteur de l'en-tête à [width] de large, par les seules dimensions
+  /// intrinsèques des enfants — la même règle que [_arrange].
+  double _heightAt(double width) {
+    final double linkWidth = math.min(
+      _link.getMaxIntrinsicWidth(double.infinity),
+      width,
+    );
+    final double linkHeight = _link.getMaxIntrinsicHeight(linkWidth);
+    if (_fitsBeside(width, linkWidth)) {
+      return math.max(
+        _text.getMaxIntrinsicHeight(width - linkWidth - _headerGap),
+        linkHeight,
+      );
+    }
+    return _text.getMaxIntrinsicHeight(width) + linkHeight;
+  }
+
+  // Une seule hauteur : l'en-tête ne se replie pas, il reste entier.
+  @override
+  double computeMinIntrinsicHeight(double width) => _heightAt(width);
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _heightAt(width);
+
+  // Le plus étroit : le mot le plus long du texte, ou le lien entier s'il est
+  // plus large — l'un sous l'autre est toujours possible.
+  @override
+  double computeMinIntrinsicWidth(double height) => math.max(
+    _text.getMinIntrinsicWidth(height),
+    _link.getMaxIntrinsicWidth(height),
+  );
+
+  // Le plus large : tout sur une rangée.
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _text.getMaxIntrinsicWidth(height) +
+      _headerGap +
+      _link.getMaxIntrinsicWidth(height);
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
+/// La légende de l'échelle active, dans le bloc de lecture (`S2` d'Ergonomie,
+/// posée par `MapReadingBlockLegend`). Toujours rendue (`BR-008`) ; elle
+/// défile quand la place manque (premier repli, écart à `BR-008` accepté le
+/// 2026-10-12 et prolongé par l'arbitrage 11).
+///
+/// Une seule forme depuis `D2` : ni titre — le nom de la lecture est dans
+/// [MapLegendHeader] —, ni carte blanche, ni plafond de largeur — le bloc les
+/// porte —, et les rangées courtes (écoulement, fraîcheur du débit) en
+/// colonnes, dans un [Wrap] de cases de [legendRowWidth]. La légende Crues
+/// garde ses rangées pleine largeur.
 class MapLegend extends StatelessWidget {
   const MapLegend({
     required this.scale,
@@ -208,43 +443,37 @@ class MapLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: legendMaxWidth),
-      child: DecoratedBox(
-        // Fond opaque : un texte posé sur un fond de carte quelconque ne
-        // tient aucun contraste (`04-ui.md` § 3).
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.all(Radius.circular(4)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              // Le nom de l'échelle active, en tête : c'est la raison d'être
-              // de la légende (`BR-008`).
-              Text(
-                mapScaleLabel(scale),
-                style: const TextStyle(
-                  fontSize: _entryFontSize,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              // `switch` exhaustif sur un `enum` fermé (`BR-011`) : une
-              // échelle ajoutée sans branche ici ne compile pas.
-              ...switch (scale) {
-                MapScaleKind.debit => _dischargeRows(),
-                MapScaleKind.ecoulement => _flowRows(),
-                MapScaleKind.crues => _floodRows(),
-              },
-            ],
-          ),
-        ),
-      ),
+    // `switch` exhaustif sur un `enum` fermé (`BR-011`) : une échelle ajoutée
+    // sans branche ici ne compile pas.
+    final List<Widget> rows = switch (scale) {
+      MapScaleKind.debit => _dischargeRows(),
+      MapScaleKind.ecoulement => _flowRows(),
+      MapScaleKind.crues => _floodRows(),
+    };
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: rows,
     );
+  }
+
+  /// Les rangées courtes [rows], en colonnes (`PD6`) : un [Wrap] de cases de
+  /// [legendRowWidth] séparées de [_legendRowSpacing], deux par ligne dès que
+  /// la largeur le permet. Un [Wrap] et non un `LayoutBuilder` : il sait
+  /// rendre ses hauteurs intrinsèques, que la mise en page du bloc interroge.
+  /// Les phrases longues ne passent pas par ici : elles restent pleine
+  /// largeur, comme les rangées de la légende Crues, dont les libellés publiés
+  /// sont longs.
+  List<Widget> _shortRows(List<Widget> rows) {
+    return <Widget>[
+      Wrap(
+        spacing: _legendRowSpacing,
+        children: <Widget>[
+          for (final Widget row in rows)
+            SizedBox(width: legendRowWidth, child: row),
+        ],
+      ),
+    ];
   }
 
   List<Widget> _dischargeRows() => <Widget>[
@@ -268,18 +497,25 @@ class MapLegend extends StatelessWidget {
         style: TextStyle(fontSize: _entryFontSize),
       ),
     ),
-    for (final (StationMapState state, String label) in _availabilityEntries())
-      _DotRow(state: state, label: label),
+    ..._shortRows(<Widget>[
+      for (final (StationMapState state, String label)
+          in _availabilityEntries())
+        _DotRow(state: state, label: label),
+    ]),
   ];
 
-  List<Widget> _flowRows() => <Widget>[
+  List<Widget> _flowRows() => _shortRows(<Widget>[
     for (final FlowCategory category in _flowCategories)
       _OndeRow(category: category),
-  ];
+  ]);
 
   List<Widget> _floodRows() {
     final DateTime? date = floodInformationDate;
     return <Widget>[
+      // Pleine largeur dans le bloc comme dehors : les libellés publiés des
+      // niveaux sont longs (« Orange — Risque de crue génératrice de
+      // débordements importants »), une case de 156 les mettrait sur quatre
+      // lignes.
       for (final FloodVigilanceLevel level in _floodLevels)
         _FloodRow(level: level),
       // Une fois la vigilance lue seulement (arbitrage 9, `BR-001`, licence

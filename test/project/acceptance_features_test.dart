@@ -26,6 +26,7 @@ import 'package:martinpecheur/domain/restrictions/drought_severity.dart';
 import 'package:martinpecheur/domain/restrictions/user_profile.dart';
 import 'package:martinpecheur/domain/restrictions/zone_kind.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart';
+import 'package:martinpecheur/domain/station/station.dart' show StationCode;
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 import 'package:martinpecheur/features/favorites/view/favorites_screen.dart';
 import 'package:martinpecheur/features/flood_sheet/view/flood_sheet_panel.dart';
@@ -44,10 +45,18 @@ import 'package:martinpecheur/features/map/view/map_entry_buttons.dart'
     show mapFavoritesLabel, mapFiltersActiveLabel, mapFiltersLabel;
 import 'package:martinpecheur/features/map/view/map_filter_sheet.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
+import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
+    show
+        designationChipLabel,
+        designationEntrySubtitle,
+        readingEntrySemanticsLabel;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
+    show ondeHistoriqueTitre, ondeSheetNature;
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart';
+import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart'
+    show stationQualificationLabel, stationSheetNature, stationStatusLabel;
 
 /// Les huit fichiers attendus sous `docs/acceptance/` : les quatre de T1
 /// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2),
@@ -427,10 +436,11 @@ void main() {
     final String contenu = contenusParFichier['crues.feature'] ?? '';
     expect(
       _scenariosByStory(contenu)[_cruesStory] ?? 0,
-      19,
+      20,
       reason:
-          'crues.feature porte dix-neuf scénarios sous US-21, un par '
-          'critère du cadrage de T4 (§ 10)',
+          'crues.feature porte vingt scénarios sous US-21 : dix-neuf, un par '
+          'critère du cadrage de T4 (§ 10), et celui de la fiche tronçon dans '
+          "le cadre commun (critère 13 de l'ergonomie, F3)",
     );
   });
 
@@ -717,6 +727,18 @@ void main() {
       // `.feature` l'écrivent « ⚠ Avertissement », comme `04-ui.md`.
       'contrôle d\'avertissement': '⚠ $warningLinkLabel',
       'titre de l\'encart renforcé': reinforcedWarningHeadline,
+      // `S2` d'Ergonomie : l'en-tête de légende, qui porte le contrôle de la
+      // carte. Le scénario cite la lecture active au lancement, l'écoulement,
+      // puis les deux autres.
+      'en-tête de légende, lecture Écoulement': mapLegendHeaderText(
+        MapScaleKind.ecoulement,
+      ),
+      'en-tête de légende, lecture Débit': mapLegendHeaderText(
+        MapScaleKind.debit,
+      ),
+      'en-tête de légende, lecture Crues': mapLegendHeaderText(
+        MapScaleKind.crues,
+      ),
     };
     for (final MapEntry<String, String> libelle
         in libellesAvertissements.entries) {
@@ -741,10 +763,25 @@ void main() {
     final Map<String, String> libellesFiltres = <String, String>{
       'échelle écoulement': mapScaleLabel(MapScaleKind.ecoulement),
       'échelle débit': mapScaleLabel(MapScaleKind.debit),
+      // Sélecteur de lecture (S1 d'Ergonomie, § 11.2) : titres, sous-titres et
+      // l'annonce d'une entrée, titre et sous-titre séparés par une virgule.
+      'titre débit': mapScaleEntryTitle(MapScaleKind.debit),
+      'titre crues': mapScaleEntryTitle(MapScaleKind.crues),
+      'titre « Restrictions »': designationChipLabel,
+      'sous-titre écoulement': mapScaleEntrySubtitle(MapScaleKind.ecoulement),
+      'sous-titre débit': mapScaleEntrySubtitle(MapScaleKind.debit),
+      'sous-titre crues': mapScaleEntrySubtitle(MapScaleKind.crues),
+      'sous-titre « Restrictions »': designationEntrySubtitle,
+      'annonce de l’entrée « Débit »': readingEntrySemanticsLabel(
+        mapScaleEntryTitle(MapScaleKind.debit),
+        mapScaleEntrySubtitle(MapScaleKind.debit),
+      ),
       'case du code non reconnu': flowCategoryLabel(const Inconnu(null)),
       'case Assec': flowCategoryLabel(const Assec()),
       'texte de l’avis des filtres': filterHidesEverythingText,
       'action de l’avis des filtres': clearFiltersLabel,
+      // `D2` d'Ergonomie (critère 3) : la rangée du bas, au téléphone.
+      'bouton « Favoris »': mapFavoritesLabel,
       'bouton « Filtres », aucun filtre actif': mapFiltersLabel,
       'bouton « Filtres », un filtre actif': mapFiltersActiveLabel,
       'titre de la feuille': mapFilterSheetTitle,
@@ -770,6 +807,69 @@ void main() {
       });
     }
   });
+
+  // Même lien pour `fiche-station.feature` (`F1` d'Ergonomie, critère 11) :
+  // l'en-tête de la fiche et les libellés attribués à Hub'Eau, lus dans le
+  // code, cherchés entre guillemets français.
+  group(
+    'les libellés portés par le code figurent dans fiche-station.feature',
+    () {
+      final String ficheStation =
+          contenusParFichier['fiche-station.feature'] ?? '';
+
+      final Map<String, String> libellesFicheStation = <String, String>{
+        'en-tête de la fiche, station K447001001': stationSheetNature(
+          StationCode('K447001001'),
+        ),
+        'contrôle d\'avertissement de l\'en-tête': '⚠ $warningLinkLabel',
+        'statut': stationStatusLabel,
+        'qualification': stationQualificationLabel,
+      };
+      for (final MapEntry<String, String> libelle
+          in libellesFicheStation.entries) {
+        test('fiche-station.feature cite « ${libelle.value} » '
+            '(${libelle.key})', () {
+          expect(
+            _containsQuoted(ficheStation, libelle.value),
+            isTrue,
+            reason:
+                'fiche-station.feature ne contient pas « ${libelle.value} », '
+                'le libellé du code pour ${libelle.key}',
+          );
+        });
+      }
+    },
+  );
+
+  // Même lien pour `ecoulement-onde.feature` (`F2` d'Ergonomie, critère 12) :
+  // l'en-tête de la fiche, son contrôle d'avertissement et le titre de
+  // l'historique, lus dans le code, cherchés entre guillemets français.
+  group(
+    'les libellés portés par le code figurent dans ecoulement-onde.feature',
+    () {
+      final String ficheOnde =
+          contenusParFichier['ecoulement-onde.feature'] ?? '';
+
+      final Map<String, String> libellesFicheOnde = <String, String>{
+        'en-tête de la fiche': ondeSheetNature,
+        'contrôle d\'avertissement de l\'en-tête': '⚠ $warningLinkLabel',
+        'historique': ondeHistoriqueTitre,
+      };
+      for (final MapEntry<String, String> libelle
+          in libellesFicheOnde.entries) {
+        test('ecoulement-onde.feature cite « ${libelle.value} » '
+            '(${libelle.key})', () {
+          expect(
+            _containsQuoted(ficheOnde, libelle.value),
+            isTrue,
+            reason:
+                'ecoulement-onde.feature ne contient pas « ${libelle.value} », '
+                'le libellé du code pour ${libelle.key}',
+          );
+        });
+      }
+    },
+  );
 
   // Même lien pour `favoris.feature` (T3) : libellés lus dans le code,
   // cherchés entre guillemets français. `S9` a allongé la table, `S11` y
@@ -828,6 +928,9 @@ void main() {
             '${floodLevelLabel(level)} — ${publishedFloodLegend(level)}',
       // `F3` : la fiche tronçon. Le Gherkin cite le titre de l'orange et celui
       // du niveau inconnu, la phrase de l'inconnu et le bouton du bulletin.
+      // `F3` d'Ergonomie y ajoute la nature de l'en-tête, dans le cadre commun.
+      'fiche, nature de l\'en-tête': floodSheetNature,
+      'fiche, contrôle d\'avertissement de l\'en-tête': '⚠ $warningLinkLabel',
       'fiche, titre orange': floodVigilanceTitle(const Orange()),
       'fiche, niveau inconnu': floodVigilanceTitle(
         const NiveauCruesInconnu(null),
@@ -882,5 +985,78 @@ void main() {
         );
       }
     }
+  });
+
+  // `D3` d'Ergonomie : un scénario lié à son test par un commentaire
+  // « Vérifié par <fichier>, groupe « <nom> » » — le fichier existe et porte un
+  // groupe de ce nom.
+  group('D3 d’Ergonomie — les scénarios liés à leur test', () {
+    final RegExp lien = RegExp(
+      r'^[ \t]*#[ \t]*Vérifié par (test/\S+\.dart), groupe « ([^»]+) »',
+      multiLine: true,
+    );
+
+    test('chaque « Vérifié par …, groupe « … » » des .feature nomme un '
+        'groupe qui existe', () {
+      for (final MapEntry<String, String> entree
+          in contenusParFichier.entries) {
+        for (final RegExpMatch m in lien.allMatches(entree.value)) {
+          final File fichier = File(m.group(1)!);
+          expect(
+            fichier.existsSync(),
+            isTrue,
+            reason: '${entree.key} cite ${m.group(1)}, absent du disque',
+          );
+          expect(
+            fichier.readAsStringSync().contains("'${m.group(2)!}"),
+            isTrue,
+            reason:
+                '${entree.key} cite le groupe « ${m.group(2)} », absent de '
+                '${m.group(1)}',
+          );
+        }
+      }
+    });
+
+    test('restrictions.feature : le bouton désigne le point sous le réticule, '
+        'et les deux scénarios du réticule sont liés au test de D3', () {
+      // Fins de ligne normalisées : le dépôt peut être extrait en CRLF.
+      final String contenu = (contenusParFichier['restrictions.feature'] ?? '')
+          .replaceAll('\r\n', '\n');
+      for (final String titre in <String>[
+        "Scénario: Un point se désigne par le bouton, par un appui long ou par "
+            "un clic droit, et par rien d'autre",
+        'Scénario: Le choix « Restrictions » allumé, le réticule marque le '
+            'point que le bouton désigne, et « + » et « − » zooment autour '
+            'de lui',
+      ]) {
+        final int debut = contenu.indexOf(titre);
+        expect(debut, isNonNegative, reason: 'scénario absent : $titre');
+        // Le bloc de commentaires juste au-dessus du scénario.
+        final int blanc = contenu.lastIndexOf('\n\n', debut);
+        final String commentaires = contenu.substring(
+          blanc < 0 ? 0 : blanc,
+          debut,
+        );
+        final RegExpMatch? m = lien.firstMatch(commentaires);
+        expect(
+          m,
+          isNotNull,
+          reason: 'aucun « Vérifié par » au-dessus de $titre',
+        );
+        expect(
+          m!.group(1),
+          'test/features/map/view/map_designation_reticle_test.dart',
+        );
+      }
+      final String designation = _scenariosOf(contenu).firstWhere(
+        (String s) => s.contains('Un point se désigne par le bouton'),
+      );
+      expect(designation, contains('le point sous le réticule'));
+      expect(
+        designation,
+        isNot(contains('le centre de la carte, celui que marque le réticule')),
+      );
+    });
   });
 }

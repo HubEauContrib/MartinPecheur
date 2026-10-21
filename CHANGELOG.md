@@ -11,6 +11,140 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [0.6.0] — 2026-10-21
+
+Tranche d'ergonomie, avant T5 : une lecture à la fois sur la carte, des fiches
+qui ne recouvrent plus la carte (cadrage du 2026-10-17). **Version datée du
+2026-10-21**, après les constats de la porte par le commanditaire. La porte de
+la tranche est franchie sur les deux cibles, Windows (exécutable de release
+lancé hors Flutter) et Android (émulateur Pixel_7, en débogage) : « Constaté à
+l'exécution » recopie ce que le commanditaire a dit, « Non vérifié » ce qu'il
+n'a pas dit. Aucun tag n'est posé et la mise en production reste une décision
+du commanditaire ; la porte de T2 reste due. « Ajouté » et « Modifié » sont
+écrits d'après le code livré sur `feat/ergonomie` et vérifiés par
+`flutter test` (mesures de disposition en Roboto) ; seul ce que « Constaté à
+l'exécution » dit a été vu à l'écran. « Modifié » dit ce qui
+change par rapport à `0.5.0`.
+
+### Ajouté
+
+- Panneau latéral : dès 800 px de large (toute fenêtre Windows, une tablette en
+  paysage), une fiche s'ouvre à droite, sur 380 px et toute la hauteur, un
+  filet à sa gauche ; la carte reste à sa gauche, bloc de lecture et colonne de
+  boutons compris. Sous 800 px, la fiche se pose au bas de l'écran, sous la
+  carte visible.
+- Les textes intégrés de Material passent en français (`flutter_localizations`,
+  locale `fr`) : le bouton de retour des écrans pleins s'annonce « Retour »
+  (point 51), et le menu d'une adresse sélectionnable est en français.
+- En deçà des quatre tailles garanties (360 × 300, 640 × 360, téléphones en
+  paysage), « ⚠ Avertissement » et l'entrée « Restrictions » restent atteignables
+  : la partie fixe du bloc garde au moins la hauteur d'une cible tactile
+  (48 sur Android, 44 ailleurs), la colonne de boutons défile au-dessus de
+  l'attribution, et l'en-tête d'une fiche passe devant elle. Limite acceptée à
+  360 × 300 et 200 %, fiche station ouverte : la partie fixe n'y garde que 40 px.
+
+### Modifié
+
+- Sous 600 px, une rangée au bas de la carte remplace la colonne de boutons :
+  « Favoris » et « Filtres » à gauche, −, + et recentrer à droite, l'attribution
+  IGN dessous. À partir de 600 px, la colonne de cinq boutons reste à droite.
+- En mode « Restrictions », le réticule et le bouton « Restrictions au centre de
+  la carte » se posent au centre de la carte visible, entre le bloc de lecture et
+  la bande du bouton : le bouton désigne le point sous le réticule, et + et −
+  zooment autour de ce point. Là où la place manque, une fiche ouverte retire le
+  bouton et le réticule jusqu'à sa fermeture ; l'appui long et le clic droit
+  désignent toujours.
+- Windows : la fenêtre s'ouvre avec une zone cliente d'au moins 800 × 740, soit
+  1 280 × 740 à 100 % (1 264 × 681 auparavant).
+
+- La carte porte un seul **bloc de lecture** : un sélecteur à quatre entrées
+  (écoulement, débit, vigilance crues, puis l'interrupteur « Restrictions »),
+  chacune avec son titre et son sous-titre annoncés ensemble, remplace les
+  puces d'échelle ; dessous, l'en-tête « Légende · <lecture> », l'avis éventuel
+  et la légende. Une seule lecture est affichée à la fois (`BR-008`).
+- Le contrôle « ⚠ Avertissement » de la carte passe dans l'en-tête du bloc, à
+  droite du nom de la lecture, ou dessous quand le nom ne tient pas à côté sans
+  couper un mot. Il reste toujours présent, fiche ouverte ou non.
+- Une fiche ne recouvre plus la carte : au téléphone, elle prend sa hauteur sur
+  la carte visible ; la carte ne bouge ni à l'ouverture ni à la fermeture, et
+  recentrer ou cadrer une pastille tiennent compte de la partie cachée. Quand la
+  hauteur manque, la place se rend dans un ordre arbitré, selon le cas, et
+  seulement là où il le faut. Sans fiche au bas : la légende défile, puis le
+  corps d'une fiche en panneau, l'avis, les sous-titres du sélecteur et
+  l'indice sous le bouton cèdent, et enfin, en mode « Restrictions », le bouton
+  et le réticule se retirent. Fiche du bas ouverte, « Restrictions » éteinte :
+  la légende, les sous-titres, le corps de la fiche, puis l'avis. Fiche du bas
+  ouverte, « Restrictions » allumée : la légende, l'avis, les sous-titres,
+  l'indice, le corps de la fiche, puis le bouton et le réticule. La fiche garde
+  au moins sa mesure mise en avant (le débit, la catégorie ou le niveau) ; là
+  où cela ne suffit pas, la partie fixe du bloc défile, jusqu'à la hauteur
+  d'une cible tactile (à 360 × 640 et 200 % notamment).
+- Les trois fiches partagent un cadre commun : un en-tête épinglé (nature,
+  code pour une station, étoile de favori quand la fiche en porte une,
+  fermeture, puis « ⚠ Avertissement »), séparé du corps par un filet, qui défile
+  dessous ; une fiche s'ouvre toujours par le haut.
+- La fiche station se lit par ordre d'importance : titre, « cours d'eau ·
+  Département NN », tuile **Débit** mise en avant puis tuile **Hauteur** (chacune
+  avec sa date et sa source, côte à côte quand elles tiennent), puis « Statut
+  (Hub'Eau) » et « Qualification (Hub'Eau) » au-dessus de leurs valeurs.
+- La fiche du point ONDE montre la catégorie avec son symbole de légende, dans
+  une tuile qui dit aussi la modalité officielle et la campagne datée et
+  sourcée ; l'historique des campagnes porte un symbole par ligne.
+- La fiche tronçon Vigicrues garde son contenu et son ordre de `0.5.0` sous le
+  cadre commun ; « ⚠ Avertissement » passe avant le nom, dans l'en-tête.
+- L'écran « Sécheresse et restrictions » ne change pas, hors l'annonce « Retour »
+  de sa barre de titre.
+
+### Constaté à l'exécution
+
+Constats du commanditaire, recopiés tels qu'il les a dits. Le code Dart de la
+release Windows est celui de `data/app.so`, daté du 2026-10-18 à 23:54, après
+le commit `7ce3f73` (23:44), dernier changement de `lib/`.
+
+- Le 2026-10-19, sur Windows, exécutable de release lancé hors Flutter, code de
+  `7ce3f73` (`P1`) : « c'est bon », précisé par question fermée — « Oui, tout
+  vu » : constats `a` à `j` du cadrage (§ 10) vus et conformes, à la taille du
+  lancement et à 800 × 740, texte à 100 % puis 200 %, dont `h` (zone cliente
+  de 1 280 × 740) et `i` (« Retour » au Narrateur). Points vus en Segoe UI réelle (grille du
+  sélecteur, rayon, ombre et couture du bloc, filet des fiches, tuiles de la
+  fiche station, pilule à 800 × 740 et 100 %) : « Vus, conformes ». Aucun
+  écart dicté.
+- Rapporté le 2026-10-21, sur Android, émulateur Pixel_7, en débogage (`P2`) :
+  « j'ai testé la 10 P2 c'est validé ». Aucun détail point par point ; la date
+  du test n'est pas dite.
+- Sur la construction du 2026-10-18 (23:54), sur Windows, dossier de
+  publication de l'exécutable de release de `0.6.0` : **35 Mo**, 36 224 870 octets, 15 fichiers, budget de
+  60 Mo tenu (`NFR-06`). Repère de `0.5.0` : 35 748 882 octets, 15 fichiers.
+  Relevé par la boucle principale, non rapporté par le commanditaire.
+
+### Non vérifié
+
+- **Ce que « validé » ne dit pas, sur Android** : le détail de `P2` (constats
+  `a` à `g` et `j`, police à 100 % puis 200 %, `g` en écran divisé) n'est pas
+  rapporté ; la **version installée** sur l'émulateur n'a pas été relue par
+  `adb` (émulateur éteint au moment du relevé) ; la **marge système** réelle du
+  Pixel_7 (barre d'état, barre de navigation) n'a été ni relevée ni comparée à
+  celle des tests (24 en haut, 48 en bas) — à 390 × 844 et 200 %, il ne reste
+  que 6 px de jeu, et une marge réelle plus haute ferait défiler le bloc.
+- **En deçà des quatre tailles garanties** : 360 × 300 (dont la limite
+  acceptée à 200 %, fiche station ouverte, où la partie fixe n'a que 40 px) et
+  les téléphones en paysage (600 et 640 × 360) ne sont pas constatés : la
+  fenêtre minimale de Windows est de 800 × 740, et l'émulateur Pixel_7
+  demanderait un écran divisé ou un autre profil (le détail de `g` n'est pas
+  rapporté). Ils ne sont éprouvés qu'en test.
+- **Aucune annonce à TalkBack constatée** ; au Narrateur, seul « Retour »
+  (`i`) est constaté.
+- **Mesures en Roboto** : les tests de disposition mesurent en Roboto,
+  enregistrée sous le nom « Segoe UI » sous Windows ; **Segoe UI réelle** est
+  vue à l'écran (`P1`), jamais mesurée.
+- **Zone cliente de lancement** à 125, 150 et 200 % de mise à l'échelle de
+  Windows : non constatée. La fluidité (`NFR-01`) n'est pas remesurée sur la
+  disposition de `0.6.0`.
+- **La porte de T2 n'est pas franchie** : `A1`, `E4`, `P1` et `P2` de T2
+  restent dus (voir `0.3.0`). La **publication** Android reste différée :
+  signature (`A⏸3`) et préversion (`A⏸5`) ; aucun appareil réel (`A⏸4`).
+  **iOS** n'a jamais été compilé.
+
 ## [0.5.0] — 2026-10-17
 
 Cinquième tranche (T4) : la vigilance crues publiée par Vigicrues, en

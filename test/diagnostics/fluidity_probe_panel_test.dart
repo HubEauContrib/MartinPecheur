@@ -5,9 +5,8 @@
 // `Positioned(top:, right:)` sans `left`/`width`, plante en debug
 // (« RenderFlex … incoming width constraints are unbounded ») et s'étale
 // sur ~600 px en profile, recouvrant le contrôle d'avertissement et la
-// légende. Ce fichier monte le panneau dans le MÊME genre de `Stack` que
-// `map_view_test.dart` (groupe `800 × 740`, K3) : `buildMapOverlays` plus
-// le panneau, à la taille minimale de fenêtre Windows, et vérifie qu'AUCUNE
+// légende. Ce fichier monte le panneau dans le MÊME genre de `Stack` que la
+// carte : `buildMapOverlays` plus le panneau, à la taille minimale de fenêtre Windows, et vérifie qu'AUCUNE
 // exception n'est levée et qu'AUCUNE surcouche ne se recouvre.
 //
 // 🟠 3 — le protocole affiché sous les boutons, la mention "à compter à la
@@ -22,10 +21,12 @@
 // 1. les boutons du panneau sont SANS animation (`NoSplash.splashFactory`,
 //    survol/appui transparents) — l'`InkRipple` par défaut publie des
 //    trames que la sonde verrait sinon.
-// 3. le panneau redescend à `bottom: 32` : les trois lignes ET le rapport
-//    de `G2` doivent tenir SANS défilement à 800 × 740, et ne recouvrir NI
-//    les avis de carte sous les puces (« ni station… », « Élargir la
-//    recherche ») NI aucune autre surcouche.
+// 3. les trois lignes ET le rapport de `G2` doivent tenir SANS défilement à
+//    800 × 740, et ne recouvrir NI les avis de carte (« ni station… »,
+//    « Élargir la recherche ») NI aucune autre surcouche. Le panneau,
+//    descendu alors à `bottom: 32`, est posé en haut à droite depuis `D2`
+//    d'Ergonomie (le bloc de lecture occupe le haut à gauche) ; le verrou est
+//    le même, boutons d'entrée compris.
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show FrameTiming, TimingsCallback;
 import 'package:flutter_test/flutter_test.dart';
@@ -43,8 +44,10 @@ import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart'
     show NoStationInAreaNotice;
-import 'package:martinpecheur/features/map/view/map_legend.dart';
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
+import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
+import 'package:martinpecheur/features/map/view/map_layout.dart';
+import 'package:martinpecheur/features/map/view/map_reading_block.dart';
+import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/shared/warning_link.dart';
@@ -90,6 +93,9 @@ void main() {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
+      final ValueNotifier<MapLayoutReport?> rapport =
+          ValueNotifier<MapLayoutReport?>(null);
+      addTearDown(rapport.dispose);
 
       return tester.pumpWidget(
         MaterialApp(
@@ -98,13 +104,15 @@ void main() {
               children: <Widget>[
                 // `stations` VIDE : déclenche l'avis « ni station… » +
                 // « Élargir la recherche » (`NoStationInAreaNotice`), posé
-                // SOUS les puces en haut-gauche — exactement ce que le
+                // dans le bloc de lecture, en haut à gauche — exactement ce que le
                 // panneau ne doit plus recouvrir (point 3).
-                ...buildMapOverlays(
+                buildMapOverlays(
                   filterHidesEverything: false,
                   onClearFilters: () {},
                   filterActive: false,
                   onOpenFilters: () {},
+                  // Comme `main.dart` : « Favoris » posé, cinq boutons au bas.
+                  onOpenFavorites: () {},
                   scale: MapScaleKind.debit,
                   onSelect: (MapScaleKind kind) {},
                   onWiden: () {},
@@ -115,6 +123,7 @@ void main() {
                   onZoomIn: () {},
                   onZoomOut: () {},
                   onRecenter: () {},
+                  layoutReport: rapport,
                 ),
                 fluidityProbeOverlay(
                   probe: probe,
@@ -128,14 +137,20 @@ void main() {
     }
 
     /// Les six surcouches — plus le panneau — dont AUCUNE paire ne doit se
-    /// recouvrir.
+    /// recouvrir. Depuis `D2` d'Ergonomie, l'avis et la légende défilent dans
+    /// leur pièce du bloc de lecture : c'est la FENÊTRE de la pièce qui se
+    /// voit, et qui compte ici, pas leur contenu, plus haut qu'elle.
     Map<String, Rect> rectsAt(WidgetTester tester) => <String, Rect>{
       'WarningLink': tester.getRect(find.byType(WarningLink)),
-      'MapLegend': tester.getRect(find.byType(MapLegend)),
-      'MapScaleChips': tester.getRect(find.byType(MapScaleChips)),
+      'MapLegend': tester.getRect(find.byType(MapReadingBlockLegend)),
+      'MapReadingSelector': tester.getRect(find.byType(MapReadingSelector)),
       'NoStationInAreaNotice': tester.getRect(
-        find.byType(NoStationInAreaNotice),
+        find.ancestor(
+          of: find.byType(NoStationInAreaNotice),
+          matching: find.byType(MapReadingBlockNotices),
+        ),
       ),
+      'MapEntryButtons': tester.getRect(find.byType(MapEntryButtons)),
       'MapControls': tester.getRect(find.byType(MapControls)),
       'IgnAttributionBadge': tester.getRect(find.byType(IgnAttributionBadge)),
       'FluidityProbePanel': tester.getRect(find.byType(FluidityProbePanel)),
@@ -159,7 +174,7 @@ void main() {
     }
 
     testWidgetsOnWindows(
-      'panneau au repos : aucune exception, aucun recouvrement (puces, '
+      'panneau au repos : aucune exception, aucun recouvrement (sélecteur, '
       "avis « ni station… », avertissement, légende, contrôles, "
       'attribution)',
       (WidgetTester tester) async {

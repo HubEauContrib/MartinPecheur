@@ -4,7 +4,7 @@
 // sans raccourci (`K2` les ajoute ensuite). Ces boutons ne remplacent donc
 // pas la molette, ils la complètent.
 //
-// Ce widget est un widget de CONTENU pur, comme [MapScaleChips] et
+// Ce widget est un widget de CONTENU pur, comme le sélecteur de lecture et
 // [IgnAttributionBadge] : il ne pilote aucune caméra `flutter_map` et ne
 // connaît pas `MapViewModel`. C'est `_MapViewState`
 // (`lib/features/map/view/map_view.dart`) qui construit les trois rappels —
@@ -20,6 +20,10 @@
 // d'annonce activable — plutôt que de disparaître : un contrôle qui
 // s'efface change la disposition des deux autres à chaque geste, ce
 // qu'aucune spécification ne demande.
+//
+// Le groupe se pose en colonne (défaut) ou en rangée ([MapControls.axis],
+// `S4` d'Ergonomie : le bas de la carte au téléphone). Il ne compte qu'une
+// hauteur intrinsèque, que la mise en page de la carte (`D1`) interroge.
 
 import 'package:flutter/material.dart';
 import 'package:martinpecheur/features/map/view/map_round_button.dart';
@@ -30,7 +34,7 @@ import 'package:martinpecheur/features/map/view/map_round_button.dart';
 const double zoomStep = 1.0;
 
 /// Espacement entre deux boutons, en pixels logiques : ≥ 8 dp (`04-ui.md`
-/// § 3), comme entre deux puces d'échelle ([MapScaleChips]).
+/// § 3), comme entre deux entrées du sélecteur de lecture.
 const double mapControlsSpacing = 8;
 
 /// Clé du bouton `+`.
@@ -46,13 +50,23 @@ const Key mapRecenterButtonKey = Key('map-recenter');
 /// recentrage — chacun une cible tactile ≥ 44 × 44 pt, espacés d'au moins
 /// 8 dp (`04-ui.md` § 3). Le bouton « Restrictions au centre de la carte » en
 /// est sorti le 2026-09-29 (`designate_center_button.dart`).
+///
+/// En colonne ([Axis.vertical], le défaut) : `+`, `−`, recentrage, de haut en
+/// bas. En rangée ([Axis.horizontal], le bas de la carte au téléphone, `S4`
+/// d'Ergonomie) : `−`, `+`, recentrage, de gauche à droite — l'ordre de
+/// l'écran, que la tabulation suit. Dans les deux cas, [mapControlsSpacing]
+/// sépare deux boutons.
 class MapControls extends StatelessWidget {
   const MapControls({
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onRecenter,
+    this.axis = Axis.vertical,
     super.key,
   });
+
+  /// Le sens du groupe : une colonne (défaut) ou une rangée.
+  final Axis axis;
 
   /// Appelé par un tap sur `+`. `null` quand `MapViewModel.canZoomIn` est
   /// faux (zoom déjà maximal) : le bouton se rend alors désactivé plutôt que
@@ -70,30 +84,36 @@ class MapControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final Widget zoomIn = MapRoundButton(
+      semanticsKey: mapZoomInButtonKey,
+      icon: Icons.add,
+      label: 'Zoomer',
+      onTap: onZoomIn,
+    );
+    final Widget zoomOut = MapRoundButton(
+      semanticsKey: mapZoomOutButtonKey,
+      icon: Icons.remove,
+      label: 'Dézoomer',
+      onTap: onZoomOut,
+    );
+    final Widget recenter = MapRoundButton(
+      semanticsKey: mapRecenterButtonKey,
+      icon: Icons.my_location,
+      label: 'Recentrer la carte',
+      onTap: onRecenter,
+    );
+    // Un `Flex` et non `Column`/`Row` : un seul widget pour les deux sens.
+    return Flex(
+      direction: axis,
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
+      spacing: mapControlsSpacing,
       children: <Widget>[
-        MapRoundButton(
-          semanticsKey: mapZoomInButtonKey,
-          icon: Icons.add,
-          label: 'Zoomer',
-          onTap: onZoomIn,
-        ),
-        const SizedBox(height: mapControlsSpacing),
-        MapRoundButton(
-          semanticsKey: mapZoomOutButtonKey,
-          icon: Icons.remove,
-          label: 'Dézoomer',
-          onTap: onZoomOut,
-        ),
-        const SizedBox(height: mapControlsSpacing),
-        MapRoundButton(
-          semanticsKey: mapRecenterButtonKey,
-          icon: Icons.my_location,
-          label: 'Recentrer la carte',
-          onTap: onRecenter,
-        ),
+        ...switch (axis) {
+          Axis.vertical => <Widget>[zoomIn, zoomOut],
+          Axis.horizontal => <Widget>[zoomOut, zoomIn],
+        },
+        recenter,
       ],
     );
   }

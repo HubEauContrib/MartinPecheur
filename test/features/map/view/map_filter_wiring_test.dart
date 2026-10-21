@@ -8,7 +8,7 @@
 // filtre actif pour l'échelle affichée, à tous les zooms. Le bouton seul et
 // la feuille seule ont leurs fichiers (`map_entry_buttons_test.dart`,
 // `map_filter_sheet_test.dart`) ; la disposition du groupe, les siens
-// (`map_view_test.dart`, `map_overlays_phone_test.dart`).
+// (`map_layout_invariants_test.dart`).
 import 'dart:async';
 
 import 'package:flutter/material.dart';

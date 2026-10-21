@@ -25,3 +25,45 @@ Fonctionnalité: Le contenu de la fiche station hydrométrique
     Quand la fiche de cette station s'affiche
     Alors elle affiche « La station n'a pas transmis de valeur pour ce paramètre. »
     Et jamais un zéro ni un tiret seul à la place (BR-007)
+
+  # ── Ergonomie — la fiche station hiérarchisée (cadrage du 2026-10-17, critère 11 ; F1)
+
+  Scénario: La fiche station se lit dans l'ordre, débit puis hauteur, chacun avec sa date et sa source
+    Étant donné la fiche prête de la station K447001001, qui porte un débit et une hauteur
+    Quand la fiche s'affiche
+    Alors son en-tête porte « Station hydrométrique · K447001001 » et le contrôle « ⚠ Avertissement »
+    Et son corps se lit dans l'ordre : le nom, le cours d'eau et le département, la tuile du débit puis celle de la hauteur, chacune avec sa valeur, sa date de mesure et sa source (BR-001)
+    Et dessous « Statut (Hub'Eau) » et « Qualification (Hub'Eau) », chacun au-dessus de sa valeur, puis l'avis de fraîcheur quand il y en a un (BR-006)
+
+  # ── Ergonomie — la carte ne bouge pas sous une fiche (cadrage du 2026-10-17, arbitrage 12, critère 9 ; D4)
+  # La règle vient de l'arbitrage 12 de la spec d'ergonomie (docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md) : aucun BR ne la porte ; BR-008 est cité pour la carte et ses lectures.
+  # Vérifié par test/features/map/view/map_view_test.dart, groupe « MapView — critère 9, la carte ne bouge pas sous une fiche (D4 d’Ergonomie) »
+  # Vérifié par test/features/map/view/map_view_test.dart, groupe « MapView — les boutons de zoom (K1) » (début du nom ; cas « D4 : … » et « sans fiche, recentrer au démarrage … »)
+  # Vérifié par test/features/map/view/map_view_test.dart, groupe « MapView — la sélection d une pastille recharge l emprise » (début du nom ; cas « D4 : … »)
+  # Vérifié par test/features/map/view/map_designation_reticle_test.dart, groupe « recentrer au téléphone, marge système posée (D4 d’Ergonomie) »
+
+  Scénario: Ouvrir ou fermer une fiche ne déplace pas la carte ; recentrer, zoomer et cadrer une pastille se font dans la carte visible
+    Étant donné la carte affichée, sans fiche ouverte
+    Quand une fiche s'ouvre, défile puis se ferme
+    Alors la carte ne se déplace pas et ses lieux ne se rechargent pas
+    Et une fois une fiche ouverte, recentrer pose le centre de démarrage au centre de la partie de la carte que la fiche ne couvre pas
+    Et hors mode « Restrictions », « + » et « − » zooment autour de ce centre ; cadrer une pastille pose ses lieux dans cette partie (BR-008, ADR-015)
+
+  # ── Ergonomie — l'en-tête de la fiche s'épingle, le corps défile (cadrage du 2026-10-17, arbitrage 3, critère 10 ; D5)
+  # La règle vient de l'arbitrage 3 de la spec d'ergonomie (docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md, § 6.1) : aucun BR ne la porte ; BR-012 est cité pour « ⚠ Avertissement », que l'en-tête garde à l'écran.
+  # Vérifié par test/main_test.dart, groupe « une fiche s ouvre par le haut (K4 de T3) — composition reelle »
+  # Vérifié par test/main_test.dart, groupe « la fiche troncon dans la zone des fiches (F4 de T4) — composition » (début du nom)
+  # Vérifié par test/features/map/view/map_sheet_area_test.dart, groupe « zone des fiches (D5 d’Ergonomie) — en-tête épinglé, corps défilant »
+  # Vérifié par test/features/map/view/map_layout_invariants_test.dart, groupe « I-c, I-e, I-f — réticule et fiche »
+  # La mesure mise en avant (arbitrages 18 et 19 de la spec d'ergonomie, § 5.6 et § 6.1, D7) :
+  # Vérifié par test/features/station_sheet/view/station_summary_sheet_test.dart, groupe « StationSheetPanel — la mesure mise en avant (arbitrages 18 et 19) »
+  # Vérifié par test/features/onde_sheet/view/onde_summary_sheet_test.dart, groupe « OndeSheetPanel — la mesure mise en avant (arbitrages 18 et 19) »
+  # Vérifié par test/features/flood_sheet/view/flood_sheet_panel_test.dart, groupe « FloodSheetPanel — la mesure mise en avant (arbitrages 18 et 19) »
+  # Vérifié par test/features/map/view/map_layout_allocation_test.dart, groupe « Arbitrages 18 et 19 : la fiche du bas garde sa mesure mise en avant ; » (début du nom)
+
+  Scénario: L'en-tête d'une fiche reste en place quand elle défile ; une fiche s'ouvre toujours par le haut
+    Étant donné une fiche ouverte plus haute que la place que la carte lui laisse
+    Quand l'usager fait défiler la fiche
+    Alors seul son corps défile : son en-tête — sa nature, le code pour une station, l'étoile quand la fiche en porte une, la fermeture et « ⚠ Avertissement » — reste en place, entier à l'écran (BR-012)
+    Et quand une autre fiche s'ouvre, ou la même à nouveau, son corps se montre depuis son haut
+    Et, au bas de l'écran, elle garde au moins son en-tête et sa mesure mise en avant, avec ce qui la précède — pour une station, le nom, le cours d'eau et le département et la tuile du débit ; pour un point ONDE, la tuile de la catégorie ; pour un tronçon, le nom, l'encart de crue et le niveau — : là où la place manque, le haut du bloc de lecture défile d'abord, jusqu'à la hauteur d'une cible tactile, puis seulement le corps défile sous sa mesure (arbitrages 18 et 19)

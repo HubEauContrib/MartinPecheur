@@ -11,8 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:martinpecheur/features/shared/keyboard_focus_ring.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
 
-/// Un bouton rond, construit à la main pour la même raison que
-/// `_MapScaleChip` de `map_scale_chips.dart` : la cible tactile de 44 pt est
+/// Un bouton rond, construit à la main pour la même raison que les entrées
+/// du sélecteur (`map_reading_selector.dart`) : la cible tactile de 44 pt est
 /// ici une contrainte explicite, et l'état désactivé est porté par
 /// `Semantics(enabled:)` en plus du rendu.
 class MapRoundButton extends StatelessWidget {
@@ -26,8 +26,9 @@ class MapRoundButton extends StatelessWidget {
   });
 
   /// Posée sur le `Semantics` ci-dessous, PAS sur ce widget — comme pour
-  /// `_MapScaleChip` (`map_scale_chips.dart`) : c'est le nœud sémantique que
-  /// les tests trouvent, tapent et interrogent (`Semantics.enabled`).
+  /// les entrées du sélecteur (`map_reading_selector.dart`) : c'est le nœud
+  /// sémantique que les tests trouvent, tapent et interrogent
+  /// (`Semantics.enabled`).
   final Key semanticsKey;
 
   final IconData icon;
@@ -68,7 +69,7 @@ class MapRoundButton extends StatelessWidget {
       // Le libellé est déjà annoncé ici ; sans cette exclusion l'`Icon`
       // intérieur ne porterait rien de plus, mais `InkWell` ferait tout de
       // même remonter sa propre action de tap en double (même relecture
-      // que `WarningLink` et `_MapScaleChip`).
+      // que `WarningLink` et les entrées du sélecteur de lecture).
       excludeSemantics: true,
       onTap: handleTap,
       child: KeyboardFocusRing(

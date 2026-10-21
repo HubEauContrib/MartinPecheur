@@ -10,7 +10,7 @@
 > ✅ implémenté · 🔄 décidé ou en cours · 💭 spéculatif · ⬜ à faire. Un constat garde sa date, sa cible,
 > son mode (débogage ou release) et qui l'a fait.
 
-**Mis à jour :** 2026-10-17
+**Mis à jour :** 2026-10-21
 
 ## Où on en est
 
@@ -21,9 +21,9 @@
 | **T1** | Carte, fiches, modal et contrôle « ⚠ Avertissement » | ✅ close — `0.2.0` |
 | **T2** | Sécheresse et restrictions (VigiEau) | 🔄 porte non franchie : restent `A1`, `E4`, `P1`, `P2` (25 tâches closes sur 29) — `0.3.0` datée et taguée sans elle, sur décision du commanditaire |
 | **T3** | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` ; 50 tâches sur 50, `C1`, `P1`, `P2` comptées closes **en bloc** (décision réversible de la boucle principale) |
-| **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : le point 64 à l'écran, les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») |
-| **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md`, douze arbitrages) ; **avant T5** (arbitrages 16 et 17 du cadrage de T5) ; nom « Ergonomie », sans numéro, version `0.6.0` (T5 passe à `0.7.0`) ; porte sur Windows et Android ; **plan à écrire** |
-| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** jusqu'à la tranche d'ergonomie (arbitrage 16) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
+| **T4** | Crues : la vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` ; porte franchie le 2026-10-17 sur Windows (exécutable de release lancé hors Flutter) et sur Android (émulateur `Pixel_7`, débogage), constats du commanditaire ; `NFR-01` tenu sur la lecture Crues (Windows, `--profile`). **Non constaté** : les niveaux 2 à 4 en production, Narrateur et TalkBack, Segoe UI réelle (« T4 — code de `0.5.0` ») ; le point 64 est sans objet depuis la porte d'ergonomie (`R16`) |
+| **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | ✅ **close** — `0.6.0` ; plan `docs/superpowers/plans/2026-10-17-ergonomie.md`, cadrage `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md` (approuvé le 2026-10-17 ; vingt-six arbitrages au total) ; porte franchie sur Windows (exécutable de release lancé hors Flutter, 2026-10-19, « Oui, tout vu ») et sur Android (émulateur `Pixel_7`, débogage, « validé », rapporté le 2026-10-21), constats du commanditaire ; nom « Ergonomie », sans numéro (T5 passe à `0.7.0`). **Non constaté** : le détail de `P2`, la version installée et la marge système de l'émulateur, les tailles en deçà, TalkBack (« Ergonomie — code de `0.6.0` ») |
+| **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan suspendu** : la tranche d'ergonomie (arbitrage 16) est close, reste avant lui l'ADR d'empaquetage MSIX (arbitrage du 2026-10-19) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
 
 **Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
 `BR-013` ; l'étiquette est discutée au point 52). Les quatre sont posés dans le code : le modal du premier
@@ -32,16 +32,18 @@ l'écran des restrictions. Le modal et le contrôle sont constatés à l'écran 
 renforcé n'est vu qu'« en tête », en débogage sur Windows (2026-10-04), « non repliable » non constaté ;
 aucune publication Android (`A⏸3`, `A⏸5`).
 
-## Vérifié au 2026-10-17
+## Vérifié au 2026-10-21
 
-Sur le sommet `e401fb9` de T4, avec les documents de la clôture de `0.5.0` (`P3`) : `flutter analyze` →
-« No issues found! », `flutter test` → « +3978: All tests passed! » (3 973 avant `P3`, 3 313 au départ de T4), `dart format` sans diff.
+Sur le code de `7ce3f73` (code de la tranche d'ergonomie, inchangé depuis), avec les documents de la clôture de `0.6.0` :
+`flutter analyze` → « No issues found! », `flutter test` → « +7059: All tests passed! » (3 978 à la clôture de T4),
+`dart format` sans diff.
 
-**Réserve durable sur les polices de mesure.** Quatre fichiers de test mesurent en Roboto, chargée depuis
-le SDK Flutter (`FLUTTER_ROOT`) : `map_overlays_phone_test.dart`, `map_sheet_height_test.dart`,
-`map_entry_buttons_overlap_test.dart` (ils échouent si la police manque) et
-`restrictions_scale_text_test.dart` (ignoré si `FLUTTER_ROOT` manque hors intégration continue). Sous
-Windows, Roboto y est enregistrée sous le nom « Segoe UI », un substitut : **Segoe UI réelle n'est jamais
+**Réserve durable sur les polices de mesure.** Onze fichiers de test mesurent en Roboto, chargée depuis
+le SDK Flutter (`FLUTTER_ROOT`) : `map_reading_selector_test.dart`, `map_legend_test.dart`,
+`map_reading_block_test.dart`, `map_layout_test.dart`, `map_layout_invariants_test.dart`, `sheet_frame_test.dart`,
+`station_summary_sheet_test.dart`, `onde_summary_sheet_test.dart`, `ergonomie_budget_test.dart`,
+`map_designation_reticle_test.dart` (ils échouent si la police manque) et `restrictions_scale_text_test.dart` (ignoré si
+`FLUTTER_ROOT` manque hors intégration continue). Sous Windows, Roboto y est enregistrée sous le nom « Segoe UI », un substitut : **Segoe UI réelle n'est jamais
 mesurée.**
 
 ## Non constaté à l'écran, par tranche
@@ -49,7 +51,8 @@ mesurée.**
 ### Transverse
 
 - **Segoe UI réelle** : jamais mesurée (voir plus haut).
-- **Lecteur d'écran** : ni Narrateur ni TalkBack n'ont été écoutés, sur aucun écran (point 33).
+- **Lecteur d'écran** : TalkBack n'a jamais été écouté ; au Narrateur, seul le « Retour » des écrans pleins est
+  constaté (`i` de la porte d'ergonomie, 2026-10-19) ; le reste au point 33.
 - **Hors réseau** : une zone de carte jamais chargée n'est pas constatée ; le cache de tuiles n'est
   éprouvé que sur des zones déjà parcourues (2026-09-13). Épreuve hors réseau de T1 conforme en release
   (2026-09-27, `NFR-03`).
@@ -87,16 +90,15 @@ aucun exécutable de release de `0.3.0` n'a été construit.**
 - **Comportements** : filtre par profil, absence de zone, échecs nommés, cache de session ; hors réseau ;
   annonce de l'encart renforcé au lecteur d'écran.
 - **Dus depuis le 2026-10-06 (revue de T2), sur Windows** : (a) clic droit dans la bande du bouton de
-  désignation, à côté du bouton, en mode — il doit atteindre la carte ; (b) clic droit à gauche de
-  « ⚠ Avertissement », sur l'échelle débit — idem ; (c) à 800 × 740 et 200 %, la légende de l'échelle débit
-  atteinte à la molette, sans barre (387 px à défiler, mesurés par `F10b`, non remesurés depuis
-  « Favoris ») ; (d) au retour de l'écran des restrictions, le contenu reste pendant la transition ;
+  désignation, à côté du bouton, en mode — il doit atteindre la carte ; (d) au retour de l'écran des restrictions, le contenu reste pendant la transition ;
   (e) redimensionner après avoir défilé : position gardée, tête épinglée (repli en largeur sous 792 px) ;
   (f) l'avis « Ce lien n'a pas pu être ouvert… » amené dans le champ à chaque échec, sous la seule carte
   pressée quand arrêté et arrêté-cadre ont la même adresse ; (g) au zoom minimal, flèche Haut répétée :
   arrêt au bord du monde, reprise à la première flèche Bas, le bouton désigne le point sous le réticule ;
   (h) au bord nord, agrandir la fenêtre en hauteur : aucun vide au-delà du monde, un appui long tout en haut
-  désigne une latitude ≤ 85,06°.
+  désigne une latitude ≤ 85,06°. **Sans objet** depuis la porte d'ergonomie (2026-10-21, `R16` de son cadrage :
+  la colonne droite de la disposition large a disparu) : (b) le clic droit à gauche de « ⚠ Avertissement », sur
+  l'échelle débit ; (c) à 800 × 740 et 200 %, la légende de l'échelle débit atteinte à la molette.
 - **La porte** : `P1` de T2 (exécutable de release de `0.3.0` lancé hors Flutter, sept constats, hors
   réseau) et `P2` de T2 (émulateur Android, au toucher).
 
@@ -112,16 +114,16 @@ Flutter — `P1-c` à `P1-k`, « c'est bon » ; dossier `Release` de 35 Mo, 15 f
   avion) ; pour `P1-g`, s'il restait un point ONDE à l'écran ; pour `C1`, secteur, catégories, comptes et
   symboles d'une pastille avec et sans filtre, pastille disparue ; `P2-c` à `P2-j` hors `P2-g`, rangés dans
   « au toucher » par la boucle principale ; durée et dernière ligne des constructions, premier écran Android.
-- **Mesuré en test pendant T3, à voir à l'écran** : les trois écarts du point 61, acceptés en constat —
-  à 360 × 640 et 100 %, l'avis d'absence « écoulement » qui dépasse de 8 px ; à 200 %, la puce
-  « Restrictions » coupée (52 % atteignables à 360 × 568, rien à 360 × 540), à éprouver sur Android ; au
-  téléphone à 200 %, l'avis de carte vidée coupé au repos et « Effacer les filtres » hors de vue (193 px à
-  défiler à 360 × 640) ; à 360 × 300, seul
-  « ⚠ Avertissement » en haut, l'échelle ne se change qu'en glissant depuis lui (décision 4) ; fiche et
-  bandeau d'attribution bord à bord, fiche qui perd 28 px en mode (`K5`) ; « Favoris » qui dépasse de 12 px
-  par le haut de sa fenêtre à 640 × 360 et 600 × 360 ; anneau de focus bleu sur le fond bleu
-  d'« Appliquer » ; marque ronde du bouton « Filtres » actif peinte sur l'anneau de focus ; fiche ONDE à
-  200 % défilée jusqu'au rappel de rythme, à la molette et au doigt (point 60).
+- **Mesuré en test pendant T3, à voir à l'écran** : anneau de focus bleu sur le fond bleu d'« Appliquer » ;
+  marque ronde du bouton « Filtres » actif peinte sur l'anneau de focus ; fiche ONDE à 200 % défilée
+  jusqu'au rappel de rythme, à la molette et au doigt (ancien point 60, clos).
+- **Sans objet depuis la porte d'ergonomie** (2026-10-21, `R16` de son cadrage : la disposition qu'ils
+  décrivent est remplacée), un à un : deux écarts de la colonne du bas du point 61, l'avis d'absence
+  « écoulement » qui dépassait de 8 px à 360 × 640 et 100 % et la puce « Restrictions » coupée à 200 % (le
+  troisième, l'avis de carte vidée coupé au repos à 360 × 640 et 200 %, reste accepté en constat là où l'avis
+  cède) ; à 360 × 300, « ⚠ Avertissement » seul en haut et l'échelle changée en glissant depuis lui
+  (décision 4) ; la fiche et le bandeau d'attribution bord à bord, la fiche qui perdait 28 px en mode (`K5`) ; « Favoris » qui dépassait de 12 px par le haut de sa
+  fenêtre à 640 × 360 et 600 × 360.
 - **Décisions à confirmer à l'écran** : point 62.
 
 ### T4 — code de `0.5.0`
@@ -142,20 +144,51 @@ release est celui de `data/app.so`, daté du 2026-10-17 à 19:58, après le dern
 
 **Non constaté** :
 
-- **Le point 64 à l'écran** (recouvrement des puces et du « ⚠ Avertissement » de la carte par la fiche
-  tronçon), sur Windows comme sur Android : le commanditaire ne l'a pas dicté. Accepté en constat le
-  2026-10-16 et figé par test, il reste à voir.
+- **Le point 64 et la disposition des puces (point 61)**, jamais dictés à la porte de T4 : **sans objet**
+  depuis la porte d'ergonomie (2026-10-21, `R16`), qui a remplacé la disposition qu'ils décrivaient.
 - **`j`** : aucun épisode de crue signalé ; les niveaux 2 à 4 ne sont éprouvés qu'en cas construits.
-- Narrateur et TalkBack ; Segoe UI réelle (mesures en Roboto) ; la disposition des puces (point 61) à
-  l'écran ; `NFR-01` sur Android ; le rythme de publication de Vigicrues.
+- Narrateur et TalkBack ; Segoe UI réelle (mesures en Roboto) ; `NFR-01` sur Android ; le rythme de
+  publication de Vigicrues.
 - Le détail de ce que chaque « ok » recouvre n'est pas rapporté. L'API Vigicrues n'est jamais appelée
   par un test.
+
+### Ergonomie — code de `0.6.0`
+
+**Constaté par le commanditaire** : le 2026-10-19 sur Windows, exécutable de release lancé hors Flutter, code de
+`7ce3f73` (`P1`) — « c'est bon », précisé par question fermée, « Oui, tout vu » : constats `a` à `j` du cadrage
+(§ 10) vus et conformes, à la taille du lancement et à 800 × 740, texte à 100 % puis 200 %, dont `h` (zone cliente
+de 1 280 × 740) et `i` (« Retour » au Narrateur) ; les points à voir en Segoe UI réelle (grille du sélecteur,
+rayon, ombre et couture du bloc, filet des fiches, tuiles de la fiche station, pilule à 800 × 740 et 100 %) :
+« Vus, conformes ». Rapporté le 2026-10-21 sur Android, émulateur `Pixel_7`, débogage (`P2`), code installé non
+relu : « j'ai testé la 10 P2 c'est validé », sans détail. Relevé par la boucle principale, non rapporté par le
+commanditaire : dossier `Release` de 35 Mo (36 224 870 octets), 15 fichiers, `NFR-06` tenu.
+
+- **Non dit sur Android** : le détail de `P2` (`a` à `g` et `j`, police à 100 % puis 200 %, `g` en écran
+  divisé). La **version installée** sur l'émulateur n'a pas été relue par `adb` (émulateur éteint au moment
+  du relevé). La **marge système** réelle du `Pixel_7` n'a été ni relevée ni comparée à celle des tests
+  (24 + 48, `PD10`) : à 390 × 844 et 200 %, il ne reste que 6 px de jeu, une marge réelle plus haute ferait
+  défiler le bloc.
+- **En deçà des quatre tailles** (arbitrages 21 à 26, `D8`) : la **colonne du bas qui défile** au-dessus de
+  l'attribution en paysage (600 et 640 × 360) ; le « ⚠ Avertissement » **de la fiche rogné**, hors de
+  l'ordre de tabulation mais annoncé (arbitrage 25) ; la **limite acceptée** de 360 × 300 et 200 %, fiche
+  station ouverte, où la partie fixe n'a que 40 px (0 sous la marge d'un téléphone, arbitrage 26). Non
+  constatées : la fenêtre minimale de Windows est de 800 × 740, et sur l'émulateur `Pixel_7` il faudrait un
+  écran divisé ou un autre profil (le détail de `g` n'est pas rapporté) ; éprouvées en test seulement, en Roboto.
+- **Fiche du bas ouverte** (arbitrages 19 et 20), mesurés en test seulement, en Roboto, ni dictés ni nommés par
+  le « validé » de `P2` :
+  à 360 × 640 et 100 %, avec l'avis d'échec d'écriture du favori, la partie fixe du bloc défile de 15 px ; la
+  **marge basse de 12 px** du corps n'entre pas dans la mesure mise en avant (la tuile touche le bas de la
+  fiche) ; le filet de l'en-tête touche l'avis d'échec d'écriture, qui n'a pas de marge.
+- TalkBack ; `NFR-01` sur la disposition de `0.6.0` ; zone cliente de lancement à 125, 150 et 200 % de mise
+  à l'échelle (point 65).
 
 ### Android
 
 - **Constaté** : une construction en débogage, lancée sur l'émulateur `Pixel_7` le 2026-10-14 (APK
   `versionName` `0.4.0`, `versionCode` 4), confirmée en bloc par le commanditaire ; puis le 2026-10-17 la
-  `0.5.0` en débogage, sur l'émulateur `Pixel_7`, `P2-a` à `P2-g` et `P2-i` « ok » (T4).
+  `0.5.0` en débogage, sur l'émulateur `Pixel_7`, `P2-a` à `P2-g` et `P2-i` « ok » (T4) ; puis, rapporté le
+  2026-10-21, la porte d'ergonomie en débogage sur l'émulateur `Pixel_7`, « validé » sans détail (version
+  installée non relue par `adb`).
 - **Non constaté** : aucune construction de release ; aucune sur le code de `0.3.0` (`A1` de T2) ; appareil
   réel (`A⏸4`) ; signature (`A⏸3`) et préversion (`A⏸5`) ; tenue sur entrée de gamme réel (`NV-5`) ;
   ouverture d'un arrêté par `url_launcher` ; TalkBack ; `NFR-01` sur Android.
@@ -191,22 +224,16 @@ Les numéros sont ceux d'origine : ils sont cités ailleurs et ne se réutilisen
 | 43 | **Pastilles qui se chevauchent au niveau département** : Île-de-France (75, 92, 93, 94), marqueurs corses sans rattachement dessinés sur la pastille 62 | Écart accepté pour T1 par le commanditaire le 2026-09-23 (`04-ui.md § 3`), non repris depuis ; écartés alors : fusion des pastilles proches, seuil de 9 abaissé |
 | 46 | **Coût du parcours au Tab dans la carte** (`K2`) : au zoom 9 en zone dense, 450 à 1 500 marqueurs, ≈ 100 ms par appui en test (débogage), jusqu'à ≈ 900 appuis pour atteindre « ⚠ Avertissement » | Jamais mesuré en release : la mesure `X3` ne parcourt pas la carte au Tab |
 | 47 | **Clés de marqueurs en double** sur une fenêtre de plus de 4 096 px de large, au zoom minimal 4 | Cas marginal non traité : la caméra n'est contrainte qu'en latitude. Lu dans le code, non éprouvé par un test de largeur |
-| 48 | 🚨 **Constats d'écran de T2**, faits en partie le 2026-10-04 (débogage, Windows) | Dus au commanditaire : liste dans « Non constaté à l'écran », T2 — `E4` (points 4 et 6, réserve du point 2), constats de la désignation et de l'écran des sources, (a) à (h) du 2026-10-06, porte `P1` et `P2` de T2. Un point non fait se note « manquant » ; les tests ne remplacent pas l'écran |
-| 49 | **En mode « Restrictions », au téléphone, l'avis recouvre le réticule** (dès 100 % à 360 × 640 ; en mode et carte vide, dans la plupart des cas) | Mesuré en test, en Roboto (« CONSTAT » de `map_overlays_phone_test.dart`), ni corrigé ni accepté. La puce « Restrictions » coupée sur fenêtre courte est acceptée (point 61). Levé par un constat sur appareil et une décision du commanditaire. **Tranché le 2026-10-17** (cadrage d'ergonomie, arbitrages 10 et 11) : le réticule, fixé entre la partie fixe du bloc de lecture et la bande du bouton, n'est plus recouvert ; à faire dans la tranche d'ergonomie, clos à sa porte |
-| 51 | **Le bouton de retour des écrans pleins** (`BackButton` de `ScreenTitleBar`, `lib/features/shared/screen_layout.dart`) s'annonce « Back » : aucune localisation configurée, `flutter_localizations` absent de `pubspec.yaml` | Commanditaire : ajouter `flutter_localizations` (une dépendance, question fermée) ou un `IconButton` à `tooltip` français (non essayé) ; puis constat au Narrateur. **Tranché le 2026-10-17** : `flutter_localizations` (SDK), locale `fr` (cadrage d'ergonomie, arbitrage 8) ; à faire dans la tranche d'ergonomie, constat au Narrateur à sa porte |
+| 48 | 🚨 **Constats d'écran de T2**, faits en partie le 2026-10-04 (débogage, Windows) | Dus au commanditaire : liste dans « Non constaté à l'écran », T2 — `E4` (points 4 et 6, réserve du point 2), constats de la désignation et de l'écran des sources, (a), (d) à (h) du 2026-10-06 ((b) et (c) sans objet, `R16`), porte `P1` et `P2` de T2. Un point non fait se note « manquant » ; les tests ne remplacent pas l'écran |
 | 52 | **`BR-012` sert d'étiquette aux quatre avertissements** (`CLAUDE.md`, plan de T2, `04-ui.md`, `context-map.md`, `nfr.md`) alors que son texte ne couvre que le modal du premier lancement ; les emplacements 2 et 3 n'ont de texte de règle que l'amendement du 2026-09-23 de `BR-013` et `04-ui.md § 5` | Commanditaire : étendre `BR-012` par un amendement daté, ou cesser de la citer pour eux |
 | 53 | **Phrases d'écran citées par `restrictions.feature` et liées au code par aucun test** : 27 d'après une relecture (chiffre exact non fixé), plus trois phrases « sans eaux superficielles » et le scénario « l'arrêté-cadre liste ses zones » | Dette de test, sans décision : porter ces phrases par des constantes et les ajouter à `acceptance_features_test.dart` |
 | 54 | **Licences** : celle de la donnée servie par l'API VigiEau n'est pas établie (`VG-12`) ; la version de la Licence Ouverte pour Hub'Eau n'est écrite nulle part ; `ADR-004` (tableau du contexte) écrit « Licence Ouverte 2.0 (jeu data.gouv associé) » sans le dire | Commanditaire : aligner `ADR-004`. Levé si l'éditeur publie la licence, constaté par appel réel daté |
 | 55 | **`android/.kotlin/`**, cache de construction, n'est ignoré par aucune règle (`git check-ignore -v android/.kotlin` vide le 2026-10-15) ; le dossier est vide ce jour, donc absent de `git status` | À ignorer ou à supprimer, par le commanditaire |
 | 56 | **`docs/domain-model.md` en retard sur T1** : onze types de `lib/domain/` non décrits (listés dans l'avis d'en-tête du document) ; `domain_model_doc_test.dart` ne les vérifie pas | Dette de documentation : étendre `typesDuDomaine` (test rouge d'abord), décrire chaque type, puis retirer l'avis d'en-tête, qui cite les onze noms et ferait passer le test à vide |
 | 57 | **Limites laissées par la revue de T2** | Non annulées au délai : la phase de connexion (DNS, TCP, TLS) et une redirection suivie vers une autre origine (constaté contre des serveurs locaux ; aucune source appelée ne redirige). Doublons non arbitrés : le montage « contrôle accessible » en cinq copies, le câblage « une fermeture par clé » autour de `withCachePolicy` en trois. Caméra : un rechargement par pas pendant un redimensionnement continu au bord du monde (hors de France) ; dézoom vers 4 refusé sur une fenêtre de plus de 4 096 px de haut |
-| 59 | **Restes de la seconde relecture de T2** | Avis de lien non ouvert : pour un même lien, l'ordre d'achèvement des ouvertures décide (une réussite tardive efface l'avis d'un échec plus récent), non corrigé ; `map_overlays_phone_test.dart` porte 21 doublons exacts à 800 × 740, suppression à décider ; trou du filet de `R1` à `R3` : indexer les documents par adresse en minuscules ne fait rougir aucun test d'écran ; l'assertion de `openDocument` ne joue pas en release (un appel avec la cible du site public y échouerait en silence), gardée par décision réversible de la boucle principale ; le titre de test « la bande va de 60 à 740 (cible de 44) quand Android (48) la donne de 64 à 736 » cite une valeur d'Android qu'aucun test ne vérifie. Soldés en T3 : la plateforme des tests de widget (`N1` à `N9`, verrou `widget_test_platform_test.dart`), la barre de titre d'écran plein (`B1`), les décisions métier de la vue des restrictions (`R1` à `R3`) |
-| 60 | **Fiche plus haute que la carte** — zone des fiches bornée et défilante depuis le 2026-10-13 | **Tranché le 2026-10-17** (cadrage d'ergonomie, arbitrages 3, 4, 11 et 12) : fiche du bas qui ne recouvre plus la carte, panneau latéral dès 800 px, en-tête de fiche épinglé, carte immobile ; à faire dans la tranche d'ergonomie. Constat d'origine : en mode « Restrictions », une fiche haute masque le bouton de désignation (non construit dans 13 configurations sur 40). Limites : fermeture et étoile défilent avec la fiche ; pas de barre visible au bureau ; l'écart de 8 px défile ; pas de `SafeArea` ; `Tab` peut viser un contrôle hors champ ; ombre rognée ; réserve d'attribution calculée sur la hauteur entière du bandeau quand la colonne du bas défile (non mesuré) ; Roboto chargée trois fois dans les tests. Corrigés en T3 : la racine de composition ramène la fiche en haut à chaque ouverture par `sheetScrollController` (`K4`) — sans contrôleur fourni, la position de défilement survit au changement de fiche, tenu par le CONSTAT G de `map_sheet_height_test.dart` ; la marge basse de la fiche suit la hauteur réelle de l'attribution IGN (`K5`) |
-| 61 | **Colonne du bas à cinq boutons** (« Favoris », « Filtres », `+`, `−`, recentrer ; `K3` de T3) : trois écarts acceptés en constat par le commanditaire le 2026-10-14 — (a) à 360 × 640 et 100 %, l'avis d'absence « écoulement » dépasse de 8 px, action entière et atteignable ; (b) à 200 %, la puce « Restrictions », seule sortie du mode, est coupée : 52 % atteignables à 360 × 568, rien à 360 × 540 ; (c) à 360 × 640 et 200 %, l'action de l'avis de carte vidée n'est pas visible au repos (193 px à défiler) | **Repris le 2026-10-17** par la tranche d'ergonomie (cadrage, arbitrages 2, 10 et 11) : rangée du bas au téléphone, bloc de lecture ; (a), (b) et la disposition des puces soldés à sa porte ; (c) reste accepté en constat là où l'avis cède (troisième repli). Vérifié par test, en Roboto. À voir à l'écran, au commanditaire : (b) sur Android ; constats `f` (la colonne ne recouvre ni la fiche, ni le bouton de désignation, ni l'attribution, en Segoe UI réelle puis sur Android) et `d` (l'avis de carte vidée et « Effacer les filtres » sans défiler) du cadrage de T3, § 9 — confirmés seulement en bloc par `P1` et `P2`. Mise à jour du 2026-10-15 (arbitrage « accepter la disposition », `L1` de T4) : la troisième puce d'échelle fait passer le sélecteur sur une rangée de plus là où il ne tient pas (390 × 844 à 100 % : 2 rangées au lieu de 1 ; 360 × 640 à 200 % : 4 au lieu de 3 ; « Restrictions » à la ligne à 800 px en police de test) ; ce qui sort de la fenêtre de la colonne du haut s'atteint en la faisant défiler (même écart que l'avis de T3). Mesures figées par test, en Roboto : « Restrictions » atteignable à 80 % au repos à 360 × 640 / 200 %, 100 % après défilement ; puces entières au repos dès 650 px de haut (592 avant) ; sélecteur plus large de 19,75 px à 800 × 740 ; avis d'absence caché au repos à 360 × 640 / 200 % (362, 251, 325 et 251 px à défiler) ; sous la fiche de 320 px hors mode à 360 × 640 / 200 %, « Restrictions » s'atteint après 42 px de défilement. Constat antérieur inchangé : à 360 × 330 / 200 % en mode, « Restrictions » reste inatteignable même en défilant. Porte de T4 du 2026-10-17 : la disposition n'a pas été nommée par le commanditaire, toujours à constater à l'écran |
-| 62 | **Constats d'écran de T3 non dits, décisions à confirmer à l'écran** | Commanditaire : constater ou laisser « non vérifié » `P1-m`, `P2-g`, `P2-m` et le détail point par point (« Non constaté à l'écran », T3) ; confirmer les décisions de la boucle principale — l'étoile sous le bouton de fermeture de la fiche, « Appliquer » en couleur d'action principale, la décision 4 (« le haut cède d'abord »), le texte « La liste n'a pas pu être remplacée. » — et le décompte de `C1`, `P1`, `P2` closes en bloc |
-| 63 | **En mode « Restrictions », à 360 × 300 et 200 %, la pilule du bouton de désignation recouvre le centre du contrôle « ⚠ Avertissement »** ; le glisser depuis le contrôle n'y est pas possible non plus. Antérieur à T3, tenu par un « CONSTAT » de `map_overlays_phone_test.dart` | Non corrigé ; **tranché le 2026-10-17** (cadrage d'ergonomie, arbitrage 10) : la bande du bouton ne monte plus sur le bloc de lecture ; à 360 × 300, en deçà des quatre tailles garanties, « ⚠ Avertissement » s'atteint en faisant défiler le bloc ; à faire dans la tranche d'ergonomie. Hors mode, le contrôle reste visible et atteignable à toute taille |
-| 64 | **Fiche tronçon plus haute que la fiche station** (`K1` de T4) : elle recouvre des puces d'échelle que la fiche station de Blois laisse atteignables — les quatre à 800 × 740 / 200 % et à 360 × 640 / 100 %, « Vigilance crues » et « Restrictions » à 390 × 844 / 100 % sous « Jaune » (cas construit) ; défiler ne les dégage pas, fermer la fiche oui. Aux six configurations mesurées, un panneau station de même hauteur recouvre exactement les mêmes puces (affirmé par test) : c'est la zone des fiches du point 60. Et le contrôle « ⚠ Avertissement » de la carte passe sous la fiche tronçon à 360 × 640 (100 et 200 %) et à 390 × 844 (200 %) ; la fiche porte le sien, atteignable | **Tranché le 2026-10-16 : accepté en constat** par le commanditaire (« on le fige par test et on le regarde à la porte »), rattaché au point 60. Figé en Roboto par les cas « CONSTAT — K1 de T4 » et « CONSTAT — K1b de T4 » de `map_overlays_phone_test.dart` : les puces recouvertes (comparées à un panneau station de même hauteur), la boîte et le centre du contrôle de la carte par configuration, la sortie (fiche fermée, puces atteignables), le défilement de la colonne (étendue 0, 142, 690 ou 952 selon la taille : aucune puce dégagée). À voir à l'écran : **non dicté à la porte du 2026-10-17** (`P1`, `P2`), toujours non constaté à l'écran. **Repris le 2026-10-17** par la tranche d'ergonomie (cadrage, arbitrages 3, 4 et 10) : aucune fiche ne recouvre plus le bloc de lecture ; le constat devient sans objet à sa porte |
-| 65 | **Zone cliente de lancement sous Windows plus petite que le minimum 800 × 740** (§ 4.2 et `R23` du cadrage d'ergonomie) : `Create` passait 1 280 × 720 **hors tout** à `CreateWindow`, et le minimum de `WM_GETMINMAXINFO` ne joue pas à la création, le premier message arrivant avant `WM_NCCREATE`, quand le runner ne connaît pas encore son instance. Reproduit hors Flutter le 2026-10-17 (fenêtre Win32 au style du runner, 1 920 × 1 080 à 100 %, la boucle principale) : zone cliente **1 264 × 681** | **Corrigé et constaté à 100 %** : arbitrage du commanditaire du 2026-10-17 — `Create` reçoit une zone cliente, relevée au minimum, convertie par `AdjustWindowRectExForDpi` ; départ 1 280 × 740 (`main.cpp`) ; verrou `windows_min_size_test.dart`. **Constaté le 2026-10-17 par le commanditaire** sur le code de `6861a4d`, exécutable de release lancé hors Flutter, Windows à 100 %, relevé par `GetClientRect` : fenêtre 1 296 × 779, zone cliente **1 280 × 740**. Non constaté à 125, 150 ni 200 %. C'est la partie « zone cliente au lancement » du constat `h` de la porte d'ergonomie ; le reste de `h` (le panneau à 800 px) reste dû. Reste à trancher, par le commanditaire : **les écrans plus petits que la fenêtre minimale**. Sur un écran 1080p à 150 % (calcul : zone de travail de 672 px logiques de haut, barre des tâches de 48 px mise à l'échelle), la fenêtre minimale, environ 777 px logiques hors tout, ne tient pas, déjà avant la correction ; la fenêtre de lancement y débordait sous la barre des tâches d'environ 58 px logiques avant la correction et d'environ 115 après, origine y = 10 comprise, et dépasse l'écran à droite d'environ 25 px (10 avant). Plus haute que l'écran, une fenêtre est plafonnée par Windows à la création (mesuré le 2026-10-17 à 100 % par la boucle principale, reproduction Win32 : 1 100 px de zone cliente demandés, 1 061 obtenus, plafond `SM_CYMAXTRACK` de 1 100 px) : à 150 %, la zone cliente de lancement passerait donc sous 740 px de haut, non constaté |
+| 59 | **Restes de la seconde relecture de T2** | Avis de lien non ouvert : pour un même lien, l'ordre d'achèvement des ouvertures décide (une réussite tardive efface l'avis d'un échec plus récent), non corrigé ; `map_overlays_phone_test.dart` (supprimé par `D2` d'Ergonomie, remplacé par `map_layout_invariants_test.dart`) porte 21 doublons exacts à 800 × 740, suppression à décider ; trou du filet de `R1` à `R3` : indexer les documents par adresse en minuscules ne fait rougir aucun test d'écran ; l'assertion de `openDocument` ne joue pas en release (un appel avec la cible du site public y échouerait en silence), gardée par décision réversible de la boucle principale ; le titre de test « la bande va de 60 à 740 (cible de 44) quand Android (48) la donne de 64 à 736 » cite une valeur d'Android qu'aucun test ne vérifie. Soldés en T3 : la plateforme des tests de widget (`N1` à `N9`, verrou `widget_test_platform_test.dart`), la barre de titre d'écran plein (`B1`), les décisions métier de la vue des restrictions (`R1` à `R3`) |
+| 62 | **Constats d'écran de T3 non dits, décisions à confirmer à l'écran** | Commanditaire : constater ou laisser « non vérifié » `P1-m`, `P2-g`, `P2-m` et le détail point par point (« Non constaté à l'écran », T3) ; confirmer les décisions de la boucle principale — « Appliquer » en couleur d'action principale, le texte « La liste n'a pas pu être remplacée. » — et le décompte de `C1`, `P1`, `P2` closes en bloc. **Sans objet depuis la porte d'ergonomie** (2026-10-21, `R16`) : l'étoile sous le bouton de fermeture de la fiche et la décision 4 (« le haut cède d'abord ») |
+| 65 | **Zone cliente de lancement sous Windows plus petite que le minimum 800 × 740** (§ 4.2 et `R23` du cadrage d'ergonomie) : `Create` passait 1 280 × 720 **hors tout** à `CreateWindow`, et le minimum de `WM_GETMINMAXINFO` ne joue pas à la création, le premier message arrivant avant `WM_NCCREATE`, quand le runner ne connaît pas encore son instance. Reproduit hors Flutter le 2026-10-17 (fenêtre Win32 au style du runner, 1 920 × 1 080 à 100 %, la boucle principale) : zone cliente **1 264 × 681** | **Corrigé et constaté à 100 %** : arbitrage du commanditaire du 2026-10-17 — `Create` reçoit une zone cliente, relevée au minimum, convertie par `AdjustWindowRectExForDpi` ; départ 1 280 × 740 (`main.cpp`) ; verrou `windows_min_size_test.dart`. **Constaté le 2026-10-17 par le commanditaire** sur le code de `6861a4d`, exécutable de release lancé hors Flutter, Windows à 100 %, relevé par `GetClientRect` : fenêtre 1 296 × 779, zone cliente **1 280 × 740**. Non constaté à 125, 150 ni 200 %. C'est la partie « zone cliente au lancement » du constat `h` de la porte d'ergonomie ; le reste de `h` (le panneau à 800 px) est constaté le 2026-10-19 (`P1` d'ergonomie). Reste à trancher, par le commanditaire : **les écrans plus petits que la fenêtre minimale**. Sur un écran 1080p à 150 % (calcul : zone de travail de 672 px logiques de haut, barre des tâches de 48 px mise à l'échelle), la fenêtre minimale, environ 777 px logiques hors tout, ne tient pas, déjà avant la correction ; la fenêtre de lancement y débordait sous la barre des tâches d'environ 58 px logiques avant la correction et d'environ 115 après, origine y = 10 comprise, et dépasse l'écran à droite d'environ 25 px (10 avant). Plus haute que l'écran, une fenêtre est plafonnée par Windows à la création (mesuré le 2026-10-17 à 100 % par la boucle principale, reproduction Win32 : 1 100 px de zone cliente demandés, 1 061 obtenus, plafond `SM_CYMAXTRACK` de 1 100 px) : à 150 %, la zone cliente de lancement passerait donc sous 740 px de haut, non constaté |
 
 ## Points clos
 
@@ -237,16 +264,22 @@ Les numéros sont ceux d'origine : ils sont cités ailleurs et ne se réutilisen
 - 41 — « trop de bandeaux » — clos le 2026-09-23 : un seul contrôle « ⚠ Avertissement », constaté.
 - 44 — « Avertissemen… » tronqué — clos le 2026-09-23 : ruban DEBUG, libellé entier en release.
 - 45 — légende sur les contrôles de zoom à 800 × 400 — clos le 2026-10-12 : « La légende défile », 800 × 740 gardé.
+- 49 — l'avis recouvre le réticule en mode « Restrictions » au téléphone — clos le 2026-10-21 : réticule entre la partie fixe du bloc et la bande du bouton (arbitrages 10 et 11 d'ergonomie), porte franchie.
 - 50 — quatre décisions de la boucle principale (T2) — clos le 2026-10-06 : confirmées par le commanditaire.
+- 51 — bouton de retour annoncé « Back » — clos le 2026-10-21 : `flutter_localizations`, locale `fr` ; « Retour » constaté au Narrateur (`P1-i` d'ergonomie).
 - 58 — décisions de la boucle principale de la revue de T2 — clos le 2026-10-06 : quatre confirmées, une sans objet.
+- 60 — fiche plus haute que la carte — clos le 2026-10-21 : fiche du bas qui ne recouvre plus la carte, panneau latéral dès 800 px, en-tête épinglé, carte immobile ; porte d'ergonomie franchie.
+- 61 — colonne du bas à cinq boutons — clos le 2026-10-21 : rangée du bas au téléphone et bloc de lecture ; (a), (b) et la disposition des puces sans objet (`R16`) ; (c) reste accepté en constat là où l'avis cède.
+- 63 — pilule sur « ⚠ Avertissement » à 360 × 300 et 200 % — clos le 2026-10-21 : la bande ne monte plus sur le bloc (arbitrage 10 d'ergonomie) ; 360 × 300 éprouvé en test seulement, ni sur Windows ni sur l'émulateur.
+- 64 — fiche tronçon plus haute que la fiche station — clos le 2026-10-21 : sans objet (`R16`), aucune fiche ne recouvre plus le bloc de lecture.
 
 ## Points non vérifiés, assumés comme tels
 
 Une case vide est une case vide, pas un « probablement ».
 
 - **`NV-W4`** — iOS jamais compilé, faute d'hôte macOS. Sans date.
-- **`NV-W5` / `NV-5`** — Android : une seule construction constatée, en débogage sur émulateur ; ni appareil
-  réel, ni release, ni tenue sur entrée de gamme.
+- **`NV-W5` / `NV-5`** — Android : constructions constatées en débogage sur émulateur seulement (section
+  « Android » plus haut) ; ni appareil réel, ni release, ni tenue sur entrée de gamme.
 - **`Q-01` à `Q-04`** — mesurés une seule fois, le 2026-09-18 (`T-15`, point 14).
 - **Une zone de carte jamais chargée, hors réseau** — non constatée ; aucun bandeau « tuiles manquantes »
   n'existe.
@@ -293,7 +326,8 @@ Une case vide est une case vide, pas un « probablement ».
   resté en 3.47.4 réécrit ce fichier.
 - **2026-10-15** — puces d'échelle (`L1` de T4), question fermée « Accepter la disposition » : la troisième
   puce fait passer le sélecteur sur une rangée de plus là où il ne tient pas, et ce qui sort de la colonne
-  du haut s'atteint en la faisant défiler (mesures au point 61). À constater à l'écran à la porte.
+  du haut s'atteint en la faisant défiler (mesures à l'ancien point 61, clos). **Sans objet** depuis la porte
+  d'ergonomie (2026-10-21, `R16`) : le sélecteur de lecture a remplacé les puces.
 - **2026-10-15** — fiches à l'entrée sur la lecture Crues (relecture d'ensemble de T4), question fermée
   « Fiches Crues », réponse « Fermer, et changer d'échelle » : « Entrer sur la lecture Crues ferme les
   fiches station et ONDE. Ouvrir un favori station ou ONDE depuis la lecture Crues passe d'abord sur sa
@@ -303,8 +337,30 @@ Une case vide est une case vide, pas un « probablement ».
 - **2026-10-16** — fiche tronçon plus haute que la fiche station (point 64), question fermée « Accepter en
   constat » : « J'accepte en constat le recouvrement des puces et du « ⚠ Avertissement » de la carte par la
   fiche tronçon (point 64) : on le fige par test et on le regarde à la porte. » Figé par les cas « CONSTAT —
-  K1 de T4 » et « CONSTAT — K1b de T4 » de `test/features/map/view/map_overlays_phone_test.dart` ; à voir à
-  l'écran à la porte (`P1`, `P2`), en Segoe UI et sur l'émulateur.
+  K1 de T4 » et « CONSTAT — K1b de T4 » de `test/features/map/view/map_overlays_phone_test.dart` (supprimé par `D2` d'Ergonomie, remplacé par `map_layout_invariants_test.dart`).
+  **Sans objet** depuis la porte d'ergonomie (2026-10-21, `R16`) : aucune fiche ne recouvre plus le bloc de lecture.
+- **2026-10-19** — publication sur le Microsoft Store, question fermée « ADR d'empaquetage MSIX », réponse
+  « Après l'ergonomie » : « Oui, mais après la tranche d'ergonomie et avant T5 : je crée le compte d'ici
+  là. » L'ADR d'empaquetage MSIX pour le Store s'écrit entre la clôture de l'ergonomie et le plan de T5 ; le
+  commanditaire crée d'ici là son compte Partner Center. L'ADR reste à écrire et à arbitrer : aucune
+  bibliothèque n'est ajoutée, aucune publication n'est décidée. Relevé sur le web le 2026-10-19, à revérifier
+  dans l'ADR : inscription d'un particulier gratuite (annonce Microsoft du 2025-09-10) ; paquet `msix`
+  3.18.0, MIT, Windows, éditeur vérifié `kremer.software` ; un MSIX soumis au Store est signé par le Store,
+  un installeur EXE ou MSI doit l'être par l'éditeur, d'un certificat payant. Lien avec T5 : sans MSIX,
+  `cancel` et `getActiveNotifications` du plugin de notifications ne font rien
+  (`spike/t5_tache_de_fond/RELEVE-BIBLIOTHEQUES.md`).
+- **2026-10-21** — produit Microsoft Store créé et nom réservé par le commanditaire dans Partner Center. Type
+  « Application MSIX ou PWA » (fixé à la création ; passer à « EXE ou MSI » demanderait un autre produit,
+  d'après une réponse Microsoft Q&A d'avril 2023, non officielle). Nom « MartinPêcheur » réservé le
+  2026-10-21 : à soumettre dans les trois mois, **avant le 2027-01-21 environ**, sinon la réservation est
+  perdue (texte de Partner Center). Nom d'éditeur affiché `Monbsoft`, choisi parce qu'il vaut pour toutes les
+  applications du compte. Valeurs du manifeste relevées à l'écran le 2026-10-21 (« Identité du produit ») :
+  `Package/Identity/Name` = `46Monbsoft.com.MartinPcheur`, `Package/Identity/Publisher` =
+  `CN=6D56381B-9EA9-4C93-83CC-28D86DB31617`, `Package/Properties/PublisherDisplayName` = `Monbsoft`. Elles sont
+  publiques par nature (manifeste de tout paquet publié) ; aucun identifiant de compte n'est écrit ici. ID
+  Store `9NLKQL1WKQFK`, constaté le 2026-10-21 : seul produit de « Applications et jeux », statut « Non
+  soumis » (un autre ID collé plus tôt ne correspond à aucun produit de la liste). Rien n'est soumis ; l'ADR
+  d'empaquetage reprendra ces valeurs.
 
 ## Faits sans autre trace
 
@@ -318,11 +374,12 @@ Une case vide est une case vide, pas un « probablement ».
 
 ## Prochaine étape
 
-T4 est close : la porte est franchie sur Windows et Android (2026-10-17) et `0.5.0` est datée. Aucun tag n'est
-posé, rien n'est poussé ni fusionné : décisions du commanditaire. Restent à constater à l'écran, s'il le veut :
-le point 64 (et la disposition des puces, point 61), les niveaux 2 à 4 à l'occasion d'un épisode de crue.
-**La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas dit
-(point 62) se constate s'il le veut, ou reste « non vérifié ». **T5 est cadrée** (2026-10-17), son plan suspendu : la
-**tranche d'ergonomie** — maquette du 2026-10-03 et points 49, 51, 60, 61, 63, 64 — passe avant ; elle est **cadrée**
-(2026-10-17, `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md`) et son plan s'écrit d'abord ; le plan de
-T5 s'écrira ensuite, sur les écrans refaits (cadrage de T5, § 7 et § 13 ; cadrage d'ergonomie, § 12).
+La **tranche d'ergonomie est close** : la porte est franchie sur Windows (2026-10-19) et Android (rapportée le
+2026-10-21), et `0.6.0` est datée du 2026-10-21. Aucun tag n'est posé, rien n'est poussé ni fusionné : décisions
+du commanditaire. Restent à constater à l'écran, s'il le veut : le détail de `P2`, les niveaux 2 à 4 de crue à
+l'occasion d'un épisode ; et à relever, émulateur `Pixel_7` lancé : la marge système et la version installée,
+par `adb`. **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas
+dit (point 62) se constate s'il le veut, ou reste « non vérifié ». Vient ensuite l'**ADR d'empaquetage MSIX**
+pour le Microsoft Store (arbitrage du 2026-10-19 ; nom réservé le 2026-10-21, à soumettre avant le 2027-01-21 environ),
+puis le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
+cadrage d'ergonomie, § 12).

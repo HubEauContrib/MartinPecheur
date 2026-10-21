@@ -1,7 +1,8 @@
 // Verrouille [IgnAttributionBadge], **extrait** de `map_view.dart` par `K1`
 // (2026-09-23) dans son propre fichier
 // (`lib/features/map/view/ign_attribution_badge.dart`), au même titre que
-// [MapScaleChips] (`map_scale_chips_test.dart`). Aucun changement
+// les puces d'échelle d'alors (devenues le sélecteur de lecture,
+// `map_reading_selector_test.dart`). Aucun changement
 // d'assertion par rapport à la version qui vivait dans `map_view_test.dart`
 // (groupe « IgnAttributionBadge ») — seuls les imports changent.
 import 'package:flutter/material.dart';

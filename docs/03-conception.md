@@ -168,20 +168,25 @@ Le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste 
 ```
 Navigateur racine
 ├── Avertissement initial (modal bloquant, hors navigation, acquittement requis)
-├── Carte ......................... écran d'accueil
+├── Carte ......................... écran d'accueil — ✅ mise en page de la tranche d'ergonomie (`map_layout.dart`), sur trois largeurs : moins de 600 px, 600 à 799 px, 800 px et plus (`mapLayoutWidthFor`) ; vérifiée par test, non constatée à l'écran (porte de la tranche due)
+│   ├── Bloc de lecture (en haut ; toute la largeur sous 600 px, 480 px au plus en haut à gauche au-delà) ...... trois pièces posées sans écart, une seule carte blanche (`map_reading_block.dart`)
+│   │   ├── Partie fixe (titres du sélecteur et en-tête toujours entiers ; les sous-titres s'effacent, puis elle défile en dernier recours — arbitrages 13, 18 et 19) : sélecteur de lecture (`map_reading_selector.dart`) puis en-tête « Légende · <lecture> » qui porte le contrôle « ⚠ Avertissement » → fenêtre (W3c, présent dans tous les états)
+│   │   │   └── Sélecteur : trois lectures exclusives (écoulement, débit, vigilance crues) et l'interrupteur « Restrictions » (pas une lecture : il s'allume en plus de la lecture affichée) ; sous-titres effacés quand la hauteur manque
+│   │   ├── Avis (absence, hors couverture, filtre qui cache tout, panne, lignes illisibles, états de la lecture Crues) ...... défile dans le bloc
+│   │   └── Légende de la lecture active ...... défile dans le bloc
 │   ├── Recherche (station / cours d'eau) ...... 🔄 tranche ultérieure, non nommée (arbitrage 1 du 2026-10-12, `US-16`)
-│   ├── Favoris (bouton, groupe en bas à droite) ...... ✅ T3 : pousse l'écran « Favoris » ci-dessous
-│   ├── Filtres (feuille) ✅ T3 : ~~type ·~~ état · département · fraîcheur  ←  « type » = l'échelle, choisie par les puces d'échelle, non par la feuille ; états sur l'écoulement seul, fraîcheur (2 h, 24 h) sur le débit seul ; ouverte par le bouton « Filtres » du même groupe
-│   ├── Légende de l'échelle active
-│   ├── Contrôle « ⚠ Avertissement » → fenêtre (remplace le bandeau permanent, W3c, 2026-09-23)
-│   └── Résumé au tap (feuille) → fiche
-├── Fiche station hydrométrique .... route paramétrée par CodeStation
+│   ├── Bas de la carte (`MapBottom`, `map_bottom.dart`) ...... sous 600 px une rangée (« Favoris », « Filtres » à gauche ; −, +, recentrer à droite ; attribution IGN dessous), dès 600 px une colonne au bas à droite
+│   │   ├── Favoris (bouton) ...... ✅ T3 : pousse l'écran « Favoris » ci-dessous
+│   │   └── Filtres (feuille) ✅ T3 : ~~type ·~~ état · département · fraîcheur  ←  « type » = l'échelle, choisie par le sélecteur de lecture, non par la feuille ; états sur l'écoulement seul, fraîcheur (2 h, 24 h) sur le débit seul ; ouverte par le bouton « Filtres » du même groupe
+│   ├── En mode « Restrictions » : bande du bouton de désignation (au bas de la carte visible) et réticule (au centre) ...... retirés, fiche ouverte, au téléphone quand la hauteur manque et à toute largeur quand la bande ne tient pas à côté de la colonne du bas (repli 6, arbitrages 14 et 20)
+│   └── Fiche ouverte au tap sur un marqueur, un trait ou une étiquette de vigilance, ou depuis « Favoris », une à la fois (`map_sheet_area.dart`) ...... fiche du bas sous 800 px, panneau latéral de 380 px à droite dès 800 px ; la carte visible est l'écran moins la fiche, et la carte ne bouge pas
+├── Fiche station hydrométrique .... panneau de la zone des fiches (`map_sheet_area.dart`), paramétré par CodeStation
 │   ├── Débit (m³/s) + date + statut de qualification
 │   ├── Niveau relatif à l'historique + limites
 │   ├── Courbe 7 / 30 / 90 j ...... 🔄 tranche ultérieure, non nommée (arbitrage 1 du 2026-10-12, `US-11`)
 │   └── Actions : favori ✅ T3 (étoile, dans le cadre de la fiche), télécharger la zone, partager
 ├── Fiche tronçon Vigicrues ........ ✅ panneau et encart (T4, `F3`, `lib/features/flood_sheet/`) · ✅ injection et ouverture depuis un trait ou une étiquette composées par `main.dart` (F4), vérifiées par `test/main_test.dart`, non constatées à l'écran ; nom publié, encart de crue non repliable, niveau, définition citée, date, bulletin
-├── Fiche point ONDE ............... route paramétrée par CodeStation
+├── Fiche point ONDE ............... panneau de la zone des fiches (`map_sheet_area.dart`), paramétré par CodeStation
 │   ├── Catégorie + modalité officielle + date de campagne
 │   ├── Historique des campagnes
 │   ├── Action : favori ✅ T3 (étoile, dans le cadre de la fiche)
@@ -199,6 +204,8 @@ Navigateur racine
     ├── Cache et zones hors-ligne
     └── À propos — sources, licences, date de génération de l'asset
 ```
+
+> **Les trois fiches (station, point ONDE, tronçon) partagent un cadre** (`SheetFrame`, `lib/features/shared/sheet_frame.dart`) : un en-tête épinglé (nature, étoile, fermeture, « ⚠ Avertissement ») qui ne cède jamais, et un corps qui défile dessous. Fiche du bas ouverte, le corps ne cède que jusqu'à sa mesure mise en avant (la tuile **Débit**, la tuile de la **catégorie**, le **niveau**) : là où les six replis ne la lui laissent pas, la partie fixe du bloc de lecture défile, jusqu'à une cible tactile ; plus bas seulement, le corps cède sous sa mesure, jusqu'à l'en-tête (arbitrages 18 et 19). L'ordre de repli complet est dans `map_layout_allocation.dart` et dans le cadrage d'ergonomie (§ 5.6). L'ordre de tabulation est déclaré par les constantes `mapTraversalOrder*` (`map_traversal_order.dart`).
 
 ## 6. Points de vigilance
 

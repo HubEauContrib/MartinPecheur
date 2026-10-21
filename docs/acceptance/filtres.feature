@@ -80,10 +80,10 @@ Fonctionnalité: Filtrer la carte
     Quand la carte s'affiche
     Alors l'avis d'absence habituel s'affiche, et l'avis des filtres ne s'affiche pas (BR-007)
 
-  Scénario: Le type de donnée se choisit par les puces d'échelle, pas dans la feuille
-    Étant donné la carte et ses puces d'échelle
+  Scénario: Le type de donnée se choisit par le sélecteur de lecture, pas dans la feuille
+    Étant donné la carte et son sélecteur de lecture
     Quand la feuille « Filtres » s'ouvre
-    Alors elle ne propose aucune échelle : l'échelle active reste celle des puces (BR-008)
+    Alors elle ne propose aucune échelle : l'échelle active reste celle du sélecteur de lecture (BR-008)
 
   Scénario: Sur l'écoulement, la feuille ne propose pas de fraîcheur et dit la borne des 60 jours
     Étant donné l'échelle « Écoulement »
@@ -119,3 +119,19 @@ Fonctionnalité: Filtrer la carte
     Étant donné la fiche d'un lieu ouverte sur la carte
     Quand un filtre appliqué masque ce lieu
     Alors la fiche reste ouverte : un lieu masqué n'est pas une absence de donnée (BR-007)
+
+  # ── Ergonomie — le sélecteur de lecture (cadrage du 2026-10-17, critère 2, textes du § 11.2)
+
+  Scénario: Chaque entrée du sélecteur porte son titre et son sous-titre, annoncés ensemble
+    Étant donné la carte, son sélecteur de lecture et la désignation des restrictions câblée
+    Quand l'usager lit les quatre entrées du sélecteur, ou les écoute au lecteur d'écran
+    Alors il lit « Écoulement » et « observé sur le terrain », « Débit » et « relatif à l'historique », « Vigilance crues » et « publiée par Vigicrues », « Restrictions » et « arrêtés préfectoraux », et chaque entrée s'annonce par son titre et son sous-titre séparés par une virgule, comme « Débit, relatif à l'historique » ; quand la place manque, les sous-titres s'effacent de l'écran et l'annonce les garde (BR-008)
+
+  # ── Ergonomie — le bas de la carte (cadrage du 2026-10-17, critère 3, arbitrage 2 ; D2)
+
+  Scénario: Sous 600 px, « Favoris », « Filtres » et le zoom forment une rangée au bas de la carte ; à partir de 600 px, une colonne à droite
+    Étant donné la carte sur une fenêtre de moins de 600 px de large, un téléphone en portrait
+    Quand elle s'affiche
+    Alors « Favoris » et « Filtres » sont à gauche d'une rangée au bas de la carte, −, + et recentrer à droite, l'attribution IGN dessous
+    Et à partir de 600 px de large, les mêmes boutons forment une colonne au bas à droite de la carte visible, l'attribution dessous
+    Et les boutons ne changent ni de libellé, ni d'annonce, ni de comportement ; la rangée comme la colonne laissent la légende de la lecture affichée dans le bloc de lecture, au-dessus d'elles (BR-008)

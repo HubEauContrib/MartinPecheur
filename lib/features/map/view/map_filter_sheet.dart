@@ -12,7 +12,8 @@
 //   « Appliquer » ni « Effacer » — masquer un niveau publié cacherait une
 //   vigilance émise (cadrage de T4, § 7.7). « Fermer » reste.
 //
-// L'échelle ne se choisit pas ici : ce sont les puces de la carte (`BR-008`).
+// L'échelle ne se choisit pas ici : c'est le sélecteur de lecture de la carte
+// (`BR-008`).
 // « Effacer » est immédiat et porte sur les critères des deux échelles ;
 // fermer autrement que par « Appliquer » n'appelle jamais le rappel.
 //

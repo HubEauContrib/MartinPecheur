@@ -3,7 +3,8 @@
 // appui long ET clic droit à une position d'écran appellent chacun
 // `MapView.onPointDesignated` une fois, avec le `GeoPoint` que la caméra donne
 // pour cette position ; le tap simple sur le fond n'appelle rien ; le bouton
-// « Restrictions au centre de la carte » désigne le centre de la caméra ;
+// « Restrictions au centre de la carte » désigne le point sous le réticule
+// (`D3` d'Ergonomie ; ses cas en Roboto : `map_designation_reticle_test.dart`) ;
 // l'épingle est tenue par l'état de la vue carte, inerte, hors tabulation.
 //
 // `E5` (2026-10-03) : le bouton, son indice et le réticule n'existent que dans
@@ -34,10 +35,13 @@ import 'package:martinpecheur/domain/station/station.dart';
 import 'package:martinpecheur/domain/station/station_point.dart';
 import 'package:martinpecheur/features/map/view/designate_center_button.dart';
 import 'package:martinpecheur/features/map/view/designated_point_pin.dart';
+import 'package:martinpecheur/features/map/view/ign_attribution_badge.dart';
 import 'package:martinpecheur/features/map/view/map_center_reticle.dart';
 import 'package:martinpecheur/features/map/view/map_controls.dart';
+import 'package:martinpecheur/features/map/view/map_entry_buttons.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart';
-import 'package:martinpecheur/features/map/view/map_scale_chips.dart';
+import 'package:martinpecheur/features/map/view/map_reading_block.dart';
+import 'package:martinpecheur/features/map/view/map_reading_selector.dart';
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
@@ -160,27 +164,45 @@ void _expectClose(GeoPoint actual, GeoPoint expected) {
   expect(actual.longitude, closeTo(expected.longitude, 1e-6));
 }
 
-/// La bande du bouton : la boîte du `ListView` de `_DesignationPlacement`,
-/// seul `ListView` au-dessus du bouton. C'est elle, et non la pilule, qui
-/// capte les gestes quand son `hitTestBehavior` est opaque.
-Rect _bande(WidgetTester tester) => tester.getRect(
-  find.ancestor(
-    of: find.byKey(mapDesignateCenterButtonKey),
-    matching: find.byType(ListView),
-  ),
+/// La bande du bouton (`DesignationBand`, `S4` d’Ergonomie) : c’est elle, et
+/// non la pilule, qui capterait les gestes si son défilement était opaque.
+Rect _bande(WidgetTester tester) =>
+    tester.getRect(find.byType(DesignationBand));
+
+/// Où le réticule doit être (spec § 5.5, `D1`, `D2` d’Ergonomie) : au centre
+/// horizontal de la carte visible — sans fiche, la carte entière —, à
+/// mi-hauteur entre le bas de la partie fixe du bloc et le haut de la bande
+/// du bouton. Il ne dépend ni des avis ni de la légende.
+Offset _centreDuReticule(WidgetTester tester) => Offset(
+  tester.getCenter(find.byType(FlutterMap)).dx,
+  (tester.getRect(find.byType(MapReadingBlockFixed)).bottom +
+          tester.getRect(find.byType(DesignationBand)).top) /
+      2,
 );
 
-/// Un point DANS la bande du bouton, sur la rangée de la pilule, à mi-chemin
-/// entre le bord gauche de la bande et celui de la pilule — donc hors de la
-/// pilule et de l'indice. Calculé depuis les rectangles mesurés, jamais par
-/// une constante : il ne peut pas retomber hors de la bande, où la carte reçoit
-/// les gestes de toute façon et où le test ne prouverait plus rien. Les
-/// garde-fous le disent.
+/// Le point de la carte SOUS le réticule (`D3` d'Ergonomie, spec § 5.5) : celui
+/// que la caméra rend pour le centre du réticule tel qu'il est posé à l'écran.
+GeoPoint _pointSousLeReticule(WidgetTester tester) =>
+    _pointAt(tester, tester.getCenter(find.byKey(mapCenterReticleKey)));
+
+/// Un point DANS la bande du bouton, hors de la pilule et de l'indice :
+/// d'abord sur la rangée de la pilule, à mi-chemin entre le bord gauche de la
+/// bande et celui de la pilule ; si la pilule occupe toute la largeur de la
+/// bande (`D2` d'Ergonomie : à gauche de la colonne, la bande est étroite et
+/// le libellé passe à la ligne), sur la rangée de l'indice, à côté de lui ;
+/// sinon dans l'écart entre la pilule et l'indice. Calculé depuis les
+/// rectangles mesurés, jamais par une constante : il ne peut pas retomber hors
+/// de la bande, où la carte reçoit les gestes de toute façon et où le test ne
+/// prouverait plus rien. Les garde-fous le disent.
 Offset _pointDansLaBande(WidgetTester tester) {
   final Rect bande = _bande(tester);
   final Rect bouton = tester.getRect(find.byKey(mapDesignateCenterButtonKey));
   final Rect indice = tester.getRect(find.byKey(mapDesignateCenterHintKey));
-  final Offset p = Offset((bande.left + bouton.left) / 2, bouton.center.dy);
+  final Offset p = bouton.left - bande.left >= 8
+      ? Offset((bande.left + bouton.left) / 2, bouton.center.dy)
+      : indice.left - bande.left >= 8
+      ? Offset((bande.left + indice.left) / 2, indice.center.dy)
+      : Offset(bande.center.dx, (bouton.bottom + indice.top) / 2);
   expect(
     bande.contains(p) && p.dx > bande.left,
     isTrue,
@@ -199,66 +221,53 @@ Offset _pointDansLaBande(WidgetTester tester) {
   return p;
 }
 
-/// La fenêtre de la colonne DROITE de la disposition large : le
-/// `SingleChildScrollView` qui porte le contrôle d'avertissement et la légende.
-Rect _colonneDroite(WidgetTester tester) => tester.getRect(
-  find
-      .ancestor(
-        of: find.byType(WarningLink),
-        matching: find.byType(SingleChildScrollView),
-      )
-      .first,
-);
+/// Le bloc de lecture (`D2` d'Ergonomie) : ses trois pièces réunies. Sa carte
+/// blanche absorbe les gestes posés sur elle (`B1`) ; hors de lui, la carte
+/// les reçoit.
+Rect _bloc(WidgetTester tester) => tester
+    .getRect(find.byType(MapReadingBlockFixed))
+    .expandToInclude(tester.getRect(find.byType(MapReadingBlockNotices)))
+    .expandToInclude(tester.getRect(find.byType(MapReadingBlockLegend)));
 
-/// Un point DANS la colonne droite, sur la rangée du contrôle d'avertissement,
-/// à mi-chemin entre le bord gauche de la colonne et celui du contrôle — donc
-/// hors du contrôle et de la légende : de la carte visible, au sens de
-/// l'usager. Calculé depuis les rectangles mesurés ; les garde-fous disent s'il
-/// retombait hors de la colonne ou dans l'un de ses enfants.
-Offset _pointAGaucheDuLien(WidgetTester tester) {
-  final Rect colonne = _colonneDroite(tester);
-  final Rect lien = tester.getRect(find.byType(WarningLink));
-  final Rect legende = tester.getRect(find.byType(MapLegend));
-  final Offset p = Offset((colonne.left + lien.left) / 2, lien.center.dy);
+/// Un point de la carte À DROITE du bloc de lecture (disposition large : le
+/// bloc fait 480 px au plus, en haut à gauche), sur la rangée du sélecteur —
+/// remplace « à droite du bloc » de l'ancienne colonne
+/// droite. Calculé depuis les rectangles mesurés ; les garde-fous disent s'il
+/// retombait dans le bloc ou hors de l'écran.
+Offset _pointADroiteDuBloc(WidgetTester tester) {
+  final Rect bloc = _bloc(tester);
+  final Rect ecran = tester.getRect(find.byType(FlutterMap));
+  final Rect selecteur = tester.getRect(find.byType(MapReadingSelector));
+  final Offset p = Offset((bloc.right + ecran.right) / 2, selecteur.center.dy);
+  expect(bloc.contains(p), isFalse, reason: 'le point $p est dans le bloc');
+  expect(ecran.contains(p), isTrue, reason: 'le point $p sort de la carte');
   expect(
-    colonne.contains(p) && p.dx > colonne.left,
-    isTrue,
-    reason: 'le point $p doit être DANS la colonne $colonne, pas sur son bord',
-  );
-  expect(lien.contains(p), isFalse, reason: 'le point $p est dans le lien');
-  expect(
-    legende.contains(p),
-    isFalse,
-    reason: 'le point $p est dans la légende',
+    p.dx - bloc.right,
+    greaterThan(16),
+    reason: 'le point $p est collé au bloc $bloc',
   );
   return p;
 }
 
-/// La fenêtre de la colonne GAUCHE de la disposition large : le
-/// `SingleChildScrollView` qui porte les puces d'échelle et les avis.
-Rect _colonneGauche(WidgetTester tester) => tester.getRect(
-  find
-      .ancestor(
-        of: find.byType(MapScaleChips),
-        matching: find.byType(SingleChildScrollView),
-      )
-      .first,
-);
-
-/// Un point DANS la colonne gauche, sur la rangée des puces, à mi-chemin entre
-/// le bord droit des puces et celui de la colonne — donc hors de tout enfant
-/// de la colonne. Les garde-fous disent s'il retombait hors de la colonne ou
-/// dans un enfant (cas où la colonne n'a pas de zone vide à cet endroit).
-Offset _pointADroiteDesPuces(WidgetTester tester) {
-  final Rect colonne = _colonneGauche(tester);
-  final Rect puces = tester.getRect(find.byType(MapScaleChips));
-  final Offset p = Offset((puces.right + colonne.right) / 2, puces.center.dy);
+/// Un point de la carte SOUS le bloc de lecture, à mi-hauteur entre lui et le
+/// bas de la carte, à l'aplomb de son centre — remplace « à droite des puces »
+/// de l'ancienne colonne gauche (la colonne du bas est à droite, hors de cet
+/// aplomb). Les garde-fous disent s'il retombait dans le bloc ou dans le bas.
+Offset _pointSousLeBloc(WidgetTester tester) {
+  final Rect bloc = _bloc(tester);
+  final Rect carte = tester.getRect(find.byType(FlutterMap));
+  final Rect colonne = tester
+      .getRect(find.byType(MapEntryButtons))
+      .expandToInclude(tester.getRect(find.byType(MapControls)))
+      .expandToInclude(tester.getRect(find.byType(IgnAttributionBadge)));
+  final Offset p = Offset(bloc.center.dx, (bloc.bottom + carte.bottom) / 2);
+  expect(bloc.contains(p), isFalse, reason: 'le point $p est dans le bloc');
+  expect(colonne.contains(p), isFalse, reason: 'le point $p est dans le bas');
   expect(
-    colonne.contains(p) && p.dx < colonne.right,
-    isTrue,
-    reason: 'le point $p doit être DANS la colonne $colonne, pas sur son bord',
+    carte.bottom - bloc.bottom,
+    greaterThan(32),
+    reason: 'aucune carte sous le bloc $bloc',
   );
-  expect(puces.contains(p), isFalse, reason: 'le point $p est dans les puces');
   return p;
 }
 
@@ -303,11 +312,13 @@ Future<List<int>> _tabStops(
 }
 
 void main() {
-  // Fenêtre de 800 × 700 : le centre de la caméra est en (400, 350). Les
-  // points d'appui sont hors des surcouches (avis en haut à gauche, légende
-  // en haut à droite, contrôles en bas à droite).
-  const Offset ecranCentre = Offset(400, 350);
-  const Offset ailleurs = Offset(300, 450);
+  // Fenêtre de 1 000 × 700 : le centre de la caméra est en (500, 350). Les
+  // points d’appui sont hors des surcouches : depuis `D2` d’Ergonomie, le
+  // bloc de lecture occupe 480 px au plus en haut à gauche (de 8 à 488) et
+  // peut descendre au-delà du centre en police de test ; la colonne du bas
+  // est en bas à droite. (À 800 × 700, le centre tombait dans le bloc.)
+  const Offset ecranCentre = Offset(500, 350);
+  const Offset ailleurs = Offset(600, 450);
 
   Future<List<GeoPoint>> pumpMap(
     WidgetTester tester, {
@@ -316,7 +327,7 @@ void main() {
     List<StationCode>? stationTaps,
     bool fichesFermees = false,
     bool enMode = false,
-    Size taille = const Size(800, 700),
+    Size taille = const Size(1000, 700),
     List<Bounds>? chargements,
   }) async {
     final List<GeoPoint> designated = <GeoPoint>[];
@@ -587,40 +598,41 @@ void main() {
   });
 
   group('en mode Restrictions (E5 de T2)', () {
-    testWidgetsOnWindows('un tap sur la puce fait apparaître bouton, indice et '
-        'réticule (au centre exact, inerte) ; un second tap les retire', (
-      WidgetTester tester,
-    ) async {
-      final List<GeoPoint> designated = await pumpMap(tester);
+    testWidgetsOnWindows(
+      'un tap sur la puce fait apparaître bouton, indice et '
+      'réticule (au centre de la carte visible, inerte) ; un second tap les retire',
+      (WidgetTester tester) async {
+        final List<GeoPoint> designated = await pumpMap(tester);
 
-      await tester.tap(find.byKey(mapDesignationChipKey));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapDesignationChipKey));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
-      expect(find.byKey(mapDesignateCenterHintKey), findsOneWidget);
-      expect(find.byKey(mapCenterReticleKey), findsOneWidget);
-      expect(
-        tester.getCenter(find.byKey(mapCenterReticleKey)),
-        tester.getCenter(find.byType(FlutterMap)),
-      );
-      expect(
-        tester
-            .widget<Semantics>(find.byKey(mapDesignationChipKey))
-            .properties
-            .toggled,
-        isTrue,
-      );
-      // Allumer le mode ne désigne rien.
-      expect(designated, isEmpty);
+        expect(find.byKey(mapDesignateCenterButtonKey), findsOneWidget);
+        expect(find.byKey(mapDesignateCenterHintKey), findsOneWidget);
+        expect(find.byKey(mapCenterReticleKey), findsOneWidget);
+        expect(
+          tester.getCenter(find.byKey(mapCenterReticleKey)),
+          _centreDuReticule(tester),
+        );
+        expect(
+          tester
+              .widget<Semantics>(find.byKey(mapDesignationChipKey))
+              .properties
+              .toggled,
+          isTrue,
+        );
+        // Allumer le mode ne désigne rien.
+        expect(designated, isEmpty);
 
-      await tester.tap(find.byKey(mapDesignationChipKey));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(mapDesignationChipKey));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
-      expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
-      expect(find.byKey(mapCenterReticleKey), findsNothing);
-      expect(designated, isEmpty);
-    });
+        expect(find.byKey(mapDesignateCenterButtonKey), findsNothing);
+        expect(find.byKey(mapDesignateCenterHintKey), findsNothing);
+        expect(find.byKey(mapCenterReticleKey), findsNothing);
+        expect(designated, isEmpty);
+      },
+    );
 
     testWidgetsOnWindows(
       "marqueurs et légende de l'échelle en cours restent rendus : "
@@ -793,20 +805,15 @@ void main() {
       },
     );
 
-    testWidgetsOnWindows('un tap désigne le centre de la caméra', (
-      WidgetTester tester,
-    ) async {
+    testWidgetsOnWindows('un tap désigne le point sous le réticule (D3 '
+        'd’Ergonomie, spec § 5.5)', (WidgetTester tester) async {
       final List<GeoPoint> designated = await pumpMap(tester, enMode: true);
 
       await tester.tap(find.byKey(mapDesignateCenterButtonKey));
       await tester.pumpAndSettle();
 
       expect(designated, hasLength(1));
-      final LatLng centre = _camera(tester).center;
-      _expectClose(
-        designated.single,
-        GeoPoint(latitude: centre.latitude, longitude: centre.longitude),
-      );
+      _expectClose(designated.single, _pointSousLeReticule(tester));
     });
 
     testWidgetsOnWindows('atteint par Tab, activé par Entrée puis par Espace', (
@@ -845,16 +852,23 @@ void main() {
       expect(designated, hasLength(2));
     });
 
-    testWidgetsOnWindows('52 pt de haut, en bas au centre de la carte, hors '
-        'de la colonne des contrôles', (WidgetTester tester) async {
+    testWidgetsOnWindows('52 pt de haut, au bas de la carte visible, centré '
+        'dans sa bande, à gauche de la colonne des contrôles et hors d’elle '
+        '(D2 d’Ergonomie, spec § 5.5)', (WidgetTester tester) async {
       await pumpMap(tester, enMode: true);
 
       final Rect bouton = tester.getRect(
         find.byKey(mapDesignateCenterButtonKey),
       );
+      final Rect bande = _bande(tester);
       expect(bouton.height, greaterThanOrEqualTo(52));
-      expect(bouton.center.dx, closeTo(400, 0.5));
+      expect(bouton.center.dx, closeTo(bande.center.dx, 0.5));
       expect(bouton.bottom, greaterThan(500));
+      expect(
+        bande.right,
+        lessThanOrEqualTo(tester.getRect(find.byType(MapControls)).left),
+        reason: 'la bande est à gauche de la colonne',
+      );
       expect(
         find.descendant(
           of: find.byType(MapControls),
@@ -910,34 +924,45 @@ void main() {
     ]) {
       testWidgetsOnWindows(
         'à ${taille.width.toInt()} × ${taille.height.toInt()}, bouton ET '
-        'indice sont centrés sur la carte',
+        'indice sont centrés dans leur bande, posée comme sans fiche '
+        '(D2 d’Ergonomie : la bande est à gauche de la colonne)',
         (WidgetTester tester) async {
           tester.view.physicalSize = taille;
           tester.view.devicePixelRatio = 1;
           addTearDown(tester.view.reset);
-          final MapViewModel viewModel = _viewModel()..toggleDesignationMode();
-          await tester.pumpWidget(
-            MaterialApp(
-              home: MapView(
-                viewModel: viewModel,
-                onPointDesignated: (GeoPoint _) {},
-                onStationTap: (StationCode _) {},
-                stationSheet: const SizedBox.shrink(),
-                onOndeTap: (OndePoint _) {},
-                ondeSheet: const SizedBox.shrink(),
+          Future<Rect> bandeAvec({required bool fiches}) async {
+            final MapViewModel viewModel = _viewModel()
+              ..toggleDesignationMode();
+            await tester.pumpWidget(
+              MaterialApp(
+                home: MapView(
+                  viewModel: viewModel,
+                  onPointDesignated: (GeoPoint _) {},
+                  onStationTap: fiches ? (StationCode _) {} : null,
+                  stationSheet: fiches ? const SizedBox.shrink() : null,
+                  onOndeTap: fiches ? (OndePoint _) {} : null,
+                  ondeSheet: fiches ? const SizedBox.shrink() : null,
+                ),
               ),
-            ),
-          );
-          await tester.pumpAndSettle();
+            );
+            await tester.pumpAndSettle();
+            return _bande(tester);
+          }
 
-          final double centre = tester.getCenter(find.byType(FlutterMap)).dx;
+          final Rect sansFiche = await bandeAvec(fiches: false);
+          final Rect bande = await bandeAvec(fiches: true);
+          expect(
+            bande,
+            sansFiche,
+            reason: 'les fiches fermées déplacent la bande',
+          );
           expect(
             tester.getCenter(find.byKey(mapDesignateCenterButtonKey)).dx,
-            closeTo(centre, 1),
+            closeTo(bande.center.dx, 1),
           );
           expect(
             tester.getCenter(find.byKey(mapDesignateCenterHintKey)).dx,
-            closeTo(centre, 1),
+            closeTo(bande.center.dx, 1),
           );
         },
       );
@@ -1015,16 +1040,13 @@ void main() {
       });
     });
 
-    group('colonne droite (avertissement, légende) : la carte garde ses '
-        'gestes$suffixe', () {
-      // La colonne est large comme la légende ; le contrôle d'avertissement,
-      // plus étroit, laisse à sa gauche une zone qui est de la carte pour
-      // l'usager. Hors mode : la colonne ne dépend pas du mode.
-      test("clic droit à gauche du contrôle d'avertissement", (
-        WidgetTester tester,
-      ) async {
+    group('à droite du bloc de lecture : la carte garde ses gestes$suffixe', () {
+      // `D2` d'Ergonomie : l'ancienne colonne droite (avertissement, légende)
+      // est remplacée par le bloc de lecture, 480 px au plus en haut à gauche ;
+      // à sa droite, c'est de la carte pour l'usager. Hors mode.
+      test("clic droit à droite du bloc", (WidgetTester tester) async {
         final List<GeoPoint> designated = await pumpMap(tester, taille: taille);
-        final Offset p = _pointAGaucheDuLien(tester);
+        final Offset p = _pointADroiteDuBloc(tester);
 
         await tester.tapAt(p, buttons: kSecondaryButton);
         await tester.pumpAndSettle();
@@ -1033,11 +1055,9 @@ void main() {
         _expectClose(designated.single, _pointAt(tester, p));
       });
 
-      test("appui long à gauche du contrôle d'avertissement", (
-        WidgetTester tester,
-      ) async {
+      test("appui long à droite du bloc", (WidgetTester tester) async {
         final List<GeoPoint> designated = await pumpMap(tester, taille: taille);
-        final Offset p = _pointAGaucheDuLien(tester);
+        final Offset p = _pointADroiteDuBloc(tester);
 
         await tester.longPressAt(p);
         await tester.pumpAndSettle();
@@ -1045,10 +1065,10 @@ void main() {
         expect(designated, hasLength(1));
       });
 
-      test("glisser à gauche du contrôle d'avertissement : la carte se "
+      test("glisser à droite du bloc : la carte se "
           'déplace', (WidgetTester tester) async {
         await pumpMap(tester, taille: taille);
-        final Offset p = _pointAGaucheDuLien(tester);
+        final Offset p = _pointADroiteDuBloc(tester);
         final LatLng avant = _camera(tester).center;
 
         await tester.dragFrom(p, const Offset(-30, 0));
@@ -1057,11 +1077,11 @@ void main() {
         expect(_camera(tester).center, isNot(avant));
       });
 
-      test("molette à gauche du contrôle d'avertissement : la carte zoome", (
+      test("molette à droite du bloc : la carte zoome", (
         WidgetTester tester,
       ) async {
         await pumpMap(tester, taille: taille);
-        final Offset p = _pointAGaucheDuLien(tester);
+        final Offset p = _pointADroiteDuBloc(tester);
         final double avant = _camera(tester).zoom;
 
         final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
@@ -1073,13 +1093,13 @@ void main() {
       });
     });
 
-    group('colonne gauche (puces, avis) : la carte garde ses gestes$suffixe', () {
-      // Sans station, un avis d'absence est affiché sous les puces : la colonne
-      // est large comme l'avis, plus large que les puces, et laisse à droite
-      // des puces une zone qui est de la carte pour l'usager.
-      test('clic droit à droite des puces', (WidgetTester tester) async {
+    group('sous le bloc de lecture : la carte garde ses gestes$suffixe', () {
+      // `D2` d'Ergonomie : l'ancienne colonne gauche (puces, avis) est dans le
+      // bloc ; entre lui et le bas de la carte, c'est de la carte pour
+      // l'usager.
+      test('clic droit sous le bloc', (WidgetTester tester) async {
         final List<GeoPoint> designated = await pumpMap(tester, taille: taille);
-        final Offset p = _pointADroiteDesPuces(tester);
+        final Offset p = _pointSousLeBloc(tester);
 
         await tester.tapAt(p, buttons: kSecondaryButton);
         await tester.pumpAndSettle();
@@ -1088,9 +1108,9 @@ void main() {
         _expectClose(designated.single, _pointAt(tester, p));
       });
 
-      test('appui long à droite des puces', (WidgetTester tester) async {
+      test('appui long sous le bloc', (WidgetTester tester) async {
         final List<GeoPoint> designated = await pumpMap(tester, taille: taille);
-        final Offset p = _pointADroiteDesPuces(tester);
+        final Offset p = _pointSousLeBloc(tester);
 
         await tester.longPressAt(p);
         await tester.pumpAndSettle();
@@ -1098,11 +1118,11 @@ void main() {
         expect(designated, hasLength(1));
       });
 
-      test('glisser à droite des puces : la carte se déplace', (
+      test('glisser sous le bloc : la carte se déplace', (
         WidgetTester tester,
       ) async {
         await pumpMap(tester, taille: taille);
-        final Offset p = _pointADroiteDesPuces(tester);
+        final Offset p = _pointSousLeBloc(tester);
         final LatLng avant = _camera(tester).center;
 
         await tester.dragFrom(p, const Offset(-30, 0));
@@ -1111,11 +1131,11 @@ void main() {
         expect(_camera(tester).center, isNot(avant));
       });
 
-      test('molette à droite des puces : la carte zoome', (
+      test('molette sous le bloc : la carte zoome', (
         WidgetTester tester,
       ) async {
         await pumpMap(tester, taille: taille);
-        final Offset p = _pointADroiteDesPuces(tester);
+        final Offset p = _pointSousLeBloc(tester);
         final double avant = _camera(tester).zoom;
 
         final TestPointer pointer = TestPointer(1, PointerDeviceKind.mouse);
@@ -1246,12 +1266,14 @@ void main() {
     });
 
     testWidgetsOnWindows(
-      'le réticule est au centre EXACT de la carte, inerte',
+      'le réticule est au centre de la carte visible, à mi-hauteur entre la '
+      'partie fixe du bloc et la bande du bouton (D2 d’Ergonomie, spec § 5.5), '
+      'inerte',
       (WidgetTester tester) async {
-        // Une station au centre : sans elle, l'avis d'absence (`BR-007`) que la
-        // troisième puce fait descendre jusqu'au centre en police de test
-        // capterait lui-même l'appui long (E5), et le test ne porterait plus
-        // sur le réticule.
+        // Une station au centre de la caméra, au niveau individuel : la carte
+        // porte des marqueurs, aucun avis d'absence ne s'affiche dans le
+        // bloc, et le réticule — qui n'est plus au centre de la caméra depuis
+        // `D2` — se pose sur la carte nue.
         final List<GeoPoint> designated = await pumpMap(
           tester,
           enMode: true,
@@ -1259,14 +1281,16 @@ void main() {
           stationTaps: <StationCode>[],
         );
 
-        final Offset carte = tester.getCenter(find.byType(FlutterMap));
-        expect(tester.getCenter(find.byKey(mapCenterReticleKey)), carte);
+        final Offset reticule = tester.getCenter(
+          find.byKey(mapCenterReticleKey),
+        );
+        expect(reticule, _centreDuReticule(tester));
         // Un appui long sur le réticule désigne le point de la carte dessous :
         // il n'intercepte aucun geste.
-        await tester.longPressAt(carte);
+        await tester.longPressAt(reticule);
         await tester.pumpAndSettle();
         expect(designated, hasLength(1));
-        _expectClose(designated.single, _pointAt(tester, carte));
+        _expectClose(designated.single, _pointAt(tester, reticule));
       },
     );
 
@@ -1420,15 +1444,13 @@ void main() {
 
           expect(tester.takeException(), isNull);
           expect(designated, hasLength(1));
-          // Le point désigné est celui que la caméra rend pour le centre de
-          // l'écran — le point sous le réticule —, et celui de son centre.
-          _expectClose(
-            designated.single,
-            _pointAt(tester, tester.getCenter(find.byType(FlutterMap))),
-          );
+          // Le point désigné est celui que la caméra rend pour le centre du
+          // réticule (`D3` d'Ergonomie : au centre de la carte visible, et non
+          // plus au centre de la caméra), dans les bornes de `GeoPoint`.
+          _expectClose(designated.single, _pointSousLeReticule(tester));
           expect(
-            designated.single.latitude,
-            closeTo(camera.center.latitude, 1e-6),
+            designated.single.latitude.abs(),
+            lessThanOrEqualTo(SphericalMercator.maxLatitude),
           );
         },
       );
@@ -2001,14 +2023,12 @@ void main() {
         await tester.tap(find.byKey(mapDesignateCenterButtonKey));
         await tester.pumpAndSettle();
         expect(find.byKey(designatedPointPinKey), findsOneWidget);
-        expect(
-          _pinTip(tester).dx,
-          closeTo(tester.getTopLeft(find.byType(FlutterMap)).dx + 400, 1),
+        // `D3` d'Ergonomie : la pointe de l'épingle est au centre du réticule.
+        final Offset reticule = tester.getCenter(
+          find.byKey(mapCenterReticleKey),
         );
-        expect(
-          _pinTip(tester).dy,
-          closeTo(tester.getTopLeft(find.byType(FlutterMap)).dy + 350, 1),
-        );
+        expect(_pinTip(tester).dx, closeTo(reticule.dx, 1));
+        expect(_pinTip(tester).dy, closeTo(reticule.dy, 1));
       },
     );
 

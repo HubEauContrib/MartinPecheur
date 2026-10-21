@@ -6,6 +6,7 @@
 // Les écrans qui l'emploient gardent leurs propres tests, inchangés :
 // `test/features/restrictions/` et `data_sources_view_test.dart`.
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/features/shared/screen_layout.dart';
 import 'package:martinpecheur/features/shared/tap_target.dart';
@@ -46,6 +47,31 @@ void main() {
       expect(find.byType(BackButton), findsOneWidget);
 
       handle.dispose();
+    });
+
+    testWidgetsOnWindows('L1 : en français, le retour s annonce « Retour »', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('fr'),
+          supportedLocales: const <Locale>[Locale('fr')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: const Scaffold(
+            body: Column(children: <Widget>[ScreenTitleBar(title: _titre)]),
+          ),
+        ),
+      );
+
+      expect(find.byTooltip('Retour'), findsOneWidget);
+      expect(find.byTooltip('Back'), findsNothing);
+    });
+
+    testWidgetsOnWindows('L1 : sans délégués, le retour reste « Back » (la '
+        'cause)', (WidgetTester tester) async {
+      await tester.pumpWidget(_banc(const ScreenTitleBar(title: _titre)));
+
+      expect(find.byTooltip('Back'), findsOneWidget);
     });
 
     testWidgetsOnWindows('sans couleur : fond du thème, élévation 1, style '

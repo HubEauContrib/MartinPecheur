@@ -8,9 +8,9 @@ Fonctionnalité: Consulter la vigilance crues
 
   # ── US-21 — Je lis sur la carte et dans la fiche d'un tronçon la vigilance crues publiée par Vigicrues
 
-  Scénario: La puce « Vigilance crues » active la lecture et efface les autres échelles
+  Scénario: L'entrée « Vigilance crues » du sélecteur active la lecture et efface les autres échelles
     Étant donné la carte affichée sur l'échelle « Écoulement », avec des marqueurs et des pastilles
-    Quand l'usager active la puce « Vigilance crues »
+    Quand l'usager active l'entrée « Vigilance crues » du sélecteur
     Alors les marqueurs et les pastilles des autres échelles disparaissent, et la légende « Vigilance crues » s'affiche (BR-008)
 
   Scénario: Pendant le premier chargement, aucun trait n'est tracé
@@ -119,3 +119,11 @@ Fonctionnalité: Consulter la vigilance crues
     Quand on les relit
     Alors aucun ne qualifie un débit (BR-003), aucun ne porte de verbe d'instruction sur un usage de l'eau ni de mot de garantie (BR-014)
     Et aucun ne rapproche un débit, une hauteur ou un écoulement d'un risque de crue (BR-015)
+
+  # ── Ergonomie — la fiche du tronçon dans le cadre commun (cadrage du 2026-10-17, critère 13 ; F3)
+
+  Scénario: La fiche du tronçon se pose dans le cadre commun des fiches, sans étoile, et garde l'ordre de T4
+    Étant donné la fiche d'un tronçon « Blavet » de niveau orange
+    Quand elle s'affiche
+    Alors son en-tête épinglé porte « Tronçon Vigicrues », la fermeture, puis le contrôle « ⚠ Avertissement » avec le texte de crue, sans étoile ni code (BR-015)
+    Et son corps, qui défile sous l'en-tête, garde l'ordre de T4 : le nom publié, l'encart « CE N'EST PAS UN SYSTÈME D'ALERTE », « Vigilance orange », la définition publiée suivie de « — Vigicrues », « Information de vigilance du 14/10/2026 à 15:55 — © VIGICRUES », « Lire le bulletin sur www.vigicrues.gouv.fr », puis son adresse

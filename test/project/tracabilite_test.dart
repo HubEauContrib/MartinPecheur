@@ -121,10 +121,16 @@ const String _ouvreurDeLien =
     'test/data/links/url_launcher_external_link_opener_test.dart';
 const String _designationCarte =
     'test/features/map/view/map_designation_test.dart';
-const String _puceRestrictions =
-    'test/features/map/view/map_scale_chips_test.dart';
-const String _surcouchesTelephone =
-    'test/features/map/view/map_overlays_phone_test.dart';
+// `D3` d'Ergonomie : la désignation sous le réticule et le zoom autour de lui,
+// mesurés en Roboto, dans leur propre fichier.
+const String _designationReticule =
+    'test/features/map/view/map_designation_reticle_test.dart';
+// `D2` d'Ergonomie : le sélecteur de lecture remplace les puces d'échelle, et
+// les invariants de disposition remplacent les mesures de l'ancienne (R15).
+const String _selecteurLecture =
+    'test/features/map/view/map_reading_selector_test.dart';
+const String _invariantsDisposition =
+    'test/features/map/view/map_layout_invariants_test.dart';
 const String _profilUsager = 'test/domain/restrictions/user_profile_test.dart';
 const String _boutonDesignation =
     'test/features/map/view/designate_center_button_test.dart';
@@ -228,7 +234,7 @@ const List<String> _lignesPartielles = <String>['US-10', 'UC-005'];
 /// qu'une ligne en omette un.
 const Map<String, List<String>> _citationsExigees = <String, List<String>>{
   'US-01': <String>['test/features/shared/data_sources_view_test.dart'],
-  'US-02': <String>[_surcouchesTelephone],
+  'US-02': <String>[_invariantsDisposition],
   'US-07': <String>[
     _ecranRestrictions,
     _viewModelRestrictions,
@@ -236,7 +242,10 @@ const Map<String, List<String>> _citationsExigees = <String, List<String>>{
     _mapperZones,
     _equivalenceProfil,
     _designationCarte,
+    _designationReticule,
     _boutonDesignation,
+    _selecteurLecture,
+    _invariantsDisposition,
     _profilUsager,
     _echelleEnBande,
   ],
@@ -286,9 +295,9 @@ const Map<String, List<String>> _citationsExigees = <String, List<String>>{
   // favoris vide ou illisible (T3).
   'BR-007': <String>[_avisCarteVide, _favoriEcran],
   'BR-008': <String>[
-    _puceRestrictions,
+    _selecteurLecture,
     _designationCarte,
-    _surcouchesTelephone,
+    _invariantsDisposition,
     _filtreEchelle,
   ],
   // `BR-009` : les pastilles sous filtre (T3).

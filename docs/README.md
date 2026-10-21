@@ -53,6 +53,7 @@ Statuts : [`project-state.md`](project-state.md).
 | [`2026-09-27-t2-secheresse-et-restrictions.md`](superpowers/plans/2026-09-27-t2-secheresse-et-restrictions.md) | **T2** — sécheresse et restrictions (VigiEau) : domaine, données, ViewModel, écran des restrictions, encart renforcé, écran des sources, choix « Restrictions » du sélecteur, documentation, porte Windows **et** Android ; 29 tâches |
 | [`2026-10-12-t3-favoris-filtres-fraicheur.md`](superpowers/plans/2026-10-12-t3-favoris-filtres-fraicheur.md) | **T3** — favoris, filtres de la carte, critère de fraîcheur ; 50 tâches sur 11 lots, filtres avant favoris ; porte Windows **et** Android |
 | [`2026-10-14-t4-crues-vigicrues.md`](superpowers/plans/2026-10-14-t4-crues-vigicrues.md) | **T4** — crues : vigilance Vigicrues en quatrième lecture, fiche tronçon ; 28 tâches sur 8 lots |
+| [`2026-10-17-ergonomie.md`](superpowers/plans/2026-10-17-ergonomie.md) | **Ergonomie** — sélecteur et bloc de lecture, bas de la carte, fiche du bas et panneau latéral, fiches hiérarchisées, bouton « Retour » ; en lots, les tâches ajoutées en cours de route étant portées par le plan lui-même ; porte Windows **et** Android |
 
 ## Cadrages et conceptions par tranche
 
@@ -72,7 +73,7 @@ de ses arbitrages ; le plan correspondant est ci-dessus.
 | [`2026-10-12-cadrage-t3-design.md`](superpowers/specs/2026-10-12-cadrage-t3-design.md) | **T3** — cadrage : favoris, filtres, fraîcheur ; huit arbitrages du 2026-10-12 |
 | [`2026-10-14-cadrage-t4-design.md`](superpowers/specs/2026-10-14-cadrage-t4-design.md) | **T4** — cadrage détaillé : treize arbitrages, approuvé le 2026-10-14 ; faits de la source : [`sources/vigicrues.md`](sources/vigicrues.md) |
 | [`2026-10-17-cadrage-t5-design.md`](superpowers/specs/2026-10-17-cadrage-t5-design.md) | **T5** — cadrage détaillé : avis sur les lieux suivis, vérification à l'ouverture, essais de tâche de fond sur Windows et Android ; dix-sept arbitrages, approuvé le 2026-10-17 ; plan suspendu derrière la tranche d'ergonomie |
-| [`2026-10-17-cadrage-ergonomie-design.md`](superpowers/specs/2026-10-17-cadrage-ergonomie-design.md) | **Ergonomie** — cadrage, avant T5 : bloc de lecture unique, fiche du bas et panneau latéral, fiches hiérarchisées, points d'interface 49, 51, 60, 61, 63, 64 ; douze arbitrages, approuvé le 2026-10-17 ; version `0.6.0` |
+| [`2026-10-17-cadrage-ergonomie-design.md`](superpowers/specs/2026-10-17-cadrage-ergonomie-design.md) | **Ergonomie** — cadrage, avant T5 : bloc de lecture unique, fiche du bas et panneau latéral, fiches hiérarchisées, points d'interface 49, 51, 60, 61, 63, 64 ; douze arbitrages à l'approbation du 2026-10-17, les suivants pris en cours de tranche (§ 2 du document) ; version `0.6.0` |
 
 ## Index des décisions
 

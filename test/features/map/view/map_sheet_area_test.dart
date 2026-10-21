@@ -1,0 +1,457 @@
+// La zone des fiches de la carte (`MapSheetArea`, `D5` d'Ergonomie, spec § 6.1
+// et § 6.5, arbitrage 3) : elle ne défile plus elle-même. Chaque panneau de
+// fiche — un `SheetFrame` — défile son CORPS sous son EN-TÊTE épinglé, et la
+// zone transmet à la mise en page de la carte les hauteurs du cadre : repliée,
+// l'en-tête seul ; entière, la fiche entière. Ce qui est éprouvé ici, sur la
+// zone seule :
+// - aucun défilement de zone : le seul défilement est le corps du cadre ;
+// - les intrinsèques de la zone sont celles des panneaux, la hauteur repliée
+//   comprise (l'en-tête, jamais 0) ;
+// - posée plus basse que la fiche entière, l'en-tête reste entier et le corps
+//   défile ;
+// - les panneaux s'empilent, et le panneau du dessous reçoit la hauteur que
+//   celui du dessus laisse ;
+// - au-delà de 760 px de large (fiche du bas, contenu dans la largeur de lecture
+//   de 760), les intrinsèques sont lues à la largeur où le contenu est posé :
+//   la sous-allocation relevée à la relecture de `D2` est corrigée.
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SemanticsAction, SemanticsData;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:martinpecheur/domain/warnings/warning_texts.dart'
+    show warningLinkLabel;
+import 'package:martinpecheur/features/map/view/map_layout_allocation.dart'
+    show MapLayoutInput;
+import 'package:martinpecheur/features/map/view/map_sheet_area.dart';
+import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/shared/screen_layout.dart'
+    show readingColumnWidth;
+import 'package:martinpecheur/features/shared/sheet_frame.dart';
+import 'package:martinpecheur/features/shared/warning_link.dart'
+    show WarningLink, WarningWindow, warningLinkKey;
+
+import '../../../support/ergonomie_mesures.dart';
+import '../../../support/focus.dart';
+import '../../../support/windows_platform.dart';
+
+const Key _premierDuCorps = Key('zone-premier-du-corps');
+const Key _panneauDuDessus = Key('zone-panneau-du-dessus');
+
+/// Une fiche dans le cadre commun, au corps de [hauteurDuCorps] pixels.
+Widget _fiche({double hauteurDuCorps = 600, ScrollController? controleur}) =>
+    SheetFrame(
+      nature: 'Station hydrométrique · K447001001',
+      closeButtonKey: const Key('zone-fermer'),
+      onClose: () {},
+      bodyScrollController: controleur,
+      body: SizedBox(
+        height: hauteurDuCorps,
+        child: const Align(
+          alignment: Alignment.topLeft,
+          child: Text('Corps', key: _premierDuCorps),
+        ),
+      ),
+    );
+
+/// Monte la zone des fiches, fiche du bas, dans une boîte de [largeur] sur
+/// [hauteur] : la largeur est imposée, la hauteur est un plafond (comme la
+/// mise en page de la carte pose la fiche du bas).
+Future<void> _monter(
+  WidgetTester tester, {
+  required List<Widget> panneaux,
+  double largeur = 400,
+  double hauteur = 300,
+  bool panneauLateral = false,
+}) async {
+  tester.view.physicalSize = const Size(1200, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: largeur,
+              maxWidth: largeur,
+              maxHeight: hauteur,
+            ),
+            child: MapSheetArea(
+              key: mapSheetAreaKey,
+              sidePanel: panneauLateral,
+              extend: EdgeInsets.zero,
+              panels: panneaux,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+RenderBox _zone(WidgetTester tester) =>
+    tester.renderObject<RenderBox>(find.byKey(mapSheetAreaKey));
+
+void main() {
+  group('zone des fiches (D5 d’Ergonomie) — en-tête épinglé, corps défilant', () {
+    testWidgetsOnWindows(
+      'la zone ne défile pas elle-même : son seul défilement est le corps du '
+      'cadre',
+      (WidgetTester tester) async {
+        await _monter(tester, panneaux: <Widget>[_fiche()]);
+
+        final Finder defilements = find.descendant(
+          of: find.byKey(mapSheetAreaKey),
+          matching: find.byType(Scrollable),
+        );
+        expect(defilements, findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(sheetFrameBodyKey),
+            matching: find.byType(Scrollable),
+          ),
+          findsOneWidget,
+          reason: 'le défilement est celui du corps',
+        );
+        expect(
+          find.ancestor(
+            of: find.byKey(sheetFrameHeaderKey),
+            matching: find.byType(Scrollable),
+          ),
+          findsNothing,
+          reason: 'l’en-tête ne défile pas',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'hauteur repliée = l’en-tête du cadre, jamais 0 ; hauteur entière = la '
+      'fiche entière',
+      (WidgetTester tester) async {
+        await _monter(tester, panneaux: <Widget>[_fiche()]);
+
+        final RenderBox cadre = tester.renderObject<RenderBox>(
+          find.byType(SheetFrame),
+        );
+        final double enTete = tester
+            .getSize(find.byKey(sheetFrameHeaderKey))
+            .height;
+        expect(_zone(tester).getMinIntrinsicHeight(400), greaterThan(0));
+        expect(
+          _zone(tester).getMinIntrinsicHeight(400),
+          moreOrLessEquals(cadre.getMinIntrinsicHeight(400)),
+        );
+        expect(
+          _zone(tester).getMinIntrinsicHeight(400),
+          moreOrLessEquals(enTete),
+          reason: 'repliée, la zone dit l’en-tête',
+        );
+        expect(
+          _zone(tester).getMaxIntrinsicHeight(400),
+          moreOrLessEquals(cadre.getMaxIntrinsicHeight(400)),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'posée plus basse que la fiche entière : l’en-tête est entier, en haut '
+      'de la zone, et reste en place quand le corps défile',
+      (WidgetTester tester) async {
+        final ScrollController controleur = ScrollController();
+        addTearDown(controleur.dispose);
+        await _monter(
+          tester,
+          panneaux: <Widget>[_fiche(controleur: controleur)],
+          hauteur: 200,
+        );
+
+        final Rect zone = tester.getRect(find.byKey(mapSheetAreaKey));
+        final Rect enTete = tester.getRect(find.byKey(sheetFrameHeaderKey));
+        expect(zone.height, moreOrLessEquals(200));
+        expect(enTete.top, moreOrLessEquals(zone.top));
+        expect(enTete.bottom, lessThanOrEqualTo(zone.bottom));
+        expect(controleur.position.maxScrollExtent, greaterThan(0));
+
+        controleur.jumpTo(controleur.position.maxScrollExtent);
+        await tester.pump();
+        expect(
+          tester.getRect(find.byKey(sheetFrameHeaderKey)),
+          enTete,
+          reason: 'l’en-tête ne bouge pas quand le corps défile',
+        );
+        expect(
+          tester.getRect(find.byKey(_premierDuCorps)).top,
+          lessThan(enTete.bottom),
+          reason: 'le corps, lui, a défilé sous l’en-tête',
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'deux panneaux : le second sous le premier, borné par ce que le premier '
+      'laisse',
+      (WidgetTester tester) async {
+        await _monter(
+          tester,
+          panneaux: <Widget>[
+            const SizedBox(key: _panneauDuDessus, height: 60),
+            _fiche(),
+          ],
+          hauteur: 260,
+        );
+
+        final Rect dessus = tester.getRect(find.byKey(_panneauDuDessus));
+        final Rect fiche = tester.getRect(find.byType(SheetFrame));
+        expect(fiche.top, moreOrLessEquals(dessus.bottom));
+        expect(fiche.bottom, lessThanOrEqualTo(dessus.top + 260 + 0.5));
+        expect(
+          _zone(tester).getMinIntrinsicHeight(400),
+          moreOrLessEquals(
+            60 + tester.getSize(find.byKey(sheetFrameHeaderKey)).height,
+          ),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'la mesure mise en avant de la zone (arbitrage 18) : celle de la fiche, '
+      'au travers du fond peint de la zone ; deux panneaux, la somme',
+      (WidgetTester tester) async {
+        await _monter(tester, panneaux: <Widget>[_fiche()]);
+
+        final RenderBox cadre = tester.renderObject<RenderBox>(
+          find.byType(SheetFrame),
+        );
+        final double vedette = sheetFeaturedHeightOf(cadre, 400);
+        expect(vedette, greaterThan(cadre.getMinIntrinsicHeight(400)));
+        expect(
+          sheetFeaturedHeightOf(_zone(tester), 400),
+          moreOrLessEquals(vedette),
+        );
+
+        await _monter(
+          tester,
+          panneaux: <Widget>[
+            const SizedBox(key: _panneauDuDessus, height: 60),
+            _fiche(),
+          ],
+          hauteur: 2000,
+        );
+        expect(
+          sheetFeaturedHeightOf(_zone(tester), 400),
+          moreOrLessEquals(60 + vedette),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'la première rangée de la zone (arbitrage 24, D8) : celle de la fiche, '
+      'sous son en-tête ; deux panneaux, la somme',
+      (WidgetTester tester) async {
+        await _monter(tester, panneaux: <Widget>[_fiche()]);
+
+        final RenderBox cadre = tester.renderObject<RenderBox>(
+          find.byType(SheetFrame),
+        );
+        final double premiere = sheetFirstRowHeightOf(cadre, 400);
+        expect(premiere, lessThan(cadre.getMinIntrinsicHeight(400)));
+        expect(
+          sheetFirstRowHeightOf(_zone(tester), 400),
+          moreOrLessEquals(premiere),
+        );
+
+        await _monter(
+          tester,
+          panneaux: <Widget>[
+            const SizedBox(key: _panneauDuDessus, height: 60),
+            _fiche(),
+          ],
+          hauteur: 2000,
+        );
+        expect(
+          sheetFirstRowHeightOf(_zone(tester), 400),
+          moreOrLessEquals(60 + premiere),
+        );
+      },
+    );
+
+    testWidgetsOnWindows(
+      'panneau latéral : la fiche prend la largeur entière du panneau',
+      (WidgetTester tester) async {
+        await _monter(
+          tester,
+          panneaux: <Widget>[_fiche()],
+          largeur: 380,
+          hauteur: 700,
+          panneauLateral: true,
+        );
+
+        expect(tester.getSize(find.byType(SheetFrame)).width, 380);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'au-delà de 760 px, fiche du bas : le contenu est posé dans la largeur '
+      'de lecture, et ses hauteurs sont lues à cette largeur (sous-allocation '
+      'relevée à la relecture de D2)',
+      (WidgetTester tester) async {
+        // Un texte dont le nombre de lignes change entre 760 et 790 px.
+        final String long = List<String>.filled(400, 'mot').join(' ');
+        const Key texte = Key('zone-texte-long');
+        await _monter(
+          tester,
+          panneaux: <Widget>[Text(long, key: texte)],
+          largeur: 790,
+          hauteur: 2000,
+        );
+
+        final RenderBox contenu = tester.renderObject<RenderBox>(
+          find.byKey(texte),
+        );
+        expect(contenu.size.width, readingColumnWidth);
+        expect(
+          contenu.getMaxIntrinsicHeight(readingColumnWidth),
+          greaterThan(contenu.getMaxIntrinsicHeight(790)),
+          reason: 'garde-fou : le texte change de hauteur entre les deux',
+        );
+        expect(
+          _zone(tester).getMaxIntrinsicHeight(790),
+          moreOrLessEquals(contenu.size.height),
+          reason: 'la hauteur entière dite est celle du contenu posé',
+        );
+        expect(
+          _zone(tester).getMinIntrinsicHeight(790),
+          moreOrLessEquals(contenu.getMinIntrinsicHeight(readingColumnWidth)),
+        );
+        expect(
+          tester.getRect(find.byKey(texte)).center.dx,
+          moreOrLessEquals(395),
+          reason: 'centré dans la zone',
+        );
+      },
+    );
+
+    // `M6` de la relecture de `D5`, porté par `I1` : l'oracle des mesures
+    // (`mesurerPieces`) lit la fiche du bas comme la zone la pose — à la
+    // largeur de lecture au plus —, pas à la largeur de la zone sûre.
+    testWidgetsOnWindows(
+      'au-delà de 760 px, fiche du bas : l’oracle des mesures lit la fiche à '
+      'la largeur de lecture, comme la zone',
+      (WidgetTester tester) async {
+        final String long = List<String>.filled(400, 'mot').join(' ');
+        final Widget fiche = Text(long);
+        final MapLayoutInput mesure = await mesurerPieces(
+          tester,
+          taille: const Size(790, 740),
+          echelle: 1,
+          lecture: MapScaleKind.ecoulement,
+          enMode: false,
+          fiche: ficheStation,
+          ficheReelle: fiche,
+          avecAvis: false,
+          marge: EdgeInsets.zero,
+        );
+        await _monter(
+          tester,
+          panneaux: <Widget>[fiche],
+          largeur: 790,
+          hauteur: 2000,
+        );
+        expect(
+          mesure.sheet.max,
+          moreOrLessEquals(_zone(tester).getMaxIntrinsicHeight(790)),
+          reason: 'hauteur entière lue par l’oracle et par la zone',
+        );
+        expect(
+          mesure.sheet.min,
+          moreOrLessEquals(_zone(tester).getMinIntrinsicHeight(790)),
+        );
+      },
+    );
+
+    // `M3` de la relecture de `D5`, porté par `I1` : en deçà, la zone peut être
+    // plus basse que l'en-tête du cadre ; elle rogne alors sa peinture, et ce
+    // qui est rogné n'est pas touchable.
+    testWidgetsOnWindows(
+      'en deçà : une zone de 60 px sous un en-tête plus haut — aucune '
+      'exception, la peinture rognée, un toucher posé sur la partie rognée de '
+      '« ⚠ Avertissement » n’ouvre pas sa fenêtre ; sur sa partie visible, si',
+      (WidgetTester tester) async {
+        await _monter(tester, panneaux: <Widget>[_fiche()], hauteur: 60);
+        expect(tester.takeException(), isNull);
+
+        final Rect zone = tester.getRect(find.byKey(mapSheetAreaKey));
+        final Rect enTete = tester.getRect(find.byKey(sheetFrameHeaderKey));
+        final Rect lien = tester.getRect(find.byType(WarningLink));
+        expect(zone.height, moreOrLessEquals(60));
+        expect(enTete.height, greaterThan(60), reason: 'en-tête $enTete');
+        // Le cas suppose le contrôle à cheval sur le bord bas de la zone.
+        expect(lien.top, lessThan(zone.bottom), reason: 'lien $lien');
+        expect(lien.bottom, greaterThan(90), reason: 'lien $lien');
+        expect(
+          _zone(tester),
+          paints..clipRect(rect: Offset.zero & zone.size),
+          reason: 'la peinture est rognée à la zone',
+        );
+
+        // Sous le bord de la zone, sur le contrôle rogné : rien ne s'ouvre.
+        await tester.tapAt(
+          // y = 90 : sur « ⚠ Avertissement », sous le bord de la zone.
+          Offset(lien.center.dx, 90),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(WarningWindow), findsNothing);
+
+        // Contrôle positif : sur sa partie visible, la fenêtre s'ouvre.
+        await tester.tapAt(
+          Offset(lien.center.dx, (lien.top + zone.bottom) / 2),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(WarningWindow), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgetsOnWindows(
+      'arbitrage 25 (D8) : rogné par la zone, le « ⚠ Avertissement » de la '
+      'fiche sort de l’ordre de tabulation et reste annoncé ; la zone '
+      'agrandie, il y revient',
+      (WidgetTester tester) async {
+        Future<bool> tabLAtteint() async {
+          bool atteint = false;
+          for (int i = 0; i < 4; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pump();
+            atteint |= focusedWithin(tester, find.byType(WarningLink));
+          }
+          return atteint;
+        }
+
+        await _monter(tester, panneaux: <Widget>[_fiche()], hauteur: 60);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.byType(WarningLink)).bottom,
+          greaterThan(tester.getRect(find.byKey(mapSheetAreaKey)).bottom),
+          reason: 'le cas suppose le contrôle rogné',
+        );
+        expect(await tabLAtteint(), isFalse, reason: 'Tab l’atteint, rogné');
+        final SemanticsHandle annonces = tester.ensureSemantics();
+        await tester.pump();
+        final SemanticsData noeud = tester
+            .getSemantics(find.byKey(warningLinkKey))
+            .getSemanticsData();
+        expect(noeud.label, warningLinkLabel);
+        expect(noeud.hasAction(SemanticsAction.tap), isTrue);
+        expect(noeud.flagsCollection.isHidden, isFalse);
+        annonces.dispose();
+
+        // La place le montre : il revient.
+        await _monter(tester, panneaux: <Widget>[_fiche()], hauteur: 300);
+        await tester.pumpAndSettle();
+        expect(await tabLAtteint(), isTrue, reason: 'Tab ne l’atteint plus');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+}

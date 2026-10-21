@@ -47,12 +47,16 @@ import 'package:martinpecheur/features/map/view/map_controls.dart';
 import 'package:martinpecheur/features/map/view/map_empty_states.dart';
 import 'package:martinpecheur/features/map/view/map_legend.dart'
     show floodCoverageText;
+import 'package:martinpecheur/features/map/view/map_sheet_area.dart'
+    show mapSheetAreaKey;
 import 'package:martinpecheur/features/map/view/map_view.dart';
 import 'package:martinpecheur/features/map/view/onde_marker.dart';
 import 'package:martinpecheur/features/map/view/station_marker.dart';
 import 'package:martinpecheur/features/map/view_model/flood_layer_view_model.dart';
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
 import 'package:martinpecheur/features/map/view_model/map_view_model.dart';
+import 'package:martinpecheur/features/shared/sheet_frame.dart'
+    show sheetFrameBodyKey;
 import 'package:martinpecheur/features/shared/warning_link.dart';
 
 import '../../../support/android_platform.dart';
@@ -188,8 +192,8 @@ FloodVigilanceMap _unJauneEnBasAGauche() => FloodVigilanceMap(
   informationDate: _date,
   sections: <FloodSection>[
     _section('J9', const Jaune(), <GeoPoint>[
-      GeoPoint(latitude: 44.6, longitude: -1),
-      GeoPoint(latitude: 44.6, longitude: -0.8),
+      GeoPoint(latitude: 42.0, longitude: -1),
+      GeoPoint(latitude: 42.0, longitude: -0.8),
     ]),
   ],
   skippedEntities: 0,
@@ -212,7 +216,6 @@ Future<_Harness> _pumpMap(
   WidgetTester tester, {
   Size taille = const Size(800, 700),
   Widget floodSheet = const SizedBox.shrink(),
-  ScrollController? sheetScrollController,
   VoidCallback? onCloseSheets,
 }) async {
   tester.view.physicalSize = taille;
@@ -236,7 +239,6 @@ Future<_Harness> _pumpMap(
         onFloodSectionTap: (FloodSection section, DateTime date) =>
             touchers.add((section: section, date: date)),
         floodSheet: floodSheet,
-        sheetScrollController: sheetScrollController,
         onCloseSheets: onCloseSheets,
       ),
     ),
@@ -511,7 +513,11 @@ void main() {
     'toucher d’un trait : onFloodSectionTap reçoit le tronçon et la date de '
     'la carte',
     (WidgetTester tester) async {
-      final _Harness h = await _pumpMap(tester);
+      // `D2` d'Ergonomie : à 800 de large, le bloc de lecture (480 px au plus,
+      // en haut à gauche) couvre le centre de la carte en police de test ; à
+      // 1 000, le centre est à sa droite. Le centre géographique de la caméra
+      // ne dépend pas de la fenêtre.
+      final _Harness h = await _pumpMap(tester, taille: const Size(1000, 700));
       await _choisir(tester, MapScaleKind.crues);
       h.source.last.complete(_troisTroncons());
       await tester.pumpAndSettle();
@@ -623,30 +629,60 @@ void main() {
     },
   );
 
+  // `D5` d'Ergonomie (R15) : remplace « la fiche tronçon injectée est rendue
+  // dans la zone des fiches, avec le défilement de la racine », qui tenait
+  // l'identité du contrôleur de la ZONE. La zone ne défile plus : c'est le
+  // corps du cadre de la fiche qui défile, sous le contrôleur que la racine
+  // passe au panneau (`bodyScrollController`).
   testWidgetsOnWindows(
-    'la fiche tronçon injectée est rendue dans la zone des fiches, avec le '
-    'défilement de la racine',
+    'la fiche tronçon injectée est rendue dans la zone des fiches, qui ne '
+    'défile pas : son corps défile sous le contrôleur de la racine (D5)',
     (WidgetTester tester) async {
-      const Key ficheKey = Key('fiche-troncon');
       final ScrollController controller = ScrollController();
       addTearDown(controller.dispose);
       await _pumpMap(
         tester,
-        floodSheet: const SizedBox(key: ficheKey, width: 200, height: 80),
-        sheetScrollController: controller,
+        floodSheet: FloodSheetPanel(
+          state: FicheTronconOuverte(
+            section: _section('J9', const Jaune(), <GeoPoint>[
+              GeoPoint(latitude: 47, longitude: 1),
+              GeoPoint(latitude: 47.1, longitude: 1.1),
+            ]),
+            informationDate: _date,
+          ),
+          onClose: () {},
+          onOpenBulletin: () {},
+          bodyScrollController: controller,
+        ),
       );
 
-      expect(find.byKey(ficheKey), findsOneWidget);
-      final SingleChildScrollView defilement = tester
-          .widget<SingleChildScrollView>(
-            find
-                .ancestor(
-                  of: find.byKey(ficheKey),
-                  matching: find.byType(SingleChildScrollView),
-                )
-                .first,
-          );
-      expect(identical(defilement.controller, controller), isTrue);
+      expect(find.byType(FloodSheetPanel), findsOneWidget);
+      // `M1` de la relecture de `D5`, porté par `I1` : rendue DANS la zone des
+      // fiches (l'absence d'ancêtre défilant, seule, vaut aussi hors d'elle).
+      expect(
+        find.descendant(
+          of: find.byKey(mapSheetAreaKey),
+          matching: find.byType(FloodSheetPanel),
+        ),
+        findsOneWidget,
+      );
+      // Aucun défilement entre la carte et le panneau : la zone ne défile pas.
+      expect(
+        find.ancestor(
+          of: find.byType(FloodSheetPanel),
+          matching: find.byType(Scrollable),
+        ),
+        findsNothing,
+        reason: 'la zone des fiches ne défile plus elle-même',
+      );
+      final SingleChildScrollView corps = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: find.byType(FloodSheetPanel),
+          matching: find.byKey(sheetFrameBodyKey),
+        ),
+      );
+      expect(identical(corps.controller, controller), isTrue);
+      expect(controller.hasClients, isTrue);
     },
   );
 
@@ -670,10 +706,17 @@ void main() {
   );
 
   testWidgetsOnAndroid(
-    'Android : à 360 × 640, une étiquette fait 48 de haut et son toucher '
+    'Android : à 390 × 844, une étiquette fait 48 de haut et son toucher '
     'ouvre la fiche',
     (WidgetTester tester) async {
-      final _Harness h = await _pumpMap(tester, taille: const Size(360, 640));
+      // `D2` d'Ergonomie : à 360 × 640, en police de test (un carré d'un em par
+      // glyphe), le bloc de lecture et sa légende « Vigilance crues »
+      // occupent toute la hauteur entre le sélecteur et la rangée du bas : plus
+      // aucune carte libre où poser l'étiquette. À 390 × 844, l'autre taille
+      // garantie du téléphone, de la carte reste libre sous la légende, où se
+      // pose le tronçon J9 (descendu à 42° N pour cela). La hauteur de 48 est
+      // celle de la cible Android, pas de la fenêtre.
+      final _Harness h = await _pumpMap(tester, taille: const Size(390, 844));
       await _choisir(tester, MapScaleKind.crues);
       h.source.last.complete(_unJauneEnBasAGauche());
       await tester.pumpAndSettle();

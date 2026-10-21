@@ -63,7 +63,7 @@ Future<bool> _loadRoboto() async {
   // Android, et « Segoe UI », qu'il demande sur Windows. Segoe UI n'est pas
   // dans le SDK : les cas a 800 x 740, sous Windows, mesurent donc en Roboto,
   // un SUBSTITUT de Segoe UI, pas sa mesure (meme choix que
-  // `map_overlays_phone_test.dart`). Sans lui, Windows retombe sur la police
+  // `test/support/roboto.dart`). Sans lui, Windows retombe sur la police
   // de test et « Vigilance » est coupe au milieu du mot a 800 x 740, 100 %.
   final List<Future<ByteData>> bytes = <Future<ByteData>>[
     for (final File file in found)

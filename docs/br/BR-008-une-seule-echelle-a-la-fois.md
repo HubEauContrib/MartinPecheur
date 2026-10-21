@@ -1,6 +1,6 @@
 # BR-008 — Une seule échelle d'état est active à la fois
 
-- **Statut :** Accepté · **amendé le 2026-10-12 (T3)** · **amendé le 2026-10-14 (T4, vigilance crues)**
+- **Statut :** Accepté · **amendé le 2026-10-12 (T3)** · **amendé le 2026-10-14 (T4, vigilance crues)** · **amendé le 2026-10-17 (tranche d'ergonomie)**
 - **Date :** 2026-07-30
 - **Contexte borné :** Carte
 
@@ -9,6 +9,8 @@
 > Les **quatre** échelles d'état — **écoulement**, **niveau de débit**, **sévérité sécheresse**, **vigilance crues** —
 > ne sont jamais superposées sur un même marqueur ni affichées simultanément sur la carte.
 > Une seule est active, choisie par **les puces d'échelle**, et la **légende l'indique en permanence**.
+
+> ⚠️ **Amendement du 2026-10-17 — tranche d'ergonomie.** Le choix se fait dans le **sélecteur de lecture** de la carte (tranche d'ergonomie, arbitrage 1 du 2026-10-17), qui remplace les puces d'échelle ; la légende est dans le bloc de lecture, sous l'en-tête « `Légende · <lecture>` ». L'entrée « Restrictions » du sélecteur est un **mode de désignation**, pas l'échelle « sévérité sécheresse » : elle s'allume en plus de la lecture affichée et ne dessine aucune échelle sur la carte (arbitrage du 2026-10-03, inchangé). L'écart accepté le 2026-10-12 (la légende défile quand la place manque) vaut aussi pendant qu'une fiche est ouverte : la légende est le premier repli (arbitrage 11 du 2026-10-17).
 
 ## Justification
 
@@ -37,7 +39,7 @@ C'est aussi ce qui **autorise la réutilisation de teintes** d'une échelle à l
   > - **Effet de l'arbitrage sur les avis, non arbitré (`BR-007`).** « Rien n'est masqué » vaut pour la légende. À 200 %, aux largeurs de téléphone (360 × 640, 390 × 844), un avis affiché n'est plus entier au repos et son action s'amène en faisant défiler la colonne ; l'avis de carte vidée par le filtre vit dans cette colonne, ce qui touche le constat (d) du cadrage de T3, § 9 — ~~par déduction, non par mesure : à 200 %, les tests ne mesurent que l'avis d'absence, pas l'avis du filtre~~ **mesuré par `K3` le 2026-10-14, « Favoris » posé : à 360 × 640 et 200 %, l'avis de carte vidée par le filtre a 193 px à défiler au repos, sur les deux échelles, et « Effacer les filtres » ne s'atteint qu'en faisant défiler la colonne** (`test/features/map/view/map_overlays_phone_test.dart`, [`04-ui.md` § 1](../04-ui.md)) ; **arbitrage du commanditaire du 2026-10-14 : accepté en constat**, à voir à l'écran à la porte Android (barré et complété le 2026-10-14, revue finale de T3). À dire au commanditaire avec l'effet à 360 × 300.
   >
   > Mesures, seuils et tests : [`04-ui.md` § 1](../04-ui.md) (amendement du 2026-10-12). Vérifié par test, **pas constaté à l'écran**.
-- Le changement d'échelle est explicite, via **les puces d'échelle**. Il n'y a pas d'échelle « automatique » selon le zoom.
+- Le changement d'échelle est explicite, via **le sélecteur de lecture**. Il n'y a pas d'échelle « automatique » selon le zoom.
 - Un filtre (T3) masque des lieux à l'intérieur de l'échelle active ; il ne choisit pas l'échelle et n'en superpose aucune.
 - Un marqueur peut exister dans plusieurs échelles (une station hydrométrique dans une zone de restriction) : il n'affiche que l'état de l'échelle active.
 - La fiche de détail, elle, présente **toutes** les informations disponibles — la règle porte sur la carte, pas sur le détail.

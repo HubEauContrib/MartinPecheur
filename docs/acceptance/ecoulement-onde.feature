@@ -25,3 +25,12 @@ Fonctionnalité: L'âge d'une campagne d'observation ONDE
     Étant donné un point ONDE observé le 20/07/2026 et publié le 22/07/2026
     Quand la fiche de ce point affiche sa date de dernière campagne
     Alors la date affichée est le 20/07/2026 (BR-001)
+
+  # ── Ergonomie — la fiche ONDE hiérarchisée (cadrage du 2026-10-17, critère 12 ; F2)
+
+  Scénario: La fiche ONDE porte la catégorie avec son symbole, la modalité, la campagne datée et sourcée, l'historique avec symboles et le rappel de rythme
+    Étant donné la fiche prête d'un point ONDE, dont la dernière campagne date de moins de 60 jours et qui compte plusieurs campagnes précédentes
+    Quand la fiche s'affiche
+    Alors son en-tête porte « Point ONDE » et le contrôle « ⚠ Avertissement », sans le code du point (arbitrage 5 du 2026-10-17)
+    Et son corps se lit dans l'ordre : le nom, le cours d'eau et le département, puis une tuile avec le symbole de légende de la catégorie, la catégorie, la modalité officielle ONDE et la campagne datée et sourcée (BR-001, BR-010)
+    Et dessous « Campagnes précédentes », une ligne par campagne, la plus récente en tête, chacune avec son symbole, sa date et sa catégorie, puis le rappel de rythme (BR-010)

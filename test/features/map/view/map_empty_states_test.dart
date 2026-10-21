@@ -579,7 +579,7 @@ void main() {
   // du 2026-10-14) : « Effacer les filtres » et « Élargir la recherche »
   // deviennent des arrêts de Tab, Entrée et Espace font ce que le tap fait.
   // Leur place dans l'ordre de la carte est vérifiée sur la carte
-  // (`map_keyboard_test.dart`, `map_overlays_phone_test.dart`).
+  // (`map_keyboard_test.dart`, `map_layout_invariants_test.dart`).
   group('les actions des avis au clavier (K1 de T3)', () {
     for (final (String, Key, Widget Function(VoidCallback)) avis
         in <(String, Key, Widget Function(VoidCallback))>[
