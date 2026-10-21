@@ -19,7 +19,7 @@
 | T3 | Favoris, filtres, fraîcheur | ✅ close — `0.4.0` |
 | T4 | Crues : vigilance Vigicrues sur la carte et dans une fiche tronçon | ✅ close — `0.5.0` |
 | Ergonomie | Maquette du 2026-10-03 (sélecteur, fiches, panneau Windows) et points d'interface ouverts | ✅ close — `0.6.0` |
-| T5 | Être prévenu, sans serveur ni compte | 🔄 cadrée — plan à écrire |
+| T5 | Être prévenu, sans serveur ni compte | 🔄 cadrée — plan écrit, à approuver |
 
 Détail, constats non faits, points ouverts : `docs/project-state.md`.
 
