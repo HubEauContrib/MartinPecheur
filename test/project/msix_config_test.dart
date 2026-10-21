@@ -77,14 +77,17 @@ void main() {
       });
     }
 
-    test(
-      "ni msix_version ni store : la version vient de pubspec.yaml, le Store "
-      'se demande par --store',
-      () {
-        expect(config, isNot(contains('msix_version')));
-        expect(config, isNot(contains('store:')));
-      },
-    );
+    test('pas de msix_version : la version vient de pubspec.yaml', () {
+      expect(config, isNot(contains('msix_version')));
+    });
+
+    // Amendement d'ADR-018 du 2026-10-21 : un paquet construit sans --store
+    // a été signé par le certificat de test de msix, qui a remplacé l'éditeur,
+    // et Partner Center l'a refusé. store: true rend l'oubli impossible.
+    test('store: true : tout paquet construit est un paquet du Store, sans '
+        'signature de test', () {
+      expect(config, matches(RegExp(r'^  store: true\s*$', multiLine: true)));
+    });
   });
 
   group('logo du paquet (ADR-018)', () {

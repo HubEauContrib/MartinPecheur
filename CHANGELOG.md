@@ -11,13 +11,29 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+## [1.0.1] — 2026-10-21
+
+Même application que `1.0.0`, avec l'icône du martin-pêcheur, sous un nouveau
+numéro qu'impose le Microsoft Store. Un premier paquet `1.0.0.0`, construit
+avant le logo, a été refusé à la certification : ses tuiles portaient l'image
+par défaut de l'outil `msix` (politique 10.1.1.11). Partner Center refuse
+ensuite un second paquet du même nom complet,
+`46Monbsoft.com.MartinPcheur_1.0.0.0_X64_`, au contenu différent. Le paquet
+porte donc la version `1.0.1.0`, que `msix` tire de `pubspec.yaml`. Montée
+proposée par Claude après le refus rapporté par le commanditaire le
+2026-10-21 ; la mise en production reste une décision du commanditaire, et la
+porte de T2 reste due.
+
 ### Modifié
 
 - L'icône de l'application est un martin-pêcheur, sur Windows (exécutable et
   fenêtre), Android et iOS, à la place du logo de Flutter posé par le gabarit :
   la même icône que le paquet du Microsoft Store (décision du commanditaire du
-  2026-10-21). Écrit d'après les fichiers, vérifié par
-  `test/project/app_icons_test.dart` ; jamais vu sur une cible construite.
+  2026-10-21). Vérifiée par `test/project/app_icons_test.dart` ; sous Windows,
+  relue dans l'exécutable de release du 2026-10-21 (10 h 59), jamais vue à
+  l'écran ; Android et iOS ne sont pas reconstruits.
+- Le numéro de version passe de `1.0.0` à `1.0.1` (numéro de construction
+  `8`). Aucune fonctionnalité ne change par rapport à `1.0.0`.
 
 ## [1.0.0] — 2026-10-21
 

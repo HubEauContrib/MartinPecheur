@@ -34,10 +34,10 @@ aucune publication Android (`A⏸3`, `A⏸5`).
 
 ## Vérifié au 2026-10-21
 
-Sur le code de `7ce3f73` (code de la tranche d'ergonomie : `lib/` inchangé depuis), avec la version `1.0.0+7`,
+Sur le code de `7ce3f73` (code de la tranche d'ergonomie : `lib/` inchangé depuis), avec la version `1.0.1+8`,
 l'outil `msix` et sa configuration, le logo et les icônes de l'application (`ADR-018`, 2026-10-21) :
 `flutter analyze` → « No issues found! »,
-`flutter test` → « +7116: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
+`flutter test` → « +7120: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
 `dart format` sans diff.
 
 **Réserve durable sur les polices de mesure.** Onze fichiers de test mesurent en Roboto, chargée depuis
@@ -405,20 +405,35 @@ Une case vide est une case vide, pas un « probablement ».
   décompressé : ses 82 images de tuiles et de logos sont tirées du martin-pêcheur ; aucun de ses 83 PNG n'est
   identique, par empreinte MD5, à une icône par défaut de `msix` ; `resources.pri` les indexe toutes
   (`MakePri dump`) ; l'icône de `martinpecheur.exe`, extraite du binaire, est le martin-pêcheur. Renvoi
-  annoncé par le commanditaire le 2026-10-21 : « Je renvoie celui de 11 h 00. » **Non constaté** : les tuiles
-  à l'écran (paquet jamais installé), le résultat de la nouvelle certification.
+  annoncé par le commanditaire le 2026-10-21 : « Je renvoie celui de 11 h 00. » **Refusé au chargement**, même
+  jour, message de Partner Center rapporté par le commanditaire : deux paquets portent le nom complet
+  `46Monbsoft.com.MartinPcheur_1.0.0.0_X64_` avec des contenus différents ; « supprimez l'un des packages ou
+  augmentez la version actuelle du package ». `msix` tire la version du paquet de celle de `pubspec.yaml`
+  (`X.Y.Z` donne `X.Y.Z.0`, `lib/src/configuration.dart` du paquet, l. 499-509) : `pubspec.yaml` passe à
+  `1.0.1+8`, paquet `1.0.1.0`, montée proposée par Claude après ce refus. **Premier paquet `1.0.1.0`, refusé
+  au chargement**, même jour : nom de famille `46Monbsoft.com.MartinPcheur_fxkeb4dgdm144` au lieu de
+  `_ygj97yaxrhk2e`, éditeur `CN=Msix Testing, O=Msix Testing Corporation, S=Some-State, C=US` au lieu de
+  `CN=6D56381B-9EA9-4C93-83CC-28D86DB31617` (message rapporté par le commanditaire). Constaté par Claude dans
+  le paquet (13 h 51, renommé `46Monbsoft.com.MartinPcheur_1.0.1_X64.msix`) : il est signé
+  (`AppxSignature.p7x`), donc construit sans `--store`, et il emballe l'exécutable de 10 h 59, resté en
+  `1.0.0+7` : la construction de release n'a pas été relancée, ou a échoué. Réponse : `store: true` dans
+  `msix_config`, décision du commanditaire (« ajoute store: true dans msix_config, amende ADR-018 et son
+  test », `ADR-018`, arbitrage 4). Le paquet `1.0.1` reste à construire par le commanditaire, après une
+  construction de release vérifiée. **Non constaté** : les tuiles à l'écran (paquet jamais installé), le
+  chargement d'un paquet `1.0.1.0` valide, le résultat de la nouvelle certification.
 
 ## Prochaine étape
 
 La **tranche d'ergonomie est close** : la porte est franchie sur Windows (2026-10-19) et Android (rapportée le
 2026-10-21), et `0.6.0` est datée du 2026-10-21, suivie le même jour de `1.0.0`, même application sous le
-numéro qu'exige le Microsoft Store. Restent à constater à l'écran, s'il le veut : le détail de `P2`, les niveaux 2 à 4 de crue à
+numéro qu'exige le Microsoft Store, puis de `1.0.1`, la même avec l'icône du martin-pêcheur. Restent à constater à l'écran, s'il le veut : le détail de `P2`, les niveaux 2 à 4 de crue à
 l'occasion d'un épisode ; et à relever, émulateur `Pixel_7` lancé : la marge système et la version installée,
 par `adb`. **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`) ; ce que la porte de T3 n'a pas
 dit (point 62) se constate s'il le veut, ou reste « non vérifié ». L'**ADR d'empaquetage MSIX**, `ADR-018`, est
 accepté le 2026-10-21 et configuré. Une première soumission au Store a été refusée le 2026-10-21 (politique
-10.1.1.11 : paquet construit sans le logo) ; le commanditaire renvoie le paquet de 11 h 00, construit avec le
-logo, et le résultat de la nouvelle certification est attendu (« Faits sans autre trace »). Claude n'a constaté
+10.1.1.11 : paquet construit sans le logo) ; le paquet de remplacement, construit avec le logo, a été refusé au
+chargement parce qu'il gardait la version `1.0.0.0`. La version passe à `1.0.1` : le commanditaire reconstruit
+l'exécutable de release, le vérifie, construit le paquet `1.0.1.0` et le soumet (« Faits sans autre trace »). Claude n'a constaté
 ni la politique de confidentialité, ni l'acceptation du contrat du développeur, ni la fiche du Store ; la porte
 de mise en production n'est pas notée franchie ici. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
 cadrage d'ergonomie, § 12).

@@ -963,19 +963,9 @@ void main() {
       contenuChangelog = File('CHANGELOG.md').readAsStringSync();
     });
 
-    test('pubspec.yaml porte version: 1.0.0+7', () {
-      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
-      expect(
-        RegExp(
-          r'^version:\s*1\.0\.0\+7\s*$',
-          multiLine: true,
-        ).hasMatch(contenuPubspec),
-        isTrue,
-        reason:
-            'un tag et un journal qui divergent laissent personne savoir ce '
-            'que contient le binaire installé',
-      );
-    });
+    // Le verrou « pubspec.yaml porte version: 1.0.0+7 » est retiré : le
+    // pubspec est passé à 1.0.1+8 (refus de Partner Center du 2026-10-21). Le
+    // groupe 1.0.1 porte le verrou de version courant.
 
     test('une section ## [1.0.0] — 2026-10-21, une seule, sous [Non publié] '
         'et au-dessus de [0.6.0]', () {
@@ -1005,5 +995,74 @@ void main() {
         expect(section, contains('la porte de T2 reste due'));
       },
     );
+  });
+
+  // Refus de Partner Center rapporté le 2026-10-21 : un paquet 1.0.0.0 a déjà
+  // été soumis, construit sans le logo, et un second paquet de même nom
+  // complet et de contenu différent est refusé. msix tire la version du paquet
+  // de celle du pubspec (X.Y.Z devient X.Y.Z.0) : il faut monter X.Y.Z.
+  group('version 1.0.1 (refus de Partner Center du 2026-10-21)', () {
+    late String contenuChangelog;
+
+    setUpAll(() {
+      contenuChangelog = File('CHANGELOG.md').readAsStringSync();
+    });
+
+    String section101() {
+      final int debut = contenuChangelog.indexOf('## [1.0.1]');
+      expect(debut, isNot(-1), reason: 'aucune section ## [1.0.1]');
+      final int suivante = contenuChangelog.indexOf('\n## [', debut + 1);
+      return contenuChangelog
+          .substring(debut, suivante)
+          .replaceAll(RegExp(r'\s+'), ' ');
+    }
+
+    test('pubspec.yaml porte version: 1.0.1+8', () {
+      final String contenuPubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        RegExp(
+          r'^version:\s*1\.0\.1\+8\s*$',
+          multiLine: true,
+        ).hasMatch(contenuPubspec),
+        isTrue,
+        reason:
+            'un tag et un journal qui divergent laissent personne savoir ce '
+            'que contient le binaire installé',
+      );
+    });
+
+    test('une section ## [1.0.1] — 2026-10-21, une seule, sous [Non publié] '
+        'et au-dessus de [1.0.0]', () {
+      final int occurrences = RegExp(
+        r'^## \[1\.0\.1\]',
+        multiLine: true,
+      ).allMatches(contenuChangelog).length;
+      expect(occurrences, 1);
+      expect(contenuChangelog, contains('## [1.0.1] — 2026-10-21\n'));
+      final int nonPublie = contenuChangelog.indexOf('## [Non publié]');
+      final int v101 = contenuChangelog.indexOf('## [1.0.1]');
+      final int v100 = contenuChangelog.indexOf('## [1.0.0]');
+      expect(nonPublie, lessThan(v101));
+      expect(v101, lessThan(v100));
+    });
+
+    test('la section 1.0.1 dit le refus, le nom complet en conflit, la '
+        'version du paquet et l\'icône qu\'elle apporte', () {
+      final String section = section101();
+      expect(section, contains('10.1.1.11'));
+      expect(section, contains('46Monbsoft.com.MartinPcheur_1.0.0.0_X64_'));
+      expect(section, contains('`1.0.1.0`'));
+      expect(section, contains('L\'icône de l\'application est un'));
+      expect(section, contains('jamais vue à l\'écran'));
+    });
+
+    test('l\'icône a quitté [Non publié] : elle part avec 1.0.1', () {
+      final int debut = contenuChangelog.indexOf('## [Non publié]');
+      final int suivante = contenuChangelog.indexOf('\n## [', debut + 1);
+      expect(
+        contenuChangelog.substring(debut, suivante),
+        isNot(contains('martin-pêcheur')),
+      );
+    });
   });
 }

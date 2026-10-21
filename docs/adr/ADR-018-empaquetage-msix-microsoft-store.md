@@ -2,7 +2,9 @@
 
 - **Statut :** **Accepté — arbitrages du commanditaire du 2026-10-21** : la version passe à `1.0.0`
   (arbitrage 2, « mettre la version 1.0.0 »), l'outil est retenu (arbitrage 1, « j'accepte l'outil
-  msix ») et le paquet emballe l'exécutable déjà vérifié (arbitrage 3, `build_windows: false`). Écrit le 2026-10-21 à la demande du commanditaire (« écris l'ADR d'empaquetage MSIX avec le
+  msix ») et le paquet emballe l'exécutable déjà vérifié (arbitrage 3, `build_windows: false`). **Amendé
+  le même jour** (arbitrage 4) : `store: true` dans `msix_config`, après un paquet construit sans
+  `--store` et refusé par Partner Center. Écrit le 2026-10-21 à la demande du commanditaire (« écris l'ADR d'empaquetage MSIX avec le
   paquet msix en dépendance de développement »), en exécution de l'arbitrage du 2026-10-19.
 - **Date :** 2026-10-21
 - **Numéro :** `ADR-018`, et non `ADR-017` : ce numéro est **réservé** par le cadrage de T5, approuvé le
@@ -11,8 +13,8 @@
 - **État du code :** ✅ **configuré le 2026-10-21** : `msix: ^3.18.0` en `dev_dependencies` (résolu en
   3.18.0), section `msix_config` dans `pubspec.yaml`, avec le logo propre à l'application
   (`windows/store/logo.png`, piste A choisie par le commanditaire le 2026-10-21) ; le tout verrouillé par
-  `test/project/msix_config_test.dart`. 🔄 **Aucun paquet n'a été
-  construit** : `dart run msix:create --store` n'a jamais tourné.
+  `test/project/msix_config_test.dart`. Des paquets ont été construits par le commanditaire le
+  2026-10-21 ; leur suivi, soumission comprise, est dans `docs/project-state.md`.
 - **Portée :** l'outil d'empaquetage, l'identité du paquet, sa version, qui construit quoi. **Cet ADR ne
   décide aucune publication**, qui reste une décision du commanditaire.
 
@@ -132,6 +134,7 @@ n'entre dans `lib/` ; l'outil assemble le paquet à partir de l'exécutable de r
      languages: fr-fr
      install_certificate: false
      build_windows: false
+     store: true
    ```
 
    - **`logo_path: windows/store/logo.png`** : le logo propre à MartinPêcheur (piste A, « Profil », choisie
@@ -143,19 +146,26 @@ n'entre dans `lib/` ; l'outil assemble le paquet à partir de l'exécutable de r
      commanditaire ; `test/project/app_icons_test.dart`).
    - **Pas de `msix_version`** : la version vient de `pubspec.yaml`, seule source ; l'outil la dérive en
      `a.b.c.0`.
-   - **Pas de `store: true`** : le paquet du Store se demande par `--store`.
+   - **`store: true`** (arbitrage 4, amendement du 2026-10-21) : tout paquet construit est un paquet du
+     Store, même par `dart run msix:create` sans `--store`. Le choix initial, « le paquet du Store se
+     demande par `--store` », a laissé passer un oubli le 2026-10-21 : lancé sans `--store`, l'outil a
+     signé le paquet de son certificat de test et remplacé l'éditeur par `CN=Msix Testing, …` ; Partner
+     Center l'a refusé (nom de famille et éditeur non valides). Constaté par Claude dans le paquet ouvert :
+     `AppxSignature.p7x` présent, `Publisher` du manifeste à `CN=Msix Testing`.
    - **`build_windows: false`** (arbitrage 3) : l'outil ne relance pas `flutter build windows`, il emballe
      le dossier `Release` **déjà construit et vérifié** ; sans exécutable dans ce dossier, il s'arrête
      (« first run "flutter build windows" then try again »).
-   - **`install_certificate: false`** ne joue que pour une commande lancée **sans** `--store` : elle
+   - **`install_certificate: false`** ne joue que pour un paquet construit **hors** mode Store : elle
      empêche alors l'outil d'installer son certificat de test dans le magasin de certificats du poste
-     (« ne rien toucher au système »).
+     (« ne rien toucher au système »). Avec `store: true`, elle ne joue plus ; elle reste en seconde
+     garde si `store: true` venait à être retiré.
 3. **Version.** Le premier nombre ne pouvant valoir 0, **`pubspec.yaml` est passé à `1.0.0+7` le
    2026-10-21** (arbitrage 2), version datée au `CHANGELOG` et verrouillée par
    `test/project/changelog_test.dart`. L'outil en dérivera `1.0.0.0`.
 4. **Qui construit.** Le bac à sable de Claude ne construit rien en natif : **le commanditaire lance**
    `flutter build windows --release`, vérifie l'exécutable hors Flutter, puis lance
-   `dart run msix:create --store`, qui emballe ce même dossier ; chaque commande avec son résultat attendu
+   `dart run msix:create --store` (`--store` redit `store: true`, sans conflit), qui emballe ce même
+   dossier ; chaque commande avec son résultat attendu
    énoncé. Il dépose ensuite `martinpecheur.msix` sur la page « Packages » de la soumission. Claude écrit la configuration et lance
    `flutter analyze`, `flutter test`, `dart format`. Un test de `test/project/` vérifie les valeurs
    d'identité de `msix_config`, comme `ios_bundle_identifier_test.dart` et `android_configuration_test.dart`
@@ -201,8 +211,12 @@ Partner Center, la politique de confidentialité, le logo, et la fiche du Store.
 - ➖ **La numérotation par tranche change de dizaine** : `0.6.0` est suivie de `1.0.0`, la même
   application. La version de T5, prévue à `0.7.0+7` par le cadrage d'ergonomie (R13 de T5), est à
   refixer au plan de T5.
-- ➖ ⚠️ **Rien n'est constaté à l'exécution.** `msix` n'a jamais tourné dans ce projet ; ses
-  comportements sont lus dans ses sources (GitHub, puis paquet installé), pas vus à l'œuvre.
+- ➖ ⚠️ **Peu de chose est constaté à l'exécution.** Les comportements de `msix` sont lus dans ses
+  sources (GitHub, puis paquet installé). Deux seulement sont vus à l'œuvre, le 2026-10-21, dans des
+  paquets construits par le commanditaire et ouverts par Claude : les tuiles tirées du logo avec
+  `logo_path`, et la signature de test qui remplace l'éditeur sans `--store`. Le logo de Flutter dans
+  les tuiles sans `logo_path` est lu dans les icônes du paquet installé et cohérent avec le refus de
+  certification 10.1.1.11 ; le paquet refusé n'a pas été ouvert.
 - ➖ 💭 **Dossier des données sous MSIX.** Une application empaquetée voit ses écritures dans le dossier
   d'application redirigées vers celui du paquet : les préférences (`ADR-011`) n'y seraient pas au même
   endroit que pour l'exécutable de release. Inférence, non vérifiée ; sans effet sur des usagers, aucune
@@ -245,6 +259,8 @@ Partner Center, la politique de confidentialité, le logo, et la fiche du Store.
    publication, avec la règle `a.b.c.0` dérivée par l'outil (pas de `msix_version` à part).
 3. ✅ **Arbitré le 2026-10-21** : `build_windows: false` — « le MSIX emballe l'exécutable de release déjà
    vérifié », au lieu de le reconstruire.
+4. ✅ **Arbitré le 2026-10-21**, amendement : « ajoute store: true dans msix_config, amende ADR-018 et son
+   test », après le refus par Partner Center d'un paquet construit sans `--store`.
 
 ---
 
