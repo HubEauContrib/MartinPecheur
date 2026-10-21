@@ -1,0 +1,23 @@
+name: t5_tache_de_fond
+description: "Essai jetable de T5 (étape 2) : vérification et notification en tâche de fond, Android et Windows. Jamais importé par l'application."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+
+# Versions arbitrées (arbitrage 12 du 2026-10-17, plan de T5, Z1) : épinglées
+# exactement pour les deux paquets essayés.
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_local_notifications: 22.3.2
+  workmanager: 0.10.10
+  http: ^1.6.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

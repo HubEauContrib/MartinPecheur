@@ -18,6 +18,7 @@ analyzer:
     - ios/**
     - windows/**
     - android/**
+    - spike/**                     # essais jetables, projets Flutter à part (arbitrage 14 de T5)
 
 linter:
   rules:

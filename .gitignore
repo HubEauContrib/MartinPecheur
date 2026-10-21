@@ -15,6 +15,14 @@ windows/flutter/ephemeral/
 android/.gradle/
 android/local.properties
 
+# Projet jetable des essais de T5 (arbitrage 14) : versionné sans ses caches.
+# build/, .dart_tool/ et .flutter-plugins-dependencies sont ignorés plus haut,
+# à toute profondeur.
+spike/t5_tache_de_fond/windows/flutter/ephemeral/
+spike/t5_tache_de_fond/android/.gradle/
+spike/t5_tache_de_fond/android/local.properties
+spike/t5_tache_de_fond/android/.kotlin/
+
 # Signature de release Android — clé et propriétés jamais versionnées
 android/key.properties
 *.jks
