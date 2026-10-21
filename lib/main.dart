@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:martinpecheur/data/floods/cached_flood_vigilance_source.dart';
 import 'package:martinpecheur/data/floods/vigicrues_endpoint.dart';
 import 'package:martinpecheur/data/floods/vigicrues_flood_vigilance_source.dart';
+import 'package:martinpecheur/data/follow_up/shared_preferences_follow_up_repository.dart';
 import 'package:martinpecheur/data/http/hub_eau_client.dart';
 import 'package:martinpecheur/data/http/json_http_client.dart';
 import 'package:martinpecheur/data/links/url_launcher_external_link_opener.dart';
@@ -29,6 +30,7 @@ import 'package:martinpecheur/domain/favorites/favorite.dart';
 import 'package:martinpecheur/domain/favorites/favorite_repository.dart';
 import 'package:martinpecheur/domain/floods/flood_section.dart';
 import 'package:martinpecheur/domain/floods/flood_vigilance_source.dart';
+import 'package:martinpecheur/domain/follow_up/follow_up_repository.dart';
 import 'package:martinpecheur/domain/geo/geo_point.dart';
 import 'package:martinpecheur/domain/nomenclature/flow_category.dart';
 import 'package:martinpecheur/domain/onde/campaign_age.dart';
@@ -154,6 +156,11 @@ Future<void> main() async {
   // favori. Verrou : `test/main_test.dart`.
   final FavoriteRepository favorites = SharedPreferencesFavoriteRepository();
 
+  // Le suivi des lieux (T5, `V1`) : UNE SEULE instance, passée à tous ceux qui
+  // lisent ou écrivent les suivis. Le dépôt sérialise ses lire-puis-écrire PAR
+  // INSTANCE, comme celui des favoris. Verrou : `test/main_test.dart`.
+  final FollowUpRepository followUps = SharedPreferencesFollowUpRepository();
+
   // Vigicrues (T4, `F4`) : la source n'est nommée qu'ICI, hors de
   // `lib/data/floods/` (confinement, `ADR-016` ;
   // `test/data/floods/flood_vocabulary_confinement_test.dart`), décorée par
@@ -191,6 +198,8 @@ Future<void> main() async {
       floodLayerViewModel: FloodLayerViewModel(source: floodVigilanceSource),
       floodSheetViewModel: FloodSheetViewModel(
         links: const UrlLauncherExternalLinkOpener(),
+        favorites: favorites,
+        followUps: followUps,
       ),
       restrictionsViewModel: RestrictionsViewModel(
         source: restrictionSource,
@@ -419,6 +428,9 @@ class _MartinPecheurAppState extends State<MartinPecheurApp> {
         _lastFloodSheetState,
       ),
       FicheTronconOuverte() => false,
+      // Un état absent neuf compte comme une ouverture, comme une fiche
+      // ouverte : il ramène le corps en haut.
+      FicheTronconAbsente() => !identical(state, _lastFloodSheetState),
       FicheTronconFermee() => false,
     };
     _lastFloodSheetState = state;

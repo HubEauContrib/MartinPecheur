@@ -111,6 +111,7 @@ import 'package:martinpecheur/main.dart';
 import 'features/restrictions/zones_samples.dart';
 import 'support/android_platform.dart';
 import 'support/in_memory_favorite_repository.dart';
+import 'support/in_memory_follow_up_repository.dart';
 import 'support/windows_platform.dart';
 
 /// Dépôts vides, juste assez pour CONSTRUIRE les trois autres ViewModels :
@@ -338,6 +339,15 @@ Future<void> _retour(WidgetTester tester) async {
   await tester.tap(retour);
 }
 
+/// La fiche tronçon de la racine, sur des dépôts en mémoire : comme la racine,
+/// elle partage le dépôt des favoris de l'appelant (T5, `V1`).
+FloodSheetViewModel _floodSheet({InMemoryFavoriteRepository? favorites}) =>
+    FloodSheetViewModel(
+      links: _NeverOpensLinks(),
+      favorites: favorites ?? InMemoryFavoriteRepository(),
+      followUps: InMemoryFollowUpRepository(),
+    );
+
 MartinPecheurApp _app(
   WarningsViewModel warningsViewModel, [
   RestrictionsViewModel? restrictionsViewModel,
@@ -357,7 +367,7 @@ MartinPecheurApp _app(
         floodLayerViewModel ??
         FloodLayerViewModel(source: _CountingFloodSource()),
     floodSheetViewModel:
-        floodSheetViewModel ?? FloodSheetViewModel(links: _NeverOpensLinks()),
+        floodSheetViewModel ?? _floodSheet(favorites: favorites),
     restrictionsViewModel: restrictionsViewModel ?? _restrictions(),
     favoritesViewModel:
         favoritesViewModel ?? FavoritesViewModel(favorites: favorites),
@@ -2810,10 +2820,43 @@ void main() {
     expect(
       RegExp(
         r'floodSheetViewModel: FloodSheetViewModel\(\s*'
-        r'links: const UrlLauncherExternalLinkOpener\(\),?\s*\)',
+        r'links: const UrlLauncherExternalLinkOpener\(\),\s*'
+        r'favorites: favorites,\s*'
+        r'followUps: followUps,?\s*\)',
       ).hasMatch(root),
       isTrue,
-      reason: 'la fiche troncon ouvre le bulletin par l ouvreur de liens reel',
+      reason:
+          'la fiche troncon ouvre le bulletin par l ouvreur de liens reel, et '
+          'recoit les MEMES depots des favoris et du suivi que le reste',
+    );
+  });
+
+  // `V1` de T5 : le dépôt des suivis sérialise ses lire-puis-écrire par
+  // instance, comme celui des favoris ; une seconde instance perdrait un
+  // réglage. UNE construction, passée à la fiche tronçon.
+  test('la racine ne construit qu une seule instance du depot des suivis, '
+      'et la passe a la fiche troncon', () {
+    final String root = File('lib/main.dart').readAsStringSync();
+
+    expect(
+      RegExp(r'SharedPreferencesFollowUpRepository\(').allMatches(root),
+      hasLength(1),
+      reason: 'une seule construction, partagee par tous ses clients',
+    );
+    expect(
+      root,
+      contains(
+        'final FollowUpRepository followUps = '
+        'SharedPreferencesFollowUpRepository();',
+      ),
+    );
+    expect(
+      RegExp(
+        // Sans traverser la construction d'un AUTRE ViewModel.
+        r'FloodSheetViewModel\((?:(?!ViewModel\()[^;])*?followUps: followUps[,)]',
+      ).hasMatch(root),
+      isTrue,
+      reason: 'la fiche troncon recoit CETTE instance',
     );
   });
 
@@ -2885,9 +2928,7 @@ void main() {
       final FloodLayerViewModel floodLayer = FloodLayerViewModel(
         source: source,
       );
-      final FloodSheetViewModel floodSheet = FloodSheetViewModel(
-        links: _NeverOpensLinks(),
-      );
+      final FloodSheetViewModel floodSheet = _floodSheet();
       await tester.pumpWidget(
         _app(
           await acknowledged(),
@@ -3301,9 +3342,7 @@ void main() {
           observations: _EmptyHydroObservationRepository(),
           onde: _EmptyOndeObservationRepository(),
         );
-        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
-          links: _NeverOpensLinks(),
-        );
+        final FloodSheetViewModel floodSheet = _floodSheet();
         final MartinPecheurApp first = tester.widget<MartinPecheurApp>(
           find.byType(MartinPecheurApp),
         );
@@ -3421,9 +3460,7 @@ void main() {
       'la zone des fiches ; son corps defile, sous le MEME controleur que la '
       'fiche station, jusqu a son bouton du bulletin',
       (WidgetTester tester) async {
-        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
-          links: _NeverOpensLinks(),
-        );
+        final FloodSheetViewModel floodSheet = _floodSheet();
         await pumpPhone(
           tester,
           floodSheet,
@@ -3491,9 +3528,7 @@ void main() {
       'Android : 360 x 640, 200 % : troncon A defile au bout, puis troncon '
       'B — la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
-        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
-          links: _NeverOpensLinks(),
-        );
+        final FloodSheetViewModel floodSheet = _floodSheet();
         await pumpPhone(tester, floodSheet);
         mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
         await tester.pump();
@@ -3514,9 +3549,7 @@ void main() {
       'Android : 360 x 640, 200 % : le MEME troncon rouvert apres defilement '
       '— la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
-        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
-          links: _NeverOpensLinks(),
-        );
+        final FloodSheetViewModel floodSheet = _floodSheet();
         await pumpPhone(tester, floodSheet);
         mapView(tester).onFloodSectionTap!(_troncon('LO1'), _floodDate);
         await tester.pump();
@@ -3533,9 +3566,7 @@ void main() {
       'Android : 360 x 640, 200 % : fiche station defilee au bout, puis un '
       'troncon — la fiche troncon est montree depuis son haut',
       (WidgetTester tester) async {
-        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
-          links: _NeverOpensLinks(),
-        );
+        final FloodSheetViewModel floodSheet = _floodSheet();
         final _SheetsRoot root = await pumpPhone(tester, floodSheet);
         mapView(tester).onStationTap!(StationCode('K447001001'));
         await tester.idle();
@@ -3559,9 +3590,7 @@ void main() {
       'Android : 390 x 844, 100 % : l echec d ouverture du bulletin, en bas '
       'de la fiche defilee, ne la ramene jamais en haut',
       (WidgetTester tester) async {
-        final FloodSheetViewModel floodSheet = FloodSheetViewModel(
-          links: _NeverOpensLinks(),
-        );
+        final FloodSheetViewModel floodSheet = _floodSheet();
         await pumpPhone(
           tester,
           floodSheet,

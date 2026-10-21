@@ -95,6 +95,8 @@ class FloodSheetPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (state) {
       FicheTronconFermee() => const SizedBox.shrink(),
+      // Provisoire (V1 de T5) : W2 rend la fiche d'un tronçon absent.
+      FicheTronconAbsente() => const SizedBox.shrink(),
       final FicheTronconOuverte open => SheetFrame(
         nature: floodSheetNature,
         closeButtonKey: floodSheetCloseButtonKey,
