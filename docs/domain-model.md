@@ -325,6 +325,87 @@ classDiagram
     FollowUpStorageFailure <|-- EcritureDuSuiviEnEchec
 ```
 
+### Les avis reçus et les règles de changement
+
+Un **avis** relaie ce qu'une vérification a relevé : un changement d'un niveau **publié**, une
+source qui n'a pas pu être lue, ou un lieu qui ne peut pas être relu (`BR-016`). Toutes les dates
+sont en UTC.
+
+- `ReceivedNotice` — sealed, deux branches (`PD3`) : `UnreadableNotice` (texte brut, gardé à sa
+  place et à l'identique ; il n'a pas de date de réception connue, d'où le type à part) et
+  `ReadableNotice`, sealed, qui porte `receivedAt`, le drapeau `read` (faux par défaut) et
+  `asRead()`. Ses six branches portent chacune **une seule** échelle par leur type (`BR-008`) :
+  - `FloodFollowUpStarted` — lieu, niveau publié lu, date de l'information de vigilance, seuil ;
+  - `DroughtFollowUpStarted` — lieu, zones citées (`KnownZone`, une liste vide dit « aucune zone
+    citée ») et `readAt`, l'instant de la lecture, stocké mais affiché nulle part ;
+  - `FloodLevelChanged` — lieu, ancien et nouveau niveau, date de l'information ;
+  - `DroughtZoneChanged` — lieu, nom et type de la zone, ancienne gravité (`null` : zone
+    nouvelle), nouvelle gravité et date d'arrêté (`null` : zone plus citée) ;
+  - `CheckImpossible` — `FollowUpSource` (`floods`, `drought`), `CheckFailureCause`
+    (`unreachable`, `refused`, `unreadable` : les trois échecs des ports) et les lieux concernés ;
+    un avis par source et par cause dans une même vérification (`PD4`) ;
+  - `PlaceNotVerifiable` — lieu et `NotVerifiableReason`, sealed à trois branches :
+    `SectionAbsent` et `SectionMaybeUnreadable` (avec la date de l'information de vigilance), et
+    `StationAbsent` (absente du référentiel embarqué).
+
+  Les égalités se font par valeur ; un niveau ou une gravité non reconnus s'égalent par leur brut
+  (`sameFloodLevel`, `sameDroughtSeverity`, `sameOptionalDroughtSeverity`).
+
+Les règles (`follow_up_rules.dart`) **comparent deux niveaux publiés**, elles n'en calculent
+aucun (`BR-015`) :
+
+- `publishedFloodRank` — vert 0, jaune 1, orange 2, rouge 3, `null` pour `NiveauCruesInconnu` ;
+  `floodThresholdRank` — jaune 1, orange 2, rouge 3. Un rang n'ordonne que des niveaux publiés.
+- `floodNoticeDue(before, after, threshold)` — vrai si les niveaux diffèrent et que l'un des deux
+  atteint le seuil, à la montée comme à la descente (critère 11) ; un niveau non reconnu, avant
+  ou après, fait toujours un avis, et deux inconnus de bruts différents aussi (critère 12).
+- `zoneKindRank` — eaux superficielles 0, eaux souterraines 1, eau potable 2, type inconnu 3 :
+  l'ordre de l'écran des restrictions. `lastKnownZonesOf(ZonesAtPoint)` réduit une lecture à ses
+  `KnownZone` dans cet ordre, datée de `retrievedAt`.
+- `droughtZoneChanges(before, after)` rend des `DroughtZoneChange` (nom, type, gravité avant et
+  après, date d'arrêté). Faute d'identifiant, les zones s'apparient par type et nom, dans l'ordre
+  d'apparition ; un renommage se lit « zone plus citée » puis « zone nouvelle », et une date
+  d'arrêté changée à gravité égale ne donne rien (R5). Ordre : par `zoneKindRank`, puis, à rang
+  égal, les zones plus citées dans l'ordre de l'ancienne lecture, puis les autres changements
+  dans l'ordre de la nouvelle.
+
+Le port est `NoticeRepository` : `readAll` (le plus récent en tête, liste vide si rien n'est
+stocké, un `UnreadableNotice` à sa place pour une entrée illisible), `addAll` (insère en tête
+**dans l'ordre donné** et garde les `maxStoredNotices` = 100 premières entrées, illisibles
+comprises ; une liste vide n'écrit rien), `markAllRead` (un illisible reste tel quel) et `clear`,
+qui remplace la liste sans la décoder. L'échec est **levé**, `NoticeStorageFailure` à deux
+branches, `ListeDAvisIllisible` et `EcritureDAvisEnEchec` ; une racine illisible lève à la
+lecture comme à l'écriture et n'est jamais écrasée, sauf par `clear`.
+
+```mermaid
+classDiagram
+    class ReceivedNotice
+    <<sealed>> ReceivedNotice
+    ReceivedNotice <|-- UnreadableNotice
+    ReceivedNotice <|-- ReadableNotice
+    class ReadableNotice
+    <<sealed>> ReadableNotice
+    ReadableNotice <|-- FloodFollowUpStarted
+    ReadableNotice <|-- DroughtFollowUpStarted
+    ReadableNotice <|-- FloodLevelChanged
+    ReadableNotice <|-- DroughtZoneChanged
+    ReadableNotice <|-- CheckImpossible
+    ReadableNotice <|-- PlaceNotVerifiable
+    DroughtFollowUpStarted --> KnownZone
+    CheckImpossible --> FollowUpSource
+    CheckImpossible --> CheckFailureCause
+    PlaceNotVerifiable --> NotVerifiableReason
+    class NotVerifiableReason
+    <<sealed>> NotVerifiableReason
+    NotVerifiableReason <|-- SectionAbsent
+    NotVerifiableReason <|-- SectionMaybeUnreadable
+    NotVerifiableReason <|-- StationAbsent
+    NoticeRepository --> ReceivedNotice
+    NoticeStorageFailure <|-- ListeDAvisIllisible
+    NoticeStorageFailure <|-- EcritureDAvisEnEchec
+    DroughtZoneChange ..> LastKnownZones : compare deux
+```
+
 ## Agrégats
 
 - **Station observée** — racine `Station`, dernière observation connue par `Grandeur`. Une
