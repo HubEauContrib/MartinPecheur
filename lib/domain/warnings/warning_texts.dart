@@ -35,6 +35,7 @@
 // bas, HORS verrou de version.
 
 import 'package:martinpecheur/domain/formatting/display_date.dart';
+import 'package:martinpecheur/domain/sources/source_names.dart';
 
 /// Version actuellement en vigueur du texte du modal d'acquittement initial
 /// (`UC-006`, `BR-012`). C'est cette chaîne — jamais un booléen — qui est
@@ -243,3 +244,27 @@ const String floodWarningBody =
 /// § 7.7 et § 12.2).
 const String floodWarningWindowText =
     "Ce n'est pas un système d'alerte. $floodWarningBody";
+
+// ---------------------------------------------------------------------------
+// T5 — avertissement de suivi (`BR-016`). Provenance : cadrage de T5
+// (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`), § 11.2, corps
+// arbitré (arbitrage 9), recopié mot pour mot, les noms des sources étant
+// interpolés depuis `source_names.dart`. ⚠️ HORS VERROU DE VERSION :
+// `warningTextVersion` ne couvre QUE le texte du modal du premier lancement.
+// ---------------------------------------------------------------------------
+
+/// Titre de l'encart et du réglage « Me prévenir » (cadrage de T5, § 11.2).
+const String followUpWarningHeadline = "CE N'EST PAS UN SYSTÈME D'ALERTE";
+
+/// Corps de l'encart de suivi (cadrage de T5, § 11.2, arbitrage 9).
+const String followUpWarningBody =
+    'Cette application ne relit les niveaux publiés par $floodSourceName et '
+    "$restrictionsSourceName que lorsqu'elle est ouverte, depuis cet "
+    'appareil, sans serveur. Un avis peut arriver tard, ou ne pas arriver : '
+    'un changement survenu entre deux ouvertures peut ne pas être vu. Elle '
+    'ne remplace ni le bulletin de $floodSourceName, ni les arrêtés '
+    'préfectoraux, ni les consignes des autorités et des secours.';
+
+/// Texte propre à la fenêtre « ⚠ Avertissement » d'« Avis reçus », sous le
+/// texte général (cadrage de T5, § 11.2).
+const String followUpWarningWindowText = followUpWarningBody;

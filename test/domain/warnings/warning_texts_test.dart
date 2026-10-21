@@ -11,7 +11,7 @@
 // PURE, mot pour mot.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/domain/sources/source_names.dart'
-    show floodSourceName;
+    show floodSourceName, restrictionsSourceName;
 import 'package:martinpecheur/domain/warnings/warning_texts.dart';
 
 import '../../project/vocabulary_lists.dart' show forbiddenGuaranteeWords;
@@ -269,6 +269,69 @@ void main() {
 
       test('${texte.key} : aucun mot de garantie (BR-014, '
           'vocabulary_lists.dart)', () {
+        for (final String mot in forbiddenGuaranteeWords) {
+          expect(
+            RegExp(
+              '(?<!\\p{L})${RegExp.escape(mot)}(?!\\p{L})',
+              caseSensitive: false,
+              unicode: true,
+            ).hasMatch(texte.value),
+            isFalse,
+            reason: '${texte.key} contient « $mot »',
+          );
+        }
+      });
+    }
+  });
+
+  // T5, W1 — l'avertissement de suivi (BR-016), cadrage de T5 § 11.2, corps
+  // arbitré (arbitrage 9). HORS VERROU DE VERSION. Le test recopie le texte en
+  // littéral : il n'est pas balayé par le confinement du nom des sources.
+  group('avertissement de suivi (T5, BR-016) — textes arbitrés', () {
+    const String corpsArbitre =
+        'Cette application ne relit les niveaux publiés par Vigicrues et '
+        "VigiEau que lorsqu'elle est ouverte, depuis cet appareil, sans "
+        'serveur. Un avis peut arriver tard, ou ne pas arriver : un '
+        'changement survenu entre deux ouvertures peut ne pas être vu. Elle '
+        'ne remplace ni le bulletin de Vigicrues, ni les arrêtés '
+        'préfectoraux, ni les consignes des autorités et des secours.';
+
+    test('followUpWarningHeadline vaut exactement le titre arbitré', () {
+      expect(followUpWarningHeadline, "CE N'EST PAS UN SYSTÈME D'ALERTE");
+    });
+
+    test('followUpWarningBody vaut exactement le corps arbitré (§ 11.2)', () {
+      expect(followUpWarningBody, corpsArbitre);
+    });
+
+    test('followUpWarningWindowText est le corps de l\'encart', () {
+      expect(followUpWarningWindowText, corpsArbitre);
+    });
+
+    test('le corps nomme les deux sources', () {
+      expect(followUpWarningBody, contains(floodSourceName));
+      expect(followUpWarningBody, contains(restrictionsSourceName));
+    });
+
+    test('la version du modal du premier lancement ne change pas', () {
+      expect(warningTextVersion, '2026-09-13.1');
+    });
+
+    final Map<String, String> textes = <String, String>{
+      'followUpWarningHeadline': followUpWarningHeadline,
+      'followUpWarningBody': followUpWarningBody,
+      'followUpWarningWindowText': followUpWarningWindowText,
+    };
+    for (final MapEntry<String, String> texte in textes.entries) {
+      test('${texte.key} : aucun mot banni (BR-003)', () {
+        expect(_bannedWords.hasMatch(texte.value), isFalse);
+      });
+
+      test("${texte.key} : aucun verbe d'instruction (BR-014)", () {
+        expect(_instructionVerbs.hasMatch(texte.value), isFalse);
+      });
+
+      test('${texte.key} : aucun mot de garantie (vocabulary_lists.dart)', () {
         for (final String mot in forbiddenGuaranteeWords) {
           expect(
             RegExp(

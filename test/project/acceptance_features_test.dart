@@ -55,6 +55,7 @@ import 'package:martinpecheur/features/notices/view_model/notice_texts.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
     show ondeHistoriqueTitre, ondeSheetNature;
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
+import 'package:martinpecheur/features/shared/drought_follow_up_section.dart';
 import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart'
     show stationQualificationLabel, stationSheetNature, stationStatusLabel;
@@ -1024,6 +1025,10 @@ void main() {
       'noticePlaceNotVerifiableTitle': noticePlaceNotVerifiableTitle,
       'noticeZoneNoLongerCitedTitle': noticeZoneNoLongerCitedTitle,
       'noticeNoZoneText': noticeNoZoneText,
+      'followUpWarningHeadline': followUpWarningHeadline,
+      'followUpWarningBody': followUpWarningBody,
+      'droughtFollowUpLabel': droughtFollowUpLabel,
+      'droughtFollowUpRule': droughtFollowUpRule,
     };
 
     test('suivi.feature existe et n\'est pas vide', () {
