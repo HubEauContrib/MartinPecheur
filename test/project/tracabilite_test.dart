@@ -212,7 +212,7 @@ const String _crueTextes = 'test/domain/warnings/warning_texts_test.dart';
 /// sur les zones déjà parcourues). Sans ce garde-fou, rien n'interdit de les
 /// passer à ✅ : les exceptions de T1 qui les protégeaient ont disparu avec
 /// `Task X2`. Elles gardent 🔄 tant que la persistance de `DerniereVueCarte`,
-/// le bandeau « Mode hors-ligne » et le téléchargement explicite d'une zone
+/// le bandeau « Mode hors-ligne » et la désactivation du rafraîchissement
 /// (`UC-005` flux nominal, étapes 1, 4 et 6) ne sont pas livrés ET couverts
 /// par un test — ce qui exige le moteur de stockage structuré qu'`ADR-011`
 /// laisse ouvert jusqu'au hors-ligne (arbitrage 2 du cadrage de T3 : T3 range
@@ -617,8 +617,8 @@ void main() {
           isTrue,
           reason:
               '$id est partiel : seul le cache de tuiles est livré. Il '
-              'garde 🔄 jusqu\'à la persistance de DerniereVueCarte, au '
-              'bandeau hors-ligne et au téléchargement de zone : "$etat"',
+              'garde 🔄 jusqu\'à la persistance de DerniereVueCarte et au '
+              'bandeau hors-ligne : "$etat"',
         );
         expect(
           etat.contains('✅'),

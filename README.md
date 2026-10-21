@@ -52,9 +52,9 @@ vigilance © VIGICRUES.*
 | 📶 **Sans réseau** | La dernière réponse connue reste affichée, **avec sa date et un bandeau** — jamais comme si elle était fraîche. Les tuiles de carte déjà parcourues restent visibles |
 
 **Périmètre v1** — pas de backend · pas de compte utilisateur · pas de notifications · pas de
-prévision hydrologique · **pas de pré-téléchargement de zone cartographique** (écarté le 2026-08-24 ; le `Must`
-d'[`UC-005`](docs/use-cases/UC-005-consulter-la-carte-hors-ligne.md) n'est pas livré, voir le point 10
-de [`docs/project-state.md`](docs/project-state.md)).
+prévision hydrologique · **pas de pré-téléchargement de zone cartographique** (sorti de la v1 le 2026-08-24, arbitrage du
+commanditaire confirmé le 2026-10-21 ; hors réseau, seules les zones déjà parcourues gardent leur
+fond, [`UC-005`](docs/use-cases/UC-005-consulter-la-carte-hors-ligne.md)).
 
 ## Ce qu'il refuse de faire
 
@@ -256,8 +256,7 @@ conservées et présentées dans l'écran « À propos ».
 | `drift` *(candidat, non retenu)* | 2.34.x | MIT | pub.dev, 2026-08-24 |
 
 La bibliothèque `flutter_map_tile_caching` est en **GPL-3.0** : elle est désormais compatible avec
-ce dépôt ; elle n'est pas retenue tant que le téléchargement de zone n'est pas arbitré (point 10 de
-`docs/project-state.md`).
+ce dépôt, mais la question est sans objet : le pré-téléchargement de zone est sorti de la v1.
 
 ### Disponibilité
 

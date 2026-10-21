@@ -117,9 +117,10 @@ VigiEau : le **site** (`https://vigieau.gouv.fr/`, pied de page : « licence eta
 
 ## 9. Pack hors-ligne
 
-Le `Must` hors-ligne d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **non
-livré** : sur `flutter_map`, seul le cache de tuiles déjà parcourues sert hors réseau (`NV-W2`,
-[`nfr.md`](nfr.md)), aucun téléchargement de zone n'existe.
+Le **pré-téléchargement de zone est sorti de la v1** (`US-20`, arbitrage du commanditaire du
+2026-08-24, confirmé le 2026-10-21). Hors réseau, sur `flutter_map`, seul le cache des tuiles déjà
+parcourues sert le fond (`NV-W2`, [`nfr.md`](nfr.md)). Le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md)
+— la dernière carte consultée — reste **livré en partie** (point 10 de [`project-state.md`](project-state.md)).
 
 ## 10. Tracés de cours d'eau — hors v1
 

@@ -12,7 +12,7 @@
 |---|---|
 | Regroupement de ~4 150 points | Regroupement par zone administrative sous le zoom 9, sans bibliothèque ([`ADR-015`](adr/ADR-015-regroupement-par-zone-administrative.md)) |
 | Tuiles WMTS personnalisées | `TileLayer(urlTemplate: …)`, gabarit KVP passé tel quel |
-| **Hors-ligne** | Cache de tuiles **intégré à `flutter_map` depuis 8.2** pour les zones déjà parcourues ; aucun téléchargement de zone à la demande — le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste non livré |
+| **Hors-ligne** | Cache de tuiles **intégré à `flutter_map` depuis 8.2** pour les zones déjà parcourues ; aucun téléchargement de zone à la demande, sorti de la v1 (`US-20`, arbitrage du 2026-08-24, confirmé le 2026-10-21) — le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste livré en partie |
 | Rendu | Widgets Flutter, compilés nativement sur chaque cible |
 
 **Fond de carte** : IGN Géoplateforme WMTS (Licence Ouverte, cohérent avec des données françaises), OSM en repli (ODbL).
@@ -132,18 +132,18 @@ flowchart LR
 ### 4.3 Hors-ligne « dernière carte consultée » — 💭 non livré, mécanisme à trancher
 
 Cette section décrit un **besoin**, pas un mécanisme retenu. Sur `flutter_map`, seul le cache de
-tuiles déjà parcourues sert hors réseau (constaté le 2026-09-13, `NV-W2`) ; aucun téléchargement de
-zone à la demande n'est conçu ni n'existe. Le besoin fonctionnel reste :
+tuiles déjà parcourues sert hors réseau (constaté le 2026-09-13, `NV-W2`). Le **pré-téléchargement
+de zone est sorti de la v1** (`US-20`, arbitrage du commanditaire du 2026-08-24, confirmé le
+2026-10-21) : aucun mécanisme de téléchargement n'est à concevoir. Le besoin fonctionnel reste :
 
 1. À chaque stabilisation de la carte, retenir la dernière bbox + zoom consultés.
 2. Les stations et points ONDE de cette bbox, avec leur dernière observation connue, doivent être
    disponibles hors réseau — sans duplication avec le cache déjà en mémoire.
-3. Un mécanisme de téléchargement explicite pour la bbox ± marge reste **à concevoir** : aucune
-   bibliothèque de tuiles hors-ligne n'est retenue à ce jour.
-4. Au lancement sans réseau : centrage sur la dernière vue → marqueurs au dernier état connu →
+3. Au lancement sans réseau : centrage sur la dernière vue → marqueurs au dernier état connu →
    bandeau persistant « Mode hors-ligne — données du JJ/MM/AAAA à HH:MM ».
 
-Le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **non livré**.
+Le `Must` d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **livré en partie** :
+seul le cache de tuiles l'est.
 
 ## 5. Arborescence des écrans
 

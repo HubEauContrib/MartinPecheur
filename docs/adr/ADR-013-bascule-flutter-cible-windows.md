@@ -20,7 +20,9 @@
 
 Le 2026-08-24, le commanditaire a fait de **Windows une cible produit**, aux côtés d'Android et
 d'iOS : des usagers consulteront l'état de la rivière depuis un PC. Le critère de choix retenu ce
-jour-là est **la qualité technique** ; une réécriture est acceptée si elle est justifiée.
+jour-là est **la qualité technique** ; une réécriture est acceptée si elle est justifiée. Le même
+jour, le **pré-téléchargement de zone cartographique sort de la v1** (`US-20`) — arbitrage confirmé
+le 2026-10-21.
 
 **Le fait structurant :** `flutter_map`, en Dart pur, est le seul moteur cartographique
 multi-plateforme relevé qui couvre Android, iOS **et** Windows sans passer par une WebView.
@@ -144,8 +146,9 @@ racine, pas dans `android/app/build`, ces caches sont donc **inertes pour Flutte
   `lib/domain/` pur, les sept règles de couches. Une cible de plus n'est pas une décision
   d'architecture.
 - **iOS reste configuré et jamais compilé** (aucun hôte macOS, `NV-W4`).
-- **Le hors-ligne de zone reste non tranché** : le `Must` d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md)
-  n'est pas livré. Réactiver Android ne le rapproche d'aucune résolution.
+- **Le hors-ligne de la dernière carte reste livré en partie** : le `Must` d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md)
+  n'est couvert que par le cache des tuiles déjà parcourues. Réactiver Android n'y change rien. Le
+  pré-téléchargement de zone, lui, est hors v1 (arbitrage du 2026-08-24, confirmé le 2026-10-21).
 - **`F2` n'est pas rouverte** : `F2c` (viewport plus marge, sans regroupement) reste l'approche par
   défaut tant qu'aucune mesure ne réhabilite le regroupement.
 
@@ -228,8 +231,10 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
   documentation seulement au spike**, puis **constaté à l'écran le 2026-09-13** : carte réseau
   désactivée, la carte s'ouvre et le fond s'affiche **sur les zones déjà parcourues** (`NV-W2`,
   [`docs/nfr.md`](../nfr.md)). ⚠️ Une zone **jamais chargée** n'a pas été constatée, et **aucun
-  téléchargement de zone à la demande n'existe** : le `Must` d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md)
-  et d'`US-10` reste **non livré**. Un cache opportuniste n'est pas un pack hors-ligne.
+  téléchargement de zone à la demande n'existe** — il est hors v1 (`US-20`, arbitrage du 2026-08-24,
+  confirmé le 2026-10-21) : hors réseau, une zone jamais parcourue reste sans fond. Le `Must`
+  d'[`UC-005`](../use-cases/UC-005-consulter-la-carte-hors-ligne.md) et d'`US-10` reste **livré en
+  partie** : ni la persistance de `DerniereVueCarte`, ni le bandeau hors-ligne.
 - **`F2` n'est pas tranchée, et aucune mesure de fluidité n'existe sur Windows.** `NFR-01`
   (rastérisation `p90` ≤ 16,7 ms, trames en retard < 5 %) est **non mesuré** sur la seule cible
   construite — `NV-W3` dans `docs/nfr.md`, ouvert sans date. Le binaire de T0 a été jugé à l'œil, pas
@@ -258,8 +263,7 @@ avertissements (`BR-012`, `BR-013`) restent une condition de mise en production,
 - **Flutter avec MapLibre natif** (`maplibre_gl`) plutôt que `flutter_map` en raster. Sa
   documentation exclut Windows (`maplibre_gl` 0.27.0, relevé du 2026-08-24). **Non essayé** : aucun
   spike, aucune mesure. Ce n'est donc pas une option écartée sur preuve, mais une
-  **piste non instruite** — à ouvrir par un spike si la tenue en charge ou le hors-ligne de zone
-  l'exigent, jamais à présenter comme évaluée.
+  **piste non instruite** — à ouvrir par un spike si la tenue en charge l'exige, jamais à présenter comme évaluée.
 
 ---
 

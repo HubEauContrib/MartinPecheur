@@ -97,7 +97,7 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 | US-07 | P2, P5 | Je consulte le **niveau de gravité sécheresse** de ma zone et la **liste des usages restreints** |
 | US-08 | P2 | J'accède au **PDF de l'arrêté préfectoral** en vigueur |
 | US-09 | P2, P5 | Tout écran sécheresse porte l'**avertissement renforcé** |
-| US-10 | Tous | Sans réseau, je retrouve la **dernière carte consultée**, avec l'âge des données affiché |
+| US-10 | Tous | Sans réseau, je retrouve la **dernière carte consultée**, avec l'âge des données affiché · ⚠️ **Précisé le 2026-10-21 (arbitrage du commanditaire)** : **sans pré-téléchargement de zone**, sorti de la v1 le 2026-08-24 (`US-20`, Won't). Hors réseau, le fond n'est servi que sur les zones déjà parcourues (cache de tuiles de `flutter_map`) |
 
 ### Should
 
@@ -118,11 +118,16 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 | US-17 | P5 | Je consulte une **vue départementale agrégée** |
 | US-18 | P3 | Je vois la **température de l'eau** si une station en mesure à proximité |
 | US-19 | Tous | Je **partage** une fiche |
-| US-20 | Tous | Je choisis la **zone à télécharger** pour le hors-ligne |
+| US-20 | Tous | Je choisis la **zone à télécharger** pour le hors-ligne · ⛔ **Sorti de la v1** (arbitrage du commanditaire du 2026-08-24, confirmé le 2026-10-21) : voir Won't (v1) |
 
 ### Won't (v1)
 
-Compte utilisateur · notifications push · prévision ou modélisation hydrologique · qualité de l'eau · backend · alertes personnalisées · saisie d'observations par les usagers.
+Compte utilisateur · notifications push · prévision ou modélisation hydrologique · qualité de l'eau · backend · alertes personnalisées · saisie d'observations par les usagers · pré-téléchargement de zone cartographique (`US-20`).
+
+> ⚠️ **Amendé le 2026-10-21 (arbitrage du commanditaire).** Le **pré-téléchargement de zone
+> cartographique** (`US-20`) entre dans cette liste : il est sorti de la v1 le 2026-08-24, et le
+> commanditaire le confirme le 2026-10-21. `US-10` reste un `Must`, sans lui : la dernière carte
+> consultée, hors réseau, sur le cache des tuiles déjà parcourues.
 
 > ⚠️ **Amendé le 2026-10-03 (arbitrage du commanditaire).** « Alertes personnalisées » quitte
 > cette liste pour la tranche **T5** : des avis sur les lieux suivis, portés au besoin par des
