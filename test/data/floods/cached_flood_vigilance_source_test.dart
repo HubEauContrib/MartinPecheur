@@ -144,4 +144,84 @@ void main() {
     source.barriere!.complete();
     await _laisserCourir();
   });
+
+  group('vue fraiche (D1 de T5)', () {
+    test('fresh.current() a ttl - 1 min d un current() : meme carte, zero '
+        'appel', () async {
+      final FloodVigilanceMap premiere = await cache.current();
+      maintenant = maintenant.add(
+        floodVigilanceCacheTtl - const Duration(minutes: 1),
+      );
+
+      final FloodVigilanceMap fraiche = await cache.fresh.current();
+      await _laisserCourir();
+
+      expect(fraiche, same(premiere));
+      expect(source.appels, 1);
+    });
+
+    test('a ttl : fresh.current() attend la nouvelle carte, que current() '
+        'rend ensuite sans nouvel appel', () async {
+      await cache.current();
+      source.prochaine = _carte(2);
+      maintenant = maintenant.add(floodVigilanceCacheTtl);
+      source.barriere = Completer<void>();
+
+      FloodVigilanceMap? fraiche;
+      final Future<void> lecture = cache.fresh.current().then((
+        FloodVigilanceMap carte,
+      ) {
+        fraiche = carte;
+      });
+      await _laisserCourir();
+      expect(source.appels, 2);
+      expect(fraiche, isNull, reason: 'la vue fraiche attend la source');
+
+      source.barriere!.complete();
+      await lecture;
+      expect(fraiche, same(source.prochaine));
+
+      expect(await cache.current(), same(source.prochaine));
+      expect(source.appels, 2, reason: 'les deux vues partagent l entree');
+    });
+
+    test('Review Focus 5 : a ttl + 1 min, l echec de la lecture fraiche '
+        'remonte, et current() rend l ancienne carte avec sa date', () async {
+      final FloodVigilanceMap ancienne = await cache.current();
+      final DateTime dateAncienne = ancienne.informationDate;
+      maintenant = maintenant.add(
+        floodVigilanceCacheTtl + const Duration(minutes: 1),
+      );
+      source.prochaine = _carte(2);
+      source.erreur = const VigilanceInjoignable('reseau');
+
+      await expectLater(
+        cache.fresh.current(),
+        throwsA(const VigilanceInjoignable('reseau')),
+      );
+      expect(source.appels, 2);
+
+      final FloodVigilanceMap rendue = await cache.current();
+      await _laisserCourir();
+      expect(rendue, same(ancienne));
+      expect(rendue.informationDate, dateAncienne);
+    });
+
+    test('une lecture fraiche et une lecture ordinaire simultanees sur une '
+        'entree perimee : un seul appel a la source', () async {
+      await cache.current();
+      maintenant = maintenant.add(floodVigilanceCacheTtl);
+      source.prochaine = _carte(2);
+      source.barriere = Completer<void>();
+
+      final Future<FloodVigilanceMap> ordinaire = cache.current();
+      final Future<FloodVigilanceMap> fraiche = cache.fresh.current();
+      await _laisserCourir();
+      source.barriere!.complete();
+
+      await ordinaire;
+      expect(await fraiche, same(source.prochaine));
+      expect(source.appels, 2);
+    });
+  });
 }

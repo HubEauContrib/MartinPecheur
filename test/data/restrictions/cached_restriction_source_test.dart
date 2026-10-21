@@ -286,4 +286,82 @@ void main() {
       );
     });
   });
+
+  group('vue fraiche (D1 de T5)', () {
+    test('deux points ont deux entrees : la vue fraiche d un point perime ne '
+        'relit pas l autre', () async {
+      final _SourceBouchon bouchon = _SourceBouchon();
+      final DateTime t0 = DateTime.utc(2026, 9, 27, 8);
+      bouchon.valeurs[point] = _reponse(point, t0);
+      bouchon.valeurs[autrePoint] = _reponse(autrePoint, t0);
+      DateTime horloge = t0;
+      final CachedRestrictionSource source = CachedRestrictionSource(
+        inner: bouchon,
+        now: () => horloge,
+      );
+
+      await source.zonesAt(point);
+      await source.zonesAt(autrePoint);
+      expect(bouchon.appels, 2);
+
+      horloge = t0.add(restrictionsCacheTtl);
+      final DateTime t1 = horloge;
+      bouchon.valeurs[point] = _reponse(point, t1);
+
+      final ZonesAtPoint fraiche = await source.fresh.zonesAt(point);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fraiche.retrievedAt, t1, reason: 'la vue fraiche attend inner');
+      expect(bouchon.appelsParPoint[point], 2);
+      expect(bouchon.appelsParPoint[autrePoint], 1);
+
+      final ZonesAtPoint ordinaire = await source.zonesAt(point);
+      expect(ordinaire.retrievedAt, t1, reason: 'la meme entree que la vue');
+      expect(bouchon.appelsParPoint[point], 2);
+    });
+
+    test('vue fraiche d une entree valide : zero appel', () async {
+      final _SourceBouchon bouchon = _SourceBouchon();
+      final DateTime t0 = DateTime.utc(2026, 9, 27, 8);
+      bouchon.valeurs[point] = _reponse(point, t0);
+      DateTime horloge = t0;
+      final CachedRestrictionSource source = CachedRestrictionSource(
+        inner: bouchon,
+        now: () => horloge,
+      );
+
+      await source.zonesAt(point);
+      horloge = t0.add(restrictionsCacheTtl - const Duration(minutes: 1));
+
+      final ZonesAtPoint fraiche = await source.fresh.zonesAt(point);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fraiche.retrievedAt, t0);
+      expect(bouchon.appels, 1);
+    });
+
+    test('vue fraiche en echec sur une entree perimee : l echec remonte, '
+        'zonesAt rend l ancienne reponse', () async {
+      final _SourceBouchon bouchon = _SourceBouchon();
+      final DateTime t0 = DateTime.utc(2026, 9, 27, 8);
+      bouchon.valeurs[point] = _reponse(point, t0);
+      DateTime horloge = t0;
+      final CachedRestrictionSource source = CachedRestrictionSource(
+        inner: bouchon,
+        now: () => horloge,
+      );
+
+      await source.zonesAt(point);
+      horloge = t0.add(restrictionsCacheTtl + const Duration(minutes: 1));
+      bouchon.erreur = const SourceInjoignable('panne');
+
+      await expectLater(
+        source.fresh.zonesAt(point),
+        throwsA(isA<SourceInjoignable>()),
+      );
+      final ZonesAtPoint ordinaire = await source.zonesAt(point);
+      await Future<void>.delayed(Duration.zero);
+      expect(ordinaire.retrievedAt, t0);
+    });
+  });
 }

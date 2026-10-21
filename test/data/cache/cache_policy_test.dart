@@ -2,6 +2,11 @@
 // rafraichissement en tache de fond si perime et si le reseau est
 // disponible, deduplication des rafraichissements en vol (C-12), et un TTL
 // refuse a la construction. Neuf cas, TTL 20 min sauf mention contraire.
+// Puis la lecture fraiche (D1 de T5) : une valeur valide rendue telle
+// quelle, une valeur perimee ou absente relue en attendant load, le meme
+// rafraichissement en vol que la lecture ordinaire.
+
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:martinpecheur/data/cache/cache_policy.dart';
@@ -292,5 +297,191 @@ void main() {
       ),
       throwsArgumentError,
     );
+  });
+
+  group('lecture fraiche (withCachePolicyReads, D1 de T5)', () {
+    test('(12) lecture fraiche d une valeur valide : zero load, la valeur en '
+        'cache est rendue telle quelle', () async {
+      int appelsLoad = 0;
+
+      final CachedReads<String> lectures = withCachePolicyReads<String>(
+        load: () async {
+          appelsLoad++;
+          return 'frais';
+        },
+        readCache: () async => CachedValue<String>(
+          value: 'cache',
+          storedAt: maintenant.subtract(ttl - const Duration(seconds: 1)),
+        ),
+        writeCache: (String v) async {},
+        ttl: ttl,
+        now: () => maintenant,
+      );
+
+      final String resultat = await lectures.readFresh();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(resultat, 'cache');
+      expect(appelsLoad, 0);
+    });
+
+    test('(13) a ttl exactement : load est attendu, puis la nouvelle valeur '
+        'est rendue et ecrite', () async {
+      int appelsLoad = 0;
+      final List<String> ecritures = <String>[];
+      final Completer<void> barriere = Completer<void>();
+
+      final CachedReads<String> lectures = withCachePolicyReads<String>(
+        load: () async {
+          appelsLoad++;
+          await barriere.future;
+          return 'frais';
+        },
+        readCache: () async => CachedValue<String>(
+          value: 'vieux',
+          storedAt: maintenant.subtract(ttl),
+        ),
+        writeCache: (String v) async => ecritures.add(v),
+        ttl: ttl,
+        now: () => maintenant,
+      );
+
+      String? resultat;
+      final Future<void> lecture = lectures.readFresh().then((String v) {
+        resultat = v;
+      });
+      await Future<void>.delayed(Duration.zero);
+
+      expect(appelsLoad, 1);
+      expect(resultat, isNull, reason: 'la lecture fraiche attend load');
+
+      barriere.complete();
+      await lecture;
+
+      expect(resultat, 'frais');
+      expect(ecritures, <String>['frais']);
+    });
+
+    test('(14) lecture fraiche a froid : un seul load', () async {
+      int appelsLoad = 0;
+      CachedValue<String>? entree;
+
+      final CachedReads<String> lectures = withCachePolicyReads<String>(
+        load: () async {
+          appelsLoad++;
+          return 'frais';
+        },
+        readCache: () async => entree,
+        writeCache: (String v) async {
+          entree = CachedValue<String>(value: v, storedAt: maintenant);
+        },
+        ttl: ttl,
+        now: () => maintenant,
+      );
+
+      expect(await lectures.readFresh(), 'frais');
+      expect(await lectures.readFresh(), 'frais');
+      expect(appelsLoad, 1);
+    });
+
+    test('(15) un read perime et un readFresh lances ensemble ne font qu un '
+        'load', () async {
+      int appelsLoad = 0;
+      final Completer<void> barriere = Completer<void>();
+
+      final CachedReads<String> lectures = withCachePolicyReads<String>(
+        load: () async {
+          appelsLoad++;
+          await barriere.future;
+          return 'frais';
+        },
+        readCache: () async => CachedValue<String>(
+          value: 'vieux',
+          storedAt: maintenant.subtract(const Duration(hours: 2)),
+        ),
+        writeCache: (String v) async {},
+        ttl: ttl,
+        now: () => maintenant,
+      );
+
+      final Future<String> ordinaire = lectures.read();
+      final Future<String> fraiche = lectures.readFresh();
+      await Future<void>.delayed(Duration.zero);
+      barriere.complete();
+
+      expect(await ordinaire, 'vieux');
+      expect(await fraiche, 'frais');
+      expect(appelsLoad, 1);
+    });
+
+    test('(16) echec de load a la lecture fraiche : l exception remonte ; un '
+        'read suivant rend l ancienne valeur et relance en fond', () async {
+      int appelsLoad = 0;
+      final List<String> ecritures = <String>[];
+
+      final CachedReads<String> lectures = withCachePolicyReads<String>(
+        load: () async {
+          appelsLoad++;
+          throw const FormatException('reponse illisible');
+        },
+        readCache: () async => CachedValue<String>(
+          value: 'vieux',
+          storedAt: maintenant.subtract(ttl),
+        ),
+        writeCache: (String v) async => ecritures.add(v),
+        ttl: ttl,
+        now: () => maintenant,
+      );
+
+      await expectLater(lectures.readFresh(), throwsFormatException);
+      expect(appelsLoad, 1);
+      expect(ecritures, isEmpty);
+
+      expect(await lectures.read(), 'vieux');
+      await Future<void>.delayed(Duration.zero);
+      expect(appelsLoad, 2);
+      expect(ecritures, isEmpty);
+    });
+
+    test('(17) lecture fraiche d une valeur perimee sans reseau annonce : '
+        'networkAvailable n est pas consulte, load est attendu', () async {
+      int appelsLoad = 0;
+      int consultations = 0;
+
+      final CachedReads<String> lectures = withCachePolicyReads<String>(
+        load: () async {
+          appelsLoad++;
+          return 'frais';
+        },
+        readCache: () async => CachedValue<String>(
+          value: 'vieux',
+          storedAt: maintenant.subtract(const Duration(days: 1)),
+        ),
+        writeCache: (String v) async {},
+        ttl: ttl,
+        now: () => maintenant,
+        networkAvailable: () {
+          consultations++;
+          return false;
+        },
+      );
+
+      expect(await lectures.readFresh(), 'frais');
+      expect(appelsLoad, 1);
+      expect(consultations, 0);
+    });
+
+    test('(18) withCachePolicyReads refuse un ttl nul, comme '
+        'withCachePolicy', () {
+      expect(
+        () => withCachePolicyReads<String>(
+          load: () async => 'frais',
+          readCache: () async => null,
+          writeCache: (String v) async {},
+          ttl: Duration.zero,
+        ),
+        throwsArgumentError,
+      );
+    });
   });
 }

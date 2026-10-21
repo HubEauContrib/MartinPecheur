@@ -8,8 +8,13 @@
 // depot enveloppe sa propre lecture dans [withCachePolicy] et garde la
 // fermeture obtenue dans un champ. Le principe « un seul endroit » survit ;
 // seul le vehicule a change — il vivait sous `lib/application/`, au temps ou
-// un registre de messages l'inserait dans un pipeline. Le corps de ce fichier
-// n'a pas bouge d'un caractere avec ce deplacement.
+// un registre de messages l'inserait dans un pipeline.
+//
+// La lecture fraiche (D1 de T5) s'ajoute ici, a cote de la lecture
+// ordinaire, et nulle part ailleurs : [withCachePolicyReads] rend les deux
+// lectures d'une meme entree, qui partagent le meme rafraichissement en vol.
+// La verification des lieux suivis lit la vue fraiche ; les ecrans gardent la
+// lecture ordinaire, qui n'attend jamais le reseau sur une entree en cache.
 
 import 'dart:async';
 
@@ -26,6 +31,22 @@ final class CachedValue<T> {
 
   /// L'instant ou [value] a ete ecrite en cache.
   final DateTime storedAt;
+}
+
+/// Les deux lectures d'une meme entree de cache, rendues par
+/// [withCachePolicyReads]. Elles partagent le meme rafraichissement en vol :
+/// jamais deux appels a `load` a la fois pour une entree.
+final class CachedReads<T> {
+  const CachedReads({required this.read, required this.readFresh});
+
+  /// La lecture ordinaire, stale-while-revalidate : n'attend `load` que sur
+  /// un cache vide (voir [withCachePolicy]).
+  final Future<T> Function() read;
+
+  /// La lecture fraiche : rend la valeur en cache si elle est encore valide
+  /// (age strictement inferieur au `ttl`), sinon attend `load`, partage avec
+  /// un rafraichissement deja en vol. Un echec remonte tel quel.
+  final Future<T> Function() readFresh;
 }
 
 bool _alwaysAvailable() => true;
@@ -59,6 +80,10 @@ bool _alwaysAvailable() => true;
 /// Leve un [ArgumentError] si [ttl] n'est pas strictement positif — a la
 /// construction de la fonction, avant tout appel.
 ///
+/// C'est la lecture ordinaire de [withCachePolicyReads], seule : les
+/// appelants qui n'ont pas besoin d'une lecture fraiche (hydrometrie, ONDE)
+/// gardent cette signature et ce comportement.
+///
 /// ⚠️ **Piege d'usage** : la deduplication des rafraichissements en vol vit
 /// dans la fermeture rendue par cet appel, pas dans [withCachePolicy]
 /// lui-meme. L'appelant doit donc **conserver une seule fermeture par entree
@@ -67,6 +92,41 @@ bool _alwaysAvailable() => true;
 /// fermeture neuve — donc un nouveau verrou toujours `null` — et annule la
 /// deduplication : chaque lecture simultanee relancerait son propre [load].
 Future<T> Function() withCachePolicy<T>({
+  required Future<T> Function() load,
+  required Future<CachedValue<T>?> Function() readCache,
+  required Future<void> Function(T value) writeCache,
+  required Duration ttl,
+  DateTime Function()? now,
+  bool Function()? networkAvailable,
+}) => withCachePolicyReads<T>(
+  load: load,
+  readCache: readCache,
+  writeCache: writeCache,
+  ttl: ttl,
+  now: now,
+  networkAvailable: networkAvailable,
+).read;
+
+/// Construit les deux lectures d'une entree de cache, avec les memes
+/// parametres que [withCachePolicy].
+///
+/// - [CachedReads.read] : la lecture stale-while-revalidate de
+///   [withCachePolicy], inchangee.
+/// - [CachedReads.readFresh] : [readCache] d'abord. Une valeur **valide**
+///   (`now() - storedAt < ttl`) est rendue telle quelle, sans appel a [load].
+///   Une valeur **perimee** (`>= ttl`, borne incluse, la meme que la lecture
+///   ordinaire) ou **absente** se relit : la lecture attend [load], partage
+///   avec un rafraichissement deja en vol. [networkAvailable] n'est pas
+///   consulte. Un echec de [load] remonte tel quel et n'ecrit rien :
+///   l'ancienne valeur reste en cache pour [CachedReads.read].
+///
+/// Les deux lectures partagent **le meme** rafraichissement en vol : une
+/// lecture ordinaire perimee et une lecture fraiche lancees ensemble ne font
+/// qu'un appel a [load]. Le piege d'usage de [withCachePolicy] vaut ici
+/// aussi : un seul [CachedReads] par entree de cache.
+///
+/// Leve un [ArgumentError] si [ttl] n'est pas strictement positif.
+CachedReads<T> withCachePolicyReads<T>({
   required Future<T> Function() load,
   required Future<CachedValue<T>?> Function() readCache,
   required Future<void> Function(T value) writeCache,
@@ -118,14 +178,16 @@ Future<T> Function() withCachePolicy<T>({
     return launched;
   }
 
-  return () async {
+  bool isStale(CachedValue<T> cached) =>
+      clock().difference(cached.storedAt) >= ttl;
+
+  Future<T> read() async {
     final CachedValue<T>? cached = await readCache();
     if (cached == null) {
       return refresh();
     }
 
-    final bool isStale = clock().difference(cached.storedAt) >= ttl;
-    if (isStale && isNetworkAvailable()) {
+    if (isStale(cached) && isNetworkAvailable()) {
       unawaited(
         refresh().then<void>(
           (T _) {},
@@ -139,5 +201,18 @@ Future<T> Function() withCachePolicy<T>({
     }
 
     return cached.value;
-  };
+  }
+
+  Future<T> readFresh() async {
+    final CachedValue<T>? cached = await readCache();
+    if (cached != null && !isStale(cached)) {
+      return cached.value;
+    }
+    // Perimee ou absente : on attend le rafraichissement, partage avec celui
+    // qui serait deja en vol. Son echec remonte ; rien n'est ecrit, et
+    // l'ancienne valeur reste servie par la lecture ordinaire.
+    return refresh();
+  }
+
+  return CachedReads<T>(read: read, readFresh: readFresh);
 }

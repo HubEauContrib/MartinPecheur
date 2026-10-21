@@ -15,10 +15,12 @@
 //
 // TTL fixe, une seule constante : contrairement au TTL saisonnier d'ONDE,
 // les restrictions n'ont qu'un seul chiffre (Q7, six heures) — pas de
-// `_TtlCache` générique ici, une seule fermeture `withCachePolicy`, gardée
-// par point dans une `Map` (piège d'usage documenté dans
-// `cache_policy.dart` : la déduplication des rafraîchissements en vol vit
-// dans la fermeture elle-même, jamais reconstruite à chaque lecture).
+// `_TtlCache` générique ici, un seul `withCachePolicyReads`, gardé par point
+// dans une `Map` (piège d'usage documenté dans `cache_policy.dart` : la
+// déduplication des rafraîchissements en vol vit dans les fermetures
+// elles-mêmes, jamais reconstruites à chaque lecture). Ses deux lectures
+// servent `zonesAt` et la vue fraîche `fresh` (D1 de T5), sur la même
+// entrée du point : jamais deux téléchargements à la fois pour un point.
 //
 // Un échec n'est jamais mis en cache (conception T2 § 3, rappelé dans
 // `restriction_source.dart`) : `RestrictionSource.zonesAt` LÈVE, jamais ne
@@ -82,15 +84,25 @@ final class CachedRestrictionSource implements RestrictionSource {
 
   final Map<_PointKey, CachedValue<ZonesAtPoint>> _values =
       <_PointKey, CachedValue<ZonesAtPoint>>{};
-  final Map<_PointKey, Future<ZonesAtPoint> Function()> _reads =
-      <_PointKey, Future<ZonesAtPoint> Function()>{};
+  final Map<_PointKey, CachedReads<ZonesAtPoint>> _reads =
+      <_PointKey, CachedReads<ZonesAtPoint>>{};
+
+  /// La vue fraîche (D1 de T5) : son `zonesAt(point)` appelle la lecture
+  /// fraîche de **l'entrée du point**, la même que celle de [zonesAt]. Une
+  /// réponse de moins de [restrictionsCacheTtl] est rendue telle quelle ;
+  /// sinon la vue attend la source et laisse remonter son échec.
+  late final RestrictionSource fresh = _FreshRestrictionSource(
+    (GeoPoint point) => _readsAt(point).readFresh(),
+  );
 
   @override
-  Future<ZonesAtPoint> zonesAt(GeoPoint point) {
+  Future<ZonesAtPoint> zonesAt(GeoPoint point) => _readsAt(point).read();
+
+  CachedReads<ZonesAtPoint> _readsAt(GeoPoint point) {
     final _PointKey key = formatPointParameters(point);
-    final Future<ZonesAtPoint> Function() cachedRead = _reads.putIfAbsent(
+    return _reads.putIfAbsent(
       key,
-      () => withCachePolicy<ZonesAtPoint>(
+      () => withCachePolicyReads<ZonesAtPoint>(
         load: () => _inner.zonesAt(point),
         readCache: () async => _values[key],
         writeCache: (ZonesAtPoint value) async {
@@ -103,6 +115,15 @@ final class CachedRestrictionSource implements RestrictionSource {
         now: _clock,
       ),
     );
-    return cachedRead();
   }
+}
+
+/// La vue fraîche de [CachedRestrictionSource] : une lecture, rien d'autre.
+final class _FreshRestrictionSource implements RestrictionSource {
+  const _FreshRestrictionSource(this._readFresh);
+
+  final Future<ZonesAtPoint> Function(GeoPoint point) _readFresh;
+
+  @override
+  Future<ZonesAtPoint> zonesAt(GeoPoint point) => _readFresh(point);
 }

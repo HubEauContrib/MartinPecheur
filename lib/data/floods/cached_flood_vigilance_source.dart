@@ -4,9 +4,11 @@
 // (W3 de T4, cadrage § 6).
 //
 // Cache de SESSION, en memoire, **une seule entree** : la carte de vigilance
-// est nationale, il n'y a pas de cle. Une seule fermeture `withCachePolicy`,
-// gardee dans un champ (piege d'usage de `cache_policy.dart` : le
-// dedoublonnage des rafraichissements en vol vit dans la fermeture).
+// est nationale, il n'y a pas de cle. Un seul `withCachePolicyReads`, garde
+// dans un champ (piege d'usage de `cache_policy.dart` : le dedoublonnage des
+// rafraichissements en vol vit dans les fermetures). Ses deux lectures
+// servent `current()` et la vue fraiche `fresh` (D1 de T5), sur la meme
+// entree : jamais deux telechargements a la fois.
 //
 // Perimee, la carte est rendue avec sa date (elle la porte, BR-001) pendant
 // qu'une nouvelle se charge en fond. Un rafraichissement en echec est absorbe
@@ -28,7 +30,7 @@ final class CachedFloodVigilanceSource implements FloodVigilanceSource {
     required FloodVigilanceSource inner,
     DateTime Function()? now,
   }) : _clock = now ?? DateTime.now {
-    _read = withCachePolicy<FloodVigilanceMap>(
+    _reads = withCachePolicyReads<FloodVigilanceMap>(
       load: inner.current,
       readCache: () async => _entry,
       writeCache: (FloodVigilanceMap value) async {
@@ -44,8 +46,26 @@ final class CachedFloodVigilanceSource implements FloodVigilanceSource {
 
   final DateTime Function() _clock;
   CachedValue<FloodVigilanceMap>? _entry;
-  late final Future<FloodVigilanceMap> Function() _read;
+  late final CachedReads<FloodVigilanceMap> _reads;
+
+  /// La vue fraiche (D1 de T5), sur **la meme** entree : son `current()`
+  /// rend la carte en cache si elle a moins de [floodVigilanceCacheTtl],
+  /// sinon attend la source, et laisse remonter son echec. La carte perimee
+  /// reste alors rendue, avec sa date, par [current].
+  late final FloodVigilanceSource fresh = _FreshFloodVigilanceSource(
+    _reads.readFresh,
+  );
 
   @override
-  Future<FloodVigilanceMap> current() => _read();
+  Future<FloodVigilanceMap> current() => _reads.read();
+}
+
+/// La vue fraiche de [CachedFloodVigilanceSource] : une lecture, rien d'autre.
+final class _FreshFloodVigilanceSource implements FloodVigilanceSource {
+  const _FreshFloodVigilanceSource(this._readFresh);
+
+  final Future<FloodVigilanceMap> Function() _readFresh;
+
+  @override
+  Future<FloodVigilanceMap> current() => _readFresh();
 }
