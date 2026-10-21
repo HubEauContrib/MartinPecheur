@@ -63,8 +63,7 @@ de ses arbitrages ; le plan correspondant est ci-dessus.
 
 | Document | Contenu |
 |---|---|
-| [`2026-08-18-test-appareil-reel-m4-m5-design.md`](superpowers/specs/2026-08-18-test-appareil-reel-m4-m5-design.md) | Usage d'un Android personnel pour trancher `M4` et `M5` de T0 |
-| [`2026-08-24-bascule-flutter-trois-cibles-design.md`](superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md) | Bascule Flutter, Android, iOS et Windows, conditionnée à la porte de spike |
+| *(retirés le 2026-10-21)* | Le design de la bascule du 2026-08-24 et celui du test sur appareil réel du 2026-08-18, antérieurs à la porte de spike, retirés avec les ADR des stacks antérieures ; ils restent dans l'historique git |
 | [`2026-09-22-revision-plan-t1-design.md`](superpowers/specs/2026-09-22-revision-plan-t1-design.md) | Révision du plan de T1 (`BR-013` reporté en T2, `H1`, `H2`) |
 | [`2026-09-27-cadrage-t2-design.md`](superpowers/specs/2026-09-27-cadrage-t2-design.md) | **T2** — cadrage produit (`eva`) : Q1 à Q10, arbitrés le 2026-09-27 |
 | [`2026-09-27-modele-restrictions-t2-design.md`](superpowers/specs/2026-09-27-modele-restrictions-t2-design.md) | **T2** — modèle du domaine « restrictions », contrat `RestrictionSource`, emplacement des fichiers (`harold`) |
@@ -83,15 +82,10 @@ de ses arbitrages ; le plan correspondant est ci-dessus.
 | [ADR-002](adr/ADR-002-qualification-du-debit.md) | Ne jamais qualifier un débit de « suffisant » | Accepté ⚠️ |
 | [ADR-003](adr/ADR-003-reference-percentiles-en-asset.md) | Percentiles pré-calculés dans un asset embarqué | Accepté |
 | [ADR-004](adr/ADR-004-integration-vigieau.md) | VigiEau derrière une abstraction, repli data.gouv **différé** (amendé le 2026-09-27) | Accepté ⚠️ — **en partie arbitré le 2026-09-27** (chemin nominal, `SUP` d'abord, appel unique, confinement) ; ses autres choix restent tranchés par défaut |
-| [ADR-005](adr/ADR-005-stack-maui-blazor-hybrid.md) | .NET MAUI Blazor Hybrid + MapLibre GL JS | **Remplacé par ADR-010** |
 | [ADR-006](adr/ADR-006-onde-quatre-categories.md) | ONDE en 4 catégories d'affichage | Accepté ⚠️ |
 | [ADR-007](adr/ADR-007-ecarter-qualite-eau.md) | Écarter la qualité de l'eau de la v1 | Accepté |
-| [ADR-008](adr/ADR-008-cqrs-leger-et-cache-en-pipeline.md) | CQRS léger, cache par décorateur de gestionnaire | **Remplacé par ADR-014** — *seul survivant : le cache en un point unique* |
-| [ADR-009](adr/ADR-009-cible-windows.md) | Ajouter **Windows** aux cibles de la v1 | **Remplacé par ADR-010** — intention rétablie par ADR-013, sans réactivation |
-| [ADR-010](adr/ADR-010-react-native.md) | **React Native**, abandon de MAUI et de Windows | **Remplacé par ADR-013** (stack, 2026-09-12) · volet architecture remplacé par ADR-014 |
 | [ADR-011](adr/ADR-011-stockage-local.md) | **Stockage local : `shared_preferences`** pour la préférence simple | Accepté — arbitrage du commanditaire du 2026-09-18, **portée limitée** ; **amendé le 2026-10-12** (T3, arbitrage 2) : les favoris y entrent, une clé, une chaîne JSON ; moteur structuré toujours ouvert |
-| [ADR-012](adr/ADR-012-hors-ligne-cartographique-bloque.md) | 🚨 **Le hors-ligne cartographique est bloqué** — le téléchargement de packs plante en natif | **D exécutée** (le plantage se reproduit sur `arm64` réel), **E épuisée** ; question déplacée, non tranchée (`ADR-013`) ; le `Must` hors-ligne de `UC-005` reste non livré |
-| [ADR-013](adr/ADR-013-bascule-flutter-cible-windows.md) | **Bascule Flutter, Windows première cible** construite | Accepté — arbitrage du 2026-09-12, écrit a posteriori le 2026-09-13 |
+| [ADR-013](adr/ADR-013-bascule-flutter-cible-windows.md) | **Flutter, Windows première cible** construite | Accepté — arbitrage du 2026-09-12, écrit a posteriori le 2026-09-13 |
 | [ADR-014](adr/ADR-014-feature-first-mvvm.md) | **Feature-first + MVVM** (`ChangeNotifier`), à la place du CQRS léger | Accepté — arbitrage du commanditaire du 2026-09-13 |
 | [ADR-015](adr/ADR-015-regroupement-par-zone-administrative.md) | **Regroupement par zone administrative** sous le zoom 9 (région, puis département), `F2c` au-delà | Accepté — arbitrage du commanditaire du 2026-09-22 |
 | [ADR-016](adr/ADR-016-integration-vigicrues.md) | **Intégrer Vigicrues derrière une abstraction** (`FloodVigilanceSource`), GeoJSON national mis en cache | Accepté ⚠️ — **en partie arbitré le 2026-10-14** (1, 6, 10, 12) ; les choix d'architecture `R1` à `R5` sont tranchés par défaut |
@@ -99,6 +93,9 @@ de ses arbitrages ; le plan correspondant est ci-dessus.
 
 ⚠️ = tranché par défaut, **sans arbitrage du commanditaire**. Réversible : chaque ADR porte une
 section « Si la décision est revue ».
+
+Les numéros `005`, `008`, `009`, `010` et `012` portaient les ADR écrits pour les stacks antérieures
+à Flutter : retirés le 2026-10-21 sur arbitrage du commanditaire, ils ne sont jamais réutilisés.
 
 > ✅ **`ADR-011` n'est plus réservé** — il est **tranché le 2026-09-18**, par arbitrage du
 > commanditaire, et **seulement sur la préférence simple** : `shared_preferences` pour une clé et
@@ -108,8 +105,7 @@ section « Si la décision est revue ».
 > **Amendé le 2026-10-12** (arbitrage 2 de T3) : les **favoris** entrent dans la préférence
 > simple — une clé, une chaîne JSON versionnée, derrière `FavoriteRepository` (`S3` de T3).
 > ✅ La dépendance est dans `pubspec.yaml` et utilisée par `SharedPreferencesAcknowledgementRepository`
-> depuis la tâche `W1` de T1 (2026-09-22) ; son câblage dans `main.dart` vient avec `W2`. Son numéro sort dans le désordre : `ADR-012` a été écrit avant lui, le
-> 2026-08-15, parce que l'exécution de `M4` l'a imposé.
+> depuis la tâche `W1` de T1 (2026-09-22) ; son câblage dans `main.dart` vient avec `W2`.
 
 ## Index des règles métier
 
@@ -149,7 +145,8 @@ section « Si la décision est revue ».
 - **`NNN`** = numéro sur 3 chiffres, séquentiel, jamais réutilisé.
 - **`slug`** = kebab-case court, en français, cohérent avec le titre.
 - Un artefact = un fichier. On **ne supprime pas** un BR/UC/ADR obsolète : on passe son statut à
-  `Remplacé par …`.
+  `Remplacé par …`. Seule exception : les ADR des stacks antérieures à Flutter, retirés le
+  2026-10-21 sur arbitrage du commanditaire (voir l'index des décisions).
 - Les **diagrammes** sont **dispersés à côté de la sous-partie qu'ils illustrent** — séquence sous le
   flux nominal, cycle de vie sous l'invariant, composants sous la décision. Pas de section dédiée.
   Optionnels : seulement s'ils complètent le propos.

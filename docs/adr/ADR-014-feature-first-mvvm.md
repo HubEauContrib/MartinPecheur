@@ -2,7 +2,7 @@
 
 - **Statut :** **Accepté** — **arbitrage du commanditaire du 2026-09-13**
 - **Date :** 2026-09-13
-- **Remplace, sur le seul volet architecture applicative :** [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md) (CQRS léger et cache en pipeline) et le § « L'architecture en couches est conservée » d'[`ADR-010`](ADR-010-react-native.md). Les deux ADR restent en place, statut annoté en tête — on ne supprime pas un artefact.
+- **Remplace :** le CQRS léger livré par T0 (`lib/application/` : messages, bus et gestionnaires). Seul le cache en un point unique est conservé, en décorateur de dépôt.
 - **N'affecte pas :** `lib/domain/`, `lib/data/`, ni aucune règle métier. [`ADR-001`](ADR-001-api-hydrometrie-v2.md), [`ADR-002`](ADR-002-qualification-du-debit.md), [`ADR-003`](ADR-003-reference-percentiles-en-asset.md), [`ADR-004`](ADR-004-integration-vigieau.md), [`ADR-006`](ADR-006-onde-quatre-categories.md), [`ADR-007`](ADR-007-ecarter-qualite-eau.md) sont intacts.
 - **Amendement du 2026-09-18 — arbitrage du commanditaire :** un widget **partagé par plusieurs
   tranches** vit dans **`lib/features/shared/`**. Voir § « [La règle des imports, et son verrou](#la-règle-des-imports-et-son-verrou) »,
@@ -14,7 +14,7 @@
 ### Ce que T0 a construit
 
 T0 est clos le 2026-09-13 (`v0.1.0`, **248 tests verts**, porte franchie sur Windows). Il a livré,
-entre autres, une couche `lib/application/` fidèle à `ADR-008` :
+entre autres, une couche `lib/application/` en CQRS léger :
 
 | Fichier | Rôle |
 |---|---|
@@ -40,13 +40,13 @@ Trois constats, relevés dans le code de T0 :
    `package:martinpecheur/features/map/viewport_filter.dart` : la couche censée être en amont
    dépend d'une tranche d'écran. Rien ne l'interdisait, aucun test ne le voyait.
 3. **Le bus est une indirection sans bénéfice ici.** Pas de backend, presque aucune écriture
-   (les commandes de `ADR-008` — favori, acquittement, dernière vue — sont toutes locales et
+   (les commandes prévues — favori, acquittement, dernière vue — sont toutes locales et
    encore à écrire), **une seule forme de lecture**, et un seul gestionnaire par requête. Le
    registre n'apporte ni découplage utile, ni découverte, ni pipeline : le décorateur de cache,
    lui, n'a jamais eu besoin du bus pour être unique.
 
-Le motif qui avait fait retenir CQRS dans `ADR-008` était **« la politique de cache doit vivre
-quelque part »**. Ce motif est satisfait sans bus : un décorateur de **dépôt** est aussi unique
+Le motif qui avait fait retenir CQRS était que **la politique de cache devait vivre
+quelque part**. Ce motif est satisfait sans bus : un décorateur de **dépôt** est aussi unique
 qu'un décorateur de gestionnaire.
 
 ### Ce que l'équipe Flutter recommande
@@ -62,7 +62,7 @@ d'interface se teste **indépendamment des widgets**.
 
 > ⚠️ Deux précisions, pour ne pas se tromper de vocabulaire :
 > le guide appelle **commands** les rappels qu'un *view model* expose à sa *view* — ce n'est **pas**
-> la `Command` de `ADR-008`, qui était un message. Et le guide **ne prescrit aucune** bibliothèque
+> la `Command` du bus de T0, qui était un message. Et le guide **ne prescrit aucune** bibliothèque
 > d'état : `ChangeNotifier` est notre choix, pas une obligation du guide.
 
 ## Décision
@@ -211,11 +211,11 @@ seul son dossier change.
   d'ajouter une bibliothèque.
 - ➖ Les écritures locales à venir (favori, acquittement, dernière vue) n'ont plus de type commun.
   Elles deviennent des **méthodes de dépôt** appelées par un ViewModel — ce qui est exactement ce
-  que `ADR-008` refusait, et que l'absence de backend rend acceptable.
+  que le CQRS léger refusait, et que l'absence de backend rend acceptable.
 
 ## Alternatives écartées
 
-- **Garder le bus `Map<Type, gestionnaire>`.** C'est la position de `ADR-008`, et elle a été tenue
+- **Garder le bus `Map<Type, gestionnaire>`.** C'est la position tenue
   jusqu'au bout de T0. Écartée : le bénéfice annoncé — cache unique, dépôts bêtes — s'obtient sans
   lui, et le prix est un typage perdu à l'envoi plus une couche de plus à traverser pour une seule
   forme de lecture. Ce n'est pas un mauvais patron, c'est un patron sans emploi ici.
@@ -237,7 +237,7 @@ seul son dossier change.
   lisent plusieurs dépôts sans couche de cas d'usage (voir la note du même jour sous « Décision »).
 - **Passer les dépôts directement aux widgets, sans ViewModel.** Le moins de cérémonie possible,
   mais l'état d'écran retourne dans des `State` de widgets, et la logique redevient intestable sans
-  rendu. C'est l'erreur que `ADR-008` avait raison de refuser.
+  rendu. C'est l'erreur que le CQRS léger avait raison de refuser.
 
 ## Si la décision est revue
 
@@ -253,13 +253,11 @@ défaire.
   cet ADR*) et les fiches de sources. Le produit
   ne change pas ; seule la façon dont un écran demande une donnée change.
 - `CachePolicy` est le seul composant à double appartenance : décorateur de dépôt ici, décorateur de
-  gestionnaire dans `ADR-008`. Son comportement — stale-while-revalidate, déduplication des
+  gestionnaire dans le bus de T0. Son comportement — stale-while-revalidate, déduplication des
   rafraîchissements en vol, dernière valeur conservée en cas d'échec — est indépendant des deux.
 
 ## Liens
 
-- Remplacés sur le volet architecture : [`ADR-008`](ADR-008-cqrs-leger-et-cache-en-pipeline.md),
-  [`ADR-010`](ADR-010-react-native.md)
 - Conception : [`03-conception.md § 2`](../03-conception.md) · carte des contextes :
   [`context-map.md`](../context-map.md) · étages de test :
   [`plan-de-tests.md`](../plan-de-tests.md)

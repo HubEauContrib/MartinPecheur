@@ -16,12 +16,12 @@ Retrouver la dernière carte consultée sans réseau — le cas courant au bord 
 
 ## Déclencheur
 
-L'usager ouvre l'application alors que `Connectivity.NetworkAccess` indique l'absence de réseau, ou perd le réseau en cours d'usage.
+L'usager ouvre l'application sans réseau, ou perd le réseau en cours d'usage.
 
 ## Flux nominal
 
 1. L'application lit `DerniereVueCarte` et centre la carte sur la bbox enregistrée, au zoom enregistré.
-2. Les tuiles sont servies depuis le pack local, via un gestionnaire de schéma personnalisé.
+2. Les tuiles sont servies depuis le pack local.
 3. Les stations et points de la bbox sont lus en base, avec leur **dernière observation connue et sa date**.
 4. Un **bandeau persistant** s'affiche : *« Mode hors-ligne — données du JJ/MM/AAAA à HH:MM. »*
 5. Les données de plus de 24 heures restent atténuées (`BR-005`) : l'absence de réseau n'excuse pas l'absence de signalement.
@@ -66,5 +66,5 @@ stateDiagram-v2
 
 ## Liens
 
-- ADR : [`ADR-012`](../adr/ADR-012-hors-ligne-cartographique-bloque.md) — le téléchargement de zone reposait, sous la stack précédente, sur `OfflineManager.createPack` ([`ADR-010`](../adr/ADR-010-react-native.md), remplacé), qui plantait ; [`ADR-013`](../adr/ADR-013-bascule-flutter-cible-windows.md) déplace la question sans la résoudre. 💭 **Non livré en Flutter** : seul le cache de tuiles des zones déjà parcourues est constaté (`NV-W2`, `docs/nfr.md` ; point 10 de `docs/project-state.md`). *Amendé le 2026-09-23 (`X5`, purge React Native).*
+- ADR : [`ADR-013`](../adr/ADR-013-bascule-flutter-cible-windows.md) — 💭 **non livré** : seul le cache de tuiles des zones déjà parcourues est constaté (`NV-W2`, `docs/nfr.md`) ; aucun téléchargement de zone n'est conçu (point 10 de `docs/project-state.md`).
 - Écran : [`04-ui.md § 1`](../04-ui.md) · Conception : [`03-conception.md § 4.3`](../03-conception.md)

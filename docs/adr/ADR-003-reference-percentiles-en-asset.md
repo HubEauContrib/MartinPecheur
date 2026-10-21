@@ -36,7 +36,8 @@ Une station comptant moins de **10 années** de relevés sur la quinzaine consid
 
 ## Mesure du 2026-08-15 — échantillon réel de 40 stations
 
-Chaîne complète exécutée (`tools/percentiles/build.ts`) sur **40 stations prélevées à pas
+Chaîne complète exécutée (script de génération de l'outillage antérieur, absent du dépôt ; le script
+Dart de cette décision reste à écrire) sur **40 stations prélevées à pas
 régulier** dans le référentiel — jamais les 40 premières, qui se suivent par code et donc par
 bassin. Fenêtre : 30 ans, depuis le 1ᵉʳ janvier 1996.
 
@@ -52,7 +53,7 @@ bassin. Fenêtre : 30 ans, depuis le 1ᵉʳ janvier 1996.
 
 **Le poids ne pose pas de problème.** Un APK compresse ses assets : moins d'un mégaoctet ajouté au
 binaire ne remet pas la décision en cause, et le **format binaire envisagé n'est pas nécessaire**.
-Deux choix de format y contribuent, tous deux dans `tools/percentiles/buildAsset.ts` :
+Deux choix de format y contribuent, tous deux dans ce script :
 
 - les cinq percentiles sont un **tableau** `[p10, p25, p50, p75, p90]`, pas un objet nommé ;
 - les valeurs sont **arrondies à trois décimales**. Ce n'est pas une perte : `obs_elab` rend des

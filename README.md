@@ -9,9 +9,9 @@ Application **Android, iOS et Windows** qui informe les usagers d'une rivière f
 **Hub'Eau** et **VigiEau**.
 
 [![Licence](https://img.shields.io/badge/licence-GPL--3.0-blue.svg)](LICENSE.txt)
-[![Flutter](https://img.shields.io/badge/Flutter-3.47%20stable-02569B.svg?logo=flutter)](docs/superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md)
-[![Dart](https://img.shields.io/badge/Dart-3.13-0175C2.svg?logo=dart)](docs/superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md)
-[![Plateformes](https://img.shields.io/badge/plateformes-Android%20%7C%20iOS%20%7C%20Windows-3ddc84.svg)](docs/superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md)
+[![Flutter](https://img.shields.io/badge/Flutter-3.47%20stable-02569B.svg?logo=flutter)](docs/adr/ADR-013-bascule-flutter-cible-windows.md)
+[![Dart](https://img.shields.io/badge/Dart-3.13-0175C2.svg?logo=dart)](docs/adr/ADR-013-bascule-flutter-cible-windows.md)
+[![Plateformes](https://img.shields.io/badge/plateformes-Android%20%7C%20iOS%20%7C%20Windows-3ddc84.svg)](docs/adr/ADR-013-bascule-flutter-cible-windows.md)
 [![Données](https://img.shields.io/badge/donn%C3%A9es-Hub'Eau%20%C2%B7%20VigiEau%20%C2%B7%20IGN-0b6e4f.svg)](docs/01-analyse.md)
 
 [Documentation](docs/README.md) · [État du projet](docs/project-state.md) ·
@@ -52,8 +52,9 @@ vigilance © VIGICRUES.*
 | 📶 **Sans réseau** | La dernière réponse connue reste affichée, **avec sa date et un bandeau** — jamais comme si elle était fraîche. Les tuiles de carte déjà parcourues restent visibles |
 
 **Périmètre v1** — pas de backend · pas de compte utilisateur · pas de notifications · pas de
-prévision hydrologique · **pas de pré-téléchargement de zone cartographique** (retiré le 2026-08-24,
-[`ADR-012`](docs/adr/ADR-012-hors-ligne-cartographique-bloque.md) option C).
+prévision hydrologique · **pas de pré-téléchargement de zone cartographique** (écarté le 2026-08-24 ; le `Must`
+d'[`UC-005`](docs/use-cases/UC-005-consulter-la-carte-hors-ligne.md) n'est pas livré, voir le point 10
+de [`docs/project-state.md`](docs/project-state.md)).
 
 ## Ce qu'il refuse de faire
 
@@ -120,18 +121,20 @@ Aucune tâche n'est considérée terminée si la chaîne de vérification ne pas
 
 ## Architecture
 
-**Clean Architecture en couches + CQRS léger** — `Query`/`Command` typés avec handlers, et une
-politique de cache portée par un **décorateur unique**. Pas d'event sourcing, pas de bibliothèque
-de médiateur, et **pas de backend** : l'application appelle directement les APIs publiques.
+**Feature-first + MVVM** ([`ADR-014`](docs/adr/ADR-014-feature-first-mvvm.md)) — une tranche par
+écran, avec une View (widgets) et un ViewModel (`ChangeNotifier`) ; `domain/` et `data/` partagés ;
+la politique de cache portée par un **décorateur de dépôt unique** (`CachePolicy`). Pas de
+bibliothèque d'état, et **pas de backend** : l'application appelle directement les APIs publiques.
 
-Disposition cible du dépôt (🔄) :
+Disposition du dépôt :
 
 ```
 lib/
 ├── domain/        entités et règles — Dart pur, ZÉRO import de flutter, latlong2, http, dart:io
-├── data/          Hub'Eau, VigiEau (derrière RestrictionSource), stockage local, mappers
-├── application/   Query/Command scellés + registre + le décorateur de cache, unique
-└── features/map/  flutter_map, fond IGN, marqueurs du viewport
+├── data/          Hub'Eau, VigiEau (derrière RestrictionSource), Vigicrues, stockage local, mappers
+├── features/      une tranche par écran : view/ (widgets) et view_model/ (ChangeNotifier) ;
+│                  shared/ pour les widgets communs
+└── main.dart      racine de composition, seul fichier à importer data/
 test/              calque lib/, plus test/architecture/ — écrit avant la première ligne de domain/
 android/ ios/ windows/   projets natifs, versionnés
 assets/            référentiel des stations, asset de percentiles, généré par un script Dart (🔄)
@@ -149,7 +152,7 @@ Trois invariants ne sont **pas** des conventions de revue, et Dart en renforce d
   ([`BR-011`](docs/br/BR-011-nomenclature-tolerante-a-l-inconnu.md)).
 
 Détail : [`docs/03-conception.md`](docs/03-conception.md) ·
-[design de la bascule](docs/superpowers/specs/2026-08-24-bascule-flutter-trois-cibles-design.md).
+[`ADR-013`](docs/adr/ADR-013-bascule-flutter-cible-windows.md).
 
 ### Stack
 
@@ -160,7 +163,7 @@ Détail : [`docs/03-conception.md`](docs/03-conception.md) ·
 | Carte | **`flutter_map`** 8.x, rendu Dart natif, fond **IGN Géoplateforme** (WMTS `PLANIGNV2`) | ✅ `F1` franchie sur Windows |
 | Clustering | `flutter_map_marker_cluster` 8.2.x | ⏸ `F2` non tranchée — par défaut, marqueurs du viewport sans clustering |
 | Stockage local | `drift` candidat — `sqflite` seul ne couvre pas Windows | 💭 `ADR-011` réservé |
-| Gestion d'état | `ValueNotifier` + `ListenableBuilder`, zéro dépendance, sauf preuve contraire | 💭 tranché au premier écran |
+| Gestion d'état | `ChangeNotifier` + `ListenableBuilder`, zéro dépendance ([`ADR-014`](docs/adr/ADR-014-feature-first-mvvm.md)) | ✅ un ViewModel par écran |
 
 ## Contribuer
 
@@ -253,7 +256,8 @@ conservées et présentées dans l'écran « À propos ».
 | `drift` *(candidat, non retenu)* | 2.34.x | MIT | pub.dev, 2026-08-24 |
 
 La bibliothèque `flutter_map_tile_caching` est en **GPL-3.0** : elle est désormais compatible avec
-ce dépôt, mais la question est sans objet — le pré-téléchargement cartographique a été retiré.
+ce dépôt ; elle n'est pas retenue tant que le téléchargement de zone n'est pas arbitré (point 10 de
+`docs/project-state.md`).
 
 ### Disponibilité
 

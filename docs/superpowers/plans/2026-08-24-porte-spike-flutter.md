@@ -8,7 +8,7 @@
 
 **Tech Stack:** Flutter (canal `stable`), Dart, `flutter_map` 8.3.1, `latlong2`, `flutter_map_marker_cluster` 8.2.2. Mesure de fluidité par `SchedulerBinding.addTimingsCallback` — **pas** par `dumpsys gfxinfo`, qui a échoué en `M5`.
 
-**Spec :** [`2026-08-24-bascule-flutter-trois-cibles-design.md`](../specs/2026-08-24-bascule-flutter-trois-cibles-design.md)
+**Spec :** design du 2026-08-24 (`2026-08-24-bascule-flutter-trois-cibles-design.md`), retiré du dépôt le 2026-10-21, consultable dans l'historique git · **Décision :** [`ADR-013-bascule-flutter-cible-windows.md`](../../adr/ADR-013-bascule-flutter-cible-windows.md)
 
 > ⚠️ **Plan exécuté, cases jamais cochées.** Les `- [ ]` ci-dessous ne reflètent pas l'avancement : la porte a
 > été exécutée le 2026-09-09 et franchie sur Windows par arbitrage du 2026-09-12 (`F1` et `F3` constatés, `F2`
@@ -24,8 +24,8 @@
 > terminal utilisateur**, et son résultat est rapporté à l'agent. L'agent écrit le code et les
 > tests ; l'utilisateur lance les builds et regarde l'écran.
 
-> ⚠️ **Le plan T0 précédent s'est trompé neuf fois sur l'API MapLibre v11** parce qu'il décrivait la
-> v10 de mémoire. Le code Dart ci-dessous est écrit à partir des signatures relevées sur
+> ⚠️ **Le plan T0 précédent s'est trompé neuf fois sur l'API d'une bibliothèque de carte** parce qu'il en
+> décrivait la version précédente de mémoire. Le code Dart ci-dessous est écrit à partir des signatures relevées sur
 > `pub.dev/documentation` le 2026-08-24, **sauf celle de `flutter_map_marker_cluster`**, qui porte
 > sa propre étape de vérification (tâche 9, étape 1). Devant tout écart : **le paquet installé a
 > raison, ce plan a tort.**
@@ -189,7 +189,7 @@ Attendu : `Changed 3 dependencies!`
 
 - [ ] **Step 3: 🖥️ Vérifier les versions réellement résolues**
 
-C'est la leçon de l'option E d'`ADR-012` : on vérifie ce qui est lié, on ne le suppose pas.
+C'est une leçon du projet : on vérifie ce qui est lié, on ne le suppose pas.
 
 ```powershell
 flutter pub deps --style=compact | Select-String -Pattern "flutter_map|latlong2|marker_cluster"
@@ -234,7 +234,7 @@ git commit -m "chore(map): projet Flutter jetable pour la porte de spike"
 
 - [ ] **Step 1: Écrire le test qui échoue**
 
-Le test porte sur le piège documenté dans la version TypeScript : **l'ordre des trois marqueurs
+Le test porte sur un piège connu du gabarit : **l'ordre des trois marqueurs
 compte**. Intervertir `TILECOL` et `TILEROW` produit une carte qui s'affiche mais transposée — une
 panne silencieuse.
 
@@ -1057,8 +1057,7 @@ Toujours la même séquence, pour que deux relevés soient comparables :
 
 ⚠️ **Une mesure sur émulateur `x86_64` n'est pas une mesure sur Android d'entrée de gamme.** Elle
 donne une **borne haute** : si l'émulateur rame déjà, un téléphone d'entrée de gamme ramera plus.
-L'inverse ne se déduit pas. **`NV-5` reste ouvert** tant qu'un appareil réel n'a pas été mesuré —
-c'est la même réserve qu'`ADR-012` posait le 2026-08-18.
+L'inverse ne se déduit pas. **`NV-5` reste ouvert** tant qu'un appareil réel n'a pas été mesuré.
 
 - [ ] **Step 8: Commit**
 
@@ -1126,8 +1125,8 @@ Attendu : la fenêtre s'ouvre, le menu s'affiche, `F1` montre le plan IGN.
 Reprendre pour chaque épreuve : la date, la cible (émulateur `x86_64` ou Windows), les versions
 réellement résolues à la tâche 3 étape 3, les chiffres relevés, et **les photographies**.
 
-⚠️ **Distinguer ce qui est constaté de ce qui est déduit.** C'est la règle qu'`ADR-012` s'applique à
-lui-même : « l'application s'est fermée » est une impression, une ligne de journal est un fait.
+⚠️ **Distinguer ce qui est constaté de ce qui est déduit.** C'est une règle du projet :
+« l'application s'est fermée » est une impression, une ligne de journal est un fait.
 
 - [ ] **Step 2: Écrire le compte rendu**
 
@@ -1184,7 +1183,7 @@ git commit -m "docs(map): resultat de la porte de spike Flutter"
 
 - **La réécriture de `lib/domain/`, `lib/data/`, `lib/application/`** — barrée par la règle d'arrêt
   de la spec. Son plan s'écrira après le verdict.
-- **Le hors-ligne cartographique** — sorti de la v1 (`ADR-012`, option C).
+- **Le hors-ligne cartographique** — sorti de la v1.
 - **Les tracés de cours d'eau** — sortis de la v1 le 2026-08-24.
 - **Le stockage local, la gestion d'état, les graphes** — décisions rouvertes mais non bloquantes
   pour la porte (spec, section 8).

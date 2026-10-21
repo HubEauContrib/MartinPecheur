@@ -117,9 +117,34 @@ VigiEau : le **site** (`https://vigieau.gouv.fr/`, pied de page : « licence eta
 
 ## 9. Pack hors-ligne
 
-Le téléchargement de tuiles pour un usage hors-ligne a été **exécuté et a échoué** sur la stack
-précédente (plantage natif reproductible, 4 essais sur 4, avant même le premier octet téléchargé) —
-détail du constat et de l'exploration menée : [`ADR-012`](adr/ADR-012-hors-ligne-cartographique-bloque.md).
 Le `Must` hors-ligne d'[`UC-005`](use-cases/UC-005-consulter-la-carte-hors-ligne.md) reste **non
 livré** : sur `flutter_map`, seul le cache de tuiles déjà parcourues sert hors réseau (`NV-W2`,
 [`nfr.md`](nfr.md)), aucun téléchargement de zone n'existe.
+
+## 10. Tracés de cours d'eau — hors v1
+
+**Arbitrage du commanditaire du 2026-08-24 : hors périmètre pour l'instant.** La fonctionnalité —
+surligner la rivière consultée comme géométrie plutôt que comme pixels du fond — a été cadrée puis
+retirée le jour même. Le fond raster `PLANIGNV2` dessine déjà le linéaire hydrographique dans l'image.
+
+Les faits ci-dessous sont **vérifiés par appel réel le 2026-08-24**. Ils sont conservés pour qu'une
+reprise n'ait pas à les revérifier — pas parce que la fonctionnalité est prévue.
+
+| Vérification | Résultat |
+|---|---|
+| `data.geopf.fr/wfs` `GetCapabilities` | **HTTP 200**, 5 179 532 octets. `BDTOPO_V3:cours_d_eau` et `BDTOPO_V3:troncon_hydrographique` présents |
+| Une entité `BDTOPO_V3:cours_d_eau` en GeoJSON | **HTTP 200**. `MultiLineString`, 120 points. Attributs : `toponyme`, `code_hydrographique`, **`importance` (1→5)** |
+| Volumétrie France entière par `importance` | `≤1` : **32** · `≤2` : **387** · `≤3` : **654** · `≤4` : **4 536** · total : **152 621** |
+| BD TOPAGE côté SANDRE | `services.sandre.eaufrance.fr/geo/topage` **HTTP 200**, `sa:CoursEau` et ses variantes par territoire. ⚠️ **GML seulement** : `application/json` refusé — *« is not a permitted output format »* |
+
+**Le point dur, s'il faut y revenir : la jointure n'existe pas.**
+
+| Source | Code porté (constaté) |
+|---|---|
+| Station Hub'Eau, dans `stations.json` | `code_cours_eau = "10--0020"` ; `uri_cours_eau` redirige **HTTP 302** vers `id.eaufrance.fr/CoursEau_`**`Carthage2017`**`/10--0020` |
+| IGN BD TOPO | `code_hydrographique = "03C0000002000801315"` |
+| SANDRE BD TOPAGE | `CdOH = "07C0000002215822156"` |
+
+Hub'Eau parle **Carthage 2017**, la géométrie parle **TOPAGE** : aucune clé commune n'a été
+trouvée. Un rattachement se ferait par proximité géométrique au build, donc par heuristique — et
+`BR-007` imposerait de n'afficher **aucun** tracé plutôt qu'un tracé faux.

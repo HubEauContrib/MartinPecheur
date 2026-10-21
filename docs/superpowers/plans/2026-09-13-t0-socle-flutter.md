@@ -1791,7 +1791,7 @@ Le lot 4 dépend du lot 3 : l'écran carte passe par le registre de messages (ar
 
 | Tâche | Contenu | Critère |
 |---|---|---|
-| `R1` | `docs/adr/ADR-014-feature-first-mvvm.md` — remplace le volet « CQRS léger » d'`ADR-008` et d'`ADR-010` ; alternatives écartées : garder le bus, MVVM avec bibliothèque d'état. `CLAUDE.md` § Architecture et disposition du dépôt mis à jour dans le même commit | ADR relu, `CLAUDE.md` cohérent avec le code après `R4` |
+| `R1` | `docs/adr/ADR-014-feature-first-mvvm.md` — remplace le volet « CQRS léger » de l'architecture de T0 ; alternatives écartées : garder le bus, MVVM avec bibliothèque d'état. `CLAUDE.md` § Architecture et disposition du dépôt mis à jour dans le même commit | ADR relu, `CLAUDE.md` cohérent avec le code après `R4` |
 | `R2` ✅ 9b4e4c9 | Disposition : `lib/features/<feature>/{view,view_model}` (`map/` d'abord), `lib/domain/`, `lib/data/` partagés ; `viewport_filter.dart` et `StationPoint` rangés du côté qui les consomme (données ou feature), plus jamais importés par une couche transverse | `flutter analyze` propre, imports sans cycle |
 | `R3` ✅ 2a8f507 | `MapViewModel extends ChangeNotifier` remplace `MapStationsController` + bus + `handlers.dart` : appel typé au dépôt, état (`stations`, `error`, `camera`), requête au relâcher du geste ; `MapView` ne fait que brancher | mêmes tests de comportement qu'aujourd'hui, réécrits sur le ViewModel, sans rendu de `FlutterMap` |
 | `R4` ✅ a705789 | Retrait de `lib/application/messages.dart`, `bus.dart`, `handlers.dart` et de leurs tests ; `CachePolicy` déplacé dans `lib/data/` comme décorateur de dépôt (le principe « un seul endroit » survit, pas le véhicule) | `grep -rn 'Bus\|Query<\|Command<' lib/` vide ; `withCachePolicy` unique sous `lib/data/` |

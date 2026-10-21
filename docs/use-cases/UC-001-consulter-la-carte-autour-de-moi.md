@@ -75,4 +75,4 @@ sequenceDiagram
 
 ## Liens
 
-- ADR : `ADR-005`, `ADR-006` · Écran : [`04-ui.md § 1`](../04-ui.md)
+- ADR : `ADR-006`, `ADR-013`, `ADR-015` · Écran : [`04-ui.md § 1`](../04-ui.md)

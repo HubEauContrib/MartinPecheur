@@ -3,7 +3,7 @@
 // CachePolicy (`lib/data/cache/cache_policy.dart`). Un widget n'appelle
 // jamais un depot : il passe par le ViewModel de sa tranche, qui appelle le
 // depot directement et de facon typee (R3/R4, arbitrage 2026-09-13 —
-// ADR-014 remplace le volet CQRS leger d'ADR-008).
+// ADR-014).
 //
 // Bounds ne vit plus ici mais dans `lib/domain/geo/bounds.dart` (relecture du
 // 2026-09-13) : la vue en construit une a chaque relachement de geste, et elle

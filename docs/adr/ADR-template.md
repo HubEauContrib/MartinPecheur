@@ -1,5 +1,5 @@
 <!--
-Copier ce fichier en `ADR-NNN-slug.md` (ex: ADR-008-cache-tuiles-mbtiles.md).
+Copier ce fichier en `ADR-NNN-slug.md` (ex: `ADR-042-cache-tuiles-hors-ligne.md`).
 Modèle aligné sur ADR-001. Supprimer ces commentaires une fois rempli.
 -->
 
@@ -25,7 +25,7 @@ Ce qu'on choisit, énoncé clairement et au présent. Lister les points concrets
 
 ```mermaid
 flowchart LR
-    UI[UI — écrans React Native] --> Dom[domain/]
+    UI[features/ — View et ViewModel] --> Dom[domain/]
     Dom --> Data[data/ — dépôts]
     Data --> HE[(Hub'Eau v2)]
     Data --> VE[(VigiEau)]

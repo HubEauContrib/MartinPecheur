@@ -53,7 +53,7 @@ Permettre à l'usager de savoir **ce que le préfet a arrêté là où il désig
 
 | Élément | Vers | Motif |
 |---|---|---|
-| Géolocalisation ponctuelle | T3 au plus tôt | bibliothèque à ajouter, `NFR-05` à instruire, moins fiable sur poste fixe (`ADR-009` repris par `ADR-013`) — Q1 |
+| Géolocalisation ponctuelle | T3 au plus tôt | bibliothèque à ajouter, `NFR-05` à instruire, moins fiable sur poste fixe — Q1 |
 | Échelle 3 sur la carte (pastilles ou zones colorées) | T3 / `US-17` | demande soit des géométries de zones (exports data.gouv, non vérifiés), soit un agrégat départemental — Q6 |
 | Repli `DataGouvBulkRestrictionSource` | après une rupture constatée | lourd, non vérifié par appel réel, ne filtre pas par profil (`ADR-004` ➖) — Q3 |
 | Persistance hors-ligne des restrictions au-delà de la session | avec `US-10` / `UC-005` (T3) | exige le moteur structuré laissé ouvert par `ADR-011` — Q7 |
@@ -310,7 +310,7 @@ Chacune est fermée ; la recommandation n'engage rien tant qu'elle n'est pas arb
 | C. Révisé : exports data.gouv en nominal | stable et cartographiable, mais perd la réponse au point et le profil (`ADR-004`, alternatives) |
 | D. Lien externe seul | le volet sécheresse disparaît (`ADR-004`, alternatives) |
 
-**Recommandation : B**, par amendement daté d'`ADR-004`, qui corrige au passage deux reliquats : les noms `.NET` (`IRestrictionSource`, `VigieauApiRestrictionSource`) et la mention « `BR-004` (avertissement renforcé) » de « Si la décision est revue », qui désigne en réalité `BR-013`. Le filtrage `SUP` de la décision est traité par Q5.
+**Recommandation : B**, par amendement daté d'`ADR-004`, qui corrige au passage deux reliquats : les noms hérités (`IRestrictionSource`, `VigieauApiRestrictionSource`) et la mention « `BR-004` (avertissement renforcé) » de « Si la décision est revue », qui désigne en réalité `BR-013`. Le filtrage `SUP` de la décision est traité par Q5.
 
 ### Q4 — Les percentiles (`ADR-003`) dans T2 ?
 
@@ -402,7 +402,7 @@ Aucun paquet du `pubspec.yaml` ne le permet (constaté le 2026-09-27). `BR-013` 
 - **Point 35 de `project-state.md`, tel quel :** « `RestrictionSource` vit sous `lib/data/restrictions/restriction_source.dart` — un ViewModel de l'écran des restrictions ne pourra pas l'importer (règle `features-vers-data` de `layers_test.dart`), alors que tous les autres contrats de dépôt sont déclarés dans `lib/domain/repositories/repositories.dart`. […] à déplacer vers `lib/domain/` au début de T2, avec un modèle de restriction écrit d'après une **fixture VigiEau réelle et datée** (`CLAUDE.md`, anti-hallucination). C'est aussi en T2 que l'encart renforcé de `BR-013` trouve son écran. »
 - **Fixture VigiEau réelle et datée** : aucune n'existe (§ 5).
 - **Tranche `features/restrictions/`** : 🔄 prévue (`03-conception.md`, l. 51).
-- Le modèle `ZoneRestriction` / `UsageRestreint` de `03-conception.md` (l. 98-99) date de la stack précédente et n'a **aucune fixture** : 💭, à réécrire d'après § 5, pas à recopier.
+- Le modèle `ZoneRestriction` / `UsageRestreint` de `03-conception.md` (l. 98-99) n'a **aucune fixture** : 💭, à réécrire d'après § 5, pas à recopier.
 - Aucun moyen d'ouvrir un lien externe dans `pubspec.yaml` (Q9).
 
 ## 9. Hors de ce cadrage
