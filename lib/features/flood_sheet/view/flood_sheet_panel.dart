@@ -54,11 +54,6 @@ const Key floodSheetCloseButtonKey = Key('flood-sheet-close');
 /// Clé du bouton du bulletin — pour les tests.
 const Key floodBulletinButtonKey = Key('flood-bulletin-button');
 
-/// Phrase d'un niveau que l'application ne sait pas lire (cadrage § 12.2).
-const String floodUnknownLevelText =
-    "$floodSourceName a publié un niveau que cette application ne sait pas "
-    "lire. Le bulletin sur $floodPublicSiteLabel fait foi.";
-
 /// Libellé du bouton du bulletin (cadrage § 12.2).
 const String floodBulletinButtonLabel =
     'Lire le bulletin sur $floodPublicSiteLabel';

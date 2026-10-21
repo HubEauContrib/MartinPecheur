@@ -7,6 +7,8 @@
 // noms de la gravite secheresse (`Vigilance`). La traduction du code publie
 // vers ces branches se fait une seule fois, dans le mapper de la couche data.
 
+import 'package:martinpecheur/domain/sources/source_names.dart';
+
 /// Niveau de vigilance crues d'un troncon, tel que publie.
 sealed class FloodVigilanceLevel {
   const FloodVigilanceLevel();
@@ -104,3 +106,9 @@ int floodDrawingRank(FloodVigilanceLevel level) => switch (level) {
   Rouge() => 3,
   NiveauCruesInconnu() => 4,
 };
+
+/// Phrase d'un niveau que l'application ne sait pas lire (cadrage § 12.2),
+/// dite par la fiche d'un tronçon et par un avis.
+const String floodUnknownLevelText =
+    '$floodSourceName a publié un niveau que cette application ne sait pas '
+    'lire. Le bulletin sur $floodPublicSiteLabel fait foi.';

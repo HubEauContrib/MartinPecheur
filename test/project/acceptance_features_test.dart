@@ -51,6 +51,7 @@ import 'package:martinpecheur/features/map/view/map_reading_selector.dart'
         designationEntrySubtitle,
         readingEntrySemanticsLabel;
 import 'package:martinpecheur/features/map/view_model/map_scale.dart';
+import 'package:martinpecheur/features/notices/view_model/notice_texts.dart';
 import 'package:martinpecheur/features/onde_sheet/view/onde_summary_sheet.dart'
     show ondeHistoriqueTitre, ondeSheetNature;
 import 'package:martinpecheur/features/restrictions/view/restrictions_screen.dart';
@@ -1015,6 +1016,14 @@ void main() {
 
     final Map<String, String> libellesSuivi = <String, String>{
       'floodSectionFavoriteKind': floodSectionFavoriteKind,
+      'noticesScreenTitle': noticesScreenTitle,
+      'noticeNewMark': noticeNewMark,
+      'unreadableNoticeText': unreadableNoticeText,
+      'noticeFollowUpStartedTitle': noticeFollowUpStartedTitle,
+      'noticeCheckImpossibleTitle': noticeCheckImpossibleTitle,
+      'noticePlaceNotVerifiableTitle': noticePlaceNotVerifiableTitle,
+      'noticeZoneNoLongerCitedTitle': noticeZoneNoLongerCitedTitle,
+      'noticeNoZoneText': noticeNoZoneText,
     };
 
     test('suivi.feature existe et n\'est pas vide', () {
