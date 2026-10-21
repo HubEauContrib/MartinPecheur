@@ -20,7 +20,7 @@ sécheresse — à partir des APIs publiques Hub'Eau et VigiEau, et de la vigila
 | [`superpowers/plans/`](superpowers/plans/) | Plans d'implémentation par tranche | `YYYY-MM-DD-slug.md` |
 | [`superpowers/specs/`](superpowers/specs/) | **Cadrages et conceptions** par tranche : ce qui est décidé avant le plan, avec ses arbitrages (index plus bas) | `YYYY-MM-DD-slug-design.md` |
 | [`sources/`](sources/) | **Fiches de sources de données** — faits vérifiés et datés, fixtures associées | `<source>.md` |
-| [`acceptance/`](acceptance/) | **Critères d'acceptation Gherkin** — spécification lisible, chaque `Scénario` cite une `BR-` qui existe sur le disque (`test/project/acceptance_features_test.dart`) ; aucun framework BDD : jamais exécutés. Un fichier par sujet, dont [`restrictions.feature`](acceptance/restrictions.feature) (T2), [`filtres.feature`](acceptance/filtres.feature) (`US-13`) et [`favoris.feature`](acceptance/favoris.feature) (`US-14`) | `slug.feature` |
+| [`acceptance/`](acceptance/) | **Critères d'acceptation Gherkin** — spécification lisible, chaque `Scénario` cite une `BR-` qui existe sur le disque (`test/project/acceptance_features_test.dart`) ; aucun framework BDD : jamais exécutés. Un fichier par sujet, dont [`restrictions.feature`](acceptance/restrictions.feature) (T2), [`filtres.feature`](acceptance/filtres.feature) (`US-13`), [`favoris.feature`](acceptance/favoris.feature) (`US-14`), [`crues.feature`](acceptance/crues.feature) (`US-21`, T4) et [`suivi.feature`](acceptance/suivi.feature) (`US-22`, T5) | `slug.feature` |
 | [`glossary.md`](glossary.md) | **Langage omniprésent** — termes métier, ce qui est dit à l'usager, vocabulaire proscrit | — |
 | [`context-map.md`](context-map.md) | **Carte des contextes** — les contextes bornés et leurs sources externes | — |
 | [`domain-model.md`](domain-model.md) | **Modèle de domaine** — objets-valeur, entités, agrégats, ce que le domaine ne contient pas | — |
@@ -143,6 +143,7 @@ Les numéros `005`, `008`, `009`, `010` et `012` portaient les ADR écrits pour 
 | [UC-007](use-cases/UC-007-filtrer-la-carte.md) | Filtrer la carte | Pêcheur |
 | [UC-008](use-cases/UC-008-suivre-un-lieu-en-favori.md) | Suivre un lieu en favori | Pêcheur |
 | [UC-009](use-cases/UC-009-consulter-la-vigilance-crues.md) | Consulter la vigilance crues | Tout usager |
+| [UC-010](use-cases/UC-010-etre-prevenu-d-un-changement-sur-un-lieu-suivi.md) | Être prévenu d'un changement sur un lieu suivi | Tout usager |
 
 ## Règles d'écriture
 

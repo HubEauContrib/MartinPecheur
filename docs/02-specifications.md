@@ -112,6 +112,7 @@ station plutôt que site — ne sont **pas** des règles métier. Elles figurent
 | US-15 | P3 | Je consulte l'**historique des campagnes** d'un point ONDE |
 | US-16 | Tous | Je recherche une **station ou un cours d'eau** par son nom · 🔄 **Tranche ultérieure, non nommée** (arbitrage 1 du 2026-10-12, T3 « le titre seul ») |
 | US-21 | Tous | Je lis sur la carte et dans la fiche d'un tronçon le **niveau de vigilance crues** publié par Vigicrues, daté et attribué · ✅ **Codé en T4** ([UC-009](use-cases/UC-009-consulter-la-vigilance-crues.md), [crues.feature](acceptance/crues.feature)), vérifié par test, **non constaté à l'écran** (la porte de T4 est due). L'application relaie, elle ne calcule aucun niveau ([BR-015](br/BR-015-relayer-la-vigilance-crues-ne-rien-predire.md)) |
+| US-22 | P1, P2, P3 | Je suis **prévenu**, quand j'ouvre l'application, d'un changement du niveau publié sur un lieu que je suis — la vigilance crues d'un tronçon, à partir du seuil que j'ai choisi, la gravité sécheresse au point d'une station ou d'un point ONDE —, par un avis daté et attribué ; une vérification impossible m'est dite · 🔄 **T5** ([UC-010](use-cases/UC-010-etre-prevenu-d-un-changement-sur-un-lieu-suivi.md), [suivi.feature](acceptance/suivi.feature)). L'application relaie, elle ne calcule aucun niveau ([BR-016](br/BR-016-un-avis-relaie-un-changement-publie.md)) |
 
 ### Could
 
@@ -140,6 +141,12 @@ Compte utilisateur · notifications push · prévision ou modélisation hydrolog
 > y reste.
 > 🔄 Tranches prévues, non cadrées en détail :
 > [`superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md`](superpowers/specs/2026-10-03-cadrage-t4-t5-crues-design.md).
+
+> ⚠️ **Amendé le 2026-10-21 (T5, `ADR-017`).** « Alertes personnalisées » est traité en **étape 1** (🔄 T5, en cours),
+> à l'ouverture de l'application : des avis sur les lieux suivis, vérifiés depuis l'appareil au
+> lancement, au retour au premier plan et sur « Vérifier maintenant » (`US-22`). Les
+> **notifications en tâche de fond** attendent une tranche à part, cadrée sur les essais.
+> « Notifications push » **reste** dans la liste, au sens d'un envoi par serveur.
 
 ## 4. Cas limites
 

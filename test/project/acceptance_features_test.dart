@@ -58,10 +58,11 @@ import 'package:martinpecheur/features/shared/favorite_star_button.dart';
 import 'package:martinpecheur/features/station_sheet/view/station_summary_sheet.dart'
     show stationQualificationLabel, stationSheetNature, stationStatusLabel;
 
-/// Les huit fichiers attendus sous `docs/acceptance/` : les quatre de T1
+/// Les neuf fichiers attendus sous `docs/acceptance/` : les quatre de T1
 /// (`Task X1` du plan T1), `restrictions.feature` (`Task X1` du plan T2),
 /// `filtres.feature` (`Task F7` du plan T3), `favoris.feature` (`Task S7b`),
-/// `crues.feature` (`Task O4` du plan T4).
+/// `crues.feature` (`Task O4` du plan T4), `suivi.feature` (`Task O4` du plan
+/// de T5).
 const List<String> _featureFiles = <String>[
   'avertissements.feature',
   'fraicheur-d-une-mesure.feature',
@@ -71,9 +72,10 @@ const List<String> _featureFiles = <String>[
   'filtres.feature',
   'favoris.feature',
   'crues.feature',
+  'suivi.feature',
 ];
 
-/// Les règles métier que les huit fichiers doivent couvrir AU MINIMUM,
+/// Les règles métier que les neuf fichiers doivent couvrir AU MINIMUM,
 /// ensemble (`Task X1` : « la liste est dans le test, pas seulement dans une
 /// intention »). `BR-013` (l'encart renforcé) y entre avec l'écran des
 /// restrictions de T2 ; l'affirmation inverse, valable en T1 (aucun écran de
@@ -132,6 +134,24 @@ const List<String> _cruesRules = <String>[
 
 /// La user story de T4 que `crues.feature` met en scénarios.
 const String _cruesStory = 'US-21';
+
+/// Les règles que `suivi.feature` doit citer, chacune par au moins un
+/// SCÉNARIO : la date de l'avis, l'absence de donnée dite, la nomenclature
+/// inconnue et le stockage illisible gardé, l'échelle nommée, la citation sans
+/// mot de garantie, le relais sans calcul, et la règle de l'avis lui-même.
+const List<String> _suiviRules = <String>[
+  'BR-001',
+  'BR-003',
+  'BR-007',
+  'BR-008',
+  'BR-011',
+  'BR-014',
+  'BR-015',
+  'BR-016',
+];
+
+/// La user story de T5 que `suivi.feature` met en scénarios.
+const String _suiviStory = 'US-22';
 
 /// Bornes de `BR-005` (fraîcheur d'une observation hydrométrique) : chacune
 /// doit avoir son propre scénario, avec la valeur écrite en toutes lettres
@@ -269,8 +289,8 @@ void main() {
       dossierAcceptance.existsSync(),
       isTrue,
       reason:
-          'docs/acceptance/ doit exister avec ses sept .feature '
-          '(quatre en T1, restrictions.feature en T2, filtres.feature et favoris.feature en T3)',
+          'docs/acceptance/ doit exister avec ses neuf .feature '
+          '(quatre en T1, restrictions.feature en T2, filtres.feature et favoris.feature en T3, crues.feature en T4, suivi.feature en T5)',
     );
   });
 
@@ -351,13 +371,13 @@ void main() {
     }
   });
 
-  test('les sept fichiers couvrent ensemble BR-005, BR-006, BR-007, BR-010, BR-012, BR-013', () {
+  test('les neuf fichiers couvrent ensemble BR-005, BR-006, BR-007, BR-010, BR-012, BR-013', () {
     final String tout = contenusParFichier.values.join('\n');
     for (final String regle in _minimumCoveredRules) {
       expect(
         tout.contains(regle),
         isTrue,
-        reason: '$regle doit être citée par au moins un des sept .feature',
+        reason: '$regle doit être citée par au moins un des neuf .feature',
       );
     }
   });
@@ -441,6 +461,31 @@ void main() {
           'crues.feature porte vingt scénarios sous US-21 : dix-neuf, un par '
           'critère du cadrage de T4 (§ 10), et celui de la fiche tronçon dans '
           "le cadre commun (critère 13 de l'ergonomie, F3)",
+    );
+  });
+
+  test('suivi.feature cite BR-001, BR-003, BR-007, BR-008, BR-011, BR-014, '
+      'BR-015, BR-016, chacune par un scénario', () {
+    final String contenu = contenusParFichier['suivi.feature'] ?? '';
+    final List<String> scenarios = _scenariosOf(contenu);
+    expect(scenarios, isNotEmpty);
+    for (final String regle in _suiviRules) {
+      expect(
+        scenarios.any((String scenario) => scenario.contains(regle)),
+        isTrue,
+        reason: 'aucun scénario de suivi.feature ne cite $regle',
+      );
+    }
+  });
+
+  test('US-22 compte exactement 22 scénarios', () {
+    final String contenu = contenusParFichier['suivi.feature'] ?? '';
+    expect(
+      _scenariosByStory(contenu)[_suiviStory] ?? 0,
+      22,
+      reason:
+          'suivi.feature porte vingt-deux scénarios sous US-22 : un par '
+          'critère du cadrage de T5 (§ 9), les critères 1 à 21 et le 15 bis',
     );
   });
 
@@ -956,6 +1001,30 @@ void main() {
           isTrue,
           reason:
               'crues.feature ne contient pas « ${libelle.value} », '
+              'le libellé du code pour ${libelle.key}',
+        );
+      });
+    }
+  });
+
+  // Même lien pour `suivi.feature` (T5). L'échafaudage est posé par `O4` ; les
+  // tâches qui écrivent les constantes de texte (`M1`, `N1`, `W1` à `W6`)
+  // ajoutent ici leurs libellés, cherchés entre guillemets français.
+  group('les libellés portés par le code figurent dans suivi.feature', () {
+    final String suivi = contenusParFichier['suivi.feature'] ?? '';
+
+    final Map<String, String> libellesSuivi = <String, String>{};
+
+    test('suivi.feature existe et n\'est pas vide', () {
+      expect(suivi.trim(), isNotEmpty);
+    });
+    for (final MapEntry<String, String> libelle in libellesSuivi.entries) {
+      test('suivi.feature cite « ${libelle.value} » (${libelle.key})', () {
+        expect(
+          _containsQuoted(suivi, libelle.value),
+          isTrue,
+          reason:
+              'suivi.feature ne contient pas « ${libelle.value} », '
               'le libellé du code pour ${libelle.key}',
         );
       });

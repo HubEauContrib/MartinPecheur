@@ -65,6 +65,7 @@ const List<String> _ucAttendus = <String>[
   'UC-007',
   'UC-008',
   'UC-009',
+  'UC-010',
 ];
 
 /// Les user stories **Must** de `docs/02-specifications.md § « Must »`
@@ -94,6 +95,11 @@ const List<String> _usShouldLivreesEnT3 = <String>['US-13', 'US-14'];
 /// fichiers qui existent. Aucun constat d'écran de T4 n'est consigné : la
 /// marque ✅ dit « vérifié par test », jamais « vu à l'écran ».
 const List<String> _lignesLivreesEnT4 = <String>['US-21', 'BR-015', 'UC-009'];
+
+/// Les deux lignes que T5 ouvre (`O4` du plan de T5) sans les livrer : la user
+/// story **Should** `US-22` et le cas d'usage `UC-010`. Elles portent 🔄 T5,
+/// sans chemin de test.
+const List<String> _lignesOuvertesEnT5 = <String>['US-22', 'UC-010'];
 
 /// Les cinq lignes dont T2 livre la couverture (`Task X2` du plan T2) :
 /// l'écran des restrictions (US-07, US-08, UC-002) et son encart renforcé
@@ -466,7 +472,7 @@ void main() {
     }
   });
 
-  group('Chaque UC-001 à UC-009 apparaît au moins une fois', () {
+  group('Chaque UC-001 à UC-010 apparaît au moins une fois', () {
     for (final String uc in _ucAttendus) {
       test('$uc est cité dans la matrice', () {
         expect(
@@ -595,12 +601,52 @@ void main() {
     }
 
     test('US-21 est rangée dans la section des user stories Should', () {
-      final int should = contenu.indexOf('## User stories Should livrées');
+      final int should = contenu.indexOf('## User stories Should suivies');
       final int br = contenu.indexOf('## Règles métier');
       final int us21 = contenu.indexOf('| US-21 |');
       expect(should, isNonNegative);
       expect(us21, greaterThan(should));
       expect(us21, lessThan(br));
+    });
+  });
+
+  // `O4` de T5 : `US-22` et `UC-010` sont écrites, pas livrées. Elles portent
+  // 🔄 T5 et ne citent aucun fichier de test tant qu'il n'existe pas ; `X1` du
+  // plan de T5 les passe à ✅ T5 et retire ce groupe avec cette marque.
+  group('Les lignes que T5 ouvre, pas encore livrées (O4 du plan de T5)', () {
+    final List<List<String>> lignes = _lignesDuTableau(contenu);
+
+    for (final String id in _lignesOuvertesEnT5) {
+      test('$id porte l\'état 🔄 T5, jamais ✅, et ne cite aucun fichier de '
+          'test', () {
+        final List<String>? ligne = _ligneDe(lignes, id);
+        expect(ligne, isNotNull, reason: '$id doit avoir une ligne');
+        final String etat = ligne!.last;
+        expect(
+          etat.contains('🔄') && etat.contains('T5'),
+          isTrue,
+          reason: '$id doit porter l\'état 🔄 T5 : "$etat"',
+        );
+        expect(
+          etat.contains('✅'),
+          isFalse,
+          reason: '$id n\'est pas livrée : jamais ✅ avant X1 : "$etat"',
+        );
+        expect(
+          _cheminsDart(_celluleFichier(id, ligne)),
+          isEmpty,
+          reason: '$id ne cite aucun chemin de test tant qu\'il n\'existe pas',
+        );
+      });
+    }
+
+    test('US-22 est rangée dans la section des user stories Should', () {
+      final int should = contenu.indexOf('## User stories Should');
+      final int br = contenu.indexOf('## Règles métier');
+      final int us22 = contenu.indexOf('| US-22 |');
+      expect(should, isNonNegative);
+      expect(us22, greaterThan(should));
+      expect(us22, lessThan(br));
     });
   });
 
