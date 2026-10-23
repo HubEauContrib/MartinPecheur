@@ -10,7 +10,7 @@
 > ✅ implémenté · 🔄 décidé ou en cours · 💭 spéculatif · ⬜ à faire. Un constat garde sa date, sa cible,
 > son mode (débogage ou release) et qui l'a fait.
 
-**Mis à jour :** 2026-10-21
+**Mis à jour :** 2026-10-23
 
 ## Où on en est
 
@@ -25,7 +25,9 @@
 | **Ergonomie** | Les trois rangées d'ergonomie de la maquette du 2026-10-03 (carte à un seul sélecteur ; fiches hiérarchisées, restrictions par désignation seule ; fiche en panneau latéral sur Windows) et les points d'interface ouverts 49, 51, 60, 61, 63, 64 | ✅ **close** — `0.6.0` ; plan `docs/superpowers/plans/2026-10-17-ergonomie.md`, cadrage `docs/superpowers/specs/2026-10-17-cadrage-ergonomie-design.md` (approuvé le 2026-10-17 ; vingt-six arbitrages au total) ; porte franchie sur Windows (exécutable de release lancé hors Flutter, 2026-10-19, « Oui, tout vu ») et sur Android (émulateur `Pixel_7`, débogage, « validé », rapporté le 2026-10-21), constats du commanditaire ; nom « Ergonomie », sans numéro (T5 devait passer à `0.7.0` ; depuis `1.0.0`, sa version se refixe au plan de T5). **Non constaté** : le détail de `P2`, la version installée et la marge système de l'émulateur, les tailles en deçà, TalkBack (« Ergonomie — code de `0.6.0` ») |
 | **T5** | Être prévenu : avis sur les lieux suivis, sans serveur ni compte | 🔄 **cadrée** — cadrage approuvé par le commanditaire le 2026-10-17 (`docs/superpowers/specs/2026-10-17-cadrage-t5-design.md`, dix-sept arbitrages) ; **plan à écrire** : la tranche d'ergonomie (arbitrage 16) est close, et l'ADR d'empaquetage MSIX, `ADR-018`, est accepté le 2026-10-21 (arbitrage du 2026-10-19) ; T5 livre la vérification à l'ouverture et **essaie** les notifications en tâche de fond sur Windows et Android, sans les livrer (arbitrage 1) ; aucune bibliothèque dans l'application ; notifications en tâche de fond jamais essayées |
 
-**Mise en production : non.** Rien ne part en production sans les quatre avertissements (`BR-012`,
+**Mise en production : Windows, par le Microsoft Store.** La fiche du produit `9NLKQL1WKQFK` est publique
+depuis le 2026-10-22, constatée par Claude le 2026-10-23 (« Faits sans autre trace ») ; la version du paquet
+publié n'y est pas lue. Rien ne part en production sans les quatre avertissements (`BR-012`,
 `BR-013` ; l'étiquette est discutée au point 52). Les quatre sont posés dans le code : le modal du premier
 lancement, le contrôle « ⚠ Avertissement » de la carte et de chaque fiche, l'encart renforcé en tête de
 l'écran des restrictions. Le modal et le contrôle sont constatés à l'écran sur Windows en T1 ; l'encart
@@ -420,7 +422,17 @@ Une case vide est une case vide, pas un « probablement ».
   `msix_config`, décision du commanditaire (« ajoute store: true dans msix_config, amende ADR-018 et son
   test », `ADR-018`, arbitrage 4). Le paquet `1.0.1` reste à construire par le commanditaire, après une
   construction de release vérifiée. **Non constaté** : les tuiles à l'écran (paquet jamais installé), le
-  chargement d'un paquet `1.0.1.0` valide, le résultat de la nouvelle certification.
+  chargement d'un paquet `1.0.1.0` valide, le résultat de la nouvelle certification. Le produit est publié
+  le 2026-10-22 (fait suivant) : une certification a donc abouti, sur un paquet dont la version n'est pas lue.
+- **Fiche du Microsoft Store publique, constatée le 2026-10-23** par Claude, sur le catalogue du Store
+  (`https://storeedgefd.dsx.mp.microsoft.com/v9.0/products/9NLKQL1WKQFK?market=FR&locale=fr-FR&deviceFamily=Windows.Desktop`
+  → HTTP 200) : titre « MartinPêcheur », éditeur `Monbsoft`, « Gratuit », catégorie « Nouvelles et météo »,
+  plateforme `Windows.Desktop`, architecture `x64`, nom de famille du paquet
+  `46Monbsoft.com.MartinPcheur_ygj97yaxrhk2e` (celui de Partner Center), publication le 2026-10-22 à
+  18 h 32 UTC. La page `https://apps.microsoft.com/detail/9NLKQL1WKQFK` se construit dans le navigateur : lue
+  sans lui, elle ne donne que son titre. Consigne du commanditaire, le 2026-10-23 : « Ajouter que
+  l'application est disponible sur Microsoft Store ». **Non constaté** : la version du paquet publié (le
+  catalogue ne l'expose pas), une installation depuis le Store, les tuiles à l'écran.
 
 ## Prochaine étape
 
@@ -432,8 +444,8 @@ par `adb`. **La porte de T2 reste due au commanditaire** (`A1`, `E4`, `P1`, `P2`
 dit (point 62) se constate s'il le veut, ou reste « non vérifié ». L'**ADR d'empaquetage MSIX**, `ADR-018`, est
 accepté le 2026-10-21 et configuré. Une première soumission au Store a été refusée le 2026-10-21 (politique
 10.1.1.11 : paquet construit sans le logo) ; le paquet de remplacement, construit avec le logo, a été refusé au
-chargement parce qu'il gardait la version `1.0.0.0`. La version passe à `1.0.1` : le commanditaire reconstruit
-l'exécutable de release, le vérifie, construit le paquet `1.0.1.0` et le soumet (« Faits sans autre trace »). Claude n'a constaté
-ni la politique de confidentialité, ni l'acceptation du contrat du développeur, ni la fiche du Store ; la porte
-de mise en production n'est pas notée franchie ici. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
+chargement parce qu'il gardait la version `1.0.0.0`. La version est passée à `1.0.1`, et le produit est
+**publié sur le Microsoft Store** depuis le 2026-10-22 (fiche constatée le 2026-10-23, « Faits sans autre
+trace »). Claude n'a constaté ni la politique de confidentialité, ni l'acceptation du contrat du développeur ;
+la porte de mise en production n'est pas notée franchie ici. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
 cadrage d'ergonomie, § 12).

@@ -14,6 +14,10 @@ Application **Android, iOS et Windows** qui informe les usagers d'une rivière f
 [![Plateformes](https://img.shields.io/badge/plateformes-Android%20%7C%20iOS%20%7C%20Windows-3ddc84.svg)](docs/adr/ADR-013-bascule-flutter-cible-windows.md)
 [![Données](https://img.shields.io/badge/donn%C3%A9es-Hub'Eau%20%C2%B7%20VigiEau%20%C2%B7%20IGN-0b6e4f.svg)](docs/01-analyse.md)
 
+**Disponible sous Windows sur le Microsoft Store :**
+
+<a href="https://apps.microsoft.com/detail/9NLKQL1WKQFK"><img src="https://get.microsoft.com/images/fr%20dark.svg" alt="Disponible sur le Microsoft Store" width="200"></a>
+
 [Documentation](docs/README.md) · [État du projet](docs/project-state.md) ·
 [Installation](docs/guide-installation.md) · [Décisions](docs/README.md#index-des-décisions)
 
@@ -89,7 +93,7 @@ mise en production.
 | **Stack** — **Flutter**, trois cibles | ✅ décidée le 2026-08-24, porte franchie le 2026-09-12 · [`ADR-013`](docs/adr/ADR-013-bascule-flutter-cible-windows.md) |
 | **Porte de spike `F1`–`F3`** — fond IGN, exécutable Windows, clustering | ✅ franchie le 2026-09-12 sur Windows (`F1`, `F3`) · `F2` non tranchée · Android non éprouvé à la porte (différé le 2026-09-12, levé le 2026-09-18) — [compte rendu](spike/porte_flutter/COMPTE-RENDU.md) |
 | **Socle applicatif Dart** (`lib/`) | ✅ livré tranche par tranche, Windows d'abord — état détaillé : [`docs/project-state.md`](docs/project-state.md) |
-| **Cibles** | Windows construite · Android construite et lancée **en débogage** sur l'émulateur `Pixel_7` (2026-10-14), aucune release · iOS configuré, non compilé |
+| **Cibles** | Windows construite et **publiée sur le [Microsoft Store](https://apps.microsoft.com/detail/9NLKQL1WKQFK)** (fiche publique depuis le 2026-10-22) · Android construite et lancée **en débogage** sur l'émulateur `Pixel_7` (2026-10-14), aucune release · iOS configuré, non compilé |
 
 ## Démarrage rapide
 
@@ -159,7 +163,7 @@ Détail : [`docs/03-conception.md`](docs/03-conception.md) ·
 | Composant | Choix | État |
 |---|---|---|
 | Langage, runtime | **Dart 3.13** · **Flutter 3.47** stable | ✅ installés, `flutter doctor` vert sur Windows |
-| Cibles | **Android**, **iOS**, **Windows** | Windows ✅ construite · Android ✅ construite et lancée **en débogage** sur l'émulateur `Pixel_7` (2026-10-14) ; aucune release, aucun appareil réel · iOS 🔄 configuré, non compilé |
+| Cibles | **Android**, **iOS**, **Windows** | Windows ✅ construite et publiée sur le [Microsoft Store](https://apps.microsoft.com/detail/9NLKQL1WKQFK) · Android ✅ construite et lancée **en débogage** sur l'émulateur `Pixel_7` (2026-10-14) ; aucune release, aucun appareil réel · iOS 🔄 configuré, non compilé |
 | Carte | **`flutter_map`** 8.x, rendu Dart natif, fond **IGN Géoplateforme** (WMTS `PLANIGNV2`) | ✅ `F1` franchie sur Windows |
 | Marqueurs | Regroupement par zone administrative, sans bibliothèque ([`ADR-015`](docs/adr/ADR-015-regroupement-par-zone-administrative.md)) | ✅ une pastille par région sous le zoom 7, par département de 7 à 9 ; marqueurs du viewport à partir du zoom 9 |
 | Stockage local | `shared_preferences` pour la préférence simple et les favoris ([`ADR-011`](docs/adr/ADR-011-stockage-local.md)) · moteur structuré : `drift` candidat — `sqflite` seul ne couvre pas Windows | ✅ préférence simple · 💭 moteur structuré non tranché |
