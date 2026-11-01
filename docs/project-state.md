@@ -10,7 +10,7 @@
 > ✅ implémenté · 🔄 décidé ou en cours · 💭 spéculatif · ⬜ à faire. Un constat garde sa date, sa cible,
 > son mode (débogage ou release) et qui l'a fait.
 
-**Mis à jour :** 2026-10-23
+**Mis à jour :** 2026-11-01
 
 ## Où on en est
 
@@ -34,12 +34,11 @@ l'écran des restrictions. Le modal et le contrôle sont constatés à l'écran 
 renforcé n'est vu qu'« en tête », en débogage sur Windows (2026-10-04), « non repliable » non constaté ;
 aucune publication Android (`A⏸3`, `A⏸5`).
 
-## Vérifié au 2026-10-21
+## Vérifié au 2026-11-01
 
-Sur le code de `7ce3f73` (code de la tranche d'ergonomie : `lib/` inchangé depuis), avec la version `1.0.1+8`,
-l'outil `msix` et sa configuration, le logo et les icônes de l'application (`ADR-018`, 2026-10-21) :
+Sur le code de `a870078` (identifiant `io.github.hubeaucontrib.martinpecheur`, version `1.0.1+8`) :
 `flutter analyze` → « No issues found! »,
-`flutter test` → « +7120: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
+`flutter test` → « +7121: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
 `dart format` sans diff.
 
 **Réserve durable sur les polices de mesure.** Onze fichiers de test mesurent en Roboto, chargée depuis
@@ -192,10 +191,17 @@ commanditaire : dossier `Release` de 35 Mo (36 224 870 octets), 15 fichiers, `NF
   `versionName` `0.4.0`, `versionCode` 4), confirmée en bloc par le commanditaire ; puis le 2026-10-17 la
   `0.5.0` en débogage, sur l'émulateur `Pixel_7`, `P2-a` à `P2-g` et `P2-i` « ok » (T4) ; puis, rapporté le
   2026-10-21, la porte d'ergonomie en débogage sur l'émulateur `Pixel_7`, « validé » sans détail (version
-  installée non relue par `adb`).
+  installée non relue par `adb`) ; puis le 2026-11-01, relevé par Claude, en débogage sur l'émulateur `Pixel_7`,
+  le code `a870078` sous l'identifiant `io.github.hubeaucontrib.martinpecheur` : `versionName` `1.0.1`,
+  `versionCode` 8 et `.MainActivity` au premier plan lus par `adb`, journal des plantages (`logcat -b crash`) sans
+  entrée pour le paquet, ni `ClassNotFound` ni `FATAL`, puis sur deux captures le modal du premier lancement, la
+  carte, ses tuiles IGN et ses pastilles. Claude a aussi lancé `flutter run`, dans un onglet du Terminal, sur
+  accord du commanditaire (« Oui, lance-le ») donné pour ce seul lancement ; la règle de `CLAUDE.md` reste entière.
 - **Non constaté** : aucune construction de release ; aucune sur le code de `0.3.0` (`A1` de T2) ; appareil
   réel (`A⏸4`) ; signature (`A⏸3`) et préversion (`A⏸5`) ; tenue sur entrée de gamme réel (`NV-5`) ;
-  ouverture d'un arrêté par `url_launcher` ; TalkBack ; `NFR-01` sur Android.
+  ouverture d'un arrêté par `url_launcher` ; TalkBack ; `NFR-01` sur Android ; sous l'identifiant
+  `io.github.hubeaucontrib.martinpecheur`, tout ce qui dépasse l'affichage de la carte au lancement (fiches,
+  gestes, favoris) et l'agent utilisateur tel que l'IGN le reçoit.
 
 ### iOS
 
@@ -386,6 +392,23 @@ Une case vide est une case vide, pas un « probablement ».
   dans le binaire, « Faits sans autre trace ») ; Android et iOS ne le sont pas. **Non constaté** : ces icônes
   à l'écran. Aucune recherche de marque déposée
   proche n'a été faite.
+- **2026-11-01** — identifiant de l'application, en vue d'une inscription sur F-Droid. Valeur proposée par
+  Claude ; le commanditaire demande « si tu utilises github pour l'identifiant ? », puis répond « Oui, depuis
+  dev » à la question de lancer le changement. Android et iOS passent de `fr.martinpecheur.app` à
+  `io.github.hubeaucontrib.martinpecheur`, et l'agent utilisateur envoyé à l'IGN suit, sur toutes les cibles.
+  Raison : `martinpecheur.fr` est proposé à la vente par un tiers (page lue le 2026-10-23), alors que la
+  politique d'inclusion de F-Droid (https://f-droid.org/docs/Inclusion_Policy/, lue le 2026-10-23) conseille un
+  identifiant tiré d'un domaine que le développeur possède. Elle ne nomme aucun préfixe `io.github`, mais F-Droid
+  publie des applications ainsi nommées (`io.github.muntashirakon.AppManager`, page lue le 2026-11-01).
+  L'organisation GitHub `HubEauContrib` est administrée par le commanditaire (constaté le 2026-10-23). L'identité
+  du paquet du Microsoft Store ne change pas (`msix_config`). **Ne pas changer `CompanyName` ni `ProductName` de
+  `windows/runner/Runner.rc`** : ils nomment le dossier de données Windows (`path_provider_windows` 2.3.0, sur
+  lequel écrit `shared_preferences_windows`), et les changer ferait perdre favoris et acquittement aux usagers du
+  Store (lu dans le paquet, non constaté à l'exécution) ; `CompanyName` garde donc `fr.martinpecheur`. La commande
+  de porte du plan de T5 (`adb shell dumpsys package fr.martinpecheur.app`) reste à corriger avec ce plan. **Non
+  constaté** : une version de publication sous le nouvel identifiant, jamais construite ; iOS n'est jamais compilé.
+  Le lancement en débogage est au constat d'Android, plus haut. **Rien n'est soumis à F-Droid**, et `A⏸5` reste
+  différé.
 
 ## Faits sans autre trace
 
@@ -449,3 +472,11 @@ chargement parce qu'il gardait la version `1.0.0.0`. La version est passée à `
 trace »). Claude n'a constaté ni la politique de confidentialité, ni l'acceptation du contrat du développeur ;
 la porte de mise en production n'est pas notée franchie ici. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
 cadrage d'ergonomie, § 12).
+
+**Identifiant Android changé (2026-11-01)** : l'ancienne application reste installée sur `Pixel_7`, sous le même
+nom et la même icône, et une vérification par `dumpsys` sur l'ancien identifiant lirait sa version. Tout constat
+passe donc par `adb -s emulator-5554 shell dumpsys package io.github.hubeaucontrib.martinpecheur | grep
+versionName` (attendu : la version de `pubspec.yaml`). `adb -s emulator-5554 uninstall fr.martinpecheur.app` lève
+la confusion, mais efface les favoris de l'émulateur : le commanditaire en décide. Pour une inscription sur
+F-Droid restent ensuite : une version de publication construite et lancée, les fiches `fastlane` et leurs
+captures, un tag, et le fichier de métadonnées à déposer sur le fork de `fdroiddata`.

@@ -32,4 +32,4 @@ const String ignTileUrlTemplate =
 const int ignTileDimension = 256;
 
 /// Agent utilisateur nommant l'appelant auprès du serveur de tuiles (C-12).
-const String ignUserAgentPackageName = 'fr.martinpecheur.app';
+const String ignUserAgentPackageName = 'io.github.hubeaucontrib.martinpecheur';

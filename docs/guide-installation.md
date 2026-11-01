@@ -101,7 +101,7 @@ flutter run -d emulator-5554
 | `flutter run -d windows` / `flutter build windows` | ✅ construite et lancée hors Flutter (`0.1.0`, `F3`) | — | — |
 | Lancer sur **Android** | — | — | — |
 | ↳ chaîne d'outils vue par `flutter doctor`, gabarit généré, émulateur démarré | ✅ (2026-09-18) | 🔄 non constaté | 🔄 non constaté |
-| ↳ construction et lancement réels sur l'émulateur | 🔄 **jamais constaté** — `flutter run -d emulator-5554` reste à exécuter | — | — |
+| ↳ construction et lancement réels sur l'émulateur | ✅ en débogage, `flutter run -d emulator-5554` ; aucune release (constats : `docs/project-state.md`) | — | — |
 | Lancer ou livrer sur **iOS** | ❌ | ❌ | 🔄 configuré, jamais compilé (aucun hôte macOS) |
 
 **Le bac à sable ne compile pas de natif** : `flutter run`, `flutter build` (Windows ou Android)

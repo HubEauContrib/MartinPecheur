@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "fr.martinpecheur.app"
+    namespace = "io.github.hubeaucontrib.martinpecheur"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "fr.martinpecheur.app"
+        applicationId = "io.github.hubeaucontrib.martinpecheur"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

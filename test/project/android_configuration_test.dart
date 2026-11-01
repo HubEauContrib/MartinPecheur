@@ -5,6 +5,11 @@
 // (il était différé depuis le 2026-09-12). Ce test verrouille le gabarit
 // généré par `flutter create` sur l'identifiant, le réseau et le nom affiché
 // — la même exigence que pour iOS (`ios_bundle_identifier_test.dart`).
+//
+// L'identifiant vient d'un nom que le projet détient, l'organisation GitHub
+// HubEauContrib, et non de martinpecheur.fr, domaine d'un tiers : décision du
+// commanditaire du 2026-11-01, sur proposition de Claude, pour l'inscription
+// sur F-Droid.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -35,23 +40,23 @@ void main() {
       contenuBuildGradle = fichierBuildGradle.readAsStringSync();
     });
 
-    test('applicationId et namespace valent fr.martinpecheur.app', () {
-      expect(
-        contenuBuildGradle,
-        contains('namespace = "fr.martinpecheur.app"'),
-      );
-      expect(
-        contenuBuildGradle,
-        contains('applicationId = "fr.martinpecheur.app"'),
-      );
-    });
+    test(
+      'applicationId et namespace valent io.github.hubeaucontrib.martinpecheur',
+      () {
+        expect(
+          contenuBuildGradle,
+          contains('namespace = "io.github.hubeaucontrib.martinpecheur"'),
+        );
+        expect(
+          contenuBuildGradle,
+          contains('applicationId = "io.github.hubeaucontrib.martinpecheur"'),
+        );
+      },
+    );
 
-    test("l'ancien identifiant fr.martinpecheur.martinpecheur a disparu de "
+    test("les anciens identifiants fr.martinpecheur.* ont disparu de "
         'build.gradle.kts et de android/app/src/main', () {
-      expect(
-        contenuBuildGradle,
-        isNot(contains('fr.martinpecheur.martinpecheur')),
-      );
+      expect(contenuBuildGradle, isNot(contains('fr.martinpecheur')));
 
       for (final File fichier in _fichiersSous('android/app/src/main')) {
         // Seuls les fichiers texte attendus sont lus : une image ou un futur
@@ -64,8 +69,8 @@ void main() {
         final String contenu = fichier.readAsStringSync();
         expect(
           contenu,
-          isNot(contains('fr.martinpecheur.martinpecheur')),
-          reason: '${fichier.path} contient encore l ancien identifiant',
+          isNot(contains('fr.martinpecheur')),
+          reason: '${fichier.path} contient encore un ancien identifiant',
         );
       }
     });
@@ -103,6 +108,11 @@ void main() {
       expect(contenuManifeste, contains('android:label="MartinPêcheur"'));
     });
 
+    test('l activite principale se resout par le namespace : android:name '
+        'relatif, sans paquet en dur', () {
+      expect(contenuManifeste, contains('android:name=".MainActivity"'));
+    });
+
     test('un element <queries> declare l intention VIEW en https, enfant '
         'direct de <manifest> (README de url_launcher 6.3.2, T2 B2)', () {
       // Hors de <application> : le README du paquet installe exige
@@ -122,30 +132,41 @@ void main() {
   });
 
   group('MainActivity Android', () {
-    test('MainActivity.kt vit sous kotlin/fr/martinpecheur/app/ avec le '
-        'paquet fr.martinpecheur.app, et l ancien dossier a disparu', () {
-      final File nouveauFichier = File(
-        'android/app/src/main/kotlin/fr/martinpecheur/app/MainActivity.kt',
-      );
-      expect(
-        nouveauFichier.existsSync(),
-        isTrue,
-        reason: '${nouveauFichier.path} doit exister',
-      );
-      expect(
-        nouveauFichier.readAsStringSync(),
-        contains('package fr.martinpecheur.app'),
-      );
+    test(
+      'MainActivity.kt vit sous kotlin/io/github/hubeaucontrib/martinpecheur/ '
+      'avec le paquet du meme nom, et l ancien dossier a disparu',
+      () {
+        final File nouveauFichier = File(
+          'android/app/src/main/kotlin/io/github/hubeaucontrib/martinpecheur/'
+          'MainActivity.kt',
+        );
+        expect(
+          nouveauFichier.existsSync(),
+          isTrue,
+          reason: '${nouveauFichier.path} doit exister',
+        );
+        expect(
+          nouveauFichier.readAsStringSync(),
+          // Ancré : un sous-paquet (`….martinpecheur.app`) ne résoudrait plus
+          // `.MainActivity`, et l'application planterait au lancement.
+          matches(
+            RegExp(
+              r'^package io\.github\.hubeaucontrib\.martinpecheur\s*$',
+              multiLine: true,
+            ),
+          ),
+        );
 
-      final Directory ancienDossier = Directory(
-        'android/app/src/main/kotlin/fr/martinpecheur/martinpecheur',
-      );
-      expect(
-        ancienDossier.existsSync(),
-        isFalse,
-        reason: '${ancienDossier.path} ne doit plus exister',
-      );
-    });
+        final Directory ancienDossier = Directory(
+          'android/app/src/main/kotlin/fr',
+        );
+        expect(
+          ancienDossier.existsSync(),
+          isFalse,
+          reason: '${ancienDossier.path} ne doit plus exister',
+        );
+      },
+    );
   });
 
   group('Version du NDK Android', () {
