@@ -11,6 +11,12 @@ observable n'y figure pas.
 
 ## [Non publié]
 
+### Ajouté
+
+- La fiche de l'application pour F-Droid, sous `fastlane/metadata/android/` :
+  textes en français et en anglais, icône et quatre captures. Rien n'est soumis
+  à F-Droid.
+
 ### Modifié
 
 - L'identifiant de l'application sur Android et iOS devient
@@ -19,9 +25,9 @@ observable n'y figure pas.
   les cibles, Windows compris. Sur un appareil où l'ancienne version est
   installée, la nouvelle s'installe à côté, sans reprendre ses favoris ni
   l'acquittement de l'avertissement. Le paquet du Microsoft Store garde son
-  identité. Sous cet identifiant, Android est construit et lancé en débogage
-  sur l'émulateur seulement, sans version de publication ; iOS n'est jamais
-  compilé.
+  identité. Sous cet identifiant, Android n'est lancé que sur l'émulateur, en
+  débogage et en version de publication signée de la clé de débogage ; iOS
+  n'est jamais compilé.
 
 ## [1.0.1] — 2026-10-21
 

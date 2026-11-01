@@ -1,0 +1,17 @@
+MartinPêcheur montre l'état d'une rivière française sur une carte, à partir de données publiques. Chaque valeur affichée porte sa date et le nom de sa source.
+
+Quatre informations, qui ne se mélangent jamais :
+
+• Écoulement : ce que des agents ont observé lors de campagnes, de mai à septembre, sur de petits cours d'eau (réseau ONDE). Entre deux campagnes, personne n'observe ces points.
+• Débit : le débit et la hauteur d'eau mesurés par des stations hydrométriques. Une mesure transmise automatiquement peut être affichée avant tout contrôle humain. La comparaison à l'historique n'est pas encore calculée.
+• Vigilance crues : le niveau publié par Vigicrues pour chaque tronçon suivi. L'application le relaie et n'en calcule aucun. Ce n'est pas un système d'alerte.
+• Restrictions : les zones d'alerte sécheresse, les niveaux de gravité et les usages restreints au point que vous désignez, avec, quand la source la transmet, l'adresse de l'arrêté préfectoral, qui seul fait foi.
+
+Aussi : des favoris, et des filtres par écoulement, département et fraîcheur du débit.
+
+Ni compte, ni publicité, ni traceur, ni serveur propre : l'application interroge directement les services publics Hub'Eau, VigiEau et Vigicrues, ainsi que l'IGN pour le fond de carte.
+
+Des informations, pas une autorisation
+Données publiques Hub'Eau, indicatives, partielles, parfois anciennes, non validées ; elles ne tiennent pas compte des lâchers de barrage ; elles ne remplacent jamais un arrêté préfectoral, une décision d'irrigation, ni une évaluation de sécurité avant de se baigner, naviguer ou traverser.
+
+Fond de carte : © IGN Géoplateforme — Licence Ouverte. Vigilance : © VIGICRUES — Licence Ouverte.

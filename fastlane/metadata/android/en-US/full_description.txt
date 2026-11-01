@@ -1,0 +1,17 @@
+MartinPêcheur shows the state of a French river on a map, from public data. Every value carries its date and the name of its source. The app is in French and covers French rivers only.
+
+Four kinds of information, never merged into one:
+
+• Flow: what field agents observed during campaigns, from May to September, on small streams (ONDE network). Between two campaigns, nobody observes these points.
+• Discharge: discharge and water level measured by hydrometric stations. A value sent automatically may be shown before any human check. The comparison with historical data is not computed yet.
+• Flood vigilance: the level published by Vigicrues for each monitored river section. The app relays it and computes none of its own. It is not an alert system.
+• Restrictions: drought alert areas, severity levels and restricted uses at the point you choose, with, when the source provides it, the address of the prefectoral order, which alone is authoritative.
+
+Also: favorites, and filters by flow state, département and discharge freshness.
+
+No account, no ads, no tracker, no server of its own: the app calls the public services Hub'Eau, VigiEau and Vigicrues directly, and IGN for the base map.
+
+Information, not permission
+Public Hub'Eau data: indicative, partial, sometimes old, not validated. They do not take dam releases into account. They never replace a prefectoral order, an irrigation decision, or a safety assessment before swimming, boating or crossing.
+
+Base map: © IGN Géoplateforme — Licence Ouverte. Vigilance: © VIGICRUES — Licence Ouverte.
