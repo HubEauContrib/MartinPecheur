@@ -18,13 +18,21 @@ void main() {
       contenuProjetXcode = fichierProjet.readAsStringSync();
     });
 
-    test("l'identifiant fr.martinpecheur.app est present et l'ancien "
-        'identifiant fr.martinpecheur.martinpecheur a disparu', () {
-      expect(contenuProjetXcode, contains('fr.martinpecheur.app'));
+    test("les six entrees portent io.github.hubeaucontrib.martinpecheur, dont "
+        'trois en .RunnerTests, et les anciens identifiants ont disparu', () {
+      // iOS n'est jamais compilé : ce test est son seul garde-fou.
+      const String identifiant = 'io.github.hubeaucontrib.martinpecheur';
+      final List<String?> entrees = RegExp(
+        r'PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);',
+      ).allMatches(contenuProjetXcode).map((Match m) => m.group(1)).toList();
+
+      expect(entrees, hasLength(6));
+      expect(entrees.where((String? e) => e == identifiant), hasLength(3));
       expect(
-        contenuProjetXcode,
-        isNot(contains('fr.martinpecheur.martinpecheur')),
+        entrees.where((String? e) => e == '$identifiant.RunnerTests'),
+        hasLength(3),
       );
+      expect(contenuProjetXcode, isNot(contains('fr.martinpecheur')));
     });
   });
 }

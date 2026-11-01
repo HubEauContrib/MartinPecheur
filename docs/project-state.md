@@ -10,7 +10,7 @@
 > ✅ implémenté · 🔄 décidé ou en cours · 💭 spéculatif · ⬜ à faire. Un constat garde sa date, sa cible,
 > son mode (débogage ou release) et qui l'a fait.
 
-**Mis à jour :** 2026-10-23
+**Mis à jour :** 2026-11-01
 
 ## Où on en est
 
@@ -195,7 +195,8 @@ commanditaire : dossier `Release` de 35 Mo (36 224 870 octets), 15 fichiers, `NF
   installée non relue par `adb`).
 - **Non constaté** : aucune construction de release ; aucune sur le code de `0.3.0` (`A1` de T2) ; appareil
   réel (`A⏸4`) ; signature (`A⏸3`) et préversion (`A⏸5`) ; tenue sur entrée de gamme réel (`NV-5`) ;
-  ouverture d'un arrêté par `url_launcher` ; TalkBack ; `NFR-01` sur Android.
+  ouverture d'un arrêté par `url_launcher` ; TalkBack ; `NFR-01` sur Android ; construction et lancement sous
+  l'identifiant `io.github.hubeaucontrib.martinpecheur` (arbitrage du 2026-11-01).
 
 ### iOS
 
@@ -386,6 +387,23 @@ Une case vide est une case vide, pas un « probablement ».
   dans le binaire, « Faits sans autre trace ») ; Android et iOS ne le sont pas. **Non constaté** : ces icônes
   à l'écran. Aucune recherche de marque déposée
   proche n'a été faite.
+- **2026-11-01** — identifiant de l'application, en vue d'une inscription sur F-Droid. Valeur proposée par
+  Claude ; le commanditaire demande « si tu utilises github pour l'identifiant ? », puis répond « Oui, depuis
+  dev » à la question de lancer le changement. Android et iOS passent de `fr.martinpecheur.app` à
+  `io.github.hubeaucontrib.martinpecheur`, et l'agent utilisateur envoyé à l'IGN suit, sur toutes les cibles.
+  Raison : `martinpecheur.fr` est proposé à la vente par un tiers (page lue le 2026-10-23), alors que la
+  politique d'inclusion de F-Droid (https://f-droid.org/docs/Inclusion_Policy/, lue le 2026-10-23) conseille un
+  identifiant tiré d'un domaine que le développeur possède. Elle ne nomme aucun préfixe `io.github`, mais F-Droid
+  publie des applications ainsi nommées (`io.github.muntashirakon.AppManager`, page lue le 2026-11-01).
+  L'organisation GitHub `HubEauContrib` est administrée par le commanditaire (constaté le 2026-10-23). L'identité
+  du paquet du Microsoft Store ne change pas (`msix_config`). **Ne pas changer `CompanyName` ni `ProductName` de
+  `windows/runner/Runner.rc`** : ils nomment le dossier de données Windows (`path_provider_windows` 2.3.0, sur
+  lequel écrit `shared_preferences_windows`), et les changer ferait perdre favoris et acquittement aux usagers du
+  Store (lu dans le paquet, non constaté à l'exécution) ; `CompanyName` garde donc `fr.martinpecheur`. La commande
+  de porte du plan de T5 (`adb shell dumpsys package fr.martinpecheur.app`) reste à corriger avec ce plan. **Non
+  constaté** : la construction et le lancement sous le nouvel identifiant sur Android, et donc la version de
+  publication qui n'y a jamais été construite ; iOS n'est jamais compilé. **Rien n'est soumis à F-Droid**, et
+  `A⏸5` reste différé.
 
 ## Faits sans autre trace
 
@@ -449,3 +467,11 @@ chargement parce qu'il gardait la version `1.0.0.0`. La version est passée à `
 trace »). Claude n'a constaté ni la politique de confidentialité, ni l'acceptation du contrat du développeur ;
 la porte de mise en production n'est pas notée franchie ici. Vient ensuite le **plan de T5** (tranche cadrée le 2026-10-17), qui s'écrira sur les écrans refaits (cadrage de T5, § 7 et § 13 ;
 cadrage d'ergonomie, § 12).
+
+**Identifiant Android changé (2026-11-01)** : l'ancienne application reste installée sur `Pixel_7`, sous le même
+nom et la même icône, et une vérification par `dumpsys` sur l'ancien identifiant lirait sa version. Avant tout
+constat, le commanditaire lance `adb -s emulator-5554 uninstall fr.martinpecheur.app` (favoris de l'émulateur
+effacés), `flutter run -d emulator-5554`, puis `adb -s emulator-5554 shell dumpsys package
+io.github.hubeaucontrib.martinpecheur | grep versionName` (attendu : la version de `pubspec.yaml`). Pour une
+inscription sur F-Droid restent ensuite : une version de publication construite et lancée, les fiches `fastlane`
+et leurs captures, un tag, et le fichier de métadonnées à déposer sur le fork de `fdroiddata`.

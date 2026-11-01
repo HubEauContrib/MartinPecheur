@@ -63,7 +63,7 @@ void main() {
     });
 
     test("l'agent utilisateur nomme l'application appelante (C-12)", () {
-      expect(ignUserAgentPackageName, 'fr.martinpecheur.app');
+      expect(ignUserAgentPackageName, 'io.github.hubeaucontrib.martinpecheur');
     });
   });
 }
