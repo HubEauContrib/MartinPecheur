@@ -19,8 +19,9 @@ observable n'y figure pas.
   les cibles, Windows compris. Sur un appareil où l'ancienne version est
   installée, la nouvelle s'installe à côté, sans reprendre ses favoris ni
   l'acquittement de l'avertissement. Le paquet du Microsoft Store garde son
-  identité. Android n'est pas encore reconstruit sous cet identifiant, et iOS
-  n'est jamais compilé.
+  identité. Sous cet identifiant, Android est construit et lancé en débogage
+  sur l'émulateur seulement, sans version de publication ; iOS n'est jamais
+  compilé.
 
 ## [1.0.1] — 2026-10-21
 
