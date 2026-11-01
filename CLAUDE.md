@@ -151,6 +151,8 @@ android/  ios/  windows/        ← versionnés. android/ : le GABARIT Flutter d
                                   hors dépôt et ne se committent jamais
 windows/store/                  ← logo du paquet MSIX et images de la fiche du Store : sources .svg
                                   et rendus .png (ADR-018, README du dossier)
+fastlane/metadata/android/      ← fiche F-Droid : textes fr et en-US ; icône et captures sous en-US
+                                  seulement, la langue de repli (test/project/fastlane_metadata_test.dart)
 assets/
   referentiel/stations.json
   percentiles/                  ← 🔄 n'existe pas : produit par le futur script Dart (ADR-003)
@@ -170,7 +172,7 @@ docs/
 |---|---|---|
 | Langage | **Dart 3.13.5** | ✅ celui du SDK Flutter retenu |
 | Runtime | **Flutter 3.47.7** stable | ✅ retenu par arbitrage du commanditaire. `pubspec.lock` est commité tel que 3.47.7 le résout : **un poste resté en 3.47.4 le réécrit** tant qu'il n'est pas mis à jour |
-| Cibles | **Windows en premier**, Android, iOS | Windows ✅ construite en release et lancée hors Flutter · Android ✅ construite et lancée **en débogage** sur l'émulateur `Pixel_7` ; aucune release, aucun appareil réel · iOS 🔄 configuré, jamais compilé. Constats d'exécution : `docs/project-state.md` |
+| Cibles | **Windows en premier**, Android, iOS | Windows ✅ construite en release et lancée hors Flutter · Android ✅ construite et lancée sur l'émulateur `Pixel_7`, **en débogage** et, une fois, avec `--release`, signée de la clé de débogage ; aucun appareil réel · iOS 🔄 configuré, jamais compilé. Constats d'exécution : `docs/project-state.md` |
 | Carte | **`flutter_map` 8.3.2** · fond **IGN Géoplateforme** (WMTS KVP) · attribution « © IGN Géoplateforme — Licence Ouverte » **affichée** | ✅ le plan IGN s'affiche. Signatures relevées dans le paquet installé : `TileLayer(urlTemplate:, tileDimension:, maxNativeZoom:, userAgentPackageName:)`, `Marker(point:, width:, height:, child:)`, `MapOptions(initialCenter:, initialZoom:, minZoom:, maxZoom:)`. ⚠️ `tileSize` est `@Deprecated`. La lecture Crues trace ses tronçons par **un seul `PolylineLayer`**, d'une instance stable d'un rendu à l'autre (`lib/features/map/view/flood_sections_layer.dart` : `flutter_map` vide ses caches de projection à chaque reconstruction) |
 | Marqueurs | **Regroupement par zone administrative** (`ADR-015`), sans bibliothèque · `latlong2` 0.9.1 (par contrainte transitive) · `flutter_map_marker_cluster` lié **au spike seulement**, absent de `pubspec.yaml` | ✅ une pastille par **région** sous le zoom 7, par **département** de 7 à 9 (barycentre, compte, symbole de l'état le plus sévère, `BR-009`) ; **`F2c`** (viewport plus marge, sans regroupement) **à partir du zoom 9**. Seuls les seuils 7 et 9 sont révisables, sur constat d'écran ; chevauchement des pastilles d'Île-de-France accepté. Mesures de `NFR-01` : `docs/nfr.md` |
 | Cache de tuiles | **intégré à `flutter_map` depuis 8.2** (`BuiltInMapCachingProvider`, 1 Go), actif par défaut hors web | ✅ hors réseau sur les zones déjà parcourues (`NV-W2`, `docs/nfr.md`). ⚠️ Une zone jamais chargée n'est pas constatée ; aucun téléchargement de zone : sorti de la v1 (`US-20`, arbitrage du 2026-08-24, confirmé le 2026-10-21) |

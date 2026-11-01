@@ -36,9 +36,10 @@ aucune publication Android (`A⏸3`, `A⏸5`).
 
 ## Vérifié au 2026-11-01
 
-Sur le code de `a870078` (identifiant `io.github.hubeaucontrib.martinpecheur`, version `1.0.1+8`) :
+Sur le code de `ccb867d` (identifiant `io.github.hubeaucontrib.martinpecheur`, version `1.0.1+8`), avec la fiche
+F-Droid et son verrou :
 `flutter analyze` → « No issues found! »,
-`flutter test` → « +7121: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
+`flutter test` → « +7138: All tests passed! » (7 059 à la clôture de `0.6.0`, 3 978 à celle de T4),
 `dart format` sans diff.
 
 **Réserve durable sur les polices de mesure.** Onze fichiers de test mesurent en Roboto, chargée depuis
@@ -197,11 +198,19 @@ commanditaire : dossier `Release` de 35 Mo (36 224 870 octets), 15 fichiers, `NF
   entrée pour le paquet, ni `ClassNotFound` ni `FATAL`, puis sur deux captures le modal du premier lancement, la
   carte, ses tuiles IGN et ses pastilles. Claude a aussi lancé `flutter run`, dans un onglet du Terminal, sur
   accord du commanditaire (« Oui, lance-le ») donné pour ce seul lancement ; la règle de `CLAUDE.md` reste entière.
-- **Non constaté** : aucune construction de release ; aucune sur le code de `0.3.0` (`A1` de T2) ; appareil
+  Puis, le même jour, relevé par Claude, la **version de publication** du code `ccb867d` sur le même émulateur,
+  signée de la clé de débogage (`android/app/build.gradle.kts`) : `versionName` `1.0.1`, paquet sans drapeau
+  `DEBUGGABLE` lu par `adb`, journal des plantages sans entrée pour le paquet, ni `ClassNotFound` ni `FATAL`, et sur
+  captures, sans bandeau « DEBUG », les lectures Écoulement, Débit et Vigilance crues, une fiche station avec une
+  mesure du jour, et l'écran des restrictions avec une réponse de VigiEau du jour, aucune zone pour ce point : ni
+  usage ni arrêté affichés. `flutter run --release` lancé par
+  Claude, sur accord du commanditaire (« Oui, lance-la ») donné pour ce seul lancement.
+- **Non constaté** : aucune version de publication signée d'une clé de publication, ni construite avec
+  `--split-per-abi` ; aucune construction de release sur le code de `0.3.0` (`A1` de T2) ; appareil
   réel (`A⏸4`) ; signature (`A⏸3`) et préversion (`A⏸5`) ; tenue sur entrée de gamme réel (`NV-5`) ;
   ouverture d'un arrêté par `url_launcher` ; TalkBack ; `NFR-01` sur Android ; sous l'identifiant
-  `io.github.hubeaucontrib.martinpecheur`, tout ce qui dépasse l'affichage de la carte au lancement (fiches,
-  gestes, favoris) et l'agent utilisateur tel que l'IGN le reçoit.
+  `io.github.hubeaucontrib.martinpecheur`, la fiche ONDE, la fiche tronçon, les favoris et l'agent utilisateur tel
+  que l'IGN le reçoit.
 
 ### iOS
 
@@ -406,9 +415,8 @@ Une case vide est une case vide, pas un « probablement ».
   lequel écrit `shared_preferences_windows`), et les changer ferait perdre favoris et acquittement aux usagers du
   Store (lu dans le paquet, non constaté à l'exécution) ; `CompanyName` garde donc `fr.martinpecheur`. La commande
   de porte du plan de T5 (`adb shell dumpsys package fr.martinpecheur.app`) reste à corriger avec ce plan. **Non
-  constaté** : une version de publication sous le nouvel identifiant, jamais construite ; iOS n'est jamais compilé.
-  Le lancement en débogage est au constat d'Android, plus haut. **Rien n'est soumis à F-Droid**, et `A⏸5` reste
-  différé.
+  constaté** : iOS n'est jamais compilé. Les lancements sous ce nouvel identifiant sont au constat d'Android, plus
+  haut. **Rien n'est soumis à F-Droid**, et `A⏸5` reste différé.
 
 ## Faits sans autre trace
 
@@ -477,6 +485,14 @@ cadrage d'ergonomie, § 12).
 nom et la même icône, et une vérification par `dumpsys` sur l'ancien identifiant lirait sa version. Tout constat
 passe donc par `adb -s emulator-5554 shell dumpsys package io.github.hubeaucontrib.martinpecheur | grep
 versionName` (attendu : la version de `pubspec.yaml`). `adb -s emulator-5554 uninstall fr.martinpecheur.app` lève
-la confusion, mais efface les favoris de l'émulateur : le commanditaire en décide. Pour une inscription sur
-F-Droid restent ensuite : une version de publication construite et lancée, les fiches `fastlane` et leurs
-captures, un tag, et le fichier de métadonnées à déposer sur le fork de `fdroiddata`.
+la confusion, mais efface les favoris de l'émulateur : le commanditaire en décide.
+
+**Inscription sur F-Droid (2026-11-01)** : le commanditaire répond « Oui, on prépare » à la question de préparer
+maintenant pour déposer vers le 2026-12-12 (date où le premier commit atteint les 3 mois de développement actif que
+la politique d'inclusion demande, sauf exceptions ; https://f-droid.org/docs/Inclusion_Policy/, lue le 2026-11-01).
+La fiche est sous `fastlane/metadata/android/` : textes `fr` et `en-US`, et, sous `en-US`, la
+langue de repli de F-Droid, l'icône et quatre captures de la version de publication du 2026-11-01. Restent : la
+décision sur `A⏸5`, un tag sur un commit portant le nouvel identifiant, et le fichier de métadonnées à déposer sur
+le fork de `fdroiddata`. Google annonce une vérification des développeurs étendue au monde entier en 2027, sans
+nommer F-Droid (https://developer.android.com/developer-verification, lue le 2026-11-01) : son effet sur une
+application construite et signée par F-Droid n'est pas établi.
